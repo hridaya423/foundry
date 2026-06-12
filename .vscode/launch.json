@@ -1,0 +1,24 @@
+{
+    "configurations": [
+        {
+            "type": "swift",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:anvil}",
+            "name": "Debug Foundry",
+            "target": "Foundry",
+            "configuration": "debug",
+            "preLaunchTask": "swift: Build Debug Foundry"
+        },
+        {
+            "type": "swift",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:anvil}",
+            "name": "Release Foundry",
+            "target": "Foundry",
+            "configuration": "release",
+            "preLaunchTask": "swift: Build Release Foundry"
+        }
+    ]
+}

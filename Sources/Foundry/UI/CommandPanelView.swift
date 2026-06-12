@@ -1,0 +1,266 @@
+import AppKit
+import SwiftUI
+
+struct CommandPanelView: View {
+    @ObservedObject var state: CommandPanelState
+    let dismiss: () -> Void
+
+    @FocusState private var inputFocused: Bool
+
+    var body: some View {
+        VStack(spacing: 0) {
+            header
+
+            if state.results.isEmpty {
+                emptyState
+            } else {
+                resultsSurface
+            }
+
+            footer
+        }
+        .background(FoundryTheme.surface)
+        .overlay(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .stroke(FoundryTheme.border, lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .shadow(color: .black.opacity(0.38), radius: 34, x: 0, y: 22)
+        .frame(width: 760, height: 500)
+        .onAppear {
+            inputFocused = true
+        }
+        .onMoveCommand { direction in
+            switch direction {
+            case .down:
+                state.moveSelectionDown()
+            case .up:
+                state.moveSelectionUp()
+            default:
+                break
+            }
+        }
+        .onExitCommand {
+            if state.handleEscape() == false {
+                dismiss()
+            }
+        }
+    }
+
+    private var header: some View {
+        HStack(spacing: 14) {
+            Image(systemName: "magnifyingglass")
+                .font(.system(size: 21, weight: .regular))
+                .foregroundStyle(FoundryTheme.mutedText)
+                .frame(width: 28)
+
+            TextField("Search apps and commands...", text: $state.query)
+                .textFieldStyle(.plain)
+                .font(FoundryTheme.body(size: 30, weight: .regular))
+                .foregroundStyle(FoundryTheme.primaryText)
+                .focused($inputFocused)
+                .onSubmit {
+                    state.executeSelectedResult()
+                    if state.selectedResult != nil {
+                        dismiss()
+                    }
+                }
+        }
+        .padding(.horizontal, 30)
+        .frame(height: 92)
+        .background(FoundryTheme.surfaceElevated.opacity(0.36))
+        .overlay(alignment: .bottom) {
+            Rectangle()
+                .fill(FoundryTheme.border)
+                .frame(height: 1)
+        }
+    }
+
+    private var resultsSurface: some View {
+        ScrollViewReader { proxy in
+            ScrollView {
+                LazyVStack(spacing: 5) {
+                    ForEach(Array(state.results.enumerated()), id: \.element.id) { index, result in
+                        ResultRow(
+                            result: result,
+                            isSelected: state.selectedResultID == result.id,
+                            index: index
+                        )
+                        .id(result.id)
+                        .contentShape(Rectangle())
+                        .onTapGesture {
+                            state.select(resultID: result.id)
+                            state.executeSelectedResult()
+                            dismiss()
+                        }
+                    }
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 12)
+            }
+            .scrollIndicators(.never)
+            .background(FoundryTheme.surface)
+            .onChange(of: state.selectedResultID) { _, resultID in
+                guard let resultID else { return }
+                withAnimation(.easeOut(duration: 0.12)) {
+                    proxy.scrollTo(resultID, anchor: .center)
+                }
+            }
+        }
+    }
+
+    private var emptyState: some View {
+        VStack(spacing: 14) {
+            Spacer()
+
+            ZStack {
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .fill(FoundryTheme.surfaceElevated)
+                    .frame(width: 68, height: 68)
+
+                Image(systemName: "command")
+                    .font(.system(size: 28, weight: .regular))
+                    .foregroundStyle(FoundryTheme.secondaryText)
+            }
+
+            Text("Start typing")
+                .font(FoundryTheme.body(size: 17, weight: .medium))
+                .foregroundStyle(FoundryTheme.primaryText)
+
+            Text("Find apps and commands from one place.")
+                .font(FoundryTheme.body(size: 13, weight: .regular))
+                .foregroundStyle(FoundryTheme.secondaryText)
+
+            Spacer()
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(FoundryTheme.surface)
+    }
+
+    private var footer: some View {
+        HStack(spacing: 18) {
+            FooterHint(keys: "return", label: "Open")
+            FooterHint(keys: "⌘ K", label: "Actions")
+            FooterHint(keys: "esc", label: "Close")
+
+            Spacer()
+
+            Text(state.diagnosticsSummary.lowercased())
+                .font(FoundryTheme.body(size: 12, weight: .medium))
+                .foregroundStyle(FoundryTheme.mutedText)
+        }
+        .padding(.horizontal, 18)
+        .frame(height: 48)
+        .background(FoundryTheme.surfaceElevated.opacity(0.42))
+        .overlay(alignment: .top) {
+            Rectangle()
+                .fill(FoundryTheme.border)
+                .frame(height: 1)
+        }
+    }
+}
+
+private struct ResultRow: View {
+    let result: CommandResult
+    let isSelected: Bool
+    let index: Int
+
+    var body: some View {
+        HStack(spacing: 14) {
+            AppIcon(icon: result.icon)
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(result.title)
+                    .font(FoundryTheme.body(size: 16, weight: .semibold))
+                    .foregroundStyle(FoundryTheme.primaryText)
+                    .lineLimit(1)
+
+                if let subtitle = result.subtitle {
+                    Text(subtitle)
+                        .font(FoundryTheme.body(size: 13, weight: .regular))
+                        .foregroundStyle(FoundryTheme.secondaryText)
+                        .lineLimit(1)
+                }
+            }
+
+            Spacer()
+
+            if isSelected {
+                Text("return")
+                    .font(FoundryTheme.body(size: 11, weight: .medium))
+                    .foregroundStyle(FoundryTheme.mutedText)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 5)
+                    .background(FoundryTheme.keycap)
+                    .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
+            }
+        }
+        .padding(.horizontal, 14)
+        .frame(height: 66)
+        .background(isSelected ? FoundryTheme.selection : Color.clear)
+        .clipShape(RoundedRectangle(cornerRadius: 13, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 13, style: .continuous)
+                .stroke(isSelected ? FoundryTheme.selectionBorder : Color.clear, lineWidth: 1)
+        )
+    }
+}
+
+private struct AppIcon: View {
+    let icon: CommandIcon
+
+    var body: some View {
+        Group {
+            if let image = nsImage {
+                Image(nsImage: image)
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+            } else if let systemName = icon.systemName {
+                RoundedRectangle(cornerRadius: 11, style: .continuous)
+                    .fill(FoundryTheme.surfaceElevated)
+                    .overlay(
+                        Image(systemName: systemName)
+                            .font(.system(size: 18, weight: .medium))
+                            .foregroundStyle(FoundryTheme.secondaryText)
+                    )
+            } else {
+                RoundedRectangle(cornerRadius: 11, style: .continuous)
+                    .fill(FoundryTheme.surfaceElevated)
+                    .overlay(
+                        Text(icon.fallback)
+                            .font(FoundryTheme.body(size: 12, weight: .semibold))
+                            .foregroundStyle(FoundryTheme.secondaryText)
+                    )
+            }
+        }
+        .frame(width: 42, height: 42)
+    }
+
+    private var nsImage: NSImage? {
+        guard let filePath = icon.filePath else { return nil }
+        let image = NSWorkspace.shared.icon(forFile: filePath)
+        image.size = NSSize(width: 42, height: 42)
+        return image
+    }
+}
+
+private struct FooterHint: View {
+    let keys: String
+    let label: String
+
+    var body: some View {
+        HStack(spacing: 7) {
+            Text(keys)
+                .font(FoundryTheme.body(size: 11, weight: .semibold))
+                .foregroundStyle(FoundryTheme.primaryText)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 5)
+                .background(FoundryTheme.keycap)
+                .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
+
+            Text(label)
+                .font(FoundryTheme.body(size: 12, weight: .medium))
+                .foregroundStyle(FoundryTheme.mutedText)
+        }
+    }
+}
