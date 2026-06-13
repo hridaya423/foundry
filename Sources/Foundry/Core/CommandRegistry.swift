@@ -55,11 +55,13 @@ final class CommandRegistry: @unchecked Sendable {
     private let providers: [CommandProvider]
     private let usageRanking: UsageRankingStore
     private let indexingStatus: IndexingStatusStore
+    private let diagnostics: DiagnosticsService
 
-    init(providers: [CommandProvider], usageRanking: UsageRankingStore, indexingStatus: IndexingStatusStore) {
+    init(providers: [CommandProvider], usageRanking: UsageRankingStore, indexingStatus: IndexingStatusStore, diagnostics: DiagnosticsService) {
         self.providers = providers
         self.usageRanking = usageRanking
         self.indexingStatus = indexingStatus
+        self.diagnostics = diagnostics
     }
 
     static func defaultRegistry(config: ConfigService, diagnostics: DiagnosticsService) -> CommandRegistry {
@@ -73,17 +75,38 @@ final class CommandRegistry: @unchecked Sendable {
                 BuiltInCommandProvider(config: config, diagnostics: diagnostics)
             ],
             usageRanking: usageRanking,
-            indexingStatus: indexingStatus
+            indexingStatus: indexingStatus,
+            diagnostics: diagnostics
         )
     }
 
     func results(matching query: String) async -> [CommandResult] {
         var allResults: [CommandResult] = []
+        var timings: [ProviderSearchTiming] = []
 
-        for provider in providers {
-            guard Task.isCancelled == false else { return [] }
-            allResults.append(contentsOf: await provider.results(matching: query))
+        await withTaskGroup(of: ProviderSearchResult.self) { group in
+            for provider in providers {
+                group.addTask {
+                    let startedAt = Date().timeIntervalSinceReferenceDate
+                    let results = await provider.results(matching: query)
+                    let elapsedMilliseconds = (Date().timeIntervalSinceReferenceDate - startedAt) * 1_000
+                    return ProviderSearchResult(providerID: provider.id, results: results, elapsedMilliseconds: elapsedMilliseconds)
+                }
+            }
+
+            for await providerResult in group {
+                guard Task.isCancelled == false else {
+                    group.cancelAll()
+                    return
+                }
+                allResults.append(contentsOf: providerResult.results)
+                timings.append(ProviderSearchTiming(providerID: providerResult.providerID, elapsedMilliseconds: providerResult.elapsedMilliseconds))
+            }
         }
+
+        guard Task.isCancelled == false else { return [] }
+
+        logSearchTimings(timings)
 
         return allResults
             .sorted { lhs, rhs in
@@ -109,4 +132,26 @@ final class CommandRegistry: @unchecked Sendable {
         }
         return resultCount > 0 ? "\(resultLabel) · \(status)" : status
     }
+
+    private func logSearchTimings(_ timings: [ProviderSearchTiming]) {
+        guard timings.isEmpty == false else { return }
+        let summary = timings
+            .sorted { $0.providerID < $1.providerID }
+            .map { timing in
+                "\(timing.providerID)=\(String(format: "%.1f", timing.elapsedMilliseconds))ms"
+            }
+            .joined(separator: " ")
+        diagnostics.log("Search providers: \(summary)")
+    }
+}
+
+private struct ProviderSearchResult: Sendable {
+    let providerID: String
+    let results: [CommandResult]
+    let elapsedMilliseconds: Double
+}
+
+private struct ProviderSearchTiming {
+    let providerID: String
+    let elapsedMilliseconds: Double
 }

@@ -39,10 +39,6 @@ final class CommandPanelState: ObservableObject {
     }
 
     func handleEscape() -> Bool {
-        if query.isEmpty == false {
-            query = ""
-            return true
-        }
         return false
     }
 

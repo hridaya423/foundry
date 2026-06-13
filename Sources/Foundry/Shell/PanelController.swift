@@ -3,6 +3,8 @@ import SwiftUI
 
 @MainActor
 final class PanelController: NSObject, NSWindowDelegate {
+    private static let panelSize = NSSize(width: 680, height: 430)
+
     private let state: CommandPanelState
     private let diagnostics: DiagnosticsService
     private var panel: FoundryPanel?
@@ -33,7 +35,7 @@ final class PanelController: NSObject, NSWindowDelegate {
 
     private func makePanel() -> FoundryPanel {
         let panel = FoundryPanel(
-            contentRect: NSRect(x: 0, y: 0, width: 760, height: 500),
+            contentRect: NSRect(origin: .zero, size: Self.panelSize),
             styleMask: [.borderless, .nonactivatingPanel, .fullSizeContentView],
             backing: .buffered,
             defer: false
@@ -55,7 +57,7 @@ final class PanelController: NSObject, NSWindowDelegate {
         }
         let hostingView = NSHostingView(rootView: rootView)
         hostingView.wantsLayer = true
-        hostingView.layer?.cornerRadius = 18
+        hostingView.layer?.cornerRadius = 16
         hostingView.layer?.masksToBounds = true
         panel.contentView = hostingView
 
@@ -71,7 +73,7 @@ final class PanelController: NSObject, NSWindowDelegate {
         let size = panel.frame.size
         let origin = NSPoint(
             x: visibleFrame.midX - size.width / 2,
-            y: visibleFrame.midY - size.height / 2 + 72
+            y: visibleFrame.midY - size.height / 2
         )
         panel.setFrameOrigin(origin)
     }
