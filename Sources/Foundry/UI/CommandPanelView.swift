@@ -7,6 +7,11 @@ struct CommandPanelView: View {
 
     @FocusState private var inputFocused: Bool
 
+    private var selectedCalculatorResult: CommandResult? {
+        guard let selectedResult = state.selectedResult, selectedResult.id.hasPrefix("calculator.") else { return nil }
+        return selectedResult
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             header
@@ -21,14 +26,22 @@ struct CommandPanelView: View {
 
             footer
         }
-        .background(FoundryTheme.surface)
+        .background(FoundryBackdrop())
         .overlay(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .stroke(FoundryTheme.border, lineWidth: 1)
+            RoundedRectangle(cornerRadius: 28, style: .continuous)
+                .stroke(
+                    LinearGradient(
+                        colors: [Color.white.opacity(0.42), Color.white.opacity(0.18), Color.white.opacity(0.06)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    ),
+                    lineWidth: 1
+                )
         )
-        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-        .shadow(color: .black.opacity(0.26), radius: 26, x: 0, y: 18)
-        .frame(width: 680, height: 430)
+        .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
+        .shadow(color: FoundryTheme.glassShadow, radius: 34, x: 0, y: 22)
+        .shadow(color: Color.white.opacity(0.12), radius: 1, x: 0, y: 1)
+        .frame(width: 760, height: 500)
         .onAppear {
             inputFocused = true
         }
@@ -50,7 +63,7 @@ struct CommandPanelView: View {
     }
 
     private var header: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: 14) {
             Image(systemName: "magnifyingglass")
                 .font(.system(size: 18, weight: .regular))
                 .foregroundStyle(FoundryTheme.mutedText)
@@ -68,13 +81,14 @@ struct CommandPanelView: View {
                     }
                 }
         }
-        .padding(.horizontal, 24)
-        .frame(height: 72)
-        .background(FoundryTheme.surfaceElevated.opacity(0.22))
+        .padding(.horizontal, 28)
+        .frame(height: 78)
+        .background(Color.clear)
         .overlay(alignment: .bottom) {
             Rectangle()
                 .fill(FoundryTheme.border)
                 .frame(height: 1)
+                .opacity(0.55)
         }
     }
 
@@ -82,7 +96,17 @@ struct CommandPanelView: View {
         ScrollViewReader { proxy in
             ScrollView {
                 LazyVStack(spacing: 3) {
-                    ForEach(Array(state.results.enumerated()), id: \.element.id) { index, result in
+                    if let selectedCalculatorResult {
+                        CalculatorResultCard(result: selectedCalculatorResult)
+                            .padding(.bottom, 18)
+
+                        if displayedResults.isEmpty == false {
+                            CalculatorUseWithHeader(query: state.query)
+                                .padding(.bottom, 4)
+                        }
+                    }
+
+                    ForEach(Array(displayedResults.enumerated()), id: \.element.id) { index, result in
                         ResultRow(
                             result: result,
                             isSelected: state.selectedResultID == result.id,
@@ -97,11 +121,11 @@ struct CommandPanelView: View {
                         }
                     }
                 }
-                .padding(.horizontal, 10)
-                .padding(.vertical, 8)
+                .padding(.horizontal, 14)
+                .padding(.vertical, selectedCalculatorResult == nil ? 10 : 14)
             }
             .scrollIndicators(.never)
-            .background(FoundryTheme.surface)
+            .background(Color.clear)
             .onChange(of: state.selectedResultID) { _, resultID in
                 guard let resultID else { return }
                 withAnimation(.easeOut(duration: 0.12)) {
@@ -109,6 +133,11 @@ struct CommandPanelView: View {
                 }
             }
         }
+    }
+
+    private var displayedResults: [CommandResult] {
+        guard selectedCalculatorResult != nil else { return state.results }
+        return state.results.filter { $0.id.hasPrefix("calculator.") == false }
     }
 
     private var actionsSurface: some View {
@@ -129,7 +158,7 @@ struct CommandPanelView: View {
             }
             .padding(.horizontal, 22)
             .frame(height: 42)
-            .background(FoundryTheme.surface)
+            .background(Color.clear)
 
             ScrollViewReader { proxy in
                 ScrollView {
@@ -152,7 +181,7 @@ struct CommandPanelView: View {
                     .padding(.vertical, 8)
                 }
                 .scrollIndicators(.never)
-                .background(FoundryTheme.surface)
+                .background(Color.clear)
                 .onChange(of: state.selectedActionID) { _, actionID in
                     guard let actionID else { return }
                     withAnimation(.easeOut(duration: 0.12)) {
@@ -169,7 +198,7 @@ struct CommandPanelView: View {
 
             ZStack {
                 RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .fill(FoundryTheme.surfaceElevated)
+                    .fill(Color.white.opacity(0.075))
                     .frame(width: 68, height: 68)
 
                 Image(systemName: "command")
@@ -188,12 +217,12 @@ struct CommandPanelView: View {
             Spacer()
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(FoundryTheme.surface)
+        .background(Color.clear)
     }
 
     private var footer: some View {
-        HStack(spacing: 14) {
-            FooterHint(keys: "return", label: "Open")
+        HStack(spacing: 16) {
+            FooterHint(keys: "return", label: selectedCalculatorResult == nil ? "Open" : "Copy Answer")
             FooterHint(keys: "⌘ K", label: "Actions")
             FooterHint(keys: "esc", label: "Close")
 
@@ -203,13 +232,14 @@ struct CommandPanelView: View {
                 .font(FoundryTheme.body(size: 11, weight: .medium))
                 .foregroundStyle(FoundryTheme.mutedText)
         }
-        .padding(.horizontal, 14)
-        .frame(height: 36)
-        .background(FoundryTheme.surfaceElevated.opacity(0.20))
+        .padding(.horizontal, 22)
+        .frame(height: 46)
+        .background(Color.clear)
         .overlay(alignment: .top) {
             Rectangle()
                 .fill(FoundryTheme.border)
                 .frame(height: 1)
+                .opacity(0.35)
         }
     }
 }
@@ -260,6 +290,105 @@ private struct ResultRow: View {
     }
 }
 
+private struct CalculatorResultCard: View {
+    let result: CommandResult
+
+    private var expression: String {
+        result.subtitle ?? "Calculation"
+    }
+
+    private var separator: String {
+        "→"
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            header
+            equation
+        }
+        .padding(.horizontal, 8)
+        .padding(.top, 4)
+    }
+
+    private var header: some View {
+        HStack(spacing: 0) {
+            Text("Calculator")
+                .font(FoundryTheme.body(size: 14, weight: .semibold))
+                .foregroundStyle(FoundryTheme.secondaryText)
+
+            Spacer()
+        }
+        .padding(.horizontal, 8)
+    }
+
+    private var equation: some View {
+        HStack(spacing: 0) {
+            CalculatorValuePane(value: expression)
+
+            VStack(spacing: 0) {
+                Rectangle()
+                    .fill(Color.white.opacity(0.10))
+                    .frame(width: 1)
+
+                Text(separator)
+                    .font(.system(size: 34, weight: .regular))
+                    .foregroundStyle(FoundryTheme.primaryText)
+                    .frame(width: 72, height: 54)
+
+                Rectangle()
+                    .fill(Color.white.opacity(0.10))
+                    .frame(width: 1)
+            }
+
+            CalculatorValuePane(value: result.title)
+        }
+        .frame(height: 112)
+        .background(Color.white.opacity(0.065))
+        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .stroke(Color.white.opacity(0.08), lineWidth: 1)
+        )
+    }
+}
+
+private struct CalculatorValuePane: View {
+    let value: String
+
+    var body: some View {
+        Text(value)
+            .font(FoundryTheme.display(size: 36, weight: .bold))
+            .foregroundStyle(FoundryTheme.primaryText)
+            .lineLimit(1)
+            .minimumScaleFactor(0.45)
+        .frame(maxWidth: .infinity, alignment: .center)
+        .padding(.horizontal, 32)
+    }
+}
+
+private struct CalculatorUseWithHeader: View {
+    let query: String
+
+    private var trimmedQuery: String {
+        query.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Text("Use \"\(trimmedQuery)\" with...")
+                .font(FoundryTheme.body(size: 13, weight: .semibold))
+                .foregroundStyle(FoundryTheme.secondaryText)
+
+            Image(systemName: "gearshape")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(FoundryTheme.mutedText)
+
+            Spacer()
+        }
+        .padding(.horizontal, 8)
+    }
+}
+
 private struct ActionRow: View {
     let action: CommandAction
     let isSelected: Bool
@@ -267,7 +396,7 @@ private struct ActionRow: View {
     var body: some View {
         HStack(spacing: 12) {
             RoundedRectangle(cornerRadius: 9, style: .continuous)
-                .fill(FoundryTheme.surfaceElevated)
+                .fill(Color.white.opacity(0.075))
                 .overlay(
                     Image(systemName: iconName)
                         .font(.system(size: 15, weight: .medium))
@@ -332,7 +461,7 @@ private struct AppIcon: View {
                     .aspectRatio(contentMode: .fit)
             } else if let systemName = icon.systemName {
                 RoundedRectangle(cornerRadius: 9, style: .continuous)
-                    .fill(FoundryTheme.surfaceElevated)
+                    .fill(Color.white.opacity(0.075))
                     .overlay(
                         Image(systemName: systemName)
                             .font(.system(size: 16, weight: .medium))
@@ -340,7 +469,7 @@ private struct AppIcon: View {
                     )
             } else {
                 RoundedRectangle(cornerRadius: 9, style: .continuous)
-                    .fill(FoundryTheme.surfaceElevated)
+                    .fill(Color.white.opacity(0.075))
                     .overlay(
                         Text(icon.fallback)
                             .font(FoundryTheme.body(size: 11, weight: .semibold))
@@ -384,11 +513,7 @@ private struct FooterHint: View {
         HStack(spacing: 6) {
             Text(keys)
                 .font(FoundryTheme.body(size: 10, weight: .semibold))
-                .foregroundStyle(FoundryTheme.primaryText)
-                .padding(.horizontal, 6)
-                .padding(.vertical, 3)
-                .background(FoundryTheme.keycap)
-                .clipShape(RoundedRectangle(cornerRadius: 5, style: .continuous))
+                .foregroundStyle(FoundryTheme.secondaryText)
 
             Text(label)
                 .font(FoundryTheme.body(size: 11, weight: .medium))

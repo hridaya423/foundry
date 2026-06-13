@@ -3,7 +3,7 @@ import SwiftUI
 
 @MainActor
 final class PanelController: NSObject, NSWindowDelegate {
-    private static let panelSize = NSSize(width: 680, height: 430)
+    private static let panelSize = NSSize(width: 760, height: 500)
 
     private let state: CommandPanelState
     private let diagnostics: DiagnosticsService
@@ -60,7 +60,7 @@ final class PanelController: NSObject, NSWindowDelegate {
         }
         let hostingView = NSHostingView(rootView: rootView)
         hostingView.wantsLayer = true
-        hostingView.layer?.cornerRadius = 16
+        hostingView.layer?.cornerRadius = 28
         hostingView.layer?.masksToBounds = true
         panel.contentView = hostingView
 

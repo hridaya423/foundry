@@ -1,8 +1,43 @@
 import SwiftUI
 
+struct VisualEffectView: NSViewRepresentable {
+    let material: NSVisualEffectView.Material
+    let blendingMode: NSVisualEffectView.BlendingMode
+    let state: NSVisualEffectView.State
+
+    init(
+        material: NSVisualEffectView.Material = .popover,
+        blendingMode: NSVisualEffectView.BlendingMode = .behindWindow,
+        state: NSVisualEffectView.State = .active
+    ) {
+        self.material = material
+        self.blendingMode = blendingMode
+        self.state = state
+    }
+
+    func makeNSView(context: Context) -> NSVisualEffectView {
+        let view = NSVisualEffectView()
+        view.material = material
+        view.blendingMode = blendingMode
+        view.state = state
+        view.isEmphasized = true
+        return view
+    }
+
+    func updateNSView(_ view: NSVisualEffectView, context: Context) {
+        view.material = material
+        view.blendingMode = blendingMode
+        view.state = state
+    }
+}
+
 struct FoundryBackdrop: View {
     var body: some View {
-        FoundryTheme.background.opacity(0.001)
+        ZStack {
+            VisualEffectView(material: .popover, blendingMode: .behindWindow)
+            Color.white.opacity(0.028)
+            Color.black.opacity(0.018)
+        }
         .ignoresSafeArea()
     }
 }

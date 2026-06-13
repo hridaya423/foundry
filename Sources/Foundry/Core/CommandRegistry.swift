@@ -79,6 +79,7 @@ final class CommandRegistry: @unchecked Sendable {
         return CommandRegistry(
             providers: [
                 AppSearchProvider(diagnostics: diagnostics),
+                CalculatorProvider(),
                 fileSearchProvider,
                 SystemCommandProvider(diagnostics: diagnostics),
                 BuiltInCommandProvider(config: config, diagnostics: diagnostics)

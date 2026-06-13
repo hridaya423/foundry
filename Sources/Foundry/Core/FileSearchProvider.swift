@@ -61,7 +61,7 @@ final class FileSearchProvider: CommandProvider, @unchecked Sendable {
         guard trimmed.count >= 2 else { return [] }
 
         do {
-            let matches = try await database.search(trimmed, limit: 8)
+            let matches = try await database.search(trimmed, limit: 8, candidateLimit: 64)
             guard Task.isCancelled == false else { return [] }
             return matches.map { match in
                 let path = match.record.path
@@ -394,7 +394,7 @@ final class FileIndexDatabase: @unchecked Sendable {
         }
     }
 
-    func search(_ query: String, limit: Int) async throws -> [FileMatch] {
+    func search(_ query: String, limit: Int, candidateLimit: Int) async throws -> [FileMatch] {
         try await open()
         let normalized = SearchScoring.normalize(query)
         let tokens = normalized.components(separatedBy: CharacterSet.alphanumerics.inverted).filter { $0.isEmpty == false }
@@ -410,9 +410,9 @@ final class FileIndexDatabase: @unchecked Sendable {
         LIMIT ?
         """
 
-        return try readLock.withLock {
+        let matches: [FileMatch] = try readLock.withLock {
             let statement = try Statement(database: requireReadDB(), sql: sql)
-            try statement.bind(ftsQuery, limit)
+            try statement.bind(ftsQuery, candidateLimit)
 
             var matches: [FileMatch] = []
             while statement.step() == SQLITE_ROW {
@@ -427,11 +427,64 @@ final class FileIndexDatabase: @unchecked Sendable {
                     fallbackIcon: statement.text(at: 6)
                 )
                 let rank = statement.double(at: 7)
-                matches.append(FileMatch(record: record, score: 88 - rank))
+                matches.append(FileMatch(record: record, score: Self.score(record: record, normalizedQuery: normalized, ftsRank: rank)))
             }
 
             return matches
         }
+
+        return matches
+            .sorted(by: { lhs, rhs in
+                if lhs.score == rhs.score {
+                    return lhs.record.name.localizedCaseInsensitiveCompare(rhs.record.name) == .orderedAscending
+                }
+                return lhs.score > rhs.score
+            })
+            .prefix(limit)
+            .map { $0 }
+    }
+
+    private static func score(record: FileRecord, normalizedQuery: String, ftsRank: Double) -> Double {
+        let normalizedName = SearchScoring.normalize(record.name)
+        let normalizedStem = SearchScoring.normalize(record.stem)
+        let normalizedExt = SearchScoring.normalize(record.extensionName)
+        let normalizedParent = SearchScoring.normalize(record.displayLocation)
+        let allowFuzzy = normalizedQuery.count >= 3
+
+        let nameScore = SearchScoring.score(
+            normalizedQuery: normalizedQuery,
+            candidates: [normalizedName, normalizedStem].filter { $0.isEmpty == false },
+            allowFuzzy: allowFuzzy
+        )
+        let pathScore = SearchScoring.score(
+            normalizedQuery: normalizedQuery,
+            candidates: [normalizedParent].filter { $0.isEmpty == false },
+            allowFuzzy: false
+        )
+
+        var score = 42.0 - ftsRank
+        if let nameScore {
+            score = max(score, nameScore - 7)
+        }
+        if let pathScore {
+            score = max(score, pathScore - 24)
+        }
+        if normalizedExt == normalizedQuery {
+            score = max(score, 58)
+        }
+
+        if normalizedName == normalizedQuery || normalizedStem == normalizedQuery {
+            score += 8
+        } else if normalizedName.hasPrefix(normalizedQuery) || normalizedStem.hasPrefix(normalizedQuery) {
+            score += 4
+        }
+
+        if record.parent.hasPrefix(FileManager.default.homeDirectoryForCurrentUser.path) {
+            score += 1.5
+        }
+
+        let depthPenalty = min(Double(record.path.split(separator: "/").count) * 0.22, 8)
+        return score - depthPenalty
     }
 
     private func requireReadDB() throws -> OpaquePointer {
