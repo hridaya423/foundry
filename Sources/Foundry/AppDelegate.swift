@@ -7,9 +7,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         let diagnostics = DiagnosticsService()
         let config = ConfigService(diagnostics: diagnostics)
+        let actionRunner = ActionRunner(diagnostics: diagnostics)
         let registry = CommandRegistry.defaultRegistry(config: config, diagnostics: diagnostics)
         let shellController = ShellController(
             registry: registry,
+            actionRunner: actionRunner,
             config: config,
             diagnostics: diagnostics
         )

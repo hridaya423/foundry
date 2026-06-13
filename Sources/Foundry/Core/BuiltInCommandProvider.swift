@@ -4,16 +4,15 @@ import Foundation
 final class BuiltInCommandProvider: CommandProvider {
     let id = "foundry.builtin"
 
-    private let config: ConfigService
     private let diagnostics: DiagnosticsService
 
     init(config: ConfigService, diagnostics: DiagnosticsService) {
-        self.config = config
         self.diagnostics = diagnostics
     }
 
-    func results(matching query: String) -> [CommandResult] {
+    func results(matching query: String) async -> [CommandResult] {
         commands().compactMap { command in
+            guard Task.isCancelled == false else { return nil }
             guard let score = SearchScoring.score(query: query, title: command.title, aliases: command.aliases) else {
                 return nil
             }
@@ -40,14 +39,7 @@ final class BuiltInCommandProvider: CommandProvider {
                 systemIcon: "slider.horizontal.3",
                 fallback: "ST",
                 scoreBoost: 1,
-                primaryAction: CommandAction(id: "foundry.settings.open", title: "Open") { [diagnostics] in
-                    let folder = ConfigService.configURL.deletingLastPathComponent()
-                    try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-                    diagnostics.log("Opening Foundry config folder")
-                    DispatchQueue.main.async {
-                        NSWorkspace.shared.open(folder)
-                    }
-                },
+                primaryAction: CommandAction(id: "foundry.settings.open", title: "Open", kind: .openConfigFolder),
                 secondaryActions: []
             ),
             BuiltInCommand(
@@ -58,11 +50,7 @@ final class BuiltInCommandProvider: CommandProvider {
                 systemIcon: "power",
                 fallback: "QT",
                 scoreBoost: 0,
-                primaryAction: CommandAction(id: "foundry.quit.perform", title: "Quit") {
-                    DispatchQueue.main.async {
-                        NSApp.terminate(nil)
-                    }
-                },
+                primaryAction: CommandAction(id: "foundry.quit.perform", title: "Quit", kind: .quit),
                 secondaryActions: []
             )
         ]

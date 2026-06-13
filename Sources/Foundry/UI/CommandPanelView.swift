@@ -54,7 +54,7 @@ struct CommandPanelView: View {
                 .foregroundStyle(FoundryTheme.mutedText)
                 .frame(width: 28)
 
-            TextField("Search apps and commands...", text: $state.query)
+            TextField("Search apps, files, and commands...", text: $state.query)
                 .textFieldStyle(.plain)
                 .font(FoundryTheme.body(size: 30, weight: .regular))
                 .foregroundStyle(FoundryTheme.primaryText)
@@ -127,7 +127,7 @@ struct CommandPanelView: View {
                 .font(FoundryTheme.body(size: 17, weight: .medium))
                 .foregroundStyle(FoundryTheme.primaryText)
 
-            Text("Find apps and commands from one place.")
+            Text("Find apps, files, and commands from one place.")
                 .font(FoundryTheme.body(size: 13, weight: .regular))
                 .foregroundStyle(FoundryTheme.secondaryText)
 
@@ -238,8 +238,25 @@ private struct AppIcon: View {
 
     private var nsImage: NSImage? {
         guard let filePath = icon.filePath else { return nil }
-        let image = NSWorkspace.shared.icon(forFile: filePath)
+        return IconCache.shared.icon(forFile: filePath)
+    }
+}
+
+@MainActor
+private final class IconCache {
+    static let shared = IconCache()
+
+    private let cache = NSCache<NSString, NSImage>()
+
+    func icon(forFile path: String) -> NSImage {
+        let key = path as NSString
+        if let cached = cache.object(forKey: key) {
+            return cached
+        }
+
+        let image = NSWorkspace.shared.icon(forFile: path)
         image.size = NSSize(width: 42, height: 42)
+        cache.setObject(image, forKey: key)
         return image
     }
 }

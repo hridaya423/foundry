@@ -1,15 +1,29 @@
 import Foundation
 
 enum SearchScoring {
-    static func score(query: String, title: String, aliases: [String] = []) -> Double? {
+    static func score(query: String, title: String, aliases: [String] = [], allowFuzzy: Bool = true) -> Double? {
         let normalizedQuery = normalize(query)
         guard normalizedQuery.isEmpty == false else { return nil }
 
         let candidates = ([title] + aliases).map(normalize).filter { $0.isEmpty == false }
-        return candidates.compactMap { score(normalizedQuery: normalizedQuery, candidate: $0) }.max()
+        return score(normalizedQuery: normalizedQuery, candidates: candidates, allowFuzzy: allowFuzzy)
     }
 
-    private static func score(normalizedQuery query: String, candidate: String) -> Double? {
+    static func score(normalizedQuery: String, candidates: [String], allowFuzzy: Bool = true) -> Double? {
+        guard normalizedQuery.isEmpty == false else { return nil }
+        return candidates.compactMap { score(normalizedQuery: normalizedQuery, candidate: $0, allowFuzzy: allowFuzzy) }.max()
+    }
+
+    static func normalize(_ value: String) -> String {
+        value
+            .folding(options: [.caseInsensitive, .diacriticInsensitive], locale: .current)
+            .replacingOccurrences(of: "-", with: " ")
+            .replacingOccurrences(of: "_", with: " ")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased()
+    }
+
+    private static func score(normalizedQuery query: String, candidate: String, allowFuzzy: Bool) -> Double? {
         if candidate == query { return 100 }
         if candidate.hasPrefix(query) { return 92 - Double(candidate.count - query.count) * 0.12 }
 
@@ -21,18 +35,10 @@ enum SearchScoring {
 
         if candidate.contains(query) { return 68 - Double(candidate.count - query.count) * 0.08 }
 
+        guard allowFuzzy else { return nil }
         guard isSubsequence(query, of: candidate) else { return nil }
         let density = Double(query.count) / Double(candidate.count)
         return 42 + density * 18
-    }
-
-    private static func normalize(_ value: String) -> String {
-        value
-            .folding(options: [.caseInsensitive, .diacriticInsensitive], locale: .current)
-            .replacingOccurrences(of: "-", with: " ")
-            .replacingOccurrences(of: "_", with: " ")
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-            .lowercased()
     }
 
     private static func isSubsequence(_ needle: String, of haystack: String) -> Bool {

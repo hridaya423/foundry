@@ -1,23 +1,24 @@
 import AppKit
 import Foundation
 
-final class AppSearchProvider: CommandProvider {
+final class AppSearchProvider: CommandProvider, @unchecked Sendable {
     let id = "foundry.apps"
 
     private let diagnostics: DiagnosticsService
-    private lazy var apps: [InstalledApp] = loadApps()
+    private let apps: [InstalledApp]
 
     init(diagnostics: DiagnosticsService) {
         self.diagnostics = diagnostics
+        self.apps = Self.loadApps(diagnostics: diagnostics)
     }
 
-    func results(matching query: String) -> [CommandResult] {
-        apps.compactMap { app in
-            guard let score = SearchScoring.score(
-                query: query,
-                title: app.name,
-                aliases: [app.bundleIdentifier, app.path.lastPathComponent.replacingOccurrences(of: ".app", with: "")]
-            ) else { return nil }
+    func results(matching query: String) async -> [CommandResult] {
+        let normalizedQuery = SearchScoring.normalize(query)
+        guard normalizedQuery.isEmpty == false else { return [] }
+
+        return apps.compactMap { app -> CommandResult? in
+            guard Task.isCancelled == false else { return nil }
+            guard let score = SearchScoring.score(normalizedQuery: normalizedQuery, candidates: app.normalizedSearchCandidates) else { return nil }
 
             return CommandResult(
                 id: "app.\(app.identity)",
@@ -25,18 +26,7 @@ final class AppSearchProvider: CommandProvider {
                 subtitle: nil,
                 icon: CommandIcon(fallback: app.fallbackIcon, filePath: app.path.path),
                 score: score,
-                primaryAction: CommandAction(id: "app.\(app.identity).open", title: "Open") { [diagnostics] in
-                    DispatchQueue.main.async {
-                        let configuration = NSWorkspace.OpenConfiguration()
-                        NSWorkspace.shared.openApplication(at: app.path, configuration: configuration) { _, error in
-                            if let error {
-                                diagnostics.log("Failed to launch \(app.name): \(error.localizedDescription)")
-                            } else {
-                                diagnostics.log("Launched app: \(app.name)")
-                            }
-                        }
-                    }
-                },
+                primaryAction: CommandAction(id: "app.\(app.identity).open", title: "Open", kind: .openApp(path: app.path.path, name: app.name)),
                 secondaryActions: []
             )
         }
@@ -46,7 +36,7 @@ final class AppSearchProvider: CommandProvider {
         }
     }
 
-    private func loadApps() -> [InstalledApp] {
+    private static func loadApps(diagnostics: DiagnosticsService) -> [InstalledApp] {
         let span = diagnostics.startSpan("apps.load")
         defer { diagnostics.endSpan(span) }
 
@@ -75,7 +65,7 @@ final class AppSearchProvider: CommandProvider {
         return discovered.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
     }
 
-    private func appSearchRoots() -> [URL] {
+    private static func appSearchRoots() -> [URL] {
         var roots = [
             URL(fileURLWithPath: "/Applications"),
             URL(fileURLWithPath: "/System/Applications"),
@@ -91,6 +81,7 @@ private struct InstalledApp {
     let name: String
     let bundleIdentifier: String
     let path: URL
+    let normalizedSearchCandidates: [String]
 
     var identity: String {
         if bundleIdentifier.isEmpty == false { return bundleIdentifier }
@@ -115,5 +106,12 @@ private struct InstalledApp {
         self.name = resolvedName
         self.bundleIdentifier = bundle.bundleIdentifier ?? ""
         self.path = url
+        self.normalizedSearchCandidates = [
+            resolvedName,
+            bundle.bundleIdentifier ?? "",
+            fileName
+        ]
+        .map(SearchScoring.normalize)
+        .filter { $0.isEmpty == false }
     }
 }

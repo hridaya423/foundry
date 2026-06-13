@@ -1,17 +1,17 @@
-import AppKit
 import Foundation
 
-final class SystemCommandProvider: CommandProvider {
+final class SystemCommandProvider: CommandProvider, @unchecked Sendable {
     let id = "foundry.system"
 
-    private let diagnostics: DiagnosticsService
+    private let commands: [SystemCommand]
 
     init(diagnostics: DiagnosticsService) {
-        self.diagnostics = diagnostics
+        self.commands = Self.systemCommands()
     }
 
-    func results(matching query: String) -> [CommandResult] {
-        systemCommands().compactMap { command in
+    func results(matching query: String) async -> [CommandResult] {
+        commands.compactMap { command in
+            guard Task.isCancelled == false else { return nil }
             guard let score = SearchScoring.score(query: query, title: command.title, aliases: command.aliases) else {
                 return nil
             }
@@ -22,10 +22,7 @@ final class SystemCommandProvider: CommandProvider {
                 subtitle: command.subtitle,
                 icon: CommandIcon(fallback: command.fallback, systemName: command.systemIcon),
                 score: score + command.scoreBoost,
-                primaryAction: CommandAction(id: "\(command.id).perform", title: command.actionTitle) { [diagnostics] in
-                    diagnostics.log("Running system command: \(command.title)")
-                    command.perform(diagnostics)
-                },
+                primaryAction: CommandAction(id: "\(command.id).perform", title: command.actionTitle, kind: command.actionKind),
                 secondaryActions: []
             )
         }
@@ -35,7 +32,7 @@ final class SystemCommandProvider: CommandProvider {
         }
     }
 
-    private func systemCommands() -> [SystemCommand] {
+    private static func systemCommands() -> [SystemCommand] {
         [
             SystemCommand(
                 id: "system.lock-screen",
@@ -46,7 +43,7 @@ final class SystemCommandProvider: CommandProvider {
                 fallback: "LK",
                 scoreBoost: 3,
                 actionTitle: "Lock",
-                perform: { _ in runProcess("/System/Library/CoreServices/Menu Extras/User.menu/Contents/Resources/CGSession", ["-suspend"]) }
+                actionKind: .runProcess(path: "/System/Library/CoreServices/Menu Extras/User.menu/Contents/Resources/CGSession", arguments: ["-suspend"])
             ),
             SystemCommand(
                 id: "system.sleep",
@@ -57,7 +54,7 @@ final class SystemCommandProvider: CommandProvider {
                 fallback: "SL",
                 scoreBoost: 2,
                 actionTitle: "Sleep",
-                perform: { _ in runProcess("/usr/bin/pmset", ["sleepnow"]) }
+                actionKind: .runProcess(path: "/usr/bin/pmset", arguments: ["sleepnow"])
             ),
             SystemCommand(
                 id: "system.screen-saver",
@@ -68,7 +65,7 @@ final class SystemCommandProvider: CommandProvider {
                 fallback: "SS",
                 scoreBoost: 1,
                 actionTitle: "Start",
-                perform: { _ in openApplication(at: "/System/Library/CoreServices/ScreenSaverEngine.app") }
+                actionKind: .openApp(path: "/System/Library/CoreServices/ScreenSaverEngine.app", name: "Screen Saver")
             ),
             settingsCommand(
                 id: "system.settings",
@@ -133,12 +130,12 @@ final class SystemCommandProvider: CommandProvider {
                 fallback: "TR",
                 scoreBoost: 0,
                 actionTitle: "Empty",
-                perform: { _ in runProcess("/usr/bin/osascript", ["-e", "tell application \"Finder\" to empty trash"]) }
+                actionKind: .runProcess(path: "/usr/bin/osascript", arguments: ["-e", "tell application \"Finder\" to empty trash"])
             )
         ]
     }
 
-    private func settingsCommand(
+    private static func settingsCommand(
         id: String,
         title: String,
         subtitle: String,
@@ -156,20 +153,12 @@ final class SystemCommandProvider: CommandProvider {
             fallback: fallback,
             scoreBoost: 1,
             actionTitle: "Open",
-            perform: { diagnostics in
-                guard let settingsURL = URL(string: url) else {
-                    diagnostics.log("Invalid settings URL: \(url)")
-                    return
-                }
-                DispatchQueue.main.async {
-                    NSWorkspace.shared.open(settingsURL)
-                }
-            }
+            actionKind: .openURL(url)
         )
     }
 }
 
-private struct SystemCommand {
+private struct SystemCommand: Sendable {
     let id: String
     let title: String
     let subtitle: String
@@ -178,27 +167,5 @@ private struct SystemCommand {
     let fallback: String
     let scoreBoost: Double
     let actionTitle: String
-    let perform: (DiagnosticsService) -> Void
-}
-
-private func openApplication(at path: String) {
-    DispatchQueue.main.async {
-        let url = URL(fileURLWithPath: path)
-        let configuration = NSWorkspace.OpenConfiguration()
-        NSWorkspace.shared.openApplication(at: url, configuration: configuration)
-    }
-}
-
-private func runProcess(_ launchPath: String, _ arguments: [String]) {
-    DispatchQueue.global(qos: .userInitiated).async {
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: launchPath)
-        process.arguments = arguments
-
-        do {
-            try process.run()
-        } catch {
-            fputs("[Foundry] Failed to run \(launchPath): \(error.localizedDescription)\n", stderr)
-        }
-    }
+    let actionKind: CommandActionKind
 }

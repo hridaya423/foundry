@@ -4,18 +4,20 @@ import SwiftUI
 @MainActor
 final class ShellController {
     private let registry: CommandRegistry
+    private let actionRunner: ActionRunner
     private let config: ConfigService
     private let diagnostics: DiagnosticsService
     private let hotkeyController: HotkeyController
     private let panelController: PanelController
     private let panelState: CommandPanelState
 
-    init(registry: CommandRegistry, config: ConfigService, diagnostics: DiagnosticsService) {
+    init(registry: CommandRegistry, actionRunner: ActionRunner, config: ConfigService, diagnostics: DiagnosticsService) {
         self.registry = registry
+        self.actionRunner = actionRunner
         self.config = config
         self.diagnostics = diagnostics
         self.hotkeyController = HotkeyController()
-        self.panelState = CommandPanelState(registry: registry, diagnostics: diagnostics)
+        self.panelState = CommandPanelState(registry: registry, actionRunner: actionRunner, diagnostics: diagnostics)
         self.panelController = PanelController(state: panelState, diagnostics: diagnostics)
     }
 
