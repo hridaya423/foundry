@@ -7,8 +7,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         let diagnostics = DiagnosticsService()
         let config = ConfigService(diagnostics: diagnostics)
-        let actionRunner = ActionRunner(diagnostics: diagnostics)
-        let registry = CommandRegistry.defaultRegistry(config: config, diagnostics: diagnostics)
+        let indexingStatus = IndexingStatusStore()
+        let fileSearchProvider = FileSearchProvider(diagnostics: diagnostics, indexingStatus: indexingStatus)
+        let actionRunner = ActionRunner(diagnostics: diagnostics) {
+            fileSearchProvider.rebuildIndex()
+        }
+        let registry = CommandRegistry.defaultRegistry(
+            config: config,
+            diagnostics: diagnostics,
+            fileSearchProvider: fileSearchProvider,
+            indexingStatus: indexingStatus
+        )
         let shellController = ShellController(
             registry: registry,
             actionRunner: actionRunner,

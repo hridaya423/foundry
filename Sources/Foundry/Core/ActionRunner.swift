@@ -4,9 +4,11 @@ import Foundation
 @MainActor
 final class ActionRunner {
     private let diagnostics: DiagnosticsService
+    private let rebuildFileIndex: (@Sendable () -> Void)?
 
-    init(diagnostics: DiagnosticsService) {
+    init(diagnostics: DiagnosticsService, rebuildFileIndex: (@Sendable () -> Void)? = nil) {
         self.diagnostics = diagnostics
+        self.rebuildFileIndex = rebuildFileIndex
     }
 
     func perform(_ action: CommandAction) {
@@ -36,6 +38,14 @@ final class ActionRunner {
             let folder = ConfigService.configURL.deletingLastPathComponent()
             try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
             NSWorkspace.shared.open(folder)
+
+        case .rebuildFileIndex:
+            guard let rebuildFileIndex else {
+                diagnostics.log("File index rebuild is unavailable")
+                return
+            }
+            diagnostics.log("Requested file index rebuild")
+            rebuildFileIndex()
 
         case let .runProcess(path, arguments):
             DispatchQueue.global(qos: .userInitiated).async {

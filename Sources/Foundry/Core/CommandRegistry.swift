@@ -41,6 +41,7 @@ enum CommandActionKind: Hashable, Sendable {
     case openFile(path: String)
     case openURL(String)
     case openConfigFolder
+    case rebuildFileIndex
     case runProcess(path: String, arguments: [String])
     case quit
     case log(String)
@@ -64,13 +65,19 @@ final class CommandRegistry: @unchecked Sendable {
         self.diagnostics = diagnostics
     }
 
-    static func defaultRegistry(config: ConfigService, diagnostics: DiagnosticsService) -> CommandRegistry {
+    static func defaultRegistry(
+        config: ConfigService,
+        diagnostics: DiagnosticsService,
+        fileSearchProvider: FileSearchProvider? = nil,
+        indexingStatus: IndexingStatusStore? = nil
+    ) -> CommandRegistry {
         let usageRanking = UsageRankingStore(diagnostics: diagnostics)
-        let indexingStatus = IndexingStatusStore()
+        let indexingStatus = indexingStatus ?? IndexingStatusStore()
+        let fileSearchProvider = fileSearchProvider ?? FileSearchProvider(diagnostics: diagnostics, indexingStatus: indexingStatus)
         return CommandRegistry(
             providers: [
                 AppSearchProvider(diagnostics: diagnostics),
-                FileSearchProvider(diagnostics: diagnostics, indexingStatus: indexingStatus),
+                fileSearchProvider,
                 SystemCommandProvider(diagnostics: diagnostics),
                 BuiltInCommandProvider(config: config, diagnostics: diagnostics)
             ],

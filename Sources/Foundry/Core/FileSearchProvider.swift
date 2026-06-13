@@ -6,53 +6,26 @@ final class FileSearchProvider: CommandProvider, @unchecked Sendable {
     let id = "foundry.files"
 
     private let database: FileIndexDatabase
+    private let diagnostics: DiagnosticsService
+    private let indexingStatus: IndexingStatusStore
+    private let maintenanceState = FileIndexMaintenanceState()
     private var watcher: FileEventWatcher?
 
     init(diagnostics: DiagnosticsService, indexingStatus: IndexingStatusStore) {
         let database = FileIndexDatabase(diagnostics: diagnostics)
         self.database = database
+        self.diagnostics = diagnostics
+        self.indexingStatus = indexingStatus
 
-        Task.detached(priority: .utility) { [database, diagnostics, indexingStatus, id] in
-            do {
-                try await database.open()
-                let prunedCount = (try? await database.pruneSkippedPaths()) ?? 0
-                if prunedCount > 0 {
-                    diagnostics.log("Pruned \(prunedCount) skipped files from index")
-                }
-                let existingCount = await database.fileCount()
-                indexingStatus.setStatus(existingCount > 0 ? "\(existingCount) files" : "indexing files", for: id)
-
-                guard existingCount == 0 else { return }
-
-                let span = diagnostics.startSpan("files.index")
-                let scanStartedAt = Date().timeIntervalSince1970
-                var total = 0
-                let scanner = FileScanner()
-                await scanner.scan(onRootStart: { _ in
-                }, onChunk: { chunk in
-                    guard Task.isCancelled == false else { return false }
-                    do {
-                        try await database.upsert(chunk)
-                        total += chunk.count
-                        indexingStatus.setStatus("indexing files: \(total)", for: id)
-                        await Task.yield()
-                        return true
-                    } catch {
-                        diagnostics.log("Failed to index file chunk: \(error.localizedDescription)")
-                        return true
-                    }
-                })
-
-                diagnostics.endSpan(span)
-                try? await database.deleteRowsNotIndexed(since: scanStartedAt)
-                try? await database.optimizeStorage()
-                let finalCount = await database.fileCount()
-                diagnostics.log("Indexed \(finalCount) files")
-                indexingStatus.setStatus("\(finalCount) files", for: id)
-            } catch {
-                diagnostics.log("Failed to open file index: \(error.localizedDescription)")
-                indexingStatus.setStatus("files unavailable", for: id)
-            }
+        Task.detached(priority: .utility) { [database, diagnostics, indexingStatus, maintenanceState, id] in
+            await Self.refreshIndex(
+                database: database,
+                diagnostics: diagnostics,
+                indexingStatus: indexingStatus,
+                maintenanceState: maintenanceState,
+                providerID: id,
+                forceFullScan: false
+            )
         }
 
         let roots = FileScanner.fileSearchRoots()
@@ -68,6 +41,19 @@ final class FileSearchProvider: CommandProvider, @unchecked Sendable {
             }
         }
         self.watcher?.start()
+    }
+
+    func rebuildIndex() {
+        Task.detached(priority: .utility) { [database, diagnostics, indexingStatus, maintenanceState, id] in
+            await Self.refreshIndex(
+                database: database,
+                diagnostics: diagnostics,
+                indexingStatus: indexingStatus,
+                maintenanceState: maintenanceState,
+                providerID: id,
+                forceFullScan: true
+            )
+        }
     }
 
     func results(matching query: String) async -> [CommandResult] {
@@ -96,11 +82,94 @@ final class FileSearchProvider: CommandProvider, @unchecked Sendable {
             return []
         }
     }
+
+    private static func refreshIndex(
+        database: FileIndexDatabase,
+        diagnostics: DiagnosticsService,
+        indexingStatus: IndexingStatusStore,
+        maintenanceState: FileIndexMaintenanceState,
+        providerID: String,
+        forceFullScan: Bool
+    ) async {
+        guard await maintenanceState.tryStart() else {
+            diagnostics.log("File index maintenance already running")
+            return
+        }
+
+        do {
+            try await database.open()
+            let prunedCount = (try? await database.pruneSkippedPaths()) ?? 0
+            if prunedCount > 0 {
+                diagnostics.log("Pruned \(prunedCount) skipped files from index")
+            }
+
+            let existingCount = await database.fileCount()
+            if forceFullScan == false {
+                indexingStatus.setStatus(existingCount > 0 ? "\(existingCount) files" : "indexing files", for: providerID)
+                guard existingCount == 0 else {
+                    await maintenanceState.finish()
+                    return
+                }
+            } else {
+                indexingStatus.setStatus("rebuilding file index", for: providerID)
+            }
+
+            let span = diagnostics.startSpan(forceFullScan ? "files.rebuild" : "files.index")
+            let scanStartedAt = Date().timeIntervalSince1970
+            var total = 0
+            let shouldReplaceExistingFTS = forceFullScan || existingCount > 0
+            let scanner = FileScanner()
+            await scanner.scan(onRootStart: { _ in
+            }, onChunk: { chunk in
+                guard Task.isCancelled == false else { return false }
+                do {
+                    try await database.upsert(chunk, replaceExistingFTS: shouldReplaceExistingFTS)
+                    total += chunk.count
+                    indexingStatus.setStatus("indexing files: \(total)", for: providerID)
+                    await Task.yield()
+                    return true
+                } catch {
+                    diagnostics.log("Failed to index file chunk: \(error.localizedDescription)")
+                    return true
+                }
+            })
+
+            diagnostics.endSpan(span)
+            try? await database.deleteRowsNotIndexed(since: scanStartedAt)
+            try? await database.optimizeStorage()
+            let finalCount = await database.fileCount()
+            diagnostics.log("Indexed \(finalCount) files")
+            indexingStatus.setStatus("\(finalCount) files", for: providerID)
+            await maintenanceState.finish()
+        } catch {
+            diagnostics.log("Failed to open file index: \(error.localizedDescription)")
+            indexingStatus.setStatus("files unavailable", for: providerID)
+            await maintenanceState.finish()
+        }
+    }
 }
 
-actor FileIndexDatabase {
+private actor FileIndexMaintenanceState {
+    private var isRunning = false
+
+    func tryStart() -> Bool {
+        guard isRunning == false else { return false }
+        isRunning = true
+        return true
+    }
+
+    func finish() {
+        isRunning = false
+    }
+}
+
+final class FileIndexDatabase: @unchecked Sendable {
     private let diagnostics: DiagnosticsService
-    private var db: OpaquePointer?
+    private let openLock = NSLock()
+    private let readLock = NSLock()
+    private let writeLock = NSLock()
+    private var readDB: OpaquePointer?
+    private var writeDB: OpaquePointer?
 
     init(diagnostics: DiagnosticsService) {
         self.diagnostics = diagnostics
@@ -111,87 +180,128 @@ actor FileIndexDatabase {
             .appendingPathComponent(".local/share/foundry/files.sqlite")
     }
 
-    func open() throws {
-        guard db == nil else { return }
+    func open() async throws {
+        try openLock.withLock {
+            guard readDB == nil || writeDB == nil else { return }
 
-        let url = Self.databaseURL
-        try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+            let url = Self.databaseURL
+            try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
 
-        var opened: OpaquePointer?
-        guard sqlite3_open_v2(url.path, &opened, SQLITE_OPEN_CREATE | SQLITE_OPEN_READWRITE | SQLITE_OPEN_FULLMUTEX, nil) == SQLITE_OK else {
-            throw FileIndexDatabaseError.openFailed(String(cString: sqlite3_errmsg(opened)))
+            var openedWriteDB: OpaquePointer?
+            guard sqlite3_open_v2(url.path, &openedWriteDB, SQLITE_OPEN_CREATE | SQLITE_OPEN_READWRITE | SQLITE_OPEN_FULLMUTEX, nil) == SQLITE_OK, let openedWriteDB else {
+                throw FileIndexDatabaseError.openFailed(String(cString: sqlite3_errmsg(openedWriteDB)))
+            }
+
+            var openedReadDB: OpaquePointer?
+            guard sqlite3_open_v2(url.path, &openedReadDB, SQLITE_OPEN_READWRITE | SQLITE_OPEN_FULLMUTEX, nil) == SQLITE_OK, let openedReadDB else {
+                sqlite3_close(openedWriteDB)
+                throw FileIndexDatabaseError.openFailed(String(cString: sqlite3_errmsg(openedReadDB)))
+            }
+
+            writeDB = openedWriteDB
+            readDB = openedReadDB
+
+            try execute("PRAGMA journal_mode=WAL", database: openedWriteDB)
+            try execute("PRAGMA synchronous=NORMAL", database: openedWriteDB)
+            try execute("PRAGMA temp_store=MEMORY", database: openedWriteDB)
+            try execute("PRAGMA cache_size=-64000", database: openedWriteDB)
+            try execute("PRAGMA mmap_size=134217728", database: openedWriteDB)
+            try execute("PRAGMA busy_timeout=250", database: openedWriteDB)
+            try execute("PRAGMA wal_autocheckpoint=4000", database: openedWriteDB)
+            try prepareSchema(database: openedWriteDB)
+
+            try execute("CREATE TABLE IF NOT EXISTS files (id INTEGER PRIMARY KEY, path TEXT UNIQUE NOT NULL, name TEXT NOT NULL, stem TEXT NOT NULL, ext TEXT NOT NULL, parent TEXT NOT NULL, display_parent TEXT NOT NULL, fallback_icon TEXT NOT NULL, indexed_at REAL NOT NULL)", database: openedWriteDB)
+            try execute("CREATE VIRTUAL TABLE IF NOT EXISTS files_fts USING fts5(name, stem, ext, parent, tokenize='unicode61', prefix='2 3 4')", database: openedWriteDB)
+            try execute("CREATE INDEX IF NOT EXISTS idx_files_name ON files(name)", database: openedWriteDB)
+            try execute("CREATE INDEX IF NOT EXISTS idx_files_path ON files(path)", database: openedWriteDB)
+            try execute("PRAGMA user_version=2", database: openedWriteDB)
+
+            try execute("PRAGMA query_only=ON", database: openedReadDB)
+            try execute("PRAGMA temp_store=MEMORY", database: openedReadDB)
+            try execute("PRAGMA cache_size=-32000", database: openedReadDB)
+            try execute("PRAGMA mmap_size=134217728", database: openedReadDB)
+            try execute("PRAGMA busy_timeout=100", database: openedReadDB)
         }
-
-        db = opened
-        try execute("PRAGMA journal_mode=WAL")
-        try execute("PRAGMA synchronous=NORMAL")
-        try execute("PRAGMA temp_store=MEMORY")
-        try execute("PRAGMA cache_size=-20000")
-        try execute("PRAGMA wal_autocheckpoint=1000")
-        try execute("CREATE TABLE IF NOT EXISTS files (path TEXT PRIMARY KEY NOT NULL, name TEXT NOT NULL, stem TEXT NOT NULL, ext TEXT NOT NULL, parent TEXT NOT NULL, display_parent TEXT NOT NULL, fallback_icon TEXT NOT NULL, indexed_at REAL NOT NULL)")
-        try execute("CREATE VIRTUAL TABLE IF NOT EXISTS files_fts USING fts5(path UNINDEXED, name, stem, ext, parent, tokenize='unicode61')")
-        try execute("CREATE INDEX IF NOT EXISTS idx_files_name ON files(name)")
     }
 
-    func fileCount() -> Int {
-        guard db != nil else { return 0 }
-        return (try? intValue("SELECT COUNT(*) FROM files")) ?? 0
+    func fileCount() async -> Int {
+        do {
+            try await open()
+            return try readLock.withLock {
+                try intValue("SELECT COUNT(*) FROM files", database: requireReadDB())
+            }
+        } catch {
+            return 0
+        }
     }
 
-    func upsert(_ records: [FileRecord]) throws {
+    func upsert(_ records: [FileRecord], replaceExistingFTS: Bool = true) async throws {
         guard records.isEmpty == false else { return }
-        try open()
-        try execute("BEGIN IMMEDIATE")
+        try await open()
+        try writeLock.withLock {
+            let db = try requireWriteDB()
+            try execute("BEGIN IMMEDIATE", database: db)
 
-        do {
-            let deleteFTS = try Statement(database: requireDB(), sql: "DELETE FROM files_fts WHERE path = ?")
-            let insertFile = try Statement(database: requireDB(), sql: "INSERT OR REPLACE INTO files(path, name, stem, ext, parent, display_parent, fallback_icon, indexed_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)")
-            let insertFTS = try Statement(database: requireDB(), sql: "INSERT INTO files_fts(path, name, stem, ext, parent) VALUES (?, ?, ?, ?, ?)")
-            let now = Date().timeIntervalSince1970
+            do {
+                let existingID = try Statement(database: db, sql: "SELECT id FROM files WHERE path = ?")
+                let deleteFTS = replaceExistingFTS ? try Statement(database: db, sql: "DELETE FROM files_fts WHERE rowid = ?") : nil
+                let insertFile = try Statement(database: db, sql: "INSERT INTO files(path, name, stem, ext, parent, display_parent, fallback_icon, indexed_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(path) DO UPDATE SET name = excluded.name, stem = excluded.stem, ext = excluded.ext, parent = excluded.parent, display_parent = excluded.display_parent, fallback_icon = excluded.fallback_icon, indexed_at = excluded.indexed_at")
+                let insertFTS = try Statement(database: db, sql: "INSERT INTO files_fts(rowid, name, stem, ext, parent) VALUES (?, ?, ?, ?, ?)")
+                let now = Date().timeIntervalSince1970
 
-            for record in records {
-                guard Task.isCancelled == false else { break }
-                try deleteFTS.bind(record.path).stepReset()
+                for record in records {
+                    guard Task.isCancelled == false else { break }
+                    let previousRowID = try existingID.bind(record.path).int64Value()
 
-                try insertFile
-                    .bind(record.path, record.name, record.stem, record.extensionName, record.parent, record.displayLocation, record.fallbackIcon, now)
-                    .stepReset()
+                    try insertFile
+                        .bind(record.path, record.name, record.stem, record.extensionName, record.parent, record.displayLocation, record.fallbackIcon, now)
+                        .stepReset()
 
-                try insertFTS
-                    .bind(record.path, record.name, record.stem, record.extensionName, record.parent)
-                    .stepReset()
+                    let rowID = previousRowID ?? sqlite3_last_insert_rowid(db)
+                    try deleteFTS?.bind(rowID).stepReset()
+
+                    try insertFTS
+                        .bind(rowID, record.name, record.stem, record.extensionName, record.parent)
+                        .stepReset()
+                }
+
+                try execute("COMMIT", database: db)
+            } catch {
+                try? execute("ROLLBACK", database: db)
+                throw error
             }
-
-            try execute("COMMIT")
-        } catch {
-            try? execute("ROLLBACK")
-            throw error
         }
     }
 
-    func delete(paths: [String]) throws {
+    func delete(paths: [String]) async throws {
         guard paths.isEmpty == false else { return }
-        try open()
-        try execute("BEGIN IMMEDIATE")
+        try await open()
+        try writeLock.withLock {
+            let db = try requireWriteDB()
+            try execute("BEGIN IMMEDIATE", database: db)
 
-        do {
-            let deleteFTS = try Statement(database: requireDB(), sql: "DELETE FROM files_fts WHERE path = ?")
-            let deleteFile = try Statement(database: requireDB(), sql: "DELETE FROM files WHERE path = ?")
+            do {
+                let existingID = try Statement(database: db, sql: "SELECT id FROM files WHERE path = ?")
+                let deleteFTS = try Statement(database: db, sql: "DELETE FROM files_fts WHERE rowid = ?")
+                let deleteFile = try Statement(database: db, sql: "DELETE FROM files WHERE path = ?")
 
-            for path in paths {
-                try deleteFTS.bind(path).stepReset()
-                try deleteFile.bind(path).stepReset()
+                for path in paths {
+                    if let rowID = try existingID.bind(path).int64Value() {
+                        try deleteFTS.bind(rowID).stepReset()
+                    }
+                    try deleteFile.bind(path).stepReset()
+                }
+
+                try execute("COMMIT", database: db)
+            } catch {
+                try? execute("ROLLBACK", database: db)
+                throw error
             }
-
-            try execute("COMMIT")
-        } catch {
-            try? execute("ROLLBACK")
-            throw error
         }
     }
 
-    func applyChanges(paths: [String]) throws {
-        try open()
+    func applyChanges(paths: [String]) async throws {
+        try await open()
         let scanner = FileScanner()
         var upserts: [FileRecord] = []
         var deletes: [String] = []
@@ -220,55 +330,67 @@ actor FileIndexDatabase {
             }
         }
 
-        try delete(paths: deletes)
-        try upsert(upserts)
-        try optimizeStorage(passive: true)
+        try await delete(paths: deletes)
+        try await upsert(upserts)
     }
 
-    func deleteRowsNotIndexed(since timestamp: Double) throws {
-        try open()
-        try execute("BEGIN IMMEDIATE")
+    func deleteRowsNotIndexed(since timestamp: Double) async throws {
+        try await open()
+        try writeLock.withLock {
+            let db = try requireWriteDB()
+            try execute("BEGIN IMMEDIATE", database: db)
 
-        do {
-            try execute("DELETE FROM files_fts WHERE path IN (SELECT path FROM files WHERE indexed_at < \(timestamp))")
-            try execute("DELETE FROM files WHERE indexed_at < \(timestamp)")
-            try execute("COMMIT")
-        } catch {
-            try? execute("ROLLBACK")
-            throw error
+            do {
+                try execute("DELETE FROM files_fts WHERE rowid IN (SELECT id FROM files WHERE indexed_at < \(timestamp))", database: db)
+                try execute("DELETE FROM files WHERE indexed_at < \(timestamp)", database: db)
+                try execute("COMMIT", database: db)
+            } catch {
+                try? execute("ROLLBACK", database: db)
+                throw error
+            }
         }
     }
 
-    func pruneSkippedPaths() throws -> Int {
-        try open()
+    func pruneSkippedPaths() async throws -> Int {
+        try await open()
         let predicate = FileScanner.skippedPathSQLPredicate()
         guard predicate.isEmpty == false else { return 0 }
 
-        try execute("BEGIN IMMEDIATE")
+        let deletedCount = try writeLock.withLock {
+            let db = try requireWriteDB()
+            try execute("BEGIN IMMEDIATE", database: db)
 
-        do {
-            try execute("DELETE FROM files_fts WHERE path IN (SELECT path FROM files WHERE \(predicate))")
-            try execute("DELETE FROM files WHERE \(predicate)")
-            let deletedCount = Int(sqlite3_changes(try requireDB()))
-            try execute("COMMIT")
-            if deletedCount > 0 {
-                try? optimizeStorage(passive: true)
+            do {
+                try execute("DELETE FROM files_fts WHERE rowid IN (SELECT id FROM files WHERE \(predicate))", database: db)
+                try execute("DELETE FROM files WHERE \(predicate)", database: db)
+                let deletedCount = Int(sqlite3_changes(db))
+                try execute("COMMIT", database: db)
+                return deletedCount
+            } catch {
+                try? execute("ROLLBACK", database: db)
+                throw error
             }
-            return deletedCount
-        } catch {
-            try? execute("ROLLBACK")
-            throw error
+        }
+
+        if deletedCount > 0 {
+            try? await optimizeStorage(passive: true)
+        }
+        return deletedCount
+    }
+
+    func optimizeStorage(passive: Bool = false) async throws {
+        try await open()
+        try writeLock.withLock {
+            let db = try requireWriteDB()
+            if passive == false {
+                try execute("INSERT INTO files_fts(files_fts) VALUES('optimize')", database: db)
+            }
+            try execute(passive ? "PRAGMA wal_checkpoint(PASSIVE)" : "PRAGMA wal_checkpoint(TRUNCATE)", database: db)
         }
     }
 
-    func optimizeStorage(passive: Bool = false) throws {
-        try open()
-        try execute("INSERT INTO files_fts(files_fts) VALUES('optimize')")
-        try execute(passive ? "PRAGMA wal_checkpoint(PASSIVE)" : "PRAGMA wal_checkpoint(TRUNCATE)")
-    }
-
-    func search(_ query: String, limit: Int) throws -> [FileMatch] {
-        try open()
+    func search(_ query: String, limit: Int) async throws -> [FileMatch] {
+        try await open()
         let normalized = SearchScoring.normalize(query)
         let tokens = normalized.components(separatedBy: CharacterSet.alphanumerics.inverted).filter { $0.isEmpty == false }
         guard tokens.isEmpty == false else { return [] }
@@ -277,50 +399,74 @@ actor FileIndexDatabase {
         let sql = """
         SELECT f.path, f.name, f.stem, f.ext, f.parent, f.display_parent, f.fallback_icon, bm25(files_fts) AS rank
         FROM files_fts
-        JOIN files f ON f.path = files_fts.path
+        JOIN files f ON f.id = files_fts.rowid
         WHERE files_fts MATCH ?
         ORDER BY rank
         LIMIT ?
         """
 
-        let statement = try Statement(database: requireDB(), sql: sql)
-        try statement.bind(ftsQuery, limit)
+        return try readLock.withLock {
+            let statement = try Statement(database: requireReadDB(), sql: sql)
+            try statement.bind(ftsQuery, limit)
 
-        var matches: [FileMatch] = []
-        while statement.step() == SQLITE_ROW {
-            guard Task.isCancelled == false else { return [] }
-            let record = FileRecord(
-                path: statement.text(at: 0),
-                name: statement.text(at: 1),
-                stem: statement.text(at: 2),
-                extensionName: statement.text(at: 3),
-                parent: statement.text(at: 4),
-                displayLocation: statement.text(at: 5),
-                fallbackIcon: statement.text(at: 6)
-            )
-            let rank = statement.double(at: 7)
-            matches.append(FileMatch(record: record, score: 88 - rank))
-        }
+            var matches: [FileMatch] = []
+            while statement.step() == SQLITE_ROW {
+                guard Task.isCancelled == false else { return [] }
+                let record = FileRecord(
+                    path: statement.text(at: 0),
+                    name: statement.text(at: 1),
+                    stem: statement.text(at: 2),
+                    extensionName: statement.text(at: 3),
+                    parent: statement.text(at: 4),
+                    displayLocation: statement.text(at: 5),
+                    fallbackIcon: statement.text(at: 6)
+                )
+                let rank = statement.double(at: 7)
+                matches.append(FileMatch(record: record, score: 88 - rank))
+            }
 
-        return matches
-    }
-
-    private func requireDB() throws -> OpaquePointer {
-        guard let db else { throw FileIndexDatabaseError.notOpen }
-        return db
-    }
-
-    private func execute(_ sql: String) throws {
-        let db = try requireDB()
-        guard sqlite3_exec(db, sql, nil, nil, nil) == SQLITE_OK else {
-            throw FileIndexDatabaseError.queryFailed(String(cString: sqlite3_errmsg(db)))
+            return matches
         }
     }
 
-    private func intValue(_ sql: String) throws -> Int {
-        let statement = try Statement(database: requireDB(), sql: sql)
+    private func requireReadDB() throws -> OpaquePointer {
+        guard let readDB else { throw FileIndexDatabaseError.notOpen }
+        return readDB
+    }
+
+    private func requireWriteDB() throws -> OpaquePointer {
+        guard let writeDB else { throw FileIndexDatabaseError.notOpen }
+        return writeDB
+    }
+
+    private func prepareSchema(database: OpaquePointer) throws {
+        let version = try intValue("PRAGMA user_version", database: database)
+        guard version < 2 else { return }
+
+        diagnostics.log("Migrating file index schema to v2")
+        try execute("DROP TABLE IF EXISTS files_fts", database: database)
+        try execute("DROP TABLE IF EXISTS files", database: database)
+    }
+
+    private func execute(_ sql: String, database: OpaquePointer) throws {
+        guard sqlite3_exec(database, sql, nil, nil, nil) == SQLITE_OK else {
+            throw FileIndexDatabaseError.queryFailed(String(cString: sqlite3_errmsg(database)))
+        }
+    }
+
+    private func intValue(_ sql: String, database: OpaquePointer) throws -> Int {
+        let statement = try Statement(database: database, sql: sql)
         guard statement.step() == SQLITE_ROW else { return 0 }
         return Int(sqlite3_column_int64(statement.pointer, 0))
+    }
+
+    deinit {
+        if let readDB {
+            sqlite3_close(readDB)
+        }
+        if let writeDB {
+            sqlite3_close(writeDB)
+        }
     }
 }
 
@@ -353,6 +499,8 @@ private final class Statement {
             switch value {
             case let string as String:
                 sqlite3_bind_text(pointer, position, string, -1, SQLITE_TRANSIENT)
+            case let int64 as Int64:
+                sqlite3_bind_int64(pointer, position, sqlite3_int64(int64))
             case let int as Int:
                 sqlite3_bind_int64(pointer, position, sqlite3_int64(int))
             case let double as Double:
@@ -376,6 +524,21 @@ private final class Statement {
             throw FileIndexDatabaseError.queryFailed("SQLite step failed: \(result)")
         }
         sqlite3_reset(pointer)
+    }
+
+    func int64Value() throws -> Int64? {
+        let result = sqlite3_step(pointer)
+        guard result == SQLITE_ROW else {
+            guard result == SQLITE_DONE else {
+                throw FileIndexDatabaseError.queryFailed("SQLite step failed: \(result)")
+            }
+            sqlite3_reset(pointer)
+            return nil
+        }
+
+        let value = sqlite3_column_int64(pointer, 0)
+        sqlite3_reset(pointer)
+        return Int64(value)
     }
 
     func text(at index: Int32) -> String {
@@ -497,7 +660,7 @@ private final class FileEventWatcher: @unchecked Sendable {
 }
 
 private struct FileScanner {
-    private let chunkSize = 200
+    private let chunkSize = 2_000
     private static let skippedNames: Set<String> = [
         ".git", ".svn", ".hg",
         ".build", ".swiftpm", "DerivedData", "target", "dist", "build", "Build",

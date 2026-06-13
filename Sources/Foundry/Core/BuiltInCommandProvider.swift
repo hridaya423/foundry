@@ -43,6 +43,17 @@ final class BuiltInCommandProvider: CommandProvider {
                 secondaryActions: []
             ),
             BuiltInCommand(
+                id: "foundry.rebuild-file-index",
+                title: "Rebuild File Index",
+                subtitle: "Rescan files and prune ignored package/cache folders",
+                aliases: ["reindex", "refresh files", "scan files", "file index", "rebuild index"],
+                systemIcon: "arrow.clockwise",
+                fallback: "RI",
+                scoreBoost: 2,
+                primaryAction: CommandAction(id: "foundry.rebuild-file-index.perform", title: "Rebuild", kind: .rebuildFileIndex),
+                secondaryActions: []
+            ),
+            BuiltInCommand(
                 id: "foundry.quit",
                 title: "Quit Foundry",
                 subtitle: "Stop the local prototype process.",
