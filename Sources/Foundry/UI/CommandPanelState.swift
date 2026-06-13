@@ -7,6 +7,8 @@ final class CommandPanelState: ObservableObject {
     }
     @Published var results: [CommandResult] = []
     @Published var selectedResultID: String?
+    @Published var isShowingActions = false
+    @Published var selectedActionID: String?
     @Published var diagnosticsSummary = "IDLE"
 
     private let registry: CommandRegistry
@@ -18,6 +20,15 @@ final class CommandPanelState: ObservableObject {
 
     var selectedResult: CommandResult? {
         results.first { $0.id == selectedResultID }
+    }
+
+    var selectedActions: [CommandAction] {
+        guard let selectedResult else { return [] }
+        return [selectedResult.primaryAction] + selectedResult.secondaryActions
+    }
+
+    var selectedAction: CommandAction? {
+        selectedActions.first { $0.id == selectedActionID }
     }
 
     init(registry: CommandRegistry, actionRunner: ActionRunner, diagnostics: DiagnosticsService) {
@@ -35,6 +46,8 @@ final class CommandPanelState: ObservableObject {
         query = ""
         results = []
         selectedResultID = nil
+        isShowingActions = false
+        selectedActionID = nil
         refreshStatusSummary(fallback: "READY")
     }
 
@@ -44,6 +57,13 @@ final class CommandPanelState: ObservableObject {
 
     func executeSelectedResult() {
         guard let selectedResult else { return }
+        if isShowingActions, let selectedAction {
+            diagnostics.log("Executing action: \(selectedAction.id)")
+            registry.recordExecution(resultID: selectedResult.id)
+            actionRunner.perform(selectedAction)
+            return
+        }
+
         diagnostics.log("Executing result: \(selectedResult.id)")
         registry.recordExecution(resultID: selectedResult.id)
         actionRunner.perform(selectedResult.primaryAction)
@@ -51,6 +71,22 @@ final class CommandPanelState: ObservableObject {
 
     func select(resultID: String) {
         selectedResultID = resultID
+        if isShowingActions {
+            selectedActionID = selectedActions.first?.id
+        }
+    }
+
+    func select(actionID: String) {
+        selectedActionID = actionID
+    }
+
+    func toggleActions() {
+        guard selectedResult != nil else {
+            diagnostics.log("No selected result for actions")
+            return
+        }
+        isShowingActions.toggle()
+        selectedActionID = isShowingActions ? selectedActions.first?.id : nil
     }
 
     func moveSelectionDown() {
@@ -62,6 +98,15 @@ final class CommandPanelState: ObservableObject {
     }
 
     private func moveSelection(offset: Int) {
+        if isShowingActions {
+            let actions = selectedActions
+            guard actions.isEmpty == false else { return }
+            let currentIndex = selectedActionID.flatMap { id in actions.firstIndex { $0.id == id } } ?? 0
+            let nextIndex = min(max(currentIndex + offset, 0), actions.count - 1)
+            selectedActionID = actions[nextIndex].id
+            return
+        }
+
         guard results.isEmpty == false else { return }
         let currentIndex = selectedResultID.flatMap { id in results.firstIndex { $0.id == id } } ?? 0
         let nextIndex = min(max(currentIndex + offset, 0), results.count - 1)
@@ -71,6 +116,8 @@ final class CommandPanelState: ObservableObject {
     private func refreshResults() {
         searchTask?.cancel()
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        isShowingActions = false
+        selectedActionID = nil
         guard trimmed.isEmpty == false else {
             results = []
             selectedResultID = nil

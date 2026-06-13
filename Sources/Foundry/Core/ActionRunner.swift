@@ -39,6 +39,15 @@ final class ActionRunner {
             try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
             NSWorkspace.shared.open(folder)
 
+        case let .revealInFinder(path):
+            NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: path)])
+            diagnostics.log("Revealed in Finder: \(path)")
+
+        case let .copyToClipboard(value):
+            NSPasteboard.general.clearContents()
+            NSPasteboard.general.setString(value, forType: .string)
+            diagnostics.log("Copied to clipboard")
+
         case .rebuildFileIndex:
             guard let rebuildFileIndex else {
                 diagnostics.log("File index rebuild is unavailable")

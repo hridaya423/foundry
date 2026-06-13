@@ -29,7 +29,7 @@ final class FileSearchProvider: CommandProvider, @unchecked Sendable {
         }
 
         let roots = FileScanner.fileSearchRoots()
-        self.watcher = FileEventWatcher(paths: roots.map(\.path), diagnostics: diagnostics) { [database, indexingStatus, id] paths in
+        self.watcher = FileEventWatcher(paths: roots.map(\.url.path), diagnostics: diagnostics) { [database, indexingStatus, id] paths in
             Task.detached(priority: .utility) {
                 do {
                     try await database.applyChanges(paths: paths)
@@ -64,18 +64,22 @@ final class FileSearchProvider: CommandProvider, @unchecked Sendable {
             let matches = try await database.search(trimmed, limit: 8)
             guard Task.isCancelled == false else { return [] }
             return matches.map { match in
-                CommandResult(
+                let path = match.record.path
+                return CommandResult(
                     id: "file.\(match.record.identity)",
                     title: match.record.name,
                     subtitle: match.record.displayLocation,
-                    icon: CommandIcon(fallback: match.record.fallbackIcon, filePath: match.record.path),
+                    icon: CommandIcon(fallback: match.record.fallbackIcon, filePath: path),
                     score: match.score,
                     primaryAction: CommandAction(
                         id: "file.\(match.record.identity).open",
                         title: "Open",
-                        kind: .openFile(path: match.record.path)
+                        kind: .openFile(path: path)
                     ),
-                    secondaryActions: []
+                    secondaryActions: [
+                        CommandAction(id: "file.\(match.record.identity).reveal", title: "Reveal in Finder", kind: .revealInFinder(path: path)),
+                        CommandAction(id: "file.\(match.record.identity).copy-path", title: "Copy Path", kind: .copyToClipboard(path))
+                    ]
                 )
             }
         } catch {
@@ -119,7 +123,8 @@ final class FileSearchProvider: CommandProvider, @unchecked Sendable {
             var total = 0
             let shouldReplaceExistingFTS = forceFullScan || existingCount > 0
             let scanner = FileScanner()
-            await scanner.scan(onRootStart: { _ in
+            await scanner.scan(onRootStart: { root in
+                indexingStatus.setStatus("indexing \(root.label): \(total)", for: providerID)
             }, onChunk: { chunk in
                 guard Task.isCancelled == false else { return false }
                 do {
@@ -659,6 +664,12 @@ private final class FileEventWatcher: @unchecked Sendable {
     }
 }
 
+private struct ScanRoot: Sendable {
+    let url: URL
+    let label: String
+    let isWholeDisk: Bool
+}
+
 private struct FileScanner {
     private let chunkSize = 2_000
     private static let skippedNames: Set<String> = [
@@ -677,21 +688,18 @@ private struct FileScanner {
         "/Users/Shared/Relocated Items"
     ]
 
-    func scan(onRootStart: (URL) -> Void, onChunk: ([FileRecord]) async -> Bool) async {
+    func scan(onRootStart: (ScanRoot) -> Void, onChunk: ([FileRecord]) async -> Bool) async {
         var chunk: [FileRecord] = []
         chunk.reserveCapacity(chunkSize)
-        var seen = Set<String>()
         let roots = Self.fileSearchRoots()
-        let priorityRootPaths = Set(roots.dropLast().map { $0.standardizedFileURL.path })
+        let priorityRootPaths = Set(roots.filter { $0.isWholeDisk == false }.map { $0.url.standardizedFileURL.path })
 
-        for root in roots where FileManager.default.fileExists(atPath: root.path) {
+        for root in roots where FileManager.default.fileExists(atPath: root.url.path) {
             guard Task.isCancelled == false else { return }
             onRootStart(root)
-            let rootPath = root.standardizedFileURL.path
-            let isWholeDiskPass = rootPath == "/"
 
             guard let enumerator = FileManager.default.enumerator(
-                at: root,
+                at: root.url,
                 includingPropertiesForKeys: [.isRegularFileKey, .isDirectoryKey, .isPackageKey],
                 options: [.skipsHiddenFiles, .skipsPackageDescendants],
                 errorHandler: { _, _ in true }
@@ -701,7 +709,7 @@ private struct FileScanner {
                 guard Task.isCancelled == false else { return }
 
                 let path = url.standardizedFileURL.path
-                if isWholeDiskPass, priorityRootPaths.contains(path) {
+                if root.isWholeDisk, priorityRootPaths.contains(path) {
                     enumerator.skipDescendants()
                     continue
                 }
@@ -712,7 +720,6 @@ private struct FileScanner {
                 }
 
                 guard isIndexableFile(url: url) else { continue }
-                guard seen.insert(path).inserted else { continue }
 
                 chunk.append(FileRecord(url: url))
                 if chunk.count >= chunkSize {
@@ -762,22 +769,22 @@ private struct FileScanner {
         }
     }
 
-    static func fileSearchRoots() -> [URL] {
+    static func fileSearchRoots() -> [ScanRoot] {
         let home = FileManager.default.homeDirectoryForCurrentUser
         let candidates = [
-            URL(fileURLWithPath: FileManager.default.currentDirectoryPath),
-            home.appendingPathComponent("Desktop"),
-            home.appendingPathComponent("Documents"),
-            home.appendingPathComponent("Downloads"),
-            home.appendingPathComponent("Developer"),
-            home.appendingPathComponent("Code"),
-            home.appendingPathComponent("Projects"),
-            URL(fileURLWithPath: "/")
+            ScanRoot(url: URL(fileURLWithPath: FileManager.default.currentDirectoryPath), label: "workspace", isWholeDisk: false),
+            ScanRoot(url: home.appendingPathComponent("Desktop"), label: "Desktop", isWholeDisk: false),
+            ScanRoot(url: home.appendingPathComponent("Downloads"), label: "Downloads", isWholeDisk: false),
+            ScanRoot(url: home.appendingPathComponent("Documents"), label: "Documents", isWholeDisk: false),
+            ScanRoot(url: home.appendingPathComponent("Developer"), label: "Developer", isWholeDisk: false),
+            ScanRoot(url: home.appendingPathComponent("Code"), label: "Code", isWholeDisk: false),
+            ScanRoot(url: home.appendingPathComponent("Projects"), label: "Projects", isWholeDisk: false),
+            ScanRoot(url: URL(fileURLWithPath: "/"), label: "Mac", isWholeDisk: true)
         ]
 
         var seen = Set<String>()
-        return candidates.filter { url in
-            let standardized = url.standardizedFileURL.path
+        return candidates.filter { root in
+            let standardized = root.url.standardizedFileURL.path
             guard FileManager.default.fileExists(atPath: standardized) else { return false }
             return seen.insert(standardized).inserted
         }

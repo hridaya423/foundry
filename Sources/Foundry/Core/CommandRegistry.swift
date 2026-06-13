@@ -41,6 +41,8 @@ enum CommandActionKind: Hashable, Sendable {
     case openFile(path: String)
     case openURL(String)
     case openConfigFolder
+    case revealInFinder(path: String)
+    case copyToClipboard(String)
     case rebuildFileIndex
     case runProcess(path: String, arguments: [String])
     case quit

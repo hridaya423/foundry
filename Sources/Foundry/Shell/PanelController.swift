@@ -51,6 +51,9 @@ final class PanelController: NSObject, NSWindowDelegate {
         panel.hasShadow = true
         panel.titleVisibility = .hidden
         panel.titlebarAppearsTransparent = true
+        panel.onCommandK = { [weak self] in
+            self?.state.toggleActions()
+        }
 
         let rootView = CommandPanelView(state: state) { [weak self] in
             self?.hide()
@@ -79,7 +82,33 @@ final class PanelController: NSObject, NSWindowDelegate {
     }
 }
 
+@MainActor
 final class FoundryPanel: NSPanel {
+    var onCommandK: (() -> Void)?
+
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { true }
+
+    override func performKeyEquivalent(with event: NSEvent) -> Bool {
+        if handlesCommandK(event) {
+            onCommandK?()
+            return true
+        }
+
+        return super.performKeyEquivalent(with: event)
+    }
+
+    override func keyDown(with event: NSEvent) {
+        if handlesCommandK(event) {
+            onCommandK?()
+            return
+        }
+
+        super.keyDown(with: event)
+    }
+
+    private func handlesCommandK(_ event: NSEvent) -> Bool {
+        let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+        return flags == .command && event.charactersIgnoringModifiers?.lowercased() == "k"
+    }
 }

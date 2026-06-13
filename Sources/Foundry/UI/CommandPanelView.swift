@@ -11,7 +11,9 @@ struct CommandPanelView: View {
         VStack(spacing: 0) {
             header
 
-            if state.results.isEmpty {
+            if state.isShowingActions {
+                actionsSurface
+            } else if state.results.isEmpty {
                 emptyState
             } else {
                 resultsSurface
@@ -104,6 +106,58 @@ struct CommandPanelView: View {
                 guard let resultID else { return }
                 withAnimation(.easeOut(duration: 0.12)) {
                     proxy.scrollTo(resultID, anchor: .center)
+                }
+            }
+        }
+    }
+
+    private var actionsSurface: some View {
+        VStack(spacing: 0) {
+            HStack(spacing: 8) {
+                Text("Actions")
+                    .font(FoundryTheme.body(size: 12, weight: .semibold))
+                    .foregroundStyle(FoundryTheme.secondaryText)
+
+                if let selectedResult = state.selectedResult {
+                    Text(selectedResult.title)
+                        .font(FoundryTheme.body(size: 12, weight: .regular))
+                        .foregroundStyle(FoundryTheme.mutedText)
+                        .lineLimit(1)
+                }
+
+                Spacer()
+            }
+            .padding(.horizontal, 22)
+            .frame(height: 42)
+            .background(FoundryTheme.surface)
+
+            ScrollViewReader { proxy in
+                ScrollView {
+                    LazyVStack(spacing: 3) {
+                        ForEach(state.selectedActions, id: \.id) { action in
+                            ActionRow(
+                                action: action,
+                                isSelected: state.selectedActionID == action.id
+                            )
+                            .id(action.id)
+                            .contentShape(Rectangle())
+                            .onTapGesture {
+                                state.select(actionID: action.id)
+                                state.executeSelectedResult()
+                                dismiss()
+                            }
+                        }
+                    }
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 8)
+                }
+                .scrollIndicators(.never)
+                .background(FoundryTheme.surface)
+                .onChange(of: state.selectedActionID) { _, actionID in
+                    guard let actionID else { return }
+                    withAnimation(.easeOut(duration: 0.12)) {
+                        proxy.scrollTo(actionID, anchor: .center)
+                    }
                 }
             }
         }
@@ -203,6 +257,67 @@ private struct ResultRow: View {
             RoundedRectangle(cornerRadius: 11, style: .continuous)
                 .stroke(isSelected ? FoundryTheme.selectionBorder : Color.clear, lineWidth: 1)
         )
+    }
+}
+
+private struct ActionRow: View {
+    let action: CommandAction
+    let isSelected: Bool
+
+    var body: some View {
+        HStack(spacing: 12) {
+            RoundedRectangle(cornerRadius: 9, style: .continuous)
+                .fill(FoundryTheme.surfaceElevated)
+                .overlay(
+                    Image(systemName: iconName)
+                        .font(.system(size: 15, weight: .medium))
+                        .foregroundStyle(FoundryTheme.secondaryText)
+                )
+                .frame(width: 34, height: 34)
+
+            Text(action.title)
+                .font(FoundryTheme.body(size: 15, weight: .semibold))
+                .foregroundStyle(FoundryTheme.primaryText)
+
+            Spacer()
+
+            if isSelected {
+                Text("return")
+                    .font(FoundryTheme.body(size: 10, weight: .medium))
+                    .foregroundStyle(FoundryTheme.mutedText)
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 4)
+                    .background(FoundryTheme.keycap)
+                    .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+            }
+        }
+        .padding(.horizontal, 12)
+        .frame(height: 54)
+        .background(isSelected ? FoundryTheme.selection : Color.clear)
+        .clipShape(RoundedRectangle(cornerRadius: 11, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 11, style: .continuous)
+                .stroke(isSelected ? FoundryTheme.selectionBorder : Color.clear, lineWidth: 1)
+        )
+    }
+
+    private var iconName: String {
+        switch action.kind {
+        case .openApp, .openFile, .openURL, .openConfigFolder:
+            "arrow.up.right.square"
+        case .revealInFinder:
+            "folder"
+        case .copyToClipboard:
+            "doc.on.doc"
+        case .rebuildFileIndex:
+            "arrow.clockwise"
+        case .runProcess:
+            "terminal"
+        case .quit:
+            "power"
+        case .log:
+            "text.bubble"
+        }
     }
 }
 
