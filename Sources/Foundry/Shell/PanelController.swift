@@ -30,6 +30,7 @@ final class PanelController: NSObject, NSWindowDelegate {
     }
 
     func hide() {
+        state.panelWillClose()
         panel?.orderOut(nil)
     }
 

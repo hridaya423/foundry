@@ -32,6 +32,17 @@ final class BuiltInCommandProvider: CommandProvider {
     private func commands() -> [BuiltInCommand] {
         [
             BuiltInCommand(
+                id: "foundry.activity-monitor",
+                title: "Activity Monitor",
+                subtitle: "Inspect CPU, memory, and running processes",
+                aliases: ["processes", "process monitor", "cpu", "memory", "ram", "system monitor", "task manager"],
+                systemIcon: "cpu",
+                fallback: "AM",
+                scoreBoost: 3,
+                primaryAction: CommandAction(id: "foundry.activity-monitor.open", title: "Open", kind: .openActivityMonitor),
+                secondaryActions: []
+            ),
+            BuiltInCommand(
                 id: "foundry.settings",
                 title: "Open Foundry Settings",
                 subtitle: "Open the local Foundry config folder",

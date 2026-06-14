@@ -16,7 +16,9 @@ struct CommandPanelView: View {
         VStack(spacing: 0) {
             header
 
-            if state.isShowingActions {
+            if state.mode == .activityMonitor {
+                ActivityMonitorView(state: state.activityMonitor)
+            } else if state.isShowingActions {
                 actionsSurface
             } else if state.results.isEmpty {
                 emptyState
@@ -64,22 +66,39 @@ struct CommandPanelView: View {
 
     private var header: some View {
         HStack(spacing: 14) {
-            Image(systemName: "magnifyingglass")
-                .font(.system(size: 18, weight: .regular))
-                .foregroundStyle(FoundryTheme.mutedText)
-                .frame(width: 24)
-
-            TextField("Search apps, files, and commands...", text: $state.query)
-                .textFieldStyle(.plain)
-                .font(FoundryTheme.body(size: 24, weight: .regular))
-                .foregroundStyle(FoundryTheme.primaryText)
-                .focused($inputFocused)
-                .onSubmit {
-                    state.executeSelectedResult()
-                    if state.selectedResult != nil {
-                        dismiss()
-                    }
+            if state.mode == .activityMonitor {
+                Button(action: state.backToSearch) {
+                    Image(systemName: "chevron.left")
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundStyle(FoundryTheme.primaryText)
+                        .frame(width: 34, height: 34)
+                        .background(Color.white.opacity(0.075))
+                        .clipShape(RoundedRectangle(cornerRadius: 11, style: .continuous))
                 }
+                .buttonStyle(.plain)
+
+                TextField("Filter processes...", text: activityQueryBinding)
+                    .textFieldStyle(.plain)
+                    .font(FoundryTheme.body(size: 24, weight: .regular))
+                    .foregroundStyle(FoundryTheme.primaryText)
+                    .focused($inputFocused)
+            } else {
+                Image(systemName: "magnifyingglass")
+                    .font(.system(size: 18, weight: .regular))
+                    .foregroundStyle(FoundryTheme.mutedText)
+                    .frame(width: 24)
+
+                TextField("Search apps, files, and commands...", text: $state.query)
+                    .textFieldStyle(.plain)
+                    .font(FoundryTheme.body(size: 24, weight: .regular))
+                    .foregroundStyle(FoundryTheme.primaryText)
+                    .focused($inputFocused)
+                    .onSubmit {
+                        if state.executeSelectedResult() {
+                            dismiss()
+                        }
+                    }
+            }
         }
         .padding(.horizontal, 28)
         .frame(height: 78)
@@ -116,8 +135,9 @@ struct CommandPanelView: View {
                         .contentShape(Rectangle())
                         .onTapGesture {
                             state.select(resultID: result.id)
-                            state.executeSelectedResult()
-                            dismiss()
+                            if state.executeSelectedResult() {
+                                dismiss()
+                            }
                         }
                     }
                 }
@@ -172,8 +192,9 @@ struct CommandPanelView: View {
                             .contentShape(Rectangle())
                             .onTapGesture {
                                 state.select(actionID: action.id)
-                                state.executeSelectedResult()
-                                dismiss()
+                                if state.executeSelectedResult() {
+                                    dismiss()
+                                }
                             }
                         }
                     }
@@ -222,13 +243,18 @@ struct CommandPanelView: View {
 
     private var footer: some View {
         HStack(spacing: 16) {
-            FooterHint(keys: "return", label: selectedCalculatorResult == nil ? "Open" : "Copy Answer")
-            FooterHint(keys: "⌘ K", label: "Actions")
-            FooterHint(keys: "esc", label: "Close")
+            if state.mode == .activityMonitor {
+                FooterHint(keys: "↑↓", label: "Select")
+                FooterHint(keys: "esc", label: "Close")
+            } else {
+                FooterHint(keys: "return", label: selectedCalculatorResult == nil ? "Open" : "Copy Answer")
+                FooterHint(keys: "⌘ K", label: "Actions")
+                FooterHint(keys: "esc", label: "Close")
+            }
 
             Spacer()
 
-            Text(state.diagnosticsSummary.lowercased())
+            Text(footerSummary)
                 .font(FoundryTheme.body(size: 11, weight: .medium))
                 .foregroundStyle(FoundryTheme.mutedText)
         }
@@ -241,6 +267,21 @@ struct CommandPanelView: View {
                 .frame(height: 1)
                 .opacity(0.35)
         }
+    }
+
+    private var footerSummary: String {
+        if state.mode == .activityMonitor {
+            let snapshot = state.activityMonitor.snapshot
+            return "\(snapshot.processCount) processes · \(snapshot.groupCount) groups"
+        }
+        return state.diagnosticsSummary.lowercased()
+    }
+
+    private var activityQueryBinding: Binding<String> {
+        Binding(
+            get: { state.activityMonitor.query },
+            set: { state.activityMonitor.query = $0 }
+        )
     }
 }
 
@@ -438,6 +479,8 @@ private struct ActionRow: View {
             "folder"
         case .copyToClipboard:
             "doc.on.doc"
+        case .openActivityMonitor:
+            "cpu"
         case .rebuildFileIndex:
             "arrow.clockwise"
         case .runProcess:

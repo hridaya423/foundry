@@ -48,6 +48,9 @@ final class ActionRunner {
             NSPasteboard.general.setString(value, forType: .string)
             diagnostics.log("Copied to clipboard")
 
+        case .openActivityMonitor:
+            diagnostics.log("Activity Monitor should be opened by panel state")
+
         case .rebuildFileIndex:
             guard let rebuildFileIndex else {
                 diagnostics.log("File index rebuild is unavailable")

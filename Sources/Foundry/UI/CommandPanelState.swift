@@ -2,6 +2,11 @@ import Foundation
 
 @MainActor
 final class CommandPanelState: ObservableObject {
+    enum Mode {
+        case search
+        case activityMonitor
+    }
+
     @Published var query = "" {
         didSet { refreshResults() }
     }
@@ -10,6 +15,9 @@ final class CommandPanelState: ObservableObject {
     @Published var isShowingActions = false
     @Published var selectedActionID: String?
     @Published var diagnosticsSummary = "IDLE"
+    @Published var mode: Mode = .search
+
+    let activityMonitor = ActivityMonitorState()
 
     private let registry: CommandRegistry
     private let actionRunner: ActionRunner
@@ -43,6 +51,8 @@ final class CommandPanelState: ObservableObject {
     }
 
     func resetForOpen() {
+        mode = .search
+        activityMonitor.stop()
         query = ""
         results = []
         selectedResultID = nil
@@ -51,22 +61,43 @@ final class CommandPanelState: ObservableObject {
         refreshStatusSummary(fallback: "READY")
     }
 
+    func panelWillClose() {
+        activityMonitor.stop()
+    }
+
     func handleEscape() -> Bool {
         return false
     }
 
-    func executeSelectedResult() {
-        guard let selectedResult else { return }
+    func backToSearch() {
+        mode = .search
+        activityMonitor.stop()
+        query = ""
+        results = []
+        selectedResultID = nil
+        isShowingActions = false
+        selectedActionID = nil
+        refreshStatusSummary(fallback: "READY")
+    }
+
+    @discardableResult
+    func executeSelectedResult() -> Bool {
+        guard let selectedResult else { return false }
         if isShowingActions, let selectedAction {
             diagnostics.log("Executing action: \(selectedAction.id)")
             registry.recordExecution(resultID: selectedResult.id)
             actionRunner.perform(selectedAction)
-            return
+            return true
         }
 
         diagnostics.log("Executing result: \(selectedResult.id)")
         registry.recordExecution(resultID: selectedResult.id)
+        if selectedResult.primaryAction.kind == .openActivityMonitor {
+            openActivityMonitor()
+            return false
+        }
         actionRunner.perform(selectedResult.primaryAction)
+        return true
     }
 
     func select(resultID: String) {
@@ -98,6 +129,11 @@ final class CommandPanelState: ObservableObject {
     }
 
     private func moveSelection(offset: Int) {
+        if mode == .activityMonitor {
+            activityMonitor.moveSelection(offset: offset)
+            return
+        }
+
         if isShowingActions {
             let actions = selectedActions
             guard actions.isEmpty == false else { return }
@@ -114,6 +150,7 @@ final class CommandPanelState: ObservableObject {
     }
 
     private func refreshResults() {
+        guard mode == .search else { return }
         searchTask?.cancel()
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
         isShowingActions = false
@@ -162,5 +199,17 @@ final class CommandPanelState: ObservableObject {
 
     private func refreshStatusSummary(fallback: String = "READY") {
         diagnosticsSummary = registry.statusSummary(resultCount: results.count, fallback: fallback)
+    }
+
+    private func openActivityMonitor() {
+        mode = .activityMonitor
+        isShowingActions = false
+        selectedActionID = nil
+        searchTask?.cancel()
+        results = []
+        selectedResultID = nil
+        activityMonitor.reset()
+        activityMonitor.start()
+        diagnosticsSummary = "activity monitor"
     }
 }

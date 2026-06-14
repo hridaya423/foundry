@@ -43,6 +43,7 @@ enum CommandActionKind: Hashable, Sendable {
     case openConfigFolder
     case revealInFinder(path: String)
     case copyToClipboard(String)
+    case openActivityMonitor
     case rebuildFileIndex
     case runProcess(path: String, arguments: [String])
     case quit
