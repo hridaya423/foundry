@@ -38,13 +38,12 @@ struct CommandAction: Hashable, Sendable {
 
 enum CommandActionKind: Hashable, Sendable {
     case openApp(path: String, name: String)
-    case openFile(path: String)
     case openURL(String)
     case openConfigFolder
     case revealInFinder(path: String)
     case copyToClipboard(String)
     case openActivityMonitor
-    case rebuildFileIndex
+    case openEmojiPicker
     case runProcess(path: String, arguments: [String])
     case quit
     case log(String)
@@ -58,35 +57,27 @@ protocol CommandProvider: Sendable {
 final class CommandRegistry: @unchecked Sendable {
     private let providers: [CommandProvider]
     private let usageRanking: UsageRankingStore
-    private let indexingStatus: IndexingStatusStore
     private let diagnostics: DiagnosticsService
 
-    init(providers: [CommandProvider], usageRanking: UsageRankingStore, indexingStatus: IndexingStatusStore, diagnostics: DiagnosticsService) {
+    init(providers: [CommandProvider], usageRanking: UsageRankingStore, diagnostics: DiagnosticsService) {
         self.providers = providers
         self.usageRanking = usageRanking
-        self.indexingStatus = indexingStatus
         self.diagnostics = diagnostics
     }
 
     static func defaultRegistry(
         config: ConfigService,
-        diagnostics: DiagnosticsService,
-        fileSearchProvider: FileSearchProvider? = nil,
-        indexingStatus: IndexingStatusStore? = nil
+        diagnostics: DiagnosticsService
     ) -> CommandRegistry {
         let usageRanking = UsageRankingStore(diagnostics: diagnostics)
-        let indexingStatus = indexingStatus ?? IndexingStatusStore()
-        let fileSearchProvider = fileSearchProvider ?? FileSearchProvider(diagnostics: diagnostics, indexingStatus: indexingStatus)
         return CommandRegistry(
             providers: [
                 AppSearchProvider(diagnostics: diagnostics),
                 CalculatorProvider(),
-                fileSearchProvider,
                 SystemCommandProvider(diagnostics: diagnostics),
                 BuiltInCommandProvider(config: config, diagnostics: diagnostics)
             ],
             usageRanking: usageRanking,
-            indexingStatus: indexingStatus,
             diagnostics: diagnostics
         )
     }
@@ -138,10 +129,7 @@ final class CommandRegistry: @unchecked Sendable {
 
     func statusSummary(resultCount: Int, fallback: String) -> String {
         let resultLabel = resultCount == 1 ? "1 result" : "\(resultCount) results"
-        guard let status = indexingStatus.summary() else {
-            return resultCount > 0 ? resultLabel : fallback
-        }
-        return resultCount > 0 ? "\(resultLabel) · \(status)" : status
+        return resultCount > 0 ? resultLabel : fallback
     }
 
     private func logSearchTimings(_ timings: [ProviderSearchTiming]) {

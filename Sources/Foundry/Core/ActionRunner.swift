@@ -4,11 +4,9 @@ import Foundation
 @MainActor
 final class ActionRunner {
     private let diagnostics: DiagnosticsService
-    private let rebuildFileIndex: (@Sendable () -> Void)?
 
-    init(diagnostics: DiagnosticsService, rebuildFileIndex: (@Sendable () -> Void)? = nil) {
+    init(diagnostics: DiagnosticsService) {
         self.diagnostics = diagnostics
-        self.rebuildFileIndex = rebuildFileIndex
     }
 
     func perform(_ action: CommandAction) {
@@ -22,10 +20,6 @@ final class ActionRunner {
                     diagnostics.log("Launched app: \(name)")
                 }
             }
-
-        case let .openFile(path):
-            let opened = NSWorkspace.shared.open(URL(fileURLWithPath: path))
-            diagnostics.log(opened ? "Opened file: \(path)" : "Failed to open file: \(path)")
 
         case let .openURL(urlString):
             guard let url = URL(string: urlString) else {
@@ -51,13 +45,8 @@ final class ActionRunner {
         case .openActivityMonitor:
             diagnostics.log("Activity Monitor should be opened by panel state")
 
-        case .rebuildFileIndex:
-            guard let rebuildFileIndex else {
-                diagnostics.log("File index rebuild is unavailable")
-                return
-            }
-            diagnostics.log("Requested file index rebuild")
-            rebuildFileIndex()
+        case .openEmojiPicker:
+            diagnostics.log("Emoji Picker should be opened by panel state")
 
         case let .runProcess(path, arguments):
             DispatchQueue.global(qos: .userInitiated).async {

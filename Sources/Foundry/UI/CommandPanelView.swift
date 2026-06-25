@@ -18,6 +18,12 @@ struct CommandPanelView: View {
 
             if state.mode == .activityMonitor {
                 ActivityMonitorView(state: state.activityMonitor)
+            } else if state.mode == .emojiPicker {
+                EmojiPickerView(state: state.emojiPicker) {
+                    if state.emojiPicker.copySelectedEmoji() {
+                        dismiss()
+                    }
+                }
             } else if state.isShowingActions {
                 actionsSurface
             } else if state.results.isEmpty {
@@ -53,6 +59,10 @@ struct CommandPanelView: View {
                 state.moveSelectionDown()
             case .up:
                 state.moveSelectionUp()
+            case .left:
+                if state.mode == .emojiPicker { state.emojiPicker.moveLeft() }
+            case .right:
+                if state.mode == .emojiPicker { state.emojiPicker.moveRight() }
             default:
                 break
             }
@@ -66,7 +76,7 @@ struct CommandPanelView: View {
 
     private var header: some View {
         HStack(spacing: 14) {
-            if state.mode == .activityMonitor {
+            if state.mode == .activityMonitor || state.mode == .emojiPicker {
                 Button(action: state.backToSearch) {
                     Image(systemName: "chevron.left")
                         .font(.system(size: 18, weight: .semibold))
@@ -76,12 +86,25 @@ struct CommandPanelView: View {
                         .clipShape(RoundedRectangle(cornerRadius: 11, style: .continuous))
                 }
                 .buttonStyle(.plain)
+            }
 
+            if state.mode == .activityMonitor {
                 TextField("Filter processes...", text: activityQueryBinding)
                     .textFieldStyle(.plain)
                     .font(FoundryTheme.body(size: 24, weight: .regular))
                     .foregroundStyle(FoundryTheme.primaryText)
                     .focused($inputFocused)
+            } else if state.mode == .emojiPicker {
+                TextField("Search emoji and symbols...", text: emojiQueryBinding)
+                    .textFieldStyle(.plain)
+                    .font(FoundryTheme.body(size: 24, weight: .regular))
+                    .foregroundStyle(FoundryTheme.primaryText)
+                    .focused($inputFocused)
+                    .onSubmit {
+                        if state.emojiPicker.copySelectedEmoji() {
+                            dismiss()
+                        }
+                    }
             } else {
                 Image(systemName: "magnifyingglass")
                     .font(.system(size: 18, weight: .regular))
@@ -246,6 +269,10 @@ struct CommandPanelView: View {
             if state.mode == .activityMonitor {
                 FooterHint(keys: "↑↓", label: "Select")
                 FooterHint(keys: "esc", label: "Close")
+            } else if state.mode == .emojiPicker {
+                FooterHint(keys: "return", label: "Copy")
+                FooterHint(keys: "arrows", label: "Select")
+                FooterHint(keys: "esc", label: "Close")
             } else {
                 FooterHint(keys: "return", label: selectedCalculatorResult == nil ? "Open" : "Copy Answer")
                 FooterHint(keys: "⌘ K", label: "Actions")
@@ -274,6 +301,9 @@ struct CommandPanelView: View {
             let snapshot = state.activityMonitor.snapshot
             return "\(snapshot.processCount) processes · \(snapshot.groupCount) groups"
         }
+        if state.mode == .emojiPicker {
+            return "\(state.emojiPicker.visibleEmoji.count) symbols"
+        }
         return state.diagnosticsSummary.lowercased()
     }
 
@@ -283,6 +313,14 @@ struct CommandPanelView: View {
             set: { state.activityMonitor.query = $0 }
         )
     }
+
+    private var emojiQueryBinding: Binding<String> {
+        Binding(
+            get: { state.emojiPicker.query },
+            set: { state.emojiPicker.query = $0 }
+        )
+    }
+
 }
 
 private struct ResultRow: View {
@@ -473,7 +511,7 @@ private struct ActionRow: View {
 
     private var iconName: String {
         switch action.kind {
-        case .openApp, .openFile, .openURL, .openConfigFolder:
+        case .openApp, .openURL, .openConfigFolder:
             "arrow.up.right.square"
         case .revealInFinder:
             "folder"
@@ -481,8 +519,8 @@ private struct ActionRow: View {
             "doc.on.doc"
         case .openActivityMonitor:
             "cpu"
-        case .rebuildFileIndex:
-            "arrow.clockwise"
+        case .openEmojiPicker:
+            "face.smiling"
         case .runProcess:
             "terminal"
         case .quit:

@@ -32,6 +32,17 @@ final class BuiltInCommandProvider: CommandProvider {
     private func commands() -> [BuiltInCommand] {
         [
             BuiltInCommand(
+                id: "foundry.emoji-picker",
+                title: "Emoji & Symbols",
+                subtitle: "Search and copy emoji, symbols, and reactions",
+                aliases: ["emoji", "emojis", "symbols", "characters", "reaction", "smiley", "unicode"],
+                systemIcon: "face.smiling",
+                fallback: "EM",
+                scoreBoost: 3,
+                primaryAction: CommandAction(id: "foundry.emoji-picker.open", title: "Open", kind: .openEmojiPicker),
+                secondaryActions: []
+            ),
+            BuiltInCommand(
                 id: "foundry.activity-monitor",
                 title: "Activity Monitor",
                 subtitle: "Inspect CPU, memory, and running processes",
@@ -51,17 +62,6 @@ final class BuiltInCommandProvider: CommandProvider {
                 fallback: "ST",
                 scoreBoost: 1,
                 primaryAction: CommandAction(id: "foundry.settings.open", title: "Open", kind: .openConfigFolder),
-                secondaryActions: []
-            ),
-            BuiltInCommand(
-                id: "foundry.rebuild-file-index",
-                title: "Rebuild File Index",
-                subtitle: "Rescan files and prune ignored package/cache folders",
-                aliases: ["reindex", "refresh files", "scan files", "file index", "rebuild index"],
-                systemIcon: "arrow.clockwise",
-                fallback: "RI",
-                scoreBoost: 2,
-                primaryAction: CommandAction(id: "foundry.rebuild-file-index.perform", title: "Rebuild", kind: .rebuildFileIndex),
                 secondaryActions: []
             ),
             BuiltInCommand(

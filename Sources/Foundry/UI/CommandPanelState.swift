@@ -5,6 +5,7 @@ final class CommandPanelState: ObservableObject {
     enum Mode {
         case search
         case activityMonitor
+        case emojiPicker
     }
 
     @Published var query = "" {
@@ -18,6 +19,7 @@ final class CommandPanelState: ObservableObject {
     @Published var mode: Mode = .search
 
     let activityMonitor = ActivityMonitorState()
+    let emojiPicker = EmojiPickerState()
 
     private let registry: CommandRegistry
     private let actionRunner: ActionRunner
@@ -53,6 +55,7 @@ final class CommandPanelState: ObservableObject {
     func resetForOpen() {
         mode = .search
         activityMonitor.stop()
+        emojiPicker.reset()
         query = ""
         results = []
         selectedResultID = nil
@@ -63,6 +66,7 @@ final class CommandPanelState: ObservableObject {
 
     func panelWillClose() {
         activityMonitor.stop()
+        emojiPicker.reset()
     }
 
     func handleEscape() -> Bool {
@@ -72,6 +76,7 @@ final class CommandPanelState: ObservableObject {
     func backToSearch() {
         mode = .search
         activityMonitor.stop()
+        emojiPicker.reset()
         query = ""
         results = []
         selectedResultID = nil
@@ -94,6 +99,10 @@ final class CommandPanelState: ObservableObject {
         registry.recordExecution(resultID: selectedResult.id)
         if selectedResult.primaryAction.kind == .openActivityMonitor {
             openActivityMonitor()
+            return false
+        }
+        if selectedResult.primaryAction.kind == .openEmojiPicker {
+            openEmojiPicker()
             return false
         }
         actionRunner.perform(selectedResult.primaryAction)
@@ -131,6 +140,11 @@ final class CommandPanelState: ObservableObject {
     private func moveSelection(offset: Int) {
         if mode == .activityMonitor {
             activityMonitor.moveSelection(offset: offset)
+            return
+        }
+
+        if mode == .emojiPicker {
+            offset > 0 ? emojiPicker.moveDown() : emojiPicker.moveUp()
             return
         }
 
@@ -212,4 +226,16 @@ final class CommandPanelState: ObservableObject {
         activityMonitor.start()
         diagnosticsSummary = "activity monitor"
     }
+
+    private func openEmojiPicker() {
+        mode = .emojiPicker
+        isShowingActions = false
+        selectedActionID = nil
+        searchTask?.cancel()
+        results = []
+        selectedResultID = nil
+        emojiPicker.reset()
+        diagnosticsSummary = "emoji & symbols"
+    }
+
 }

@@ -14,8 +14,8 @@ let package = Package(
         .executableTarget(
             name: "Foundry",
             path: "Sources/Foundry",
-            linkerSettings: [
-                .linkedLibrary("sqlite3")
+            resources: [
+                .process("Resources")
             ]
         )
     ]
