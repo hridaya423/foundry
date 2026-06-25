@@ -20,24 +20,32 @@ final class AppSearchProvider: CommandProvider, @unchecked Sendable {
             guard Task.isCancelled == false else { return nil }
             guard let score = SearchScoring.score(normalizedQuery: normalizedQuery, candidates: app.normalizedSearchCandidates) else { return nil }
 
-            let path = app.path.path
-            return CommandResult(
-                id: "app.\(app.identity)",
-                title: app.name,
-                subtitle: nil,
-                icon: CommandIcon(fallback: app.fallbackIcon, filePath: path),
-                score: score,
-                primaryAction: CommandAction(id: "app.\(app.identity).open", title: "Open", kind: .openApp(path: path, name: app.name)),
-                secondaryActions: [
-                    CommandAction(id: "app.\(app.identity).reveal", title: "Reveal in Finder", kind: .revealInFinder(path: path)),
-                    CommandAction(id: "app.\(app.identity).copy-path", title: "Copy Path", kind: .copyToClipboard(path))
-                ]
-            )
+            return Self.result(for: app, score: score)
         }
         .sorted { lhs, rhs in
             if lhs.score == rhs.score { return lhs.title.localizedCaseInsensitiveCompare(rhs.title) == .orderedAscending }
             return lhs.score > rhs.score
         }
+    }
+
+    func defaultResults() async -> [CommandResult] {
+        apps.map { app in Self.result(for: app, score: 10) }
+    }
+
+    private static func result(for app: InstalledApp, score: Double) -> CommandResult {
+        let path = app.path.path
+        return CommandResult(
+            id: "app.\(app.identity)",
+            title: app.name,
+            subtitle: nil,
+            icon: CommandIcon(fallback: app.fallbackIcon, filePath: path),
+            score: score,
+            primaryAction: CommandAction(id: "app.\(app.identity).open", title: "Open", kind: .openApp(path: path, name: app.name)),
+            secondaryActions: [
+                CommandAction(id: "app.\(app.identity).reveal", title: "Reveal in Finder", kind: .revealInFinder(path: path)),
+                CommandAction(id: "app.\(app.identity).copy-path", title: "Copy Path", kind: .copyToClipboard(path))
+            ]
+        )
     }
 
     private static func loadApps(diagnostics: DiagnosticsService) -> [InstalledApp] {

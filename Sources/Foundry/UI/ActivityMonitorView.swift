@@ -20,9 +20,11 @@ struct ActivityMonitorView: View {
     private var processList: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("Activity Monitor")
-                .font(FoundryTheme.body(size: 13, weight: .semibold))
-                .foregroundStyle(FoundryTheme.secondaryText)
-                .padding(.horizontal, 18)
+                .font(FoundryTheme.body(size: 11, weight: .semibold))
+                .foregroundStyle(FoundryTheme.faintText)
+                .textCase(.uppercase)
+                .tracking(0.5)
+                .padding(.horizontal, 16)
                 .padding(.top, 12)
 
             ScrollViewReader { proxy in
@@ -123,6 +125,7 @@ struct ActivityMonitorView: View {
                     .foregroundStyle(FoundryTheme.secondaryText)
             }
             .buttonStyle(.plain)
+            .pointerCursor()
         }
     }
 
@@ -249,6 +252,8 @@ private struct ActivityProcessGroupRow: View {
     let isSelected: Bool
     let showCPU: Bool
 
+    @State private var isHovering = false
+
     var body: some View {
         HStack(spacing: 11) {
             ActivityProcessIcon(path: group.iconPath, symbolName: group.symbolName, fallback: group.displayName)
@@ -280,13 +285,17 @@ private struct ActivityProcessGroupRow: View {
             }
         }
         .padding(.horizontal, 10)
-        .frame(height: 58)
-        .background(isSelected ? FoundryTheme.selection : Color.clear)
-        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .stroke(isSelected ? FoundryTheme.selectionBorder : Color.clear, lineWidth: 1)
+        .frame(height: 54)
+        .background(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(isSelected ? FoundryTheme.selection : (isHovering ? FoundryTheme.hover : Color.clear))
         )
+        .animation(.easeOut(duration: 0.10), value: isSelected)
+        .animation(.easeOut(duration: 0.12), value: isHovering)
+        .onHover { hovering in
+            isHovering = hovering
+            if hovering { NSCursor.pointingHand.set() } else { NSCursor.arrow.set() }
+        }
     }
 }
 

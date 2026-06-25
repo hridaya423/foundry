@@ -34,9 +34,13 @@ struct VisualEffectView: NSViewRepresentable {
 struct FoundryBackdrop: View {
     var body: some View {
         ZStack {
-            VisualEffectView(material: .popover, blendingMode: .behindWindow)
-            Color.white.opacity(0.028)
-            Color.black.opacity(0.018)
+            VisualEffectView(material: .hudWindow, blendingMode: .behindWindow)
+            Color.black.opacity(0.30)
+            LinearGradient(
+                colors: [Color.white.opacity(0.05), Color.white.opacity(0.012), Color.clear],
+                startPoint: .top,
+                endPoint: .center
+            )
         }
         .ignoresSafeArea()
     }

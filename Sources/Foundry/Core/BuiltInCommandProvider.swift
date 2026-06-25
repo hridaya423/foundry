@@ -29,6 +29,23 @@ final class BuiltInCommandProvider: CommandProvider {
         }
     }
 
+    func defaultResults() async -> [CommandResult] {
+        commands().map { command in
+            CommandResult(
+                id: command.id,
+                title: command.title,
+                subtitle: command.subtitle,
+                icon: CommandIcon(fallback: command.fallback, systemName: command.systemIcon),
+                score: 0,
+                primaryAction: command.primaryAction,
+                secondaryActions: []
+            )
+        }
+        .filter { result in
+            result.primaryAction.kind != .openActivityMonitor
+        }
+    }
+
     private func commands() -> [BuiltInCommand] {
         [
             BuiltInCommand(
@@ -51,6 +68,17 @@ final class BuiltInCommandProvider: CommandProvider {
                 fallback: "AM",
                 scoreBoost: 3,
                 primaryAction: CommandAction(id: "foundry.activity-monitor.open", title: "Open", kind: .openActivityMonitor),
+                secondaryActions: []
+            ),
+            BuiltInCommand(
+                id: "foundry.file-shelf",
+                title: "File Shelf",
+                subtitle: "Hold dragged files temporarily",
+                aliases: ["shelf", "files", "drop", "drag", "temporary files"],
+                systemIcon: "tray.full",
+                fallback: "FS",
+                scoreBoost: 3,
+                primaryAction: CommandAction(id: "foundry.file-shelf.open", title: "Open", kind: .openFileShelf),
                 secondaryActions: []
             ),
             BuiltInCommand(

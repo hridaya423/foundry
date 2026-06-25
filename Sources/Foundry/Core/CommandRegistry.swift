@@ -44,6 +44,7 @@ enum CommandActionKind: Hashable, Sendable {
     case copyToClipboard(String)
     case openActivityMonitor
     case openEmojiPicker
+    case openFileShelf
     case runProcess(path: String, arguments: [String])
     case quit
     case log(String)
@@ -52,6 +53,11 @@ enum CommandActionKind: Hashable, Sendable {
 protocol CommandProvider: Sendable {
     var id: String { get }
     func results(matching query: String) async -> [CommandResult]
+    func defaultResults() async -> [CommandResult]
+}
+
+extension CommandProvider {
+    func defaultResults() async -> [CommandResult] { [] }
 }
 
 final class CommandRegistry: @unchecked Sendable {
@@ -121,6 +127,41 @@ final class CommandRegistry: @unchecked Sendable {
             }
             .prefix(12)
             .map { $0 }
+    }
+
+    func homeResults() async -> [CommandResult] {
+        var allResults: [CommandResult] = []
+        await withTaskGroup(of: [CommandResult].self) { group in
+            for provider in providers {
+                group.addTask {
+                    await provider.defaultResults()
+                }
+            }
+
+            for await results in group {
+                allResults.append(contentsOf: results)
+            }
+        }
+
+        let sorted = allResults.sorted { lhs, rhs in
+                let lhsScore = usageRanking.adjustedScore(for: lhs)
+                let rhsScore = usageRanking.adjustedScore(for: rhs)
+                if lhsScore == rhsScore {
+                    return lhs.title.localizedCaseInsensitiveCompare(rhs.title) == .orderedAscending
+                }
+                return lhsScore > rhsScore
+            }
+
+        let apps = sorted.filter { result in
+            if case .openApp = result.primaryAction.kind { return true }
+            return false
+        }
+        let commands = sorted.filter { result in
+            if case .openApp = result.primaryAction.kind { return false }
+            return true
+        }
+
+        return Array(apps.prefix(6) + commands.prefix(5))
     }
 
     func recordExecution(resultID: String) {

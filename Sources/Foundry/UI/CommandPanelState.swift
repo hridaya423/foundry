@@ -1,4 +1,5 @@
 import Foundation
+import SwiftUI
 
 @MainActor
 final class CommandPanelState: ObservableObject {
@@ -6,6 +7,7 @@ final class CommandPanelState: ObservableObject {
         case search
         case activityMonitor
         case emojiPicker
+        case fileShelf
     }
 
     @Published var query = "" {
@@ -20,6 +22,7 @@ final class CommandPanelState: ObservableObject {
 
     let activityMonitor = ActivityMonitorState()
     let emojiPicker = EmojiPickerState()
+    let fileShelf = FileShelfState()
 
     private let registry: CommandRegistry
     private let actionRunner: ActionRunner
@@ -62,6 +65,7 @@ final class CommandPanelState: ObservableObject {
         isShowingActions = false
         selectedActionID = nil
         refreshStatusSummary(fallback: "READY")
+        refreshHomeResults()
     }
 
     func panelWillClose() {
@@ -70,11 +74,17 @@ final class CommandPanelState: ObservableObject {
     }
 
     func handleEscape() -> Bool {
+        if mode != .search || isShowingActions {
+            backToSearch()
+            return true
+        }
         return false
     }
 
     func backToSearch() {
-        mode = .search
+        withAnimation(.easeOut(duration: 0.14)) {
+            mode = .search
+        }
         activityMonitor.stop()
         emojiPicker.reset()
         query = ""
@@ -83,6 +93,7 @@ final class CommandPanelState: ObservableObject {
         isShowingActions = false
         selectedActionID = nil
         refreshStatusSummary(fallback: "READY")
+        refreshHomeResults()
     }
 
     @discardableResult
@@ -103,6 +114,10 @@ final class CommandPanelState: ObservableObject {
         }
         if selectedResult.primaryAction.kind == .openEmojiPicker {
             openEmojiPicker()
+            return false
+        }
+        if selectedResult.primaryAction.kind == .openFileShelf {
+            openFileShelf()
             return false
         }
         actionRunner.perform(selectedResult.primaryAction)
@@ -129,6 +144,10 @@ final class CommandPanelState: ObservableObject {
         selectedActionID = isShowingActions ? selectedActions.first?.id : nil
     }
 
+    func showFileShelf() {
+        openFileShelf()
+    }
+
     func moveSelectionDown() {
         moveSelection(offset: 1)
     }
@@ -145,6 +164,11 @@ final class CommandPanelState: ObservableObject {
 
         if mode == .emojiPicker {
             offset > 0 ? emojiPicker.moveDown() : emojiPicker.moveUp()
+            return
+        }
+
+        if mode == .fileShelf {
+            fileShelf.moveSelection(offset: offset)
             return
         }
 
@@ -173,6 +197,7 @@ final class CommandPanelState: ObservableObject {
             results = []
             selectedResultID = nil
             refreshStatusSummary(fallback: "READY")
+            refreshHomeResults()
             return
         }
 
@@ -215,8 +240,30 @@ final class CommandPanelState: ObservableObject {
         diagnosticsSummary = registry.statusSummary(resultCount: results.count, fallback: fallback)
     }
 
+    private func refreshHomeResults() {
+        searchGeneration += 1
+        let generation = searchGeneration
+        let registry = registry
+        searchTask?.cancel()
+        searchTask = Task { [weak self] in
+            var homeResults = await registry.homeResults()
+            guard let self,
+                  Task.isCancelled == false,
+                  self.searchGeneration == generation,
+                  self.query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+            if self.fileShelf.files.isEmpty == false {
+                homeResults.removeAll { $0.id == "foundry.file-shelf" }
+            }
+            self.results = homeResults
+            self.selectedResultID = homeResults.first?.id
+            self.refreshStatusSummary(fallback: "READY")
+        }
+    }
+
     private func openActivityMonitor() {
-        mode = .activityMonitor
+        withAnimation(.easeOut(duration: 0.14)) {
+            mode = .activityMonitor
+        }
         isShowingActions = false
         selectedActionID = nil
         searchTask?.cancel()
@@ -228,7 +275,9 @@ final class CommandPanelState: ObservableObject {
     }
 
     private func openEmojiPicker() {
-        mode = .emojiPicker
+        withAnimation(.easeOut(duration: 0.14)) {
+            mode = .emojiPicker
+        }
         isShowingActions = false
         selectedActionID = nil
         searchTask?.cancel()
@@ -236,6 +285,19 @@ final class CommandPanelState: ObservableObject {
         selectedResultID = nil
         emojiPicker.reset()
         diagnosticsSummary = "emoji & symbols"
+    }
+
+    private func openFileShelf() {
+        withAnimation(.easeOut(duration: 0.14)) {
+            mode = .fileShelf
+        }
+        isShowingActions = false
+        selectedActionID = nil
+        searchTask?.cancel()
+        results = []
+        selectedResultID = nil
+        fileShelf.selectFirst()
+        diagnosticsSummary = "file shelf"
     }
 
 }

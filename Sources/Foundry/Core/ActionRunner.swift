@@ -48,6 +48,9 @@ final class ActionRunner {
         case .openEmojiPicker:
             diagnostics.log("Emoji Picker should be opened by panel state")
 
+        case .openFileShelf:
+            diagnostics.log("File Shelf should be opened by panel state")
+
         case let .runProcess(path, arguments):
             DispatchQueue.global(qos: .userInitiated).async {
                 let process = Process()
