@@ -8,6 +8,7 @@ final class CommandPanelState: ObservableObject {
         case activityMonitor
         case emojiPicker
         case fileShelf
+        case settings
     }
 
     @Published var query = "" {
@@ -23,6 +24,7 @@ final class CommandPanelState: ObservableObject {
     let activityMonitor = ActivityMonitorState()
     let emojiPicker = EmojiPickerState()
     let fileShelf = FileShelfState()
+    let widgetBoard: WidgetBoardState
 
     private let registry: CommandRegistry
     private let actionRunner: ActionRunner
@@ -44,10 +46,11 @@ final class CommandPanelState: ObservableObject {
         selectedActions.first { $0.id == selectedActionID }
     }
 
-    init(registry: CommandRegistry, actionRunner: ActionRunner, diagnostics: DiagnosticsService) {
+    init(registry: CommandRegistry, actionRunner: ActionRunner, diagnostics: DiagnosticsService, config: ConfigService) {
         self.registry = registry
         self.actionRunner = actionRunner
         self.diagnostics = diagnostics
+        self.widgetBoard = WidgetBoardState(configService: config)
         self.statusTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
             Task { @MainActor in
                 self?.refreshStatusSummary()
@@ -57,6 +60,7 @@ final class CommandPanelState: ObservableObject {
 
     func resetForOpen() {
         mode = .search
+        widgetBoard.start()
         activityMonitor.stop()
         emojiPicker.reset()
         query = ""
@@ -69,8 +73,22 @@ final class CommandPanelState: ObservableObject {
     }
 
     func panelWillClose() {
+        widgetBoard.stop()
         activityMonitor.stop()
         emojiPicker.reset()
+    }
+
+    func openSettings() {
+        withAnimation(.easeOut(duration: 0.14)) {
+            mode = .settings
+        }
+        widgetBoard.start()
+        isShowingActions = false
+        selectedActionID = nil
+        searchTask?.cancel()
+        results = []
+        selectedResultID = nil
+        diagnosticsSummary = "settings"
     }
 
     func handleEscape() -> Bool {
@@ -85,6 +103,7 @@ final class CommandPanelState: ObservableObject {
         withAnimation(.easeOut(duration: 0.14)) {
             mode = .search
         }
+        widgetBoard.stop()
         activityMonitor.stop()
         emojiPicker.reset()
         query = ""
@@ -118,6 +137,10 @@ final class CommandPanelState: ObservableObject {
         }
         if selectedResult.primaryAction.kind == .openFileShelf {
             openFileShelf()
+            return false
+        }
+        if selectedResult.primaryAction.kind == .openSettings {
+            openSettings()
             return false
         }
         actionRunner.perform(selectedResult.primaryAction)

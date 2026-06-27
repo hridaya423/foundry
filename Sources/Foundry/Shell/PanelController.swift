@@ -55,6 +55,9 @@ final class PanelController: NSObject, NSWindowDelegate {
         panel.onCommandK = { [weak self] in
             self?.state.toggleActions()
         }
+        panel.onCommandComma = { [weak self] in
+            self?.state.openSettings()
+        }
 
         let rootView = CommandPanelView(state: state) { [weak self] in
             self?.hide()
@@ -86,13 +89,13 @@ final class PanelController: NSObject, NSWindowDelegate {
 @MainActor
 final class FoundryPanel: NSPanel {
     var onCommandK: (() -> Void)?
+    var onCommandComma: (() -> Void)?
 
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { true }
 
     override func performKeyEquivalent(with event: NSEvent) -> Bool {
-        if handlesCommandK(event) {
-            onCommandK?()
+        if handleShortcut(event) {
             return true
         }
 
@@ -100,16 +103,28 @@ final class FoundryPanel: NSPanel {
     }
 
     override func keyDown(with event: NSEvent) {
-        if handlesCommandK(event) {
-            onCommandK?()
+        if handleShortcut(event) {
             return
         }
 
         super.keyDown(with: event)
     }
 
-    private func handlesCommandK(_ event: NSEvent) -> Bool {
+    private func handleShortcut(_ event: NSEvent) -> Bool {
         let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
-        return flags == .command && event.charactersIgnoringModifiers?.lowercased() == "k"
+        guard flags == .command else { return false }
+        switch event.charactersIgnoringModifiers?.lowercased() {
+        case "k":
+            onCommandK?()
+            return true
+        case ",":
+            onCommandComma?()
+            return true
+        case "q":
+            NSApp.terminate(nil)
+            return true
+        default:
+            return false
+        }
     }
 }

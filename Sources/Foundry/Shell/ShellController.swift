@@ -17,7 +17,7 @@ final class ShellController {
         self.config = config
         self.diagnostics = diagnostics
         self.hotkeyController = HotkeyController()
-        self.panelState = CommandPanelState(registry: registry, actionRunner: actionRunner, diagnostics: diagnostics)
+        self.panelState = CommandPanelState(registry: registry, actionRunner: actionRunner, diagnostics: diagnostics, config: config)
         self.panelController = PanelController(state: panelState, diagnostics: diagnostics)
     }
 

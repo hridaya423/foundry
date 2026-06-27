@@ -3,6 +3,20 @@ import Foundation
 struct FoundryConfig: Codable, Equatable {
     var hotkey: FoundryHotkey = .optionSpace
     var themeIntensity: Double = 0.72
+    var widgets: WidgetBoardConfig = .default
+
+    init(hotkey: FoundryHotkey = .optionSpace, themeIntensity: Double = 0.72, widgets: WidgetBoardConfig = .default) {
+        self.hotkey = hotkey
+        self.themeIntensity = themeIntensity
+        self.widgets = widgets
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        hotkey = try container.decodeIfPresent(FoundryHotkey.self, forKey: .hotkey) ?? .optionSpace
+        themeIntensity = try container.decodeIfPresent(Double.self, forKey: .themeIntensity) ?? 0.72
+        widgets = try container.decodeIfPresent(WidgetBoardConfig.self, forKey: .widgets) ?? .default
+    }
 }
 
 final class ConfigService {
@@ -17,6 +31,11 @@ final class ConfigService {
     static var configURL: URL {
         let home = FileManager.default.homeDirectoryForCurrentUser
         return home.appendingPathComponent(".config/foundry/config.json")
+    }
+
+    func updateWidgets(_ widgets: WidgetBoardConfig) {
+        current.widgets = widgets
+        save()
     }
 
     func save() {

@@ -84,12 +84,12 @@ final class BuiltInCommandProvider: CommandProvider {
             BuiltInCommand(
                 id: "foundry.settings",
                 title: "Open Foundry Settings",
-                subtitle: "Open the local Foundry config folder",
+                subtitle: "Customize widgets and Foundry preferences",
                 aliases: ["foundry config", "config", "preferences"],
                 systemIcon: "slider.horizontal.3",
                 fallback: "ST",
                 scoreBoost: 1,
-                primaryAction: CommandAction(id: "foundry.settings.open", title: "Open", kind: .openConfigFolder),
+                primaryAction: CommandAction(id: "foundry.settings.open", title: "Open", kind: .openSettings),
                 secondaryActions: []
             ),
             BuiltInCommand(

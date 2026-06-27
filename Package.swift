@@ -16,6 +16,9 @@ let package = Package(
             path: "Sources/Foundry",
             resources: [
                 .process("Resources")
+            ],
+            linkerSettings: [
+                .linkedFramework("IOKit")
             ]
         )
     ]

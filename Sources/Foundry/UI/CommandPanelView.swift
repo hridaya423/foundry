@@ -8,6 +8,7 @@ struct CommandPanelView: View {
 
     @FocusState private var inputFocused: Bool
     @State private var isDropTargeted = false
+    @State private var isShowingFoundryMenu = false
 
     private var selectedCalculatorResult: CommandResult? {
         guard let selectedResult = state.selectedResult, selectedResult.id.hasPrefix("calculator.") else { return nil }
@@ -50,9 +51,18 @@ struct CommandPanelView: View {
         .shadow(color: Color.black.opacity(0.5), radius: 40, x: 0, y: 24)
         .shadow(color: Color.black.opacity(0.28), radius: 8, x: 0, y: 4)
         .frame(width: 760, height: 500)
+        .overlay {
+            if isShowingFoundryMenu {
+                foundryMenuOverlay
+            }
+        }
         .overlay(dropOverlay)
         .animation(.easeOut(duration: 0.14), value: state.mode)
+        .animation(.easeOut(duration: 0.12), value: isShowingFoundryMenu)
         .animation(.easeOut(duration: 0.14), value: state.fileShelf.files.count)
+        .onChange(of: state.mode) { _, _ in
+            isShowingFoundryMenu = false
+        }
         .onDrop(of: [.fileURL], isTargeted: $isDropTargeted, perform: handleFileDrop)
         .onDeleteCommand {
             if state.mode == .fileShelf {
@@ -86,7 +96,9 @@ struct CommandPanelView: View {
     @ViewBuilder
     private var contentSurface: some View {
         Group {
-            if state.mode == .activityMonitor {
+            if state.mode == .settings {
+                WidgetSettingsView(board: state.widgetBoard)
+            } else if state.mode == .activityMonitor {
                 ActivityMonitorView(state: state.activityMonitor)
             } else if state.mode == .emojiPicker {
                 EmojiPickerView(state: state.emojiPicker) {
@@ -109,6 +121,7 @@ struct CommandPanelView: View {
     }
 
     private var contentID: String {
+        if state.mode == .settings { return "settings" }
         if state.mode == .activityMonitor { return "activity" }
         if state.mode == .emojiPicker { return "emoji" }
         if state.mode == .fileShelf { return "shelf" }
@@ -145,7 +158,7 @@ struct CommandPanelView: View {
 
     private var header: some View {
         HStack(spacing: 12) {
-            if state.mode == .activityMonitor || state.mode == .emojiPicker || state.mode == .fileShelf {
+            if state.mode != .search {
                 Button(action: state.backToSearch) {
                     Image(systemName: "chevron.left")
                         .font(.system(size: 15, weight: .semibold))
@@ -158,7 +171,15 @@ struct CommandPanelView: View {
                 .pointerCursor()
             }
 
-            if state.mode == .activityMonitor {
+            if state.mode == .settings {
+                Image(systemName: "slider.horizontal.3")
+                    .font(.system(size: 16, weight: .regular))
+                    .foregroundStyle(FoundryTheme.mutedText)
+
+                Text("Customize Widgets")
+                    .font(FoundryTheme.body(size: 21, weight: .regular))
+                    .foregroundStyle(FoundryTheme.primaryText)
+            } else if state.mode == .activityMonitor {
                 TextField("Filter processes...", text: activityQueryBinding)
                     .textFieldStyle(.plain)
                     .font(FoundryTheme.body(size: 21, weight: .regular))
@@ -281,9 +302,15 @@ struct CommandPanelView: View {
                     }
 
                     if isHome {
+                        if state.widgetBoard.homeWidgets.isEmpty == false {
+                            WidgetBoardView(board: state.widgetBoard)
+                                .padding(.horizontal, 4)
+                                .padding(.bottom, 10)
+                        }
+
                         if suggestionResults.isEmpty == false {
                             HomeSectionHeader(title: "Suggestions")
-                            ForEach(suggestionResults, id: \.id) { result in
+                            ForEach(Array(suggestionResults.prefix(3)), id: \.id) { result in
                                 HomeResultRow(result: result, isSelected: state.selectedResultID == result.id, label: resultKindLabel(for: result))
                                     .id(result.id)
                                     .contentShape(Rectangle())
@@ -294,7 +321,7 @@ struct CommandPanelView: View {
                         if commandResults.isEmpty == false {
                             HomeSectionHeader(title: "Commands")
                                 .padding(.top, suggestionResults.isEmpty ? 0 : 12)
-                            ForEach(commandResults, id: \.id) { result in
+                            ForEach(Array(commandResults.prefix(3)), id: \.id) { result in
                                 HomeResultRow(result: result, isSelected: state.selectedResultID == result.id, label: resultKindLabel(for: result))
                                     .id(result.id)
                                     .contentShape(Rectangle())
@@ -364,7 +391,7 @@ struct CommandPanelView: View {
         switch result.primaryAction.kind {
         case .openApp:
             "Application"
-        case .openEmojiPicker, .openFileShelf, .openActivityMonitor, .openConfigFolder, .quit:
+        case .openEmojiPicker, .openFileShelf, .openActivityMonitor, .openConfigFolder, .openSettings, .quit:
             "Command"
         case .revealInFinder:
             "Finder"
@@ -474,20 +501,17 @@ struct CommandPanelView: View {
 
     private var footer: some View {
         HStack(spacing: 0) {
-            Text(footerSummary)
-                .font(FoundryTheme.body(size: 11, weight: .medium))
-                .foregroundStyle(FoundryTheme.faintText)
-                .lineLimit(1)
+            foundryMenuButton
 
-            Spacer(minLength: 12)
+            Spacer(minLength: 14)
 
             HStack(spacing: 10) {
                 footerActions
             }
         }
-        .padding(.horizontal, 18)
+        .padding(.horizontal, 12)
         .frame(height: 44)
-        .background(Color.clear)
+        .background(Color.black.opacity(0.08))
         .overlay(alignment: .top) {
             Rectangle()
                 .fill(Color.white.opacity(0.06))
@@ -495,9 +519,59 @@ struct CommandPanelView: View {
         }
     }
 
+    private var foundryMenuButton: some View {
+        Button {
+            isShowingFoundryMenu.toggle()
+        } label: {
+            HStack(spacing: 7) {
+                Image(systemName: "hammer.fill")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(FoundryTheme.secondaryText)
+                Text("Foundry")
+                    .font(FoundryTheme.body(size: 12, weight: .semibold))
+                    .foregroundStyle(FoundryTheme.secondaryText)
+                Image(systemName: "chevron.up")
+                    .font(.system(size: 8, weight: .bold))
+                    .foregroundStyle(FoundryTheme.faintText)
+                    .rotationEffect(.degrees(isShowingFoundryMenu ? 180 : 0))
+            }
+            .padding(.horizontal, 8)
+            .frame(height: 28)
+            .background(
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .fill(Color.white.opacity(isShowingFoundryMenu ? 0.08 : 0))
+            )
+        }
+        .buttonStyle(.plain)
+        .pointerCursor()
+    }
+
+    private var foundryMenuOverlay: some View {
+        ZStack(alignment: .bottomLeading) {
+            Color.black.opacity(0.001)
+                .contentShape(Rectangle())
+                .onTapGesture { isShowingFoundryMenu = false }
+
+            FoundryMenu(
+                openSettings: {
+                    isShowingFoundryMenu = false
+                    state.openSettings()
+                },
+                quit: {
+                    NSApp.terminate(nil)
+                }
+            )
+            .padding(.leading, 12)
+            .padding(.bottom, 50)
+            .transition(.opacity.combined(with: .scale(scale: 0.96, anchor: .bottomLeading)))
+        }
+    }
+
     @ViewBuilder
     private var footerActions: some View {
         switch state.mode {
+        case .settings:
+            FooterAction(label: "Done", keys: "esc")
         case .activityMonitor:
             FooterAction(label: "Select", keys: "↑↓")
             FooterDivider()
@@ -515,20 +589,6 @@ struct CommandPanelView: View {
             FooterDivider()
             FooterAction(label: "Actions", keys: "⌘K")
         }
-    }
-
-    private var footerSummary: String {
-        if state.mode == .activityMonitor {
-            let snapshot = state.activityMonitor.snapshot
-            return "\(snapshot.processCount) processes · \(snapshot.groupCount) groups"
-        }
-        if state.mode == .emojiPicker {
-            return "\(state.emojiPicker.visibleEmoji.count) symbols"
-        }
-        if state.mode == .fileShelf {
-            return state.fileShelf.summary.lowercased()
-        }
-        return state.diagnosticsSummary.lowercased()
     }
 
     private var activityQueryBinding: Binding<String> {
@@ -962,6 +1022,8 @@ private struct ActionRow: View {
         switch action.kind {
         case .openApp, .openURL, .openConfigFolder:
             "arrow.up.right.square"
+        case .openSettings:
+            "slider.horizontal.3"
         case .revealInFinder:
             "folder"
         case .copyToClipboard:
@@ -1079,6 +1141,84 @@ private struct FooterDivider: View {
         Rectangle()
             .fill(Color.white.opacity(0.10))
             .frame(width: 1, height: 14)
+    }
+}
+
+private struct FoundryMenu: View {
+    let openSettings: () -> Void
+    let quit: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 1) {
+            Text("Foundry")
+                .font(FoundryTheme.body(size: 11, weight: .semibold))
+                .foregroundStyle(FoundryTheme.faintText)
+                .padding(.horizontal, 10)
+                .padding(.top, 8)
+                .padding(.bottom, 4)
+
+            FoundryMenuItem(symbol: "slider.horizontal.3", title: "Settings", shortcut: "⌘,", action: openSettings)
+
+            Rectangle()
+                .fill(Color.white.opacity(0.08))
+                .frame(height: 1)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+
+            FoundryMenuItem(symbol: "power", title: "Quit Foundry", shortcut: "⌘Q", action: quit)
+        }
+        .padding(.bottom, 6)
+        .frame(width: 232)
+        .background(VisualEffectView(material: .menu, blendingMode: .behindWindow))
+        .background(Color.black.opacity(0.28))
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .stroke(Color.white.opacity(0.12), lineWidth: 1)
+        )
+        .shadow(color: Color.black.opacity(0.45), radius: 24, x: 0, y: 12)
+    }
+}
+
+private struct FoundryMenuItem: View {
+    let symbol: String
+    let title: String
+    let shortcut: String
+    let action: () -> Void
+
+    @State private var isHovering = false
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 10) {
+                Image(systemName: symbol)
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(FoundryTheme.secondaryText)
+                    .frame(width: 18)
+
+                Text(title)
+                    .font(FoundryTheme.body(size: 13, weight: .medium))
+                    .foregroundStyle(FoundryTheme.primaryText)
+
+                Spacer()
+
+                Text(shortcut)
+                    .font(FoundryTheme.body(size: 12, weight: .medium))
+                    .foregroundStyle(FoundryTheme.faintText)
+            }
+            .padding(.horizontal, 10)
+            .frame(height: 32)
+            .background(
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .fill(Color.white.opacity(isHovering ? 0.10 : 0))
+            )
+            .padding(.horizontal, 6)
+        }
+        .buttonStyle(.plain)
+        .onHover { hovering in
+            isHovering = hovering
+            if hovering { NSCursor.pointingHand.set() } else { NSCursor.arrow.set() }
+        }
     }
 }
 
