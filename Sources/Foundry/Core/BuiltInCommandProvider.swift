@@ -82,6 +82,17 @@ final class BuiltInCommandProvider: CommandProvider {
                 secondaryActions: []
             ),
             BuiltInCommand(
+                id: "foundry.clipboard-history",
+                title: "Clipboard History",
+                subtitle: "Search, reuse, and act on copied text, files, and images",
+                aliases: ["clipboard", "copyboard", "copy history", "pasteboard", "paste history", "history"],
+                systemIcon: "doc.on.clipboard",
+                fallback: "CB",
+                scoreBoost: 3,
+                primaryAction: CommandAction(id: "foundry.clipboard-history.open", title: "Open", kind: .openClipboardHistory),
+                secondaryActions: []
+            ),
+            BuiltInCommand(
                 id: "foundry.settings",
                 title: "Open Foundry Settings",
                 subtitle: "Customize widgets and Foundry preferences",

@@ -8,6 +8,7 @@ final class CommandPanelState: ObservableObject {
         case activityMonitor
         case emojiPicker
         case fileShelf
+        case clipboardHistory
         case settings
     }
 
@@ -24,6 +25,7 @@ final class CommandPanelState: ObservableObject {
     let activityMonitor = ActivityMonitorState()
     let emojiPicker = EmojiPickerState()
     let fileShelf = FileShelfState()
+    let clipboardHistory = ClipboardHistoryState()
     let widgetBoard: WidgetBoardState
 
     private let registry: CommandRegistry
@@ -51,6 +53,7 @@ final class CommandPanelState: ObservableObject {
         self.actionRunner = actionRunner
         self.diagnostics = diagnostics
         self.widgetBoard = WidgetBoardState(configService: config)
+        clipboardHistory.start()
         self.statusTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
             Task { @MainActor in
                 self?.refreshStatusSummary()
@@ -63,6 +66,7 @@ final class CommandPanelState: ObservableObject {
         widgetBoard.start()
         activityMonitor.stop()
         emojiPicker.reset()
+        clipboardHistory.reset()
         query = ""
         results = []
         selectedResultID = nil
@@ -76,6 +80,7 @@ final class CommandPanelState: ObservableObject {
         widgetBoard.stop()
         activityMonitor.stop()
         emojiPicker.reset()
+        clipboardHistory.reset()
     }
 
     func openSettings() {
@@ -139,6 +144,10 @@ final class CommandPanelState: ObservableObject {
             openFileShelf()
             return false
         }
+        if selectedResult.primaryAction.kind == .openClipboardHistory {
+            openClipboardHistory()
+            return false
+        }
         if selectedResult.primaryAction.kind == .openSettings {
             openSettings()
             return false
@@ -192,6 +201,11 @@ final class CommandPanelState: ObservableObject {
 
         if mode == .fileShelf {
             fileShelf.moveSelection(offset: offset)
+            return
+        }
+
+        if mode == .clipboardHistory {
+            clipboardHistory.moveSelection(offset: offset)
             return
         }
 
@@ -321,6 +335,19 @@ final class CommandPanelState: ObservableObject {
         selectedResultID = nil
         fileShelf.selectFirst()
         diagnosticsSummary = "file shelf"
+    }
+
+    private func openClipboardHistory() {
+        withAnimation(.easeOut(duration: 0.14)) {
+            mode = .clipboardHistory
+        }
+        isShowingActions = false
+        selectedActionID = nil
+        searchTask?.cancel()
+        results = []
+        selectedResultID = nil
+        clipboardHistory.reset()
+        diagnosticsSummary = "clipboard history"
     }
 
 }

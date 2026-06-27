@@ -45,6 +45,7 @@ enum CommandActionKind: Hashable, Sendable {
     case openActivityMonitor
     case openEmojiPicker
     case openFileShelf
+    case openClipboardHistory
     case openSettings
     case runProcess(path: String, arguments: [String])
     case quit

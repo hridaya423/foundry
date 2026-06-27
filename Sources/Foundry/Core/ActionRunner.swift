@@ -51,6 +51,9 @@ final class ActionRunner {
         case .openFileShelf:
             diagnostics.log("File Shelf should be opened by panel state")
 
+        case .openClipboardHistory:
+            diagnostics.log("Clipboard History should be opened by panel state")
+
         case .openSettings:
             diagnostics.log("Settings should be opened by panel state")
 
