@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 import SwiftUI
 
@@ -34,6 +35,7 @@ final class CommandPanelState: ObservableObject {
     private var statusTimer: Timer?
     private var searchTask: Task<Void, Never>?
     private var searchGeneration = 0
+    private var isMediaDownloadActive = false
 
     var selectedResult: CommandResult? {
         results.first { $0.id == selectedResultID }
@@ -53,6 +55,11 @@ final class CommandPanelState: ObservableObject {
         self.actionRunner = actionRunner
         self.diagnostics = diagnostics
         self.widgetBoard = WidgetBoardState(configService: config)
+        actionRunner.mediaStatusHandler = { [weak self] message in
+            let normalized = message.lowercased()
+            self?.isMediaDownloadActive = normalized.hasPrefix("downloaded") == false && normalized.contains("failed") == false
+            self?.diagnosticsSummary = message
+        }
         clipboardHistory.start()
         self.statusTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
             Task { @MainActor in
@@ -72,6 +79,7 @@ final class CommandPanelState: ObservableObject {
         selectedResultID = nil
         isShowingActions = false
         selectedActionID = nil
+        isMediaDownloadActive = false
         refreshStatusSummary(fallback: "READY")
         refreshHomeResults()
     }
@@ -126,6 +134,17 @@ final class CommandPanelState: ObservableObject {
         if isShowingActions, let selectedAction {
             diagnostics.log("Executing action: \(selectedAction.id)")
             registry.recordExecution(resultID: selectedResult.id)
+            if case .downloadMedia = selectedAction.kind {
+                isMediaDownloadActive = true
+                diagnosticsSummary = "Starting download"
+                actionRunner.perform(selectedAction)
+                return false
+            }
+            if selectedAction.kind == .chooseMediaDownloadFolder {
+                actionRunner.perform(selectedAction)
+                refreshResults()
+                return false
+            }
             actionRunner.perform(selectedAction)
             return true
         }
@@ -152,6 +171,17 @@ final class CommandPanelState: ObservableObject {
             openSettings()
             return false
         }
+        if case .downloadMedia = selectedResult.primaryAction.kind {
+            isMediaDownloadActive = true
+            diagnosticsSummary = "Starting download"
+            actionRunner.perform(selectedResult.primaryAction)
+            return false
+        }
+        if selectedResult.primaryAction.kind == .chooseMediaDownloadFolder {
+            actionRunner.perform(selectedResult.primaryAction)
+            refreshResults()
+            return false
+        }
         actionRunner.perform(selectedResult.primaryAction)
         return true
     }
@@ -174,6 +204,23 @@ final class CommandPanelState: ObservableObject {
         }
         isShowingActions.toggle()
         selectedActionID = isShowingActions ? selectedActions.first?.id : nil
+    }
+
+    func pasteFromClipboard() -> Bool {
+        guard let text = NSPasteboard.general.string(forType: .string), text.isEmpty == false else { return false }
+        switch mode {
+        case .search:
+            query += text
+        case .activityMonitor:
+            activityMonitor.query += text
+        case .emojiPicker:
+            emojiPicker.query += text
+        case .clipboardHistory:
+            clipboardHistory.query += text
+        case .fileShelf, .settings:
+            return false
+        }
+        return true
     }
 
     func showFileShelf() {
@@ -274,6 +321,7 @@ final class CommandPanelState: ObservableObject {
     }
 
     private func refreshStatusSummary(fallback: String = "READY") {
+        guard isMediaDownloadActive == false else { return }
         diagnosticsSummary = registry.statusSummary(resultCount: results.count, fallback: fallback)
     }
 

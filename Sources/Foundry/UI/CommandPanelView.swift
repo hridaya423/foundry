@@ -346,14 +346,7 @@ struct CommandPanelView: View {
                         }
                     } else {
                         ForEach(Array(displayedResults.enumerated()), id: \.element.id) { index, result in
-                            ResultRow(
-                                result: result,
-                                isSelected: state.selectedResultID == result.id,
-                                index: index
-                            )
-                            .id(result.id)
-                            .contentShape(Rectangle())
-                            .onTapGesture { execute(result) }
+                            resultRow(result, index: index)
                         }
                     }
                 }
@@ -382,6 +375,10 @@ struct CommandPanelView: View {
         return results
     }
 
+    private var shouldExpandMediaResult: Bool {
+        displayedResults.count == 1 && displayedResults.first.map(isMediaDownload) == true
+    }
+
     private var suggestionResults: [CommandResult] {
         displayedResults.filter { result in
             if case .openApp = result.primaryAction.kind { return true }
@@ -393,6 +390,26 @@ struct CommandPanelView: View {
         displayedResults.filter { result in
             if case .openApp = result.primaryAction.kind { return false }
             return true
+        }
+    }
+
+    private func isMediaDownload(_ result: CommandResult) -> Bool {
+        if case .downloadMedia = result.primaryAction.kind { return true }
+        return false
+    }
+
+    @ViewBuilder
+    private func resultRow(_ result: CommandResult, index: Int) -> some View {
+        if isMediaDownload(result) {
+            MediaResultRow(result: result, isSelected: state.selectedResultID == result.id, isExpanded: shouldExpandMediaResult)
+                .id(result.id)
+                .contentShape(Rectangle())
+                .onTapGesture { execute(result) }
+        } else {
+            ResultRow(result: result, isSelected: state.selectedResultID == result.id, index: index)
+                .id(result.id)
+                .contentShape(Rectangle())
+                .onTapGesture { execute(result) }
         }
     }
 
@@ -413,6 +430,10 @@ struct CommandPanelView: View {
             "Finder"
         case .copyToClipboard:
             "Copy"
+        case .downloadMedia:
+            "Download"
+        case .chooseMediaDownloadFolder:
+            "Folder"
         case .openURL:
             "URL"
         case .runProcess:
@@ -519,7 +540,14 @@ struct CommandPanelView: View {
         HStack(spacing: 0) {
             foundryMenuButton
 
-            Spacer(minLength: 14)
+            Text(state.diagnosticsSummary)
+                .font(FoundryTheme.body(size: 11, weight: .medium))
+                .foregroundStyle(FoundryTheme.faintText)
+                .lineLimit(1)
+                .truncationMode(.middle)
+                .padding(.horizontal, 12)
+
+            Spacer(minLength: 8)
 
             HStack(spacing: 10) {
                 footerActions
@@ -870,6 +898,128 @@ private struct HomeResultRow: View {
             isHovering = hovering
             if hovering { NSCursor.pointingHand.set() } else { NSCursor.arrow.set() }
         }
+    }
+}
+
+private struct MediaResultRow: View {
+    let result: CommandResult
+    let isSelected: Bool
+    var isExpanded = false
+
+    @State private var isHovering = false
+
+    var body: some View {
+        HStack(alignment: isExpanded ? .top : .center, spacing: 16) {
+            MediaThumbnail(icon: result.icon, isExpanded: isExpanded)
+
+            VStack(alignment: .leading, spacing: 5) {
+                HStack(spacing: 8) {
+                    Text(result.title)
+                        .font(FoundryTheme.body(size: isExpanded ? 20 : 15, weight: .semibold))
+                        .foregroundStyle(FoundryTheme.primaryText)
+                        .lineLimit(isExpanded ? 2 : 1)
+
+                    Text("Download")
+                        .font(FoundryTheme.body(size: 10, weight: .semibold))
+                        .foregroundStyle(FoundryTheme.secondaryText)
+                        .padding(.horizontal, 7)
+                        .frame(height: 18)
+                        .background(Color.white.opacity(0.08))
+                        .clipShape(Capsule())
+                }
+
+                if let subtitle = result.subtitle {
+                    Text(subtitle)
+                        .font(FoundryTheme.body(size: isExpanded ? 14 : 12, weight: .regular))
+                        .foregroundStyle(FoundryTheme.mutedText)
+                        .lineLimit(isExpanded ? 3 : 2)
+                }
+
+                if isExpanded {
+                    HStack(spacing: 8) {
+                        Image(systemName: "folder")
+                            .font(.system(size: 12, weight: .semibold))
+                        Text(MediaDownloadDestination.folder.path)
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                    }
+                    .font(FoundryTheme.body(size: 12, weight: .medium))
+                    .foregroundStyle(FoundryTheme.secondaryText)
+                    .padding(.top, 10)
+
+                    Text("Open Actions (⌘K) to change the folder.")
+                        .font(FoundryTheme.body(size: 12, weight: .regular))
+                        .foregroundStyle(FoundryTheme.faintText)
+                }
+            }
+
+            Spacer()
+
+            Image(systemName: "arrow.down.circle.fill")
+                .font(.system(size: 20, weight: .semibold))
+                .foregroundStyle(FoundryTheme.secondaryText)
+        }
+        .padding(.horizontal, isExpanded ? 20 : 12)
+        .padding(.vertical, isExpanded ? 20 : 0)
+        .frame(height: isExpanded ? 260 : 76)
+        .background(RowBackground(isSelected: isSelected, isHovering: isHovering))
+        .animation(.easeOut(duration: 0.12), value: isSelected)
+        .animation(.easeOut(duration: 0.12), value: isHovering)
+        .onHover { hovering in
+            isHovering = hovering
+            if hovering { NSCursor.pointingHand.set() } else { NSCursor.arrow.set() }
+        }
+    }
+}
+
+private struct MediaThumbnail: View {
+    let icon: CommandIcon
+    var isExpanded = false
+
+    var body: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(Color.white.opacity(0.075))
+
+            if let url = icon.thumbnailURL {
+                AsyncImage(url: url) { phase in
+                    switch phase {
+                    case let .success(image):
+                        image
+                            .resizable()
+                            .scaledToFill()
+                    case .failure:
+                        fallback
+                    case .empty:
+                        ProgressView()
+                            .controlSize(.small)
+                    @unknown default:
+                        fallback
+                    }
+                }
+            } else {
+                fallback
+            }
+        }
+        .frame(width: isExpanded ? 300 : 92, height: isExpanded ? 170 : 52)
+        .clipShape(RoundedRectangle(cornerRadius: isExpanded ? 18 : 10, style: .continuous))
+        .overlay(alignment: .center) {
+            Circle()
+                .fill(Color.black.opacity(0.34))
+                .frame(width: isExpanded ? 44 : 24, height: isExpanded ? 44 : 24)
+                .overlay(
+                    Image(systemName: "play.fill")
+                        .font(.system(size: isExpanded ? 17 : 10, weight: .bold))
+                        .foregroundStyle(.white)
+                        .offset(x: 1)
+                )
+        }
+    }
+
+    private var fallback: some View {
+        Image(systemName: icon.systemName ?? "arrow.down.circle")
+            .font(.system(size: 20, weight: .medium))
+            .foregroundStyle(FoundryTheme.secondaryText)
     }
 }
 
@@ -1255,6 +1405,10 @@ private struct ActionRow: View {
             "folder"
         case .copyToClipboard:
             "doc.on.doc"
+        case .downloadMedia:
+            "arrow.down.circle"
+        case .chooseMediaDownloadFolder:
+            "folder.badge.gearshape"
         case .openActivityMonitor:
             "cpu"
         case .openEmojiPicker:

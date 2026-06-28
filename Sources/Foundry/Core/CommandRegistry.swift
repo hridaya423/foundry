@@ -14,11 +14,13 @@ struct CommandIcon: Hashable, Sendable {
     let fallback: String
     let filePath: String?
     let systemName: String?
+    let thumbnailURL: URL?
 
-    init(fallback: String, filePath: String? = nil, systemName: String? = nil) {
+    init(fallback: String, filePath: String? = nil, systemName: String? = nil, thumbnailURL: URL? = nil) {
         self.fallback = fallback
         self.filePath = filePath
         self.systemName = systemName
+        self.thumbnailURL = thumbnailURL
     }
 }
 
@@ -42,6 +44,8 @@ enum CommandActionKind: Hashable, Sendable {
     case openConfigFolder
     case revealInFinder(path: String)
     case copyToClipboard(String)
+    case downloadMedia(url: String)
+    case chooseMediaDownloadFolder
     case openActivityMonitor
     case openEmojiPicker
     case openFileShelf
@@ -82,6 +86,7 @@ final class CommandRegistry: @unchecked Sendable {
             providers: [
                 AppSearchProvider(diagnostics: diagnostics),
                 CalculatorProvider(),
+                MediaDownloadProvider(),
                 SystemCommandProvider(diagnostics: diagnostics),
                 BuiltInCommandProvider(config: config, diagnostics: diagnostics)
             ],

@@ -4,6 +4,7 @@ import Foundation
 @MainActor
 final class ActionRunner {
     private let diagnostics: DiagnosticsService
+    var mediaStatusHandler: (@MainActor @Sendable (String) -> Void)?
 
     init(diagnostics: DiagnosticsService) {
         self.diagnostics = diagnostics
@@ -42,6 +43,30 @@ final class ActionRunner {
             NSPasteboard.general.setString(value, forType: .string)
             diagnostics.log("Copied to clipboard")
 
+        case let .downloadMedia(urlString):
+            diagnostics.log("Starting media download")
+            let statusHandler = mediaStatusHandler
+            Task.detached { [diagnostics] in
+                let result = await Self.downloadMedia(urlString: urlString, status: statusHandler)
+                await MainActor.run {
+                    statusHandler?(result)
+                    diagnostics.log(result)
+                    NSWorkspace.shared.open(Self.downloadFolder)
+                }
+            }
+
+        case .chooseMediaDownloadFolder:
+            let panel = NSOpenPanel()
+            panel.canChooseFiles = false
+            panel.canChooseDirectories = true
+            panel.allowsMultipleSelection = false
+            panel.directoryURL = MediaDownloadDestination.folder
+            if panel.runModal() == .OK, let url = panel.url {
+                MediaDownloadDestination.setFolder(url)
+                mediaStatusHandler?("Downloads will save to \(url.lastPathComponent)")
+                diagnostics.log("Media download folder changed: \(url.path)")
+            }
+
         case .openActivityMonitor:
             diagnostics.log("Activity Monitor should be opened by panel state")
 
@@ -75,6 +100,207 @@ final class ActionRunner {
 
         case let .log(message):
             diagnostics.log(message)
+        }
+    }
+
+    nonisolated private static let downloadFolder = MediaDownloadDestination.folder
+
+    nonisolated private static func downloadMedia(urlString: String, status: (@MainActor @Sendable (String) -> Void)?) async -> String {
+        guard let url = URL(string: urlString) else { return "Invalid media URL" }
+
+        do {
+            try FileManager.default.createDirectory(at: downloadFolder, withIntermediateDirectories: true)
+            if isYouTube(url) {
+                report("Preparing yt-dlp", status)
+                let executable = try installYTDLPIfNeeded()
+                let playlistLabel = isPlaylist(url) ? "playlist" : "media"
+                report("Downloading \(playlistLabel)", status)
+                try runYTDLP(executable, url: url, status: status)
+                return "Downloaded YouTube media to \(downloadFolder.path)"
+            }
+
+            let file = try await downloadWithCobalt(url, status: status)
+            return "Downloaded \(file.lastPathComponent)"
+        } catch {
+            return "Media download failed: \(error.localizedDescription)"
+        }
+    }
+
+    nonisolated private static func isYouTube(_ url: URL) -> Bool {
+        guard let host = url.host?.lowercased() else { return false }
+        return host == "youtu.be" || host == "youtube.com" || host.hasSuffix(".youtube.com")
+    }
+
+    nonisolated private static func isPlaylist(_ url: URL) -> Bool {
+        guard isYouTube(url), let components = URLComponents(url: url, resolvingAgainstBaseURL: false) else { return false }
+        if url.path == "/playlist" { return true }
+        return components.queryItems?.contains { $0.name == "list" && ($0.value?.isEmpty == false) } == true
+    }
+
+    nonisolated private static func installYTDLPIfNeeded() throws -> String {
+        if let existing = firstExistingPath(["/opt/homebrew/bin/yt-dlp", "/usr/local/bin/yt-dlp"]) { return existing }
+        if let found = try? runAndCapture("/usr/bin/which", ["yt-dlp"]).trimmingCharacters(in: .whitespacesAndNewlines), found.isEmpty == false {
+            return found
+        }
+
+        guard let brew = firstExistingPath(["/opt/homebrew/bin/brew", "/usr/local/bin/brew"]) else {
+            throw MediaDownloadError.message("yt-dlp is missing and Homebrew was not found")
+        }
+
+        try run(brew, ["install", "yt-dlp"])
+        if let installed = firstExistingPath(["/opt/homebrew/bin/yt-dlp", "/usr/local/bin/yt-dlp"]) { return installed }
+        throw MediaDownloadError.message("yt-dlp install finished, but yt-dlp was not found")
+    }
+
+    nonisolated private static func downloadWithCobalt(_ sourceURL: URL, status: (@MainActor @Sendable (String) -> Void)?) async throws -> URL {
+        report("Requesting media link from cobalt", status)
+        var request = URLRequest(url: URL(string: "https://api.cobalt.tools/")!)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try JSONSerialization.data(withJSONObject: ["url": sourceURL.absoluteString])
+
+        let (data, _) = try await URLSession.shared.data(for: request)
+        guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            throw MediaDownloadError.message("invalid cobalt response")
+        }
+
+        if let error = json["error"] as? [String: Any], let code = error["code"] as? String {
+            throw MediaDownloadError.message("cobalt error: \(code)")
+        }
+
+        let downloadURLString = json["url"] as? String
+            ?? json["tunnel"] as? String
+            ?? (json["picker"] as? [[String: Any]])?.compactMap { $0["url"] as? String ?? $0["tunnel"] as? String }.first
+
+        guard let downloadURLString, let downloadURL = URL(string: downloadURLString) else {
+            throw MediaDownloadError.message("cobalt did not return a downloadable file")
+        }
+
+        report("Downloading media", status)
+        let (temporaryURL, response) = try await URLSession.shared.download(from: downloadURL)
+        let fallbackName = response.suggestedFilename ?? "media-\(Int(Date().timeIntervalSince1970))"
+        let destination = downloadFolder.appendingPathComponent(safeFilename(fallbackName))
+        if FileManager.default.fileExists(atPath: destination.path) {
+            try FileManager.default.removeItem(at: destination)
+        }
+        try FileManager.default.moveItem(at: temporaryURL, to: destination)
+        return destination
+    }
+
+    nonisolated private static func runYTDLP(_ path: String, url: URL, status: (@MainActor @Sendable (String) -> Void)?) throws {
+        let process = Process()
+        let pipe = Pipe()
+        process.executableURL = URL(fileURLWithPath: path)
+        process.arguments = ["--newline", "-P", downloadFolder.path, "-o", "%(title).200B [%(id)s].%(ext)s", url.absoluteString]
+        process.standardOutput = pipe
+        process.standardError = pipe
+
+        let output = MediaDownloadOutput()
+        pipe.fileHandleForReading.readabilityHandler = { handle in
+            let data = handle.availableData
+            guard data.isEmpty == false, let chunk = String(data: data, encoding: .utf8) else { return }
+            output.append(chunk, status: status)
+        }
+
+        try process.run()
+        process.waitUntilExit()
+        pipe.fileHandleForReading.readabilityHandler = nil
+        if process.terminationStatus != 0 {
+            throw MediaDownloadError.message(output.text.trimmingCharacters(in: .whitespacesAndNewlines))
+        }
+    }
+
+    nonisolated fileprivate static func playlistItemLabel(in line: String) -> String? {
+        guard let range = line.range(of: "Downloading item ") else { return nil }
+        let suffix = line[range.upperBound...]
+        let label = suffix.split(separator: " ").prefix(3).joined(separator: " ")
+        return label.isEmpty ? nil : label
+    }
+
+    nonisolated fileprivate static func downloadPercent(in line: String) -> String? {
+        guard line.contains("[download]") else { return nil }
+        let parts = line.split(separator: " ").map(String.init)
+        return parts.first { $0.hasSuffix("%") }
+    }
+
+    nonisolated fileprivate static func report(_ message: String, _ status: (@MainActor @Sendable (String) -> Void)?) {
+        guard let status else { return }
+        Task { await status(message) }
+    }
+
+    nonisolated private static func firstExistingPath(_ paths: [String]) -> String? {
+        paths.first { FileManager.default.isExecutableFile(atPath: $0) }
+    }
+
+    nonisolated private static func run(_ path: String, _ arguments: [String]) throws {
+        _ = try runAndCapture(path, arguments)
+    }
+
+    nonisolated private static func runAndCapture(_ path: String, _ arguments: [String]) throws -> String {
+        let process = Process()
+        let pipe = Pipe()
+        process.executableURL = URL(fileURLWithPath: path)
+        process.arguments = arguments
+        process.standardOutput = pipe
+        process.standardError = pipe
+        try process.run()
+        process.waitUntilExit()
+        let data = pipe.fileHandleForReading.readDataToEndOfFile()
+        let output = String(data: data, encoding: .utf8) ?? ""
+        guard process.terminationStatus == 0 else {
+            throw MediaDownloadError.message(output.trimmingCharacters(in: .whitespacesAndNewlines))
+        }
+        return output
+    }
+
+    nonisolated private static func safeFilename(_ name: String) -> String {
+        let invalid = CharacterSet(charactersIn: "/:")
+        let cleaned = name.components(separatedBy: invalid).joined(separator: "-")
+        return cleaned.isEmpty ? "media-\(Int(Date().timeIntervalSince1970))" : cleaned
+    }
+}
+
+private final class MediaDownloadOutput: @unchecked Sendable {
+    private let lock = NSLock()
+    private var value = ""
+    private var currentItem: String?
+
+    var text: String {
+        lock.lock()
+        defer { lock.unlock() }
+        return value
+    }
+
+    func append(_ chunk: String, status: (@MainActor @Sendable (String) -> Void)?) {
+        lock.lock()
+        value += chunk
+        let lines = chunk.components(separatedBy: .newlines)
+        lock.unlock()
+
+        for line in lines {
+            if let item = ActionRunner.playlistItemLabel(in: line) {
+                lock.lock()
+                currentItem = item
+                lock.unlock()
+                ActionRunner.report("Downloading \(item)", status)
+            } else if let percent = ActionRunner.downloadPercent(in: line) {
+                lock.lock()
+                let item = currentItem
+                lock.unlock()
+                let prefix = item.map { "Downloading \($0)" } ?? "Downloading"
+                ActionRunner.report("\(prefix) · \(percent)", status)
+            }
+        }
+    }
+}
+
+private enum MediaDownloadError: LocalizedError {
+    case message(String)
+
+    var errorDescription: String? {
+        switch self {
+        case let .message(message): message
         }
     }
 }

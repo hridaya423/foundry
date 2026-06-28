@@ -58,6 +58,9 @@ final class PanelController: NSObject, NSWindowDelegate {
         panel.onCommandComma = { [weak self] in
             self?.state.openSettings()
         }
+        panel.onCommandV = { [weak self] in
+            self?.state.pasteFromClipboard() ?? false
+        }
 
         let rootView = CommandPanelView(state: state) { [weak self] in
             self?.hide()
@@ -90,6 +93,7 @@ final class PanelController: NSObject, NSWindowDelegate {
 final class FoundryPanel: NSPanel {
     var onCommandK: (() -> Void)?
     var onCommandComma: (() -> Void)?
+    var onCommandV: (() -> Bool)?
 
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { true }
@@ -123,6 +127,8 @@ final class FoundryPanel: NSPanel {
         case "q":
             NSApp.terminate(nil)
             return true
+        case "v":
+            return onCommandV?() ?? false
         default:
             return false
         }
