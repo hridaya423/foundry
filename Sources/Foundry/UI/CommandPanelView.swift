@@ -308,12 +308,22 @@ struct CommandPanelView: View {
             ScrollView {
                 LazyVStack(spacing: isHome ? 2 : 3) {
                     if let selectedCalculatorResult {
-                        CalculatorResultCard(result: selectedCalculatorResult)
-                            .padding(.bottom, 18)
+                        CalculatorResultCard(result: selectedCalculatorResult, alternatives: calculatorAlternativeResults) { result in
+                            state.select(resultID: result.id)
+                        }
+                        .padding(.bottom, 18)
 
                         if displayedResults.isEmpty == false {
                             CalculatorUseWithHeader(query: state.query)
                                 .padding(.bottom, 4)
+                        } else {
+                            CalculatorUseWithHeader(query: state.query)
+                                .padding(.bottom, 4)
+                            ForEach(calculatorFallbackResults, id: \.id) { result in
+                                HomeResultRow(result: result, isSelected: false, label: resultKindLabel(for: result))
+                                    .contentShape(Rectangle())
+                                    .onTapGesture { execute(result) }
+                            }
                         }
                     }
 
@@ -367,12 +377,51 @@ struct CommandPanelView: View {
     private var displayedResults: [CommandResult] {
         var results = state.results
         if selectedCalculatorResult != nil {
-            results = results.filter { $0.id.hasPrefix("calculator.") == false }
+            results = results.filter { $0.id != selectedCalculatorResult?.id && $0.id.hasPrefix("calculator.convert.") == false }
         }
         if state.mode == .search, state.fileShelf.files.isEmpty == false, state.query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             results = results.filter { $0.id != "foundry.file-shelf" }
         }
         return results
+    }
+
+    private var calculatorAlternativeResults: [CommandResult] {
+        guard let selectedCalculatorResult else { return [] }
+        return state.results.filter { result in
+            result.id.hasPrefix("calculator.convert.") && result.id != selectedCalculatorResult.id
+        }
+    }
+
+    private var calculatorFallbackResults: [CommandResult] {
+        [
+            CommandResult(
+                id: "calculator.fallback.clipboard",
+                title: "Clipboard History",
+                subtitle: "Search copied text, files, and images",
+                icon: CommandIcon(fallback: "CB", systemName: "doc.on.clipboard"),
+                score: 0,
+                primaryAction: CommandAction(id: "calculator.fallback.clipboard.open", title: "Open", kind: .openClipboardHistory),
+                secondaryActions: []
+            ),
+            CommandResult(
+                id: "calculator.fallback.fileshelf",
+                title: "File Shelf",
+                subtitle: "Hold files for quick actions",
+                icon: CommandIcon(fallback: "FS", systemName: "tray.full"),
+                score: 0,
+                primaryAction: CommandAction(id: "calculator.fallback.fileshelf.open", title: "Open", kind: .openFileShelf),
+                secondaryActions: []
+            ),
+            CommandResult(
+                id: "calculator.fallback.settings",
+                title: "Customize Widgets",
+                subtitle: "Choose what appears on the home screen",
+                icon: CommandIcon(fallback: "ST", systemName: "slider.horizontal.3"),
+                score: 0,
+                primaryAction: CommandAction(id: "calculator.fallback.settings.open", title: "Open", kind: .openSettings),
+                secondaryActions: []
+            )
+        ]
     }
 
     private var shouldExpandMediaResult: Bool {
@@ -1262,6 +1311,8 @@ private struct ClipboardInlinePreview: View {
 
 private struct CalculatorResultCard: View {
     let result: CommandResult
+    var alternatives: [CommandResult] = []
+    var executeAlternative: (CommandResult) -> Void = { _ in }
 
     private var expression: String {
         result.subtitle ?? "Calculation"
@@ -1312,7 +1363,7 @@ private struct CalculatorResultCard: View {
                     .frame(width: 1)
             }
 
-            CalculatorValuePane(value: result.title)
+            CalculatorValuePane(value: result.title, alternatives: alternatives, executeAlternative: executeAlternative)
         }
         .frame(height: 112)
         .background(Color.white.opacity(0.05))
@@ -1326,15 +1377,76 @@ private struct CalculatorResultCard: View {
 
 private struct CalculatorValuePane: View {
     let value: String
+    var alternatives: [CommandResult] = []
+    var executeAlternative: (CommandResult) -> Void = { _ in }
+
+    private var splitValue: (amount: String, unit: String?) {
+        split(value)
+    }
 
     var body: some View {
-        Text(value)
-            .font(FoundryTheme.display(size: 36, weight: .bold))
-            .foregroundStyle(FoundryTheme.primaryText)
-            .lineLimit(1)
-            .minimumScaleFactor(0.45)
+        VStack(spacing: 8) {
+            Text(splitValue.amount)
+                .font(FoundryTheme.display(size: 36, weight: .bold))
+                .foregroundStyle(FoundryTheme.primaryText)
+                .lineLimit(1)
+                .minimumScaleFactor(0.45)
+
+            if let unit = splitValue.unit {
+                Menu {
+                    ForEach(alternatives, id: \.id) { alternative in
+                        Button(split(alternative.title).unit ?? alternative.title) {
+                            withAnimation(.easeOut(duration: 0.16)) {
+                                if let code = currencyCode(in: alternative.title) {
+                                    UserDefaults.standard.set(code, forKey: "preferredCurrencyQuote")
+                                }
+                                executeAlternative(alternative)
+                            }
+                        }
+                    }
+                } label: {
+                    HStack(spacing: 5) {
+                        Text(unit)
+                        if alternatives.isEmpty == false {
+                            Image(systemName: "chevron.down")
+                                .font(.system(size: 9, weight: .bold))
+                        }
+                    }
+                    .font(FoundryTheme.body(size: 13, weight: .semibold))
+                    .foregroundStyle(FoundryTheme.secondaryText)
+                    .padding(.horizontal, 10)
+                    .frame(height: 26)
+                    .background(Color.white.opacity(0.07))
+                    .clipShape(Capsule())
+                }
+                .menuStyle(.borderlessButton)
+                .menuIndicator(.hidden)
+                .fixedSize()
+            }
+        }
         .frame(maxWidth: .infinity, alignment: .center)
         .padding(.horizontal, 32)
+    }
+
+    private func split(_ value: String) -> (amount: String, unit: String?) {
+        guard let space = value.firstIndex(of: " ") else { return (value, nil) }
+        return (String(value[..<space]), String(value[value.index(after: space)...]))
+    }
+
+    private func currencyCode(in value: String) -> String? {
+        guard let unit = split(value).unit else { return nil }
+        switch unit {
+        case "US Dollar": return "USD"
+        case "Euro": return "EUR"
+        case "British Pound": return "GBP"
+        case "Indian Rupee": return "INR"
+        case "Japanese Yen": return "JPY"
+        case "Canadian Dollar": return "CAD"
+        case "Australian Dollar": return "AUD"
+        case "Swiss Franc": return "CHF"
+        case "Chinese Yuan": return "CNY"
+        default: return nil
+        }
     }
 }
 
