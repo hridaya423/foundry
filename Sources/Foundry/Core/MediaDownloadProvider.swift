@@ -21,11 +21,12 @@ final class MediaDownloadProvider: CommandProvider {
     func results(matching query: String) async -> [CommandResult] {
         guard let url = Self.mediaURL(in: query) else { return [] }
         let isYouTube = Self.isYouTube(url)
+        let isDirectFile = Self.isDirectMediaFile(url)
         let isPlaylist = Self.isPlaylist(url)
         let metadata = isYouTube ? await Self.youtubeMetadata(for: url) : nil
         let title = isPlaylist ? "Download Playlist" : "Download Media"
-        let detail = metadata?.title ?? (isPlaylist ? "all videos in this playlist" : url.host ?? "media")
-        let service = isYouTube ? "yt-dlp" : "cobalt"
+        let detail = metadata?.title ?? (isPlaylist ? "all videos in this playlist" : url.lastPathComponent)
+        let service = isYouTube ? "yt-dlp" : (isDirectFile ? "direct link" : "cobalt")
         return [
             CommandResult(
                 id: "media.download.\(url.absoluteString)",
@@ -49,7 +50,7 @@ final class MediaDownloadProvider: CommandProvider {
         let range = NSRange(trimmed.startIndex..<trimmed.endIndex, in: trimmed)
         return detector.matches(in: trimmed, range: range).compactMap(\.url).first { url in
             guard let scheme = url.scheme?.lowercased(), ["http", "https"].contains(scheme), let host = url.host?.lowercased() else { return false }
-            return mediaHosts.contains { host == $0 || host.hasSuffix("." + $0) }
+            return isDirectMediaFile(url) || mediaHosts.contains { host == $0 || host.hasSuffix("." + $0) }
         }
     }
 
@@ -62,6 +63,10 @@ final class MediaDownloadProvider: CommandProvider {
         guard isYouTube(url), let components = URLComponents(url: url, resolvingAgainstBaseURL: false) else { return false }
         if url.path == "/playlist" { return true }
         return components.queryItems?.contains { $0.name == "list" && ($0.value?.isEmpty == false) } == true
+    }
+
+    static func isDirectMediaFile(_ url: URL) -> Bool {
+        directMediaExtensions.contains(url.pathExtension.lowercased())
     }
 
     private static func youtubeMetadata(for url: URL) async -> YouTubeMetadata? {
@@ -82,6 +87,8 @@ final class MediaDownloadProvider: CommandProvider {
         "reddit.com", "pinterest.com", "soundcloud.com",
         "vimeo.com", "facebook.com", "threads.net", "bsky.app"
     ]
+
+    private static let directMediaExtensions: Set<String> = ["mp3", "m4a", "wav", "aac", "flac", "ogg", "mp4", "mov", "webm", "mkv"]
 }
 
 private struct YouTubeMetadata {

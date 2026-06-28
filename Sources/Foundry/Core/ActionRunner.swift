@@ -110,6 +110,11 @@ final class ActionRunner {
 
         do {
             try FileManager.default.createDirectory(at: downloadFolder, withIntermediateDirectories: true)
+            if MediaDownloadProvider.isDirectMediaFile(url) {
+                let file = try await downloadDirectFile(url, status: status)
+                return "Downloaded \(file.lastPathComponent)"
+            }
+
             if isYouTube(url) {
                 report("Preparing yt-dlp", status)
                 let executable = try installYTDLPIfNeeded()
@@ -124,6 +129,19 @@ final class ActionRunner {
         } catch {
             return "Media download failed: \(error.localizedDescription)"
         }
+    }
+
+    nonisolated private static func downloadDirectFile(_ sourceURL: URL, status: (@MainActor @Sendable (String) -> Void)?) async throws -> URL {
+        report("Downloading \(sourceURL.lastPathComponent)", status)
+        let (temporaryURL, response) = try await URLSession.shared.download(from: sourceURL)
+        let fallbackName = response.suggestedFilename ?? sourceURL.lastPathComponent
+        let name = fallbackName.isEmpty ? "media-\(Int(Date().timeIntervalSince1970)).\(sourceURL.pathExtension)" : fallbackName
+        let destination = downloadFolder.appendingPathComponent(safeFilename(name))
+        if FileManager.default.fileExists(atPath: destination.path) {
+            try FileManager.default.removeItem(at: destination)
+        }
+        try FileManager.default.moveItem(at: temporaryURL, to: destination)
+        return destination
     }
 
     nonisolated private static func isYouTube(_ url: URL) -> Bool {
