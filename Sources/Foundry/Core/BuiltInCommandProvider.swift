@@ -93,6 +93,17 @@ final class BuiltInCommandProvider: CommandProvider {
                 secondaryActions: []
             ),
             BuiltInCommand(
+                id: "foundry.camera",
+                title: "Camera",
+                subtitle: "Live camera preview inside Foundry",
+                aliases: ["camera", "webcam", "preview", "cam"],
+                systemIcon: "camera",
+                fallback: "CM",
+                scoreBoost: 3,
+                primaryAction: CommandAction(id: "foundry.camera.open", title: "Open", kind: .openCamera),
+                secondaryActions: []
+            ),
+            BuiltInCommand(
                 id: "foundry.translate",
                 title: "Translate",
                 subtitle: "Translate text with Apple on-device language model",

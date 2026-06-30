@@ -10,6 +10,7 @@ final class CommandPanelState: ObservableObject {
         case emojiPicker
         case fileShelf
         case clipboardHistory
+        case camera
         case translator
         case settings
     }
@@ -28,6 +29,7 @@ final class CommandPanelState: ObservableObject {
     let emojiPicker = EmojiPickerState()
     let fileShelf = FileShelfState()
     let clipboardHistory = ClipboardHistoryState()
+    let camera = CameraPreviewState()
     let translator = TranslatorState()
     let widgetBoard: WidgetBoardState
 
@@ -76,6 +78,7 @@ final class CommandPanelState: ObservableObject {
         activityMonitor.stop()
         emojiPicker.reset()
         clipboardHistory.reset()
+        camera.stop()
         translator.reset()
         query = ""
         results = []
@@ -92,6 +95,7 @@ final class CommandPanelState: ObservableObject {
         activityMonitor.stop()
         emojiPicker.reset()
         clipboardHistory.reset()
+        camera.stop()
         translator.reset()
     }
 
@@ -171,6 +175,10 @@ final class CommandPanelState: ObservableObject {
             openClipboardHistory()
             return false
         }
+        if selectedResult.primaryAction.kind == .openCamera {
+            openCamera()
+            return false
+        }
         if case let .openTranslator(text, language) = selectedResult.primaryAction.kind {
             openTranslator(text: text, language: language)
             return false
@@ -227,7 +235,7 @@ final class CommandPanelState: ObservableObject {
             clipboardHistory.query += text
         case .translator:
             translator.sourceText += text
-        case .fileShelf, .settings:
+        case .camera, .fileShelf, .settings:
             return false
         }
         return true
@@ -263,6 +271,10 @@ final class CommandPanelState: ObservableObject {
 
         if mode == .clipboardHistory {
             clipboardHistory.moveSelection(offset: offset)
+            return
+        }
+
+        if mode == .camera {
             return
         }
 
@@ -410,6 +422,19 @@ final class CommandPanelState: ObservableObject {
         selectedResultID = nil
         clipboardHistory.reset()
         diagnosticsSummary = "clipboard history"
+    }
+
+    private func openCamera() {
+        withAnimation(.easeOut(duration: 0.14)) {
+            mode = .camera
+        }
+        isShowingActions = false
+        selectedActionID = nil
+        searchTask?.cancel()
+        results = []
+        selectedResultID = nil
+        camera.start()
+        diagnosticsSummary = "camera"
     }
 
     private func openTranslator(text: String? = nil, language: String? = nil) {

@@ -1,4 +1,5 @@
 import AppKit
+import AVFoundation
 import SwiftUI
 import UniformTypeIdentifiers
 #if canImport(Translation)
@@ -112,6 +113,8 @@ struct CommandPanelView: View {
                         dismiss()
                     }
                 }
+            } else if state.mode == .camera {
+                CameraPreviewView(state: state.camera)
             } else if state.mode == .fileShelf {
                 FileShelfView(state: state.fileShelf)
             } else if state.mode == .clipboardHistory {
@@ -134,6 +137,7 @@ struct CommandPanelView: View {
         if state.mode == .settings { return "settings" }
         if state.mode == .activityMonitor { return "activity" }
         if state.mode == .emojiPicker { return "emoji" }
+        if state.mode == .camera { return "camera" }
         if state.mode == .fileShelf { return "shelf" }
         if state.mode == .clipboardHistory { return "clipboard" }
         if state.mode == .translator { return "translator" }
@@ -208,6 +212,14 @@ struct CommandPanelView: View {
                             dismiss()
                         }
                     }
+            } else if state.mode == .camera {
+                Image(systemName: "camera")
+                    .font(.system(size: 16, weight: .regular))
+                    .foregroundStyle(FoundryTheme.mutedText)
+
+                Text("Camera")
+                    .font(FoundryTheme.body(size: 21, weight: .regular))
+                    .foregroundStyle(FoundryTheme.primaryText)
             } else if state.mode == .fileShelf {
                 Image(systemName: "tray.full")
                     .font(.system(size: 16, weight: .regular))
@@ -487,7 +499,7 @@ struct CommandPanelView: View {
         switch result.primaryAction.kind {
         case .openApp:
             "Application"
-        case .openEmojiPicker, .openFileShelf, .openClipboardHistory, .openTranslator, .openActivityMonitor, .openConfigFolder, .openSettings, .quit:
+        case .openEmojiPicker, .openFileShelf, .openClipboardHistory, .openCamera, .openTranslator, .openActivityMonitor, .openConfigFolder, .openSettings, .quit:
             "Command"
         case .revealInFinder:
             "Finder"
@@ -688,6 +700,8 @@ struct CommandPanelView: View {
         case .emojiPicker:
             FooterAction(label: "Copy", keys: "↵")
             FooterDivider()
+            FooterAction(label: "Close", keys: "esc")
+        case .camera:
             FooterAction(label: "Close", keys: "esc")
         case .fileShelf:
             FooterAction(label: "Remove", keys: "⌫")
@@ -1754,6 +1768,8 @@ private struct ActionRow: View {
             "tray.full"
         case .openClipboardHistory:
             "doc.on.clipboard"
+        case .openCamera:
+            "camera"
         case .openTranslator:
             "globe"
         case .runProcess:
@@ -1763,6 +1779,79 @@ private struct ActionRow: View {
         case .log:
             "text.bubble"
         }
+    }
+}
+
+private struct CameraPreviewView: View {
+    @ObservedObject var state: CameraPreviewState
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                    .fill(Color.white.opacity(0.05))
+
+                CameraPreviewSurface(session: state.session)
+                    .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+
+                if state.status.isEmpty == false {
+                    VStack(spacing: 10) {
+                        Image(systemName: "camera")
+                            .font(.system(size: 28, weight: .medium))
+                            .foregroundStyle(FoundryTheme.secondaryText)
+                        Text(state.status)
+                            .font(FoundryTheme.body(size: 15, weight: .semibold))
+                            .foregroundStyle(FoundryTheme.primaryText)
+                    }
+                    .padding(24)
+                }
+            }
+            .overlay(
+                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                    .stroke(Color.white.opacity(0.07), lineWidth: 1)
+            )
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+        .padding(.horizontal, 20)
+        .padding(.vertical, 18)
+        .onAppear { state.start() }
+    }
+}
+
+private struct CameraPreviewSurface: NSViewRepresentable {
+    let session: AVCaptureSession
+
+    func makeNSView(context: Context) -> PreviewView {
+        let view = PreviewView()
+        view.previewLayer.videoGravity = .resizeAspectFill
+        view.previewLayer.session = session
+        return view
+    }
+
+    func updateNSView(_ nsView: PreviewView, context: Context) {
+        nsView.previewLayer.session = session
+    }
+}
+
+private final class PreviewView: NSView {
+    let previewLayer = AVCaptureVideoPreviewLayer()
+
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        wantsLayer = true
+        layer = CALayer()
+        previewLayer.autoresizingMask = [.layerWidthSizable, .layerHeightSizable]
+        previewLayer.frame = bounds
+        layer?.addSublayer(previewLayer)
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    override func layout() {
+        super.layout()
+        previewLayer.frame = bounds
     }
 }
 
