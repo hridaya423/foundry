@@ -50,6 +50,7 @@ enum CommandActionKind: Hashable, Sendable {
     case openEmojiPicker
     case openFileShelf
     case openClipboardHistory
+    case openTranslator(text: String? = nil, language: String? = nil)
     case openSettings
     case runProcess(path: String, arguments: [String])
     case quit
@@ -86,6 +87,7 @@ final class CommandRegistry: @unchecked Sendable {
             providers: [
                 AppSearchProvider(diagnostics: diagnostics),
                 CalculatorProvider(),
+                TranslationProvider(),
                 MediaDownloadProvider(),
                 SystemCommandProvider(diagnostics: diagnostics),
                 BuiltInCommandProvider(config: config, diagnostics: diagnostics)

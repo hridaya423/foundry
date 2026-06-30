@@ -10,6 +10,7 @@ final class CommandPanelState: ObservableObject {
         case emojiPicker
         case fileShelf
         case clipboardHistory
+        case translator
         case settings
     }
 
@@ -27,6 +28,7 @@ final class CommandPanelState: ObservableObject {
     let emojiPicker = EmojiPickerState()
     let fileShelf = FileShelfState()
     let clipboardHistory = ClipboardHistoryState()
+    let translator = TranslatorState()
     let widgetBoard: WidgetBoardState
 
     private let registry: CommandRegistry
@@ -74,6 +76,7 @@ final class CommandPanelState: ObservableObject {
         activityMonitor.stop()
         emojiPicker.reset()
         clipboardHistory.reset()
+        translator.reset()
         query = ""
         results = []
         selectedResultID = nil
@@ -89,6 +92,7 @@ final class CommandPanelState: ObservableObject {
         activityMonitor.stop()
         emojiPicker.reset()
         clipboardHistory.reset()
+        translator.reset()
     }
 
     func openSettings() {
@@ -167,6 +171,10 @@ final class CommandPanelState: ObservableObject {
             openClipboardHistory()
             return false
         }
+        if case let .openTranslator(text, language) = selectedResult.primaryAction.kind {
+            openTranslator(text: text, language: language)
+            return false
+        }
         if selectedResult.primaryAction.kind == .openSettings {
             openSettings()
             return false
@@ -217,6 +225,8 @@ final class CommandPanelState: ObservableObject {
             emojiPicker.query += text
         case .clipboardHistory:
             clipboardHistory.query += text
+        case .translator:
+            translator.sourceText += text
         case .fileShelf, .settings:
             return false
         }
@@ -253,6 +263,10 @@ final class CommandPanelState: ObservableObject {
 
         if mode == .clipboardHistory {
             clipboardHistory.moveSelection(offset: offset)
+            return
+        }
+
+        if mode == .translator {
             return
         }
 
@@ -396,6 +410,21 @@ final class CommandPanelState: ObservableObject {
         selectedResultID = nil
         clipboardHistory.reset()
         diagnosticsSummary = "clipboard history"
+    }
+
+    private func openTranslator(text: String? = nil, language: String? = nil) {
+        withAnimation(.easeOut(duration: 0.14)) {
+            mode = .translator
+        }
+        isShowingActions = false
+        selectedActionID = nil
+        searchTask?.cancel()
+        results = []
+        selectedResultID = nil
+        translator.reset()
+        if let text { translator.sourceText = text }
+        if let language { translator.targetLanguage = language.capitalized }
+        diagnosticsSummary = "translator"
     }
 
 }

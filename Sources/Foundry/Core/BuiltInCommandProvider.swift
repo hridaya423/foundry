@@ -93,6 +93,17 @@ final class BuiltInCommandProvider: CommandProvider {
                 secondaryActions: []
             ),
             BuiltInCommand(
+                id: "foundry.translate",
+                title: "Translate",
+                subtitle: "Translate text with Apple on-device language model",
+                aliases: ["translate", "translator", "translation", "language"],
+                systemIcon: "globe",
+                fallback: "TR",
+                scoreBoost: 4,
+                primaryAction: CommandAction(id: "foundry.translate.open", title: "Open", kind: .openTranslator()),
+                secondaryActions: []
+            ),
+            BuiltInCommand(
                 id: "foundry.settings",
                 title: "Open Foundry Settings",
                 subtitle: "Customize widgets and Foundry preferences",
