@@ -82,6 +82,17 @@ final class BuiltInCommandProvider: CommandProvider {
                 secondaryActions: []
             ),
             BuiltInCommand(
+                id: "foundry.file-convert",
+                title: "Convert File",
+                subtitle: "Convert images, documents, audio, and video locally",
+                aliases: ["convert", "converter", "file convert", "transcode", "reformat"],
+                systemIcon: "arrow.triangle.2.circlepath",
+                fallback: "CV",
+                scoreBoost: 4,
+                primaryAction: CommandAction(id: "foundry.file-convert.open", title: "Open", kind: .openFileConverter()),
+                secondaryActions: []
+            ),
+            BuiltInCommand(
                 id: "foundry.clipboard-history",
                 title: "Clipboard History",
                 subtitle: "Search, reuse, and act on copied text, files, and images",

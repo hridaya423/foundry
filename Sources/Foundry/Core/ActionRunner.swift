@@ -79,6 +79,9 @@ final class ActionRunner {
         case .openClipboardHistory:
             diagnostics.log("Clipboard History should be opened by panel state")
 
+        case .openFileConverter:
+            diagnostics.log("File Converter should be opened by panel state")
+
         case .openCamera:
             diagnostics.log("Camera should be opened by panel state")
 

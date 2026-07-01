@@ -10,6 +10,7 @@ final class CommandPanelState: ObservableObject {
         case emojiPicker
         case fileShelf
         case clipboardHistory
+        case fileConversion
         case camera
         case translator
         case settings
@@ -29,6 +30,7 @@ final class CommandPanelState: ObservableObject {
     let emojiPicker = EmojiPickerState()
     let fileShelf = FileShelfState()
     let clipboardHistory = ClipboardHistoryState()
+    let fileConversion = FileConversionState()
     let camera = CameraPreviewState()
     let translator = TranslatorState()
     let widgetBoard: WidgetBoardState
@@ -78,6 +80,7 @@ final class CommandPanelState: ObservableObject {
         activityMonitor.stop()
         emojiPicker.reset()
         clipboardHistory.reset()
+        fileConversion.reset()
         camera.stop()
         translator.reset()
         query = ""
@@ -86,7 +89,7 @@ final class CommandPanelState: ObservableObject {
         isShowingActions = false
         selectedActionID = nil
         isMediaDownloadActive = false
-        refreshStatusSummary(fallback: "READY")
+        refreshStatusSummary()
         refreshHomeResults()
     }
 
@@ -95,6 +98,7 @@ final class CommandPanelState: ObservableObject {
         activityMonitor.stop()
         emojiPicker.reset()
         clipboardHistory.reset()
+        fileConversion.reset()
         camera.stop()
         translator.reset()
     }
@@ -127,12 +131,15 @@ final class CommandPanelState: ObservableObject {
         widgetBoard.stop()
         activityMonitor.stop()
         emojiPicker.reset()
+        camera.stop()
+        fileConversion.reset()
+        translator.reset()
         query = ""
         results = []
         selectedResultID = nil
         isShowingActions = false
         selectedActionID = nil
-        refreshStatusSummary(fallback: "READY")
+        refreshStatusSummary()
         refreshHomeResults()
     }
 
@@ -173,6 +180,10 @@ final class CommandPanelState: ObservableObject {
         }
         if selectedResult.primaryAction.kind == .openClipboardHistory {
             openClipboardHistory()
+            return false
+        }
+        if case let .openFileConverter(path) = selectedResult.primaryAction.kind {
+            openFileConverter(path: path)
             return false
         }
         if selectedResult.primaryAction.kind == .openCamera {
@@ -235,7 +246,7 @@ final class CommandPanelState: ObservableObject {
             clipboardHistory.query += text
         case .translator:
             translator.sourceText += text
-        case .camera, .fileShelf, .settings:
+        case .camera, .fileConversion, .fileShelf, .settings:
             return false
         }
         return true
@@ -266,6 +277,10 @@ final class CommandPanelState: ObservableObject {
 
         if mode == .fileShelf {
             fileShelf.moveSelection(offset: offset)
+            return
+        }
+
+        if mode == .fileConversion {
             return
         }
 
@@ -306,7 +321,7 @@ final class CommandPanelState: ObservableObject {
         guard trimmed.isEmpty == false else {
             results = []
             selectedResultID = nil
-            refreshStatusSummary(fallback: "READY")
+            refreshStatusSummary()
             refreshHomeResults()
             return
         }
@@ -346,7 +361,7 @@ final class CommandPanelState: ObservableObject {
         }
     }
 
-    private func refreshStatusSummary(fallback: String = "READY") {
+    private func refreshStatusSummary(fallback: String = "") {
         guard isMediaDownloadActive == false else { return }
         diagnosticsSummary = registry.statusSummary(resultCount: results.count, fallback: fallback)
     }
@@ -367,7 +382,7 @@ final class CommandPanelState: ObservableObject {
             }
             self.results = homeResults
             self.selectedResultID = homeResults.first?.id
-            self.refreshStatusSummary(fallback: "READY")
+            self.refreshStatusSummary()
         }
     }
 
@@ -422,6 +437,24 @@ final class CommandPanelState: ObservableObject {
         selectedResultID = nil
         clipboardHistory.reset()
         diagnosticsSummary = "clipboard history"
+    }
+
+    private func openFileConverter(path: String? = nil) {
+        withAnimation(.easeOut(duration: 0.14)) {
+            mode = .fileConversion
+        }
+        isShowingActions = false
+        selectedActionID = nil
+        searchTask?.cancel()
+        results = []
+        selectedResultID = nil
+        fileConversion.reset()
+        if let path {
+            fileConversion.setSource(url: URL(fileURLWithPath: path))
+        } else if let selectedFile = fileShelf.selectedFile {
+            fileConversion.setSource(url: selectedFile.url)
+        }
+        diagnosticsSummary = "file converter"
     }
 
     private func openCamera() {

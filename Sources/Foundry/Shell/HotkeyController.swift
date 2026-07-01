@@ -26,7 +26,7 @@ final class HotkeyController {
     func register(hotkey: FoundryHotkey) throws {
         unregister()
 
-        let hotkeyID = EventHotKeyID(signature: OSType(0x464E4459), id: 1) // FNDY
+        let hotkeyID = EventHotKeyID(signature: OSType(0x464E4459), id: 1)
         let status = RegisterEventHotKey(
             hotkey.keyCode,
             hotkey.modifiers,

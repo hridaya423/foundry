@@ -50,6 +50,7 @@ enum CommandActionKind: Hashable, Sendable {
     case openEmojiPicker
     case openFileShelf
     case openClipboardHistory
+    case openFileConverter(path: String? = nil)
     case openCamera
     case openTranslator(text: String? = nil, language: String? = nil)
     case openSettings
