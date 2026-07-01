@@ -15,6 +15,7 @@ Foundry is a native macOS alternative to raycast
 - Activity Monitor view
 - Emoji and symbol picker
 - Widget dashboard with customizable home cards
+- File conversion
 
 ## Development
 
