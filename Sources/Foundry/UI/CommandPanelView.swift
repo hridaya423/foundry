@@ -126,6 +126,8 @@ struct CommandPanelView: View {
                 }
             } else if state.mode == .clipboardHistory {
                 ClipboardHistoryView(state: state.clipboardHistory, fileShelf: state.fileShelf)
+            } else if state.mode == .snippets {
+                SnippetsView(state: state.snippets)
             } else if state.mode == .translator {
                 TranslatorView(state: state.translator)
             } else if state.isShowingActions {
@@ -148,6 +150,7 @@ struct CommandPanelView: View {
         if state.mode == .camera { return "camera" }
         if state.mode == .fileShelf { return "shelf" }
         if state.mode == .clipboardHistory { return "clipboard" }
+        if state.mode == .snippets { return "snippets" }
         if state.mode == .translator { return "translator" }
         if state.isShowingActions { return "actions" }
         if state.results.isEmpty { return "empty" }
@@ -254,6 +257,14 @@ struct CommandPanelView: View {
                         state.clipboardHistory.copySelected()
                         dismiss()
                     }
+            } else if state.mode == .snippets {
+                Image(systemName: "curlybraces")
+                    .font(.system(size: 16, weight: .regular))
+                    .foregroundStyle(FoundryTheme.mutedText)
+
+                Text("Snippets")
+                    .font(FoundryTheme.body(size: 21, weight: .regular))
+                    .foregroundStyle(FoundryTheme.primaryText)
             } else if state.mode == .translator {
                 Image(systemName: "globe")
                     .font(.system(size: 16, weight: .regular))
@@ -515,12 +526,16 @@ struct CommandPanelView: View {
         switch result.primaryAction.kind {
         case .openApp:
             "Application"
-        case .openEmojiPicker, .openFileShelf, .openClipboardHistory, .openFileConverter, .openCamera, .openTranslator, .openActivityMonitor, .openConfigFolder, .openSettings, .quit:
+        case .openEmojiPicker, .openFileShelf, .openClipboardHistory, .openSnippets, .openFileConverter, .openCamera, .openTranslator, .openActivityMonitor, .openConfigFolder, .openSettings, .quit:
             "Command"
         case .revealInFinder:
             "Finder"
         case .copyToClipboard:
             "Copy"
+        case .pasteText:
+            "Insert"
+        case .createSnippetFromClipboard, .importSnippets:
+            "Snippet"
         case .downloadMedia:
             "Download"
         case .chooseMediaDownloadFolder:
@@ -731,6 +746,10 @@ struct CommandPanelView: View {
             FooterAction(label: "Copy", keys: "↵", emphasized: true)
             FooterDivider()
             FooterAction(label: "Remove", keys: "⌫")
+            FooterDivider()
+            FooterAction(label: "Close", keys: "esc")
+        case .snippets:
+            FooterAction(label: "Copy", keys: "↵", emphasized: true)
             FooterDivider()
             FooterAction(label: "Close", keys: "esc")
         case .translator:
@@ -1234,6 +1253,230 @@ private struct ClipboardHistoryView: View {
         .padding(.horizontal, 12)
         .padding(.vertical, 14)
     }
+}
+
+private struct SnippetsView: View {
+    @ObservedObject var state: SnippetState
+
+    var body: some View {
+        LibraryEditorShell(
+            title: "Snippets",
+            itemsCount: state.visibleItems.count,
+            newItem: state.newSnippet,
+            removeSelected: state.removeSelected,
+            leadingActionTitle: "Copy",
+            leadingAction: state.copySelected,
+            list: AnyView(LibraryList(items: state.visibleItems.map { LibraryRowItem(id: $0.id, title: $0.title, subtitle: snippetSubtitle($0), pinned: $0.isPinned) }, selectedID: state.selectedID, select: state.select(id:))),
+            editor: AnyView(SnippetEditor(state: state))
+        )
+    }
+
+    private func snippetSubtitle(_ snippet: StoredSnippet) -> String {
+        let parts: [String?] = [
+            snippet.keyword.isEmpty ? nil : snippet.keyword,
+            snippet.tags.isEmpty ? nil : snippet.tags.map { "#\($0)" }.joined(separator: " "),
+            relativeDate(snippet.updatedAt)
+        ]
+        return parts.compactMap { $0 }.joined(separator: " • ")
+    }
+}
+
+private struct LibraryRowItem: Identifiable {
+    let id: String
+    let title: String
+    let subtitle: String
+    var pinned = false
+}
+
+private struct LibraryEditorShell: View {
+    let title: String
+    let itemsCount: Int
+    let newItem: () -> Void
+    let removeSelected: () -> Void
+    let leadingActionTitle: String?
+    let leadingAction: (() -> Void)?
+    let list: AnyView
+    let editor: AnyView
+
+    var body: some View {
+        HStack(spacing: 14) {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack {
+                    Text("\(itemsCount) item\(itemsCount == 1 ? "" : "s")")
+                        .font(FoundryTheme.body(size: 11, weight: .semibold))
+                        .foregroundStyle(FoundryTheme.faintText)
+                        .textCase(.uppercase)
+                        .tracking(0.5)
+                    Spacer()
+                    Button("New", action: newItem)
+                        .buttonStyle(PressableButtonStyle())
+                        .font(FoundryTheme.body(size: 12, weight: .semibold))
+                        .foregroundStyle(FoundryTheme.secondaryText)
+                }
+                list
+            }
+            .padding(18)
+            .frame(width: 260)
+            .frame(maxHeight: .infinity, alignment: .topLeading)
+            .background(Color.white.opacity(0.055))
+            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(Color.white.opacity(0.07), lineWidth: 1))
+
+            VStack(alignment: .leading, spacing: 12) {
+                HStack {
+                    Text(title)
+                        .font(FoundryTheme.body(size: 12, weight: .semibold))
+                        .foregroundStyle(FoundryTheme.secondaryText)
+                    Spacer()
+                    if let leadingActionTitle, let leadingAction {
+                        Button(leadingActionTitle, action: leadingAction)
+                            .buttonStyle(PressableButtonStyle())
+                            .font(FoundryTheme.body(size: 12, weight: .semibold))
+                            .foregroundStyle(FoundryTheme.secondaryText)
+                    }
+                    Button("Delete", action: removeSelected)
+                        .buttonStyle(PressableButtonStyle())
+                        .font(FoundryTheme.body(size: 12, weight: .semibold))
+                        .foregroundStyle(FoundryTheme.secondaryText)
+                }
+                editor
+            }
+            .padding(18)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            .background(Color.white.opacity(0.055))
+            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(Color.white.opacity(0.07), lineWidth: 1))
+        }
+        .padding(.horizontal, 20)
+        .padding(.vertical, 18)
+    }
+}
+
+private struct LibraryList: View {
+    let items: [LibraryRowItem]
+    let selectedID: String?
+    let select: (String) -> Void
+
+    var body: some View {
+        ScrollView {
+            LazyVStack(spacing: 2) {
+                ForEach(items) { item in
+                    HStack(spacing: 10) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            HStack(spacing: 6) {
+                                Text(item.title)
+                                    .font(FoundryTheme.body(size: 14, weight: .medium))
+                                    .foregroundStyle(FoundryTheme.primaryText)
+                                    .lineLimit(1)
+                                if item.pinned {
+                                    Image(systemName: "pin.fill")
+                                        .font(.system(size: 9, weight: .bold))
+                                        .foregroundStyle(FoundryTheme.secondaryText)
+                                }
+                            }
+                            Text(item.subtitle)
+                                .font(FoundryTheme.body(size: 12, weight: .regular))
+                                .foregroundStyle(FoundryTheme.mutedText)
+                                .lineLimit(1)
+                        }
+                        Spacer()
+                    }
+                    .padding(.horizontal, 12)
+                    .frame(height: 46)
+                    .background(RowBackground(isSelected: selectedID == item.id, isHovering: false, cornerRadius: 10))
+                    .contentShape(Rectangle())
+                    .onTapGesture { select(item.id) }
+                }
+            }
+        }
+        .scrollIndicators(.never)
+    }
+}
+
+private struct SnippetEditor: View {
+    @ObservedObject var state: SnippetState
+    @State private var title = ""
+    @State private var keyword = ""
+    @State private var tags = ""
+    @State private var content = ""
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            TextField("Snippet title", text: $title)
+                .textFieldStyle(.plain)
+                .font(FoundryTheme.body(size: 16, weight: .semibold))
+                .foregroundStyle(FoundryTheme.primaryText)
+                .padding(.horizontal, 12)
+                .frame(height: 38)
+                .background(Color.white.opacity(0.07))
+                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+
+            HStack(spacing: 10) {
+                TextField("Keyword", text: $keyword)
+                    .textFieldStyle(.plain)
+                    .font(FoundryTheme.body(size: 13, weight: .medium))
+                    .foregroundStyle(FoundryTheme.primaryText)
+                    .padding(.horizontal, 12)
+                    .frame(height: 34)
+                    .background(Color.white.opacity(0.07))
+                    .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+
+                TextField("Tags comma separated", text: $tags)
+                    .textFieldStyle(.plain)
+                    .font(FoundryTheme.body(size: 13, weight: .medium))
+                    .foregroundStyle(FoundryTheme.primaryText)
+                    .padding(.horizontal, 12)
+                    .frame(height: 34)
+                    .background(Color.white.opacity(0.07))
+                    .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+
+                Button(action: state.togglePinnedSelected) {
+                    Image(systemName: state.selectedItem?.isPinned == true ? "pin.fill" : "pin")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(FoundryTheme.secondaryText)
+                        .frame(width: 34, height: 34)
+                        .background(Color.white.opacity(0.07))
+                        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                }
+                .buttonStyle(.plain)
+                .pointerCursor()
+            }
+
+            TextEditor(text: $content)
+                .font(FoundryTheme.body(size: 14, weight: .regular))
+                .foregroundStyle(FoundryTheme.primaryText)
+                .scrollContentBackground(.hidden)
+                .background(Color.white.opacity(0.07))
+                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        }
+        .onAppear { sync() }
+        .onChange(of: state.selectedID) { _, _ in sync() }
+        .onChange(of: title) { _, _ in persist() }
+        .onChange(of: keyword) { _, _ in persist() }
+        .onChange(of: tags) { _, _ in persist() }
+        .onChange(of: content) { _, _ in persist() }
+    }
+
+    private func sync() {
+        title = state.selectedItem?.title ?? ""
+        keyword = state.selectedItem?.keyword ?? ""
+        tags = state.selectedItem?.tags.joined(separator: ", ") ?? ""
+        content = state.selectedItem?.content ?? ""
+    }
+
+    private func persist() {
+        state.updateSelected(title: title, content: content, keyword: keyword, tags: tags.split(separator: ",").map { $0.trimmingCharacters(in: .whitespacesAndNewlines) })
+    }
+}
+
+private func relativeDate(_ date: Date) -> String {
+    let seconds = max(0, Int(Date().timeIntervalSince(date)))
+    if seconds < 60 { return "now" }
+    let minutes = seconds / 60
+    if minutes < 60 { return "\(minutes)m ago" }
+    let hours = minutes / 60
+    if hours < 24 { return "\(hours)h ago" }
+    return "\(hours / 24)d ago"
 }
 
 private struct ClipboardHistoryCard: View {
@@ -1784,6 +2027,12 @@ private struct ActionRow: View {
             "folder"
         case .copyToClipboard:
             "doc.on.doc"
+        case .pasteText:
+            "text.insert"
+        case .createSnippetFromClipboard:
+            "plus.rectangle.on.rectangle"
+        case .importSnippets:
+            "square.and.arrow.down"
         case .downloadMedia:
             "arrow.down.circle"
         case .chooseMediaDownloadFolder:
@@ -1796,6 +2045,8 @@ private struct ActionRow: View {
             "tray.full"
         case .openClipboardHistory:
             "doc.on.clipboard"
+        case .openSnippets:
+            "curlybraces"
         case .openFileConverter:
             "arrow.triangle.2.circlepath"
         case .openCamera:

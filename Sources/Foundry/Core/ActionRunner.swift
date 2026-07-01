@@ -1,5 +1,7 @@
 import AppKit
+import Carbon
 import Foundation
+import UniformTypeIdentifiers
 
 @MainActor
 final class ActionRunner {
@@ -43,6 +45,27 @@ final class ActionRunner {
             NSPasteboard.general.setString(value, forType: .string)
             diagnostics.log("Copied to clipboard")
 
+        case let .pasteText(value):
+            NSPasteboard.general.clearContents()
+            NSPasteboard.general.setString(value, forType: .string)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) {
+                Self.sendPasteShortcut()
+            }
+            diagnostics.log("Inserted snippet")
+
+        case .createSnippetFromClipboard:
+            guard let content = NSPasteboard.general.string(forType: .string)?.trimmingCharacters(in: .whitespacesAndNewlines), content.isEmpty == false else {
+                diagnostics.log("Clipboard is empty")
+                return
+            }
+            var snippets = LibraryPersistence.loadSnippets()
+            snippets.insert(StoredSnippet(title: Self.snippetTitle(from: content), content: String(content.prefix(Self.snippetLimit))), at: 0)
+            LibraryPersistence.saveSnippets(snippets)
+            diagnostics.log("Created snippet from clipboard")
+
+        case .importSnippets:
+            importSnippets()
+
         case let .downloadMedia(urlString):
             diagnostics.log("Starting media download")
             let statusHandler = mediaStatusHandler
@@ -79,6 +102,9 @@ final class ActionRunner {
         case .openClipboardHistory:
             diagnostics.log("Clipboard History should be opened by panel state")
 
+        case .openSnippets:
+            diagnostics.log("Snippets should be opened by panel state")
+
         case .openFileConverter:
             diagnostics.log("File Converter should be opened by panel state")
 
@@ -113,6 +139,55 @@ final class ActionRunner {
     }
 
     nonisolated private static let downloadFolder = MediaDownloadDestination.folder
+    nonisolated private static let snippetLimit = 65_536
+
+    private func importSnippets() {
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [.json]
+        panel.allowsMultipleSelection = false
+        panel.canChooseDirectories = false
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+
+        do {
+            let data = try Data(contentsOf: url)
+            let imported = try JSONDecoder().decode([RaycastSnippetImport].self, from: data)
+            var snippets = LibraryPersistence.loadSnippets()
+            var added = 0
+            var skipped = 0
+
+            for item in imported {
+                let title = item.name.trimmingCharacters(in: .whitespacesAndNewlines)
+                let content = item.text.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard title.isEmpty == false, content.isEmpty == false else { skipped += 1; continue }
+                if snippets.contains(where: { $0.title == title && $0.content == content }) {
+                    skipped += 1
+                    continue
+                }
+                snippets.insert(StoredSnippet(title: title, content: String(content.prefix(Self.snippetLimit)), keyword: item.keyword ?? ""), at: 0)
+                added += 1
+            }
+
+            LibraryPersistence.saveSnippets(snippets)
+            diagnostics.log("Imported \(added) snippets, skipped \(skipped) duplicates")
+        } catch {
+            diagnostics.log("Snippet import failed: \(error.localizedDescription)")
+        }
+    }
+
+    nonisolated private static func sendPasteShortcut() {
+        guard let source = CGEventSource(stateID: .hidSystemState) else { return }
+        let down = CGEvent(keyboardEventSource: source, virtualKey: CGKeyCode(kVK_ANSI_V), keyDown: true)
+        let up = CGEvent(keyboardEventSource: source, virtualKey: CGKeyCode(kVK_ANSI_V), keyDown: false)
+        down?.flags = .maskCommand
+        up?.flags = .maskCommand
+        down?.post(tap: .cgAnnotatedSessionEventTap)
+        up?.post(tap: .cgAnnotatedSessionEventTap)
+    }
+
+    nonisolated private static func snippetTitle(from content: String) -> String {
+        let firstLine = content.split(separator: "\n").first?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return firstLine.isEmpty ? "Clipboard Snippet" : String(firstLine.prefix(60))
+    }
 
     nonisolated private static func downloadMedia(urlString: String, status: (@MainActor @Sendable (String) -> Void)?) async -> String {
         guard let url = URL(string: urlString) else { return "Invalid media URL" }
@@ -286,6 +361,12 @@ final class ActionRunner {
         let cleaned = name.components(separatedBy: invalid).joined(separator: "-")
         return cleaned.isEmpty ? "media-\(Int(Date().timeIntervalSince1970))" : cleaned
     }
+}
+
+private struct RaycastSnippetImport: Decodable {
+    let name: String
+    let text: String
+    let keyword: String?
 }
 
 private final class MediaDownloadOutput: @unchecked Sendable {

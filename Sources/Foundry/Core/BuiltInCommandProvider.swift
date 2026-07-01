@@ -104,6 +104,39 @@ final class BuiltInCommandProvider: CommandProvider {
                 secondaryActions: []
             ),
             BuiltInCommand(
+                id: "foundry.snippets",
+                title: "Snippets",
+                subtitle: "Search, edit, pin, copy, and insert snippets",
+                aliases: ["snippets", "snippet", "search snippets", "code snippets", "templates"],
+                systemIcon: "curlybraces",
+                fallback: "SN",
+                scoreBoost: 3,
+                primaryAction: CommandAction(id: "foundry.snippets.open", title: "Open", kind: .openSnippets),
+                secondaryActions: []
+            ),
+            BuiltInCommand(
+                id: "foundry.snippets.create-from-clipboard",
+                title: "Create Snippet from Clipboard",
+                subtitle: "Save copied text as a reusable snippet",
+                aliases: ["new snippet", "create snippet", "clipboard snippet", "save snippet"],
+                systemIcon: "plus.rectangle.on.rectangle",
+                fallback: "SN",
+                scoreBoost: 4,
+                primaryAction: CommandAction(id: "foundry.snippets.create-from-clipboard.perform", title: "Create", kind: .createSnippetFromClipboard),
+                secondaryActions: []
+            ),
+            BuiltInCommand(
+                id: "foundry.snippets.import",
+                title: "Import Snippets",
+                subtitle: "Import Raycast snippets JSON",
+                aliases: ["import snippets", "raycast snippets", "snippets json"],
+                systemIcon: "square.and.arrow.down",
+                fallback: "SN",
+                scoreBoost: 4,
+                primaryAction: CommandAction(id: "foundry.snippets.import.perform", title: "Import", kind: .importSnippets),
+                secondaryActions: []
+            ),
+            BuiltInCommand(
                 id: "foundry.camera",
                 title: "Camera",
                 subtitle: "Live camera preview inside Foundry",

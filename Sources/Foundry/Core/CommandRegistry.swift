@@ -44,12 +44,16 @@ enum CommandActionKind: Hashable, Sendable {
     case openConfigFolder
     case revealInFinder(path: String)
     case copyToClipboard(String)
+    case pasteText(String)
+    case createSnippetFromClipboard
+    case importSnippets
     case downloadMedia(url: String)
     case chooseMediaDownloadFolder
     case openActivityMonitor
     case openEmojiPicker
     case openFileShelf
     case openClipboardHistory
+    case openSnippets
     case openFileConverter(path: String? = nil)
     case openCamera
     case openTranslator(text: String? = nil, language: String? = nil)
@@ -90,6 +94,8 @@ final class CommandRegistry: @unchecked Sendable {
                 AppSearchProvider(diagnostics: diagnostics),
                 CalculatorProvider(),
                 TranslationProvider(),
+                AppleNotesProvider(),
+                LibraryProvider(),
                 MediaDownloadProvider(),
                 SystemCommandProvider(diagnostics: diagnostics),
                 BuiltInCommandProvider(config: config, diagnostics: diagnostics)

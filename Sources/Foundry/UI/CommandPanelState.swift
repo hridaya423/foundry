@@ -10,6 +10,7 @@ final class CommandPanelState: ObservableObject {
         case emojiPicker
         case fileShelf
         case clipboardHistory
+        case snippets
         case fileConversion
         case camera
         case translator
@@ -30,6 +31,7 @@ final class CommandPanelState: ObservableObject {
     let emojiPicker = EmojiPickerState()
     let fileShelf = FileShelfState()
     let clipboardHistory = ClipboardHistoryState()
+    let snippets = SnippetState()
     let fileConversion = FileConversionState()
     let camera = CameraPreviewState()
     let translator = TranslatorState()
@@ -80,6 +82,7 @@ final class CommandPanelState: ObservableObject {
         activityMonitor.stop()
         emojiPicker.reset()
         clipboardHistory.reset()
+        snippets.reset()
         fileConversion.reset()
         camera.stop()
         translator.reset()
@@ -98,6 +101,7 @@ final class CommandPanelState: ObservableObject {
         activityMonitor.stop()
         emojiPicker.reset()
         clipboardHistory.reset()
+        snippets.reset()
         fileConversion.reset()
         camera.stop()
         translator.reset()
@@ -182,6 +186,10 @@ final class CommandPanelState: ObservableObject {
             openClipboardHistory()
             return false
         }
+        if selectedResult.primaryAction.kind == .openSnippets {
+            openSnippets()
+            return false
+        }
         if case let .openFileConverter(path) = selectedResult.primaryAction.kind {
             openFileConverter(path: path)
             return false
@@ -244,6 +252,8 @@ final class CommandPanelState: ObservableObject {
             emojiPicker.query += text
         case .clipboardHistory:
             clipboardHistory.query += text
+        case .snippets:
+            snippets.query += text
         case .translator:
             translator.sourceText += text
         case .camera, .fileConversion, .fileShelf, .settings:
@@ -281,6 +291,11 @@ final class CommandPanelState: ObservableObject {
         }
 
         if mode == .fileConversion {
+            return
+        }
+
+        if mode == .snippets {
+            snippets.moveSelection(offset: offset)
             return
         }
 
@@ -437,6 +452,19 @@ final class CommandPanelState: ObservableObject {
         selectedResultID = nil
         clipboardHistory.reset()
         diagnosticsSummary = "clipboard history"
+    }
+
+    private func openSnippets() {
+        withAnimation(.easeOut(duration: 0.14)) {
+            mode = .snippets
+        }
+        isShowingActions = false
+        selectedActionID = nil
+        searchTask?.cancel()
+        results = []
+        selectedResultID = nil
+        snippets.reset()
+        diagnosticsSummary = "snippets"
     }
 
     private func openFileConverter(path: String? = nil) {
