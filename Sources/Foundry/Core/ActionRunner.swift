@@ -126,7 +126,7 @@ final class ActionRunner {
                 do {
                     try process.run()
                 } catch {
-                    fputs("[Foundry] Failed to run \(path): \(error.localizedDescription)\n", stderr)
+                    self.diagnostics.log("Failed to run \(path): \(error.localizedDescription)")
                 }
             }
 

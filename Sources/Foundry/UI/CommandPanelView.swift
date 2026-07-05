@@ -30,6 +30,11 @@ struct CommandPanelView: View {
         VStack(spacing: 0) {
             header
 
+            if state.mode == .search, state.query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, state.agents.sessions.isEmpty == false {
+                agentShelfStrip
+                    .transition(.opacity.combined(with: .move(edge: .top)))
+            }
+
             if state.mode == .search, state.fileShelf.files.isEmpty == false {
                 shelfStrip
                     .transition(.opacity.combined(with: .move(edge: .top)))
@@ -64,6 +69,7 @@ struct CommandPanelView: View {
         .animation(.easeOut(duration: 0.14), value: state.mode)
         .animation(.easeOut(duration: 0.12), value: isShowingFoundryMenu)
         .animation(.easeOut(duration: 0.14), value: state.fileShelf.files.count)
+        .animation(.easeOut(duration: 0.14), value: state.agents.sessions.count)
         .onChange(of: state.mode) { _, _ in
             isShowingFoundryMenu = false
         }
@@ -354,6 +360,22 @@ struct CommandPanelView: View {
         }
         .buttonStyle(PressableButtonStyle())
         .pointerCursor()
+    }
+
+    private var agentShelfStrip: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: 7) {
+                ForEach(state.agents.visibleSessions) { session in
+                    AgentSessionCardView(session: session) {
+                        state.agents.open(session)
+                        dismiss()
+                    }
+                    .frame(maxWidth: .infinity)
+                }
+            }
+        }
+        .padding(.horizontal, 20)
+        .padding(.top, 10)
     }
 
     private var resultsSurface: some View {
@@ -1604,6 +1626,16 @@ private func relativeDate(_ date: Date) -> String {
     return "\(hours / 24)d ago"
 }
 
+private func relativeDuration(_ date: Date) -> String {
+    let seconds = max(0, Int(Date().timeIntervalSince(date)))
+    if seconds < 60 { return "<1m" }
+    let minutes = seconds / 60
+    if minutes < 60 { return "\(minutes)m" }
+    let hours = minutes / 60
+    if hours < 24 { return "\(hours)h \(minutes % 60)m" }
+    return "\(hours / 24)d"
+}
+
 private struct ClipboardHistoryCard: View {
     let item: ClipboardHistoryItem
     let isSelected: Bool
@@ -2185,6 +2217,134 @@ private struct ActionRow: View {
         case .log:
             "text.bubble"
         }
+    }
+}
+
+private struct AgentSessionCardView: View {
+    let session: AgentSessionCard
+    let open: () -> Void
+
+    @State private var isHovering = false
+
+    var body: some View {
+        Button(action: open) {
+            HStack(spacing: 9) {
+                AgentProviderIconView(provider: session.provider, isHovering: isHovering)
+                    .frame(width: 30, height: 30)
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(session.title)
+                        .font(FoundryTheme.body(size: 13, weight: .semibold))
+                        .foregroundStyle(FoundryTheme.primaryText)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+
+                    if let detailLine = detailLine.nilIfEmpty {
+                        Text(detailLine)
+                            .font(FoundryTheme.body(size: 10, weight: .regular))
+                            .foregroundStyle(FoundryTheme.mutedText)
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                    }
+                }
+
+                Spacer(minLength: 0)
+
+                Image(systemName: "arrow.up.right")
+                    .font(.system(size: 10, weight: .bold))
+                    .foregroundStyle(FoundryTheme.mutedText)
+                    .opacity(isHovering ? 0.9 : 0)
+            }
+            .padding(.horizontal, 10)
+            .frame(height: 72)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color.white.opacity(isHovering ? 0.070 : 0.038))
+            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .stroke(Color.white.opacity(isHovering ? 0.12 : 0.055), lineWidth: 1)
+            )
+        }
+        .buttonStyle(.plain)
+        .scaleEffect(isHovering ? 1.006 : 1)
+        .animation(.easeOut(duration: 0.12), value: isHovering)
+        .onHover { hovering in
+            isHovering = hovering
+            if hovering { NSCursor.pointingHand.set() } else { NSCursor.arrow.set() }
+        }
+    }
+
+    private var detailLine: String {
+        [session.model?.nilIfEmpty, session.subtitle.nilIfEmpty].compactMap { $0 }.joined(separator: " · ")
+    }
+
+    private var statusLabel: String {
+        switch session.status {
+        case .needsInput:
+            "Needs you"
+        case .reviewReady:
+            "Review"
+        case .working, .running, .failed, .planning:
+            session.status.rawValue
+        case .completed:
+            "Done"
+        case .idle, .recent:
+            "Recent"
+        }
+    }
+
+    private var statusColor: Color {
+        switch session.status {
+        case .working, .running:
+            Color(red: 0.42, green: 0.90, blue: 0.67)
+        case .needsInput:
+            Color(red: 1.0, green: 0.76, blue: 0.35)
+        case .reviewReady:
+            Color(red: 0.52, green: 0.72, blue: 1.0)
+        case .planning:
+            Color(red: 0.70, green: 0.62, blue: 1.0)
+        case .completed:
+            Color(red: 0.44, green: 0.72, blue: 1.0)
+        case .failed:
+            Color(red: 1.0, green: 0.38, blue: 0.38)
+        case .idle, .recent:
+            FoundryTheme.faintText
+        }
+    }
+
+    private var statusTextColor: Color {
+        session.status == .recent || session.status == .idle ? FoundryTheme.faintText : statusColor
+    }
+}
+
+private struct AgentProviderIconView: View {
+    let provider: AgentProviderKind
+    let isHovering: Bool
+
+    var body: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .fill(Color.white.opacity(isHovering ? 0.075 : 0.045))
+
+            if let logoURL = provider.logoURL {
+                AsyncImage(url: logoURL) { phase in
+                    if let image = phase.image {
+                        image
+                            .resizable()
+                            .scaledToFit()
+                            .padding(5)
+                    }
+                }
+            }
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+    }
+}
+
+private extension String {
+    var nilIfEmpty: String? {
+        let trimmed = trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
     }
 }
 

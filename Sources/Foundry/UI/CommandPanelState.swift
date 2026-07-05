@@ -30,6 +30,7 @@ final class CommandPanelState: ObservableObject {
     let activityMonitor = ActivityMonitorState()
     let emojiPicker = EmojiPickerState()
     let fileShelf = FileShelfState()
+    let agents = AgentMonitorState()
     let clipboardHistory = ClipboardHistoryState()
     let snippets = SnippetState()
     let fileConversion = FileConversionState()
@@ -69,6 +70,7 @@ final class CommandPanelState: ObservableObject {
             self?.diagnosticsSummary = message
         }
         clipboardHistory.start()
+        agents.start()
         self.statusTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
             Task { @MainActor in
                 self?.refreshStatusSummary()
@@ -79,6 +81,7 @@ final class CommandPanelState: ObservableObject {
     func resetForOpen() {
         mode = .search
         widgetBoard.start()
+        agents.start()
         activityMonitor.stop()
         emojiPicker.reset()
         clipboardHistory.reset()
@@ -98,6 +101,7 @@ final class CommandPanelState: ObservableObject {
 
     func panelWillClose() {
         widgetBoard.stop()
+        agents.stop()
         activityMonitor.stop()
         emojiPicker.reset()
         clipboardHistory.reset()

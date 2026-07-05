@@ -12,7 +12,6 @@ final class DiagnosticsService: @unchecked Sendable {
 
     func log(_ message: String) {
         logger.info("\(message, privacy: .public)")
-        fputs("[Foundry] \(message)\n", stderr)
     }
 
     func startSpan(_ name: String) -> Span {
