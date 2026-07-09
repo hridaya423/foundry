@@ -57,6 +57,7 @@ enum CommandActionKind: Hashable, Sendable {
     case openFileConverter(path: String? = nil)
     case openCamera
     case openTranslator(text: String? = nil, language: String? = nil)
+    case openDeveloperTools
     case openSettings
     case runProcess(path: String, arguments: [String])
     case quit
@@ -93,6 +94,7 @@ final class CommandRegistry: @unchecked Sendable {
             providers: [
                 AppSearchProvider(diagnostics: diagnostics),
                 CalculatorProvider(),
+                DeveloperToolsProvider(),
                 TranslationProvider(),
                 AppleNotesProvider(),
                 LibraryProvider(),

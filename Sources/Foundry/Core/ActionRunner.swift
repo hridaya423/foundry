@@ -114,6 +114,9 @@ final class ActionRunner {
         case .openTranslator:
             diagnostics.log("Translator should be opened by panel state")
 
+        case .openDeveloperTools:
+            diagnostics.log("Developer Tools should be opened by panel state")
+
         case .openSettings:
             diagnostics.log("Settings should be opened by panel state")
 

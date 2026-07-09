@@ -136,6 +136,8 @@ struct CommandPanelView: View {
                 SnippetsView(state: state.snippets)
             } else if state.mode == .translator {
                 TranslatorView(state: state.translator)
+            } else if state.mode == .developerTools {
+                DeveloperToolsView(state: state.developerTools, close: state.backToSearch)
             } else if state.isShowingActions {
                 actionsSurface
             } else if state.results.isEmpty {
@@ -158,6 +160,7 @@ struct CommandPanelView: View {
         if state.mode == .clipboardHistory { return "clipboard" }
         if state.mode == .snippets { return "snippets" }
         if state.mode == .translator { return "translator" }
+        if state.mode == .developerTools { return "developerTools" }
         if state.isShowingActions { return "actions" }
         if state.results.isEmpty { return "empty" }
         return "results"
@@ -277,6 +280,14 @@ struct CommandPanelView: View {
                     .foregroundStyle(FoundryTheme.mutedText)
 
                 Text("Translate")
+                    .font(FoundryTheme.body(size: 21, weight: .regular))
+                    .foregroundStyle(FoundryTheme.primaryText)
+            } else if state.mode == .developerTools {
+                Image(systemName: "hammer")
+                    .font(.system(size: 16, weight: .regular))
+                    .foregroundStyle(FoundryTheme.mutedText)
+
+                Text("Developer Tools")
                     .font(FoundryTheme.body(size: 21, weight: .regular))
                     .foregroundStyle(FoundryTheme.primaryText)
             } else {
@@ -548,7 +559,7 @@ struct CommandPanelView: View {
         switch result.primaryAction.kind {
         case .openApp:
             "Application"
-        case .openEmojiPicker, .openFileShelf, .openClipboardHistory, .openSnippets, .openFileConverter, .openCamera, .openTranslator, .openActivityMonitor, .openConfigFolder, .openSettings, .quit:
+        case .openEmojiPicker, .openFileShelf, .openClipboardHistory, .openSnippets, .openFileConverter, .openCamera, .openTranslator, .openDeveloperTools, .openActivityMonitor, .openConfigFolder, .openSettings, .quit:
             "Command"
         case .revealInFinder:
             "Finder"
@@ -775,6 +786,10 @@ struct CommandPanelView: View {
             FooterDivider()
             FooterAction(label: "Close", keys: "esc")
         case .translator:
+            FooterAction(label: "Close", keys: "esc")
+        case .developerTools:
+            FooterAction(label: "Copy Value", keys: "Click")
+            FooterDivider()
             FooterAction(label: "Close", keys: "esc")
         case .search:
             FooterAction(label: selectedCalculatorResult == nil ? "Open" : "Copy Answer", keys: "↵", emphasized: true)
@@ -2210,6 +2225,8 @@ private struct ActionRow: View {
             "camera"
         case .openTranslator:
             "globe"
+        case .openDeveloperTools:
+            "hammer"
         case .runProcess:
             "terminal"
         case .quit:

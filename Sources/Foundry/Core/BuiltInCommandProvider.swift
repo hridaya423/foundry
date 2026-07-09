@@ -159,6 +159,17 @@ final class BuiltInCommandProvider: CommandProvider {
                 secondaryActions: []
             ),
             BuiltInCommand(
+                id: "foundry.developer-tools",
+                title: "Developer Tools",
+                subtitle: "Base conversion, bitwise operations, and text transforms",
+                aliases: ["developer tools", "base convert", "bitwise", "radix", "binary", "hex"],
+                systemIcon: "hammer",
+                fallback: "DT",
+                scoreBoost: 4,
+                primaryAction: CommandAction(id: "foundry.developer-tools.open", title: "Open", kind: .openDeveloperTools),
+                secondaryActions: []
+            ),
+            BuiltInCommand(
                 id: "foundry.settings",
                 title: "Open Foundry Settings",
                 subtitle: "Customize widgets and Foundry preferences",

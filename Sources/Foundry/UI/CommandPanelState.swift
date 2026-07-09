@@ -14,6 +14,7 @@ final class CommandPanelState: ObservableObject {
         case fileConversion
         case camera
         case translator
+        case developerTools
         case settings
     }
 
@@ -37,6 +38,7 @@ final class CommandPanelState: ObservableObject {
     let fileConversion = FileConversionState()
     let camera = CameraPreviewState()
     let translator = TranslatorState()
+    let developerTools = DeveloperToolsState()
     let widgetBoard: WidgetBoardState
     private let configService: ConfigService
 
@@ -99,6 +101,7 @@ final class CommandPanelState: ObservableObject {
         fileConversion.reset()
         camera.stop()
         translator.reset()
+        developerTools.reset()
         query = ""
         results = []
         selectedResultID = nil
@@ -119,6 +122,7 @@ final class CommandPanelState: ObservableObject {
         fileConversion.reset()
         camera.stop()
         translator.reset()
+        developerTools.reset()
     }
 
     func openSettings() {
@@ -152,6 +156,7 @@ final class CommandPanelState: ObservableObject {
         camera.stop()
         fileConversion.reset()
         translator.reset()
+        developerTools.reset()
         query = ""
         results = []
         selectedResultID = nil
@@ -216,6 +221,10 @@ final class CommandPanelState: ObservableObject {
             openTranslator(text: text, language: language)
             return false
         }
+        if selectedResult.primaryAction.kind == .openDeveloperTools {
+            openDeveloperTools()
+            return false
+        }
         if selectedResult.primaryAction.kind == .openSettings {
             openSettings()
             return false
@@ -270,7 +279,7 @@ final class CommandPanelState: ObservableObject {
             snippets.query += text
         case .translator:
             translator.sourceText += text
-        case .camera, .fileConversion, .fileShelf, .settings:
+        case .camera, .fileConversion, .fileShelf, .settings, .developerTools:
             return false
         }
         return true
@@ -525,6 +534,19 @@ final class CommandPanelState: ObservableObject {
         if let text { translator.sourceText = text }
         if let language { translator.targetLanguage = language.capitalized }
         diagnosticsSummary = "translator"
+    }
+
+    private func openDeveloperTools() {
+        withAnimation(.easeOut(duration: 0.14)) {
+            mode = .developerTools
+        }
+        isShowingActions = false
+        selectedActionID = nil
+        searchTask?.cancel()
+        results = []
+        selectedResultID = nil
+        developerTools.reset()
+        diagnosticsSummary = "developer tools"
     }
 
 }

@@ -20,6 +20,11 @@ let package = Package(
             linkerSettings: [
                 .linkedFramework("IOKit")
             ]
+        ),
+        .testTarget(
+            name: "FoundryTests",
+            dependencies: ["Foundry"],
+            path: "Tests/FoundryTests"
         )
     ]
 )
