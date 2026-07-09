@@ -26,6 +26,7 @@ final class CommandPanelState: ObservableObject {
     @Published var selectedActionID: String?
     @Published var diagnosticsSummary = "IDLE"
     @Published var mode: Mode = .search
+    @Published var isAgentShelfVisible: Bool
 
     let activityMonitor = ActivityMonitorState()
     let emojiPicker = EmojiPickerState()
@@ -37,6 +38,7 @@ final class CommandPanelState: ObservableObject {
     let camera = CameraPreviewState()
     let translator = TranslatorState()
     let widgetBoard: WidgetBoardState
+    private let configService: ConfigService
 
     private let registry: CommandRegistry
     private let actionRunner: ActionRunner
@@ -63,6 +65,8 @@ final class CommandPanelState: ObservableObject {
         self.registry = registry
         self.actionRunner = actionRunner
         self.diagnostics = diagnostics
+        self.configService = config
+        self.isAgentShelfVisible = config.current.showAgentShelf
         self.widgetBoard = WidgetBoardState(configService: config)
         actionRunner.mediaStatusHandler = { [weak self] message in
             let normalized = message.lowercased()
@@ -76,6 +80,12 @@ final class CommandPanelState: ObservableObject {
                 self?.refreshStatusSummary()
             }
         }
+    }
+
+    func setAgentShelfVisible(_ isVisible: Bool) {
+        guard isAgentShelfVisible != isVisible else { return }
+        isAgentShelfVisible = isVisible
+        configService.updateAgentShelfVisibility(isVisible)
     }
 
     func resetForOpen() {

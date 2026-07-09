@@ -2,11 +2,12 @@ import AppKit
 import SwiftUI
 
 struct WidgetSettingsView: View {
-    @ObservedObject var board: WidgetBoardState
+    @ObservedObject var state: CommandPanelState
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
+                generalSection
                 activeSection
                 configSection
                 availableSection
@@ -17,11 +18,24 @@ struct WidgetSettingsView: View {
         .scrollIndicators(.never)
     }
 
+    private var generalSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            SettingsSectionHeader(title: "General")
+
+            ToggleRow(
+                title: "Agent Shelf",
+                subtitle: "Show recent agent sessions on the home screen",
+                isOn: state.isAgentShelfVisible,
+                set: state.setAgentShelfVisible
+            )
+        }
+    }
+
     private var activeSection: some View {
         VStack(alignment: .leading, spacing: 8) {
             SettingsSectionHeader(title: "On the Board")
 
-            if board.config.enabled.isEmpty {
+            if state.widgetBoard.config.enabled.isEmpty {
                 Text("No widgets yet. Add some below.")
                     .font(FoundryTheme.body(size: 13, weight: .regular))
                     .foregroundStyle(FoundryTheme.mutedText)
@@ -33,14 +47,14 @@ struct WidgetSettingsView: View {
                     .foregroundStyle(FoundryTheme.mutedText)
                     .padding(.horizontal, 4)
 
-                ForEach(Array(board.config.enabled.enumerated()), id: \.element) { index, kind in
+                ForEach(Array(state.widgetBoard.config.enabled.enumerated()), id: \.element) { index, kind in
                     ActiveWidgetRow(
                         kind: kind,
                         isFirst: index == 0,
-                        isLast: index == board.config.enabled.count - 1,
-                        moveUp: { board.moveUp(kind) },
-                        moveDown: { board.moveDown(kind) },
-                        remove: { board.remove(kind) }
+                        isLast: index == state.widgetBoard.config.enabled.count - 1,
+                        moveUp: { state.widgetBoard.moveUp(kind) },
+                        moveDown: { state.widgetBoard.moveDown(kind) },
+                        remove: { state.widgetBoard.remove(kind) }
                     )
                 }
             }
@@ -49,27 +63,27 @@ struct WidgetSettingsView: View {
 
     @ViewBuilder
     private var configSection: some View {
-        if board.config.enabled.contains(.weather) || board.config.enabled.contains(.stock) {
+        if state.widgetBoard.config.enabled.contains(.weather) || state.widgetBoard.config.enabled.contains(.stock) {
             VStack(alignment: .leading, spacing: 8) {
                 SettingsSectionHeader(title: "Widget Options")
 
-                if board.config.enabled.contains(.weather) {
+                if state.widgetBoard.config.enabled.contains(.weather) {
                     ConfigFieldRow(
                         symbol: "cloud.sun",
                         title: "Weather City",
                         placeholder: "City name",
-                        initialValue: board.config.weatherCity,
-                        commit: { board.setWeatherCity($0) }
+                        initialValue: state.widgetBoard.config.weatherCity,
+                        commit: { state.widgetBoard.setWeatherCity($0) }
                     )
                 }
 
-                if board.config.enabled.contains(.stock) {
+                if state.widgetBoard.config.enabled.contains(.stock) {
                     ConfigFieldRow(
                         symbol: "chart.line.uptrend.xyaxis",
                         title: "Stock Ticker",
                         placeholder: "e.g. AAPL",
-                        initialValue: board.config.stockSymbol,
-                        commit: { board.setStockSymbol($0) }
+                        initialValue: state.widgetBoard.config.stockSymbol,
+                        commit: { state.widgetBoard.setStockSymbol($0) }
                     )
                 }
             }
@@ -78,19 +92,19 @@ struct WidgetSettingsView: View {
 
     @ViewBuilder
     private var availableSection: some View {
-        if board.config.available.isEmpty == false {
+        if state.widgetBoard.config.available.isEmpty == false {
             VStack(alignment: .leading, spacing: 8) {
                 SettingsSectionHeader(title: "Available")
 
-                if board.isFull {
+                if state.widgetBoard.isFull {
                     Text("Remove a widget to add another.")
                         .font(FoundryTheme.body(size: 13, weight: .medium))
                         .foregroundStyle(FoundryTheme.mutedText)
                         .padding(.horizontal, 4)
                         .padding(.vertical, 8)
                 } else {
-                    ForEach(board.config.available) { kind in
-                        AvailableWidgetRow(kind: kind, add: { board.add(kind) })
+                    ForEach(state.widgetBoard.config.available) { kind in
+                        AvailableWidgetRow(kind: kind, add: { state.widgetBoard.add(kind) })
                     }
                 }
             }
@@ -108,6 +122,42 @@ private struct SettingsSectionHeader: View {
             .textCase(.uppercase)
             .tracking(0.5)
             .padding(.horizontal, 4)
+    }
+}
+
+private struct ToggleRow: View {
+    let title: String
+    let subtitle: String
+    let isOn: Bool
+    let set: (Bool) -> Void
+
+    var body: some View {
+        Button {
+            set(isOn == false)
+        } label: {
+            HStack(spacing: 12) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title)
+                        .font(FoundryTheme.body(size: 14, weight: .medium))
+                        .foregroundStyle(FoundryTheme.primaryText)
+                    Text(subtitle)
+                        .font(FoundryTheme.body(size: 12, weight: .regular))
+                        .foregroundStyle(FoundryTheme.mutedText)
+                }
+
+                Spacer()
+
+                Image(systemName: isOn ? "checkmark.circle.fill" : "circle")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(isOn ? Color.green.opacity(0.9) : FoundryTheme.secondaryText)
+            }
+            .padding(.horizontal, 12)
+            .frame(height: 54)
+            .background(Color.white.opacity(0.04))
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .pointerCursor()
     }
 }
 

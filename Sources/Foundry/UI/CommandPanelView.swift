@@ -30,7 +30,7 @@ struct CommandPanelView: View {
         VStack(spacing: 0) {
             header
 
-            if state.mode == .search, state.query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, state.agents.sessions.isEmpty == false {
+            if state.mode == .search, state.isAgentShelfVisible, state.query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, state.agents.sessions.isEmpty == false {
                 agentShelfStrip
                     .transition(.opacity.combined(with: .move(edge: .top)))
             }
@@ -110,7 +110,7 @@ struct CommandPanelView: View {
     private var contentSurface: some View {
         Group {
             if state.mode == .settings {
-                WidgetSettingsView(board: state.widgetBoard)
+                WidgetSettingsView(state: state)
             } else if state.mode == .activityMonitor {
                 ActivityMonitorView(state: state.activityMonitor)
             } else if state.mode == .emojiPicker {
