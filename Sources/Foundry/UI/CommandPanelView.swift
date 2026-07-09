@@ -575,6 +575,8 @@ struct CommandPanelView: View {
             "Folder"
         case .openURL:
             "URL"
+        case .terminateProcess, .quitApplication, .terminatePort, .toggleKeepAwake, .setAudioDevice:
+            "Utility"
         case .runProcess:
             "Script"
         case .log:
@@ -2227,6 +2229,16 @@ private struct ActionRow: View {
             "globe"
         case .openDeveloperTools:
             "hammer"
+        case .terminateProcess:
+            "xmark.circle"
+        case .quitApplication:
+            "app.badge.xmark"
+        case .toggleKeepAwake:
+            "cup.and.saucer.fill"
+        case .terminatePort:
+            "network"
+        case .setAudioDevice:
+            "speaker.wave.2.fill"
         case .runProcess:
             "terminal"
         case .quit:

@@ -1,5 +1,6 @@
 import AppKit
 import Carbon
+import CoreAudio
 import Foundation
 import UniformTypeIdentifiers
 
@@ -119,6 +120,63 @@ final class ActionRunner {
 
         case .openSettings:
             diagnostics.log("Settings should be opened by panel state")
+
+        case let .terminateProcess(pid):
+            do {
+                if kill(pid, SIGTERM) == 0 {
+                    diagnostics.log("Terminated process \(pid)")
+                } else {
+                    throw POSIXError(POSIXErrorCode(rawValue: errno) ?? .EPERM)
+                }
+            } catch {
+                diagnostics.log("Failed to terminate process \(pid): \(error.localizedDescription)")
+            }
+
+        case let .quitApplication(bundleID, name):
+            let running = NSWorkspace.shared.runningApplications.first {
+                ($0.bundleIdentifier == bundleID && bundleID != nil)
+                    || $0.localizedName == name
+            }
+            if let running {
+                if running.terminate() || running.forceTerminate() {
+                    diagnostics.log("Quit \(name)")
+                } else {
+                    diagnostics.log("Failed to quit \(name)")
+                }
+            } else {
+                diagnostics.log("\(name) is not running")
+            }
+
+        case .toggleKeepAwake:
+            let state = KeepAwakeController.toggle()
+            diagnostics.log(state ? "Keep Awake enabled" : "Keep Awake disabled")
+
+        case let .terminatePort(port):
+            let command = "lsof -ti tcp:\(port) | xargs -r kill"
+            DispatchQueue.global(qos: .userInitiated).async {
+                let process = Process()
+                process.executableURL = URL(fileURLWithPath: "/bin/zsh")
+                process.arguments = ["-lc", command]
+                do {
+                    try process.run()
+                    process.waitUntilExit()
+                    DispatchQueue.main.async {
+                        self.diagnostics.log(process.terminationStatus == 0 ? "Stopped port \(port)" : "Failed to stop port \(port)")
+                    }
+                } catch {
+                    DispatchQueue.main.async {
+                        self.diagnostics.log("Failed to stop port \(port): \(error.localizedDescription)")
+                    }
+                }
+            }
+
+        case let .setAudioDevice(id, kind):
+            do {
+                try AudioDeviceController.setDevice(id: id, kind: kind)
+                diagnostics.log("Updated \(kind == .output ? "output" : "input") audio device")
+            } catch {
+                diagnostics.log("Failed to switch audio device: \(error.localizedDescription)")
+            }
 
         case let .runProcess(path, arguments):
             DispatchQueue.global(qos: .userInitiated).async {
@@ -363,6 +421,54 @@ final class ActionRunner {
         let invalid = CharacterSet(charactersIn: "/:")
         let cleaned = name.components(separatedBy: invalid).joined(separator: "-")
         return cleaned.isEmpty ? "media-\(Int(Date().timeIntervalSince1970))" : cleaned
+    }
+}
+
+enum KeepAwakeController {
+    private static let marker = "foundry.keepawake"
+
+    static func toggle() -> Bool {
+        if let pid = currentPID() {
+            kill(pid, SIGTERM)
+            return false
+        }
+
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/caffeinate")
+        process.arguments = ["-dimsu"]
+        process.environment = ProcessInfo.processInfo.environment.merging(["FOUNDRY_KEEP_AWAKE": marker]) { _, new in new }
+        try? process.run()
+        return true
+    }
+
+    static func isActive() -> Bool {
+        currentPID() != nil
+    }
+
+    private static func currentPID() -> Int32? {
+        let process = Process()
+        let pipe = Pipe()
+        process.executableURL = URL(fileURLWithPath: "/bin/zsh")
+        process.arguments = ["-lc", "ps -axo pid=,command= | grep 'caffeinate -dimsu' | grep -v grep | awk '{print $1}' | head -n 1"]
+        process.standardOutput = pipe
+        try? process.run()
+        process.waitUntilExit()
+        let data = pipe.fileHandleForReading.readDataToEndOfFile()
+        guard let string = String(data: data, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines), let pid = Int32(string) else { return nil }
+        return pid
+    }
+}
+
+private enum AudioDeviceController {
+    static func setDevice(id: AudioDeviceID, kind: AudioDeviceKind) throws {
+        var device = id
+        var address = AudioObjectPropertyAddress(
+            mSelector: kind == .output ? kAudioHardwarePropertyDefaultOutputDevice : kAudioHardwarePropertyDefaultInputDevice,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain
+        )
+        let status = AudioObjectSetPropertyData(AudioObjectID(kAudioObjectSystemObject), &address, 0, nil, UInt32(MemoryLayout<AudioDeviceID>.size), &device)
+        guard status == noErr else { throw NSError(domain: NSOSStatusErrorDomain, code: Int(status)) }
     }
 }
 

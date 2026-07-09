@@ -59,9 +59,19 @@ enum CommandActionKind: Hashable, Sendable {
     case openTranslator(text: String? = nil, language: String? = nil)
     case openDeveloperTools
     case openSettings
+    case terminateProcess(pid: Int32)
+    case quitApplication(bundleID: String?, name: String)
+    case toggleKeepAwake
+    case terminatePort(Int)
+    case setAudioDevice(id: UInt32, kind: AudioDeviceKind)
     case runProcess(path: String, arguments: [String])
     case quit
     case log(String)
+}
+
+enum AudioDeviceKind: Hashable, Sendable {
+    case output
+    case input
 }
 
 protocol CommandProvider: Sendable {
@@ -95,6 +105,7 @@ final class CommandRegistry: @unchecked Sendable {
                 AppSearchProvider(diagnostics: diagnostics),
                 CalculatorProvider(),
                 DeveloperToolsProvider(),
+                MacUtilitiesProvider(),
                 TranslationProvider(),
                 AppleNotesProvider(),
                 LibraryProvider(),
