@@ -178,6 +178,21 @@ final class ActionRunner {
                 diagnostics.log("Failed to switch audio device: \(error.localizedDescription)")
             }
 
+        case .rebuildApp:
+            guard let sourceRoot = Bundle.main.object(forInfoDictionaryKey: "FoundrySourceRoot") as? String else {
+                diagnostics.log("Cannot rebuild Foundry: source root is unavailable")
+                return
+            }
+            let process = Process()
+            process.executableURL = URL(fileURLWithPath: "/bin/zsh")
+            process.arguments = ["-lc", "cd -- \"$1\" && ./scripts/build-app.sh", "foundry-rebuild", sourceRoot]
+            do {
+                try process.run()
+                diagnostics.log("Started Foundry app rebuild")
+            } catch {
+                diagnostics.log("Failed to rebuild Foundry app: \(error.localizedDescription)")
+            }
+
         case let .runProcess(path, arguments):
             DispatchQueue.global(qos: .userInitiated).async {
                 let process = Process()

@@ -575,7 +575,7 @@ struct CommandPanelView: View {
             "Folder"
         case .openURL:
             "URL"
-        case .terminateProcess, .quitApplication, .terminatePort, .toggleKeepAwake, .setAudioDevice:
+        case .terminateProcess, .quitApplication, .terminatePort, .toggleKeepAwake, .setAudioDevice, .rebuildApp:
             "Utility"
         case .runProcess:
             "Script"
@@ -2239,6 +2239,8 @@ private struct ActionRow: View {
             "network"
         case .setAudioDevice:
             "speaker.wave.2.fill"
+        case .rebuildApp:
+            "hammer.fill"
         case .runProcess:
             "terminal"
         case .quit:

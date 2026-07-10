@@ -64,6 +64,7 @@ enum CommandActionKind: Hashable, Sendable {
     case toggleKeepAwake
     case terminatePort(Int)
     case setAudioDevice(id: UInt32, kind: AudioDeviceKind)
+    case rebuildApp
     case runProcess(path: String, arguments: [String])
     case quit
     case log(String)
