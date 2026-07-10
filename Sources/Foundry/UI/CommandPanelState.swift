@@ -28,6 +28,9 @@ final class CommandPanelState: ObservableObject {
     @Published var diagnosticsSummary = "IDLE"
     @Published var mode: Mode = .search
     @Published var isAgentShelfVisible: Bool
+    @Published var hotkey: FoundryHotkey
+    @Published var themeIntensity: Double
+    var onHotkeyChanged: ((FoundryHotkey) -> Void)?
 
     let activityMonitor = ActivityMonitorState()
     let emojiPicker = EmojiPickerState()
@@ -69,6 +72,8 @@ final class CommandPanelState: ObservableObject {
         self.diagnostics = diagnostics
         self.configService = config
         self.isAgentShelfVisible = config.current.showAgentShelf
+        self.hotkey = config.current.hotkey
+        self.themeIntensity = config.current.themeIntensity
         self.widgetBoard = WidgetBoardState(configService: config)
         actionRunner.mediaStatusHandler = { [weak self] message in
             let normalized = message.lowercased()
@@ -88,6 +93,18 @@ final class CommandPanelState: ObservableObject {
         guard isAgentShelfVisible != isVisible else { return }
         isAgentShelfVisible = isVisible
         configService.updateAgentShelfVisibility(isVisible)
+    }
+
+    func setHotkey(_ hotkey: FoundryHotkey) {
+        guard self.hotkey != hotkey else { return }
+        self.hotkey = hotkey
+        configService.updateHotkey(hotkey)
+        onHotkeyChanged?(hotkey)
+    }
+
+    func setThemeIntensity(_ intensity: Double) {
+        themeIntensity = intensity
+        configService.updateThemeIntensity(intensity)
     }
 
     func resetForOpen() {

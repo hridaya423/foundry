@@ -1,12 +1,12 @@
 import Foundation
 
 struct FoundryConfig: Codable, Equatable {
-    var hotkey: FoundryHotkey = .optionSpace
+    var hotkey: FoundryHotkey = .commandSpace
     var themeIntensity: Double = 0.72
     var showAgentShelf: Bool = true
     var widgets: WidgetBoardConfig = .default
 
-    init(hotkey: FoundryHotkey = .optionSpace, themeIntensity: Double = 0.72, showAgentShelf: Bool = true, widgets: WidgetBoardConfig = .default) {
+    init(hotkey: FoundryHotkey = .commandSpace, themeIntensity: Double = 0.72, showAgentShelf: Bool = true, widgets: WidgetBoardConfig = .default) {
         self.hotkey = hotkey
         self.themeIntensity = themeIntensity
         self.showAgentShelf = showAgentShelf
@@ -15,7 +15,16 @@ struct FoundryConfig: Codable, Equatable {
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        hotkey = try container.decodeIfPresent(FoundryHotkey.self, forKey: .hotkey) ?? .optionSpace
+        let savedHotkey = try container.decodeIfPresent(FoundryHotkey.self, forKey: .hotkey)
+        if let savedHotkey,
+           savedHotkey.keyCode == FoundryHotkey.commandSpace.keyCode,
+           savedHotkey.modifiers == FoundryHotkey.commandSpace.modifiers {
+            hotkey = .commandSpace
+        } else if savedHotkey == .optionSpace {
+            hotkey = .commandSpace
+        } else {
+            hotkey = savedHotkey ?? .commandSpace
+        }
         themeIntensity = try container.decodeIfPresent(Double.self, forKey: .themeIntensity) ?? 0.72
         showAgentShelf = try container.decodeIfPresent(Bool.self, forKey: .showAgentShelf) ?? true
         widgets = try container.decodeIfPresent(WidgetBoardConfig.self, forKey: .widgets) ?? .default
@@ -43,6 +52,16 @@ final class ConfigService {
 
     func updateAgentShelfVisibility(_ isVisible: Bool) {
         current.showAgentShelf = isVisible
+        save()
+    }
+
+    func updateHotkey(_ hotkey: FoundryHotkey) {
+        current.hotkey = hotkey
+        save()
+    }
+
+    func updateThemeIntensity(_ intensity: Double) {
+        current.themeIntensity = intensity
         save()
     }
 

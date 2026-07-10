@@ -44,7 +44,7 @@ struct CommandPanelView: View {
 
             footer
         }
-        .background(FoundryBackdrop())
+        .background(FoundryBackdrop(intensity: state.themeIntensity))
         .overlay(
             RoundedRectangle(cornerRadius: 28, style: .continuous)
                 .stroke(

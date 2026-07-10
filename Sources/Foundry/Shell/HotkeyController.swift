@@ -6,10 +6,16 @@ struct FoundryHotkey: Codable, Equatable {
     var modifiers: UInt32
     var displayName: String
 
+    static let commandSpace = FoundryHotkey(
+        keyCode: UInt32(kVK_Space),
+        modifiers: UInt32(cmdKey),
+        displayName: "⌘ Space"
+    )
+
     static let optionSpace = FoundryHotkey(
         keyCode: UInt32(kVK_Space),
         modifiers: UInt32(optionKey),
-        displayName: "Option-Space"
+        displayName: "⌥ Space"
     )
 }
 
