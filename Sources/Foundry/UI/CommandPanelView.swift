@@ -137,7 +137,7 @@ struct CommandPanelView: View {
             } else if state.mode == .translator {
                 TranslatorView(state: state.translator)
             } else if state.mode == .developerTools {
-                DeveloperToolsView(state: state.developerTools, close: state.backToSearch)
+                DeveloperToolsView(state: state.developerTools)
             } else if state.isShowingActions {
                 actionsSurface
             } else if state.results.isEmpty {
@@ -287,7 +287,7 @@ struct CommandPanelView: View {
                     .font(.system(size: 16, weight: .regular))
                     .foregroundStyle(FoundryTheme.mutedText)
 
-                Text("Developer Tools")
+                Text(state.developerTools.selectedTool.rawValue)
                     .font(FoundryTheme.body(size: 21, weight: .regular))
                     .foregroundStyle(FoundryTheme.primaryText)
             } else {

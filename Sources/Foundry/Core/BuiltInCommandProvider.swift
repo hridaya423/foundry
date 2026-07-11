@@ -166,7 +166,7 @@ final class BuiltInCommandProvider: CommandProvider {
                 systemIcon: "hammer",
                 fallback: "DT",
                 scoreBoost: 4,
-                primaryAction: CommandAction(id: "foundry.developer-tools.open", title: "Open", kind: .openDeveloperTools),
+                primaryAction: CommandAction(id: "foundry.developer-tools.open", title: "Open", kind: .openDeveloperTools()),
                 secondaryActions: []
             ),
             BuiltInCommand(

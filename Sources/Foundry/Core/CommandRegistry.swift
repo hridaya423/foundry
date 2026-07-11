@@ -57,7 +57,7 @@ enum CommandActionKind: Hashable, Sendable {
     case openFileConverter(path: String? = nil)
     case openCamera
     case openTranslator(text: String? = nil, language: String? = nil)
-    case openDeveloperTools
+    case openDeveloperTools(tool: String? = nil)
     case openSettings
     case terminateProcess(pid: Int32)
     case quitApplication(bundleID: String?, name: String)

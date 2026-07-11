@@ -238,8 +238,8 @@ final class CommandPanelState: ObservableObject {
             openTranslator(text: text, language: language)
             return false
         }
-        if selectedResult.primaryAction.kind == .openDeveloperTools {
-            openDeveloperTools()
+        if case let .openDeveloperTools(tool) = selectedResult.primaryAction.kind {
+            openDeveloperTools(tool: tool)
             return false
         }
         if selectedResult.primaryAction.kind == .openSettings {
@@ -553,7 +553,7 @@ final class CommandPanelState: ObservableObject {
         diagnosticsSummary = "translator"
     }
 
-    private func openDeveloperTools() {
+    private func openDeveloperTools(tool: String? = nil) {
         withAnimation(.easeOut(duration: 0.14)) {
             mode = .developerTools
         }
@@ -563,6 +563,9 @@ final class CommandPanelState: ObservableObject {
         results = []
         selectedResultID = nil
         developerTools.reset()
+        if let tool, let selectedTool = DeveloperToolsState.Tool(commandID: tool) {
+            developerTools.selectedTool = selectedTool
+        }
         diagnosticsSummary = "developer tools"
     }
 

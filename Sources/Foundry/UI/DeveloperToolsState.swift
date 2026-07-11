@@ -6,6 +6,29 @@ final class DeveloperToolsState: ObservableObject {
     enum Tool: String, CaseIterable, Identifiable {
         case base = "Base Conversion"
         case bitwise = "Bit Operations"
+        case base64 = "Base64"
+        case json = "Format JSON"
+        case textCase = "Change Case"
+        case timestamp = "Unix Timestamp"
+        case wordCount = "Word Count"
+
+        var id: String { rawValue }
+
+        init?(commandID: String) {
+            switch commandID {
+            case "base64": self = .base64
+            case "json": self = .json
+            case "case": self = .textCase
+            case "timestamp": self = .timestamp
+            case "wordCount": self = .wordCount
+            default: return nil
+            }
+        }
+    }
+
+    enum Base64Operation: String, CaseIterable, Identifiable {
+        case encode = "Encode"
+        case decode = "Decode"
 
         var id: String { rawValue }
     }
@@ -51,9 +74,44 @@ final class DeveloperToolsState: ObservableObject {
     @Published private(set) var bitRows: [OutputRow] = []
     @Published private(set) var bitError: String?
 
+    @Published var base64Operation: Base64Operation = .encode {
+        didSet { refreshBase64() }
+    }
+    @Published var base64Input = "" {
+        didSet { refreshBase64() }
+    }
+    @Published private(set) var base64Output = ""
+    @Published private(set) var base64Error: String?
+
+    @Published var jsonInput = "" {
+        didSet { refreshJSON() }
+    }
+    @Published private(set) var jsonOutput = ""
+    @Published private(set) var jsonError: String?
+
+    @Published var caseInput = "" {
+        didSet { refreshCase() }
+    }
+    @Published private(set) var caseRows: [OutputRow] = []
+
+    @Published var timestampInput = "" {
+        didSet { refreshTimestamp() }
+    }
+    @Published private(set) var timestampRows: [OutputRow] = []
+
+    @Published var wordCountInput = "" {
+        didSet { refreshWordCount() }
+    }
+    @Published private(set) var wordCountRows: [OutputRow] = []
+
     init() {
         refreshBase()
         refreshBitwise()
+        refreshBase64()
+        refreshJSON()
+        refreshCase()
+        refreshTimestamp()
+        refreshWordCount()
     }
 
     func reset() {
@@ -63,8 +121,19 @@ final class DeveloperToolsState: ObservableObject {
         bitLeftInput = "5"
         bitRightInput = "3"
         bitWidthInput = "8"
+        base64Operation = .encode
+        base64Input = ""
+        jsonInput = ""
+        caseInput = ""
+        timestampInput = ""
+        wordCountInput = ""
         refreshBase()
         refreshBitwise()
+        refreshBase64()
+        refreshJSON()
+        refreshCase()
+        refreshTimestamp()
+        refreshWordCount()
     }
 
     func copy(_ value: String) {
@@ -152,5 +221,68 @@ final class DeveloperToolsState: ObservableObject {
         bitExpression = ""
         bitRows = []
         bitError = message
+    }
+
+    private func refreshBase64() {
+        let input = base64Input.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard input.isEmpty == false else {
+            base64Output = ""
+            base64Error = nil
+            return
+        }
+        let output = base64Operation == .encode
+            ? DeveloperToolsEngine.base64Encode(input)
+            : DeveloperToolsEngine.base64Decode(input)
+        guard let output else {
+            base64Output = ""
+            base64Error = "Enter valid Base64 text to decode."
+            return
+        }
+        base64Output = output
+        base64Error = nil
+    }
+
+    private func refreshJSON() {
+        let input = jsonInput.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard input.isEmpty == false else {
+            jsonOutput = ""
+            jsonError = nil
+            return
+        }
+        guard let output = DeveloperToolsEngine.formatJSON(input) else {
+            jsonOutput = ""
+            jsonError = "Enter valid JSON."
+            return
+        }
+        jsonOutput = output
+        jsonError = nil
+    }
+
+    private func refreshCase() {
+        let input = caseInput.trimmingCharacters(in: .whitespacesAndNewlines)
+        caseRows = input.isEmpty ? [] : DeveloperToolsEngine.caseVariants(for: input).map {
+            OutputRow(label: $0.style, value: $0.value)
+        }
+    }
+
+    private func refreshTimestamp() {
+        let input = timestampInput.trimmingCharacters(in: .whitespacesAndNewlines)
+        timestampRows = input.isEmpty ? [] : DeveloperToolsEngine.timestampConversions(for: input).map {
+            OutputRow(label: $0.label, value: $0.value)
+        }
+    }
+
+    private func refreshWordCount() {
+        guard wordCountInput.isEmpty == false else {
+            wordCountRows = []
+            return
+        }
+        let stats = DeveloperToolsEngine.wordCount(wordCountInput)
+        wordCountRows = [
+            OutputRow(label: "Words", value: String(stats.words)),
+            OutputRow(label: "Characters", value: String(stats.characters)),
+            OutputRow(label: "Lines", value: String(stats.lines)),
+            OutputRow(label: "Paragraphs", value: String(stats.paragraphs))
+        ]
     }
 }

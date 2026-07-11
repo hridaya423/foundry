@@ -2,6 +2,22 @@ import XCTest
 @testable import Foundry
 
 final class DeveloperToolsProviderTests: XCTestCase {
+    func testStaticDeveloperCommandsOpenTheirToolUI() async {
+        let commands = [
+            (query: "base64", id: "dev.base64", tool: "base64"),
+            (query: "format json", id: "dev.json", tool: "json"),
+            (query: "change case", id: "dev.case", tool: "case"),
+            (query: "unix timestamp", id: "dev.timestamp", tool: "timestamp"),
+            (query: "word count", id: "dev.wordcount", tool: "wordCount")
+        ]
+
+        for command in commands {
+            let results = await DeveloperToolsProvider().results(matching: command.query)
+            let result = try? XCTUnwrap(results.first { $0.id == command.id })
+            XCTAssertEqual(result?.primaryAction.kind, .openDeveloperTools(tool: command.tool))
+        }
+    }
+
     func testBase64EncodeDecodeRoundTrip() {
         let encoded = DeveloperToolsEngine.base64Encode("hello world")
         XCTAssertEqual(encoded, "aGVsbG8gd29ybGQ=")
