@@ -5,6 +5,7 @@ ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 APP_NAME="Foundry"
 BUILD_DIR="$ROOT_DIR/build"
 APP_DIR="$BUILD_DIR/$APP_NAME.app"
+INSTALL_DIR="/Applications/$APP_NAME.app"
 CONTENTS_DIR="$APP_DIR/Contents"
 MACOS_DIR="$CONTENTS_DIR/MacOS"
 RESOURCES_DIR="$CONTENTS_DIR/Resources"
@@ -60,4 +61,9 @@ else
 fi
 codesign --force --deep --options runtime --sign "$SIGNING_IDENTITY" "$APP_DIR"
 
-echo "Built and signed: $APP_DIR"
+rm -rf "$INSTALL_DIR"
+cp -R "$APP_DIR" "$INSTALL_DIR"
+
+echo "Installed: $INSTALL_DIR"
+echo "Launching once so the app can register its login-item setting..."
+open "$INSTALL_DIR"
