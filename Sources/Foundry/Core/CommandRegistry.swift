@@ -109,6 +109,7 @@ final class CommandRegistry: @unchecked Sendable {
                 MacUtilitiesProvider(),
                 TranslationProvider(),
                 AppleNotesProvider(),
+                BrowserProvider(),
                 LibraryProvider(),
                 MediaDownloadProvider(),
                 SystemCommandProvider(diagnostics: diagnostics),
@@ -144,6 +145,13 @@ final class CommandRegistry: @unchecked Sendable {
         }
 
         guard Task.isCancelled == false else { return [] }
+
+        if let browserProvider = providers.compactMap({ $0 as? BrowserProvider }).first {
+            allResults.append(contentsOf: browserProvider.cachedResults(matching: query))
+            if allResults.isEmpty {
+                allResults.append(contentsOf: await browserProvider.fallbackResults(matching: query))
+            }
+        }
 
         logSearchTimings(timings)
 

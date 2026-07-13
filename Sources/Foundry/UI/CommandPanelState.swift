@@ -126,7 +126,6 @@ final class CommandPanelState: ObservableObject {
         selectedActionID = nil
         isMediaDownloadActive = false
         refreshStatusSummary()
-        refreshHomeResults()
     }
 
     func panelWillClose() {
@@ -180,7 +179,6 @@ final class CommandPanelState: ObservableObject {
         isShowingActions = false
         selectedActionID = nil
         refreshStatusSummary()
-        refreshHomeResults()
     }
 
     @discardableResult
@@ -389,7 +387,7 @@ final class CommandPanelState: ObservableObject {
 
         searchTask = Task { [weak self] in
             do {
-                try await Task.sleep(for: .milliseconds(25))
+                try await Task.sleep(for: .milliseconds(80))
             } catch {
                 diagnostics.endSpan(span)
                 return

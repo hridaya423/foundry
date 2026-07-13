@@ -5,18 +5,18 @@ final class AppSearchProvider: CommandProvider, @unchecked Sendable {
     let id = "foundry.apps"
 
     private let diagnostics: DiagnosticsService
-    private let apps: [InstalledApp]
+    private let appCache: InstalledAppCache
 
-    init(diagnostics: DiagnosticsService) {
+    init(diagnostics: DiagnosticsService, roots: [URL]? = nil) {
         self.diagnostics = diagnostics
-        self.apps = Self.loadApps(diagnostics: diagnostics)
+        self.appCache = InstalledAppCache(roots: roots ?? Self.appSearchRoots(), diagnostics: diagnostics)
     }
 
     func results(matching query: String) async -> [CommandResult] {
         let normalizedQuery = SearchScoring.normalize(query)
         guard normalizedQuery.isEmpty == false else { return [] }
 
-        return apps.compactMap { app -> CommandResult? in
+        return appCache.current().compactMap { app -> CommandResult? in
             guard Task.isCancelled == false else { return nil }
             guard let score = SearchScoring.score(normalizedQuery: normalizedQuery, candidates: app.normalizedSearchCandidates) else { return nil }
 
@@ -29,7 +29,7 @@ final class AppSearchProvider: CommandProvider, @unchecked Sendable {
     }
 
     func defaultResults() async -> [CommandResult] {
-        apps.map { app in Self.result(for: app, score: 10) }
+        appCache.current().map { app in Self.result(for: app, score: 10) }
     }
 
     private static func result(for app: InstalledApp, score: Double) -> CommandResult {
@@ -48,11 +48,10 @@ final class AppSearchProvider: CommandProvider, @unchecked Sendable {
         )
     }
 
-    private static func loadApps(diagnostics: DiagnosticsService) -> [InstalledApp] {
+    fileprivate static func loadApps(roots: [URL], diagnostics: DiagnosticsService) -> [InstalledApp] {
         let span = diagnostics.startSpan("apps.load")
         defer { diagnostics.endSpan(span) }
 
-        let roots = appSearchRoots()
         var seen = Set<String>()
         var discovered: [InstalledApp] = []
 
@@ -86,6 +85,37 @@ final class AppSearchProvider: CommandProvider, @unchecked Sendable {
 
         roots.append(FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Applications"))
         return roots
+    }
+}
+
+private final class InstalledAppCache: @unchecked Sendable {
+    private let roots: [URL]
+    private let diagnostics: DiagnosticsService
+    private let lock = NSLock()
+    private var apps: [InstalledApp] = []
+    private var rootSignature: [Date?] = []
+    private var nextRefresh = Date.distantPast
+    private let refreshInterval: TimeInterval = 2
+
+    init(roots: [URL], diagnostics: DiagnosticsService) {
+        self.roots = roots
+        self.diagnostics = diagnostics
+    }
+
+    func current() -> [InstalledApp] {
+        lock.lock()
+        defer { lock.unlock() }
+
+        let signature = roots.map { root in
+            try? root.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate
+        }
+        let now = Date()
+        guard apps.isEmpty || now >= nextRefresh || signature != rootSignature else { return apps }
+
+        apps = AppSearchProvider.loadApps(roots: roots, diagnostics: diagnostics)
+        rootSignature = signature
+        nextRefresh = now.addingTimeInterval(refreshInterval)
+        return apps
     }
 }
 

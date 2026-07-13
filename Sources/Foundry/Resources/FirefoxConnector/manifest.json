@@ -1,0 +1,16 @@
+{
+  "manifest_version": 2,
+  "name": "Foundry Firefox Connector",
+  "version": "1.0.0",
+  "description": "Shares open Firefox tab titles and URLs with Foundry.",
+  "permissions": ["tabs", "nativeMessaging"],
+  "background": {
+    "scripts": ["background.js"]
+  },
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "firefox-connector@foundry.local",
+      "strict_min_version": "91.0"
+    }
+  }
+}

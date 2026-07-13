@@ -21,9 +21,40 @@ echo "Building $APP_NAME in release mode..."
 swift build -c release --product "$APP_NAME"
 
 EXECUTABLE="$(swift build -c release --show-bin-path)/$APP_NAME"
+RESOURCE_BUNDLE="$(swift build -c release --show-bin-path)/Foundry_Foundry.bundle"
+DEBUG_EXECUTABLE="$(swift build --show-bin-path)/$APP_NAME"
+
+# Remove only the legacy source executable entry. Keep the packaged app entry
+# and every unrelated login item intact.
+/usr/bin/osascript - "$DEBUG_EXECUTABLE" "$INSTALL_DIR" <<'APPLESCRIPT' >/dev/null 2>&1 || true
+on run argv
+    tell application "System Events"
+        repeat with index from (count of login items) to 1 by -1
+            set loginItem to login item index
+            if ((path of loginItem) as text) is item 1 of argv or ((path of loginItem) as text) is item 2 of argv then
+                delete login item index
+            end if
+        end repeat
+    end tell
+end run
+APPLESCRIPT
+
+INSTALLED_EXECUTABLE="$INSTALL_DIR/Contents/MacOS/$APP_NAME"
+if pgrep -f "$INSTALLED_EXECUTABLE" >/dev/null 2>&1; then
+    echo "Stopping the running installed copy..."
+    pkill -TERM -f "$INSTALLED_EXECUTABLE" || true
+    for _ in {1..50}; do
+        pgrep -f "$INSTALLED_EXECUTABLE" >/dev/null 2>&1 || break
+        sleep 0.1
+    done
+fi
+
 rm -rf "$APP_DIR"
 mkdir -p "$MACOS_DIR" "$RESOURCES_DIR"
 cp "$EXECUTABLE" "$MACOS_DIR/$APP_NAME"
+if [[ -d "$RESOURCE_BUNDLE" ]]; then
+    cp -R "$RESOURCE_BUNDLE" "$RESOURCES_DIR/"
+fi
 
 cat > "$CONTENTS_DIR/Info.plist" <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
@@ -35,7 +66,7 @@ cat > "$CONTENTS_DIR/Info.plist" <<EOF
     <key>CFBundleExecutable</key>
     <string>Foundry</string>
     <key>CFBundleIdentifier</key>
-    <string>com.honey.foundry</string>
+    <string>com.hridya.foundry</string>
     <key>CFBundleName</key>
     <string>Foundry</string>
     <key>CFBundlePackageType</key>
