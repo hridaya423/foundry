@@ -101,8 +101,9 @@ final class AIChatStore {
         var result: [AIChatMessage] = []
         for message in messages {
             if message.role == .tool {
-                let payload = message.content.split(separator: ":", maxSplits: 1).last.map(String.init) ?? message.content
-                let name = payload.split(separator: ":", maxSplits: 1).first.map(String.init) ?? payload
+                guard let separator = message.content.firstIndex(of: ":") else { continue }
+                let payload = message.content[message.content.index(after: separator)...]
+                let name = payload.split(separator: "\n", maxSplits: 1, omittingEmptySubsequences: true).first.map(String.init) ?? ""
                 guard name == "web_search" || name == "system_context" else { continue }
                 if result.last?.role == .tool, result.last?.content == message.content { continue }
             }

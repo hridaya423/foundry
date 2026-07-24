@@ -153,6 +153,23 @@ final class AIProviderTests: XCTestCase {
         XCTAssertFalse(AICapabilityPolicy.autonomousToolNames.contains("open_app"))
     }
 
+    func testFallbackOnlyUsesOllamaForAppleAvailabilityFailures() {
+        XCTAssertTrue(AIFallbackPolicy.shouldFallback(failureKind: .unavailable, backend: .appleFoundationModels, ollamaEnabled: true, isCancelled: false))
+        XCTAssertFalse(AIFallbackPolicy.shouldFallback(failureKind: .refusal, backend: .appleFoundationModels, ollamaEnabled: true, isCancelled: false))
+        XCTAssertFalse(AIFallbackPolicy.shouldFallback(failureKind: .guardrail, backend: .appleFoundationModels, ollamaEnabled: true, isCancelled: false))
+        XCTAssertFalse(AIFallbackPolicy.shouldFallback(failureKind: .unavailable, backend: .ollama, ollamaEnabled: true, isCancelled: false))
+        XCTAssertFalse(AIFallbackPolicy.shouldFallback(failureKind: .unavailable, backend: .appleFoundationModels, ollamaEnabled: false, isCancelled: false))
+    }
+
+    func testWebSearchURLPolicyRejectsUnsafeHostsAndSchemes() {
+        XCTAssertTrue(WebSearchURLPolicy.isAllowed("https://example.com/article"))
+        XCTAssertFalse(WebSearchURLPolicy.isAllowed("httpx://example.com/article"))
+        XCTAssertFalse(WebSearchURLPolicy.isAllowed("http://localhost:8080/"))
+        XCTAssertFalse(WebSearchURLPolicy.isAllowed("http://127.0.0.1/"))
+        XCTAssertFalse(WebSearchURLPolicy.isAllowed("http://192.168.1.10/"))
+        XCTAssertFalse(WebSearchURLPolicy.isAllowed("http://169.254.169.254/latest/"))
+    }
+
     func testIntentHeuristicsRequireLiveSearchForFreshFacts() {
         XCTAssertTrue(AIIntentHeuristics.needsWebSearch("What is the latest macOS release?"))
         XCTAssertTrue(AIIntentHeuristics.needsWebSearch("current weather in San Francisco"))

@@ -46,4 +46,17 @@ final class AIChatStoreTests: XCTestCase {
 
         XCTAssertTrue(AIChatStore(url: url).load().isEmpty)
     }
+
+    func testChatStoreKeepsCompletedToolResultsAfterReload() {
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent("foundry-chat-\(UUID().uuidString).json")
+        defer { try? FileManager.default.removeItem(at: url) }
+        let thread = AIChatThread(title: "Tools", messages: [
+            AIChatMessage(role: .tool, content: "complete:web_search\nResult")
+        ])
+        let store = AIChatStore(url: url)
+
+        store.save([thread])
+
+        XCTAssertEqual(store.load().first?.messages.first?.content, "complete:web_search\nResult")
+    }
 }
