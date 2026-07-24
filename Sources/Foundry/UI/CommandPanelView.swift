@@ -46,20 +46,18 @@ struct CommandPanelView: View {
         }
         .background(FoundryBackdrop(intensity: state.themeIntensity))
         .overlay(
-            RoundedRectangle(cornerRadius: 28, style: .continuous)
-                .stroke(
+            FoundrySmoothedRectangle(cornerRadius: 28, smoothing: 0.75)
+                .strokeBorder(
                     LinearGradient(
                         colors: [Color.white.opacity(0.20), Color.white.opacity(0.08), Color.white.opacity(0.03)],
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
                     ),
                     lineWidth: 1
-                )
+            )
         )
-        .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
-        .shadow(color: Color.black.opacity(0.5), radius: 40, x: 0, y: 24)
-        .shadow(color: Color.black.opacity(0.28), radius: 8, x: 0, y: 4)
-        .frame(width: 760, height: 500)
+        .clipShape(FoundrySmoothedRectangle(cornerRadius: 28, smoothing: 0.75))
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .overlay {
             if isShowingFoundryMenu {
                 foundryMenuOverlay
@@ -111,6 +109,8 @@ struct CommandPanelView: View {
         Group {
             if state.mode == .settings {
                 WidgetSettingsView(state: state)
+            } else if state.mode == .quickAI {
+                quickAISurface
             } else if state.mode == .activityMonitor {
                 ActivityMonitorView(state: state.activityMonitor)
             } else if state.mode == .emojiPicker {
@@ -152,6 +152,7 @@ struct CommandPanelView: View {
 
     private var contentID: String {
         if state.mode == .settings { return "settings" }
+        if state.mode == .quickAI { return "quickAI" }
         if state.mode == .activityMonitor { return "activity" }
         if state.mode == .emojiPicker { return "emoji" }
         if state.mode == .fileConversion { return "fileConversion" }
@@ -167,10 +168,10 @@ struct CommandPanelView: View {
     }
 
     private var dropOverlay: some View {
-        RoundedRectangle(cornerRadius: 28, style: .continuous)
+        FoundrySmoothedRectangle(cornerRadius: 28, smoothing: 0.75)
             .fill(isDropTargeted ? Color.white.opacity(0.10) : Color.clear)
             .overlay(
-                RoundedRectangle(cornerRadius: 28, style: .continuous)
+            FoundrySmoothedRectangle(cornerRadius: 28, smoothing: 0.75)
                     .strokeBorder(isDropTargeted ? Color.white.opacity(0.45) : Color.clear, style: StrokeStyle(lineWidth: 1.5, dash: [8, 7]))
             )
             .overlay {
@@ -185,7 +186,7 @@ struct CommandPanelView: View {
                     .padding(.horizontal, 22)
                     .padding(.vertical, 16)
                     .background(Color.black.opacity(0.18))
-                    .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                    .clipShape(FoundrySmoothedRectangle(cornerRadius: 18, smoothing: 0.75))
                     .transition(.opacity.combined(with: .scale(scale: 0.96)))
                 }
             }
@@ -207,7 +208,36 @@ struct CommandPanelView: View {
                 .pointerCursor()
             }
 
-            if state.mode == .settings {
+            if state.mode == .quickAI {
+                HStack(spacing: 8) {
+                    QuickAIComposer(
+                        text: $state.quickAIQuery,
+                        placeholder: "Ask follow-up...",
+                        onSubmit: { Task { await state.submitQuickAI() } }
+                    )
+                    .focused($inputFocused)
+                    .frame(height: 42)
+
+                    Menu {
+                        Button("New Chat") { state.openQuickAI() }
+                        if state.quickAIThreads.isEmpty == false {
+                            Divider()
+                            ForEach(state.quickAIThreads) { thread in
+                                Button(thread.title) { state.selectQuickAIThread(thread) }
+                            }
+                        }
+                    } label: {
+                        Image(systemName: "text.bubble")
+                            .font(.system(size: 15, weight: .medium))
+                            .foregroundStyle(FoundryTheme.secondaryText)
+                            .frame(width: 30, height: 30)
+                            .background(Color.white.opacity(0.06))
+                            .clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
+                    }
+                    .menuStyle(.borderlessButton)
+                    .pointerCursor()
+                }
+            } else if state.mode == .settings {
                 Image(systemName: "slider.horizontal.3")
                     .font(.system(size: 16, weight: .regular))
                     .foregroundStyle(FoundryTheme.mutedText)
@@ -295,16 +325,20 @@ struct CommandPanelView: View {
                     .font(.system(size: 16, weight: .medium))
                     .foregroundStyle(FoundryTheme.mutedText)
 
-                TextField("Search apps and commands...", text: $state.query)
-                    .textFieldStyle(.plain)
-                    .font(FoundryTheme.body(size: 21, weight: .regular))
-                    .foregroundStyle(FoundryTheme.primaryText)
-                    .focused($inputFocused)
-                    .onSubmit {
+                LauncherSearchField(
+                    text: $state.query,
+                    placeholder: "Search apps and commands...",
+                    onTab: {
+                        state.openQuickAI(initialPrompt: state.query)
+                    },
+                    onReturn: {
                         if state.executeSelectedResult() {
                             dismiss()
                         }
                     }
+                )
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .focused($inputFocused)
 
                 if state.query.isEmpty == false {
                     Button {
@@ -319,6 +353,25 @@ struct CommandPanelView: View {
                     .pointerCursor()
                     .transition(.opacity.combined(with: .scale(scale: 0.7)))
                 }
+
+                if state.mode == .search {
+                    Button {
+                        state.openQuickAI(initialPrompt: state.query)
+                    } label: {
+                        HStack(spacing: 7) {
+                            Text("Ask AI")
+                                .font(FoundryTheme.body(size: 13, weight: .medium))
+                                .foregroundStyle(FoundryTheme.secondaryText)
+                            KeycapHint(text: "Tab")
+                        }
+                    }
+                    .buttonStyle(.plain)
+                    .pointerCursor()
+                    .contentShape(Rectangle())
+                    .zIndex(1)
+                    .padding(.leading, 10)
+                    .transition(.opacity.combined(with: .move(edge: .trailing)))
+                }
             }
         }
         .animation(.easeOut(duration: 0.12), value: state.query.isEmpty)
@@ -329,6 +382,70 @@ struct CommandPanelView: View {
             Rectangle()
                 .fill(Color.white.opacity(0.07))
                 .frame(height: 1)
+        }
+    }
+
+    private var quickAISurface: some View {
+        ScrollView {
+            LazyVStack(alignment: .leading, spacing: 18) {
+                if let active = state.quickAIThreads.first(where: { $0.id == state.activeQuickAIThreadID }) {
+                    ForEach(active.messages) { message in
+                        quickAIMessageRow(message)
+                    }
+                }
+
+                if state.isQuickAILoading,
+                   state.quickAIStatus.hasPrefix("Using ") == false,
+                   state.quickAIStatus.hasPrefix("Finished ") == false {
+                    QuickAIActivityRow(status: state.quickAIStatus)
+                }
+
+                if state.quickAIResponse.isEmpty == false,
+                   state.isQuickAILoading || state.quickAIThreads.first(where: { $0.id == state.activeQuickAIThreadID })?.messages.last?.content != state.quickAIResponse {
+                    AIFormattedText(content: state.quickAIResponse)
+                        .font(FoundryTheme.body(size: 15, weight: .regular))
+                        .foregroundStyle(FoundryTheme.primaryText)
+                        .textSelection(.enabled)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+
+                if state.quickAILastFailedPrompt != nil, state.isQuickAILoading == false {
+                    Button("Retry") { state.retryQuickAI() }
+                        .buttonStyle(.plain)
+                        .font(FoundryTheme.body(size: 13, weight: .semibold))
+                        .foregroundStyle(FoundryTheme.secondaryText)
+                        .padding(.top, 2)
+                }
+            }
+            .padding(.horizontal, 28)
+            .padding(.vertical, 24)
+        }
+    }
+
+    @ViewBuilder
+    private func quickAIMessageRow(_ message: AIChatMessage) -> some View {
+        if message.role == .tool {
+            let isRunning = message.content.hasPrefix("running:")
+            let isComplete = message.content.hasPrefix("complete:")
+            let markerLength = isRunning ? 8 : isComplete ? 9 : 0
+            let payload = String(message.content.dropFirst(markerLength))
+            let parts = payload.split(separator: "\n", maxSplits: 1, omittingEmptySubsequences: false)
+            let name = parts.first.map(String.init) ?? payload
+            let result = parts.dropFirst().first.map(String.init)
+            QuickAIToolEventRow(name: name, isRunning: isRunning, result: result)
+        } else {
+            HStack(alignment: .firstTextBaseline, spacing: 12) {
+                Image(systemName: message.role == .user ? "person.crop.circle" : "sparkles")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(FoundryTheme.faintText)
+                    .frame(width: 20)
+
+                AIFormattedText(content: message.content)
+                    .font(FoundryTheme.body(size: 15, weight: .regular))
+                    .foregroundStyle(message.role == .user ? FoundryTheme.secondaryText : FoundryTheme.primaryText)
+                    .textSelection(.enabled)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
         }
     }
 
@@ -414,12 +531,6 @@ struct CommandPanelView: View {
                     }
 
                     if isHome {
-                        if state.widgetBoard.homeWidgets.isEmpty == false {
-                            WidgetBoardView(board: state.widgetBoard)
-                                .padding(.horizontal, 4)
-                                .padding(.bottom, 10)
-                        }
-
                         if suggestionResults.isEmpty == false {
                             HomeSectionHeader(title: "Suggestions")
                             ForEach(Array(suggestionResults.prefix(3)), id: \.id) { result in
@@ -439,6 +550,14 @@ struct CommandPanelView: View {
                                     .contentShape(Rectangle())
                                     .onTapGesture { execute(result) }
                             }
+                        }
+
+                        if state.widgetBoard.homeWidgets.isEmpty == false {
+                            HomeSectionHeader(title: "At a glance")
+                                .padding(.top, suggestionResults.isEmpty && commandResults.isEmpty ? 0 : 12)
+                            WidgetBoardView(board: state.widgetBoard)
+                                .padding(.horizontal, 4)
+                                .padding(.bottom, 10)
                         }
                     } else {
                         ForEach(Array(displayedResults.enumerated()), id: \.element.id) { index, result in
@@ -557,6 +676,8 @@ struct CommandPanelView: View {
 
     private func resultKindLabel(for result: CommandResult) -> String {
         switch result.primaryAction.kind {
+        case .openQuickAI:
+            "AI"
         case .openApp:
             "Application"
         case .openEmojiPicker, .openFileShelf, .openClipboardHistory, .openSnippets, .openFileConverter, .openCamera, .openTranslator, .openDeveloperTools, .openActivityMonitor, .openConfigFolder, .openSettings, .quit:
@@ -679,9 +800,20 @@ struct CommandPanelView: View {
 
     private var footer: some View {
         HStack(spacing: 0) {
-            foundryMenuButton
+            if state.mode == .quickAI {
+                HStack(spacing: 8) {
+                    Image(systemName: "sparkles")
+                        .font(.system(size: 11, weight: .semibold))
+                    Text("Quick AI")
+                        .font(FoundryTheme.body(size: 12, weight: .semibold))
+                }
+                .foregroundStyle(FoundryTheme.secondaryText)
+                .padding(.horizontal, 8)
+            } else {
+                foundryMenuButton
+            }
 
-            if state.mode != .translator, state.diagnosticsSummary.isEmpty == false {
+            if state.mode != .translator, state.mode != .quickAI, state.diagnosticsSummary.isEmpty == false {
                 Text(state.diagnosticsSummary)
                     .font(FoundryTheme.body(size: 11, weight: .medium))
                     .foregroundStyle(FoundryTheme.faintText)
@@ -757,6 +889,10 @@ struct CommandPanelView: View {
     @ViewBuilder
     private var footerActions: some View {
         switch state.mode {
+        case .quickAI:
+            FooterAction(label: "Submit", keys: "↵", emphasized: true)
+            FooterDivider()
+            FooterAction(label: "Close", keys: "esc")
         case .settings:
             FooterAction(label: "Done", keys: "esc")
         case .activityMonitor:
@@ -842,6 +978,164 @@ struct CommandPanelView: View {
         return didLoad
     }
 
+}
+
+private struct QuickAIActivityRow: View {
+    let status: String
+
+    var body: some View {
+        let presentation = QuickAIToolPresentation.activity(for: status)
+        HStack(spacing: 10) {
+            Image(systemName: presentation.icon)
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(FoundryTheme.faintText)
+                .frame(width: 20)
+
+            QuickAIShimmerLabel(text: presentation.label)
+        }
+    }
+}
+
+private struct QuickAIToolEventRow: View {
+    let name: String
+    let isRunning: Bool
+    let result: String?
+
+    var body: some View {
+        let presentation = QuickAIToolPresentation.tool(named: name, running: isRunning)
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 10) {
+                Image(systemName: presentation.icon)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(FoundryTheme.faintText)
+                    .frame(width: 20)
+
+                if isRunning {
+                    QuickAIShimmerLabel(text: presentation.label)
+                } else {
+                    Text(presentation.label)
+                        .font(FoundryTheme.body(size: 14, weight: .medium))
+                        .foregroundStyle(FoundryTheme.secondaryText)
+                    Image(systemName: "checkmark")
+                        .font(.system(size: 9, weight: .bold))
+                        .foregroundStyle(FoundryTheme.faintText)
+                }
+            }
+
+            if let result, result.isEmpty == false {
+                Text(result)
+                    .font(FoundryTheme.body(size: 11, weight: .regular))
+                    .foregroundStyle(FoundryTheme.mutedText)
+                    .lineLimit(4)
+                    .padding(.leading, 30)
+            }
+        }
+    }
+}
+
+private struct QuickAIShimmerLabel: View {
+    let text: String
+    @State private var phase: CGFloat = -0.8
+
+    var body: some View {
+        Text(text)
+            .font(FoundryTheme.body(size: 14, weight: .medium))
+            .foregroundStyle(
+                LinearGradient(
+                    colors: [FoundryTheme.faintText, Color.white.opacity(0.75), FoundryTheme.faintText],
+                    startPoint: UnitPoint(x: phase, y: 0.5),
+                    endPoint: UnitPoint(x: phase + 0.8, y: 0.5)
+                )
+            )
+            .onAppear {
+                withAnimation(.linear(duration: 1.35).repeatForever(autoreverses: false)) {
+                    phase = 1
+                }
+            }
+    }
+}
+
+private enum QuickAIToolPresentation {
+    static func activity(for status: String) -> (icon: String, label: String) {
+        tool(named: status.lowercased(), running: true)
+    }
+
+    static func tool(named name: String, running: Bool) -> (icon: String, label: String) {
+        let normalized = name.replacingOccurrences(of: "_", with: " ").lowercased()
+        if normalized.hasPrefix("web search:") {
+            let query = name.split(separator: ":", maxSplits: 1).last.map(String.init)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? "the web"
+            let summary = String(query.prefix(72))
+            let isSource = query.lowercased().hasPrefix("http://") || query.lowercased().hasPrefix("https://")
+            if isSource { return ("link", running ? "Checking source" : "Source: \(summary)") }
+            return ("link", running ? "Searching: \(summary)" : "Searched: \(summary)")
+        }
+        if normalized.contains("web search") { return ("link", running ? "Searching the web" : "Web search") }
+        if normalized.contains("system context") { return ("clock", running ? "Checking system context" : "System context") }
+        if normalized.contains("clipboard") { return ("doc.on.clipboard", running ? "Reading clipboard" : "Clipboard") }
+        if normalized.contains("open url") { return ("safari", running ? "Opening website" : "Opened website") }
+        if normalized.contains("open app") { return ("app", running ? "Opening application" : "Opened application") }
+        if normalized.contains("copy text") { return ("doc.on.doc", running ? "Copying text" : "Copied text") }
+        if normalized.contains("synthesizing") { return ("sparkles", "Synthesizing answer") }
+        return ("sparkles", running ? "Thinking" : normalized.capitalized)
+    }
+}
+
+private struct AIFormattedText: View {
+    let content: String
+
+    var body: some View {
+        if let attributed = try? AttributedString(
+            markdown: content,
+            options: .init(interpretedSyntax: .inlineOnlyPreservingWhitespace)
+        ) {
+            Text(attributed)
+        } else {
+            Text(content)
+        }
+    }
+}
+
+struct FoundrySmoothedRectangle: InsettableShape {
+    var cornerRadius: CGFloat
+    var smoothing: CGFloat = 0.75
+    var insetAmount: CGFloat = 0
+
+    func inset(by amount: CGFloat) -> some InsettableShape {
+        var copy = self
+        copy.insetAmount += amount
+        return copy
+    }
+
+    func path(in rect: CGRect) -> Path {
+        let rect = rect.insetBy(dx: insetAmount, dy: insetAmount)
+        let radius = min(max(cornerRadius, 0), min(rect.width, rect.height) / 2)
+        guard radius > 0 else { return Path(rect) }
+
+        var path = Path()
+        let exponent = 2 + (min(max(smoothing, 0), 1) * 2.5)
+        let segments = 48
+
+        path.move(to: CGPoint(x: rect.minX + radius, y: rect.minY))
+        path.addLine(to: CGPoint(x: rect.maxX - radius, y: rect.minY))
+        addSuperellipseCorner(to: &path, center: CGPoint(x: rect.maxX - radius, y: rect.minY + radius), startAngle: -.pi / 2, exponent: exponent, radius: radius, segments: segments)
+        path.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY - radius))
+        addSuperellipseCorner(to: &path, center: CGPoint(x: rect.maxX - radius, y: rect.maxY - radius), startAngle: 0, exponent: exponent, radius: radius, segments: segments)
+        path.addLine(to: CGPoint(x: rect.minX + radius, y: rect.maxY))
+        addSuperellipseCorner(to: &path, center: CGPoint(x: rect.minX + radius, y: rect.maxY - radius), startAngle: .pi / 2, exponent: exponent, radius: radius, segments: segments)
+        path.addLine(to: CGPoint(x: rect.minX, y: rect.minY + radius))
+        addSuperellipseCorner(to: &path, center: CGPoint(x: rect.minX + radius, y: rect.minY + radius), startAngle: .pi, exponent: exponent, radius: radius, segments: segments)
+        path.closeSubpath()
+        return path
+    }
+
+    private func addSuperellipseCorner(to path: inout Path, center: CGPoint, startAngle: CGFloat, exponent: CGFloat, radius: CGFloat, segments: Int) {
+        for index in 1...segments {
+            let angle = startAngle + (CGFloat(index) / CGFloat(segments) * .pi / 2)
+            let x = copysign(pow(abs(cos(angle)), 2 / exponent), cos(angle)) * radius
+            let y = copysign(pow(abs(sin(angle)), 2 / exponent), sin(angle)) * radius
+            path.addLine(to: CGPoint(x: center.x + x, y: center.y + y))
+        }
+    }
 }
 
 private struct FileShelfView: View {
@@ -2193,6 +2487,8 @@ private struct ActionRow: View {
 
     private var iconName: String {
         switch action.kind {
+        case .openQuickAI:
+            "sparkles"
         case .openApp, .openURL, .openConfigFolder:
             "arrow.up.right.square"
         case .openSettings:
@@ -2731,6 +3027,206 @@ private struct CameraPreviewSurface: NSViewRepresentable {
 
     func updateNSView(_ nsView: PreviewView, context: Context) {
         nsView.previewLayer.session = session
+    }
+}
+
+private struct LauncherSearchField: NSViewRepresentable {
+    @Binding var text: String
+    let placeholder: String
+    let onTab: () -> Void
+    let onReturn: () -> Void
+
+    func makeNSView(context: Context) -> LauncherSearchTextField {
+        let field = LauncherSearchTextField()
+        field.isBordered = false
+        field.drawsBackground = false
+        field.focusRingType = .none
+        field.font = NSFont.systemFont(ofSize: 21, weight: .regular)
+        field.textColor = .white
+        field.placeholderString = placeholder
+        field.delegate = context.coordinator
+        field.onTab = onTab
+        field.onReturn = onReturn
+        return field
+    }
+
+    func updateNSView(_ nsView: LauncherSearchTextField, context: Context) {
+        if nsView.stringValue != text {
+            nsView.stringValue = text
+        }
+        nsView.placeholderString = placeholder
+        nsView.onTab = onTab
+        nsView.onReturn = onReturn
+        nsView.delegate = context.coordinator
+        context.coordinator.onTab = onTab
+        context.coordinator.onReturn = onReturn
+    }
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(text: $text, onTab: onTab, onReturn: onReturn)
+    }
+
+    final class Coordinator: NSObject, NSTextFieldDelegate {
+        var text: Binding<String>
+        var onTab: (() -> Void)?
+        var onReturn: (() -> Void)?
+
+        init(text: Binding<String>, onTab: (() -> Void)? = nil, onReturn: (() -> Void)? = nil) {
+            self.text = text
+            self.onTab = onTab
+            self.onReturn = onReturn
+        }
+
+        func controlTextDidChange(_ obj: Notification) {
+            guard let field = obj.object as? NSTextField else { return }
+            text.wrappedValue = field.stringValue
+        }
+
+        func control(_ control: NSControl, textView: NSTextView, doCommandBy commandSelector: Selector) -> Bool {
+            switch commandSelector {
+            case #selector(NSResponder.insertTab(_:)), #selector(NSResponder.insertBacktab(_:)):
+                onTab?()
+                return true
+            case #selector(NSResponder.insertNewline(_:)), #selector(NSResponder.insertNewlineIgnoringFieldEditor(_:)):
+                onReturn?()
+                return true
+            default:
+                return false
+            }
+        }
+    }
+}
+
+private struct QuickAIComposer: NSViewRepresentable {
+    @Binding var text: String
+    let placeholder: String
+    let onSubmit: () -> Void
+
+    func makeNSView(context: Context) -> QuickAITextView {
+        let view = QuickAITextView()
+        view.placeholder = placeholder
+        view.onSubmit = onSubmit
+        view.delegate = context.coordinator
+        DispatchQueue.main.async {
+            view.window?.makeFirstResponder(view.textView)
+        }
+        return view
+    }
+
+    func updateNSView(_ nsView: QuickAITextView, context: Context) {
+        if nsView.textView.string != text { nsView.textView.string = text }
+        nsView.placeholder = placeholder
+        nsView.onSubmit = onSubmit
+        nsView.delegate = context.coordinator
+    }
+
+    func makeCoordinator() -> Coordinator { Coordinator(text: $text) }
+
+    final class Coordinator: NSObject, NSTextViewDelegate {
+        var text: Binding<String>
+        init(text: Binding<String>) { self.text = text }
+        func textDidChange(_ notification: Notification) {
+            guard let view = notification.object as? NSTextView else { return }
+            text.wrappedValue = view.string
+        }
+    }
+}
+
+private final class QuickAITextView: NSScrollView {
+    fileprivate var placeholder: String = "" { didSet { textView.needsDisplay = true } }
+    fileprivate var onSubmit: (() -> Void)?
+    fileprivate var textView: QuickAITextViewContent { textViewContent }
+    fileprivate var delegate: NSTextViewDelegate? {
+        get { textViewContent.delegate }
+        set { textViewContent.delegate = newValue }
+    }
+
+    private let textViewContent = QuickAITextViewContent()
+
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        drawsBackground = false
+        borderType = .noBorder
+        hasVerticalScroller = true
+        verticalScroller?.controlSize = .small
+        scrollerStyle = .overlay
+        documentView = textViewContent
+        textViewContent.isEditable = true
+        textViewContent.isSelectable = true
+        textViewContent.isRichText = false
+        textViewContent.importsGraphics = false
+        textViewContent.drawsBackground = false
+        textViewContent.isVerticallyResizable = true
+        textViewContent.isHorizontallyResizable = false
+        textViewContent.textContainerInset = NSSize(width: 2, height: 8)
+        textViewContent.textContainer?.widthTracksTextView = true
+        textViewContent.textContainer?.containerSize = NSSize(width: 0, height: CGFloat.greatestFiniteMagnitude)
+        textViewContent.placeholderRef = { [weak self] in self?.placeholder ?? "" }
+        textViewContent.submitAction = { [weak self] in self?.onSubmit?() }
+        textViewContent.font = NSFont.systemFont(ofSize: 21, weight: .regular)
+        textViewContent.textColor = .white
+        textViewContent.insertionPointColor = .white
+        textViewContent.isAutomaticTextCompletionEnabled = false
+    }
+
+    required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+}
+
+private final class QuickAITextViewContent: NSTextView {
+    var placeholderRef: (() -> String)?
+    var submitAction: (() -> Void)?
+
+    override func keyDown(with event: NSEvent) {
+        switch event.keyCode {
+        case 48:
+            interpretKeyEvents([event])
+        case 36:
+            if event.modifierFlags.contains(.shift) {
+                super.keyDown(with: event)
+            } else {
+                submitAction?()
+            }
+        default:
+            super.keyDown(with: event)
+        }
+    }
+
+    override func insertTab(_ sender: Any?) {
+        insertText("\t", replacementRange: selectedRange())
+    }
+
+    override func draw(_ dirtyRect: NSRect) {
+        super.draw(dirtyRect)
+        guard string.isEmpty, let placeholder = placeholderRef?(), placeholder.isEmpty == false else { return }
+        let attrs: [NSAttributedString.Key: Any] = [
+            .font: font ?? NSFont.systemFont(ofSize: 21),
+            .foregroundColor: NSColor.white.withAlphaComponent(0.34)
+        ]
+        placeholder.draw(in: NSRect(x: 4, y: 10, width: bounds.width - 8, height: 24), withAttributes: attrs)
+    }
+}
+
+private final class LauncherSearchTextField: NSTextField {
+    var onTab: (() -> Void)?
+    var onReturn: (() -> Void)?
+
+    override func performKeyEquivalent(with event: NSEvent) -> Bool {
+        if event.keyCode == 48 {
+            onTab?()
+            return true
+        }
+        return super.performKeyEquivalent(with: event)
+    }
+
+    override func keyDown(with event: NSEvent) {
+        switch event.keyCode {
+        case 48:
+            onTab?()
+        case 36:
+            onReturn?()
+        default:
+            super.keyDown(with: event)
+        }
     }
 }
 

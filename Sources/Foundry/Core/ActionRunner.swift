@@ -15,6 +15,9 @@ final class ActionRunner {
 
     func perform(_ action: CommandAction) {
         switch action.kind {
+        case .openQuickAI:
+            diagnostics.log("Quick AI should be opened by panel state")
+
         case let .openApp(path, name):
             let configuration = NSWorkspace.OpenConfiguration()
             NSWorkspace.shared.openApplication(at: URL(fileURLWithPath: path), configuration: configuration) { [diagnostics] _, error in

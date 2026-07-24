@@ -12,6 +12,7 @@ struct WidgetSettingsView: View {
                 generalSection
                 keyboardSection
                 appearanceSection
+                aiSection
                 widgetsSection
             }
             .padding(.horizontal, 14)
@@ -83,6 +84,42 @@ struct WidgetSettingsView: View {
                     in: 0.2...1
                 )
                 .tint(FoundryTheme.secondaryText)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 11)
+            .background(Color.white.opacity(0.04))
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        }
+    }
+
+    private var aiSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            SettingsSectionHeader(title: "AI")
+
+            VStack(alignment: .leading, spacing: 10) {
+                Text("Local-first assistant model")
+                    .font(FoundryTheme.body(size: 14, weight: .medium))
+                    .foregroundStyle(FoundryTheme.primaryText)
+
+                Text("Foundry will use Apple Foundation Models first. Ollama is optional if you enable it. Cloud providers can be added later without changing the local default.")
+                    .font(FoundryTheme.body(size: 12, weight: .regular))
+                    .foregroundStyle(FoundryTheme.mutedText)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                ToggleRow(
+                    title: "Enable Ollama fallback",
+                    subtitle: "Use a local Ollama model when Apple AI is unavailable",
+                    isOn: state.isOllamaEnabled,
+                    set: state.setOllamaEnabled
+                )
+
+                HStack(spacing: 8) {
+                    Label("Apple AI", systemImage: "apple.logo")
+                    Label("Ollama optional", systemImage: "server.rack")
+                    Label("BYOK later", systemImage: "key")
+                }
+                .font(FoundryTheme.body(size: 12, weight: .semibold))
+                .foregroundStyle(FoundryTheme.secondaryText)
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 11)

@@ -6,6 +6,7 @@ import SwiftUI
 final class CommandPanelState: ObservableObject {
     enum Mode {
         case search
+        case quickAI
         case activityMonitor
         case emojiPicker
         case fileShelf
@@ -21,6 +22,13 @@ final class CommandPanelState: ObservableObject {
     @Published var query = "" {
         didSet { refreshResults() }
     }
+    @Published var quickAIQuery = ""
+    @Published var quickAIResponse = ""
+    @Published var quickAIStatus = ""
+    @Published var isQuickAILoading = false
+    @Published var quickAILastFailedPrompt: String?
+    @Published var quickAIThreads: [AIChatThread]
+    @Published var activeQuickAIThreadID: UUID?
     @Published var results: [CommandResult] = []
     @Published var selectedResultID: String?
     @Published var isShowingActions = false
@@ -30,6 +38,7 @@ final class CommandPanelState: ObservableObject {
     @Published var isAgentShelfVisible: Bool
     @Published var hotkey: FoundryHotkey
     @Published var themeIntensity: Double
+    @Published var isOllamaEnabled: Bool
     var onHotkeyChanged: ((FoundryHotkey) -> Void)?
 
     let activityMonitor = ActivityMonitorState()
@@ -48,8 +57,12 @@ final class CommandPanelState: ObservableObject {
     private let registry: CommandRegistry
     private let actionRunner: ActionRunner
     private let diagnostics: DiagnosticsService
+    private let aiProvider: AIProvider
+    private let aiChatStore = AIChatStore()
     private var statusTimer: Timer?
     private var searchTask: Task<Void, Never>?
+    private var quickAITask: Task<Void, Never>?
+    private var quickAIRequestID: UUID?
     private var searchGeneration = 0
     private var isMediaDownloadActive = false
 
@@ -71,9 +84,14 @@ final class CommandPanelState: ObservableObject {
         self.actionRunner = actionRunner
         self.diagnostics = diagnostics
         self.configService = config
+        self.aiProvider = AIProvider(config: config, diagnostics: diagnostics)
+        let loadedThreads = aiChatStore.load()
+        self.quickAIThreads = loadedThreads
+        self.activeQuickAIThreadID = loadedThreads.first?.id
         self.isAgentShelfVisible = config.current.showAgentShelf
         self.hotkey = config.current.hotkey
         self.themeIntensity = config.current.themeIntensity
+        self.isOllamaEnabled = config.current.ai.isOllamaEnabled
         self.widgetBoard = WidgetBoardState(configService: config)
         actionRunner.mediaStatusHandler = { [weak self] message in
             let normalized = message.lowercased()
@@ -87,6 +105,10 @@ final class CommandPanelState: ObservableObject {
                 self?.refreshStatusSummary()
             }
         }
+    }
+
+    private func persistAIThreads() {
+        aiChatStore.save(quickAIThreads)
     }
 
     func setAgentShelfVisible(_ isVisible: Bool) {
@@ -107,6 +129,13 @@ final class CommandPanelState: ObservableObject {
         configService.updateThemeIntensity(intensity)
     }
 
+    func setOllamaEnabled(_ isEnabled: Bool) {
+        isOllamaEnabled = isEnabled
+        var ai = configService.current.ai
+        ai.isOllamaEnabled = isEnabled
+        configService.updateAIConfig(ai)
+    }
+
     func resetForOpen() {
         mode = .search
         widgetBoard.start()
@@ -120,6 +149,14 @@ final class CommandPanelState: ObservableObject {
         translator.reset()
         developerTools.reset()
         query = ""
+        quickAIQuery = ""
+        quickAIResponse = ""
+        quickAIStatus = ""
+        isQuickAILoading = false
+        quickAILastFailedPrompt = nil
+        quickAITask?.cancel()
+        quickAITask = nil
+        quickAIRequestID = nil
         results = []
         selectedResultID = nil
         isShowingActions = false
@@ -174,6 +211,14 @@ final class CommandPanelState: ObservableObject {
         translator.reset()
         developerTools.reset()
         query = ""
+        quickAIQuery = ""
+        quickAIResponse = ""
+        quickAIStatus = ""
+        isQuickAILoading = false
+        quickAILastFailedPrompt = nil
+        quickAITask?.cancel()
+        quickAITask = nil
+        quickAIRequestID = nil
         results = []
         selectedResultID = nil
         isShowingActions = false
@@ -183,10 +228,19 @@ final class CommandPanelState: ObservableObject {
 
     @discardableResult
     func executeSelectedResult() -> Bool {
-        guard let selectedResult else { return false }
+        guard let selectedResult else {
+            if let request = AIProvider.request(from: query) {
+                openQuickAI(initialPrompt: request.prompt)
+            }
+            return false
+        }
         if isShowingActions, let selectedAction {
             diagnostics.log("Executing action: \(selectedAction.id)")
             registry.recordExecution(resultID: selectedResult.id)
+            if case let .openQuickAI(prompt) = selectedAction.kind {
+                openQuickAI(initialPrompt: prompt)
+                return false
+            }
             if case .downloadMedia = selectedAction.kind {
                 isMediaDownloadActive = true
                 diagnosticsSummary = "Starting download"
@@ -204,6 +258,10 @@ final class CommandPanelState: ObservableObject {
 
         diagnostics.log("Executing result: \(selectedResult.id)")
         registry.recordExecution(resultID: selectedResult.id)
+        if case let .openQuickAI(prompt) = selectedResult.primaryAction.kind {
+            openQuickAI(initialPrompt: prompt)
+            return false
+        }
         if selectedResult.primaryAction.kind == .openActivityMonitor {
             openActivityMonitor()
             return false
@@ -294,7 +352,7 @@ final class CommandPanelState: ObservableObject {
             snippets.query += text
         case .translator:
             translator.sourceText += text
-        case .camera, .fileConversion, .fileShelf, .settings, .developerTools:
+        case .camera, .fileConversion, .fileShelf, .settings, .developerTools, .quickAI:
             return false
         }
         return true
@@ -376,6 +434,13 @@ final class CommandPanelState: ObservableObject {
             selectedResultID = nil
             refreshStatusSummary()
             refreshHomeResults()
+            return
+        }
+
+        if AIProvider.request(from: trimmed) != nil {
+            results = []
+            selectedResultID = nil
+            refreshStatusSummary(fallback: "Press Tab or Return to ask AI")
             return
         }
 
@@ -565,6 +630,167 @@ final class CommandPanelState: ObservableObject {
             developerTools.selectedTool = selectedTool
         }
         diagnosticsSummary = "developer tools"
+    }
+
+    func openQuickAI(initialPrompt: String = "") {
+        quickAITask?.cancel()
+        quickAITask = nil
+        quickAIRequestID = nil
+        let prompt = AIProvider.request(from: initialPrompt)?.prompt ?? initialPrompt
+        withAnimation(.easeOut(duration: 0.14)) {
+            mode = .quickAI
+        }
+        searchTask?.cancel()
+        results = []
+        selectedResultID = nil
+        isShowingActions = false
+        selectedActionID = nil
+        quickAIQuery = prompt
+        quickAIResponse = ""
+        quickAIStatus = prompt.isEmpty ? "Ask anything" : "Ready"
+        isQuickAILoading = false
+        quickAILastFailedPrompt = nil
+        let thread = AIChatThread(title: prompt.isEmpty ? "New Chat" : prompt)
+        quickAIThreads.insert(thread, at: 0)
+        activeQuickAIThreadID = thread.id
+        persistAIThreads()
+        if prompt.isEmpty == false {
+            Task { await submitQuickAI() }
+        }
+    }
+
+    func submitQuickAI() async {
+        let prompt = quickAIQuery.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard prompt.isEmpty == false else {
+            quickAIStatus = "Type a question first"
+            return
+        }
+        quickAIQuery = ""
+        quickAITask?.cancel()
+        quickAIRequestID = nil
+        guard let threadID = activeQuickAIThreadID else {
+            quickAIStatus = "Start a chat first"
+            return
+        }
+        let requestID = UUID()
+        quickAIRequestID = requestID
+        quickAITask = Task { [weak self] in
+            await self?.performQuickAI(prompt: prompt, threadID: threadID, requestID: requestID)
+        }
+        await quickAITask?.value
+    }
+
+    func retryQuickAI() {
+        guard let prompt = quickAILastFailedPrompt, isQuickAILoading == false else { return }
+        quickAILastFailedPrompt = nil
+        quickAITask?.cancel()
+        guard let threadID = activeQuickAIThreadID else { return }
+        let requestID = UUID()
+        quickAIRequestID = requestID
+        quickAITask = Task { [weak self] in
+            await self?.performQuickAI(prompt: prompt, persistUserMessage: false, threadID: threadID, requestID: requestID)
+        }
+    }
+
+    private func performQuickAI(prompt: String, persistUserMessage: Bool = true, threadID: UUID, requestID: UUID) async {
+        guard isCurrentQuickAIRequest(requestID, threadID: threadID) else { return }
+        isQuickAILoading = true
+        quickAIStatus = "Thinking"
+        quickAIResponse = ""
+        var didFail = false
+        var response = ""
+        let priorMessages = quickAIThreads.first(where: { $0.id == threadID })
+            .map { Array($0.messages.filter { $0.role == .user || $0.role == .assistant }.suffix(10)) } ?? []
+        let conversationContext = AIConversationContext.build(from: priorMessages)
+        if persistUserMessage, let index = quickAIThreads.firstIndex(where: { $0.id == threadID }) {
+            quickAIThreads[index].messages.append(AIChatMessage(role: .user, content: prompt))
+            quickAIThreads[index].updatedAt = .now
+            if quickAIThreads[index].title == "New Chat" {
+                quickAIThreads[index].title = prompt.prefix(48).description
+            }
+            persistAIThreads()
+        }
+
+        for await event in aiProvider.stream(prompt: prompt, context: conversationContext) {
+            guard Task.isCancelled == false else {
+                guard isCurrentQuickAIRequest(requestID, threadID: threadID) else { return }
+                isQuickAILoading = false
+                quickAIStatus = "Cancelled"
+                quickAILastFailedPrompt = prompt
+                return
+            }
+            guard isCurrentQuickAIRequest(requestID, threadID: threadID) else { return }
+            switch event {
+            case let .status(status):
+                quickAIStatus = status
+            case let .textDelta(delta):
+                response += delta
+                quickAIResponse = response
+            case let .toolCallStarted(name):
+                quickAIStatus = "Using \(name.replacingOccurrences(of: "_", with: " "))"
+                recordToolStarted(name, threadID: threadID)
+            case let .toolResult(name, result):
+                quickAIStatus = "Finished \(name.replacingOccurrences(of: "_", with: " "))"
+                recordToolFinished(name, result: result, threadID: threadID)
+            case .completed:
+                quickAIStatus = "Done"
+            case let .failed(message):
+                didFail = true
+                quickAILastFailedPrompt = prompt
+                quickAIStatus = message
+                response = message
+                quickAIResponse = message
+            }
+        }
+
+        guard Task.isCancelled == false else {
+            guard isCurrentQuickAIRequest(requestID, threadID: threadID) else { return }
+            isQuickAILoading = false
+            quickAIStatus = "Cancelled"
+            quickAILastFailedPrompt = prompt
+            return
+        }
+        guard isCurrentQuickAIRequest(requestID, threadID: threadID) else { return }
+        quickAIStatus = didFail ? "Failed" : response.isEmpty ? "No response" : "Done"
+        isQuickAILoading = false
+        if let index = quickAIThreads.firstIndex(where: { $0.id == threadID }) {
+            if response.isEmpty == false, didFail == false {
+                quickAIThreads[index].messages.append(AIChatMessage(role: .assistant, content: response))
+            }
+            quickAIThreads[index].updatedAt = .now
+            persistAIThreads()
+        }
+    }
+
+    private func recordToolStarted(_ name: String, threadID: UUID) {
+        guard let index = quickAIThreads.firstIndex(where: { $0.id == threadID }) else { return }
+        quickAIThreads[index].messages.append(AIChatMessage(role: .tool, content: "running:\(name)"))
+        quickAIThreads[index].updatedAt = .now
+        persistAIThreads()
+    }
+
+    private func recordToolFinished(_ name: String, result: String, threadID: UUID) {
+        guard let threadIndex = quickAIThreads.firstIndex(where: { $0.id == threadID }),
+              let messageIndex = quickAIThreads[threadIndex].messages.lastIndex(where: { $0.role == .tool && $0.content == "running:\(name)" }) else { return }
+        quickAIThreads[threadIndex].messages[messageIndex].content = "complete:\(name)\n\(String(result.prefix(1800)))"
+        quickAIThreads[threadIndex].updatedAt = .now
+        persistAIThreads()
+    }
+
+    func selectQuickAIThread(_ thread: AIChatThread) {
+        quickAITask?.cancel()
+        quickAITask = nil
+        quickAIRequestID = nil
+        activeQuickAIThreadID = thread.id
+        quickAIQuery = ""
+        quickAIResponse = thread.messages.last(where: { $0.role == .assistant })?.content ?? ""
+        quickAIStatus = thread.messages.isEmpty ? "Ask anything" : "Loaded"
+        quickAILastFailedPrompt = nil
+        mode = .quickAI
+    }
+
+    private func isCurrentQuickAIRequest(_ requestID: UUID, threadID: UUID) -> Bool {
+        requestID == quickAIRequestID && threadID == activeQuickAIThreadID
     }
 
 }

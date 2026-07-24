@@ -159,6 +159,17 @@ final class BuiltInCommandProvider: CommandProvider {
                 secondaryActions: []
             ),
             BuiltInCommand(
+                id: "foundry.ai",
+                title: "Ask AI",
+                subtitle: "Apple Foundation Models first, with optional Ollama tools",
+                aliases: ["ask ai", "ai", "plan", "draft"],
+                systemIcon: "sparkles",
+                fallback: "AI",
+                scoreBoost: 5,
+                primaryAction: CommandAction(id: "foundry.ai.open", title: "Open", kind: .openQuickAI(prompt: "")),
+                secondaryActions: []
+            ),
+            BuiltInCommand(
                 id: "foundry.developer-tools",
                 title: "Developer Tools",
                 subtitle: "Base conversion, bitwise operations, and text transforms",

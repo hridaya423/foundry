@@ -5,12 +5,14 @@ struct FoundryConfig: Codable, Equatable {
     var themeIntensity: Double = 0.72
     var showAgentShelf: Bool = true
     var widgets: WidgetBoardConfig = .default
+    var ai: AIConfig = .default
 
-    init(hotkey: FoundryHotkey = .commandSpace, themeIntensity: Double = 0.72, showAgentShelf: Bool = true, widgets: WidgetBoardConfig = .default) {
+    init(hotkey: FoundryHotkey = .commandSpace, themeIntensity: Double = 0.72, showAgentShelf: Bool = true, widgets: WidgetBoardConfig = .default, ai: AIConfig = .default) {
         self.hotkey = hotkey
         self.themeIntensity = themeIntensity
         self.showAgentShelf = showAgentShelf
         self.widgets = widgets
+        self.ai = ai
     }
 
     init(from decoder: Decoder) throws {
@@ -28,7 +30,30 @@ struct FoundryConfig: Codable, Equatable {
         themeIntensity = try container.decodeIfPresent(Double.self, forKey: .themeIntensity) ?? 0.72
         showAgentShelf = try container.decodeIfPresent(Bool.self, forKey: .showAgentShelf) ?? true
         widgets = try container.decodeIfPresent(WidgetBoardConfig.self, forKey: .widgets) ?? .default
+        ai = try container.decodeIfPresent(AIConfig.self, forKey: .ai) ?? .default
     }
+}
+
+struct AIConfig: Codable, Equatable {
+    var preferredBackend: AIBackend = .appleFoundationModels
+    var isOllamaEnabled: Bool = false
+    var ollamaHost: String = "http://127.0.0.1:11434"
+    var ollamaModel: String = "llama3.1"
+    var openAIModel: String = "gpt-4.1-mini"
+    var anthropicModel: String = "claude-3-5-sonnet-latest"
+    var geminiModel: String = "gemini-2.0-flash"
+
+    static let `default` = AIConfig()
+}
+
+enum AIBackend: String, Codable, CaseIterable, Identifiable {
+    case ollama
+    case appleFoundationModels
+    case openAI
+    case anthropic
+    case gemini
+
+    var id: String { rawValue }
 }
 
 final class ConfigService {
@@ -62,6 +87,11 @@ final class ConfigService {
 
     func updateThemeIntensity(_ intensity: Double) {
         current.themeIntensity = intensity
+        save()
+    }
+
+    func updateAIConfig(_ ai: AIConfig) {
+        current.ai = ai
         save()
     }
 

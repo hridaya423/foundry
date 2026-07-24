@@ -39,6 +39,7 @@ struct CommandAction: Hashable, Sendable {
 }
 
 enum CommandActionKind: Hashable, Sendable {
+    case openQuickAI(prompt: String)
     case openApp(path: String, name: String)
     case openURL(String)
     case openConfigFolder
@@ -108,6 +109,7 @@ final class CommandRegistry: @unchecked Sendable {
                 DeveloperToolsProvider(),
                 MacUtilitiesProvider(),
                 TranslationProvider(),
+                AIProvider(config: config, diagnostics: diagnostics),
                 AppleNotesProvider(),
                 BrowserProvider(),
                 LibraryProvider(),
@@ -150,6 +152,21 @@ final class CommandRegistry: @unchecked Sendable {
             allResults.append(contentsOf: browserProvider.cachedResults(matching: query))
             if allResults.isEmpty {
                 allResults.append(contentsOf: await browserProvider.fallbackResults(matching: query))
+            }
+        }
+
+        if allResults.isEmpty {
+            let prompt = query.trimmingCharacters(in: .whitespacesAndNewlines)
+            if prompt.isEmpty == false {
+                allResults.append(CommandResult(
+                    id: "foundry.quick.\(AIRequestIdentifier.make(prompt: prompt, backend: .appleFoundationModels))",
+                    title: "Ask AI about \(prompt)",
+                    subtitle: "Open the research assistant",
+                    icon: CommandIcon(fallback: "AI", systemName: "sparkles"),
+                    score: 95,
+                    primaryAction: CommandAction(id: "ai.quick", title: "Ask AI", kind: .openQuickAI(prompt: prompt)),
+                    secondaryActions: []
+                ))
             }
         }
 

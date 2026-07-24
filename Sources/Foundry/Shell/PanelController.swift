@@ -1,13 +1,16 @@
 import AppKit
+import Combine
 import SwiftUI
 
 @MainActor
 final class PanelController: NSObject, NSWindowDelegate {
-    private static let panelSize = NSSize(width: 760, height: 500)
+    private static let rootSize = NSSize(width: 750, height: 495)
+    private static let expandedSize = NSSize(width: 750, height: 625)
 
     private let state: CommandPanelState
     private let diagnostics: DiagnosticsService
     private var panel: FoundryPanel?
+    private var modeCancellable: AnyCancellable?
 
     var isVisible: Bool {
         panel?.isVisible == true
@@ -17,6 +20,11 @@ final class PanelController: NSObject, NSWindowDelegate {
         self.state = state
         self.diagnostics = diagnostics
         super.init()
+        modeCancellable = state.$mode.sink { [weak self] mode in
+            Task { @MainActor [weak self] in
+                self?.resize(for: mode)
+            }
+        }
     }
 
     func show() {
@@ -24,6 +32,7 @@ final class PanelController: NSObject, NSWindowDelegate {
         let panel = panel ?? makePanel()
         self.panel = panel
 
+        resize(for: state.mode)
         position(panel)
         panel.makeKeyAndOrderFront(nil)
         diagnostics.endSpan(span)
@@ -36,7 +45,7 @@ final class PanelController: NSObject, NSWindowDelegate {
 
     private func makePanel() -> FoundryPanel {
         let panel = FoundryPanel(
-            contentRect: NSRect(origin: .zero, size: Self.panelSize),
+            contentRect: NSRect(origin: .zero, size: Self.rootSize),
             styleMask: [.borderless, .nonactivatingPanel, .fullSizeContentView],
             backing: .buffered,
             defer: false
@@ -49,7 +58,7 @@ final class PanelController: NSObject, NSWindowDelegate {
         panel.isReleasedWhenClosed = false
         panel.backgroundColor = .clear
         panel.isOpaque = false
-        panel.hasShadow = true
+        panel.hasShadow = false
         panel.titleVisibility = .hidden
         panel.titlebarAppearsTransparent = true
         panel.onCommandK = { [weak self] in
@@ -61,17 +70,29 @@ final class PanelController: NSObject, NSWindowDelegate {
         panel.onCommandV = { [weak self] in
             self?.state.pasteFromClipboard() ?? false
         }
+        panel.onAskAI = { [weak self] in
+            guard let self, self.state.mode == .search else { return }
+            self.state.openQuickAI(initialPrompt: self.state.query)
+        }
 
         let rootView = CommandPanelView(state: state) { [weak self] in
             self?.hide()
         }
         let hostingView = NSHostingView(rootView: rootView)
         hostingView.wantsLayer = true
-        hostingView.layer?.cornerRadius = 28
-        hostingView.layer?.masksToBounds = true
         panel.contentView = hostingView
 
         return panel
+    }
+
+    private func resize(for mode: CommandPanelState.Mode) {
+        guard let panel else { return }
+        panel.setContentSize(Self.contentSize(for: mode))
+        position(panel)
+    }
+
+    static func contentSize(for mode: CommandPanelState.Mode) -> NSSize {
+        mode == .search || mode == .quickAI ? rootSize : expandedSize
     }
 
     private func position(_ panel: NSWindow) {
@@ -81,9 +102,11 @@ final class PanelController: NSObject, NSWindowDelegate {
 
         guard let visibleFrame = screen?.visibleFrame else { return }
         let size = panel.frame.size
+        let topOffsetPixels: CGFloat = 280
+        let topInset = topOffsetPixels / max(screen?.backingScaleFactor ?? 1, 1)
         let origin = NSPoint(
             x: visibleFrame.midX - size.width / 2,
-            y: visibleFrame.midY - size.height / 2
+            y: max(visibleFrame.minY, visibleFrame.maxY - size.height - topInset)
         )
         panel.setFrameOrigin(origin)
     }
@@ -94,6 +117,7 @@ final class FoundryPanel: NSPanel {
     var onCommandK: (() -> Void)?
     var onCommandComma: (() -> Void)?
     var onCommandV: (() -> Bool)?
+    var onAskAI: (() -> Void)?
 
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { true }
@@ -115,6 +139,10 @@ final class FoundryPanel: NSPanel {
     }
 
     private func handleShortcut(_ event: NSEvent) -> Bool {
+        if event.keyCode == 48, event.modifierFlags.intersection(.deviceIndependentFlagsMask).isEmpty {
+            onAskAI?()
+            return true
+        }
         let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
         guard flags == .command else { return false }
         switch event.charactersIgnoringModifiers?.lowercased() {
