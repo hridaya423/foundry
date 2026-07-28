@@ -29,7 +29,8 @@ enum LibraryPersistence {
         load([StoredSnippet].self, from: snippetsURL) ?? []
     }
 
-    static func saveSnippets(_ snippets: [StoredSnippet]) {
+    @discardableResult
+    static func saveSnippets(_ snippets: [StoredSnippet]) -> Result<Void, Error> {
         save(snippets, to: snippetsURL)
     }
 
@@ -38,10 +39,15 @@ enum LibraryPersistence {
         return try? JSONDecoder().decode(T.self, from: data)
     }
 
-    private static func save<T: Encodable>(_ value: T, to url: URL) {
+    private static func save<T: Encodable>(_ value: T, to url: URL) -> Result<Void, Error> {
         let folder = url.deletingLastPathComponent()
-        try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-        guard let data = try? JSONEncoder().encode(value) else { return }
-        try? data.write(to: url, options: .atomic)
+        do {
+            try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+            let data = try JSONEncoder().encode(value)
+            try data.write(to: url, options: .atomic)
+            return .success(())
+        } catch {
+            return .failure(error)
+        }
     }
 }

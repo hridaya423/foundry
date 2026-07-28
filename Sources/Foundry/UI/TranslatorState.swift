@@ -6,10 +6,14 @@ final class TranslatorState: ObservableObject {
     @Published var sourceText = "" {
         didSet { scheduleTranslation() }
     }
+    @Published var sourceLanguage = "English" {
+        didSet { scheduleTranslation() }
+    }
     @Published var targetLanguage = "Spanish" {
         didSet { scheduleTranslation() }
     }
     @Published var result = ""
+    @Published var translationError: String? = nil
     @Published var isTranslating = false
     @Published var needsAppleTranslationFallback = false
     @Published var requestVersion = 0
@@ -26,8 +30,10 @@ final class TranslatorState: ObservableObject {
     func reset() {
         isResetting = true
         sourceText = ""
+        sourceLanguage = "English"
         targetLanguage = "Spanish"
         result = ""
+        translationError = nil
         isTranslating = false
         needsAppleTranslationFallback = false
         requestVersion = 0
@@ -49,6 +55,7 @@ final class TranslatorState: ObservableObject {
         let text = sourceText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard text.isEmpty == false else {
             result = ""
+            translationError = nil
             isTranslating = false
             needsAppleTranslationFallback = false
             return
@@ -69,12 +76,27 @@ final class TranslatorState: ObservableObject {
     }
 
     func finishTranslation(_ text: String) {
-        result = text
+        let normalized = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        if Self.isErrorMessage(normalized) {
+            result = ""
+            translationError = normalized
+        } else {
+            result = normalized
+            translationError = nil
+        }
+        isTranslating = false
+        needsAppleTranslationFallback = false
+    }
+
+    func finishTranslationError(_ message: String) {
+        result = ""
+        translationError = message
         isTranslating = false
         needsAppleTranslationFallback = false
     }
 
     func requestAppleTranslationFallback() {
+        translationError = nil
         needsAppleTranslationFallback = true
         isTranslating = true
         requestVersion += 1
@@ -90,6 +112,15 @@ final class TranslatorState: ObservableObject {
         Locale.LanguageCode.isoLanguageCodes.first { code in
             Locale.current.localizedString(forLanguageCode: code.identifier)?.capitalized == name
         }?.identifier
+    }
+
+    private static func isErrorMessage(_ value: String) -> Bool {
+        let lowercased = value.lowercased()
+        return lowercased.hasPrefix("translation failed:")
+            || lowercased.hasPrefix("apple translation failed:")
+            || lowercased.hasPrefix("apple intelligence unavailable:")
+            || lowercased.contains("foundation models are unavailable")
+            || lowercased.contains("require macos")
     }
 }
 

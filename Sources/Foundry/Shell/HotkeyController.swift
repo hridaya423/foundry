@@ -28,18 +28,20 @@ final class HotkeyController {
 
     private var hotkeyRef: EventHotKeyRef?
     private var eventHandler: EventHandlerRef?
+    private var registeredHotkey: FoundryHotkey?
 
     func register(hotkey: FoundryHotkey) throws {
-        unregister()
+        if registeredHotkey == hotkey { return }
 
         let hotkeyID = EventHotKeyID(signature: OSType(0x464E4459), id: 1)
+        var newHotkeyRef: EventHotKeyRef?
         let status = RegisterEventHotKey(
             hotkey.keyCode,
             hotkey.modifiers,
             hotkeyID,
             GetApplicationEventTarget(),
             0,
-            &hotkeyRef
+            &newHotkeyRef
         )
 
         guard status == noErr else {
@@ -48,7 +50,8 @@ final class HotkeyController {
 
         var eventType = EventTypeSpec(eventClass: OSType(kEventClassKeyboard), eventKind: UInt32(kEventHotKeyPressed))
         let selfPointer = Unmanaged.passUnretained(self).toOpaque()
-        InstallEventHandler(
+        var newEventHandler: EventHandlerRef?
+        let handlerStatus = InstallEventHandler(
             GetApplicationEventTarget(),
             { _, _, userData in
                 guard let userData else { return noErr }
@@ -59,8 +62,17 @@ final class HotkeyController {
             1,
             &eventType,
             selfPointer,
-            &eventHandler
+            &newEventHandler
         )
+        guard handlerStatus == noErr else {
+            if let newHotkeyRef { UnregisterEventHotKey(newHotkeyRef) }
+            throw HotkeyError.registrationFailed(handlerStatus)
+        }
+
+        unregister()
+        hotkeyRef = newHotkeyRef
+        eventHandler = newEventHandler
+        registeredHotkey = hotkey
     }
 
     func unregister() {
@@ -73,5 +85,6 @@ final class HotkeyController {
             RemoveEventHandler(eventHandler)
             self.eventHandler = nil
         }
+        registeredHotkey = nil
     }
 }

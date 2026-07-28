@@ -12,6 +12,9 @@ final class FileConversionState: ObservableObject {
     @Published var status = ""
     @Published var isConverting = false
     @Published var outputURL: URL?
+    @Published var dependencyPrompt: String? = nil
+
+    private var conversionTask: Task<Void, Never>?
 
     var selectedTarget: FileConversionTarget? {
         availableTargets.first { $0.id == selectedTargetID } ?? availableTargets.first
@@ -25,6 +28,9 @@ final class FileConversionState: ObservableObject {
         status = ""
         isConverting = false
         outputURL = nil
+        dependencyPrompt = nil
+        conversionTask?.cancel()
+        conversionTask = nil
     }
 
     func chooseSourceFile() {
@@ -59,13 +65,36 @@ final class FileConversionState: ObservableObject {
 
     func convert() {
         guard let sourceURL, let target = selectedTarget else { return }
+        if let dependency = FileConversionService.missingDependencyName(for: target) {
+            dependencyPrompt = dependency
+            return
+        }
+        startConversion(sourceURL: sourceURL, target: target)
+    }
+
+    func confirmDependencyInstallation() {
+        dependencyPrompt = nil
+        guard let sourceURL, let target = selectedTarget else { return }
+        startConversion(sourceURL: sourceURL, target: target)
+    }
+
+    func cancel() {
+        conversionTask?.cancel()
+        conversionTask = nil
+        isConverting = false
+        status = "Conversion cancelled"
+    }
+
+    private func startConversion(sourceURL: URL, target: FileConversionTarget) {
         let outputFolderURL = outputFolderURL ?? sourceURL.deletingLastPathComponent()
+        conversionTask?.cancel()
         isConverting = true
         outputURL = nil
         status = FileConversionService.preflightStatus(for: target) ?? "Converting to \(target.title)…"
 
-        Task.detached {
+        conversionTask = Task.detached {
             let result = FileConversionService.convert(sourceURL: sourceURL, target: target, outputFolderURL: outputFolderURL)
+            guard Task.isCancelled == false else { return }
             await MainActor.run {
                 self.isConverting = false
                 switch result {
@@ -112,6 +141,21 @@ struct FileConversionTarget: Identifiable, Hashable {
 }
 
 enum FileConversionService {
+    static func missingDependencyName(for target: FileConversionTarget) -> String? {
+        switch target.family {
+        case .mediaFFmpeg where ffmpegInstalled == false:
+            "ffmpeg"
+        case .imageMagick where imageMagickInstalled == false:
+            "ImageMagick"
+        case .pandoc where pandocInstalled == false:
+            "pandoc"
+        case .soffice where sofficeInstalled == false:
+            "LibreOffice"
+        default:
+            nil
+        }
+    }
+
     static func availableTargets(for url: URL) -> [FileConversionTarget] {
         let ext = url.pathExtension.lowercased()
         var targets: [FileConversionTarget] = []
@@ -211,10 +255,7 @@ enum FileConversionService {
     static func convert(sourceURL: URL, target: FileConversionTarget, outputFolderURL: URL) -> Result<URL, Error> {
         do {
             try FileManager.default.createDirectory(at: outputFolderURL, withIntermediateDirectories: true)
-            let destination = outputFolderURL.appendingPathComponent(outputFileName(for: sourceURL, target: target))
-            if FileManager.default.fileExists(atPath: destination.path) {
-                try FileManager.default.removeItem(at: destination)
-            }
+            let destination = uniqueDestination(for: sourceURL, target: target, in: outputFolderURL)
 
             switch target.family {
             case .image:
@@ -232,14 +273,15 @@ enum FileConversionService {
                 try run(pandoc, [sourceURL.path, "-o", destination.path])
             case .soffice:
                 let soffice = try installSofficeIfNeeded()
-                try run(soffice, ["--headless", "--convert-to", sofficeFormat(target.outputExtension), "--outdir", outputFolderURL.path, sourceURL.path])
-                let generated = outputFolderURL.appendingPathComponent(sourceURL.deletingPathExtension().lastPathComponent + "." + target.outputExtension)
-                if generated.path != destination.path, FileManager.default.fileExists(atPath: generated.path) {
-                    if FileManager.default.fileExists(atPath: destination.path) {
-                        try FileManager.default.removeItem(at: destination)
-                    }
-                    try FileManager.default.moveItem(at: generated, to: destination)
+                let temporaryFolder = FileManager.default.temporaryDirectory.appendingPathComponent("Foundry-Conversion-\(UUID().uuidString)")
+                try FileManager.default.createDirectory(at: temporaryFolder, withIntermediateDirectories: true)
+                defer { try? FileManager.default.removeItem(at: temporaryFolder) }
+                try run(soffice, ["--headless", "--convert-to", sofficeFormat(target.outputExtension), "--outdir", temporaryFolder.path, sourceURL.path])
+                let generated = temporaryFolder.appendingPathComponent(sourceURL.deletingPathExtension().lastPathComponent + "." + target.outputExtension)
+                guard FileManager.default.fileExists(atPath: generated.path) else {
+                    throw NSError(domain: "FoundryConversion", code: 2, userInfo: [NSLocalizedDescriptionKey: "LibreOffice did not produce the expected output."])
                 }
+                try FileManager.default.moveItem(at: generated, to: destination)
             }
             return .success(destination)
         } catch {
@@ -251,8 +293,16 @@ enum FileConversionService {
         FileConversionTarget(id: ext, title: title ?? ext.uppercased(), outputExtension: ext, category: category, family: family)
     }
 
-    private static func outputFileName(for sourceURL: URL, target: FileConversionTarget) -> String {
-        sourceURL.deletingPathExtension().lastPathComponent + "." + target.outputExtension
+    private static func uniqueDestination(for sourceURL: URL, target: FileConversionTarget, in folder: URL) -> URL {
+        let original = sourceURL.deletingPathExtension().lastPathComponent
+        let extensionName = target.outputExtension
+        var index = 1
+        while true {
+            let suffix = index == 1 ? "" : " \(index)"
+            let candidate = folder.appendingPathComponent("\(original)\(suffix).\(extensionName)")
+            if FileManager.default.fileExists(atPath: candidate.path) == false { return candidate }
+            index += 1
+        }
     }
 
     private static func run(_ path: String, _ arguments: [String]) throws {

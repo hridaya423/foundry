@@ -60,6 +60,7 @@ enum CommandActionKind: Hashable, Sendable {
     case openTranslator(text: String? = nil, language: String? = nil)
     case openDeveloperTools(tool: String? = nil)
     case openSettings
+    case openDashboard
     case terminateProcess(pid: Int32)
     case quitApplication(bundleID: String?, name: String)
     case toggleKeepAwake

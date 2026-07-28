@@ -11,12 +11,17 @@ final class WidgetBoardState: ObservableObject {
     @Published private(set) var isStockLoading = false
 
     private let configService: ConfigService
+    var persistenceErrorHandler: ((Error) -> Void)?
     private let sampler = SystemMetricsSampler()
     private let weatherService = WeatherService()
     private let stockService = StockService()
 
     private var metricsTask: Task<Void, Never>?
     private var networkTask: Task<Void, Never>?
+    private var weatherTask: Task<Void, Never>?
+    private var stockTask: Task<Void, Never>?
+    private var weatherRequestID: UUID?
+    private var stockRequestID: UUID?
 
     init(configService: ConfigService) {
         self.configService = configService
@@ -29,13 +34,16 @@ final class WidgetBoardState: ObservableObject {
             if normalized.stockSymbol == "AAPL" { normalized.stockSymbol = "" }
         }
         normalized.enabled = Self.normalizedWidgets(from: normalized.enabled.filter { WidgetKind.allCases.contains($0) })
-        for kind in WidgetBoardConfig.default.enabled where normalized.enabled.count < WidgetBoardConfig.maxEnabled && normalized.enabled.contains(kind) == false {
+        if configService.current.showAgentShelf == false {
+            normalized.enabled.removeAll { $0 == .agents }
+        }
+        for kind in WidgetBoardConfig.default.enabled where (kind != .agents || configService.current.showAgentShelf) && normalized.enabled.count < WidgetBoardConfig.maxEnabled && normalized.enabled.contains(kind) == false {
             normalized.enabled = Self.normalizedWidgets(from: normalized.enabled + [kind])
         }
         normalized.enabled = Array(normalized.enabled.prefix(WidgetBoardConfig.maxEnabled))
         self.config = normalized
         if normalized != saved {
-            configService.updateWidgets(normalized)
+            try? configService.updateWidgets(normalized, showAgentShelf: normalized.enabled.contains(.agents))
         }
     }
 
@@ -93,55 +101,74 @@ final class WidgetBoardState: ObservableObject {
         metricsTask = nil
         networkTask?.cancel()
         networkTask = nil
+        weatherTask?.cancel()
+        weatherTask = nil
+        stockTask?.cancel()
+        stockTask = nil
+        weatherRequestID = nil
+        stockRequestID = nil
     }
 
     func add(_ kind: WidgetKind) {
         guard config.enabled.contains(kind) == false else { return }
         let normalized = Self.normalizedWidgets(from: config.enabled + [kind])
         guard normalized != config.enabled else { return }
-        config.enabled = normalized
-        persist()
+        var next = config
+        next.enabled = normalized
+        guard persist(next) else { return }
         if kind == .weather { fetchWeather() }
         if kind == .stock { fetchStock() }
     }
 
     func remove(_ kind: WidgetKind) {
-        config.enabled.removeAll { $0 == kind }
-        persist()
+        var next = config
+        next.enabled.removeAll { $0 == kind }
+        _ = persist(next)
     }
 
     func moveUp(_ kind: WidgetKind) {
         guard let index = config.enabled.firstIndex(of: kind), index > 0 else { return }
-        config.enabled.swapAt(index, index - 1)
-        persist()
+        var next = config
+        next.enabled.swapAt(index, index - 1)
+        _ = persist(next)
     }
 
     func moveDown(_ kind: WidgetKind) {
         guard let index = config.enabled.firstIndex(of: kind), index < config.enabled.count - 1 else { return }
-        config.enabled.swapAt(index, index + 1)
-        persist()
+        var next = config
+        next.enabled.swapAt(index, index + 1)
+        _ = persist(next)
     }
 
     func setWeatherCity(_ city: String) {
         let trimmed = city.trimmingCharacters(in: .whitespacesAndNewlines)
         guard trimmed.isEmpty == false, trimmed != config.weatherCity else { return }
-        config.weatherCity = trimmed
+        var next = config
+        next.weatherCity = trimmed
+        guard persist(next) else { return }
         weather = nil
-        persist()
         fetchWeather()
     }
 
     func setStockSymbol(_ symbol: String) {
         let trimmed = symbol.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
         guard trimmed.isEmpty == false, trimmed != config.stockSymbol else { return }
-        config.stockSymbol = trimmed
+        var next = config
+        next.stockSymbol = trimmed
+        guard persist(next) else { return }
         stock = nil
-        persist()
         fetchStock()
     }
 
-    private func persist() {
-        configService.updateWidgets(config)
+    private func persist(_ next: WidgetBoardConfig) -> Bool {
+        do {
+            try configService.updateWidgets(next, showAgentShelf: next.enabled.contains(.agents))
+            config = next
+            return true
+        } catch {
+            persistenceErrorHandler?(error)
+            return false
+        }
     }
 
     private static func normalizedWidgets(from widgets: [WidgetKind]) -> [WidgetKind] {
@@ -168,24 +195,32 @@ final class WidgetBoardState: ObservableObject {
     }
 
     private func fetchWeather() {
+        weatherTask?.cancel()
         if weather == nil { isWeatherLoading = true }
         let city = config.weatherCity
         let service = weatherService
-        Task { [weak self] in
+        let requestID = UUID()
+        weatherRequestID = requestID
+        weatherTask = Task { [weak self] in
             let snapshot = await service.fetch(city: city)
             guard let self else { return }
+            guard self.weatherRequestID == requestID, self.config.weatherCity == city else { return }
             if let snapshot { self.weather = snapshot }
             self.isWeatherLoading = false
         }
     }
 
     private func fetchStock() {
+        stockTask?.cancel()
         if stock == nil { isStockLoading = true }
         let symbol = config.stockSymbol
         let service = stockService
-        Task { [weak self] in
+        let requestID = UUID()
+        stockRequestID = requestID
+        stockTask = Task { [weak self] in
             let snapshot = await service.fetch(symbol: symbol)
             guard let self else { return }
+            guard self.stockRequestID == requestID, self.config.stockSymbol == symbol else { return }
             if let snapshot { self.stock = snapshot }
             self.isStockLoading = false
         }

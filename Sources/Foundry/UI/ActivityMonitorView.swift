@@ -5,21 +5,19 @@ struct ActivityMonitorView: View {
     @ObservedObject var state: ActivityMonitorState
 
     var body: some View {
-        HStack(spacing: 0) {
-            processList
+        GeometryReader { geometry in
+            HStack(spacing: 0) {
+                processList(width: min(250, max(220, geometry.size.width * 0.34)))
 
-            Rectangle()
-                .fill(FoundryTheme.border.opacity(0.65))
-                .frame(width: 1)
-
-            detailPane
+                detailPane
+            }
         }
         .background(Color.clear)
     }
 
-    private var processList: some View {
+    private func processList(width: CGFloat) -> some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("Activity Monitor")
+            Text("Processes")
                 .font(FoundryTheme.body(size: 11, weight: .semibold))
                 .foregroundStyle(FoundryTheme.faintText)
                 .textCase(.uppercase)
@@ -33,16 +31,28 @@ struct ActivityMonitorView: View {
                         overviewRow
                             .id(Int32.min)
 
-                        ForEach(state.visibleGroups) { group in
-                            ActivityProcessGroupRow(
-                                group: group,
-                                isSelected: state.selectedGroupID == group.id,
-                                showCPU: state.hasStableCPUSample
-                            )
-                            .id(group.id)
-                            .contentShape(Rectangle())
-                            .onTapGesture {
-                                state.select(groupID: group.id)
+                        if state.isLoading && state.visibleGroups.isEmpty {
+                            ProgressView()
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 18)
+                        } else if state.visibleGroups.isEmpty {
+                            Text("No matching processes")
+                                .font(FoundryTheme.body(size: 12, weight: .medium))
+                                .foregroundStyle(FoundryTheme.mutedText)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 18)
+                        } else {
+                            ForEach(state.visibleGroups) { group in
+                                ActivityProcessGroupRow(
+                                    group: group,
+                                    isSelected: state.selectedGroupID == group.id,
+                                    showCPU: state.hasStableCPUSample
+                                )
+                                .id(group.id)
+                                .contentShape(Rectangle())
+                                .onTapGesture {
+                                    state.select(groupID: group.id)
+                                }
                             }
                         }
                     }
@@ -58,7 +68,7 @@ struct ActivityMonitorView: View {
                 }
             }
         }
-        .frame(width: 278)
+        .frame(width: width)
     }
 
     private var overviewRow: some View {
@@ -126,16 +136,34 @@ struct ActivityMonitorView: View {
             }
             .buttonStyle(.plain)
             .pointerCursor()
+            .accessibilityLabel("Refresh activity monitor")
+            .help("Refresh activity monitor")
         }
     }
 
     private var overviewCards: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: 0) {
             ActivityMetricCard(title: "Memory", value: bytes(state.snapshot.memoryUsed), subtitle: percent(memoryPercent))
+                .frame(maxWidth: .infinity, alignment: .leading)
+            metricDivider
             ActivityMetricCard(title: "CPU", value: cpuLabel, subtitle: "system total")
+                .frame(maxWidth: .infinity, alignment: .leading)
+            metricDivider
             ActivityMetricCard(title: "Processes", value: "\(state.snapshot.processCount)", subtitle: "processes")
+                .frame(maxWidth: .infinity, alignment: .leading)
+            metricDivider
             ActivityMetricCard(title: "Visible", value: "\(state.visibleGroups.count)", subtitle: "groups")
+                .frame(maxWidth: .infinity, alignment: .leading)
         }
+        .padding(.vertical, 2)
+        .background(Color.white.opacity(0.032))
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+    }
+
+    private var metricDivider: some View {
+        Rectangle()
+            .fill(Color.white.opacity(0.09))
+            .frame(width: 1, height: 32)
     }
 
     @ViewBuilder
@@ -206,10 +234,6 @@ struct ActivityMonitorView: View {
             .padding(14)
             .background(Color.white.opacity(0.060))
             .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .stroke(Color.white.opacity(0.08), lineWidth: 1)
-            )
         }
     }
 
@@ -290,6 +314,11 @@ private struct ActivityProcessGroupRow: View {
             RoundedRectangle(cornerRadius: 10, style: .continuous)
                 .fill(isSelected ? FoundryTheme.selection : (isHovering ? FoundryTheme.hover : Color.clear))
         )
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(group.displayName)
+        .accessibilityValue("\(ByteCountFormatter.string(fromByteCount: Int64(group.memoryBytes), countStyle: .memory)), \(showCPU ? activityCPUText(group.cpuUsage, hasReading: group.hasCPUReading) : "sampling")")
+        .accessibilityAddTraits(.isButton)
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
         .animation(.easeOut(duration: 0.10), value: isSelected)
         .animation(.easeOut(duration: 0.12), value: isHovering)
         .onHover { hovering in
@@ -322,13 +351,8 @@ private struct ActivityMetricCard: View {
                 .lineLimit(1)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(11)
-        .background(Color.white.opacity(0.070))
-        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .stroke(Color.white.opacity(0.08), lineWidth: 1)
-        )
+        .padding(.horizontal, 11)
+        .padding(.vertical, 10)
     }
 }
 
@@ -386,10 +410,6 @@ private struct ActivityHistoryCard: View {
             )
         )
         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .stroke(Color.white.opacity(0.08), lineWidth: 1)
-        )
     }
 }
 

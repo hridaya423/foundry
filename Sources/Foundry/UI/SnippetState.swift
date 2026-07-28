@@ -8,7 +8,9 @@ final class SnippetState: ObservableObject {
     }
     @Published private(set) var items: [StoredSnippet] = []
     @Published var selectedID: String?
+    @Published private(set) var persistenceError: String? = nil
     private let contentLimit = 65_536
+    private var persistTask: Task<Void, Never>?
 
     var visibleItems: [StoredSnippet] {
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
@@ -31,6 +33,7 @@ final class SnippetState: ObservableObject {
     }
 
     func reset() {
+        persistTask?.cancel()
         query = ""
         load()
     }
@@ -49,7 +52,7 @@ final class SnippetState: ObservableObject {
         items[index].keyword = keyword
         items[index].tags = tags.filter { $0.isEmpty == false }
         items[index].updatedAt = Date()
-        persist()
+        schedulePersist()
     }
 
     func togglePinnedSelected() {
@@ -86,7 +89,25 @@ final class SnippetState: ObservableObject {
 
     private func persist() {
         items = sorted(items)
-        LibraryPersistence.saveSnippets(items)
+        switch LibraryPersistence.saveSnippets(items) {
+        case .success:
+            persistenceError = nil
+        case let .failure(error):
+            persistenceError = "Could not save snippets: \(error.localizedDescription)"
+        }
+    }
+
+    private func schedulePersist() {
+        persistTask?.cancel()
+        persistTask = Task { [weak self] in
+            do {
+                try await Task.sleep(for: .milliseconds(350))
+            } catch {
+                return
+            }
+            guard let self else { return }
+            self.persist()
+        }
     }
 
     private func sorted(_ items: [StoredSnippet]) -> [StoredSnippet] {

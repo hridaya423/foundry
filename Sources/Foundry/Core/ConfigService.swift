@@ -44,6 +44,19 @@ struct AIConfig: Codable, Equatable {
     var geminiModel: String = "gemini-2.0-flash"
 
     static let `default` = AIConfig()
+
+    init() {}
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        preferredBackend = try container.decodeIfPresent(AIBackend.self, forKey: .preferredBackend) ?? .appleFoundationModels
+        isOllamaEnabled = try container.decodeIfPresent(Bool.self, forKey: .isOllamaEnabled) ?? false
+        ollamaHost = try container.decodeIfPresent(String.self, forKey: .ollamaHost) ?? "http://127.0.0.1:11434"
+        ollamaModel = try container.decodeIfPresent(String.self, forKey: .ollamaModel) ?? "llama3.1"
+        openAIModel = try container.decodeIfPresent(String.self, forKey: .openAIModel) ?? "gpt-4.1-mini"
+        anthropicModel = try container.decodeIfPresent(String.self, forKey: .anthropicModel) ?? "claude-3-5-sonnet-latest"
+        geminiModel = try container.decodeIfPresent(String.self, forKey: .geminiModel) ?? "gemini-2.0-flash"
+    }
 }
 
 enum AIBackend: String, Codable, CaseIterable, Identifiable {
@@ -58,11 +71,13 @@ enum AIBackend: String, Codable, CaseIterable, Identifiable {
 
 final class ConfigService {
     private let diagnostics: DiagnosticsService
+    private let url: URL
     private(set) var current: FoundryConfig
 
-    init(diagnostics: DiagnosticsService) {
+    init(diagnostics: DiagnosticsService, url: URL = ConfigService.configURL) {
         self.diagnostics = diagnostics
-        self.current = Self.load() ?? FoundryConfig()
+        self.url = url
+        self.current = Self.load(from: url) ?? FoundryConfig()
     }
 
     static var configURL: URL {
@@ -70,45 +85,57 @@ final class ConfigService {
         return home.appendingPathComponent(".config/foundry/config.json")
     }
 
-    func updateWidgets(_ widgets: WidgetBoardConfig) {
-        current.widgets = widgets
-        save()
+    func updateWidgets(_ widgets: WidgetBoardConfig, showAgentShelf: Bool? = nil) throws {
+        var candidate = current
+        candidate.widgets = widgets
+        if let showAgentShelf {
+            candidate.showAgentShelf = showAgentShelf
+        }
+        try commit(candidate)
     }
 
-    func updateAgentShelfVisibility(_ isVisible: Bool) {
-        current.showAgentShelf = isVisible
-        save()
+    func updateAgentShelfVisibility(_ isVisible: Bool) throws {
+        var candidate = current
+        candidate.showAgentShelf = isVisible
+        try commit(candidate)
     }
 
-    func updateHotkey(_ hotkey: FoundryHotkey) {
-        current.hotkey = hotkey
-        save()
+    func updateHotkey(_ hotkey: FoundryHotkey) throws {
+        var candidate = current
+        candidate.hotkey = hotkey
+        try commit(candidate)
     }
 
-    func updateThemeIntensity(_ intensity: Double) {
-        current.themeIntensity = intensity
-        save()
+    func updateThemeIntensity(_ intensity: Double) throws {
+        var candidate = current
+        candidate.themeIntensity = intensity
+        try commit(candidate)
     }
 
-    func updateAIConfig(_ ai: AIConfig) {
-        current.ai = ai
-        save()
+    func updateAIConfig(_ ai: AIConfig) throws {
+        var candidate = current
+        candidate.ai = ai
+        try commit(candidate)
     }
 
-    func save() {
+    func save() throws {
+        try commit(current)
+    }
+
+    private func commit(_ candidate: FoundryConfig) throws {
         do {
-            let url = Self.configURL
             try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
-            let data = try JSONEncoder().encode(current)
+            let data = try JSONEncoder().encode(candidate)
             try data.write(to: url, options: .atomic)
+            current = candidate
             diagnostics.log("Saved config to \(url.path)")
         } catch {
             diagnostics.log("Failed to save config: \(error.localizedDescription)")
+            throw error
         }
     }
 
-    private static func load() -> FoundryConfig? {
-        let url = configURL
+    private static func load(from url: URL) -> FoundryConfig? {
         guard let data = try? Data(contentsOf: url) else { return nil }
         return try? JSONDecoder().decode(FoundryConfig.self, from: data)
     }

@@ -3,21 +3,61 @@ import SwiftUI
 
 struct WidgetBoardView: View {
     @ObservedObject var board: WidgetBoardState
+    @ObservedObject var agents: AgentMonitorState
+    var onAgentOpen: (() -> Void)? = nil
+    var compact = false
+    var compactMaximum = 4
+    var compactBackground = true
+    var compactHeight: CGFloat = 58
 
     var body: some View {
-        WidgetGridLayout(spacing: 8) {
-            ForEach(arrangedWidgets) { kind in
-                widget(for: kind)
-                    .widgetCell(kind.footprint)
+        Group {
+            if compact {
+                compactStrip
+            } else {
+                WidgetGridLayout(spacing: 8) {
+                    ForEach(arrangedWidgets) { kind in
+                        widget(for: kind)
+                            .widgetCell(kind.footprint)
+                    }
+                }
             }
         }
     }
 
+    private var compactStrip: some View {
+        let widgets = Array(displayedWidgets.prefix(compactMaximum))
+        return HStack(spacing: 0) {
+            ForEach(Array(widgets.enumerated()), id: \.element.id) { index, kind in
+                compactWidget(for: kind)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: compactHeight)
+                    .padding(.horizontal, 12)
+
+                if index < widgets.count - 1 {
+                    Rectangle()
+                        .fill(Color.white.opacity(0.09))
+                        .frame(width: 1, height: 28)
+                }
+            }
+        }
+        .padding(.vertical, 3)
+        .background {
+            if compactBackground {
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .fill(Color.white.opacity(0.032))
+            }
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+    }
+
     private var arrangedWidgets: [WidgetKind] {
-        let order = Dictionary(uniqueKeysWithValues: board.homeWidgets.enumerated().map { ($1, $0) })
-        return board.homeWidgets.sorted {
-            if $0.homePriority != $1.homePriority { return $0.homePriority < $1.homePriority }
-            return order[$0, default: 0] < order[$1, default: 0]
+        displayedWidgets
+    }
+
+    private var displayedWidgets: [WidgetKind] {
+        board.homeWidgets.filter { kind in
+            kind != .agents || agents.sessions.isEmpty == false
         }
     }
 
@@ -28,8 +68,68 @@ struct WidgetBoardView: View {
     }
 
     @ViewBuilder
+    private func compactWidget(for kind: WidgetKind) -> some View {
+        switch kind {
+        case .agents:
+            AgentWidget(agents: agents, compact: true, onOpen: onAgentOpen)
+        case .calendar, .date:
+            CompactDateWidget()
+        case .clock:
+            ClockWidget()
+        case .system:
+            SystemWidget(metrics: board.metrics)
+        case .battery:
+            StatWidget(symbol: board.metrics.batterySymbol, title: "Battery", value: board.metrics.batteryDisplay, caption: board.metrics.batteryStateLabel, tint: board.metrics.batteryTint)
+        case .disk:
+            StatWidget(symbol: "internaldrive", title: "Storage", value: board.metrics.diskDisplay, caption: "free")
+        case .uptime:
+            StatWidget(symbol: "clock.arrow.circlepath", title: "Uptime", value: board.metrics.uptimeDisplay, caption: "since boot")
+        case .thermal:
+            StatWidget(symbol: "fanblades", title: "Thermal", value: board.metrics.thermalDisplay, caption: "pressure", tint: board.metrics.thermalTint)
+        case .weather:
+            WeatherWidget(snapshot: board.weather, city: board.config.weatherCity, isLoading: board.isWeatherLoading)
+        case .stock:
+            StockWidget(snapshot: board.stock, symbol: board.config.stockSymbol, isLoading: board.isStockLoading)
+        case .cpu:
+            StatWidget(symbol: "cpu", title: "CPU", value: board.metrics.cpuDisplay, caption: "current")
+        case .memory:
+            StatWidget(symbol: "memorychip", title: "Memory", value: board.metrics.memoryDisplay, caption: board.metrics.memoryUsedDisplay)
+        case .loadAverage:
+            StatWidget(symbol: "waveform.path.ecg", title: "Unix Load", value: board.metrics.loadAverageDisplay, caption: "1 min avg")
+        case .diskUsage:
+            StatWidget(symbol: "chart.pie", title: "Disk Used", value: board.metrics.diskUsedDisplay, caption: "boot volume")
+        case .network:
+            StatWidget(symbol: "network", title: "Network", value: board.metrics.localIPAddressDisplay, caption: "local IP")
+        case .clipboard:
+            DynamicStatWidget(symbol: "doc.on.clipboard", title: "Clipboard", caption: WidgetSystemInfo.clipboardCaption) { WidgetSystemInfo.clipboardValue }
+        case .downloads:
+            DynamicStatWidget(symbol: "arrow.down.circle", title: "Downloads", caption: WidgetSystemInfo.downloadsCaption) { WidgetSystemInfo.downloadsValue }
+        case .activeApp:
+            DynamicStatWidget(symbol: "macwindow", title: "Active App", caption: "frontmost") { WidgetSystemInfo.activeAppName }
+        case .device:
+            StatWidget(symbol: "desktopcomputer", title: "Device", value: WidgetSystemInfo.deviceName, caption: "Mac")
+        case .osVersion:
+            StatWidget(symbol: "apple.logo", title: "macOS", value: WidgetSystemInfo.osVersion, caption: "system")
+        case .user:
+            StatWidget(symbol: "person.crop.circle", title: "User", value: WidgetSystemInfo.userName, caption: "account")
+        case .timeZone:
+            DynamicStatWidget(symbol: "globe", title: "Time Zone", caption: WidgetSystemInfo.timeZoneCaption) { WidgetSystemInfo.timeZoneValue }
+        case .display:
+            DynamicStatWidget(symbol: "display", title: "Display", caption: WidgetSystemInfo.displayCaption) { WidgetSystemInfo.displayValue }
+        case .boot:
+            StatWidget(symbol: "power", title: "Boot", value: board.metrics.bootDateDisplay, caption: board.metrics.bootClockDisplay)
+        case .host:
+            StatWidget(symbol: "bonjour", title: "Host", value: WidgetSystemInfo.hostName, caption: "network")
+        case .cores:
+            StatWidget(symbol: "cpu.fill", title: "Cores", value: "\(ProcessInfo.processInfo.processorCount)", caption: "processors")
+        }
+    }
+
+    @ViewBuilder
     private func widgetContent(for kind: WidgetKind) -> some View {
         switch kind {
+        case .agents:
+            AgentWidget(agents: agents, onOpen: onAgentOpen)
         case .calendar:
             CalendarWidget()
         case .date:
@@ -257,44 +357,13 @@ private extension View {
 }
 
 private extension WidgetKind {
-    var homePriority: Int {
-        switch self {
-        case .calendar: return 0
-        case .system: return 1
-        case .weather: return 2
-        case .stock: return 3
-        case .battery: return 4
-        case .date: return 5
-        case .disk: return 6
-        case .uptime: return 7
-        case .thermal: return 8
-        case .clock: return 9
-        case .cpu: return 10
-        case .memory: return 11
-        case .network: return 12
-        case .loadAverage: return 13
-        case .clipboard: return 14
-        case .downloads: return 15
-        case .diskUsage: return 16
-        case .boot: return 17
-        case .activeApp: return 18
-        case .display: return 19
-        case .device: return 20
-        case .osVersion: return 21
-        case .user: return 22
-        case .timeZone: return 23
-        case .host: return 24
-        case .cores: return 25
-        }
-    }
-
     var footprint: WidgetFootprint {
         switch self {
         case .calendar:
             return .hero
         case .system:
             return .wide
-        case .weather, .stock, .activeApp, .display, .user, .timeZone, .boot, .host, .downloads:
+        case .agents, .weather, .stock, .activeApp, .display, .user, .timeZone, .boot, .host, .downloads:
             return .medium
         case .date:
             return .tall
@@ -348,6 +417,150 @@ private struct DynamicStatWidget: View {
         TimelineView(.periodic(from: .now, by: 2)) { _ in
             StatWidget(symbol: symbol, title: title, value: value(), caption: caption)
         }
+    }
+}
+
+private struct AgentWidget: View {
+    @ObservedObject var agents: AgentMonitorState
+    var compact = false
+    var onOpen: (() -> Void)?
+
+    var body: some View {
+        if compact {
+            compactContent
+        } else {
+            fullContent
+        }
+    }
+
+    @ViewBuilder
+    private var compactContent: some View {
+        if let session = agents.visibleSessions.first {
+            AgentWidgetRow(session: session, compact: true) {
+                agents.open(session)
+                onOpen?()
+            }
+        }
+    }
+
+    private var fullContent: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 7) {
+                Image(systemName: "sparkles.rectangle.stack")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(FoundryTheme.secondaryText)
+                Text("Agents")
+                    .font(FoundryTheme.body(size: 12, weight: .semibold))
+                    .foregroundStyle(FoundryTheme.primaryText)
+                Spacer()
+                Text("\(agents.sessions.count)")
+                    .font(FoundryTheme.body(size: 11, weight: .medium))
+                    .foregroundStyle(FoundryTheme.mutedText)
+            }
+
+            ForEach(Array(agents.visibleSessions.prefix(3))) { session in
+                AgentWidgetRow(session: session) {
+                    agents.open(session)
+                    onOpen?()
+                }
+            }
+        }
+    }
+}
+
+private struct AgentWidgetRow: View {
+    let session: AgentSessionCard
+    var compact = false
+    let open: () -> Void
+
+    @State private var isHovering = false
+
+    var body: some View {
+        Button(action: open) {
+            HStack(spacing: compact ? 8 : 9) {
+                AgentProviderBadge(provider: session.provider, compact: compact)
+
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(session.title)
+                        .font(FoundryTheme.body(size: compact ? 12 : 12, weight: .semibold))
+                        .foregroundStyle(FoundryTheme.primaryText)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+
+                    Text(statusLabel)
+                        .font(FoundryTheme.body(size: 10, weight: .medium))
+                        .foregroundStyle(statusColor)
+                        .lineLimit(1)
+                }
+
+                Spacer(minLength: 0)
+
+                Image(systemName: "arrow.up.right")
+                    .font(.system(size: 9, weight: .bold))
+                    .foregroundStyle(FoundryTheme.mutedText)
+                    .opacity(isHovering ? 0.9 : 0)
+            }
+            .padding(.horizontal, compact ? 0 : 2)
+            .frame(height: compact ? 38 : 34)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .onHover { isHovering = $0 }
+    }
+
+    private var statusLabel: String {
+        switch session.status {
+        case .needsInput: "Needs you"
+        case .reviewReady: "Review"
+        case .completed: "Done"
+        case .idle, .recent: "Recent"
+        default: session.status.rawValue
+        }
+    }
+
+    private var statusColor: Color {
+        switch session.status {
+        case .working, .running: Color(red: 0.42, green: 0.90, blue: 0.67)
+        case .needsInput: Color(red: 1.0, green: 0.76, blue: 0.35)
+        case .reviewReady: Color(red: 0.52, green: 0.72, blue: 1.0)
+        case .planning: Color(red: 0.70, green: 0.62, blue: 1.0)
+        case .completed: Color(red: 0.44, green: 0.72, blue: 1.0)
+        case .failed: Color(red: 1.0, green: 0.38, blue: 0.38)
+        case .idle, .recent: FoundryTheme.faintText
+        }
+    }
+}
+
+private struct AgentProviderBadge: View {
+    let provider: AgentProviderKind
+    let compact: Bool
+
+    var body: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: compact ? 7 : 8, style: .continuous)
+                .fill(Color.white.opacity(0.055))
+
+            if let logoURL = provider.logoURL {
+                AsyncImage(url: logoURL) { phase in
+                    if let image = phase.image {
+                        image
+                            .resizable()
+                            .scaledToFit()
+                            .padding(compact ? 5 : 6)
+                    } else {
+                        Image(systemName: "sparkles")
+                            .font(.system(size: compact ? 12 : 13, weight: .semibold))
+                            .foregroundStyle(FoundryTheme.secondaryText)
+                    }
+                }
+            } else {
+                Image(systemName: "sparkles")
+                    .font(.system(size: compact ? 12 : 13, weight: .semibold))
+                    .foregroundStyle(FoundryTheme.secondaryText)
+            }
+        }
+        .frame(width: compact ? 24 : 27, height: compact ? 24 : 27)
+        .clipShape(RoundedRectangle(cornerRadius: compact ? 7 : 8, style: .continuous))
     }
 }
 
@@ -610,6 +823,34 @@ private struct DateWidget: View {
         formatter.dateFormat = "yyyy"
         return formatter
     }()
+}
+
+private struct CompactDateWidget: View {
+    var body: some View {
+        TimelineView(.everyMinute) { context in
+            HStack(spacing: 9) {
+                Image(systemName: "calendar")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(FoundryTheme.secondaryText)
+                    .frame(width: 24, height: 24)
+                    .background(Color.white.opacity(0.09))
+                    .clipShape(RoundedRectangle(cornerRadius: WidgetChrome.glyphRadius, style: .continuous))
+
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(context.date.formatted(.dateTime.day()))
+                        .font(FoundryTheme.display(size: 20, weight: .semibold))
+                        .foregroundStyle(FoundryTheme.primaryText)
+                        .monospacedDigit()
+                    Text(context.date.formatted(.dateTime.weekday(.abbreviated).month(.abbreviated)))
+                        .font(FoundryTheme.body(size: 10, weight: .semibold))
+                        .foregroundStyle(FoundryTheme.secondaryText)
+                        .lineLimit(1)
+                }
+
+                Spacer(minLength: 0)
+            }
+        }
+    }
 }
 
 private struct ClockWidget: View {

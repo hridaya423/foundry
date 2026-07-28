@@ -21,12 +21,8 @@ final class ShellController {
         self.panelController = PanelController(state: panelState, diagnostics: diagnostics)
         self.panelState.onHotkeyChanged = { [weak self] hotkey in
             guard let self else { return }
-            do {
-                try self.hotkeyController.register(hotkey: hotkey)
-                self.diagnostics.log("Registered global hotkey: \(hotkey.displayName)")
-            } catch {
-                self.diagnostics.log("Failed to register hotkey: \(error.localizedDescription)")
-            }
+            try self.hotkeyController.register(hotkey: hotkey)
+            self.diagnostics.log("Registered global hotkey: \(hotkey.displayName)")
         }
     }
 
@@ -45,7 +41,6 @@ final class ShellController {
             diagnostics.log("Failed to register hotkey: \(error.localizedDescription)")
         }
 
-        showPanel()
     }
 
     func stop() {

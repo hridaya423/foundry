@@ -192,6 +192,17 @@ final class BuiltInCommandProvider: CommandProvider {
                 secondaryActions: []
             ),
             BuiltInCommand(
+                id: "foundry.dashboard",
+                title: "Foundry Dashboard",
+                subtitle: "View widgets, agents, and your file shelf",
+                aliases: ["dashboard", "widgets", "board"],
+                systemIcon: "rectangle.3.group",
+                fallback: "DB",
+                scoreBoost: 2,
+                primaryAction: CommandAction(id: "foundry.dashboard.open", title: "Open", kind: .openDashboard),
+                secondaryActions: []
+            ),
+            BuiltInCommand(
                 id: "foundry.quit",
                 title: "Quit Foundry",
                 subtitle: "Stop the local prototype process.",

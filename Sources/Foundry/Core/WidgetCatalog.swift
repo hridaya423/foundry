@@ -1,6 +1,7 @@
 import Foundation
 
 enum WidgetKind: String, Codable, CaseIterable, Sendable, Identifiable {
+    case agents
     case calendar
     case date
     case clock
@@ -29,6 +30,7 @@ enum WidgetKind: String, Codable, CaseIterable, Sendable, Identifiable {
     case cores
 
     static let allCases: [WidgetKind] = [
+        .agents,
         .calendar,
         .system,
         .battery,
@@ -47,6 +49,7 @@ enum WidgetKind: String, Codable, CaseIterable, Sendable, Identifiable {
 
     var title: String {
         switch self {
+        case .agents: return "Agents"
         case .calendar: return "Calendar"
         case .date: return "Date"
         case .clock: return "Clock"
@@ -78,6 +81,7 @@ enum WidgetKind: String, Codable, CaseIterable, Sendable, Identifiable {
 
     var summary: String {
         switch self {
+        case .agents: return "Recent local coding sessions"
         case .calendar: return "Month at a glance"
         case .date: return "Today's day and date"
         case .clock: return "Analog wall clock"
@@ -109,6 +113,7 @@ enum WidgetKind: String, Codable, CaseIterable, Sendable, Identifiable {
 
     var symbol: String {
         switch self {
+        case .agents: return "sparkles.rectangle.stack"
         case .calendar: return "calendar"
         case .date: return "calendar.badge.clock"
         case .clock: return "clock"
@@ -140,7 +145,7 @@ enum WidgetKind: String, Codable, CaseIterable, Sendable, Identifiable {
 
     var span: Int {
         switch self {
-        case .calendar, .system, .weather, .stock, .activeApp, .display:
+        case .agents, .calendar, .system, .weather, .stock, .activeApp, .display:
             2
         default:
             1
@@ -179,7 +184,7 @@ struct WidgetBoardConfig: Codable, Equatable {
     var stockSymbol: String
 
     static let `default` = WidgetBoardConfig(
-        enabled: [.calendar, .system, .battery, .date, .disk, .uptime, .clock],
+        enabled: [.agents, .calendar, .system, .battery, .date, .disk, .uptime, .clock],
         weatherCity: "",
         stockSymbol: ""
     )

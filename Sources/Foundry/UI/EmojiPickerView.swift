@@ -44,19 +44,20 @@ struct EmojiPickerView: View {
                     .foregroundStyle(FoundryTheme.mutedText)
                     .frame(height: 72)
             } else {
-                LazyVGrid(columns: columns, alignment: .leading, spacing: 10) {
-                    ForEach(items) { item in
-                        EmojiCell(
-                            item: item,
-                            isSelected: state.selectedID == item.id
-                        )
-                        .id(item.id)
-                        .contentShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                        .onTapGesture {
-                            state.select(id: item.id)
-                            copyAndDismiss()
+                    LazyVGrid(columns: columns, alignment: .leading, spacing: 10) {
+                        ForEach(items) { item in
+                            Button {
+                                state.select(id: item.id)
+                                copyAndDismiss()
+                            } label: {
+                                EmojiCell(
+                                    item: item,
+                                    isSelected: state.selectedID == item.id
+                                )
+                            }
+                            .buttonStyle(.plain)
+                            .id(item.id)
                         }
-                    }
                 }
             }
         }
@@ -88,6 +89,8 @@ private struct EmojiCell: View {
             .scaleEffect(isHovering && isSelected == false ? 1.08 : 1)
             .animation(.easeOut(duration: 0.12), value: isHovering)
             .accessibilityLabel(item.name)
+            .accessibilityValue(isSelected ? "Selected" : "Not selected")
+            .accessibilityAddTraits(isSelected ? .isSelected : [])
             .onHover { hovering in
                 isHovering = hovering
                 if hovering { NSCursor.pointingHand.set() } else { NSCursor.arrow.set() }

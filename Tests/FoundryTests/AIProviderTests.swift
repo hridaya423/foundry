@@ -14,6 +14,19 @@ final class AIProviderTests: XCTestCase {
         XCTAssertEqual(ollama?.backend, .ollama)
     }
 
+    func testMaterialPolicyUsesNativeGlassOnlyOnMacOS26WithoutReducedTransparency() {
+        XCTAssertEqual(FoundryMaterialPolicy.rendering(osMajorVersion: 26, reduceTransparency: false), .nativeGlass)
+        XCTAssertEqual(FoundryMaterialPolicy.rendering(osMajorVersion: 15, reduceTransparency: false), .legacyVisualEffect)
+        XCTAssertEqual(FoundryMaterialPolicy.rendering(osMajorVersion: 26, reduceTransparency: true), .opaque)
+    }
+
+    func testPanelDismissalPolicyKeepsFoundryVisibleForOwnedWindows() {
+        XCTAssertTrue(PanelDismissalPolicy.shouldDismiss(hasAttachedSheet: false, hasChildWindows: false, hasModalWindow: false))
+        XCTAssertFalse(PanelDismissalPolicy.shouldDismiss(hasAttachedSheet: true, hasChildWindows: false, hasModalWindow: false))
+        XCTAssertFalse(PanelDismissalPolicy.shouldDismiss(hasAttachedSheet: false, hasChildWindows: true, hasModalWindow: false))
+        XCTAssertFalse(PanelDismissalPolicy.shouldDismiss(hasAttachedSheet: false, hasChildWindows: false, hasModalWindow: true))
+    }
+
     func testAIRequestIdentifiersAreStableAndBackendSpecific() {
         let appleID = AIRequestIdentifier.make(prompt: " latest models ", backend: .appleFoundationModels)
         XCTAssertEqual(appleID, AIRequestIdentifier.make(prompt: "latest models", backend: .appleFoundationModels))
@@ -108,6 +121,29 @@ final class AIProviderTests: XCTestCase {
     func testQuickAIUsesCompactPanelSize() {
         XCTAssertEqual(PanelController.contentSize(for: .search), PanelController.contentSize(for: .quickAI))
         XCTAssertEqual(PanelController.contentSize(for: .quickAI).height, 495)
+    }
+
+    @MainActor
+    func testEveryPanelModeUsesTheSameFixedSize() {
+        let modes: [CommandPanelState.Mode] = [
+            .search,
+            .quickAI,
+            .activityMonitor,
+            .emojiPicker,
+            .fileShelf,
+            .clipboardHistory,
+            .snippets,
+            .fileConversion,
+            .camera,
+            .translator,
+            .developerTools,
+            .settings,
+            .dashboard
+        ]
+
+        for mode in modes {
+            XCTAssertEqual(PanelController.contentSize(for: mode), NSSize(width: 750, height: 495))
+        }
     }
 
     func testWebSearchHTMLParserExtractsCleanResults() {

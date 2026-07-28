@@ -33,16 +33,25 @@ struct VisualEffectView: NSViewRepresentable {
 
 struct FoundryBackdrop: View {
     var intensity: Double = 0.72
+    var isOpaque = false
 
     var body: some View {
         ZStack {
-            VisualEffectView(material: .hudWindow, blendingMode: .behindWindow)
-            Color.black.opacity(0.42 * intensity)
-            LinearGradient(
-                colors: [Color.white.opacity(0.07 * intensity), Color.white.opacity(0.016 * intensity), Color.clear],
-                startPoint: .top,
-                endPoint: .center
-            )
+            if isOpaque {
+                Color(red: 0.055, green: 0.06, blue: 0.07)
+                Color.black.opacity(0.42 * intensity)
+                LinearGradient(
+                    colors: [Color.white.opacity(0.07 * intensity), Color.white.opacity(0.016 * intensity), Color.clear],
+                    startPoint: .top,
+                    endPoint: .center
+                )
+            } else if #available(macOS 26.0, *) {
+                Color.clear
+                    .glassEffect(.regular, in: RoundedRectangle(cornerRadius: FoundryTheme.Radius.panel, style: .continuous))
+            } else {
+                VisualEffectView(material: .hudWindow, blendingMode: .behindWindow)
+                Color.black.opacity(0.20 * intensity)
+            }
         }
         .ignoresSafeArea()
     }

@@ -58,6 +58,10 @@ struct DeveloperToolsView: View {
         }
         .buttonStyle(.plain)
         .pointerCursor()
+        .accessibilityLabel(tool.rawValue)
+        .accessibilityAddTraits(state.selectedTool == tool ? .isSelected : [])
+        .accessibilityLabel("Copy value")
+        .help("Copy value")
     }
 
     private var baseTool: some View {
@@ -233,6 +237,8 @@ struct DeveloperToolsView: View {
         }
         .buttonStyle(.plain)
         .pointerCursor()
+        .accessibilityLabel("Copy value")
+        .help("Copy value")
     }
 
     private func textOutput(title: String, value: String) -> some View {
@@ -253,8 +259,10 @@ struct DeveloperToolsView: View {
                         .background(Color.white.opacity(0.07))
                         .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
                 }
-                    .buttonStyle(.plain)
-                    .pointerCursor()
+                .buttonStyle(.plain)
+                .pointerCursor()
+                .accessibilityLabel("Copy \(title)")
+                .help("Copy \(title)")
             }
             ScrollView {
                 Text(value)
@@ -300,6 +308,8 @@ private struct DeveloperChip: View {
         }
         .buttonStyle(.plain)
         .pointerCursor()
+        .accessibilityLabel(title)
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 }
 

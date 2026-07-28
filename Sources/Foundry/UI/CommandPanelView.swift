@@ -11,8 +11,9 @@ struct CommandPanelView: View {
     let dismiss: () -> Void
 
     @FocusState private var inputFocused: Bool
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @State private var isDropTargeted = false
-    @State private var isShowingFoundryMenu = false
 
     private var selectedCalculatorResult: CommandResult? {
         guard let selectedResult = state.selectedResult, selectedResult.id.hasPrefix("calculator.") else { return nil }
@@ -26,17 +27,22 @@ struct CommandPanelView: View {
             && state.isShowingActions == false
     }
 
+    private var nativeGlassEnabled: Bool {
+        FoundryMaterialPolicy.currentRendering(reduceTransparency: reduceTransparency) == .nativeGlass
+    }
+
+    private var shouldShowHomeAccessory: Bool {
+        guard state.mode == .search,
+              state.query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return false }
+        return state.agents.visibleSessions.isEmpty == false || state.widgetBoard.homeWidgets.contains { $0 != .agents }
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             header
 
-            if state.mode == .search, state.isAgentShelfVisible, state.query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, state.agents.sessions.isEmpty == false {
-                agentShelfStrip
-                    .transition(.opacity.combined(with: .move(edge: .top)))
-            }
-
-            if state.mode == .search, state.fileShelf.files.isEmpty == false {
-                shelfStrip
+            if shouldShowHomeAccessory {
+                homeAccessoryStrip
                     .transition(.opacity.combined(with: .move(edge: .top)))
             }
 
@@ -44,32 +50,34 @@ struct CommandPanelView: View {
 
             footer
         }
-        .background(FoundryBackdrop(intensity: state.themeIntensity))
-        .overlay(
-            FoundrySmoothedRectangle(cornerRadius: 28, smoothing: 0.75)
-                .strokeBorder(
-                    LinearGradient(
-                        colors: [Color.white.opacity(0.20), Color.white.opacity(0.08), Color.white.opacity(0.03)],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    ),
-                    lineWidth: 1
-            )
-        )
+        .background(FoundryBackdrop(intensity: state.themeIntensity, isOpaque: reduceTransparency))
+        .overlay(shellChrome)
         .clipShape(FoundrySmoothedRectangle(cornerRadius: 28, smoothing: 0.75))
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .overlay {
-            if isShowingFoundryMenu {
-                foundryMenuOverlay
+        .environment(\.foundryHoverHighlightsArmed, state.hoverHighlightsArmed)
+        .overlay(dropOverlay)
+        .overlay(alignment: .bottom) {
+            if let actionFeedback = state.actionFeedback {
+                FoundryGlassSurface(role: .floatingOverlay, shape: Capsule()) {
+                    Label(actionFeedback.message, systemImage: actionFeedback.symbolName)
+                        .font(FoundryTheme.body(size: 12, weight: .semibold))
+                        .foregroundStyle(actionFeedbackColor(actionFeedback))
+                        .padding(.horizontal, 12)
+                        .frame(minHeight: 30)
+                }
+                    .padding(.bottom, 50)
+                    .padding(.horizontal, 18)
+                    .transition(.opacity.combined(with: .move(edge: .bottom)))
             }
         }
-        .overlay(dropOverlay)
-        .animation(.easeOut(duration: 0.14), value: state.mode)
-        .animation(.easeOut(duration: 0.12), value: isShowingFoundryMenu)
-        .animation(.easeOut(duration: 0.14), value: state.fileShelf.files.count)
-        .animation(.easeOut(duration: 0.14), value: state.agents.sessions.count)
+        .animation(reduceMotion ? nil : .easeOut(duration: 0.14), value: state.mode)
+        .animation(reduceMotion ? nil : .easeOut(duration: 0.14), value: state.fileShelf.files.count)
+        .animation(reduceMotion ? nil : .easeOut(duration: 0.14), value: state.agents.sessions.count)
         .onChange(of: state.mode) { _, _ in
-            isShowingFoundryMenu = false
+            inputFocused = true
+        }
+        .onChange(of: state.focusToken) { _, _ in
+            inputFocused = true
         }
         .onDrop(of: [.fileURL], isTargeted: $isDropTargeted, perform: handleFileDrop)
         .onDeleteCommand {
@@ -86,13 +94,23 @@ struct CommandPanelView: View {
         .onMoveCommand { direction in
             switch direction {
             case .down:
-                state.moveSelectionDown()
+                if state.mode == .clipboardHistory {
+                    state.clipboardHistory.moveSelection(offset: 3)
+                } else {
+                    state.moveSelectionDown()
+                }
             case .up:
-                state.moveSelectionUp()
+                if state.mode == .clipboardHistory {
+                    state.clipboardHistory.moveSelection(offset: -3)
+                } else {
+                    state.moveSelectionUp()
+                }
             case .left:
                 if state.mode == .emojiPicker { state.emojiPicker.moveLeft() }
+                if state.mode == .clipboardHistory { state.clipboardHistory.moveSelection(offset: -1) }
             case .right:
                 if state.mode == .emojiPicker { state.emojiPicker.moveRight() }
+                if state.mode == .clipboardHistory { state.clipboardHistory.moveSelection(offset: 1) }
             default:
                 break
             }
@@ -105,9 +123,26 @@ struct CommandPanelView: View {
     }
 
     @ViewBuilder
+    private var shellChrome: some View {
+        if nativeGlassEnabled == false {
+            FoundrySmoothedRectangle(cornerRadius: 28, smoothing: 0.75)
+                .strokeBorder(
+                    LinearGradient(
+                        colors: [Color.white.opacity(0.20), Color.white.opacity(0.08), Color.white.opacity(0.03)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    ),
+                    lineWidth: 1
+                )
+        }
+    }
+
+    @ViewBuilder
     private var contentSurface: some View {
         Group {
-            if state.mode == .settings {
+            if state.mode == .dashboard {
+                dashboardSurface
+            } else if state.mode == .settings {
                 WidgetSettingsView(state: state)
             } else if state.mode == .quickAI {
                 quickAISurface
@@ -150,8 +185,67 @@ struct CommandPanelView: View {
         .transition(.opacity.combined(with: .scale(scale: 0.985, anchor: .center)))
     }
 
+    private var dashboardSurface: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 14) {
+                HStack {
+                    Text("Dashboard")
+                        .font(FoundryTheme.body(size: 13, weight: .semibold))
+                        .foregroundStyle(FoundryTheme.primaryText.opacity(0.72))
+
+                    Spacer()
+
+                    Button("Back to launcher") {
+                        state.backToSearch()
+                    }
+                    .font(FoundryTheme.body(size: 12, weight: .medium))
+                    .foregroundStyle(FoundryTheme.secondaryText)
+                    .buttonStyle(FoundryQuietButtonStyle())
+                    .pointerCursor()
+                }
+                .padding(.horizontal, 16)
+
+                if state.fileShelf.files.isEmpty == false {
+                    shelfStrip
+                }
+
+                if state.widgetBoard.homeWidgets.contains(where: { $0 != .agents }) || state.agents.sessions.isEmpty == false {
+                    WidgetBoardView(board: state.widgetBoard, agents: state.agents)
+                        .padding(.horizontal, 16)
+                } else {
+                    Text("Choose widgets in Settings to build your dashboard.")
+                        .font(FoundryTheme.body(size: 12, weight: .regular))
+                        .foregroundStyle(FoundryTheme.mutedText)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 12)
+                }
+            }
+            .padding(.vertical, 12)
+        }
+        .scrollIndicators(.never)
+    }
+
+    private var homeAccessoryStrip: some View {
+        WidgetBoardView(
+            board: state.widgetBoard,
+            agents: state.agents,
+            onAgentOpen: dismiss,
+            compact: true,
+            compactMaximum: 4,
+            compactBackground: false,
+            compactHeight: 44
+        )
+        .padding(.horizontal, 10)
+        .frame(height: 54)
+        .background(Color.white.opacity(0.032))
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .padding(.horizontal, 16)
+        .padding(.bottom, 4)
+    }
+
     private var contentID: String {
         if state.mode == .settings { return "settings" }
+        if state.mode == .dashboard { return "dashboard" }
         if state.mode == .quickAI { return "quickAI" }
         if state.mode == .activityMonitor { return "activity" }
         if state.mode == .emojiPicker { return "emoji" }
@@ -193,19 +287,25 @@ struct CommandPanelView: View {
             .allowsHitTesting(false)
     }
 
+    private func actionFeedbackColor(_ feedback: ActionFeedback) -> Color {
+        switch feedback {
+        case .info:
+            FoundryTheme.secondaryText
+        case .success:
+            FoundryTheme.success
+        case .failure:
+            FoundryTheme.error
+        }
+    }
+
     private var header: some View {
         HStack(spacing: 12) {
             if state.mode != .search {
-                Button(action: state.backToSearch) {
-                    Image(systemName: "chevron.left")
-                        .font(.system(size: 15, weight: .semibold))
-                        .foregroundStyle(FoundryTheme.secondaryText)
-                        .frame(width: 30, height: 30)
-                        .background(Color.white.opacity(0.06))
-                        .clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
-                }
-                .buttonStyle(.plain)
-                .pointerCursor()
+                FoundryIconButton(
+                    systemName: "chevron.left",
+                    accessibilityLabel: "Back to search",
+                    action: state.backToSearch
+                )
             }
 
             if state.mode == .quickAI {
@@ -226,26 +326,28 @@ struct CommandPanelView: View {
                                 Button(thread.title) { state.selectQuickAIThread(thread) }
                             }
                         }
-                    } label: {
-                        Image(systemName: "text.bubble")
-                            .font(.system(size: 15, weight: .medium))
-                            .foregroundStyle(FoundryTheme.secondaryText)
-                            .frame(width: 30, height: 30)
-                            .background(Color.white.opacity(0.06))
-                            .clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
-                    }
-                    .menuStyle(.borderlessButton)
-                    .pointerCursor()
+                     } label: {
+                         Image(systemName: "text.bubble")
+                             .font(.system(size: 15, weight: .medium))
+                             .foregroundStyle(FoundryTheme.secondaryText)
+                             .frame(width: 30, height: 30)
+                     }
+                     .menuStyle(.borderlessButton)
+                     .pointerCursor()
                 }
-            } else if state.mode == .settings {
-                Image(systemName: "slider.horizontal.3")
-                    .font(.system(size: 16, weight: .regular))
-                    .foregroundStyle(FoundryTheme.mutedText)
+              } else if state.mode == .settings {
+                  Text("Settings")
+                      .font(FoundryTheme.body(size: 18, weight: .semibold))
+                      .foregroundStyle(FoundryTheme.primaryText)
+             } else if state.mode == .dashboard {
+                 Image(systemName: "rectangle.3.group")
+                     .font(.system(size: 16, weight: .regular))
+                     .foregroundStyle(FoundryTheme.mutedText)
 
-                Text("Customize Widgets")
-                    .font(FoundryTheme.body(size: 21, weight: .regular))
-                    .foregroundStyle(FoundryTheme.primaryText)
-            } else if state.mode == .activityMonitor {
+                 Text("Dashboard")
+                     .font(FoundryTheme.body(size: 21, weight: .regular))
+                     .foregroundStyle(FoundryTheme.primaryText)
+             } else if state.mode == .activityMonitor {
                 TextField("Filter processes...", text: activityQueryBinding)
                     .textFieldStyle(.plain)
                     .font(FoundryTheme.body(size: 21, weight: .regular))
@@ -297,13 +399,15 @@ struct CommandPanelView: View {
                         dismiss()
                     }
             } else if state.mode == .snippets {
-                Image(systemName: "curlybraces")
-                    .font(.system(size: 16, weight: .regular))
+                Image(systemName: "magnifyingglass")
+                    .font(.system(size: 16, weight: .medium))
                     .foregroundStyle(FoundryTheme.mutedText)
 
-                Text("Snippets")
+                TextField("Search snippets...", text: snippetsQueryBinding)
+                    .textFieldStyle(.plain)
                     .font(FoundryTheme.body(size: 21, weight: .regular))
                     .foregroundStyle(FoundryTheme.primaryText)
+                    .focused($inputFocused)
             } else if state.mode == .translator {
                 Image(systemName: "globe")
                     .font(.system(size: 16, weight: .regular))
@@ -321,13 +425,9 @@ struct CommandPanelView: View {
                     .font(FoundryTheme.body(size: 21, weight: .regular))
                     .foregroundStyle(FoundryTheme.primaryText)
             } else {
-                Image(systemName: "magnifyingglass")
-                    .font(.system(size: 16, weight: .medium))
-                    .foregroundStyle(FoundryTheme.mutedText)
-
                 LauncherSearchField(
                     text: $state.query,
-                    placeholder: "Search apps and commands...",
+                    placeholder: "Search for apps and commands...",
                     onTab: {
                         state.openQuickAI(initialPrompt: state.query)
                     },
@@ -340,48 +440,57 @@ struct CommandPanelView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .focused($inputFocused)
 
-                if state.query.isEmpty == false {
-                    Button {
-                        state.query = ""
-                        inputFocused = true
-                    } label: {
-                        Image(systemName: "xmark.circle.fill")
-                            .font(.system(size: 16, weight: .regular))
-                            .foregroundStyle(FoundryTheme.faintText)
-                    }
-                    .buttonStyle(PressableButtonStyle())
-                    .pointerCursor()
-                    .transition(.opacity.combined(with: .scale(scale: 0.7)))
-                }
-
                 if state.mode == .search {
-                    Button {
-                        state.openQuickAI(initialPrompt: state.query)
-                    } label: {
-                        HStack(spacing: 7) {
-                            Text("Ask AI")
-                                .font(FoundryTheme.body(size: 13, weight: .medium))
-                                .foregroundStyle(FoundryTheme.secondaryText)
-                            KeycapHint(text: "Tab")
+                    HStack(spacing: 6) {
+                        if state.query.isEmpty == false {
+                            FoundryIconButton(
+                                systemName: "xmark.circle.fill",
+                                accessibilityLabel: "Clear search",
+                                tint: FoundryTheme.faintText
+                            ) {
+                                state.query = ""
+                                inputFocused = true
+                            }
+                            .transition(.opacity.combined(with: .scale(scale: 0.7)))
                         }
+
+                        Button {
+                            state.openQuickAI(initialPrompt: state.query)
+                        } label: {
+                            HStack(spacing: 6) {
+                                Image(systemName: "sparkles")
+                                    .font(.system(size: 11, weight: .semibold))
+                                Text("Ask AI")
+                                    .font(FoundryTheme.body(size: 12, weight: .semibold))
+                                Text("Tab")
+                                    .font(.system(size: 11, weight: .medium, design: .rounded))
+                                    .foregroundStyle(FoundryTheme.faintText)
+                            }
+                            .foregroundStyle(FoundryTheme.secondaryText)
+                            .frame(height: 30)
+                            .padding(.horizontal, 8)
+                        }
+                        .buttonStyle(FoundryQuietButtonStyle())
+                        .pointerCursor()
+                        .accessibilityLabel("Ask AI")
+                        .help("Ask AI with Tab")
                     }
-                    .buttonStyle(.plain)
-                    .pointerCursor()
-                    .contentShape(Rectangle())
                     .zIndex(1)
-                    .padding(.leading, 10)
+                    .padding(.leading, 6)
                     .transition(.opacity.combined(with: .move(edge: .trailing)))
                 }
             }
         }
         .animation(.easeOut(duration: 0.12), value: state.query.isEmpty)
         .padding(.horizontal, 22)
-        .frame(height: 60)
+        .frame(height: state.mode == .settings ? 52 : 60)
         .background(Color.clear)
         .overlay(alignment: .bottom) {
-            Rectangle()
-                .fill(Color.white.opacity(0.07))
-                .frame(height: 1)
+            if nativeGlassEnabled == false {
+                Rectangle()
+                    .fill(Color.white.opacity(0.07))
+                    .frame(height: 1)
+            }
         }
     }
 
@@ -410,10 +519,9 @@ struct CommandPanelView: View {
                 }
 
                 if state.quickAILastFailedPrompt != nil, state.isQuickAILoading == false {
-                    Button("Retry") { state.retryQuickAI() }
-                        .buttonStyle(.plain)
-                        .font(FoundryTheme.body(size: 13, weight: .semibold))
-                        .foregroundStyle(FoundryTheme.secondaryText)
+                    FoundryActionButton(title: "Retry", systemName: "arrow.clockwise") {
+                        state.retryQuickAI()
+                    }
                         .padding(.top, 2)
                 }
             }
@@ -490,22 +598,6 @@ struct CommandPanelView: View {
         .pointerCursor()
     }
 
-    private var agentShelfStrip: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            HStack(spacing: 7) {
-                ForEach(state.agents.visibleSessions) { session in
-                    AgentSessionCardView(session: session) {
-                        state.agents.open(session)
-                        dismiss()
-                    }
-                    .frame(maxWidth: .infinity)
-                }
-            }
-        }
-        .padding(.horizontal, 20)
-        .padding(.top, 10)
-    }
-
     private var resultsSurface: some View {
         ScrollViewReader { proxy in
             ScrollView {
@@ -533,7 +625,7 @@ struct CommandPanelView: View {
                     if isHome {
                         if suggestionResults.isEmpty == false {
                             HomeSectionHeader(title: "Suggestions")
-                            ForEach(Array(suggestionResults.prefix(3)), id: \.id) { result in
+                            ForEach(Array(suggestionResults.prefix(5)), id: \.id) { result in
                                 HomeResultRow(result: result, isSelected: state.selectedResultID == result.id, label: resultKindLabel(for: result))
                                     .id(result.id)
                                     .contentShape(Rectangle())
@@ -544,7 +636,7 @@ struct CommandPanelView: View {
                         if commandResults.isEmpty == false {
                             HomeSectionHeader(title: "Commands")
                                 .padding(.top, suggestionResults.isEmpty ? 0 : 12)
-                            ForEach(Array(commandResults.prefix(3)), id: \.id) { result in
+                            ForEach(Array(commandResults.prefix(5)), id: \.id) { result in
                                 HomeResultRow(result: result, isSelected: state.selectedResultID == result.id, label: resultKindLabel(for: result))
                                     .id(result.id)
                                     .contentShape(Rectangle())
@@ -552,26 +644,19 @@ struct CommandPanelView: View {
                             }
                         }
 
-                        if state.widgetBoard.homeWidgets.isEmpty == false {
-                            HomeSectionHeader(title: "At a glance")
-                                .padding(.top, suggestionResults.isEmpty && commandResults.isEmpty ? 0 : 12)
-                            WidgetBoardView(board: state.widgetBoard)
-                                .padding(.horizontal, 4)
-                                .padding(.bottom, 10)
-                        }
                     } else {
                         ForEach(Array(displayedResults.enumerated()), id: \.element.id) { index, result in
                             resultRow(result, index: index)
                         }
                     }
                 }
-                .padding(.horizontal, 8)
+                .padding(.horizontal, 16)
                 .padding(.vertical, selectedCalculatorResult == nil ? 8 : 12)
             }
             .scrollIndicators(.never)
             .background(Color.clear)
-            .onChange(of: state.selectedResultID) { _, resultID in
-                guard let resultID else { return }
+            .onChange(of: state.selectionScrollToken) { _, _ in
+                guard let resultID = state.selectedResultID else { return }
                 withAnimation(.easeOut(duration: 0.12)) {
                     proxy.scrollTo(resultID, anchor: .center)
                 }
@@ -619,8 +704,8 @@ struct CommandPanelView: View {
             ),
             CommandResult(
                 id: "calculator.fallback.settings",
-                title: "Customize Widgets",
-                subtitle: "Choose what appears on the home screen",
+                title: "Open Foundry Settings",
+                subtitle: "Customize widgets and Foundry preferences",
                 icon: CommandIcon(fallback: "ST", systemName: "slider.horizontal.3"),
                 score: 0,
                 primaryAction: CommandAction(id: "calculator.fallback.settings.open", title: "Open", kind: .openSettings),
@@ -680,7 +765,7 @@ struct CommandPanelView: View {
             "AI"
         case .openApp:
             "Application"
-        case .openEmojiPicker, .openFileShelf, .openClipboardHistory, .openSnippets, .openFileConverter, .openCamera, .openTranslator, .openDeveloperTools, .openActivityMonitor, .openConfigFolder, .openSettings, .quit:
+        case .openEmojiPicker, .openFileShelf, .openClipboardHistory, .openSnippets, .openFileConverter, .openCamera, .openTranslator, .openDeveloperTools, .openActivityMonitor, .openConfigFolder, .openSettings, .openDashboard, .quit:
             "Command"
         case .revealInFinder:
             "Finder"
@@ -809,11 +894,11 @@ struct CommandPanelView: View {
                 }
                 .foregroundStyle(FoundryTheme.secondaryText)
                 .padding(.horizontal, 8)
-            } else {
-                foundryMenuButton
+            } else if state.mode != .settings {
+                settingsButton
             }
 
-            if state.mode != .translator, state.mode != .quickAI, state.diagnosticsSummary.isEmpty == false {
+            if state.mode == .search, state.diagnosticsSummary.contains("result") {
                 Text(state.diagnosticsSummary)
                     .font(FoundryTheme.body(size: 11, weight: .medium))
                     .foregroundStyle(FoundryTheme.faintText)
@@ -828,62 +913,23 @@ struct CommandPanelView: View {
                 footerActions
             }
         }
-        .padding(.horizontal, 12)
-        .frame(height: 44)
-        .background(Color.black.opacity(0.08))
-        .overlay(alignment: .top) {
-            Rectangle()
-                .fill(Color.white.opacity(0.06))
-                .frame(height: 1)
-        }
+        .padding(.horizontal, 16)
+        .frame(height: state.mode == .settings ? 32 : 38)
     }
 
-    private var foundryMenuButton: some View {
+    private var settingsButton: some View {
         Button {
-            isShowingFoundryMenu.toggle()
+            state.openSettings()
         } label: {
-            HStack(spacing: 7) {
-                Image(systemName: "hammer.fill")
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(FoundryTheme.secondaryText)
-                Text("Foundry")
-                    .font(FoundryTheme.body(size: 12, weight: .semibold))
-                    .foregroundStyle(FoundryTheme.secondaryText)
-                Image(systemName: "chevron.up")
-                    .font(.system(size: 8, weight: .bold))
-                    .foregroundStyle(FoundryTheme.faintText)
-                    .rotationEffect(.degrees(isShowingFoundryMenu ? 180 : 0))
-            }
-            .padding(.horizontal, 8)
-            .frame(height: 28)
-            .background(
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .fill(Color.white.opacity(isShowingFoundryMenu ? 0.08 : 0))
-            )
+            Image(systemName: "ellipsis")
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(FoundryTheme.secondaryText)
+                .frame(width: 30, height: 30)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(FoundryQuietButtonStyle())
         .pointerCursor()
-    }
-
-    private var foundryMenuOverlay: some View {
-        ZStack(alignment: .bottomLeading) {
-            Color.black.opacity(0.001)
-                .contentShape(Rectangle())
-                .onTapGesture { isShowingFoundryMenu = false }
-
-            FoundryMenu(
-                openSettings: {
-                    isShowingFoundryMenu = false
-                    state.openSettings()
-                },
-                quit: {
-                    NSApp.terminate(nil)
-                }
-            )
-            .padding(.leading, 12)
-            .padding(.bottom, 50)
-            .transition(.opacity.combined(with: .scale(scale: 0.96, anchor: .bottomLeading)))
-        }
+        .accessibilityLabel("Open Settings (⌘,)")
+        .help("Open Settings (⌘,)")
     }
 
     @ViewBuilder
@@ -891,47 +937,40 @@ struct CommandPanelView: View {
         switch state.mode {
         case .quickAI:
             FooterAction(label: "Submit", keys: "↵", emphasized: true)
-            FooterDivider()
             FooterAction(label: "Close", keys: "esc")
         case .settings:
             FooterAction(label: "Done", keys: "esc")
+        case .dashboard:
+            FooterAction(label: "Open", keys: "↵", emphasized: true)
+            FooterAction(label: "Close", keys: "esc")
         case .activityMonitor:
             FooterAction(label: "Select", keys: "↑↓")
-            FooterDivider()
             FooterAction(label: "Close", keys: "esc")
         case .emojiPicker:
             FooterAction(label: "Copy", keys: "↵")
-            FooterDivider()
             FooterAction(label: "Close", keys: "esc")
         case .fileConversion:
             FooterAction(label: "Convert", keys: "↵", emphasized: true)
-            FooterDivider()
             FooterAction(label: "Close", keys: "esc")
         case .camera:
             FooterAction(label: "Close", keys: "esc")
         case .fileShelf:
             FooterAction(label: "Remove", keys: "⌫")
-            FooterDivider()
             FooterAction(label: "Close", keys: "esc")
         case .clipboardHistory:
             FooterAction(label: "Copy", keys: "↵", emphasized: true)
-            FooterDivider()
             FooterAction(label: "Remove", keys: "⌫")
-            FooterDivider()
             FooterAction(label: "Close", keys: "esc")
         case .snippets:
-            FooterAction(label: "Copy", keys: "↵", emphasized: true)
-            FooterDivider()
+            FooterAction(label: "Copy", keys: "Click", emphasized: true)
             FooterAction(label: "Close", keys: "esc")
         case .translator:
             FooterAction(label: "Close", keys: "esc")
         case .developerTools:
             FooterAction(label: "Copy Value", keys: "Click")
-            FooterDivider()
             FooterAction(label: "Close", keys: "esc")
         case .search:
             FooterAction(label: selectedCalculatorResult == nil ? "Open" : "Copy Answer", keys: "↵", emphasized: true)
-            FooterDivider()
             FooterAction(label: "Actions", keys: "⌘K")
         }
     }
@@ -954,6 +993,13 @@ struct CommandPanelView: View {
         Binding(
             get: { state.clipboardHistory.query },
             set: { state.clipboardHistory.query = $0 }
+        )
+    }
+
+    private var snippetsQueryBinding: Binding<String> {
+        Binding(
+            get: { state.snippets.query },
+            set: { state.snippets.query = $0 }
         )
     }
 
@@ -1141,6 +1187,7 @@ struct FoundrySmoothedRectangle: InsettableShape {
 private struct FileShelfView: View {
     @ObservedObject var state: FileShelfState
     let convertSelected: () -> Void
+    @State private var isConfirmingClear = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -1172,7 +1219,7 @@ private struct FileShelfView: View {
                             .foregroundStyle(FoundryTheme.mutedText)
                             .pointerCursor()
                     }
-                    Button("Clear") { state.clear() }
+                    Button("Clear") { isConfirmingClear = true }
                         .buttonStyle(PressableButtonStyle())
                         .font(FoundryTheme.body(size: 12, weight: .semibold))
                         .foregroundStyle(FoundryTheme.mutedText)
@@ -1201,6 +1248,12 @@ private struct FileShelfView: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 14)
+        .alert("Clear File Shelf?", isPresented: $isConfirmingClear) {
+            Button("Clear Shelf", role: .destructive) { state.clear() }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Remove all waiting files from Foundry. The original files will not be deleted.")
+        }
     }
 }
 
@@ -1243,6 +1296,8 @@ private struct FileShelfRow: View {
                 }
                 .buttonStyle(PressableButtonStyle())
                 .pointerCursor()
+                .accessibilityLabel("Reveal \(file.name) in Finder")
+                .help("Reveal in Finder")
 
                 Button(action: remove) {
                     Image(systemName: "xmark")
@@ -1254,6 +1309,8 @@ private struct FileShelfRow: View {
                 }
                 .buttonStyle(PressableButtonStyle())
                 .pointerCursor()
+                .accessibilityLabel("Remove \(file.name) from File Shelf")
+                .help("Remove from File Shelf")
             }
         }
         .padding(.horizontal, 12)
@@ -1296,10 +1353,11 @@ private struct RowBackground: View {
     let isSelected: Bool
     let isHovering: Bool
     var cornerRadius: CGFloat = 9
+    @Environment(\.foundryHoverHighlightsArmed) private var hoverHighlightsArmed
 
     private var fill: Color {
         if isSelected { return FoundryTheme.selection }
-        if isHovering { return FoundryTheme.hover }
+        if isHovering && hoverHighlightsArmed { return FoundryTheme.hover }
         return Color.clear
     }
 
@@ -1309,21 +1367,43 @@ private struct RowBackground: View {
     }
 }
 
+private struct FoundryHoverHighlightsArmedKey: EnvironmentKey {
+    static let defaultValue = true
+}
+
+private extension EnvironmentValues {
+    var foundryHoverHighlightsArmed: Bool {
+        get { self[FoundryHoverHighlightsArmedKey.self] }
+        set { self[FoundryHoverHighlightsArmedKey.self] = newValue }
+    }
+}
+
 private struct HomeSectionHeader: View {
     let title: String
+    var action: (() -> Void)? = nil
 
     var body: some View {
         HStack {
             Text(title)
-                .font(FoundryTheme.body(size: 11, weight: .semibold))
-                .foregroundStyle(FoundryTheme.faintText)
-                .textCase(.uppercase)
-                .tracking(0.5)
+                .font(FoundryTheme.body(size: 13, weight: .semibold))
+                .foregroundStyle(FoundryTheme.primaryText.opacity(0.72))
             Spacer()
+            if let action {
+                Button(action: action) {
+                    Image(systemName: "slider.horizontal.3")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(FoundryTheme.secondaryText)
+                        .frame(width: 28, height: 28)
+                }
+                    .buttonStyle(FoundryQuietButtonStyle())
+                    .pointerCursor()
+                    .accessibilityLabel("Customize widgets")
+                    .help("Customize widgets")
+            }
         }
         .padding(.horizontal, 12)
-        .padding(.top, 4)
-        .padding(.bottom, 4)
+        .padding(.top, 10)
+        .padding(.bottom, 6)
     }
 }
 
@@ -1526,6 +1606,7 @@ private struct ResultRow: View {
 private struct ClipboardHistoryView: View {
     @ObservedObject var state: ClipboardHistoryState
     @ObservedObject var fileShelf: FileShelfState
+    @State private var isConfirmingClear = false
 
     private let columns = Array(repeating: GridItem(.flexible(), spacing: 10), count: 3)
 
@@ -1552,7 +1633,7 @@ private struct ClipboardHistoryView: View {
                         .textCase(.uppercase)
                         .tracking(0.5)
                     Spacer()
-                    Button("Clear") { state.clear() }
+                    Button("Clear") { isConfirmingClear = true }
                         .buttonStyle(PressableButtonStyle())
                         .font(FoundryTheme.body(size: 12, weight: .semibold))
                         .foregroundStyle(FoundryTheme.mutedText)
@@ -1574,8 +1655,8 @@ private struct ClipboardHistoryView: View {
                             .contentShape(Rectangle())
                             .onTapGesture {
                                 state.select(id: item.id)
-                                state.copySelected()
                             }
+                            .onTapGesture(count: 2) { state.copySelected() }
                         }
                     }
                     .padding(.bottom, 6)
@@ -1585,11 +1666,18 @@ private struct ClipboardHistoryView: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 14)
+        .alert("Clear Clipboard History?", isPresented: $isConfirmingClear) {
+            Button("Clear History", role: .destructive) { state.clear() }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Remove the copied items currently held by Foundry.")
+        }
     }
 }
 
 private struct SnippetsView: View {
     @ObservedObject var state: SnippetState
+    @State private var isConfirmingDelete = false
 
     var body: some View {
         HStack(spacing: 14) {
@@ -1598,6 +1686,12 @@ private struct SnippetsView: View {
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 18)
+        .alert("Delete Snippet?", isPresented: $isConfirmingDelete) {
+            Button("Delete Snippet", role: .destructive) { state.removeSelected() }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This removes the snippet from Foundry's saved library.")
+        }
     }
 
     private var sidebar: some View {
@@ -1657,6 +1751,12 @@ private struct SnippetsView: View {
     @ViewBuilder
     private var detail: some View {
         VStack(alignment: .leading, spacing: 12) {
+            if let persistenceError = state.persistenceError {
+                Label(persistenceError, systemImage: "exclamationmark.triangle.fill")
+                    .font(FoundryTheme.body(size: 12, weight: .medium))
+                    .foregroundStyle(FoundryTheme.error)
+                    .lineLimit(2)
+            }
             if let selected = state.selectedItem {
                 HStack(spacing: 4) {
                     Text("EDIT SNIPPET")
@@ -1672,7 +1772,7 @@ private struct SnippetsView: View {
                         action: state.togglePinnedSelected
                     )
                     SnippetIconButton(symbol: "doc.on.doc", help: "Copy to clipboard", action: state.copySelected)
-                    SnippetIconButton(symbol: "trash", help: "Delete snippet", destructive: true, action: state.removeSelected)
+                    SnippetIconButton(symbol: "trash", help: "Delete snippet", destructive: true, action: { isConfirmingDelete = true })
                 }
                 .frame(height: 30)
                 SnippetEditor(state: state)
@@ -1780,6 +1880,7 @@ private struct SnippetIconButton: View {
         }
         .buttonStyle(.plain)
         .help(help)
+        .accessibilityLabel(help)
         .animation(.easeOut(duration: 0.12), value: isHovering)
         .onHover { hovering in
             isHovering = hovering
@@ -1823,6 +1924,12 @@ private struct SnippetRow: View {
         .frame(height: 48)
         .background(RowBackground(isSelected: isSelected, isHovering: isHovering, cornerRadius: 10))
         .contentShape(Rectangle())
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(snippet.title.isEmpty ? "Untitled Snippet" : snippet.title)
+        .accessibilityValue(isSelected ? "Selected" : subtitle)
+        .accessibilityAddTraits(.isButton)
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
+        .accessibilityHint("Select snippet")
         .onTapGesture(perform: select)
         .animation(.easeOut(duration: 0.10), value: isHovering)
         .onHover { hovering in
@@ -1993,10 +2100,10 @@ private struct ClipboardHistoryCard: View {
 
             HStack(spacing: 7) {
                 if item.kindLabel == "Files" {
-                    ClipboardCardButton(symbol: "tray.and.arrow.down", action: addToShelf)
+                    ClipboardCardButton(symbol: "tray.and.arrow.down", label: "Add files to shelf", action: addToShelf)
                 }
-                ClipboardCardButton(symbol: "doc.on.doc", action: copy)
-                ClipboardCardButton(symbol: "xmark", action: remove)
+                ClipboardCardButton(symbol: "doc.on.doc", label: "Copy item", action: copy)
+                ClipboardCardButton(symbol: "xmark", label: "Remove item", action: remove)
                 Spacer(minLength: 0)
             }
             .opacity(isSelected || isHovering ? 1 : 0)
@@ -2016,6 +2123,7 @@ private struct ClipboardHistoryCard: View {
 
 private struct ClipboardCardButton: View {
     let symbol: String
+    let label: String
     let action: () -> Void
 
     var body: some View {
@@ -2029,6 +2137,8 @@ private struct ClipboardCardButton: View {
         }
         .buttonStyle(PressableButtonStyle())
         .pointerCursor()
+        .accessibilityLabel(label)
+        .help(label)
     }
 }
 
@@ -2038,13 +2148,15 @@ private struct TranslatorView: View {
     var body: some View {
         VStack(spacing: 14) {
             HStack(spacing: 12) {
-                TranslatorPane(title: "English", placeholder: "Enter text", text: $state.sourceText, isEditable: true)
+                TranslatorPane(placeholder: "Enter text", text: $state.sourceText, isEditable: true, accessory: {
+                    sourceLanguageMenu
+                })
 
                 Image(systemName: "arrow.right")
                     .font(.system(size: 22, weight: .semibold))
                     .foregroundStyle(FoundryTheme.secondaryText)
 
-                TranslatorPane(title: state.targetLanguage, placeholder: "Translation", text: $state.result, isEditable: false, copy: state.copyResult) {
+                TranslatorPane(placeholder: "Translation", text: $state.result, isEditable: false, copy: state.copyResult) {
                     languageMenu
                 }
             }
@@ -2058,11 +2170,20 @@ private struct TranslatorView: View {
                         .foregroundStyle(FoundryTheme.secondaryText)
                 }
 
+                if let translationError = state.translationError {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(FoundryTheme.warning)
+                    Text(translationError)
+                        .font(FoundryTheme.body(size: 12, weight: .medium))
+                        .foregroundStyle(FoundryTheme.warning)
+                        .lineLimit(2)
+                }
+
                 if shouldShowAppleFallback {
-                    Button("Try Apple Translation") { state.requestAppleTranslationFallback() }
-                        .buttonStyle(PressableButtonStyle())
-                        .font(FoundryTheme.body(size: 13, weight: .semibold))
-                        .foregroundStyle(FoundryTheme.secondaryText)
+                    FoundryActionButton(title: "Try Apple Translation", systemName: "apple.logo") {
+                        state.requestAppleTranslationFallback()
+                    }
                 }
 
                 Spacer()
@@ -2074,7 +2195,7 @@ private struct TranslatorView: View {
     }
 
     private var shouldShowAppleFallback: Bool {
-        let value = state.result.lowercased()
+        let value = (state.translationError ?? state.result).lowercased()
         return value.contains("unsafe") || value.contains("unavailable") || value.contains("failed") || value.contains("require macos")
     }
 
@@ -2109,6 +2230,32 @@ private struct TranslatorView: View {
         }
         .menuStyle(.borderlessButton)
         .menuIndicator(.hidden)
+        .accessibilityLabel("Target language")
+    }
+
+    private var sourceLanguageMenu: some View {
+        Menu {
+            ForEach(state.languages, id: \.self) { language in
+                Button(language) {
+                    state.sourceLanguage = language
+                }
+            }
+        } label: {
+            HStack(spacing: 5) {
+                Text(state.sourceLanguage)
+                Image(systemName: "chevron.down")
+                    .font(.system(size: 9, weight: .bold))
+            }
+            .font(FoundryTheme.body(size: 12, weight: .semibold))
+            .foregroundStyle(FoundryTheme.secondaryText)
+            .padding(.horizontal, 10)
+            .frame(height: 26)
+            .background(Color.white.opacity(0.07))
+            .clipShape(Capsule())
+        }
+        .menuStyle(.borderlessButton)
+        .menuIndicator(.hidden)
+        .accessibilityLabel("Source language")
     }
 }
 
@@ -2130,7 +2277,7 @@ private struct AppleTranslationTask: View {
                 let text = state.sourceText.trimmingCharacters(in: .whitespacesAndNewlines)
                 guard text.isEmpty == false else { return }
                 guard state.needsAppleTranslationFallback else {
-                    let modelTranslation = await AppleTranslator.translate(text, to: state.targetLanguage)
+                    let modelTranslation = await AppleTranslator.translate(text, from: state.sourceLanguage, to: state.targetLanguage)
                     state.finishTranslation(modelTranslation)
                     return
                 }
@@ -2140,16 +2287,17 @@ private struct AppleTranslationTask: View {
                     let response = try await translationSession.translate(text)
                     state.finishTranslation(response.targetText)
                 } catch {
-                    state.finishTranslation("Apple Translation failed: \(error.localizedDescription)")
+                    state.finishTranslationError("Apple Translation failed: \(error.localizedDescription)")
                 }
             }
     }
 
     private func configure() {
         guard requestVersion > 0,
+              let sourceCode = state.languageCode(for: state.sourceLanguage),
               let targetCode = state.languageCode(for: state.targetLanguage) else { return }
         configuration = TranslationSession.Configuration(
-            source: Locale.Language(identifier: "en"),
+            source: Locale.Language(identifier: sourceCode),
             target: Locale.Language(identifier: targetCode)
         )
         configuration?.invalidate()
@@ -2158,15 +2306,13 @@ private struct AppleTranslationTask: View {
 #endif
 
 private struct TranslatorPane<Accessory: View>: View {
-    let title: String
     let placeholder: String
     @Binding var text: String
     let isEditable: Bool
     var copy: (() -> Void)? = nil
     @ViewBuilder var accessory: () -> Accessory
 
-    init(title: String, placeholder: String, text: Binding<String>, isEditable: Bool, copy: (() -> Void)? = nil, @ViewBuilder accessory: @escaping () -> Accessory = { EmptyView() }) {
-        self.title = title
+    init(placeholder: String, text: Binding<String>, isEditable: Bool, copy: (() -> Void)? = nil, @ViewBuilder accessory: @escaping () -> Accessory = { EmptyView() }) {
         self.placeholder = placeholder
         self._text = text
         self.isEditable = isEditable
@@ -2178,9 +2324,10 @@ private struct TranslatorPane<Accessory: View>: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 if isEditable {
-                    Text(title)
-                        .font(FoundryTheme.body(size: 12, weight: .semibold))
-                        .foregroundStyle(FoundryTheme.secondaryText)
+                    HStack {
+                        accessory()
+                        Spacer()
+                    }
                 } else {
                     accessory()
                     if text.isEmpty == false, let copy {
@@ -2194,6 +2341,8 @@ private struct TranslatorPane<Accessory: View>: View {
                         }
                         .buttonStyle(.plain)
                         .pointerCursor()
+                        .accessibilityLabel("Copy translation")
+                        .help("Copy translation")
                     }
                 }
                 Spacer()
@@ -2493,6 +2642,8 @@ private struct ActionRow: View {
             "arrow.up.right.square"
         case .openSettings:
             "slider.horizontal.3"
+        case .openDashboard:
+            "rectangle.3.group"
         case .revealInFinder:
             "folder"
         case .copyToClipboard:
@@ -2547,134 +2698,6 @@ private struct ActionRow: View {
     }
 }
 
-private struct AgentSessionCardView: View {
-    let session: AgentSessionCard
-    let open: () -> Void
-
-    @State private var isHovering = false
-
-    var body: some View {
-        Button(action: open) {
-            HStack(spacing: 9) {
-                AgentProviderIconView(provider: session.provider, isHovering: isHovering)
-                    .frame(width: 30, height: 30)
-
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(session.title)
-                        .font(FoundryTheme.body(size: 13, weight: .semibold))
-                        .foregroundStyle(FoundryTheme.primaryText)
-                        .lineLimit(1)
-                        .truncationMode(.tail)
-
-                    if let detailLine = detailLine.nilIfEmpty {
-                        Text(detailLine)
-                            .font(FoundryTheme.body(size: 10, weight: .regular))
-                            .foregroundStyle(FoundryTheme.mutedText)
-                            .lineLimit(1)
-                            .truncationMode(.middle)
-                    }
-                }
-
-                Spacer(minLength: 0)
-
-                Image(systemName: "arrow.up.right")
-                    .font(.system(size: 10, weight: .bold))
-                    .foregroundStyle(FoundryTheme.mutedText)
-                    .opacity(isHovering ? 0.9 : 0)
-            }
-            .padding(.horizontal, 10)
-            .frame(height: 72)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Color.white.opacity(isHovering ? 0.070 : 0.038))
-            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .stroke(Color.white.opacity(isHovering ? 0.12 : 0.055), lineWidth: 1)
-            )
-        }
-        .buttonStyle(.plain)
-        .scaleEffect(isHovering ? 1.006 : 1)
-        .animation(.easeOut(duration: 0.12), value: isHovering)
-        .onHover { hovering in
-            isHovering = hovering
-            if hovering { NSCursor.pointingHand.set() } else { NSCursor.arrow.set() }
-        }
-    }
-
-    private var detailLine: String {
-        [session.model?.nilIfEmpty, session.subtitle.nilIfEmpty].compactMap { $0 }.joined(separator: " · ")
-    }
-
-    private var statusLabel: String {
-        switch session.status {
-        case .needsInput:
-            "Needs you"
-        case .reviewReady:
-            "Review"
-        case .working, .running, .failed, .planning:
-            session.status.rawValue
-        case .completed:
-            "Done"
-        case .idle, .recent:
-            "Recent"
-        }
-    }
-
-    private var statusColor: Color {
-        switch session.status {
-        case .working, .running:
-            Color(red: 0.42, green: 0.90, blue: 0.67)
-        case .needsInput:
-            Color(red: 1.0, green: 0.76, blue: 0.35)
-        case .reviewReady:
-            Color(red: 0.52, green: 0.72, blue: 1.0)
-        case .planning:
-            Color(red: 0.70, green: 0.62, blue: 1.0)
-        case .completed:
-            Color(red: 0.44, green: 0.72, blue: 1.0)
-        case .failed:
-            Color(red: 1.0, green: 0.38, blue: 0.38)
-        case .idle, .recent:
-            FoundryTheme.faintText
-        }
-    }
-
-    private var statusTextColor: Color {
-        session.status == .recent || session.status == .idle ? FoundryTheme.faintText : statusColor
-    }
-}
-
-private struct AgentProviderIconView: View {
-    let provider: AgentProviderKind
-    let isHovering: Bool
-
-    var body: some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .fill(Color.white.opacity(isHovering ? 0.075 : 0.045))
-
-            if let logoURL = provider.logoURL {
-                AsyncImage(url: logoURL) { phase in
-                    if let image = phase.image {
-                        image
-                            .resizable()
-                            .scaledToFit()
-                            .padding(5)
-                    }
-                }
-            }
-        }
-        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-    }
-}
-
-private extension String {
-    var nilIfEmpty: String? {
-        let trimmed = trimmingCharacters(in: .whitespacesAndNewlines)
-        return trimmed.isEmpty ? nil : trimmed
-    }
-}
-
 private struct CameraPreviewView: View {
     @ObservedObject var state: CameraPreviewState
 
@@ -2687,14 +2710,32 @@ private struct CameraPreviewView: View {
                 CameraPreviewSurface(session: state.session)
                     .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
 
-                if state.status.isEmpty == false {
+                if let message = state.status.message {
                     VStack(spacing: 10) {
-                        Image(systemName: "camera")
-                            .font(.system(size: 28, weight: .medium))
-                            .foregroundStyle(FoundryTheme.secondaryText)
-                        Text(state.status)
+                        if state.status == .requestingPermission || state.status == .starting {
+                            ProgressView()
+                                .controlSize(.large)
+                        } else {
+                            Image(systemName: "camera")
+                                .font(.system(size: 28, weight: .medium))
+                                .foregroundStyle(FoundryTheme.secondaryText)
+                        }
+                        Text(message)
                             .font(FoundryTheme.body(size: 15, weight: .semibold))
                             .foregroundStyle(FoundryTheme.primaryText)
+
+                        if state.status == .denied {
+                            HStack(spacing: 8) {
+                                Button("Open Privacy Settings") { state.openPrivacySettings() }
+                                Button("Retry") { state.retry() }
+                            }
+                            .buttonStyle(PressableButtonStyle())
+                            .font(FoundryTheme.body(size: 12, weight: .semibold))
+                        } else if state.status == .unavailable || state.status.message?.isEmpty == false && state.status != .requestingPermission && state.status != .starting {
+                            Button("Retry") { state.retry() }
+                                .buttonStyle(PressableButtonStyle())
+                                .font(FoundryTheme.body(size: 12, weight: .semibold))
+                        }
                     }
                     .padding(24)
                 }
@@ -2704,10 +2745,12 @@ private struct CameraPreviewView: View {
                     .stroke(Color.white.opacity(0.07), lineWidth: 1)
             )
             .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .accessibilityLabel("Live camera preview")
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 18)
         .onAppear { state.start() }
+        .onDisappear { state.stop() }
     }
 }
 
@@ -2751,6 +2794,21 @@ private struct FileConversionView: View {
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 18)
+        .alert("Additional Tool Required", isPresented: dependencyPromptBinding) {
+            Button("Install and Convert") { state.confirmDependencyInstallation() }
+            Button("Cancel", role: .cancel) { state.dependencyPrompt = nil }
+        } message: {
+            Text("Foundry needs \(state.dependencyPrompt ?? "an external tool") to convert this file. Homebrew will install it on your Mac.")
+        }
+    }
+
+    private var dependencyPromptBinding: Binding<Bool> {
+        Binding(
+            get: { state.dependencyPrompt != nil },
+            set: { isPresented in
+                if isPresented == false { state.dependencyPrompt = nil }
+            }
+        )
     }
 
     private var sourceCard: some View {
@@ -2945,24 +3003,24 @@ private struct FileConversionView: View {
     }
 
     private var convertButton: some View {
-        Button { state.convert() } label: {
+        Button { state.isConverting ? state.cancel() : state.convert() } label: {
             HStack(spacing: 8) {
                 if state.isConverting {
                     ProgressView()
                         .controlSize(.small)
                         .tint(FoundryTheme.primaryText)
                 }
-                Text(state.isConverting ? "Converting…" : "Convert")
+                Text(state.isConverting ? "Cancel Conversion" : "Convert")
                     .font(FoundryTheme.body(size: 14, weight: .bold))
             }
             .frame(maxWidth: .infinity)
             .frame(height: 44)
             .foregroundStyle(FoundryTheme.primaryText)
             .background(convertButtonGlass)
-            .opacity(canConvert ? 1 : 0.45)
+            .opacity(state.isConverting || canConvert ? 1 : 0.45)
         }
         .buttonStyle(PressableButtonStyle())
-        .disabled(canConvert == false)
+        .disabled(state.isConverting == false && canConvert == false)
         .keyboardShortcut(.defaultAction)
         .pointerCursor()
     }
@@ -3314,17 +3372,9 @@ private struct KeycapHint: View {
 
     var body: some View {
         Text(text)
-            .font(FoundryTheme.body(size: 11, weight: .medium))
-            .foregroundStyle(FoundryTheme.secondaryText)
-            .frame(minWidth: 18)
-            .padding(.horizontal, 5)
-            .frame(height: 20)
-            .background(FoundryTheme.keycap)
-            .overlay(
-                RoundedRectangle(cornerRadius: 5, style: .continuous)
-                    .stroke(FoundryTheme.keycapBorder, lineWidth: 1)
-            )
-            .clipShape(RoundedRectangle(cornerRadius: 5, style: .continuous))
+            .font(.system(size: 11, weight: .medium, design: .rounded))
+            .foregroundStyle(FoundryTheme.faintText)
+            .padding(.horizontal, 2)
     }
 }
 
@@ -3344,91 +3394,6 @@ private struct FooterAction: View {
     }
 }
 
-private struct FooterDivider: View {
-    var body: some View {
-        Rectangle()
-            .fill(Color.white.opacity(0.10))
-            .frame(width: 1, height: 14)
-    }
-}
-
-private struct FoundryMenu: View {
-    let openSettings: () -> Void
-    let quit: () -> Void
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 1) {
-            Text("Foundry")
-                .font(FoundryTheme.body(size: 11, weight: .semibold))
-                .foregroundStyle(FoundryTheme.faintText)
-                .padding(.horizontal, 10)
-                .padding(.top, 8)
-                .padding(.bottom, 4)
-
-            FoundryMenuItem(symbol: "slider.horizontal.3", title: "Settings", shortcut: "⌘,", action: openSettings)
-
-            Rectangle()
-                .fill(Color.white.opacity(0.08))
-                .frame(height: 1)
-                .padding(.horizontal, 8)
-                .padding(.vertical, 4)
-
-            FoundryMenuItem(symbol: "power", title: "Quit Foundry", shortcut: "⌘Q", action: quit)
-        }
-        .padding(.bottom, 6)
-        .frame(width: 232)
-        .background(VisualEffectView(material: .menu, blendingMode: .behindWindow))
-        .background(Color.black.opacity(0.28))
-        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .stroke(Color.white.opacity(0.12), lineWidth: 1)
-        )
-        .shadow(color: Color.black.opacity(0.45), radius: 24, x: 0, y: 12)
-    }
-}
-
-private struct FoundryMenuItem: View {
-    let symbol: String
-    let title: String
-    let shortcut: String
-    let action: () -> Void
-
-    @State private var isHovering = false
-
-    var body: some View {
-        Button(action: action) {
-            HStack(spacing: 10) {
-                Image(systemName: symbol)
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(FoundryTheme.secondaryText)
-                    .frame(width: 18)
-
-                Text(title)
-                    .font(FoundryTheme.body(size: 13, weight: .medium))
-                    .foregroundStyle(FoundryTheme.primaryText)
-
-                Spacer()
-
-                Text(shortcut)
-                    .font(FoundryTheme.body(size: 12, weight: .medium))
-                    .foregroundStyle(FoundryTheme.faintText)
-            }
-            .padding(.horizontal, 10)
-            .frame(height: 32)
-            .background(
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .fill(Color.white.opacity(isHovering ? 0.10 : 0))
-            )
-            .padding(.horizontal, 6)
-        }
-        .buttonStyle(.plain)
-        .onHover { hovering in
-            isHovering = hovering
-            if hovering { NSCursor.pointingHand.set() } else { NSCursor.arrow.set() }
-        }
-    }
-}
 
 private struct PressableButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {

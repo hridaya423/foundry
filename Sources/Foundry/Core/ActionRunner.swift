@@ -8,6 +8,7 @@ import UniformTypeIdentifiers
 final class ActionRunner {
     private let diagnostics: DiagnosticsService
     var mediaStatusHandler: (@MainActor @Sendable (String) -> Void)?
+    var feedbackHandler: (@MainActor @Sendable (ActionFeedback) -> Void)?
 
     init(diagnostics: DiagnosticsService) {
         self.diagnostics = diagnostics
@@ -20,9 +21,11 @@ final class ActionRunner {
 
         case let .openApp(path, name):
             let configuration = NSWorkspace.OpenConfiguration()
-            NSWorkspace.shared.openApplication(at: URL(fileURLWithPath: path), configuration: configuration) { [diagnostics] _, error in
+            let feedback = feedbackHandler
+            NSWorkspace.shared.openApplication(at: URL(fileURLWithPath: path), configuration: configuration) { [diagnostics, feedback] _, error in
                 if let error {
                     diagnostics.log("Failed to launch \(name): \(error.localizedDescription)")
+                    Task { @MainActor in feedback?(.failure("Could not open \(name)")) }
                 } else {
                     diagnostics.log("Launched app: \(name)")
                 }
@@ -31,14 +34,23 @@ final class ActionRunner {
         case let .openURL(urlString):
             guard let url = URL(string: urlString) else {
                 diagnostics.log("Invalid URL: \(urlString)")
+                feedbackHandler?(.failure("Invalid URL"))
                 return
             }
-            NSWorkspace.shared.open(url)
+            if NSWorkspace.shared.open(url) == false {
+                feedbackHandler?(.failure("Could not open link"))
+            }
 
         case .openConfigFolder:
             let folder = ConfigService.configURL.deletingLastPathComponent()
-            try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-            NSWorkspace.shared.open(folder)
+            do {
+                try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+                if NSWorkspace.shared.open(folder) == false {
+                    feedbackHandler?(.failure("Could not open Foundry folder"))
+                }
+            } catch {
+                feedbackHandler?(.failure("Could not create Foundry folder"))
+            }
 
         case let .revealInFinder(path):
             NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: path)])
@@ -48,6 +60,7 @@ final class ActionRunner {
             NSPasteboard.general.clearContents()
             NSPasteboard.general.setString(value, forType: .string)
             diagnostics.log("Copied to clipboard")
+            feedbackHandler?(.success("Copied to clipboard"))
 
         case let .pasteText(value):
             NSPasteboard.general.clearContents()
@@ -56,6 +69,7 @@ final class ActionRunner {
                 Self.sendPasteShortcut()
             }
             diagnostics.log("Inserted snippet")
+            feedbackHandler?(.success("Inserted snippet"))
 
         case .createSnippetFromClipboard:
             guard let content = NSPasteboard.general.string(forType: .string)?.trimmingCharacters(in: .whitespacesAndNewlines), content.isEmpty == false else {
@@ -64,7 +78,12 @@ final class ActionRunner {
             }
             var snippets = LibraryPersistence.loadSnippets()
             snippets.insert(StoredSnippet(title: Self.snippetTitle(from: content), content: String(content.prefix(Self.snippetLimit))), at: 0)
-            LibraryPersistence.saveSnippets(snippets)
+                if case let .failure(error) = LibraryPersistence.saveSnippets(snippets) {
+                    diagnostics.log("Failed to save clipboard snippet: \(error.localizedDescription)")
+                    feedbackHandler?(.failure("Could not save snippet"))
+                } else {
+                    feedbackHandler?(.success("Created snippet"))
+                }
             diagnostics.log("Created snippet from clipboard")
 
         case .importSnippets:
@@ -73,11 +92,13 @@ final class ActionRunner {
         case let .downloadMedia(urlString):
             diagnostics.log("Starting media download")
             let statusHandler = mediaStatusHandler
-            Task.detached { [diagnostics] in
+            let feedback = feedbackHandler
+            Task.detached { [diagnostics, feedback] in
                 let result = await Self.downloadMedia(urlString: urlString, status: statusHandler)
                 await MainActor.run {
                     statusHandler?(result)
                     diagnostics.log(result)
+                    feedback?(result.lowercased().contains("failed") ? .failure(result) : .success(result))
                     NSWorkspace.shared.open(Self.downloadFolder)
                 }
             }
@@ -124,15 +145,20 @@ final class ActionRunner {
         case .openSettings:
             diagnostics.log("Settings should be opened by panel state")
 
+        case .openDashboard:
+            diagnostics.log("Dashboard should be opened by panel state")
+
         case let .terminateProcess(pid):
             do {
                 if kill(pid, SIGTERM) == 0 {
                     diagnostics.log("Terminated process \(pid)")
+                    feedbackHandler?(.success("Terminated process"))
                 } else {
                     throw POSIXError(POSIXErrorCode(rawValue: errno) ?? .EPERM)
                 }
             } catch {
                 diagnostics.log("Failed to terminate process \(pid): \(error.localizedDescription)")
+                feedbackHandler?(.failure("Could not terminate process"))
             }
 
         case let .quitApplication(bundleID, name):
@@ -143,8 +169,10 @@ final class ActionRunner {
             if let running {
                 if running.terminate() || running.forceTerminate() {
                     diagnostics.log("Quit \(name)")
+                    feedbackHandler?(.success("Quit \(name)"))
                 } else {
                     diagnostics.log("Failed to quit \(name)")
+                    feedbackHandler?(.failure("Could not quit \(name)"))
                 }
             } else {
                 diagnostics.log("\(name) is not running")
@@ -179,6 +207,7 @@ final class ActionRunner {
                 diagnostics.log("Updated \(kind == .output ? "output" : "input") audio device")
             } catch {
                 diagnostics.log("Failed to switch audio device: \(error.localizedDescription)")
+                feedbackHandler?(.failure("Could not switch audio device"))
             }
 
         case .rebuildApp:
@@ -246,7 +275,9 @@ final class ActionRunner {
                 added += 1
             }
 
-            LibraryPersistence.saveSnippets(snippets)
+            if case let .failure(error) = LibraryPersistence.saveSnippets(snippets) {
+                diagnostics.log("Failed to save imported snippets: \(error.localizedDescription)")
+            }
             diagnostics.log("Imported \(added) snippets, skipped \(skipped) duplicates")
         } catch {
             diagnostics.log("Snippet import failed: \(error.localizedDescription)")

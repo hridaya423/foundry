@@ -17,6 +17,7 @@ final class CommandPanelState: ObservableObject {
         case translator
         case developerTools
         case settings
+        case dashboard
     }
 
     @Published var query = "" {
@@ -31,15 +32,25 @@ final class CommandPanelState: ObservableObject {
     @Published var activeQuickAIThreadID: UUID?
     @Published var results: [CommandResult] = []
     @Published var selectedResultID: String?
+    @Published private(set) var selectionScrollToken = UUID()
     @Published var isShowingActions = false
     @Published var selectedActionID: String?
     @Published var diagnosticsSummary = "IDLE"
     @Published var mode: Mode = .search
+    @Published var focusToken = UUID()
+    @Published var hoverHighlightsArmed = true
+    @Published private(set) var actionFeedback: ActionFeedback? = nil
     @Published var isAgentShelfVisible: Bool
     @Published var hotkey: FoundryHotkey
+    @Published var hotkeyError: String? = nil
     @Published var themeIntensity: Double
     @Published var isOllamaEnabled: Bool
-    var onHotkeyChanged: ((FoundryHotkey) -> Void)?
+    @Published var ollamaHost: String
+    @Published var ollamaModel: String
+    @Published var ollamaHostError: String?
+    @Published var ollamaModelError: String?
+    @Published var settingsPersistenceError: String?
+    var onHotkeyChanged: ((FoundryHotkey) throws -> Void)?
 
     let activityMonitor = ActivityMonitorState()
     let emojiPicker = EmojiPickerState()
@@ -65,6 +76,7 @@ final class CommandPanelState: ObservableObject {
     private var quickAIRequestID: UUID?
     private var searchGeneration = 0
     private var isMediaDownloadActive = false
+    private var feedbackTask: Task<Void, Never>?
 
     var selectedResult: CommandResult? {
         results.first { $0.id == selectedResultID }
@@ -92,11 +104,22 @@ final class CommandPanelState: ObservableObject {
         self.hotkey = config.current.hotkey
         self.themeIntensity = config.current.themeIntensity
         self.isOllamaEnabled = config.current.ai.isOllamaEnabled
+        self.ollamaHost = config.current.ai.ollamaHost
+        self.ollamaModel = config.current.ai.ollamaModel
+        self.ollamaHostError = nil
+        self.ollamaModelError = nil
+        self.settingsPersistenceError = nil
         self.widgetBoard = WidgetBoardState(configService: config)
+        self.widgetBoard.persistenceErrorHandler = { [weak self] error in
+            self?.showSettingsPersistenceError(error)
+        }
         actionRunner.mediaStatusHandler = { [weak self] message in
             let normalized = message.lowercased()
             self?.isMediaDownloadActive = normalized.hasPrefix("downloaded") == false && normalized.contains("failed") == false
             self?.diagnosticsSummary = message
+        }
+        actionRunner.feedbackHandler = { [weak self] feedback in
+            self?.showActionFeedback(feedback)
         }
         clipboardHistory.start()
         agents.start()
@@ -111,29 +134,137 @@ final class CommandPanelState: ObservableObject {
         aiChatStore.save(quickAIThreads)
     }
 
+    private func showActionFeedback(_ feedback: ActionFeedback) {
+        feedbackTask?.cancel()
+        actionFeedback = feedback
+        feedbackTask = Task { [weak self] in
+            do {
+                try await Task.sleep(for: feedback.displayDuration)
+            } catch {
+                return
+            }
+            self?.actionFeedback = nil
+        }
+    }
+
     func setAgentShelfVisible(_ isVisible: Bool) {
         guard isAgentShelfVisible != isVisible else { return }
+        let previous = isAgentShelfVisible
         isAgentShelfVisible = isVisible
-        configService.updateAgentShelfVisibility(isVisible)
+        do {
+            try configService.updateAgentShelfVisibility(isVisible)
+            settingsPersistenceError = nil
+        } catch {
+            isAgentShelfVisible = previous
+            showSettingsPersistenceError(error)
+        }
     }
 
     func setHotkey(_ hotkey: FoundryHotkey) {
         guard self.hotkey != hotkey else { return }
-        self.hotkey = hotkey
-        configService.updateHotkey(hotkey)
-        onHotkeyChanged?(hotkey)
+        let previous = self.hotkey
+        var didRegister = false
+        do {
+            try onHotkeyChanged?(hotkey)
+            didRegister = true
+            try configService.updateHotkey(hotkey)
+            self.hotkey = hotkey
+            hotkeyError = nil
+            settingsPersistenceError = nil
+        } catch {
+            if didRegister {
+                do {
+                    try onHotkeyChanged?(previous)
+                } catch {
+                    diagnostics.log("Failed to restore previous hotkey: \(error.localizedDescription)")
+                }
+                showSettingsPersistenceError(error)
+            } else {
+                hotkeyError = "That shortcut is unavailable. Choose another key combination."
+                diagnostics.log("Failed to register hotkey: \(error.localizedDescription)")
+            }
+        }
     }
 
     func setThemeIntensity(_ intensity: Double) {
+        let previous = themeIntensity
         themeIntensity = intensity
-        configService.updateThemeIntensity(intensity)
+        do {
+            try configService.updateThemeIntensity(intensity)
+            settingsPersistenceError = nil
+        } catch {
+            themeIntensity = previous
+            showSettingsPersistenceError(error)
+        }
     }
 
     func setOllamaEnabled(_ isEnabled: Bool) {
+        let previous = isOllamaEnabled
         isOllamaEnabled = isEnabled
         var ai = configService.current.ai
         ai.isOllamaEnabled = isEnabled
-        configService.updateAIConfig(ai)
+        do {
+            try configService.updateAIConfig(ai)
+            settingsPersistenceError = nil
+        } catch {
+            isOllamaEnabled = previous
+            showSettingsPersistenceError(error)
+        }
+    }
+
+    func setOllamaHost(_ host: String) {
+        let previous = ollamaHost
+        ollamaHost = host
+        guard let value = Self.validatedOllamaHost(host) else {
+            ollamaHostError = "Enter an absolute http or https URL."
+            return
+        }
+        ollamaHostError = nil
+        var ai = configService.current.ai
+        ai.ollamaHost = value
+        do {
+            try configService.updateAIConfig(ai)
+            ollamaHost = value
+            settingsPersistenceError = nil
+        } catch {
+            ollamaHost = previous
+            showSettingsPersistenceError(error)
+        }
+    }
+
+    func setOllamaModel(_ model: String) {
+        let previous = ollamaModel
+        ollamaModel = model
+        let value = model.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard value.isEmpty == false else {
+            ollamaModelError = "Enter an Ollama model name."
+            return
+        }
+        ollamaModelError = nil
+        var ai = configService.current.ai
+        ai.ollamaModel = value
+        do {
+            try configService.updateAIConfig(ai)
+            ollamaModel = value
+            settingsPersistenceError = nil
+        } catch {
+            ollamaModel = previous
+            showSettingsPersistenceError(error)
+        }
+    }
+
+    static func validatedOllamaHost(_ host: String) -> String? {
+        let value = host.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let url = URL(string: value),
+              let scheme = url.scheme?.lowercased(),
+              scheme == "http" || scheme == "https",
+              url.host != nil else { return nil }
+        return value
+    }
+
+    private func showSettingsPersistenceError(_ error: Error) {
+        settingsPersistenceError = "Preferences could not be saved. Your previous settings were kept."
+        diagnostics.log("Settings persistence failed: \(error.localizedDescription)")
     }
 
     func resetForOpen() {
@@ -189,6 +320,20 @@ final class CommandPanelState: ObservableObject {
         results = []
         selectedResultID = nil
         diagnosticsSummary = "settings"
+    }
+
+    func openDashboard() {
+        withAnimation(.easeOut(duration: 0.14)) {
+            mode = .dashboard
+        }
+        widgetBoard.start()
+        agents.start()
+        isShowingActions = false
+        selectedActionID = nil
+        searchTask?.cancel()
+        results = []
+        selectedResultID = nil
+        diagnosticsSummary = "dashboard"
     }
 
     func handleEscape() -> Bool {
@@ -302,6 +447,10 @@ final class CommandPanelState: ObservableObject {
             openSettings()
             return false
         }
+        if selectedResult.primaryAction.kind == .openDashboard {
+            openDashboard()
+            return false
+        }
         if case .downloadMedia = selectedResult.primaryAction.kind {
             isMediaDownloadActive = true
             diagnosticsSummary = "Starting download"
@@ -352,7 +501,7 @@ final class CommandPanelState: ObservableObject {
             snippets.query += text
         case .translator:
             translator.sourceText += text
-        case .camera, .fileConversion, .fileShelf, .settings, .developerTools, .quickAI:
+        case .camera, .fileConversion, .fileShelf, .settings, .dashboard, .developerTools, .quickAI:
             return false
         }
         return true
@@ -421,6 +570,7 @@ final class CommandPanelState: ObservableObject {
         let currentIndex = selectedResultID.flatMap { id in results.firstIndex { $0.id == id } } ?? 0
         let nextIndex = min(max(currentIndex + offset, 0), results.count - 1)
         selectedResultID = results[nextIndex].id
+        selectionScrollToken = UUID()
     }
 
     private func refreshResults() {
@@ -474,6 +624,7 @@ final class CommandPanelState: ObservableObject {
 
             self.results = foundResults
             self.selectedResultID = foundResults.first?.id
+            self.selectionScrollToken = UUID()
             self.refreshStatusSummary()
             diagnostics.endSpan(span)
         }
@@ -500,6 +651,7 @@ final class CommandPanelState: ObservableObject {
             }
             self.results = homeResults
             self.selectedResultID = homeResults.first?.id
+            self.selectionScrollToken = UUID()
             self.refreshStatusSummary()
         }
     }
