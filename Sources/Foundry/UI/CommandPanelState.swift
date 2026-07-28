@@ -50,6 +50,16 @@ final class CommandPanelState: ObservableObject {
     @Published var ollamaHostError: String?
     @Published var ollamaModelError: String?
     @Published var settingsPersistenceError: String?
+    @Published var commandSettingsQuery = "" {
+        didSet { rebuildCommandRows() }
+    }
+    @Published private(set) var commandDescriptors: [CommandDescriptor] = []
+    @Published private(set) var commandPreferences: [String: CommandPreference]
+    @Published private(set) var commandRows: [CommandSettingsRowModel] = []
+    @Published private(set) var visibleCommandRows: [CommandSettingsRowModel] = []
+    @Published private(set) var isCommandCatalogLoading = false
+    @Published private(set) var isCommandCatalogReady = false
+    @Published var expandedCommandID: String?
     var onHotkeyChanged: ((FoundryHotkey) throws -> Void)?
 
     let activityMonitor = ActivityMonitorState()
@@ -77,6 +87,7 @@ final class CommandPanelState: ObservableObject {
     private var searchGeneration = 0
     private var isMediaDownloadActive = false
     private var feedbackTask: Task<Void, Never>?
+    private var commandCatalogTask: Task<Void, Never>?
 
     var selectedResult: CommandResult? {
         results.first { $0.id == selectedResultID }
@@ -109,6 +120,7 @@ final class CommandPanelState: ObservableObject {
         self.ollamaHostError = nil
         self.ollamaModelError = nil
         self.settingsPersistenceError = nil
+        self.commandPreferences = config.current.commandPreferences
         self.widgetBoard = WidgetBoardState(configService: config)
         self.widgetBoard.persistenceErrorHandler = { [weak self] error in
             self?.showSettingsPersistenceError(error)
@@ -320,6 +332,121 @@ final class CommandPanelState: ObservableObject {
         results = []
         selectedResultID = nil
         diagnosticsSummary = "settings"
+    }
+
+    var commandCatalogCount: Int {
+        commandRows.count
+    }
+
+    func prepareCommandCatalog() {
+        guard isCommandCatalogLoading == false, isCommandCatalogReady == false else { return }
+        isCommandCatalogLoading = true
+        let registry = registry
+        let diagnostics = diagnostics
+        let span = diagnostics.startSpan("commands.catalog.prepare")
+        commandCatalogTask = Task { [weak self] in
+            let snapshot = await registry.commandCatalog()
+            diagnostics.endSpan(span)
+            guard let self, Task.isCancelled == false else { return }
+            self.commandDescriptors = snapshot.descriptors
+            self.isCommandCatalogLoading = false
+            self.isCommandCatalogReady = true
+            self.rebuildCommandRows()
+            self.commandCatalogTask = nil
+        }
+    }
+
+    func toggleCommandExpansion(_ commandID: String) {
+        expandedCommandID = expandedCommandID == commandID ? nil : commandID
+    }
+
+    private func rebuildCommandRows() {
+        let preferences = commandPreferences
+        let rows = commandDescriptors.map { descriptor in
+            CommandSettingsRowModel(
+                descriptor: descriptor,
+                preference: preferences[descriptor.id] ?? CommandPreference()
+            )
+        }
+        let query = commandSettingsQuery.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        let visible = rows
+            .filter { query.isEmpty || $0.searchText.contains(query) }
+            .sorted { lhs, rhs in
+                switch (lhs.preference.favoriteRank, rhs.preference.favoriteRank) {
+                case let (lhsRank?, rhsRank?):
+                    if lhsRank != rhsRank { return lhsRank < rhsRank }
+                case (_?, nil):
+                    return true
+                case (nil, _?):
+                    return false
+                default:
+                    break
+                }
+                return lhs.title.localizedCaseInsensitiveCompare(rhs.title) == .orderedAscending
+            }
+        commandRows = rows
+        visibleCommandRows = visible
+    }
+
+    func commandPreference(for commandID: String) -> CommandPreference {
+        commandPreferences[commandID] ?? CommandPreference()
+    }
+
+    func setCommandEnabled(_ isEnabled: Bool, for commandID: String) {
+        var preference = commandPreference(for: commandID)
+        preference.isEnabled = isEnabled
+        updateCommandPreference(preference, for: commandID)
+    }
+
+    func setCommandFavorite(_ isFavorite: Bool, for commandID: String) {
+        var preference = commandPreference(for: commandID)
+        preference.favoriteRank = isFavorite ? nextFavoriteRank() : nil
+        updateCommandPreference(preference, for: commandID)
+    }
+
+    func setCommandAliases(_ rawAliases: String, for commandID: String) {
+        var preference = commandPreference(for: commandID)
+        preference.aliases = Self.normalizedCommandAliases(rawAliases)
+        updateCommandPreference(preference, for: commandID)
+    }
+
+    func resetCommandPreference(for commandID: String) {
+        updateCommandPreference(CommandPreference(), for: commandID)
+    }
+
+    static func normalizedCommandAliases(_ value: String) -> [String] {
+        var seen = Set<String>()
+        var aliases: [String] = []
+        for component in value.split(separator: ",") {
+            let alias = component.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard alias.isEmpty == false else { continue }
+            guard seen.insert(alias.lowercased()).inserted else { continue }
+            aliases.append(String(alias))
+            if aliases.count == 8 { break }
+        }
+        return aliases
+    }
+
+    private func nextFavoriteRank() -> Int {
+        (commandPreferences.values.compactMap(\.favoriteRank).max() ?? -1) + 1
+    }
+
+    private func updateCommandPreference(_ preference: CommandPreference, for commandID: String) {
+        let previous = commandPreferences[commandID]
+        commandPreferences[commandID] = preference
+        rebuildCommandRows()
+        do {
+            try configService.updateCommandPreference(preference, for: commandID)
+            settingsPersistenceError = nil
+        } catch {
+            if let previous {
+                commandPreferences[commandID] = previous
+            } else {
+                commandPreferences.removeValue(forKey: commandID)
+            }
+            rebuildCommandRows()
+            showSettingsPersistenceError(error)
+        }
     }
 
     func openDashboard() {

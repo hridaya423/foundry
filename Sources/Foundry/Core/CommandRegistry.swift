@@ -10,7 +10,7 @@ struct CommandResult: Identifiable, Hashable, Sendable {
     let secondaryActions: [CommandAction]
 }
 
-struct CommandIcon: Hashable, Sendable {
+struct CommandIcon: Codable, Hashable, Sendable {
     let fallback: String
     let filePath: String?
     let systemName: String?
@@ -91,11 +91,16 @@ final class CommandRegistry: @unchecked Sendable {
     private let providers: [CommandProvider]
     private let usageRanking: UsageRankingStore
     private let diagnostics: DiagnosticsService
+    private let providerHealth: ProviderHealthStore
+    private let configService: ConfigService?
+    private let catalogCache = CommandCatalogCache()
 
-    init(providers: [CommandProvider], usageRanking: UsageRankingStore, diagnostics: DiagnosticsService) {
+    init(providers: [CommandProvider], usageRanking: UsageRankingStore, diagnostics: DiagnosticsService, providerHealth: ProviderHealthStore = ProviderHealthStore(), configService: ConfigService? = nil) {
         self.providers = providers
         self.usageRanking = usageRanking
         self.diagnostics = diagnostics
+        self.providerHealth = providerHealth
+        self.configService = configService
     }
 
     static func defaultRegistry(
@@ -119,20 +124,23 @@ final class CommandRegistry: @unchecked Sendable {
                 BuiltInCommandProvider(config: config, diagnostics: diagnostics)
             ],
             usageRanking: usageRanking,
-            diagnostics: diagnostics
+            diagnostics: diagnostics,
+            configService: config
         )
     }
 
     func results(matching query: String) async -> [CommandResult] {
+        let activeProviders = enabledProviders
         var allResults: [CommandResult] = []
         var timings: [ProviderSearchTiming] = []
 
         await withTaskGroup(of: ProviderSearchResult.self) { group in
-            for provider in providers {
+            for provider in activeProviders {
                 group.addTask {
                     let startedAt = Date().timeIntervalSinceReferenceDate
                     let results = await provider.results(matching: query)
                     let elapsedMilliseconds = (Date().timeIntervalSinceReferenceDate - startedAt) * 1_000
+                    await self.providerHealth.recordRequest(providerID: provider.id, elapsedMilliseconds: elapsedMilliseconds, resultCount: results.count)
                     return ProviderSearchResult(providerID: provider.id, results: results, elapsedMilliseconds: elapsedMilliseconds)
                 }
             }
@@ -149,12 +157,14 @@ final class CommandRegistry: @unchecked Sendable {
 
         guard Task.isCancelled == false else { return [] }
 
-        if let browserProvider = providers.compactMap({ $0 as? BrowserProvider }).first {
+        if let browserProvider = activeProviders.compactMap({ $0 as? BrowserProvider }).first {
             allResults.append(contentsOf: browserProvider.cachedResults(matching: query))
             if allResults.isEmpty {
                 allResults.append(contentsOf: await browserProvider.fallbackResults(matching: query))
             }
         }
+
+        allResults = allResults.filter(isCommandEnabled)
 
         if allResults.isEmpty {
             let prompt = query.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -173,25 +183,22 @@ final class CommandRegistry: @unchecked Sendable {
 
         logSearchTimings(timings)
 
-        return allResults
-            .sorted { lhs, rhs in
-                let lhsScore = usageRanking.adjustedScore(for: lhs)
-                let rhsScore = usageRanking.adjustedScore(for: rhs)
-                if lhsScore == rhsScore {
-                    return lhs.title.localizedCaseInsensitiveCompare(rhs.title) == .orderedAscending
-                }
-                return lhsScore > rhsScore
-            }
+        return ordered(allResults)
             .prefix(12)
             .map { $0 }
     }
 
     func homeResults() async -> [CommandResult] {
+        let activeProviders = enabledProviders
         var allResults: [CommandResult] = []
         await withTaskGroup(of: [CommandResult].self) { group in
-            for provider in providers {
+            for provider in activeProviders {
                 group.addTask {
-                    await provider.defaultResults()
+                    let startedAt = Date().timeIntervalSinceReferenceDate
+                    let results = await provider.defaultResults()
+                    let elapsedMilliseconds = (Date().timeIntervalSinceReferenceDate - startedAt) * 1_000
+                    await self.providerHealth.recordRequest(providerID: provider.id, elapsedMilliseconds: elapsedMilliseconds, resultCount: results.count)
+                    return results
                 }
             }
 
@@ -200,14 +207,7 @@ final class CommandRegistry: @unchecked Sendable {
             }
         }
 
-        let sorted = allResults.sorted { lhs, rhs in
-                let lhsScore = usageRanking.adjustedScore(for: lhs)
-                let rhsScore = usageRanking.adjustedScore(for: rhs)
-                if lhsScore == rhsScore {
-                    return lhs.title.localizedCaseInsensitiveCompare(rhs.title) == .orderedAscending
-                }
-                return lhsScore > rhsScore
-            }
+        let sorted = ordered(allResults.filter(isCommandEnabled))
 
         let apps = sorted.filter { result in
             if case .openApp = result.primaryAction.kind { return true }
@@ -230,6 +230,38 @@ final class CommandRegistry: @unchecked Sendable {
         return resultCount > 0 ? resultLabel : fallback
     }
 
+    func commandDescriptors() async -> [CommandDescriptor] {
+        await commandCatalog().descriptors
+    }
+
+    func commandCatalog(forceRefresh: Bool = false) async -> CommandCatalogSnapshot {
+        await catalogCache.snapshot(forceRefresh: forceRefresh, providers: providers)
+    }
+
+    func providerDescriptors() async -> [CommandProviderDescriptor] {
+        let health = await providerHealth.snapshots(for: providers.map(\.id))
+        return providers.map { provider in
+            let descriptor = provider.descriptor
+            return CommandProviderDescriptor(
+                id: descriptor.id,
+                version: descriptor.version,
+                availability: descriptor.availability,
+                requiredPermissions: descriptor.requiredPermissions,
+                supportedContexts: descriptor.supportedContexts,
+                health: health[descriptor.id]
+            )
+        }
+    }
+
+    func providerHealthSnapshots() async -> [ProviderHealthSnapshot] {
+        let snapshots = await providerHealth.snapshots(for: providers.map(\.id))
+        return providers.compactMap { snapshots[$0.id] }
+    }
+
+    func recordProviderFailure(providerID: String, message: String) async {
+        await providerHealth.recordFailure(providerID: providerID, message: message)
+    }
+
     private func logSearchTimings(_ timings: [ProviderSearchTiming]) {
         guard timings.isEmpty == false else { return }
         let summary = timings
@@ -239,6 +271,40 @@ final class CommandRegistry: @unchecked Sendable {
             }
             .joined(separator: " ")
         diagnostics.log("Search providers: \(summary)")
+    }
+
+    private var enabledProviders: [CommandProvider] {
+        providers.filter { provider in
+            configService?.current.providerEnabled[provider.id] != false
+        }
+    }
+
+    private func isCommandEnabled(_ result: CommandResult) -> Bool {
+        configService?.current.commandPreferences[result.id]?.isEnabled != false
+    }
+
+    private func ordered(_ results: [CommandResult]) -> [CommandResult] {
+        results.sorted { lhs, rhs in
+            let lhsPreference = configService?.current.commandPreferences[lhs.id]
+            let rhsPreference = configService?.current.commandPreferences[rhs.id]
+            switch (lhsPreference?.favoriteRank, rhsPreference?.favoriteRank) {
+            case let (lhsRank?, rhsRank?):
+                if lhsRank != rhsRank { return lhsRank < rhsRank }
+            case (_?, nil):
+                return true
+            case (nil, _?):
+                return false
+            default:
+                break
+            }
+
+            let lhsScore = usageRanking.adjustedScore(for: lhs)
+            let rhsScore = usageRanking.adjustedScore(for: rhs)
+            if lhsScore == rhsScore {
+                return lhs.title.localizedCaseInsensitiveCompare(rhs.title) == .orderedAscending
+            }
+            return lhsScore > rhsScore
+        }
     }
 }
 
@@ -251,4 +317,52 @@ private struct ProviderSearchResult: Sendable {
 private struct ProviderSearchTiming {
     let providerID: String
     let elapsedMilliseconds: Double
+}
+
+private actor CommandCatalogCache {
+    private var cachedSnapshot: CommandCatalogSnapshot?
+    private var inFlight: Task<CommandCatalogSnapshot, Never>?
+    private var nextGeneration = 0
+
+    func snapshot(forceRefresh: Bool, providers: [CommandProvider]) async -> CommandCatalogSnapshot {
+        if forceRefresh == false, let cachedSnapshot {
+            return cachedSnapshot
+        }
+
+        if let inFlight {
+            return await inFlight.value
+        }
+
+        nextGeneration += 1
+        let generation = nextGeneration
+        let task = Task.detached(priority: .userInitiated) {
+            var descriptors: [CommandDescriptor] = []
+            await withTaskGroup(of: [CommandDescriptor].self) { group in
+                for provider in providers {
+                    group.addTask {
+                        let results = await provider.defaultResults()
+                        return results.map { $0.descriptor(providerID: provider.id) }
+                    }
+                }
+
+                for await providerDescriptors in group {
+                    descriptors.append(contentsOf: providerDescriptors)
+                }
+            }
+
+            return CommandCatalogSnapshot(
+                generation: generation,
+                createdAt: Date(),
+                descriptors: descriptors.sorted { lhs, rhs in
+                    lhs.title.localizedCaseInsensitiveCompare(rhs.title) == .orderedAscending
+                },
+                providerFailures: []
+            )
+        }
+        inFlight = task
+        let result = await task.value
+        cachedSnapshot = result
+        inFlight = nil
+        return result
+    }
 }

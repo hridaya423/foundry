@@ -1,22 +1,31 @@
 import Foundation
 
 struct FoundryConfig: Codable, Equatable {
+    static let currentSchemaVersion = 2
+
+    var schemaVersion = FoundryConfig.currentSchemaVersion
     var hotkey: FoundryHotkey = .commandSpace
     var themeIntensity: Double = 0.72
     var showAgentShelf: Bool = true
     var widgets: WidgetBoardConfig = .default
     var ai: AIConfig = .default
+    var commandPreferences: [String: CommandPreference] = [:]
+    var providerEnabled: [String: Bool] = [:]
 
-    init(hotkey: FoundryHotkey = .commandSpace, themeIntensity: Double = 0.72, showAgentShelf: Bool = true, widgets: WidgetBoardConfig = .default, ai: AIConfig = .default) {
+    init(hotkey: FoundryHotkey = .commandSpace, themeIntensity: Double = 0.72, showAgentShelf: Bool = true, widgets: WidgetBoardConfig = .default, ai: AIConfig = .default, commandPreferences: [String: CommandPreference] = [:], providerEnabled: [String: Bool] = [:]) {
+        schemaVersion = Self.currentSchemaVersion
         self.hotkey = hotkey
         self.themeIntensity = themeIntensity
         self.showAgentShelf = showAgentShelf
         self.widgets = widgets
         self.ai = ai
+        self.commandPreferences = commandPreferences
+        self.providerEnabled = providerEnabled
     }
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
+        schemaVersion = max(try container.decodeIfPresent(Int.self, forKey: .schemaVersion) ?? 1, Self.currentSchemaVersion)
         let savedHotkey = try container.decodeIfPresent(FoundryHotkey.self, forKey: .hotkey)
         if let savedHotkey,
            savedHotkey.keyCode == FoundryHotkey.commandSpace.keyCode,
@@ -31,6 +40,8 @@ struct FoundryConfig: Codable, Equatable {
         showAgentShelf = try container.decodeIfPresent(Bool.self, forKey: .showAgentShelf) ?? true
         widgets = try container.decodeIfPresent(WidgetBoardConfig.self, forKey: .widgets) ?? .default
         ai = try container.decodeIfPresent(AIConfig.self, forKey: .ai) ?? .default
+        commandPreferences = try container.decodeIfPresent([String: CommandPreference].self, forKey: .commandPreferences) ?? [:]
+        providerEnabled = try container.decodeIfPresent([String: Bool].self, forKey: .providerEnabled) ?? [:]
     }
 }
 
@@ -118,6 +129,22 @@ final class ConfigService {
         try commit(candidate)
     }
 
+    func updateCommandPreference(_ preference: CommandPreference, for commandID: String) throws {
+        let normalizedID = commandID.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard normalizedID.isEmpty == false else { return }
+        var candidate = current
+        candidate.commandPreferences[normalizedID] = preference
+        try commit(candidate)
+    }
+
+    func updateProviderEnabled(_ isEnabled: Bool, for providerID: String) throws {
+        let normalizedID = providerID.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard normalizedID.isEmpty == false else { return }
+        var candidate = current
+        candidate.providerEnabled[normalizedID] = isEnabled
+        try commit(candidate)
+    }
+
     func save() throws {
         try commit(current)
     }
@@ -137,6 +164,20 @@ final class ConfigService {
 
     private static func load(from url: URL) -> FoundryConfig? {
         guard let data = try? Data(contentsOf: url) else { return nil }
-        return try? JSONDecoder().decode(FoundryConfig.self, from: data)
+        return try? FoundryConfigMigration.migrate(data)
+    }
+}
+
+enum FoundryConfigMigration {
+    static func migrate(_ data: Data) throws -> FoundryConfig {
+        try JSONDecoder().decode(FoundryConfig.self, from: data)
+    }
+
+    static func sourceVersion(in data: Data) -> Int {
+        guard let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let version = object["schemaVersion"] as? Int else {
+            return 1
+        }
+        return version
     }
 }

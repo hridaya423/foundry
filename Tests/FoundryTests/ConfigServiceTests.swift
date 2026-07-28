@@ -39,6 +39,38 @@ final class ConfigServiceTests: XCTestCase {
         XCTAssertFalse(loaded.current.showAgentShelf)
         XCTAssertEqual(loaded.current.widgets, widgets)
         XCTAssertEqual(loaded.current.ai, ai)
+        XCTAssertEqual(loaded.current.schemaVersion, FoundryConfig.currentSchemaVersion)
+    }
+
+    func testLegacyConfigMigratesToCurrentSchemaWithoutDroppingExistingFields() throws {
+        let data = Data(#"{"hotkey":{"keyCode":0,"modifiers":256,"displayName":"⌘A"},"themeIntensity":0.4,"showAgentShelf":false}"#.utf8)
+
+        let config = try FoundryConfigMigration.migrate(data)
+
+        XCTAssertEqual(FoundryConfigMigration.sourceVersion(in: data), 1)
+        XCTAssertEqual(config.schemaVersion, FoundryConfig.currentSchemaVersion)
+        XCTAssertEqual(config.themeIntensity, 0.4)
+        XCTAssertFalse(config.showAgentShelf)
+        XCTAssertTrue(config.commandPreferences.isEmpty)
+        XCTAssertTrue(config.providerEnabled.isEmpty)
+    }
+
+    func testCommandPreferencesRoundTripAndRejectBlankIDs() throws {
+        let url = temporaryDirectory.appendingPathComponent("config.json")
+        let service = ConfigService(diagnostics: DiagnosticsService(), url: url)
+        var preference = CommandPreference()
+        preference.isEnabled = false
+        preference.favoriteRank = 2
+        preference.aliases = ["browser"]
+
+        try service.updateCommandPreference(preference, for: " foundry.dashboard ")
+        try service.updateProviderEnabled(false, for: "foundry.builtin")
+        try service.updateCommandPreference(preference, for: "   ")
+
+        let loaded = ConfigService(diagnostics: DiagnosticsService(), url: url)
+        XCTAssertEqual(loaded.current.commandPreferences["foundry.dashboard"], preference)
+        XCTAssertEqual(loaded.current.providerEnabled["foundry.builtin"], false)
+        XCTAssertEqual(loaded.current.commandPreferences.count, 1)
     }
 
     func testPartialAIConfigUsesDefaults() throws {
@@ -68,6 +100,14 @@ final class ConfigServiceTests: XCTestCase {
         XCTAssertNil(CommandPanelState.validatedOllamaHost("localhost:11434"))
         XCTAssertNil(CommandPanelState.validatedOllamaHost("file:///tmp/ollama"))
         XCTAssertNil(CommandPanelState.validatedOllamaHost("http:///missing-host"))
+    }
+
+    @MainActor
+    func testCommandAliasesNormalizeWhitespaceDuplicatesAndCount() {
+        XCTAssertEqual(
+            CommandPanelState.normalizedCommandAliases(" browser, Browser, tabs , , history "),
+            ["browser", "tabs", "history"]
+        )
     }
 
     func testBuiltInProviderExposesDashboardCommand() async {

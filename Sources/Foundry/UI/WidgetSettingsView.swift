@@ -23,6 +23,9 @@ struct WidgetSettingsView: View {
             ForEach(SettingsCategory.allCases) { item in
                 Button {
                     category = item
+                    if item == .commands {
+                        state.prepareCommandCatalog()
+                    }
                 } label: {
                     HStack(spacing: 9) {
                         Image(systemName: item.symbol)
@@ -66,6 +69,8 @@ struct WidgetSettingsView: View {
                     switch category {
                     case .general:
                         generalContent
+                    case .commands:
+                        commandsContent
                     case .appearance:
                         appearanceContent
                     case .ai:
@@ -133,6 +138,74 @@ struct WidgetSettingsView: View {
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 11)
+        }
+    }
+
+    private var commandsContent: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            SettingsSectionLabel(
+                title: "Commands",
+                value: state.commandCatalogCount == 0 ? nil : "\(state.visibleCommandRows.count)/\(state.commandCatalogCount)"
+            )
+
+            SettingsGroup {
+                HStack(spacing: 9) {
+                    Image(systemName: "magnifyingglass")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(FoundryTheme.mutedText)
+                    TextField("Search commands", text: $state.commandSettingsQuery)
+                        .textFieldStyle(.plain)
+                        .font(FoundryTheme.body(size: 13, weight: .medium))
+                        .foregroundStyle(FoundryTheme.primaryText)
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 10)
+            }
+
+            if state.isCommandCatalogLoading && state.commandCatalogCount == 0 {
+                HStack(spacing: 8) {
+                    ProgressView()
+                        .controlSize(.small)
+                    Text("Preparing command catalog…")
+                        .font(FoundryTheme.body(size: 12, weight: .regular))
+                        .foregroundStyle(FoundryTheme.mutedText)
+                }
+                .padding(.horizontal, 2)
+                .padding(.vertical, 5)
+            } else if state.isCommandCatalogReady && state.commandCatalogCount == 0 {
+                Text("No commands are available.")
+                    .font(FoundryTheme.body(size: 12, weight: .regular))
+                    .foregroundStyle(FoundryTheme.mutedText)
+                    .padding(.horizontal, 2)
+                    .padding(.vertical, 5)
+            } else if state.visibleCommandRows.isEmpty {
+                Text("No commands match this search.")
+                    .font(FoundryTheme.body(size: 12, weight: .regular))
+                    .foregroundStyle(FoundryTheme.mutedText)
+                    .padding(.horizontal, 2)
+                    .padding(.vertical, 5)
+            } else {
+                SettingsGroup {
+                    LazyVStack(spacing: 0) {
+                        ForEach(state.visibleCommandRows) { row in
+                            CommandSettingsRow(
+                                row: row,
+                                isExpanded: state.expandedCommandID == row.id,
+                                setEnabled: { state.setCommandEnabled($0, for: row.id) },
+                                setFavorite: { state.setCommandFavorite($0, for: row.id) },
+                                commitAliases: { state.setCommandAliases($0, for: row.id) },
+                                reset: { state.resetCommandPreference(for: row.id) },
+                                toggleExpanded: { state.toggleCommandExpansion(row.id) }
+                            )
+                            .overlay(alignment: .bottom) {
+                                if row.id != state.visibleCommandRows.last?.id {
+                                    SettingsDivider()
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 
@@ -260,6 +333,7 @@ struct WidgetSettingsView: View {
 
 private enum SettingsCategory: String, CaseIterable, Identifiable {
     case general
+    case commands
     case appearance
     case ai
     case widgets
@@ -269,6 +343,7 @@ private enum SettingsCategory: String, CaseIterable, Identifiable {
     var title: String {
         switch self {
         case .general: "General"
+        case .commands: "Commands"
         case .appearance: "Appearance"
         case .ai: "AI"
         case .widgets: "Widgets"
@@ -278,6 +353,7 @@ private enum SettingsCategory: String, CaseIterable, Identifiable {
     var symbol: String {
         switch self {
         case .general: "gearshape"
+        case .commands: "command"
         case .appearance: "circle.lefthalf.filled"
         case .ai: "sparkles"
         case .widgets: "rectangle.3.group"
@@ -652,5 +728,147 @@ private struct ConfigFieldRow: View {
         .padding(.horizontal, 12)
         .padding(.vertical, 11)
         .onAppear { text = initialValue }
+    }
+}
+
+private struct CommandSettingsRow: View {
+    let row: CommandSettingsRowModel
+    let isExpanded: Bool
+    let setEnabled: (Bool) -> Void
+    let setFavorite: (Bool) -> Void
+    let commitAliases: (String) -> Void
+    let reset: () -> Void
+    let toggleExpanded: () -> Void
+
+    @State private var aliasesText: String
+
+    init(
+        row: CommandSettingsRowModel,
+        isExpanded: Bool,
+        setEnabled: @escaping (Bool) -> Void,
+        setFavorite: @escaping (Bool) -> Void,
+        commitAliases: @escaping (String) -> Void,
+        reset: @escaping () -> Void,
+        toggleExpanded: @escaping () -> Void
+    ) {
+        self.row = row
+        self.isExpanded = isExpanded
+        self.setEnabled = setEnabled
+        self.setFavorite = setFavorite
+        self.commitAliases = commitAliases
+        self.reset = reset
+        self.toggleExpanded = toggleExpanded
+        _aliasesText = State(initialValue: row.preference.aliases.joined(separator: ", "))
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 7) {
+            HStack(spacing: 9) {
+                CommandSettingsIcon(icon: row.icon)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(row.title)
+                        .font(FoundryTheme.body(size: 14, weight: .semibold))
+                        .foregroundStyle(row.preference.isEnabled ? FoundryTheme.primaryText : FoundryTheme.mutedText)
+                        .lineLimit(1)
+                    Text(row.subtitle)
+                        .font(FoundryTheme.body(size: 11, weight: .regular))
+                        .foregroundStyle(FoundryTheme.mutedText)
+                        .lineLimit(1)
+                }
+
+                Spacer()
+
+                Button {
+                    setFavorite(row.preference.favoriteRank == nil)
+                } label: {
+                    Image(systemName: row.preference.favoriteRank == nil ? "star" : "star.fill")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(row.preference.favoriteRank == nil ? FoundryTheme.mutedText : FoundryTheme.accent)
+                        .frame(width: 26, height: 26)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(row.preference.favoriteRank == nil ? "Favorite \(row.title)" : "Remove \(row.title) from favorites")
+
+                Toggle("", isOn: Binding(get: { row.preference.isEnabled }, set: { value in setEnabled(value) }))
+                    .labelsHidden()
+                    .toggleStyle(.switch)
+                    .scaleEffect(0.82)
+                    .accessibilityLabel("Enable \(row.title)")
+
+                Button {
+                    if isExpanded {
+                        commitAliases(aliasesText)
+                    }
+                    toggleExpanded()
+                } label: {
+                    Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(FoundryTheme.mutedText)
+                        .frame(width: 26, height: 26)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(isExpanded ? "Hide settings for \(row.title)" : "Show settings for \(row.title)")
+            }
+
+            if isExpanded {
+                HStack(spacing: 8) {
+                    Text("Aliases")
+                        .font(FoundryTheme.body(size: 11, weight: .medium))
+                        .foregroundStyle(FoundryTheme.mutedText)
+                        .frame(width: 48, alignment: .leading)
+                    TextField("comma separated", text: $aliasesText)
+                        .textFieldStyle(.plain)
+                        .font(FoundryTheme.body(size: 12, weight: .regular))
+                        .foregroundStyle(FoundryTheme.secondaryText)
+                        .onSubmit { commitAliases(aliasesText) }
+                    Spacer()
+                    if row.preference.aliases.isEmpty == false || row.preference.favoriteRank != nil || row.preference.isEnabled == false {
+                        Button("Reset") { reset() }
+                            .buttonStyle(.plain)
+                            .font(FoundryTheme.body(size: 11, weight: .medium))
+                            .foregroundStyle(FoundryTheme.mutedText)
+                    }
+                }
+            }
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 7)
+        .onChange(of: row.preference.aliases) { _, newValue in
+            aliasesText = newValue.joined(separator: ", ")
+        }
+        .onChange(of: isExpanded) { wasExpanded, nowExpanded in
+            if wasExpanded && !nowExpanded {
+                commitAliases(aliasesText)
+            }
+        }
+    }
+}
+
+private struct CommandSettingsIcon: View {
+    let icon: CommandIcon
+    @State private var appImage: NSImage?
+
+    var body: some View {
+        Group {
+            if let appImage {
+                Image(nsImage: appImage)
+                    .resizable()
+                    .scaledToFit()
+            } else if let systemName = icon.systemName {
+                Image(systemName: systemName)
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(FoundryTheme.secondaryText)
+            } else {
+                Text(icon.fallback)
+                    .font(FoundryTheme.body(size: 10, weight: .bold))
+                    .foregroundStyle(FoundryTheme.secondaryText)
+            }
+        }
+        .frame(width: 28, height: 28)
+        .task(id: icon.filePath) {
+            guard let filePath = icon.filePath else { return }
+            appImage = await CommandIconRepository.shared.image(for: filePath)
+        }
     }
 }

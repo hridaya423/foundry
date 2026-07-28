@@ -16,7 +16,7 @@ final class AppSearchProvider: CommandProvider, @unchecked Sendable {
         let normalizedQuery = SearchScoring.normalize(query)
         guard normalizedQuery.isEmpty == false else { return [] }
 
-        return appCache.current().compactMap { app -> CommandResult? in
+        return await appCache.current().compactMap { app -> CommandResult? in
             guard Task.isCancelled == false else { return nil }
             guard let score = SearchScoring.score(normalizedQuery: normalizedQuery, candidates: app.normalizedSearchCandidates) else { return nil }
 
@@ -29,7 +29,7 @@ final class AppSearchProvider: CommandProvider, @unchecked Sendable {
     }
 
     func defaultResults() async -> [CommandResult] {
-        appCache.current().map { app in Self.result(for: app, score: 10) }
+        await appCache.current().map { app in Self.result(for: app, score: 10) }
     }
 
     private static func result(for app: InstalledApp, score: Double) -> CommandResult {
@@ -95,6 +95,7 @@ private final class InstalledAppCache: @unchecked Sendable {
     private var apps: [InstalledApp] = []
     private var rootSignature: [Date?] = []
     private var nextRefresh = Date.distantPast
+    private var refreshTask: Task<[InstalledApp], Never>?
     private let refreshInterval: TimeInterval = 2
 
     init(roots: [URL], diagnostics: DiagnosticsService) {
@@ -102,24 +103,52 @@ private final class InstalledAppCache: @unchecked Sendable {
         self.diagnostics = diagnostics
     }
 
-    func current() -> [InstalledApp] {
-        lock.lock()
-        defer { lock.unlock() }
-
+    func current() async -> [InstalledApp] {
         let signature = roots.map { root in
             try? root.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate
         }
         let now = Date()
-        guard apps.isEmpty || now >= nextRefresh || signature != rootSignature else { return apps }
 
-        apps = AppSearchProvider.loadApps(roots: roots, diagnostics: diagnostics)
-        rootSignature = signature
-        nextRefresh = now.addingTimeInterval(refreshInterval)
-        return apps
+        if let cached = withLock({ () -> [InstalledApp]? in
+            guard now < nextRefresh, signature == rootSignature else { return nil }
+            return apps
+        }) {
+            return cached
+        }
+
+        if let refreshTask = withLock({ refreshTask }) {
+            return await refreshTask.value
+        }
+
+        let roots = roots
+        let diagnostics = diagnostics
+        let task = Task.detached(priority: .userInitiated) {
+            AppSearchProvider.loadApps(roots: roots, diagnostics: diagnostics)
+        }
+        withLock { refreshTask = task }
+
+        let discovered = await task.value
+        return withLock {
+            apps = discovered
+            rootSignature = signature
+            nextRefresh = Date().addingTimeInterval(refreshInterval)
+            refreshTask = nil
+            return apps
+        }
+    }
+
+    func invalidate() {
+        withLock { nextRefresh = .distantPast }
+    }
+
+    private func withLock<T>(_ body: () -> T) -> T {
+        lock.lock()
+        defer { lock.unlock() }
+        return body()
     }
 }
 
-private struct InstalledApp {
+private struct InstalledApp: Sendable {
     let name: String
     let bundleIdentifier: String
     let path: URL
