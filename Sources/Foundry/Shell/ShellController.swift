@@ -44,6 +44,7 @@ final class ShellController {
     }
 
     func stop() {
+        panelState.shutdown()
         hotkeyController.unregister()
     }
 

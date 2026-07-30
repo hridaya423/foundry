@@ -177,13 +177,19 @@ enum WidgetKind: String, Codable, CaseIterable, Sendable, Identifiable {
 }
 
 struct WidgetBoardConfig: Codable, Equatable {
-    static let maxEnabled = 8
+    static let maxEnabled = 4
 
     var enabled: [WidgetKind]
     var weatherCity: String
     var stockSymbol: String
 
     static let `default` = WidgetBoardConfig(
+        enabled: [.agents, .calendar, .system, .battery],
+        weatherCity: "",
+        stockSymbol: ""
+    )
+
+    static let legacyExpandedDefault = WidgetBoardConfig(
         enabled: [.agents, .calendar, .system, .battery, .date, .disk, .uptime, .clock],
         weatherCity: "",
         stockSymbol: ""
@@ -202,7 +208,8 @@ struct WidgetBoardConfig: Codable, Equatable {
     )
 
     var available: [WidgetKind] {
-        WidgetKind.allCases.filter { kind in
+        guard enabled.count < Self.maxEnabled else { return [] }
+        return WidgetKind.allCases.filter { kind in
             enabled.contains(kind) == false && enabled.contains { $0.conflicts.contains(kind) } == false
         } 
     }

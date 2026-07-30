@@ -27,7 +27,7 @@ final class WidgetBoardState: ObservableObject {
         self.configService = configService
         let saved = configService.current.widgets
         var normalized = saved
-        if saved == .legacyDefault || saved == .legacyDemo || (saved.weatherCity == "San Francisco" && saved.stockSymbol == "AAPL") {
+        if saved == .legacyDefault || saved == .legacyExpandedDefault || saved == .legacyDemo || (saved.weatherCity == "San Francisco" && saved.stockSymbol == "AAPL") {
             normalized = .default
         } else {
             if normalized.weatherCity == "San Francisco" { normalized.weatherCity = "" }
@@ -36,9 +36,6 @@ final class WidgetBoardState: ObservableObject {
         normalized.enabled = Self.normalizedWidgets(from: normalized.enabled.filter { WidgetKind.allCases.contains($0) })
         if configService.current.showAgentShelf == false {
             normalized.enabled.removeAll { $0 == .agents }
-        }
-        for kind in WidgetBoardConfig.default.enabled where (kind != .agents || configService.current.showAgentShelf) && normalized.enabled.count < WidgetBoardConfig.maxEnabled && normalized.enabled.contains(kind) == false {
-            normalized.enabled = Self.normalizedWidgets(from: normalized.enabled + [kind])
         }
         normalized.enabled = Array(normalized.enabled.prefix(WidgetBoardConfig.maxEnabled))
         self.config = normalized
@@ -110,7 +107,7 @@ final class WidgetBoardState: ObservableObject {
     }
 
     func add(_ kind: WidgetKind) {
-        guard config.enabled.contains(kind) == false else { return }
+        guard config.enabled.count < WidgetBoardConfig.maxEnabled, config.enabled.contains(kind) == false else { return }
         let normalized = Self.normalizedWidgets(from: config.enabled + [kind])
         guard normalized != config.enabled else { return }
         var next = config

@@ -3,6 +3,13 @@ import Darwin
 import Foundation
 import ServiceManagement
 
+if let bridgeIndex = CommandLine.arguments.firstIndex(of: "--agent-bridge"),
+   bridgeIndex + 1 < CommandLine.arguments.count,
+   let provider = AgentBridgeProvider(rawValue: CommandLine.arguments[bridgeIndex + 1]) {
+    AgentHookBridge.run(provider: provider)
+    exit(EXIT_SUCCESS)
+}
+
 if CommandLine.arguments.contains("--firefox-native-host") {
     FirefoxNativeHost.run()
     exit(EXIT_SUCCESS)

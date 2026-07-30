@@ -4,16 +4,30 @@ import Foundation
 @MainActor
 final class AgentMonitorState: ObservableObject {
     @Published private(set) var sessions: [AgentSessionCard] = []
+    @Published private(set) var socketListening = false
+    @Published private(set) var integrationStatuses: [AgentBridgeProvider: AgentIntegrationStatus] = [:]
+    @Published private(set) var integrationError: String?
 
+    private let sessionStore = AgentSessionStore()
+    private let titleService = AgentTitleService()
+    private let socketServer = AgentEventSocketServer()
+    private let integrationInstaller: AgentIntegrationInstaller
     private var timer: Timer?
     private var refreshTask: Task<Void, Never>?
+    private var socketStarted = false
+
+    init(integrationInstaller: AgentIntegrationInstaller = AgentIntegrationInstaller()) {
+        self.integrationInstaller = integrationInstaller
+        refreshIntegrationStatuses()
+    }
 
     var visibleSessions: [AgentSessionCard] {
         Array(sessions.prefix(4))
     }
 
     var hiddenCount: Int {
-        max(0, sessions.count - visibleSessions.count)
+        let active = sessions.filter { $0.status.isActive }
+        return max(0, active.count - min(active.count, 1))
     }
 
     var needsInputCount: Int {
@@ -36,6 +50,13 @@ final class AgentMonitorState: ObservableObject {
 
     func start() {
         refresh()
+        if socketStarted == false {
+            socketStarted = socketServer.start { [weak self] envelope in
+                guard let self else { return .rejected(error: "Agent monitor is unavailable") }
+                return await self.ingest(envelope)
+            }
+            socketListening = socketStarted
+        }
         guard timer == nil else { return }
         timer = Timer.scheduledTimer(withTimeInterval: 3, repeats: true) { [weak self] _ in
             Task { @MainActor in self?.refresh() }
@@ -47,6 +68,29 @@ final class AgentMonitorState: ObservableObject {
         timer = nil
         refreshTask?.cancel()
         refreshTask = nil
+        socketServer.stop()
+        socketStarted = false
+        socketListening = false
+    }
+
+    func integrationStatus(for provider: AgentBridgeProvider) -> AgentIntegrationStatus {
+        integrationStatuses[provider] ?? integrationInstaller.status(for: provider)
+    }
+
+    func refreshIntegrationStatuses() {
+        integrationStatuses = Dictionary(uniqueKeysWithValues: AgentBridgeProvider.allCases.map { provider in
+            (provider, integrationInstaller.status(for: provider))
+        })
+    }
+
+    func installIntegration(for provider: AgentBridgeProvider) {
+        integrationError = nil
+        do {
+            try integrationInstaller.install(provider)
+            refreshIntegrationStatuses()
+        } catch {
+            integrationError = error.localizedDescription
+        }
     }
 
     func refresh() {
@@ -56,13 +100,36 @@ final class AgentMonitorState: ObservableObject {
                 AgentMonitorService.collect()
             }.value
             guard Task.isCancelled == false else { return }
-            self?.sessions = found
+            let merged = await self?.sessionStore.reconcileObserved(found)
+            self?.sessions = merged ?? []
+            self?.requestMissingTitles(for: merged ?? [])
         }
+    }
+
+    private func requestMissingTitles(for cards: [AgentSessionCard]) {
+        for card in cards where card.needsTitleGeneration {
+            Task { [weak self] in
+                guard let self else { return }
+                guard let title = await self.titleService.title(for: card.id, prompt: card.title) else { return }
+                guard let index = self.sessions.firstIndex(where: { $0.id == card.id }) else { return }
+                self.sessions[index].title = title
+            }
+        }
+    }
+
+    private func ingest(_ envelope: AgentEventEnvelope) async -> AgentEventAck {
+        let update = await sessionStore.apply(envelope)
+        sessions = update.cards
+        guard update.accepted else {
+            return .rejected(requestID: envelope.requestID, error: update.error ?? "Agent event rejected")
+        }
+        return .accepted(requestID: envelope.requestID)
     }
 
     func open(_ session: AgentSessionCard) {
         switch session.openTarget {
         case let .application(name, path, argument):
+            guard session.capabilities.contains(.jumpApplication) else { return }
             if let path {
                 let configuration = NSWorkspace.OpenConfiguration()
                 if let argument { configuration.arguments = [argument] }
@@ -75,8 +142,15 @@ final class AgentMonitorState: ObservableObject {
                 NSWorkspace.shared.open(URL(fileURLWithPath: "/Applications/\(name).app"))
             }
         case let .terminal(command, cwd):
+            guard session.capabilities.contains(.jumpTerminal) else {
+                NSWorkspace.shared.open(URL(fileURLWithPath: "/System/Applications/Utilities/Terminal.app"))
+                return
+            }
             let fullCommand = [cwd.map { "cd \($0.shellQuoted)" }, command].compactMap { $0 }.joined(separator: " && ")
             runAppleScript("tell application \"Terminal\" to do script \(fullCommand.appleScriptQuoted)\ntell application \"Terminal\" to activate")
+        case let .deepLink(url):
+            guard session.capabilities.contains(.jumpTask) else { return }
+            NSWorkspace.shared.open(url)
         }
     }
 
@@ -91,17 +165,68 @@ final class AgentMonitorState: ObservableObject {
 struct AgentSessionCard: Identifiable, Hashable, Sendable {
     let id: String
     let provider: AgentProviderKind
-    let title: String
-    let subtitle: String
-    let project: String?
-    let model: String?
-    let status: AgentSessionStatus
-    let startedAt: Date?
-    let updatedAt: Date?
-    let openTarget: AgentOpenTarget
+    var title: String
+    var subtitle: String
+    var project: String?
+    var workingDirectory: String?
+    var model: String?
+    var status: AgentSessionStatus
+    var startedAt: Date?
+    var updatedAt: Date?
+    var openTarget: AgentOpenTarget
+    var key: AgentSessionKey?
+    var origin: AgentSessionOrigin
+    var capabilities: AgentSessionCapabilities
+    var parentSessionID: String?
+    var attentionReason: AgentAttentionReason?
+    var terminalLocator: AgentTerminalLocator?
+    var needsTitleGeneration: Bool
+    var isGeneratedTitle: Bool
+
+    init(
+        id: String,
+        provider: AgentProviderKind,
+        title: String,
+        subtitle: String,
+        project: String?,
+        workingDirectory: String? = nil,
+        model: String?,
+        status: AgentSessionStatus,
+        startedAt: Date?,
+        updatedAt: Date?,
+        openTarget: AgentOpenTarget,
+        key: AgentSessionKey? = nil,
+        origin: AgentSessionOrigin = .processFallback,
+        capabilities: AgentSessionCapabilities = [.observe],
+        parentSessionID: String? = nil,
+        attentionReason: AgentAttentionReason? = nil,
+        terminalLocator: AgentTerminalLocator? = nil,
+        needsTitleGeneration: Bool = false,
+        isGeneratedTitle: Bool = false
+    ) {
+        self.id = id
+        self.provider = provider
+        self.title = title
+        self.subtitle = subtitle
+        self.project = project
+        self.workingDirectory = workingDirectory
+        self.model = model
+        self.status = status
+        self.startedAt = startedAt
+        self.updatedAt = updatedAt
+        self.openTarget = openTarget
+        self.key = key
+        self.origin = origin
+        self.capabilities = capabilities
+        self.parentSessionID = parentSessionID
+        self.attentionReason = attentionReason
+        self.terminalLocator = terminalLocator
+        self.needsTitleGeneration = needsTitleGeneration
+        self.isGeneratedTitle = isGeneratedTitle
+    }
 }
 
-enum AgentProviderKind: String, Hashable, Sendable {
+enum AgentProviderKind: String, Codable, Hashable, Sendable {
     case opencode = "OpenCode"
     case claude = "Claude"
     case cursor = "Cursor"
@@ -116,43 +241,27 @@ enum AgentProviderKind: String, Hashable, Sendable {
     case devin = "Devin"
     case factory = "Factory"
 
-    var logoURL: URL? {
+    var symbol: String {
         switch self {
-        case .opencode:
-            favicon("opencode.ai")
-        case .claude:
-            favicon("claude.ai")
-        case .cursor:
-            favicon("cursor.com")
-        case .codex:
-            favicon("openai.com")
-        case .gemini:
-            favicon("gemini.google.com")
-        case .aider:
-            favicon("aider.chat")
-        case .goose:
-            favicon("block.github.io")
-        case .amp:
-            favicon("ampcode.com")
-        case .qwen:
-            favicon("chat.qwen.ai")
-        case .t3code:
-            favicon("t3.codes")
-        case .synara:
-            favicon("trysynara.com")
-        case .devin:
-            favicon("devin.ai")
-        case .factory:
-            favicon("factory.ai")
+        case .opencode: "chevron.left.forwardslash.chevron.right"
+        case .claude: "bubble.left.and.bubble.right"
+        case .cursor: "cursorarrow.rays"
+        case .codex: "sparkles"
+        case .gemini: "diamond"
+        case .aider: "hammer"
+        case .goose: "bird"
+        case .amp: "bolt"
+        case .qwen: "q.circle"
+        case .t3code: "t.square"
+        case .synara: "waveform"
+        case .devin: "person.crop.circle"
+        case .factory: "building.2"
         }
     }
 
-    private func favicon(_ domain: String) -> URL? {
-        URL(string: "https://www.google.com/s2/favicons?domain=\(domain)&sz=64")
-    }
 }
 
-enum AgentSessionStatus: String, Hashable, Sendable {
+enum AgentSessionStatus: String, Codable, Hashable, Sendable {
     case working = "Working"
     case needsInput = "Needs input"
     case reviewReady = "Review ready"
@@ -187,6 +296,7 @@ enum AgentSessionStatus: String, Hashable, Sendable {
 enum AgentOpenTarget: Hashable, Sendable {
     case application(name: String, path: String? = nil, argument: String? = nil)
     case terminal(command: String, cwd: String? = nil)
+    case deepLink(URL)
 }
 
 private extension String {

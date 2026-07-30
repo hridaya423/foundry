@@ -436,9 +436,12 @@ private struct AgentWidget: View {
     @ViewBuilder
     private var compactContent: some View {
         if let session = agents.visibleSessions.first {
-            AgentWidgetRow(session: session, compact: true) {
-                agents.open(session)
-                onOpen?()
+            AgentWidgetRow(session: session, compact: true, additionalCount: agents.hiddenCount) {
+                if let onOpen {
+                    onOpen()
+                } else {
+                    agents.open(session)
+                }
             }
         }
     }
@@ -471,6 +474,7 @@ private struct AgentWidget: View {
 private struct AgentWidgetRow: View {
     let session: AgentSessionCard
     var compact = false
+    var additionalCount = 0
     let open: () -> Void
 
     @State private var isHovering = false
@@ -495,10 +499,20 @@ private struct AgentWidgetRow: View {
 
                 Spacer(minLength: 0)
 
+                if additionalCount > 0 {
+                    Text("+\(additionalCount)")
+                        .font(FoundryTheme.body(size: 10, weight: .bold))
+                        .foregroundStyle(FoundryTheme.secondaryText)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 3)
+                        .background(Color.white.opacity(0.08))
+                        .clipShape(Capsule())
+                }
+
                 Image(systemName: "arrow.up.right")
                     .font(.system(size: 9, weight: .bold))
                     .foregroundStyle(FoundryTheme.mutedText)
-                    .opacity(isHovering ? 0.9 : 0)
+                    .opacity(isHovering ? 0.9 : 0.35)
             }
             .padding(.horizontal, compact ? 0 : 2)
             .frame(height: compact ? 38 : 34)
@@ -509,14 +523,29 @@ private struct AgentWidgetRow: View {
     }
 
     private var statusLabel: String {
+        let label: String
         switch session.status {
-        case .needsInput: "Needs you"
-        case .reviewReady: "Review"
-        case .completed: "Done"
-        case .idle, .recent: "Recent"
-        default: session.status.rawValue
+        case .needsInput:
+            if session.capabilities.contains(.approve) || session.capabilities.contains(.questions) {
+                label = "Needs you"
+            } else {
+                label = "Needs you in \(session.provider.rawValue)"
+            }
+        case .reviewReady:
+            label = session.capabilities.contains(.reply) ? "Review" : "Review in \(session.provider.rawValue)"
+        case .completed: label = "Done"
+        case .idle, .recent: label = "Recent"
+        default: label = session.status.rawValue
         }
+        guard let updatedAt = session.updatedAt else { return label }
+        return "\(label) · \(Self.relativeFormatter.localizedString(for: updatedAt, relativeTo: Date()))"
     }
+
+    private static let relativeFormatter: RelativeDateTimeFormatter = {
+        let formatter = RelativeDateTimeFormatter()
+        formatter.unitsStyle = .abbreviated
+        return formatter
+    }()
 
     private var statusColor: Color {
         switch session.status {
@@ -536,31 +565,10 @@ private struct AgentProviderBadge: View {
     let compact: Bool
 
     var body: some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: compact ? 7 : 8, style: .continuous)
-                .fill(Color.white.opacity(0.055))
-
-            if let logoURL = provider.logoURL {
-                AsyncImage(url: logoURL) { phase in
-                    if let image = phase.image {
-                        image
-                            .resizable()
-                            .scaledToFit()
-                            .padding(compact ? 5 : 6)
-                    } else {
-                        Image(systemName: "sparkles")
-                            .font(.system(size: compact ? 12 : 13, weight: .semibold))
-                            .foregroundStyle(FoundryTheme.secondaryText)
-                    }
-                }
-            } else {
-                Image(systemName: "sparkles")
-                    .font(.system(size: compact ? 12 : 13, weight: .semibold))
-                    .foregroundStyle(FoundryTheme.secondaryText)
-            }
-        }
-        .frame(width: compact ? 24 : 27, height: compact ? 24 : 27)
-        .clipShape(RoundedRectangle(cornerRadius: compact ? 7 : 8, style: .continuous))
+        AgentProviderIcon(provider: provider, size: compact ? 24 : 27)
+            .frame(width: compact ? 24 : 27, height: compact ? 24 : 27)
+            .background(Color.white.opacity(0.055))
+            .clipShape(RoundedRectangle(cornerRadius: compact ? 7 : 8, style: .continuous))
     }
 }
 

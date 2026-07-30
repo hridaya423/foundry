@@ -131,6 +131,47 @@ final class ConfigServiceTests: XCTestCase {
         let board = WidgetBoardState(configService: service)
 
         XCTAssertTrue(board.config.enabled.contains(.agents))
-        XCTAssertTrue(board.config.available.contains(.weather))
+        XCTAssertEqual(board.config.enabled.count, WidgetBoardConfig.maxEnabled)
+        XCTAssertTrue(board.config.available.isEmpty)
+    }
+
+    @MainActor
+    func testWidgetBoardDoesNotBackfillRemovedWidgetsAfterRebuild() {
+        let service = ConfigService(
+            diagnostics: DiagnosticsService(),
+            url: temporaryDirectory.appendingPathComponent("config.json")
+        )
+        let board = WidgetBoardState(configService: service)
+        board.remove(.calendar)
+
+        let rebuilt = WidgetBoardState(configService: service)
+
+        XCTAssertEqual(rebuilt.config.enabled, [.agents, .system, .battery])
+        XCTAssertTrue(rebuilt.config.available.contains(.calendar))
+    }
+
+    @MainActor
+    func testWidgetBoardMigratesExpandedDefaultToFourWidgets() throws {
+        let url = temporaryDirectory.appendingPathComponent("config.json")
+        let service = ConfigService(diagnostics: DiagnosticsService(), url: url)
+        try service.updateWidgets(.legacyExpandedDefault)
+
+        let board = WidgetBoardState(configService: service)
+
+        XCTAssertEqual(board.config.enabled, WidgetBoardConfig.default.enabled)
+        XCTAssertEqual(board.config.enabled.count, 4)
+    }
+
+    @MainActor
+    func testWidgetBoardRejectsASecondAddAtTheFourWidgetLimit() {
+        let service = ConfigService(
+            diagnostics: DiagnosticsService(),
+            url: temporaryDirectory.appendingPathComponent("config.json")
+        )
+        let board = WidgetBoardState(configService: service)
+
+        board.add(.weather)
+
+        XCTAssertEqual(board.config.enabled, WidgetBoardConfig.default.enabled)
     }
 }

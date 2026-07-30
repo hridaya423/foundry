@@ -16,6 +16,7 @@ final class CommandPanelState: ObservableObject {
         case camera
         case translator
         case developerTools
+        case agents
         case settings
         case dashboard
     }
@@ -310,7 +311,6 @@ final class CommandPanelState: ObservableObject {
 
     func panelWillClose() {
         widgetBoard.stop()
-        agents.stop()
         activityMonitor.stop()
         emojiPicker.reset()
         clipboardHistory.reset()
@@ -319,6 +319,14 @@ final class CommandPanelState: ObservableObject {
         camera.stop()
         translator.reset()
         developerTools.reset()
+    }
+
+    func shutdown() {
+        statusTimer?.invalidate()
+        statusTimer = nil
+        commandCatalogTask?.cancel()
+        commandCatalogTask = nil
+        agents.stop()
     }
 
     func openSettings() {
@@ -461,6 +469,19 @@ final class CommandPanelState: ObservableObject {
         results = []
         selectedResultID = nil
         diagnosticsSummary = "dashboard"
+    }
+
+    func openAgents() {
+        withAnimation(.easeOut(duration: 0.14)) {
+            mode = .agents
+        }
+        agents.start()
+        isShowingActions = false
+        selectedActionID = nil
+        searchTask?.cancel()
+        results = []
+        selectedResultID = nil
+        diagnosticsSummary = "agents"
     }
 
     func handleEscape() -> Bool {
@@ -628,7 +649,7 @@ final class CommandPanelState: ObservableObject {
             snippets.query += text
         case .translator:
             translator.sourceText += text
-        case .camera, .fileConversion, .fileShelf, .settings, .dashboard, .developerTools, .quickAI:
+        case .camera, .fileConversion, .fileShelf, .settings, .dashboard, .developerTools, .quickAI, .agents:
             return false
         }
         return true

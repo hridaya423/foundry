@@ -142,6 +142,8 @@ struct CommandPanelView: View {
         Group {
             if state.mode == .dashboard {
                 dashboardSurface
+            } else if state.mode == .agents {
+                AgentShelfView(agents: state.agents, dismiss: dismiss)
             } else if state.mode == .settings {
                 WidgetSettingsView(state: state)
             } else if state.mode == .quickAI {
@@ -229,7 +231,7 @@ struct CommandPanelView: View {
         WidgetBoardView(
             board: state.widgetBoard,
             agents: state.agents,
-            onAgentOpen: dismiss,
+            onAgentOpen: state.openAgents,
             compact: true,
             compactMaximum: 4,
             compactBackground: false,
@@ -245,6 +247,7 @@ struct CommandPanelView: View {
 
     private var contentID: String {
         if state.mode == .settings { return "settings" }
+        if state.mode == .agents { return "agents" }
         if state.mode == .dashboard { return "dashboard" }
         if state.mode == .quickAI { return "quickAI" }
         if state.mode == .activityMonitor { return "activity" }
@@ -942,6 +945,9 @@ struct CommandPanelView: View {
             FooterAction(label: "Done", keys: "esc")
         case .dashboard:
             FooterAction(label: "Open", keys: "↵", emphasized: true)
+            FooterAction(label: "Close", keys: "esc")
+        case .agents:
+            FooterAction(label: "Open", keys: "Click", emphasized: true)
             FooterAction(label: "Close", keys: "esc")
         case .activityMonitor:
             FooterAction(label: "Select", keys: "↑↓")

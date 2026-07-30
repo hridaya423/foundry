@@ -25,6 +25,8 @@ struct WidgetSettingsView: View {
                     category = item
                     if item == .commands {
                         state.prepareCommandCatalog()
+                    } else if item == .agents {
+                        state.agents.refreshIntegrationStatuses()
                     }
                 } label: {
                     HStack(spacing: 9) {
@@ -71,6 +73,8 @@ struct WidgetSettingsView: View {
                         generalContent
                     case .commands:
                         commandsContent
+                    case .agents:
+                        agentsContent
                     case .appearance:
                         appearanceContent
                     case .ai:
@@ -254,6 +258,86 @@ struct WidgetSettingsView: View {
         }
     }
 
+    private var agentsContent: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            SettingsSectionLabel(title: "Observation", value: state.agents.socketListening ? "Listening" : "Unavailable")
+            SettingsGroup {
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack(spacing: 10) {
+                        Image(systemName: state.agents.socketListening ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
+                            .foregroundStyle(state.agents.socketListening ? FoundryTheme.success : FoundryTheme.warning)
+                        SettingsLabel(
+                            title: "Agent event socket",
+                            subtitle: "Provider hooks and plugins can send observation events here"
+                        )
+                        Spacer()
+                        Text(state.agents.socketListening ? "Live" : "Offline")
+                            .font(FoundryTheme.body(size: 12, weight: .semibold))
+                            .foregroundStyle(state.agents.socketListening ? FoundryTheme.success : FoundryTheme.warning)
+                    }
+                    Text(AgentEventSocketServer.socketURL.path)
+                        .font(FoundryTheme.mono(size: 10, weight: .regular))
+                        .foregroundStyle(FoundryTheme.faintText)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                    Text("Foundry observes provider-owned sessions. Approvals and replies remain native-only until a provider response channel is installed.")
+                        .font(FoundryTheme.body(size: 11, weight: .regular))
+                        .foregroundStyle(FoundryTheme.mutedText)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 12)
+            }
+
+            if let integrationError = state.agents.integrationError {
+                SettingsNotice(text: integrationError, symbol: "exclamationmark.triangle")
+            }
+
+            SettingsSectionLabel(title: "Provider bridges")
+            SettingsGroup {
+                ForEach(AgentBridgeProvider.allCases, id: \.self) { provider in
+                    AgentIntegrationRow(
+                        provider: provider,
+                        status: state.agents.integrationStatus(for: provider),
+                        install: { state.agents.installIntegration(for: provider) }
+                    )
+                    if provider != AgentBridgeProvider.allCases.last {
+                        SettingsDivider()
+                    }
+                }
+            }
+
+            SettingsSectionLabel(title: "Tracked sessions", value: "\(state.agents.sessions.count)")
+            SettingsGroup {
+                if state.agents.sessions.isEmpty {
+                    Text("No current or recent provider sessions.")
+                        .font(FoundryTheme.body(size: 12, weight: .regular))
+                        .foregroundStyle(FoundryTheme.mutedText)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 12)
+                } else {
+                    LazyVStack(spacing: 0) {
+                        ForEach(state.agents.sessions.prefix(6)) { session in
+                            HStack(spacing: 9) {
+                                Image(systemName: session.provider.symbol)
+                                    .font(.system(size: 13, weight: .semibold))
+                                    .foregroundStyle(FoundryTheme.secondaryText)
+                                    .frame(width: 22)
+                                SettingsLabel(title: session.title, subtitle: "\(session.provider.rawValue) · \(session.status.rawValue)")
+                                Spacer()
+                                Text(session.origin.rawValue)
+                                    .font(FoundryTheme.body(size: 10, weight: .medium))
+                                    .foregroundStyle(FoundryTheme.faintText)
+                            }
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 9)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     private var widgetsContent: some View {
         VStack(alignment: .leading, spacing: 10) {
             SettingsSectionLabel(title: "Home widgets", value: "\(state.widgetBoard.config.enabled.count)/\(WidgetBoardConfig.maxEnabled)")
@@ -331,9 +415,44 @@ struct WidgetSettingsView: View {
     }
 }
 
+private struct AgentIntegrationRow: View {
+    let provider: AgentBridgeProvider
+    let status: AgentIntegrationStatus
+    let install: () -> Void
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Image(systemName: provider.symbol)
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(FoundryTheme.secondaryText)
+                .frame(width: 22)
+            SettingsLabel(title: provider.title, subtitle: status.detail ?? status.path.path)
+            Spacer()
+            if status.installed {
+                Text("Installed")
+                    .font(FoundryTheme.body(size: 11, weight: .semibold))
+                    .foregroundStyle(FoundryTheme.success)
+            } else {
+                Button("Install", action: install)
+                    .buttonStyle(.plain)
+                    .font(FoundryTheme.body(size: 11, weight: .semibold))
+                    .foregroundStyle(FoundryTheme.primaryText)
+                    .padding(.horizontal, 9)
+                    .padding(.vertical, 6)
+                    .background(Color.white.opacity(0.08))
+                    .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
+                    .pointerCursor()
+            }
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 9)
+    }
+}
+
 private enum SettingsCategory: String, CaseIterable, Identifiable {
     case general
     case commands
+    case agents
     case appearance
     case ai
     case widgets
@@ -344,6 +463,7 @@ private enum SettingsCategory: String, CaseIterable, Identifiable {
         switch self {
         case .general: "General"
         case .commands: "Commands"
+        case .agents: "Agents"
         case .appearance: "Appearance"
         case .ai: "AI"
         case .widgets: "Widgets"
@@ -354,6 +474,7 @@ private enum SettingsCategory: String, CaseIterable, Identifiable {
         switch self {
         case .general: "gearshape"
         case .commands: "command"
+        case .agents: "sparkles.rectangle.stack"
         case .appearance: "circle.lefthalf.filled"
         case .ai: "sparkles"
         case .widgets: "rectangle.3.group"

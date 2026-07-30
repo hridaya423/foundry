@@ -1,6 +1,8 @@
 import Foundation
 
 enum AgentMonitorService {
+    private static let recentSessionWindow: TimeInterval = 24 * 60 * 60
+
     static func collect() -> [AgentSessionCard] {
         let processes = ProcessSnapshot.capture()
         return (openCodeSessions(processes: processes)
@@ -9,6 +11,7 @@ enum AgentMonitorService {
             + codexSessions(processes: processes)
             + processAgentSessions(processes: processes))
             .deduped()
+            .map(enrichWithWorkspaceDiff)
             .sorted { lhs, rhs in
                 if lhs.status.sortPriority != rhs.status.sortPriority { return lhs.status.sortPriority < rhs.status.sortPriority }
                 return (lhs.updatedAt ?? lhs.startedAt ?? .distantPast) > (rhs.updatedAt ?? rhs.startedAt ?? .distantPast)
@@ -19,28 +22,31 @@ enum AgentMonitorService {
         let db = home(".local/share/opencode/opencode.db")
         guard FileManager.default.fileExists(atPath: db) else { return [] }
         let rows = sqlite(db, "select id,title,directory,model,agent,time_created,time_updated,time_archived from session where time_archived is null order by time_updated desc limit 8;")
-        guard let opencodeProcess = processes.first(where: { $0.executableName == "opencode" }),
-              let row = rows.first,
-              row.count >= 7 else { return [] }
-
-        let title = row[1].isEmpty ? "OpenCode Session" : row[1]
-        let directory = row[2]
-        let updatedAt = date(milliseconds: row[6])
-        guard isRecent(updatedAt, within: 60 * 60) else { return [] }
-        let model = openCodeModelLabel(row[3])
-        let project = directory.lastPathComponent
-        return [AgentSessionCard(
-            id: "opencode.\(row[0])",
-            provider: .opencode,
-            title: title,
-            subtitle: model ?? row[4].nilIfEmpty ?? "",
-            project: project,
-            model: model,
-            status: .running,
-            startedAt: opencodeProcess.startedAt,
-            updatedAt: updatedAt,
-            openTarget: .terminal(command: "opencode", cwd: directory.isEmpty ? nil : directory)
-        )]
+        let opencodeProcess = processes.first(where: { $0.executableName == "opencode" })
+        return rows.compactMap { row in
+            guard row.count >= 7 else { return nil }
+            let updatedAt = date(milliseconds: row[6])
+            guard isRecent(updatedAt, within: recentSessionWindow) else { return nil }
+            let title = row[1].isEmpty ? "OpenCode Session" : row[1]
+            let directory = row[2]
+            let model = openCodeModelLabel(row[3])
+            return AgentSessionCard(
+                id: "opencode.\(row[0])",
+                provider: .opencode,
+                title: title,
+                subtitle: model ?? row[4].nilIfEmpty ?? "",
+                project: directory.lastPathComponent,
+                workingDirectory: directory.nilIfEmpty,
+                model: model,
+                status: opencodeProcess == nil ? .recent : .running,
+                startedAt: opencodeProcess?.startedAt,
+                updatedAt: updatedAt,
+                openTarget: .terminal(command: "opencode", cwd: directory.isEmpty ? nil : directory),
+                key: AgentSessionKey(provider: .opencode, rawSessionID: row[0]),
+                origin: .catalog,
+                capabilities: [.observe, .jumpTerminal]
+            )
+        }
     }
 
     private static func claudeSessions(processes: [ProcessInfoRow]) -> [AgentSessionCard] {
@@ -51,18 +57,20 @@ enum AgentMonitorService {
             let cwd = cwdFromClaudeArgs(process.args)
             let model = value(after: "--model", in: process.args)
             let title = cwd?.lastPathComponent ?? "Claude Session"
-            let subtitle = [model, value(after: "--permission-mode", in: process.args), cwd?.lastPathComponent].compactMap { $0 }.joined(separator: " · ")
+            let subtitle = [model, value(after: "--permission-mode", in: process.args)].compactMap { $0 }.joined(separator: " · ")
             return AgentSessionCard(
                 id: "claude.\(sessionID)",
                 provider: .claude,
                 title: title,
                 subtitle: subtitle,
                 project: cwd?.lastPathComponent,
+                workingDirectory: cwd,
                 model: model,
                 status: .working,
                 startedAt: process.startedAt,
                 updatedAt: process.startedAt,
-                openTarget: .terminal(command: "claude --resume \(sessionID.shellQuoted)", cwd: cwd)
+                openTarget: .terminal(command: "claude --resume \(sessionID.shellQuoted)", cwd: cwd),
+                capabilities: [.observe, .jumpTerminal]
             )
         }
     }
@@ -71,94 +79,161 @@ enum AgentMonitorService {
         let cursorRunning = processes.contains { process in
             process.args.hasPrefix("/Applications/Cursor.app/Contents/MacOS/Cursor") || process.executableName == "cursor-agent"
         }
-        guard cursorRunning else { return [] }
-
-        let db = home("Library/Application Support/Cursor/User/globalStorage/state.vscdb")
-        guard FileManager.default.fileExists(atPath: db) else { return [] }
-        let value = sqlite(db, "select value from ItemTable where key='composer.composerHeaders';").first?.first ?? ""
-        guard let data = value.data(using: .utf8),
-              let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let composers = root["allComposers"] as? [[String: Any]] else { return cursorProcessCards(processes) }
+        let composers = CursorComposerAdapter().discover()
         let workspaces = cursorWorkspaces()
 
-        return composers.prefix(6).compactMap { composer in
-            guard (composer["isArchived"] as? Bool) != true else { return nil }
-            let id = composer["composerId"] as? String ?? UUID().uuidString
-            let title = (composer["name"] as? String)?.nilIfEmpty ?? "Cursor Agent"
-            let workspaceID = composer["workspaceId"] as? String
-            let folder = workspaceID.flatMap { workspaces[$0] }
-            let updatedAt = date(milliseconds: composer["lastUpdatedAt"])
-            guard isRecent(updatedAt, within: 60 * 60) || (composer["hasBlockingPendingActions"] as? Bool) == true else { return nil }
-            let filesChanged = int(composer["filesChangedCount"]) ?? 0
+        let cards = composers.prefix(8).compactMap { composer -> AgentSessionCard? in
+            guard composer.isDraft == false else { return nil }
+            let updatedAt = composer.updatedAt ?? composer.createdAt
+            guard composer.hasBlockingPendingActions || isRecent(updatedAt, within: recentSessionWindow) else { return nil }
+            let title = composer.title?.nilIfEmpty ?? "Cursor Agent"
+            let folder = composer.workspaceID.flatMap { workspaces[$0] }
             let status: AgentSessionStatus
-            if (composer["hasBlockingPendingActions"] as? Bool) == true {
+            if composer.hasBlockingPendingActions {
                 status = .needsInput
-            } else if (composer["hasPendingPlan"] as? Bool) == true {
+            } else if composer.hasPendingPlan {
                 status = .planning
-            } else if (composer["hasUnreadMessages"] as? Bool) == true || filesChanged > 0 {
+            } else if composer.hasUnreadMessages || composer.filesChangedCount > 0 {
                 status = .reviewReady
             } else {
                 status = .recent
             }
-            let stats = cursorStats(composer)
-            let model = cursorModel(composer)
-            let subtitle = [model, composer["subtitle"] as? String, stats, folder?.lastPathComponent].compactMap { $0?.nilIfEmpty }.joined(separator: " · ")
+            let activity = cursorActivitySummary(composer)
+            let subtitle = activity ?? ""
             return AgentSessionCard(
-                id: "cursor.\(id)",
+                id: "cursor.\(composer.id)",
                 provider: .cursor,
                 title: title,
                 subtitle: subtitle,
                 project: folder?.lastPathComponent,
-                model: model,
+                workingDirectory: folder,
+                model: nil,
                 status: status,
-                startedAt: date(milliseconds: composer["createdAt"]),
+                startedAt: composer.createdAt,
                 updatedAt: updatedAt,
-                openTarget: .application(name: "Cursor", path: "/Applications/Cursor.app", argument: folder)
+                openTarget: .application(name: "Cursor", path: "/Applications/Cursor.app", argument: folder),
+                key: AgentSessionKey(provider: .cursor, rawSessionID: composer.id),
+                origin: .catalog,
+                capabilities: [.observe, .jumpApplication]
             )
         }
+        return cards.isEmpty && cursorRunning ? cursorProcessCards(processes) : cards
+    }
+
+    private static func cursorActivitySummary(_ composer: CursorComposerSnapshot) -> String? {
+        if composer.filesChangedCount > 0 || composer.totalLinesAdded > 0 || composer.totalLinesRemoved > 0 {
+            let files = composer.filesChangedCount == 1 ? "1 file" : "\(composer.filesChangedCount) files"
+            return "Edited \(files) · +\(composer.totalLinesAdded) −\(composer.totalLinesRemoved)"
+        }
+        if composer.hasPendingPlan { return "Plan available" }
+        if let subtitle = composer.subtitle?.trimmingCharacters(in: .whitespacesAndNewlines), subtitle.lowercased().hasPrefix("read ") {
+            let fileText = String(subtitle.dropFirst(5))
+            let count = fileText.split(separator: ",").count
+            return count == 1 ? "Inspected 1 file" : "Inspected \(count) files"
+        }
+        return composer.subtitle?.nilIfEmpty
+    }
+
+    private static func enrichWithWorkspaceDiff(_ card: AgentSessionCard) -> AgentSessionCard {
+        guard card.provider != .cursor,
+              let directory = card.workingDirectory,
+              let summary = workspaceDiffSummary(directory: directory) else { return card }
+        var enriched = card
+        enriched.subtitle = summary
+        return enriched
+    }
+
+    private static func workspaceDiffSummary(directory: String) -> String? {
+        let output = run("/usr/bin/git", ["-C", directory, "diff", "--shortstat"])
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        guard output.isEmpty == false else { return nil }
+        let files = firstInteger(in: output, pattern: #"(\d+) files? changed"#) ?? 0
+        let additions = firstInteger(in: output, pattern: #"(\d+) insertions?\(\+\)"#) ?? 0
+        let removals = firstInteger(in: output, pattern: #"(\d+) deletions?\(-\)"#) ?? 0
+        guard files > 0 || additions > 0 || removals > 0 else { return nil }
+        let fileLabel = files == 1 ? "1 file" : "\(files) files"
+        return "Workspace diff · \(fileLabel) · +\(additions) −\(removals)"
+    }
+
+    private static func firstInteger(in value: String, pattern: String) -> Int? {
+        guard let match = value.range(of: pattern, options: .regularExpression) else { return nil }
+        let number = value[match].split(whereSeparator: { $0 < "0" || $0 > "9" }).first
+        return number.flatMap { Int($0) }
     }
 
     private static func codexSessions(processes: [ProcessInfoRow]) -> [AgentSessionCard] {
         let app = processes.first { $0.args.hasPrefix("/Applications/Codex.app/Contents/MacOS/Codex") }
         let server = processes.first { $0.args.contains("/codex app-server") || $0.args.contains("/Codex.app/Contents/Resources/codex app-server") }
         let computerUse = processes.first { $0.args.contains("Codex Computer Use.app") || $0.args.contains("SkyComputerUse") || $0.args.contains("Codex for Chrome") }
-        guard let process = app ?? server ?? computerUse else { return [] }
-        let thread = codexThread()
-        return [AgentSessionCard(
-            id: "codex.app",
-            provider: .codex,
-            title: thread?.title ?? "Codex",
-            subtitle: "",
-            project: thread?.project,
-            model: thread?.model,
-            status: .running,
-            startedAt: process.startedAt,
-            updatedAt: thread?.updatedAt ?? process.startedAt,
-            openTarget: .application(name: "Codex", path: "/Applications/Codex.app")
-        )]
-    }
+        let process = app ?? server ?? computerUse
+        let discovery = CodexDesktopThreadAdapter().discoverResult()
+        guard discovery.snapshots.isEmpty == false else {
+            guard let process else { return [] }
+            return [AgentSessionCard(
+                id: "codex.app",
+                provider: .codex,
+                title: "Codex",
+                subtitle: "",
+                project: nil,
+                model: nil,
+                status: .running,
+                startedAt: process.startedAt,
+                updatedAt: process.startedAt,
+                openTarget: .application(name: "Codex", path: "/Applications/Codex.app"),
+                capabilities: [.observe, .jumpApplication]
+            )]
+        }
 
-    private static func codexThread() -> (title: String, project: String?, model: String?, updatedAt: Date?)? {
-        let db = home(".codex/sqlite/codex-dev.db")
-        guard FileManager.default.fileExists(atPath: db) else { return nil }
-        guard let row = sqlite(db, "select display_title,cwd,model_provider,source_detail,source_updated_at from local_thread_catalog order by source_updated_at desc limit 1;").first,
-              row.count >= 5,
-              let title = row[0].nilIfEmpty else { return nil }
-        let updatedAt = TimeInterval(row[4]).map(Date.init(timeIntervalSince1970:))
-        guard isRecent(updatedAt, within: 24 * 60 * 60) else { return nil }
-        let model = [row[2].nilIfEmpty, row[3].nilIfEmpty].compactMap { $0 }.joined(separator: " · ").nilIfEmpty
-        return (title, row[1].lastPathComponent, model, updatedAt)
+        let now = Date()
+        return discovery.snapshots.filter { thread in
+            thread.isProcessing || now.timeIntervalSince(thread.updatedAt) <= recentSessionWindow
+        }.map { thread in
+            let target: AgentOpenTarget = if let url = URL(string: "codex://threads/\(thread.id)") {
+                .deepLink(url)
+            } else {
+                .application(name: "Codex", path: "/Applications/Codex.app")
+            }
+            let model = [thread.modelProvider, thread.model].compactMap { $0?.nilIfEmpty }.joined(separator: " · ").nilIfEmpty
+            let project = thread.cwd.lastPathComponent
+            let detail = [model, thread.gitBranch].compactMap { $0?.nilIfEmpty }.joined(separator: " · ")
+            return AgentSessionCard(
+                id: "codex.\(thread.id)",
+                provider: .codex,
+                title: thread.title,
+                subtitle: detail,
+                project: project,
+                workingDirectory: thread.cwd,
+                model: model,
+                status: thread.isProcessing ? .working : .recent,
+                startedAt: thread.createdAt,
+                updatedAt: thread.updatedAt,
+                openTarget: target,
+                key: AgentSessionKey(provider: .codex, rawSessionID: thread.id),
+                origin: .catalog,
+                capabilities: [.observe, .jumpTask],
+                needsTitleGeneration: thread.titleIsPrompt
+            )
+        }
     }
 
     private static func cursorProcessCards(_ processes: [ProcessInfoRow]) -> [AgentSessionCard] {
         processes.filter { $0.args.hasPrefix("/Applications/Cursor.app/Contents/MacOS/Cursor") || $0.executableName == "cursor-agent" }.prefix(1).map { process in
-            AgentSessionCard(id: "cursor.process", provider: .cursor, title: "Cursor", subtitle: "running", project: nil, model: nil, status: .running, startedAt: process.startedAt, updatedAt: process.startedAt, openTarget: .application(name: "Cursor", path: "/Applications/Cursor.app"))
+            AgentSessionCard(id: "cursor.process", provider: .cursor, title: "Cursor", subtitle: "running", project: nil, model: nil, status: .running, startedAt: process.startedAt, updatedAt: process.startedAt, openTarget: .application(name: "Cursor", path: "/Applications/Cursor.app"), capabilities: [.observe, .jumpApplication])
         }
     }
 
     private static func processAgentSessions(processes: [ProcessInfoRow]) -> [AgentSessionCard] {
         processAgentDescriptors.compactMap { descriptor in
             guard let process = processes.first(where: { descriptor.matches($0) }) else { return nil }
+            let capabilities: AgentSessionCapabilities
+            switch descriptor.openTarget {
+            case .application:
+                capabilities = [.observe, .jumpApplication]
+            case .terminal:
+                capabilities = [.observe, .jumpTerminal]
+            case .deepLink:
+                capabilities = [.observe, .jumpTask]
+            }
             return AgentSessionCard(
                 id: "process.\(descriptor.provider.rawValue.replacingOccurrences(of: " ", with: "-").lowercased())",
                 provider: descriptor.provider,
@@ -169,7 +244,8 @@ enum AgentMonitorService {
                 status: .running,
                 startedAt: process.startedAt,
                 updatedAt: process.startedAt,
-                openTarget: descriptor.openTarget
+                openTarget: descriptor.openTarget,
+                capabilities: capabilities
             )
         }
     }
@@ -186,7 +262,7 @@ enum AgentMonitorService {
             let status = claudeStatus(state: state, waitingFor: waitingFor)
             let startedAt = date(any: item["startedAt"])
             let subtitle = [waitingFor, state, cwd?.lastPathComponent].compactMap { $0?.nilIfEmpty }.joined(separator: " · ")
-            return AgentSessionCard(id: "claude.\(id)", provider: .claude, title: name, subtitle: subtitle, project: cwd?.lastPathComponent, model: nil, status: status, startedAt: startedAt, updatedAt: startedAt, openTarget: .terminal(command: "claude attach \(id.shellQuoted)", cwd: cwd))
+            return AgentSessionCard(id: "claude.\(id)", provider: .claude, title: name, subtitle: subtitle, project: cwd?.lastPathComponent, workingDirectory: cwd, model: nil, status: status, startedAt: startedAt, updatedAt: startedAt, openTarget: .terminal(command: "claude attach \(id.shellQuoted)", cwd: cwd), capabilities: [.observe, .jumpTerminal])
         }
     }
 
