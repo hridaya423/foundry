@@ -295,6 +295,330 @@ final class SystemCommandProvider: CommandProvider, @unchecked Sendable {
                 fallback: "LI",
                 url: "x-apple.systempreferences:com.apple.LoginItems-Settings.extension"
             ),
+            settingsCommand(
+                id: "system.settings.wifi",
+                title: "Open Wi-Fi Settings",
+                subtitle: "Join and manage wireless networks",
+                aliases: ["wifi", "wi-fi", "wireless", "wireless network"],
+                systemIcon: "wifi",
+                fallback: "WF",
+                url: "x-apple.systempreferences:com.apple.wifi-settings.extension"
+            ),
+            settingsCommand(
+                id: "system.settings.bluetooth",
+                title: "Open Bluetooth Settings",
+                subtitle: "Connect and manage Bluetooth devices",
+                aliases: ["bluetooth", "bluetooth devices", "wireless devices"],
+                systemIcon: "wave.3.right",
+                fallback: "BT",
+                url: "x-apple.systempreferences:com.apple.BluetoothSettings"
+            ),
+            settingsCommand(
+                id: "system.settings.network",
+                title: "Open Network Settings",
+                subtitle: "Configure network connections and services",
+                aliases: ["network", "ethernet", "internet", "connections"],
+                systemIcon: "network",
+                fallback: "NW",
+                url: "x-apple.systempreferences:com.apple.Network-Settings.extension"
+            ),
+            settingsCommand(
+                id: "system.settings.vpn",
+                title: "Open VPN Settings",
+                subtitle: "Manage VPN configurations",
+                aliases: ["vpn", "virtual private network"],
+                systemIcon: "lock.shield.fill",
+                fallback: "VP",
+                url: "x-apple.systempreferences:com.apple.Network-Settings.extension?path=VPN"
+            ),
+            settingsCommand(
+                id: "system.settings.storage",
+                title: "Open Storage Settings",
+                subtitle: "Review disk usage and storage recommendations",
+                aliases: ["storage", "disk space", "free space", "manage storage", "hard drive"],
+                systemIcon: "internaldrive.fill",
+                fallback: "ST",
+                url: "x-apple.systempreferences:com.apple.settings.Storage"
+            ),
+            settingsCommand(
+                id: "system.settings.battery",
+                title: "Open Battery Settings",
+                subtitle: "Battery health, usage, and power options",
+                aliases: ["battery", "power", "low power mode", "battery health"],
+                systemIcon: "battery.100percent",
+                fallback: "BA",
+                url: "x-apple.systempreferences:com.apple.Battery-Settings.extension"
+            ),
+            settingsCommand(
+                id: "system.settings.general",
+                title: "Open General Settings",
+                subtitle: "System-wide macOS preferences",
+                aliases: ["general", "about this mac", "software update", "airdrop", "handoff"],
+                systemIcon: "gearshape.2.fill",
+                fallback: "GE",
+                url: "x-apple.systempreferences:com.apple.General-Settings.extension"
+            ),
+            settingsCommand(
+                id: "system.settings.appearance",
+                title: "Open Appearance Settings",
+                subtitle: "Choose Light, Dark, or accent appearance",
+                aliases: ["appearance", "light mode", "dark mode", "accent color"],
+                systemIcon: "circle.lefthalf.filled",
+                fallback: "AP",
+                url: "x-apple.systempreferences:com.apple.Appearance-Settings.extension"
+            ),
+            settingsCommand(
+                id: "system.settings.desktop-dock",
+                title: "Open Desktop & Dock Settings",
+                subtitle: "Customize the desktop, Dock, and menu bar",
+                aliases: ["desktop", "dock", "menu bar", "desktop and dock"],
+                systemIcon: "dock.rectangle",
+                fallback: "DD",
+                url: "x-apple.systempreferences:com.apple.Desktop-Settings.extension"
+            ),
+            settingsCommand(
+                id: "system.settings.wallpaper",
+                title: "Open Wallpaper Settings",
+                subtitle: "Choose your desktop wallpaper",
+                aliases: ["wallpaper", "desktop picture", "desktop background", "background"],
+                systemIcon: "photo.fill",
+                fallback: "WP",
+                url: "x-apple.systempreferences:com.apple.Wallpaper-Settings.extension"
+            ),
+            settingsCommand(
+                id: "system.settings.screen-saver",
+                title: "Open Screen Saver Settings",
+                subtitle: "Choose and configure the screen saver",
+                aliases: ["screen saver", "screensaver"],
+                systemIcon: "sparkles.rectangle.stack.fill",
+                fallback: "SS",
+                url: "x-apple.systempreferences:com.apple.Screen-Saver-Settings.extension"
+            ),
+            settingsCommand(
+                id: "system.settings.notifications",
+                title: "Open Notifications Settings",
+                subtitle: "Control alerts and notification delivery",
+                aliases: ["notifications", "alerts", "notification center"],
+                systemIcon: "bell.badge.fill",
+                fallback: "NO",
+                url: "x-apple.systempreferences:com.apple.Notifications-Settings.extension"
+            ),
+            settingsCommand(
+                id: "system.settings.focus",
+                title: "Open Focus Settings",
+                subtitle: "Manage Focus modes and schedules",
+                aliases: ["focus", "do not disturb", "dnd", "focus mode"],
+                systemIcon: "moon.fill",
+                fallback: "FO",
+                url: "x-apple.systempreferences:com.apple.Focus-Settings.extension"
+            ),
+            settingsCommand(
+                id: "system.settings.siri",
+                title: "Open Siri & Spotlight Settings",
+                subtitle: "Configure Siri, search, and Spotlight",
+                aliases: ["siri", "spotlight", "search", "siri and spotlight"],
+                systemIcon: "sparkles",
+                fallback: "SI",
+                url: "x-apple.systempreferences:com.apple.Siri-Settings.extension"
+            ),
+            settingsCommand(
+                id: "system.settings.control-center",
+                title: "Open Control Center Settings",
+                subtitle: "Choose what appears in the menu bar and Control Center",
+                aliases: ["control center", "menu bar controls"],
+                systemIcon: "switch.2",
+                fallback: "CT",
+                url: "x-apple.systempreferences:com.apple.ControlCenter-Settings.extension"
+            ),
+            settingsCommand(
+                id: "system.settings.lock-screen",
+                title: "Open Lock Screen Settings",
+                subtitle: "Configure login, sleep, and lock screen behavior",
+                aliases: ["lock screen", "login screen", "screen lock"],
+                systemIcon: "lock.fill",
+                fallback: "LS",
+                url: "x-apple.systempreferences:com.apple.Lock-Screen-Settings.extension"
+            ),
+            settingsCommand(
+                id: "system.settings.touch-id",
+                title: "Open Touch ID & Password Settings",
+                subtitle: "Manage fingerprints and password requirements",
+                aliases: ["touch id", "fingerprint", "password", "touchid"],
+                systemIcon: "touchid",
+                fallback: "TI",
+                url: "x-apple.systempreferences:com.apple.Touch-ID-Settings.extension"
+            ),
+            settingsCommand(
+                id: "system.settings.users-groups",
+                title: "Open Users & Groups Settings",
+                subtitle: "Manage users, groups, and account permissions",
+                aliases: ["users", "groups", "accounts", "user accounts"],
+                systemIcon: "person.2.fill",
+                fallback: "UG",
+                url: "x-apple.systempreferences:com.apple.Users-Groups-Settings.extension"
+            ),
+            settingsCommand(
+                id: "system.settings.internet-accounts",
+                title: "Open Internet Accounts Settings",
+                subtitle: "Manage mail, calendar, and online accounts",
+                aliases: ["internet accounts", "mail accounts", "calendar accounts", "online accounts"],
+                systemIcon: "person.crop.circle.badge.checkmark",
+                fallback: "IA",
+                url: "x-apple.systempreferences:com.apple.Internet-Accounts-Settings.extension"
+            ),
+            settingsCommand(
+                id: "system.settings.screen-time",
+                title: "Open Screen Time Settings",
+                subtitle: "Review usage and app limits",
+                aliases: ["screen time", "app limits", "usage limits", "parental controls"],
+                systemIcon: "hourglass",
+                fallback: "ST",
+                url: "x-apple.systempreferences:com.apple.Screen-Time-Settings.extension"
+            ),
+            settingsCommand(
+                id: "system.settings.family",
+                title: "Open Family Settings",
+                subtitle: "Manage Family Sharing and family members",
+                aliases: ["family", "family sharing", "family members"],
+                systemIcon: "person.3.fill",
+                fallback: "FM",
+                url: "x-apple.systempreferences:com.apple.Family-Settings.extension"
+            ),
+            settingsCommand(
+                id: "system.settings.game-center",
+                title: "Open Game Center Settings",
+                subtitle: "Manage Game Center account and activity",
+                aliases: ["game center", "games", "gaming account"],
+                systemIcon: "gamecontroller.fill",
+                fallback: "GC",
+                url: "x-apple.systempreferences:com.apple.Game-Center-Settings.extension"
+            ),
+            settingsCommand(
+                id: "system.settings.wallet",
+                title: "Open Wallet & Apple Pay Settings",
+                subtitle: "Manage cards and Apple Pay preferences",
+                aliases: ["wallet", "apple pay", "cards", "apple wallet"],
+                systemIcon: "wallet.pass.fill",
+                fallback: "WA",
+                url: "x-apple.systempreferences:com.apple.Wallet-Settings.extension"
+            ),
+            settingsCommand(
+                id: "system.settings.passwords",
+                title: "Open Passwords Settings",
+                subtitle: "Manage saved passwords and passkeys",
+                aliases: ["passwords", "passkeys", "password manager", "saved passwords"],
+                systemIcon: "key.fill",
+                fallback: "PW",
+                url: "x-apple.systempreferences:com.apple.Passwords-Settings.extension"
+            ),
+            settingsCommand(
+                id: "system.settings.mouse",
+                title: "Open Mouse Settings",
+                subtitle: "Configure mouse tracking, scrolling, and gestures",
+                aliases: ["mouse", "mouse settings", "mouse tracking"],
+                systemIcon: "computermouse.fill",
+                fallback: "MO",
+                url: "x-apple.systempreferences:com.apple.Mouse-Settings.extension"
+            ),
+            settingsCommand(
+                id: "system.settings.trackpad",
+                title: "Open Trackpad Settings",
+                subtitle: "Configure trackpad gestures and pointing",
+                aliases: ["trackpad", "gesture", "gestures", "touchpad"],
+                systemIcon: "rectangle.and.hand.point.up.left.fill",
+                fallback: "TP",
+                url: "x-apple.systempreferences:com.apple.Trackpad-Settings.extension"
+            ),
+            settingsCommand(
+                id: "system.settings.printers-scanners",
+                title: "Open Printers & Scanners Settings",
+                subtitle: "Add and manage printers, scanners, and fax devices",
+                aliases: ["printers", "scanners", "printer", "scanner", "print"],
+                systemIcon: "printer.fill",
+                fallback: "PS",
+                url: "x-apple.systempreferences:com.apple.Print-Scan-Settings.extension"
+            ),
+            settingsCommand(
+                id: "system.settings.game-controllers",
+                title: "Open Game Controllers Settings",
+                subtitle: "Connect and configure game controllers",
+                aliases: ["game controller", "game controllers", "controller", "gamepad"],
+                systemIcon: "gamecontroller.fill",
+                fallback: "GC",
+                url: "x-apple.systempreferences:com.apple.Game-Controller-Settings.extension"
+            ),
+            settingsCommand(
+                id: "system.settings.date-time",
+                title: "Open Date & Time Settings",
+                subtitle: "Configure time zone, clock, and date formats",
+                aliases: ["date", "time", "clock", "time zone", "date and time"],
+                systemIcon: "clock.fill",
+                fallback: "DT",
+                url: "x-apple.systempreferences:com.apple.Date-Time-Settings.extension"
+            ),
+            settingsCommand(
+                id: "system.settings.language-region",
+                title: "Open Language & Region Settings",
+                subtitle: "Choose language, region, calendar, and formats",
+                aliases: ["language", "region", "locale", "keyboard language", "language and region"],
+                systemIcon: "globe",
+                fallback: "LR",
+                url: "x-apple.systempreferences:com.apple.Localization-Settings.extension"
+            ),
+            settingsCommand(
+                id: "system.settings.sharing",
+                title: "Open Sharing Settings",
+                subtitle: "Manage services shared from this Mac",
+                aliases: ["sharing", "file sharing", "screen sharing", "remote login"],
+                systemIcon: "square.and.arrow.up.fill",
+                fallback: "SH",
+                url: "x-apple.systempreferences:com.apple.Sharing-Settings.extension"
+            ),
+            settingsCommand(
+                id: "system.settings.extensions",
+                title: "Open Extensions Settings",
+                subtitle: "Manage app, Finder, and sharing extensions",
+                aliases: ["extensions", "app extensions", "finder extensions", "share extensions"],
+                systemIcon: "puzzlepiece.extension.fill",
+                fallback: "EX",
+                url: "x-apple.systempreferences:com.apple.Extensions-Settings.extension"
+            ),
+            settingsCommand(
+                id: "system.settings.profiles",
+                title: "Open Profiles Settings",
+                subtitle: "Review installed configuration profiles",
+                aliases: ["profiles", "configuration profiles", "device management"],
+                systemIcon: "person.text.rectangle.fill",
+                fallback: "PF",
+                url: "x-apple.systempreferences:com.apple.Profiles-Settings.extension"
+            ),
+            settingsCommand(
+                id: "system.settings.time-machine",
+                title: "Open Time Machine Settings",
+                subtitle: "Configure backups and backup disks",
+                aliases: ["time machine", "backup", "backups"],
+                systemIcon: "clock.arrow.circlepath",
+                fallback: "TM",
+                url: "x-apple.systempreferences:com.apple.Time-Machine-Settings.extension"
+            ),
+            settingsCommand(
+                id: "system.settings.software-update",
+                title: "Open Software Update Settings",
+                subtitle: "Check for macOS and system updates",
+                aliases: ["software update", "updates", "macos update", "system update"],
+                systemIcon: "arrow.down.circle.fill",
+                fallback: "SU",
+                url: "x-apple.systempreferences:com.apple.Software-Update-Settings.extension"
+            ),
+            settingsCommand(
+                id: "system.settings.transfer-reset",
+                title: "Open Transfer or Reset Settings",
+                subtitle: "Transfer data or reset this Mac",
+                aliases: ["transfer", "reset mac", "erase mac", "migration", "transfer or reset"],
+                systemIcon: "arrow.triangle.2.circlepath",
+                fallback: "TR",
+                url: "x-apple.systempreferences:com.apple.Transfer-Reset-Settings.extension"
+            ),
             SystemCommand(
                 id: "system.empty-trash",
                 title: "Empty Trash",
