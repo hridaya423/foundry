@@ -7,6 +7,59 @@ final class AgentMonitorTests: XCTestCase {
         XCTAssertNotNil(AgentProviderIcon.brandResourceURL(for: .claude))
     }
 
+    func testClaudeHistoryExcludesCodexBarUsageProbesAndKeepsRealSessions() {
+        let now = Date()
+        let timestamp = Int(now.timeIntervalSince1970 * 1_000)
+        let history = [
+            "{\"display\":\"/usage\",\"timestamp\":\(timestamp),\"project\":\"/Users/test/Library/Application Support/CodexBar/ClaudeProbe\",\"sessionId\":\"probe-1\"}",
+            "{\"display\":\"/usage\",\"timestamp\":\(timestamp - 1_000),\"project\":\"/Users/test/Library/Application Support/CodexBar/ClaudeProbe\",\"sessionId\":\"probe-2\"}",
+            "{\"display\":\"Fix the session picker\",\"timestamp\":\(timestamp - 1_000),\"project\":\"/Users/test/anvil\",\"sessionId\":\"real-1\"}",
+            "{\"display\":\"Continue the session picker\",\"timestamp\":\(timestamp),\"project\":\"/Users/test/anvil\",\"sessionId\":\"real-1\"}",
+            "not json"
+        ].joined(separator: "\n")
+
+        let cards = AgentMonitorService.claudeHistorySessions(from: history, now: now)
+
+        XCTAssertEqual(cards.map(\.id), ["claude.real-1"])
+        XCTAssertEqual(cards.first?.title, "Continue the session picker")
+        XCTAssertEqual(cards.first?.workingDirectory, "/Users/test/anvil")
+    }
+
+    func testClaudeHistoryDoesNotOverFilterOrdinaryClaudeProbeProject() {
+        let now = Date()
+        let timestamp = Int(now.timeIntervalSince1970 * 1_000)
+        let history = "{\"display\":\"Investigate ClaudeProbe\",\"timestamp\":\(timestamp),\"project\":\"/Users/test/projects/ClaudeProbe\",\"sessionId\":\"real-2\"}"
+
+        let cards = AgentMonitorService.claudeHistorySessions(from: history, now: now)
+
+        XCTAssertEqual(cards.map(\.id), ["claude.real-2"])
+    }
+
+    func testAgentShelfProviderFilteringKeepsAllOpenCodeSessions() {
+        let sessions = (0..<7).map { index in
+            AgentSessionCard(
+                id: "opencode.session-\(index)",
+                provider: .opencode,
+                title: "OpenCode Session \(index)",
+                subtitle: "build",
+                project: "anvil",
+                model: "gpt-test",
+                status: .recent,
+                startedAt: Date(),
+                updatedAt: Date(),
+                openTarget: .terminal(command: "opencode"),
+                key: AgentSessionKey(provider: .opencode, rawSessionID: "session-\(index)"),
+                origin: .catalog,
+                capabilities: [.observe, .jumpTerminal]
+            )
+        }
+
+        let filtered = AgentShelfView.sessions(for: .opencode, in: sessions)
+
+        XCTAssertEqual(filtered.count, 7)
+        XCTAssertEqual(filtered.map(\.id), sessions.map(\.id))
+    }
+
     func testAgentEventValidationRejectsDeadlinesOutsideTheFiveMinuteWindow() {
         let now = Date()
         let envelope = AgentEventEnvelope(

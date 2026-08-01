@@ -89,20 +89,18 @@ enum AgentMonitorService {
     private static func claudeHistorySessions() -> [AgentSessionCard] {
         let historyURL = URL(fileURLWithPath: home(".claude/history.jsonl"))
         guard let data = try? Data(contentsOf: historyURL),
-              let text = String(data: data, encoding: .utf8) else { return [] }
+               let text = String(data: data, encoding: .utf8) else { return [] }
+        return claudeHistorySessions(from: text)
+    }
 
-        struct Entry: Decodable {
-            let display: String
-            let timestamp: Double
-            let project: String
-            let sessionId: String
-        }
-
-        var latestBySession: [String: Entry] = [:]
+    static func claudeHistorySessions(from text: String, now: Date = Date()) -> [AgentSessionCard] {
+        var latestBySession: [String: ClaudeHistoryEntry] = [:]
         for line in text.split(whereSeparator: \.isNewline) {
             guard let data = line.data(using: .utf8),
-                  let entry = try? JSONDecoder().decode(Entry.self, from: data),
-                  isRecent(date(milliseconds: entry.timestamp), within: 7 * 24 * 60 * 60) else { continue }
+                   let entry = try? JSONDecoder().decode(ClaudeHistoryEntry.self, from: data),
+                   entry.sessionId.nilIfEmpty != nil,
+                   isRecent(date(milliseconds: entry.timestamp), within: 7 * 24 * 60 * 60, now: now),
+                   isClaudeProbe(entry) == false else { continue }
             if latestBySession[entry.sessionId]?.timestamp ?? 0 < entry.timestamp {
                 latestBySession[entry.sessionId] = entry
             }
@@ -133,6 +131,17 @@ enum AgentMonitorService {
                     capabilities: [.observe, .jumpTerminal]
                 )
             }
+    }
+
+    private static func isClaudeProbe(_ entry: ClaudeHistoryEntry) -> Bool {
+        let projectPath = URL(fileURLWithPath: entry.project)
+            .standardizedFileURL
+            .resolvingSymlinksInPath()
+            .path
+            .lowercased()
+        let isCodexBarProbeProject = projectPath.hasSuffix("/library/application support/codexbar/claudeprobe")
+        let display = entry.display.trimmingCharacters(in: .whitespacesAndNewlines)
+        return isCodexBarProbeProject && display.hasPrefix("/")
     }
 
     private static func claudeHistoryTitle(_ display: String) -> String? {
@@ -458,9 +467,9 @@ enum AgentMonitorService {
         return nil
     }
 
-    private static func isRecent(_ date: Date?, within seconds: TimeInterval) -> Bool {
+    private static func isRecent(_ date: Date?, within seconds: TimeInterval, now: Date = Date()) -> Bool {
         guard let date else { return false }
-        return Date().timeIntervalSince(date) <= seconds
+        return now.timeIntervalSince(date) <= seconds
     }
 
     private static func value(after flag: String, in args: String) -> String? {
@@ -483,6 +492,13 @@ enum AgentMonitorService {
         if let double = value as? Double { return Int(double) }
         return nil
     }
+}
+
+private struct ClaudeHistoryEntry: Decodable {
+    let display: String
+    let timestamp: Double
+    let project: String
+    let sessionId: String
 }
 
 private struct ProcessInfoRow {

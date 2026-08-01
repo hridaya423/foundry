@@ -16,8 +16,12 @@ struct AgentShelfView: View {
     }
 
     private var filteredSessions: [AgentSessionCard] {
-        guard let selectedProvider else { return agents.sessions }
-        return agents.sessions.filter { $0.provider == selectedProvider }
+        Self.sessions(for: selectedProvider, in: agents.sessions)
+    }
+
+    nonisolated static func sessions(for provider: AgentProviderKind?, in sessions: [AgentSessionCard]) -> [AgentSessionCard] {
+        guard let provider else { return sessions }
+        return sessions.filter { $0.provider == provider }
     }
 
     var body: some View {
@@ -53,33 +57,42 @@ struct AgentShelfView: View {
 
             providerTabsView
 
-            ScrollView {
-                LazyVStack(alignment: .leading, spacing: 14) {
-                    if active.isEmpty == false {
-                        section(title: "Active", sessions: active)
-                    }
-                    if recent.isEmpty == false {
-                        section(title: "Recent", sessions: recent)
-                    }
-                    if filteredSessions.isEmpty {
-                        VStack(spacing: 8) {
-                            AgentProviderIcon(provider: selectedProvider ?? .codex, size: 28)
-                                .opacity(0.55)
-                            Text(selectedProvider.map { "No \($0.rawValue) sessions found" } ?? "No agent sessions found")
-                                .font(FoundryTheme.body(size: 13, weight: .semibold))
-                                .foregroundStyle(FoundryTheme.secondaryText)
-                            Text("Provider hooks, plugins, and desktop catalogs appear here.")
-                                .font(FoundryTheme.body(size: 11, weight: .regular))
-                                .foregroundStyle(FoundryTheme.mutedText)
+            ScrollViewReader { proxy in
+                ScrollView {
+                    LazyVStack(alignment: .leading, spacing: 14) {
+                        Color.clear
+                            .frame(height: 0)
+                            .id("agent-shelf-top")
+                        if active.isEmpty == false {
+                            section(title: "Active", sessions: active)
                         }
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 54)
+                        if recent.isEmpty == false {
+                            section(title: "Recent", sessions: recent)
+                        }
+                        if filteredSessions.isEmpty {
+                            VStack(spacing: 8) {
+                                AgentProviderIcon(provider: selectedProvider ?? .codex, size: 28)
+                                    .opacity(0.55)
+                                Text(selectedProvider.map { "No \($0.rawValue) sessions found" } ?? "No agent sessions found")
+                                    .font(FoundryTheme.body(size: 13, weight: .semibold))
+                                    .foregroundStyle(FoundryTheme.secondaryText)
+                                Text("Provider hooks, plugins, and desktop catalogs appear here.")
+                                    .font(FoundryTheme.body(size: 11, weight: .regular))
+                                    .foregroundStyle(FoundryTheme.mutedText)
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 54)
+                        }
                     }
+                    .padding(.horizontal, 18)
+                    .padding(.vertical, 14)
                 }
-                .padding(.horizontal, 18)
-                .padding(.vertical, 14)
+                .scrollIndicators(.never)
+                .id(selectedProvider?.rawValue ?? "all")
+                .onChange(of: selectedProvider) { _, _ in
+                    proxy.scrollTo("agent-shelf-top", anchor: .top)
+                }
             }
-            .scrollIndicators(.never)
         }
     }
 
