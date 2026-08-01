@@ -45,6 +45,7 @@ final class CommandPanelState: ObservableObject {
     @Published var hotkey: FoundryHotkey
     @Published var hotkeyError: String? = nil
     @Published var themeIntensity: Double
+    @Published var searchSensitivity: SearchSensitivity
     @Published var isOllamaEnabled: Bool
     @Published var ollamaHost: String
     @Published var ollamaModel: String
@@ -96,7 +97,13 @@ final class CommandPanelState: ObservableObject {
 
     var selectedActions: [CommandAction] {
         guard let selectedResult else { return [] }
-        return [selectedResult.primaryAction] + selectedResult.secondaryActions
+        return [selectedResult.primaryAction]
+            + selectedResult.secondaryActions
+            + [CommandAction(
+                id: "ranking.reset.\(selectedResult.id)",
+                title: "Reset Ranking",
+                kind: .resetRanking(commandID: selectedResult.id)
+            )]
     }
 
     var selectedAction: CommandAction? {
@@ -115,6 +122,7 @@ final class CommandPanelState: ObservableObject {
         self.isAgentShelfVisible = config.current.showAgentShelf
         self.hotkey = config.current.hotkey
         self.themeIntensity = config.current.themeIntensity
+        self.searchSensitivity = config.current.searchSensitivity
         self.isOllamaEnabled = config.current.ai.isOllamaEnabled
         self.ollamaHost = config.current.ai.ollamaHost
         self.ollamaModel = config.current.ai.ollamaModel
@@ -406,6 +414,19 @@ final class CommandPanelState: ObservableObject {
         updateCommandPreference(preference, for: commandID)
     }
 
+    func setSearchSensitivity(_ sensitivity: SearchSensitivity) {
+        let previous = searchSensitivity
+        searchSensitivity = sensitivity
+        do {
+            try configService.updateSearchSensitivity(sensitivity)
+            settingsPersistenceError = nil
+            refreshResults()
+        } catch {
+            searchSensitivity = previous
+            showSettingsPersistenceError(error)
+        }
+    }
+
     func setCommandFavorite(_ isFavorite: Bool, for commandID: String) {
         var preference = commandPreference(for: commandID)
         preference.favoriteRank = isFavorite ? nextFavoriteRank() : nil
@@ -529,7 +550,12 @@ final class CommandPanelState: ObservableObject {
         }
         if isShowingActions, let selectedAction {
             diagnostics.log("Executing action: \(selectedAction.id)")
-            registry.recordExecution(resultID: selectedResult.id)
+            if case let .resetRanking(commandID) = selectedAction.kind {
+                registry.resetRanking(for: commandID)
+                showActionFeedback(.success("Ranking reset"))
+                return false
+            }
+            registry.recordExecution(resultID: selectedResult.id, query: query)
             if case let .openQuickAI(prompt) = selectedAction.kind {
                 openQuickAI(initialPrompt: prompt)
                 return false
@@ -550,7 +576,7 @@ final class CommandPanelState: ObservableObject {
         }
 
         diagnostics.log("Executing result: \(selectedResult.id)")
-        registry.recordExecution(resultID: selectedResult.id)
+        registry.recordExecution(resultID: selectedResult.id, query: query)
         if case let .openQuickAI(prompt) = selectedResult.primaryAction.kind {
             openQuickAI(initialPrompt: prompt)
             return false
@@ -749,19 +775,12 @@ final class CommandPanelState: ObservableObject {
         let span = diagnostics.startSpan("search.async")
 
         searchTask = Task { [weak self] in
-            do {
-                try await Task.sleep(for: .milliseconds(80))
-            } catch {
-                diagnostics.endSpan(span)
-                return
-            }
-
             guard Task.isCancelled == false else {
                 diagnostics.endSpan(span)
                 return
             }
 
-            let foundResults = await registry.results(matching: trimmed)
+            let immediateResults = await registry.immediateResults(matching: trimmed)
             guard let self,
                   Task.isCancelled == false,
                   self.searchGeneration == generation,
@@ -770,12 +789,31 @@ final class CommandPanelState: ObservableObject {
                 return
             }
 
-            self.results = foundResults
-            self.selectedResultID = foundResults.first?.id
-            self.selectionScrollToken = UUID()
-            self.refreshStatusSummary()
+            self.selectedResultID = nil
+            self.applySearchResults(immediateResults, preserving: nil)
+
+            let foundResults = await registry.completeResults(matching: trimmed, initialResults: immediateResults)
+            guard Task.isCancelled == false,
+                  self.searchGeneration == generation,
+                  self.query.trimmingCharacters(in: .whitespacesAndNewlines) == trimmed else {
+                diagnostics.endSpan(span)
+                return
+            }
+
+            self.applySearchResults(foundResults, preserving: self.selectedResultID)
             diagnostics.endSpan(span)
         }
+    }
+
+    private func applySearchResults(_ nextResults: [CommandResult], preserving preferredID: String?) {
+        results = nextResults
+        if let preferredID, nextResults.contains(where: { $0.id == preferredID }) {
+            selectedResultID = preferredID
+        } else if selectedResultID == nil || nextResults.contains(where: { $0.id == selectedResultID }) == false {
+            selectedResultID = nextResults.first?.id
+        }
+        selectionScrollToken = UUID()
+        refreshStatusSummary()
     }
 
     private func refreshStatusSummary(fallback: String = "") {

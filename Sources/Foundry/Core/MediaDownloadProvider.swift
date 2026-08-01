@@ -33,7 +33,7 @@ final class MediaDownloadProvider: CommandProvider {
                 title: title,
                 subtitle: "\(detail) · save via \(service) to \(MediaDownloadDestination.folder.lastPathComponent)",
                 icon: CommandIcon(fallback: "DL", systemName: "arrow.down.circle", thumbnailURL: metadata?.thumbnailURL),
-                score: 10_000,
+                route: .mediaDownload,
                 primaryAction: CommandAction(id: "media.download.perform", title: "Download", kind: .downloadMedia(url: url.absoluteString)),
                 secondaryActions: [
                     CommandAction(id: "media.download.open-folder", title: "Open Download Folder", kind: .openURL(MediaDownloadDestination.folder.absoluteString)),

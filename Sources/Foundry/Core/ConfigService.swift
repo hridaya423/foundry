@@ -1,7 +1,7 @@
 import Foundation
 
 struct FoundryConfig: Codable, Equatable {
-    static let currentSchemaVersion = 2
+    static let currentSchemaVersion = 3
 
     var schemaVersion = FoundryConfig.currentSchemaVersion
     var hotkey: FoundryHotkey = .commandSpace
@@ -9,16 +9,18 @@ struct FoundryConfig: Codable, Equatable {
     var showAgentShelf: Bool = true
     var widgets: WidgetBoardConfig = .default
     var ai: AIConfig = .default
+    var searchSensitivity: SearchSensitivity = .medium
     var commandPreferences: [String: CommandPreference] = [:]
     var providerEnabled: [String: Bool] = [:]
 
-    init(hotkey: FoundryHotkey = .commandSpace, themeIntensity: Double = 0.72, showAgentShelf: Bool = true, widgets: WidgetBoardConfig = .default, ai: AIConfig = .default, commandPreferences: [String: CommandPreference] = [:], providerEnabled: [String: Bool] = [:]) {
+    init(hotkey: FoundryHotkey = .commandSpace, themeIntensity: Double = 0.72, showAgentShelf: Bool = true, widgets: WidgetBoardConfig = .default, ai: AIConfig = .default, searchSensitivity: SearchSensitivity = .medium, commandPreferences: [String: CommandPreference] = [:], providerEnabled: [String: Bool] = [:]) {
         schemaVersion = Self.currentSchemaVersion
         self.hotkey = hotkey
         self.themeIntensity = themeIntensity
         self.showAgentShelf = showAgentShelf
         self.widgets = widgets
         self.ai = ai
+        self.searchSensitivity = searchSensitivity
         self.commandPreferences = commandPreferences
         self.providerEnabled = providerEnabled
     }
@@ -40,6 +42,7 @@ struct FoundryConfig: Codable, Equatable {
         showAgentShelf = try container.decodeIfPresent(Bool.self, forKey: .showAgentShelf) ?? true
         widgets = try container.decodeIfPresent(WidgetBoardConfig.self, forKey: .widgets) ?? .default
         ai = try container.decodeIfPresent(AIConfig.self, forKey: .ai) ?? .default
+        searchSensitivity = try container.decodeIfPresent(SearchSensitivity.self, forKey: .searchSensitivity) ?? .medium
         commandPreferences = try container.decodeIfPresent([String: CommandPreference].self, forKey: .commandPreferences) ?? [:]
         providerEnabled = try container.decodeIfPresent([String: Bool].self, forKey: .providerEnabled) ?? [:]
     }
@@ -126,6 +129,12 @@ final class ConfigService {
     func updateAIConfig(_ ai: AIConfig) throws {
         var candidate = current
         candidate.ai = ai
+        try commit(candidate)
+    }
+
+    func updateSearchSensitivity(_ sensitivity: SearchSensitivity) throws {
+        var candidate = current
+        candidate.searchSensitivity = sensitivity
         try commit(candidate)
     }
 

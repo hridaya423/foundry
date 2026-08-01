@@ -284,7 +284,7 @@ extension CommandResult {
             sourceID: providerID,
             title: title,
             subtitle: subtitle,
-            keywords: preference?.aliases ?? [],
+            keywords: searchKeywords + searchAliases + (preference?.aliases ?? []),
             category: providerID,
             icon: icon,
             availability: .available,
@@ -324,7 +324,7 @@ extension CommandActionKind {
         switch self {
         case .copyToClipboard, .openURL, .openQuickAI, .openConfigFolder, .openActivityMonitor, .openEmojiPicker, .openFileShelf, .openClipboardHistory, .openSnippets, .openFileConverter, .openCamera, .openTranslator, .openDeveloperTools, .openSettings, .openDashboard, .log:
             .readOnly
-        case .openApp, .revealInFinder, .createSnippetFromClipboard, .importSnippets, .pasteText, .chooseMediaDownloadFolder, .setAudioDevice:
+        case .openApp, .revealInFinder, .createSnippetFromClipboard, .importSnippets, .pasteText, .chooseMediaDownloadFolder, .setAudioDevice, .resetRanking:
             .localMutation
         case .downloadMedia:
             .network

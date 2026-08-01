@@ -93,26 +93,48 @@ struct WidgetSettingsView: View {
     }
 
     private var generalContent: some View {
-        SettingsGroup {
-            VStack(spacing: 0) {
-                VStack(alignment: .leading, spacing: 7) {
-                    HStack(spacing: 12) {
-                        SettingsLabel(title: "Global shortcut", subtitle: "Open Foundry from anywhere")
-                        Spacer()
-                        ShortcutRecorder(hotkey: state.hotkey, onChange: state.setHotkey)
-                            .frame(width: 120, height: 30)
+        VStack(alignment: .leading, spacing: 12) {
+            SettingsGroup {
+                VStack(spacing: 0) {
+                    VStack(alignment: .leading, spacing: 7) {
+                        HStack(spacing: 12) {
+                            SettingsLabel(title: "Global shortcut", subtitle: "Open Foundry from anywhere")
+                            Spacer()
+                            ShortcutRecorder(hotkey: state.hotkey, onChange: state.setHotkey)
+                                .frame(width: 120, height: 30)
+                        }
                     }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 11)
+                    if let error = state.hotkeyError {
+                        Text(error)
+                            .font(FoundryTheme.body(size: 12, weight: .medium))
+                            .foregroundStyle(FoundryTheme.error)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.horizontal, 12)
+                            .padding(.bottom, 8)
+                    }
+                }
+            }
+
+            SettingsGroup {
+                HStack(spacing: 12) {
+                    SettingsLabel(title: "Search sensitivity", subtitle: state.searchSensitivity.subtitle)
+                    Spacer()
+                    Picker("Search sensitivity", selection: Binding(
+                        get: { state.searchSensitivity },
+                        set: { state.setSearchSensitivity($0) }
+                    )) {
+                        ForEach(SearchSensitivity.allCases) { sensitivity in
+                            Text(sensitivity.title).tag(sensitivity)
+                        }
+                    }
+                    .labelsHidden()
+                    .pickerStyle(.menu)
+                    .frame(width: 110)
                 }
                 .padding(.horizontal, 12)
                 .padding(.vertical, 11)
-                if let error = state.hotkeyError {
-                    Text(error)
-                        .font(FoundryTheme.body(size: 12, weight: .medium))
-                        .foregroundStyle(FoundryTheme.error)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.horizontal, 12)
-                        .padding(.bottom, 8)
-                }
             }
         }
     }

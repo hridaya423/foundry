@@ -26,7 +26,7 @@ final class CalculatorProvider: CommandProvider {
                 title: result,
                 subtitle: evaluation.expression,
                 icon: CommandIcon(fallback: "=", systemName: "function"),
-                score: 98,
+                route: .calculator,
                 primaryAction: CommandAction(id: "calculator.\(expression).copy", title: "Copy Result", kind: .copyToClipboard(evaluation.copyValue)),
                 secondaryActions: [
                     CommandAction(id: "calculator.\(expression).copy-expression", title: "Copy Expression", kind: .copyToClipboard(evaluation.expression))
@@ -83,7 +83,7 @@ final class CalculatorProvider: CommandProvider {
                 title: conversion.result,
                 subtitle: conversion.expression,
                 icon: CommandIcon(fallback: "⇄", systemName: "arrow.left.arrow.right"),
-                score: 99 - Double(index) * 0.1,
+                route: .calculator,
                 primaryAction: CommandAction(id: "calculator.convert.\(index).copy", title: "Copy Result", kind: .copyToClipboard(conversion.copyValue)),
                 secondaryActions: [
                     CommandAction(id: "calculator.convert.\(index).copy-expression", title: "Copy Conversion", kind: .copyToClipboard("\(conversion.expression) = \(conversion.result)"))

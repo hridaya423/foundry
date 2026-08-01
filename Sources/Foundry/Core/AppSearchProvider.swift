@@ -13,33 +13,49 @@ final class AppSearchProvider: CommandProvider, @unchecked Sendable {
     }
 
     func results(matching query: String) async -> [CommandResult] {
+        await results(matching: query, customAliases: [:])
+    }
+
+    func results(matching query: String, customAliases: [String: [String]]) async -> [CommandResult] {
+        await results(matching: query, customAliases: customAliases, sensitivity: .medium)
+    }
+
+    func results(matching query: String, customAliases: [String: [String]], sensitivity: SearchSensitivity) async -> [CommandResult] {
         let normalizedQuery = SearchScoring.normalize(query)
         guard normalizedQuery.isEmpty == false else { return [] }
 
         return await appCache.current().compactMap { app -> CommandResult? in
             guard Task.isCancelled == false else { return nil }
-            guard let score = SearchScoring.score(normalizedQuery: normalizedQuery, candidates: app.normalizedSearchCandidates) else { return nil }
+            let resultID = "app.\(app.identity)"
+            let aliases = customAliases[resultID] ?? []
+            guard SearchScoring.match(
+                query: normalizedQuery,
+                title: app.name,
+                subtitle: nil,
+                keywords: app.normalizedSearchCandidates,
+                aliases: aliases,
+                sensitivity: sensitivity
+            ) != nil else { return nil }
 
-            return Self.result(for: app, score: score)
-        }
-        .sorted { lhs, rhs in
-            if lhs.score == rhs.score { return lhs.title.localizedCaseInsensitiveCompare(rhs.title) == .orderedAscending }
-            return lhs.score > rhs.score
+            return Self.result(for: app, searchAliases: aliases, searchKeywords: app.normalizedSearchCandidates)
         }
     }
 
     func defaultResults() async -> [CommandResult] {
-        await appCache.current().map { app in Self.result(for: app, score: 10) }
+        await appCache.current().map { app in
+            Self.result(for: app, searchAliases: [], searchKeywords: app.normalizedSearchCandidates)
+        }
     }
 
-    private static func result(for app: InstalledApp, score: Double) -> CommandResult {
+    private static func result(for app: InstalledApp, searchAliases: [String]? = nil, searchKeywords: [String]? = nil) -> CommandResult {
         let path = app.path.path
         return CommandResult(
             id: "app.\(app.identity)",
             title: app.name,
             subtitle: nil,
             icon: CommandIcon(fallback: app.fallbackIcon, filePath: path),
-            score: score,
+            searchAliases: searchAliases ?? app.normalizedSearchCandidates,
+            searchKeywords: searchKeywords ?? app.normalizedSearchCandidates,
             primaryAction: CommandAction(id: "app.\(app.identity).open", title: "Open", kind: .openApp(path: path, name: app.name)),
             secondaryActions: [
                 CommandAction(id: "app.\(app.identity).reveal", title: "Reveal in Finder", kind: .revealInFinder(path: path)),

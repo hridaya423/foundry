@@ -19,9 +19,19 @@ enum AgentMonitorService {
     }
 
     private static func openCodeSessions(processes: [ProcessInfoRow]) -> [AgentSessionCard] {
-        let db = home(".local/share/opencode/opencode.db")
-        guard FileManager.default.fileExists(atPath: db) else { return [] }
-        let rows = sqlite(db, "select id,title,directory,model,agent,time_created,time_updated,time_archived from session where time_archived is null order by time_updated desc limit 8;")
+        let rows = openCodeDatabasePaths().flatMap { db in
+            sqlite(db, "select id,title,directory,model,agent,time_created,time_updated,time_archived from session where time_archived is null order by time_updated desc limit 16;")
+        }
+        .sorted {
+            let lhsDate = date(milliseconds: $0.count > 6 ? $0[6] : "") ?? .distantPast
+            let rhsDate = date(milliseconds: $1.count > 6 ? $1[6] : "") ?? .distantPast
+            return lhsDate > rhsDate
+        }
+        .reduce(into: [[String]]()) { uniqueRows, row in
+            guard let id = row.first, uniqueRows.contains(where: { $0.first == id }) == false else { return }
+            uniqueRows.append(row)
+        }
+        .prefix(8)
         let opencodeProcess = processes.first(where: { $0.executableName == "opencode" })
         return rows.compactMap { row in
             guard row.count >= 7 else { return nil }
@@ -50,7 +60,7 @@ enum AgentMonitorService {
     }
 
     private static func claudeSessions(processes: [ProcessInfoRow]) -> [AgentSessionCard] {
-        return processes.compactMap { process in
+        let running: [AgentSessionCard] = processes.compactMap { process in
             guard process.args.contains("--session-id"), process.args.contains("--resume") else { return nil }
             guard isRecent(process.startedAt, within: 60 * 60) else { return nil }
             guard let sessionID = value(after: "--session-id", in: process.args) else { return nil }
@@ -73,6 +83,64 @@ enum AgentMonitorService {
                 capabilities: [.observe, .jumpTerminal]
             )
         }
+        return running + claudeHistorySessions()
+    }
+
+    private static func claudeHistorySessions() -> [AgentSessionCard] {
+        let historyURL = URL(fileURLWithPath: home(".claude/history.jsonl"))
+        guard let data = try? Data(contentsOf: historyURL),
+              let text = String(data: data, encoding: .utf8) else { return [] }
+
+        struct Entry: Decodable {
+            let display: String
+            let timestamp: Double
+            let project: String
+            let sessionId: String
+        }
+
+        var latestBySession: [String: Entry] = [:]
+        for line in text.split(whereSeparator: \.isNewline) {
+            guard let data = line.data(using: .utf8),
+                  let entry = try? JSONDecoder().decode(Entry.self, from: data),
+                  isRecent(date(milliseconds: entry.timestamp), within: 7 * 24 * 60 * 60) else { continue }
+            if latestBySession[entry.sessionId]?.timestamp ?? 0 < entry.timestamp {
+                latestBySession[entry.sessionId] = entry
+            }
+        }
+
+        return latestBySession.values
+            .sorted { $0.timestamp > $1.timestamp }
+            .prefix(16)
+            .compactMap { entry in
+                let workingDirectory = entry.project.nilIfEmpty
+                let project = workingDirectory?.lastPathComponent
+                let title = claudeHistoryTitle(entry.display) ?? project ?? "Claude Session"
+                let updatedAt = date(milliseconds: entry.timestamp)
+                return AgentSessionCard(
+                    id: "claude.\(entry.sessionId)",
+                    provider: .claude,
+                    title: title,
+                    subtitle: project ?? "",
+                    project: project,
+                    workingDirectory: workingDirectory,
+                    model: nil,
+                    status: .recent,
+                    startedAt: nil,
+                    updatedAt: updatedAt,
+                    openTarget: .terminal(command: "claude --resume \(entry.sessionId.shellQuoted)", cwd: workingDirectory),
+                    key: AgentSessionKey(provider: .claude, rawSessionID: entry.sessionId),
+                    origin: .catalog,
+                    capabilities: [.observe, .jumpTerminal]
+                )
+            }
+    }
+
+    private static func claudeHistoryTitle(_ display: String) -> String? {
+        let title = display
+            .replacingOccurrences(of: "\n", with: " ")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        guard title.isEmpty == false, title.hasPrefix("/") == false else { return nil }
+        return String(title.prefix(80))
     }
 
     private static func cursorSessions(processes: [ProcessInfoRow]) -> [AgentSessionCard] {
@@ -321,6 +389,14 @@ enum AgentMonitorService {
             .split(separator: "\n", omittingEmptySubsequences: false)
             .map { $0.split(separator: "\t", omittingEmptySubsequences: false).map(String.init) }
             .filter { $0.isEmpty == false && ($0.count > 1 || $0.first?.isEmpty == false) }
+    }
+
+    private static func openCodeDatabasePaths() -> [String] {
+        [
+            home(".local/share/opencode/opencode-local.db"),
+            home(".local/share/opencode/opencode.db"),
+            home(".local/share/opencode/opencode-ghost-del.db")
+        ].filter { FileManager.default.fileExists(atPath: $0) }
     }
 
     private static func run(_ path: String, _ args: [String]) -> String {

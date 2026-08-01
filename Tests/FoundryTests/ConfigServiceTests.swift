@@ -32,6 +32,7 @@ final class ConfigServiceTests: XCTestCase {
         try service.updateAgentShelfVisibility(false)
         try service.updateWidgets(widgets)
         try service.updateAIConfig(ai)
+        try service.updateSearchSensitivity(.high)
 
         let loaded = ConfigService(diagnostics: DiagnosticsService(), url: url)
         XCTAssertEqual(loaded.current.hotkey, hotkey)
@@ -39,6 +40,7 @@ final class ConfigServiceTests: XCTestCase {
         XCTAssertFalse(loaded.current.showAgentShelf)
         XCTAssertEqual(loaded.current.widgets, widgets)
         XCTAssertEqual(loaded.current.ai, ai)
+        XCTAssertEqual(loaded.current.searchSensitivity, .high)
         XCTAssertEqual(loaded.current.schemaVersion, FoundryConfig.currentSchemaVersion)
     }
 

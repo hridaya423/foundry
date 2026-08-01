@@ -4,10 +4,18 @@ final class DeveloperToolsProvider: CommandProvider {
     let id = "foundry.developer-tools"
 
     func results(matching query: String) async -> [CommandResult] {
+        await results(matching: query, customAliases: [:])
+    }
+
+    func results(matching query: String, customAliases: [String: [String]]) async -> [CommandResult] {
+        await results(matching: query, customAliases: customAliases, sensitivity: .medium)
+    }
+
+    func results(matching query: String, customAliases: [String: [String]], sensitivity: SearchSensitivity) async -> [CommandResult] {
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard trimmed.isEmpty == false else { return [] }
 
-        var results = staticCommandResults(query: trimmed)
+        var results = staticCommandResults(query: trimmed, customAliases: customAliases, sensitivity: sensitivity)
         results.append(contentsOf: uuidResults(query: trimmed))
         results.append(contentsOf: base64Results(query: trimmed))
         results.append(contentsOf: jsonResults(query: trimmed))
@@ -16,14 +24,22 @@ final class DeveloperToolsProvider: CommandProvider {
         results.append(contentsOf: bitwiseResults(query: trimmed))
         results.append(contentsOf: baseConversionResults(query: trimmed))
         results.append(contentsOf: wordCountResults(query: trimmed))
-        results.append(contentsOf: loremResults(query: trimmed))
-        results.append(contentsOf: randomDataResults(query: trimmed))
+        results.append(contentsOf: loremResults(query: trimmed, sensitivity: sensitivity))
+        results.append(contentsOf: randomDataResults(query: trimmed, sensitivity: sensitivity))
 
-        return results
-            .sorted { lhs, rhs in
-                if lhs.score == rhs.score { return lhs.title.localizedCaseInsensitiveCompare(rhs.title) == .orderedAscending }
-                return lhs.score > rhs.score
-            }
+        return results.map { result in
+            CommandResult(
+                id: result.id,
+                title: result.title,
+                subtitle: result.subtitle,
+                icon: result.icon,
+                searchAliases: result.searchAliases,
+                searchKeywords: result.searchKeywords,
+                route: .developerTool,
+                primaryAction: result.primaryAction,
+                secondaryActions: result.secondaryActions
+            )
+        }
     }
 
     func defaultResults() async -> [CommandResult] {
@@ -34,7 +50,6 @@ final class DeveloperToolsProvider: CommandProvider {
                 subtitle: "Copy a new UUID",
                 icon: "number",
                 fallback: "ID",
-                score: 2,
                 primary: .copyToClipboard(UUID().uuidString)
             ),
             makeResult(
@@ -43,7 +58,6 @@ final class DeveloperToolsProvider: CommandProvider {
                 subtitle: "Copy 24 placeholder words",
                 icon: "text.alignleft",
                 fallback: "LO",
-                score: 2,
                 primary: .copyToClipboard(DeveloperToolsEngine.lorem(words: 24))
             ),
             makeResult(
@@ -52,22 +66,30 @@ final class DeveloperToolsProvider: CommandProvider {
                 subtitle: "Copy a disposable-looking email address",
                 icon: "at",
                 fallback: "RD",
-                score: 1,
                 primary: .copyToClipboard(DeveloperToolsEngine.randomEmail())
             )
         ]
     }
 
-    private func staticCommandResults(query: String) -> [CommandResult] {
+    private func staticCommandResults(query: String, customAliases: [String: [String]], sensitivity: SearchSensitivity) -> [CommandResult] {
         staticCommands.compactMap { command in
-            guard let score = SearchScoring.score(query: query, title: command.title, aliases: command.aliases) else { return nil }
+            let aliases = customAliases[command.id] ?? []
+            guard SearchScoring.match(
+                query: query,
+                title: command.title,
+                subtitle: command.subtitle,
+                keywords: [],
+                aliases: command.aliases + aliases,
+                sensitivity: sensitivity
+            ) != nil else { return nil }
             return makeResult(
                 id: command.id,
                 title: command.title,
                 subtitle: command.subtitle,
                 icon: command.icon,
                 fallback: command.fallback,
-                score: score + command.scoreBoost,
+                searchAliases: aliases,
+                searchKeywords: command.aliases,
                 primary: command.action
             )
         }
@@ -84,7 +106,6 @@ final class DeveloperToolsProvider: CommandProvider {
                 subtitle: count == 1 ? "UUID" : "UUID \(index + 1) of \(count)",
                 icon: "number",
                 fallback: "ID",
-                score: 110 - Double(index),
                 primary: .copyToClipboard(value)
             )
         }
@@ -103,7 +124,6 @@ final class DeveloperToolsProvider: CommandProvider {
                     subtitle: "Base64 encoded",
                     icon: "lock.doc",
                     fallback: "64",
-                    score: 110,
                     primary: .copyToClipboard(encoded),
                     secondary: [CommandAction(id: "dev.base64.encode.paste", title: "Paste", kind: .pasteText(encoded))]
                 )
@@ -119,7 +139,6 @@ final class DeveloperToolsProvider: CommandProvider {
                     subtitle: "Base64 decoded",
                     icon: "lock.open",
                     fallback: "64",
-                    score: 110,
                     primary: .copyToClipboard(decoded),
                     secondary: [CommandAction(id: "dev.base64.decode.paste", title: "Paste", kind: .pasteText(decoded))]
                 )
@@ -129,10 +148,10 @@ final class DeveloperToolsProvider: CommandProvider {
         guard let payload = payload(in: query, prefixes: ["base64", "b64"]), payload.isEmpty == false else { return [] }
         var results: [CommandResult] = []
         if let encoded = DeveloperToolsEngine.base64Encode(payload) {
-            results.append(makeResult(id: "dev.base64.any.encode.\(encoded.hashValue)", title: encoded, subtitle: "Encoded", icon: "lock.doc", fallback: "64", score: 109, primary: .copyToClipboard(encoded)))
+            results.append(makeResult(id: "dev.base64.any.encode.\(encoded.hashValue)", title: encoded, subtitle: "Encoded", icon: "lock.doc", fallback: "64", primary: .copyToClipboard(encoded)))
         }
         if let decoded = DeveloperToolsEngine.base64Decode(payload) {
-            results.append(makeResult(id: "dev.base64.any.decode.\(decoded.hashValue)", title: decoded, subtitle: "Decoded", icon: "lock.open", fallback: "64", score: 108, primary: .copyToClipboard(decoded)))
+            results.append(makeResult(id: "dev.base64.any.decode.\(decoded.hashValue)", title: decoded, subtitle: "Decoded", icon: "lock.open", fallback: "64", primary: .copyToClipboard(decoded)))
         }
         return results
     }
@@ -147,7 +166,6 @@ final class DeveloperToolsProvider: CommandProvider {
                 subtitle: DeveloperToolsEngine.compactPreview(formatted),
                 icon: "curlybraces.square",
                 fallback: "JS",
-                score: 110,
                 primary: .copyToClipboard(formatted),
                 secondary: [CommandAction(id: "dev.json.paste", title: "Paste", kind: .pasteText(formatted))]
             )
@@ -163,7 +181,6 @@ final class DeveloperToolsProvider: CommandProvider {
                 subtitle: variant.style,
                 icon: "character.cursor.ibeam",
                 fallback: "Aa",
-                score: 109 - Double(index),
                 primary: .copyToClipboard(variant.value),
                 secondary: [CommandAction(id: "dev.case.\(variant.style).paste", title: "Paste", kind: .pasteText(variant.value))]
             )
@@ -179,7 +196,6 @@ final class DeveloperToolsProvider: CommandProvider {
                 subtitle: conversion.label,
                 icon: "clock",
                 fallback: "TS",
-                score: 109 - Double(index),
                 primary: .copyToClipboard(conversion.value)
             )
         }
@@ -228,7 +244,6 @@ final class DeveloperToolsProvider: CommandProvider {
             subtitle: subtitle,
             icon: "candybarphone",
             fallback: "01",
-            score: 110,
             primary: .copyToClipboard(title)
         )
     }
@@ -250,7 +265,6 @@ final class DeveloperToolsProvider: CommandProvider {
                 subtitle: item.label == "Decimal" ? "Base conversion" : item.label,
                 icon: "number",
                 fallback: "10",
-                score: 110,
                 primary: .copyToClipboard(item.value)
             )
         }
@@ -268,7 +282,6 @@ final class DeveloperToolsProvider: CommandProvider {
                 subtitle: subtitle,
                 icon: "textformat.abc",
                 fallback: "WC",
-                score: 110,
                 primary: .copyToClipboard(String(stats.words)),
                 secondary: [
                     CommandAction(id: "dev.wordcount.characters", title: "Copy Characters", kind: .copyToClipboard(String(stats.characters))),
@@ -278,8 +291,8 @@ final class DeveloperToolsProvider: CommandProvider {
         ]
     }
 
-    private func loremResults(query: String) -> [CommandResult] {
-        guard let payload = payload(in: query, prefixes: ["lorem", "ipsum"]), payload.isEmpty == false || SearchScoring.score(query: query, title: "Lorem Ipsum", aliases: ["lorem", "ipsum"]) != nil else { return [] }
+    private func loremResults(query: String, sensitivity: SearchSensitivity) -> [CommandResult] {
+        guard let payload = payload(in: query, prefixes: ["lorem", "ipsum"]), payload.isEmpty == false || SearchScoring.match(query: query, title: "Lorem Ipsum", subtitle: nil, keywords: [], aliases: ["lorem", "ipsum"], sensitivity: sensitivity) != nil else { return [] }
         let count = min(max(Int(payload.trimmingCharacters(in: .whitespacesAndNewlines)) ?? 24, 1), 200)
         let text = DeveloperToolsEngine.lorem(words: count)
         return [
@@ -289,15 +302,14 @@ final class DeveloperToolsProvider: CommandProvider {
                 subtitle: DeveloperToolsEngine.compactPreview(text),
                 icon: "text.alignleft",
                 fallback: "LO",
-                score: 109,
                 primary: .copyToClipboard(text),
                 secondary: [CommandAction(id: "dev.lorem.paste", title: "Paste", kind: .pasteText(text))]
             )
         ]
     }
 
-    private func randomDataResults(query: String) -> [CommandResult] {
-        guard let payload = payload(in: query, prefixes: ["random", "faker"]), payload.isEmpty == false || SearchScoring.score(query: query, title: "Random Data", aliases: ["random", "faker"]) != nil else { return [] }
+    private func randomDataResults(query: String, sensitivity: SearchSensitivity) -> [CommandResult] {
+        guard let payload = payload(in: query, prefixes: ["random", "faker"]), payload.isEmpty == false || SearchScoring.match(query: query, title: "Random Data", subtitle: nil, keywords: [], aliases: ["random", "faker"], sensitivity: sensitivity) != nil else { return [] }
         let kind = payload.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         let items = DeveloperToolsEngine.randomItems(matching: kind)
         return items.enumerated().map { index, item in
@@ -307,7 +319,6 @@ final class DeveloperToolsProvider: CommandProvider {
                 subtitle: item.label,
                 icon: "dice",
                 fallback: "RD",
-                score: 108 - Double(index),
                 primary: .copyToClipboard(item.value),
                 secondary: [CommandAction(id: "dev.random.\(item.label).paste", title: "Paste", kind: .pasteText(item.value))]
             )
@@ -332,7 +343,8 @@ final class DeveloperToolsProvider: CommandProvider {
         subtitle: String,
         icon: String,
         fallback: String,
-        score: Double,
+        searchAliases: [String] = [],
+        searchKeywords: [String] = [],
         primary: CommandActionKind,
         secondary: [CommandAction] = []
     ) -> CommandResult {
@@ -341,21 +353,22 @@ final class DeveloperToolsProvider: CommandProvider {
             title: title,
             subtitle: subtitle,
             icon: CommandIcon(fallback: fallback, systemName: icon),
-            score: score,
+            searchAliases: searchAliases,
+            searchKeywords: searchKeywords,
             primaryAction: CommandAction(id: id + ".primary", title: "Copy", kind: primary),
             secondaryActions: secondary
         )
     }
 
     private let staticCommands: [StaticCommand] = [
-        StaticCommand(id: "dev.uuid", title: "Generate UUID", subtitle: "Copy a new UUID", aliases: ["uuid", "guid", "identifier"], icon: "number", fallback: "ID", scoreBoost: 4, action: .copyToClipboard(UUID().uuidString)),
-        StaticCommand(id: "dev.base64", title: "Base64 Encode or Decode", subtitle: "Transform text to or from base64", aliases: ["base64", "b64", "encode", "decode"], icon: "lock.doc", fallback: "64", scoreBoost: 4, action: .openDeveloperTools(tool: "base64")),
-        StaticCommand(id: "dev.json", title: "Format JSON", subtitle: "Pretty-print JSON into readable output", aliases: ["json", "pretty json", "format json"], icon: "curlybraces.square", fallback: "JS", scoreBoost: 4, action: .openDeveloperTools(tool: "json")),
-        StaticCommand(id: "dev.case", title: "Change Case", subtitle: "Convert text to camel, snake, kebab, and more", aliases: ["case", "change case", "convert case"], icon: "character.cursor.ibeam", fallback: "Aa", scoreBoost: 4, action: .openDeveloperTools(tool: "case")),
-        StaticCommand(id: "dev.timestamp", title: "Unix Timestamp", subtitle: "Convert timestamps and ISO dates", aliases: ["unix", "timestamp", "epoch"], icon: "clock", fallback: "TS", scoreBoost: 4, action: .openDeveloperTools(tool: "timestamp")),
-        StaticCommand(id: "dev.wordcount", title: "Word Count", subtitle: "Count words, characters, lines, and paragraphs", aliases: ["word count", "count words", "wc"], icon: "textformat.abc", fallback: "WC", scoreBoost: 3, action: .openDeveloperTools(tool: "wordCount")),
-        StaticCommand(id: "dev.lorem", title: "Lorem Ipsum", subtitle: "Generate placeholder copy", aliases: ["lorem", "ipsum", "placeholder text"], icon: "text.alignleft", fallback: "LO", scoreBoost: 3, action: .copyToClipboard(DeveloperToolsEngine.lorem(words: 24))),
-        StaticCommand(id: "dev.random", title: "Random Data", subtitle: "Generate emails, hex colors, numbers, and slugs", aliases: ["random", "faker", "fake data"], icon: "dice", fallback: "RD", scoreBoost: 3, action: .copyToClipboard(DeveloperToolsEngine.randomHexColor()))
+        StaticCommand(id: "dev.uuid", title: "Generate UUID", subtitle: "Copy a new UUID", aliases: ["uuid", "guid", "identifier"], icon: "number", fallback: "ID",  action: .copyToClipboard(UUID().uuidString)),
+        StaticCommand(id: "dev.base64", title: "Base64 Encode or Decode", subtitle: "Transform text to or from base64", aliases: ["base64", "b64", "encode", "decode"], icon: "lock.doc", fallback: "64",  action: .openDeveloperTools(tool: "base64")),
+        StaticCommand(id: "dev.json", title: "Format JSON", subtitle: "Pretty-print JSON into readable output", aliases: ["json", "pretty json", "format json"], icon: "curlybraces.square", fallback: "JS",  action: .openDeveloperTools(tool: "json")),
+        StaticCommand(id: "dev.case", title: "Change Case", subtitle: "Convert text to camel, snake, kebab, and more", aliases: ["case", "change case", "convert case"], icon: "character.cursor.ibeam", fallback: "Aa",  action: .openDeveloperTools(tool: "case")),
+        StaticCommand(id: "dev.timestamp", title: "Unix Timestamp", subtitle: "Convert timestamps and ISO dates", aliases: ["unix", "timestamp", "epoch"], icon: "clock", fallback: "TS",  action: .openDeveloperTools(tool: "timestamp")),
+        StaticCommand(id: "dev.wordcount", title: "Word Count", subtitle: "Count words, characters, lines, and paragraphs", aliases: ["word count", "count words", "wc"], icon: "textformat.abc", fallback: "WC",  action: .openDeveloperTools(tool: "wordCount")),
+        StaticCommand(id: "dev.lorem", title: "Lorem Ipsum", subtitle: "Generate placeholder copy", aliases: ["lorem", "ipsum", "placeholder text"], icon: "text.alignleft", fallback: "LO",  action: .copyToClipboard(DeveloperToolsEngine.lorem(words: 24))),
+        StaticCommand(id: "dev.random", title: "Random Data", subtitle: "Generate emails, hex colors, numbers, and slugs", aliases: ["random", "faker", "fake data"], icon: "dice", fallback: "RD",  action: .copyToClipboard(DeveloperToolsEngine.randomHexColor()))
     ]
 }
 
@@ -366,7 +379,6 @@ private struct StaticCommand {
     let aliases: [String]
     let icon: String
     let fallback: String
-    let scoreBoost: Double
     let action: CommandActionKind
 }
 

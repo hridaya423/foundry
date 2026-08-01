@@ -13,7 +13,7 @@ final class AppleNotesProvider: CommandProvider {
                 title: note.title,
                 subtitle: note.preview,
                 icon: CommandIcon(fallback: "AN", systemName: "note.text"),
-                score: 116,
+                route: .notesSearch,
                 primaryAction: CommandAction(id: "apple-note.open.\(note.id)", title: "Open in Apple Notes", kind: .runProcess(path: "/usr/bin/osascript", arguments: openScriptArguments(noteID: note.id))),
                 secondaryActions: [
                     CommandAction(id: "apple-note.copy.\(note.id)", title: "Copy Preview", kind: .copyToClipboard(note.preview))
@@ -29,7 +29,6 @@ final class AppleNotesProvider: CommandProvider {
                 title: "Apple Notes",
                 subtitle: "Search with: notes <text>",
                 icon: CommandIcon(fallback: "AN", systemName: "note.text"),
-                score: 0,
                 primaryAction: CommandAction(id: "foundry.apple-notes.launch", title: "Open", kind: .runProcess(path: "/usr/bin/open", arguments: ["-a", "Notes"])),
                 secondaryActions: []
             )

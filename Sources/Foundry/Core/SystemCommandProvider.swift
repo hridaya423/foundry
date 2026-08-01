@@ -10,9 +10,25 @@ final class SystemCommandProvider: CommandProvider, @unchecked Sendable {
     }
 
     func results(matching query: String) async -> [CommandResult] {
+        await results(matching: query, customAliases: [:])
+    }
+
+    func results(matching query: String, customAliases: [String: [String]]) async -> [CommandResult] {
+        await results(matching: query, customAliases: customAliases, sensitivity: .medium)
+    }
+
+    func results(matching query: String, customAliases: [String: [String]], sensitivity: SearchSensitivity) async -> [CommandResult] {
         commands.compactMap { command in
             guard Task.isCancelled == false else { return nil }
-            guard let score = SearchScoring.score(query: query, title: command.title, aliases: command.aliases) else {
+            let aliases = customAliases[command.id] ?? []
+            guard SearchScoring.match(
+                query: query,
+                title: command.title,
+                subtitle: command.subtitle,
+                keywords: [],
+                aliases: command.aliases + aliases,
+                sensitivity: sensitivity
+            ) != nil else {
                 return nil
             }
 
@@ -21,14 +37,11 @@ final class SystemCommandProvider: CommandProvider, @unchecked Sendable {
                 title: command.title,
                 subtitle: command.subtitle,
                 icon: CommandIcon(fallback: command.fallback, systemName: command.systemIcon),
-                score: score + command.scoreBoost,
+                searchAliases: aliases,
+                searchKeywords: command.aliases,
                 primaryAction: CommandAction(id: "\(command.id).perform", title: command.actionTitle, kind: command.actionKind),
                 secondaryActions: []
             )
-        }
-        .sorted { lhs, rhs in
-            if lhs.score == rhs.score { return lhs.title.localizedCaseInsensitiveCompare(rhs.title) == .orderedAscending }
-            return lhs.score > rhs.score
         }
     }
 
@@ -41,7 +54,6 @@ final class SystemCommandProvider: CommandProvider, @unchecked Sendable {
                 aliases: ["lock", "secure", "login window"],
                 systemIcon: "lock.fill",
                 fallback: "LK",
-                scoreBoost: 3,
                 actionTitle: "Lock",
                 actionKind: .runProcess(path: "/System/Library/CoreServices/Menu Extras/User.menu/Contents/Resources/CGSession", arguments: ["-suspend"])
             ),
@@ -52,7 +64,6 @@ final class SystemCommandProvider: CommandProvider, @unchecked Sendable {
                 aliases: ["sleep", "suspend"],
                 systemIcon: "moon.fill",
                 fallback: "SL",
-                scoreBoost: 2,
                 actionTitle: "Sleep",
                 actionKind: .runProcess(path: "/usr/bin/pmset", arguments: ["sleepnow"])
             ),
@@ -63,7 +74,6 @@ final class SystemCommandProvider: CommandProvider, @unchecked Sendable {
                 aliases: ["display sleep", "screen sleep", "turn off screen", "turn off display", "monitor sleep"],
                 systemIcon: "display.2",
                 fallback: "DS",
-                scoreBoost: 2,
                 actionTitle: "Sleep Displays",
                 actionKind: .runProcess(path: "/usr/bin/pmset", arguments: ["displaysleepnow"])
             ),
@@ -74,7 +84,6 @@ final class SystemCommandProvider: CommandProvider, @unchecked Sendable {
                 aliases: ["restart", "reboot", "relaunch mac", "restart computer"],
                 systemIcon: "arrow.clockwise.circle.fill",
                 fallback: "RE",
-                scoreBoost: 3,
                 actionTitle: "Restart",
                 actionKind: .runProcess(path: "/usr/bin/osascript", arguments: ["-e", "tell application \"System Events\" to restart"])
             ),
@@ -85,7 +94,6 @@ final class SystemCommandProvider: CommandProvider, @unchecked Sendable {
                 aliases: ["shutdown", "shut down", "power off", "turn off mac", "power down"],
                 systemIcon: "power.circle.fill",
                 fallback: "SD",
-                scoreBoost: 3,
                 actionTitle: "Shut Down",
                 actionKind: .runProcess(path: "/usr/bin/osascript", arguments: ["-e", "tell application \"System Events\" to shut down"])
             ),
@@ -96,7 +104,6 @@ final class SystemCommandProvider: CommandProvider, @unchecked Sendable {
                 aliases: ["logout", "log out", "sign out", "signoff", "end session"],
                 systemIcon: "rectangle.portrait.and.arrow.right",
                 fallback: "LO",
-                scoreBoost: 2,
                 actionTitle: "Log Out",
                 actionKind: .runProcess(path: "/usr/bin/osascript", arguments: ["-e", "tell application \"System Events\" to log out"])
             ),
@@ -107,7 +114,6 @@ final class SystemCommandProvider: CommandProvider, @unchecked Sendable {
                 aliases: ["restart finder", "refresh finder", "reload finder"],
                 systemIcon: "folder.fill.badge.gearshape",
                 fallback: "RF",
-                scoreBoost: 2,
                 actionTitle: "Restart",
                 actionKind: .runProcess(path: "/usr/bin/killall", arguments: ["Finder"])
             ),
@@ -118,7 +124,6 @@ final class SystemCommandProvider: CommandProvider, @unchecked Sendable {
                 aliases: ["restart dock", "refresh dock", "reload dock"],
                 systemIcon: "dock.rectangle",
                 fallback: "RD",
-                scoreBoost: 1,
                 actionTitle: "Restart",
                 actionKind: .runProcess(path: "/usr/bin/killall", arguments: ["Dock"])
             ),
@@ -129,7 +134,6 @@ final class SystemCommandProvider: CommandProvider, @unchecked Sendable {
                 aliases: ["restart menubar", "restart menu bar", "refresh menu bar", "restart systemuiserver"],
                 systemIcon: "menubar.rectangle",
                 fallback: "MB",
-                scoreBoost: 1,
                 actionTitle: "Restart",
                 actionKind: .runProcess(path: "/usr/bin/killall", arguments: ["SystemUIServer"])
             ),
@@ -140,7 +144,6 @@ final class SystemCommandProvider: CommandProvider, @unchecked Sendable {
                 aliases: ["flush dns", "clear dns", "reset dns", "dns cache"],
                 systemIcon: "network.badge.shield.half.filled",
                 fallback: "DNS",
-                scoreBoost: 2,
                 actionTitle: "Flush",
                 actionKind: .runProcess(path: "/bin/zsh", arguments: ["-lc", "/usr/bin/dscacheutil -flushcache; /usr/bin/killall -HUP mDNSResponder"])
             ),
@@ -151,7 +154,6 @@ final class SystemCommandProvider: CommandProvider, @unchecked Sendable {
                 aliases: ["dark mode", "light mode", "appearance", "toggle dark"],
                 systemIcon: "circle.lefthalf.filled",
                 fallback: "DM",
-                scoreBoost: 2,
                 actionTitle: "Toggle",
                 actionKind: .runProcess(path: "/usr/bin/osascript", arguments: ["-e", "tell application \"System Events\" to tell appearance preferences to set dark mode to not dark mode"])
             ),
@@ -162,7 +164,6 @@ final class SystemCommandProvider: CommandProvider, @unchecked Sendable {
                 aliases: ["hidden files", "show hidden files", "dotfiles", "finder hidden"],
                 systemIcon: "eye.slash.fill",
                 fallback: "HF",
-                scoreBoost: 2,
                 actionTitle: "Toggle",
                 actionKind: .runProcess(path: "/bin/zsh", arguments: ["-lc", "/usr/bin/defaults write com.apple.finder AppleShowAllFiles -bool $(/usr/bin/defaults read com.apple.finder AppleShowAllFiles 2>/dev/null | /usr/bin/grep -q true && printf false || printf true); /usr/bin/killall Finder"])
             ),
@@ -173,7 +174,6 @@ final class SystemCommandProvider: CommandProvider, @unchecked Sendable {
                 aliases: ["mute", "unmute", "mute volume", "sound mute"],
                 systemIcon: "speaker.slash.fill",
                 fallback: "MU",
-                scoreBoost: 2,
                 actionTitle: "Toggle",
                 actionKind: .runProcess(path: "/usr/bin/osascript", arguments: ["-e", "set volume output muted not (output muted of (get volume settings))"])
             ),
@@ -184,7 +184,6 @@ final class SystemCommandProvider: CommandProvider, @unchecked Sendable {
                 aliases: ["volume up", "louder", "increase volume", "turn it up"],
                 systemIcon: "speaker.wave.3.fill",
                 fallback: "VU",
-                scoreBoost: 1,
                 actionTitle: "Increase",
                 actionKind: .runProcess(path: "/usr/bin/osascript", arguments: ["-e", "set volume output volume ((output volume of (get volume settings)) + 6)"])
             ),
@@ -195,7 +194,6 @@ final class SystemCommandProvider: CommandProvider, @unchecked Sendable {
                 aliases: ["volume down", "quieter", "decrease volume", "turn it down"],
                 systemIcon: "speaker.wave.1.fill",
                 fallback: "VD",
-                scoreBoost: 1,
                 actionTitle: "Decrease",
                 actionKind: .runProcess(path: "/usr/bin/osascript", arguments: ["-e", "set volume output volume ((output volume of (get volume settings)) - 6)"])
             ),
@@ -206,7 +204,6 @@ final class SystemCommandProvider: CommandProvider, @unchecked Sendable {
                 aliases: ["clear clipboard", "empty clipboard", "wipe clipboard", "clear pasteboard"],
                 systemIcon: "clipboard.fill",
                 fallback: "CC",
-                scoreBoost: 1,
                 actionTitle: "Clear",
                 actionKind: .runProcess(path: "/usr/bin/pbcopy", arguments: [])
             ),
@@ -217,7 +214,6 @@ final class SystemCommandProvider: CommandProvider, @unchecked Sendable {
                 aliases: ["eject disks", "eject drives", "eject usb", "unmount disks"],
                 systemIcon: "eject.fill",
                 fallback: "EJ",
-                scoreBoost: 1,
                 actionTitle: "Eject",
                 actionKind: .runProcess(path: "/usr/bin/osascript", arguments: ["-e", "tell application \"Finder\" to eject (every disk whose ejectable is true)"])
             ),
@@ -228,7 +224,6 @@ final class SystemCommandProvider: CommandProvider, @unchecked Sendable {
                 aliases: ["screensaver", "screen saver", "saver"],
                 systemIcon: "sparkles.rectangle.stack.fill",
                 fallback: "SS",
-                scoreBoost: 1,
                 actionTitle: "Start",
                 actionKind: .openApp(path: "/System/Library/CoreServices/ScreenSaverEngine.app", name: "Screen Saver")
             ),
@@ -626,7 +621,6 @@ final class SystemCommandProvider: CommandProvider, @unchecked Sendable {
                 aliases: ["trash", "bin", "delete trash"],
                 systemIcon: "trash.fill",
                 fallback: "TR",
-                scoreBoost: 0,
                 actionTitle: "Empty",
                 actionKind: .runProcess(path: "/usr/bin/osascript", arguments: ["-e", "tell application \"Finder\" to empty trash"])
             ),
@@ -637,7 +631,6 @@ final class SystemCommandProvider: CommandProvider, @unchecked Sendable {
                 aliases: ["screenshot", "screen capture", "capture screen", "snipping tool"],
                 systemIcon: "camera.viewfinder",
                 fallback: "SC",
-                scoreBoost: 1,
                 actionTitle: "Open",
                 actionKind: .openApp(path: "/System/Library/CoreServices/Applications/Screenshot.app", name: "Screenshot")
             ),
@@ -648,7 +641,6 @@ final class SystemCommandProvider: CommandProvider, @unchecked Sendable {
                 aliases: ["disk utility", "disk management", "partition disk", "repair disk"],
                 systemIcon: "internaldrive.fill",
                 fallback: "DU",
-                scoreBoost: 1,
                 actionTitle: "Open",
                 actionKind: .openApp(path: "/System/Applications/Utilities/Disk Utility.app", name: "Disk Utility")
             ),
@@ -659,7 +651,6 @@ final class SystemCommandProvider: CommandProvider, @unchecked Sendable {
                 aliases: ["console", "system logs", "mac logs", "view logs"],
                 systemIcon: "apple.terminal.fill",
                 fallback: "CO",
-                scoreBoost: 1,
                 actionTitle: "Open",
                 actionKind: .openApp(path: "/System/Applications/Utilities/Console.app", name: "Console")
             ),
@@ -670,7 +661,6 @@ final class SystemCommandProvider: CommandProvider, @unchecked Sendable {
                 aliases: ["rebuild app", "build app", "package app", "sign app", "rebuild foundry"],
                 systemIcon: "hammer.fill",
                 fallback: "BA",
-                scoreBoost: 2,
                 actionTitle: "Rebuild",
                 actionKind: .rebuildApp
             )
@@ -693,7 +683,6 @@ final class SystemCommandProvider: CommandProvider, @unchecked Sendable {
             aliases: aliases,
             systemIcon: systemIcon,
             fallback: fallback,
-            scoreBoost: 1,
             actionTitle: "Open",
             actionKind: .openURL(url)
         )
@@ -707,7 +696,6 @@ private struct SystemCommand: Sendable {
     let aliases: [String]
     let systemIcon: String
     let fallback: String
-    let scoreBoost: Double
     let actionTitle: String
     let actionKind: CommandActionKind
 }

@@ -11,9 +11,25 @@ final class BuiltInCommandProvider: CommandProvider {
     }
 
     func results(matching query: String) async -> [CommandResult] {
+        await results(matching: query, customAliases: [:])
+    }
+
+    func results(matching query: String, customAliases: [String: [String]]) async -> [CommandResult] {
+        await results(matching: query, customAliases: customAliases, sensitivity: .medium)
+    }
+
+    func results(matching query: String, customAliases: [String: [String]], sensitivity: SearchSensitivity) async -> [CommandResult] {
         commands().compactMap { command in
             guard Task.isCancelled == false else { return nil }
-            guard let score = SearchScoring.score(query: query, title: command.title, aliases: command.aliases) else {
+            let aliases = customAliases[command.id] ?? []
+            guard SearchScoring.match(
+                query: query,
+                title: command.title,
+                subtitle: command.subtitle,
+                keywords: [],
+                aliases: command.aliases + aliases,
+                sensitivity: sensitivity
+            ) != nil else {
                 return nil
             }
 
@@ -22,7 +38,8 @@ final class BuiltInCommandProvider: CommandProvider {
                 title: command.title,
                 subtitle: command.subtitle,
                 icon: CommandIcon(fallback: command.fallback, systemName: command.systemIcon),
-                score: score + command.scoreBoost,
+                searchAliases: aliases,
+                searchKeywords: command.aliases,
                 primaryAction: command.primaryAction,
                 secondaryActions: []
             )
@@ -36,7 +53,6 @@ final class BuiltInCommandProvider: CommandProvider {
                 title: command.title,
                 subtitle: command.subtitle,
                 icon: CommandIcon(fallback: command.fallback, systemName: command.systemIcon),
-                score: 0,
                 primaryAction: command.primaryAction,
                 secondaryActions: []
             )
@@ -55,7 +71,6 @@ final class BuiltInCommandProvider: CommandProvider {
                 aliases: ["emoji", "emojis", "symbols", "characters", "reaction", "smiley", "unicode"],
                 systemIcon: "face.smiling",
                 fallback: "EM",
-                scoreBoost: 3,
                 primaryAction: CommandAction(id: "foundry.emoji-picker.open", title: "Open", kind: .openEmojiPicker),
                 secondaryActions: []
             ),
@@ -66,7 +81,6 @@ final class BuiltInCommandProvider: CommandProvider {
                 aliases: ["processes", "process monitor", "cpu", "memory", "ram", "system monitor", "task manager"],
                 systemIcon: "cpu",
                 fallback: "AM",
-                scoreBoost: 3,
                 primaryAction: CommandAction(id: "foundry.activity-monitor.open", title: "Open", kind: .openActivityMonitor),
                 secondaryActions: []
             ),
@@ -77,7 +91,6 @@ final class BuiltInCommandProvider: CommandProvider {
                 aliases: ["shelf", "files", "drop", "drag", "temporary files"],
                 systemIcon: "tray.full",
                 fallback: "FS",
-                scoreBoost: 3,
                 primaryAction: CommandAction(id: "foundry.file-shelf.open", title: "Open", kind: .openFileShelf),
                 secondaryActions: []
             ),
@@ -88,7 +101,6 @@ final class BuiltInCommandProvider: CommandProvider {
                 aliases: ["convert", "converter", "file convert", "transcode", "reformat"],
                 systemIcon: "arrow.triangle.2.circlepath",
                 fallback: "CV",
-                scoreBoost: 4,
                 primaryAction: CommandAction(id: "foundry.file-convert.open", title: "Open", kind: .openFileConverter()),
                 secondaryActions: []
             ),
@@ -99,7 +111,6 @@ final class BuiltInCommandProvider: CommandProvider {
                 aliases: ["clipboard", "copyboard", "copy history", "pasteboard", "paste history", "history"],
                 systemIcon: "doc.on.clipboard",
                 fallback: "CB",
-                scoreBoost: 3,
                 primaryAction: CommandAction(id: "foundry.clipboard-history.open", title: "Open", kind: .openClipboardHistory),
                 secondaryActions: []
             ),
@@ -110,7 +121,6 @@ final class BuiltInCommandProvider: CommandProvider {
                 aliases: ["snippets", "snippet", "search snippets", "code snippets", "templates"],
                 systemIcon: "curlybraces",
                 fallback: "SN",
-                scoreBoost: 3,
                 primaryAction: CommandAction(id: "foundry.snippets.open", title: "Open", kind: .openSnippets),
                 secondaryActions: []
             ),
@@ -121,7 +131,6 @@ final class BuiltInCommandProvider: CommandProvider {
                 aliases: ["new snippet", "create snippet", "clipboard snippet", "save snippet"],
                 systemIcon: "plus.rectangle.on.rectangle",
                 fallback: "SN",
-                scoreBoost: 4,
                 primaryAction: CommandAction(id: "foundry.snippets.create-from-clipboard.perform", title: "Create", kind: .createSnippetFromClipboard),
                 secondaryActions: []
             ),
@@ -132,7 +141,6 @@ final class BuiltInCommandProvider: CommandProvider {
                 aliases: ["import snippets", "raycast snippets", "snippets json"],
                 systemIcon: "square.and.arrow.down",
                 fallback: "SN",
-                scoreBoost: 4,
                 primaryAction: CommandAction(id: "foundry.snippets.import.perform", title: "Import", kind: .importSnippets),
                 secondaryActions: []
             ),
@@ -143,7 +151,6 @@ final class BuiltInCommandProvider: CommandProvider {
                 aliases: ["camera", "webcam", "preview", "cam"],
                 systemIcon: "camera",
                 fallback: "CM",
-                scoreBoost: 3,
                 primaryAction: CommandAction(id: "foundry.camera.open", title: "Open", kind: .openCamera),
                 secondaryActions: []
             ),
@@ -154,7 +161,6 @@ final class BuiltInCommandProvider: CommandProvider {
                 aliases: ["translate", "translator", "translation", "language"],
                 systemIcon: "globe",
                 fallback: "TR",
-                scoreBoost: 4,
                 primaryAction: CommandAction(id: "foundry.translate.open", title: "Open", kind: .openTranslator()),
                 secondaryActions: []
             ),
@@ -165,7 +171,6 @@ final class BuiltInCommandProvider: CommandProvider {
                 aliases: ["ask ai", "ai", "plan", "draft"],
                 systemIcon: "sparkles",
                 fallback: "AI",
-                scoreBoost: 5,
                 primaryAction: CommandAction(id: "foundry.ai.open", title: "Open", kind: .openQuickAI(prompt: "")),
                 secondaryActions: []
             ),
@@ -176,7 +181,6 @@ final class BuiltInCommandProvider: CommandProvider {
                 aliases: ["developer tools", "base convert", "bitwise", "radix", "binary", "hex"],
                 systemIcon: "hammer",
                 fallback: "DT",
-                scoreBoost: 4,
                 primaryAction: CommandAction(id: "foundry.developer-tools.open", title: "Open", kind: .openDeveloperTools()),
                 secondaryActions: []
             ),
@@ -187,7 +191,6 @@ final class BuiltInCommandProvider: CommandProvider {
                 aliases: ["foundry config", "config", "preferences"],
                 systemIcon: "slider.horizontal.3",
                 fallback: "ST",
-                scoreBoost: 1,
                 primaryAction: CommandAction(id: "foundry.settings.open", title: "Open", kind: .openSettings),
                 secondaryActions: []
             ),
@@ -198,7 +201,6 @@ final class BuiltInCommandProvider: CommandProvider {
                 aliases: ["dashboard", "widgets", "board"],
                 systemIcon: "rectangle.3.group",
                 fallback: "DB",
-                scoreBoost: 2,
                 primaryAction: CommandAction(id: "foundry.dashboard.open", title: "Open", kind: .openDashboard),
                 secondaryActions: []
             ),
@@ -209,7 +211,6 @@ final class BuiltInCommandProvider: CommandProvider {
                 aliases: ["exit", "close foundry"],
                 systemIcon: "power",
                 fallback: "QT",
-                scoreBoost: 0,
                 primaryAction: CommandAction(id: "foundry.quit.perform", title: "Quit", kind: .quit),
                 secondaryActions: []
             )
@@ -224,7 +225,6 @@ private struct BuiltInCommand {
     let aliases: [String]
     let systemIcon: String
     let fallback: String
-    let scoreBoost: Double
     let primaryAction: CommandAction
     let secondaryActions: [CommandAction]
 }

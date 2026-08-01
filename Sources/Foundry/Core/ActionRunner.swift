@@ -210,6 +210,9 @@ final class ActionRunner {
                 feedbackHandler?(.failure("Could not switch audio device"))
             }
 
+        case .resetRanking:
+            diagnostics.log("Ranking reset is handled by the command registry")
+
         case .rebuildApp:
             guard let sourceRoot = Bundle.main.object(forInfoDictionaryKey: "FoundrySourceRoot") as? String else {
                 diagnostics.log("Cannot rebuild Foundry: source root is unavailable")

@@ -45,7 +45,7 @@ final class AIProvider: @unchecked Sendable, CommandProvider {
             title: response,
             subtitle: "AI agent · \(request.backend.displayName)",
             icon: CommandIcon(fallback: "AI", systemName: "sparkles"),
-            score: 250,
+            route: .aiResponse,
             primaryAction: CommandAction(id: "ai.copy", title: "Copy", kind: .copyToClipboard(response)),
             secondaryActions: [CommandAction(id: "ai.log", title: "Log", kind: .log(response))]
         )]

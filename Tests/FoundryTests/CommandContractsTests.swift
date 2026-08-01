@@ -8,7 +8,6 @@ final class CommandContractsTests: XCTestCase {
             title: "Dashboard",
             subtitle: "Open the Foundry dashboard",
             icon: CommandIcon(fallback: "DB", systemName: "rectangle.3.group"),
-            score: 2,
             primaryAction: CommandAction(id: "foundry.dashboard.open", title: "Open", kind: .openDashboard),
             secondaryActions: []
         )
@@ -127,8 +126,7 @@ final class CommandContractsTests: XCTestCase {
                 title: "Test Command",
                 subtitle: nil,
                 icon: CommandIcon(fallback: "T"),
-                score: 1,
-                primaryAction: CommandAction(id: "test.command.open", title: "Open", kind: .openDashboard),
+                    primaryAction: CommandAction(id: "test.command.open", title: "Open", kind: .openDashboard),
                 secondaryActions: []
             )]
         }
@@ -147,8 +145,7 @@ final class CommandContractsTests: XCTestCase {
                 title: "Counting Command",
                 subtitle: "Test",
                 icon: CommandIcon(fallback: "C"),
-                score: 0,
-                primaryAction: CommandAction(id: "counting.command.open", title: "Open", kind: .openDashboard),
+                    primaryAction: CommandAction(id: "counting.command.open", title: "Open", kind: .openDashboard),
                 secondaryActions: []
             )]
         }

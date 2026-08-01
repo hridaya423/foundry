@@ -692,7 +692,6 @@ struct CommandPanelView: View {
                 title: "Clipboard History",
                 subtitle: "Search copied text, files, and images",
                 icon: CommandIcon(fallback: "CB", systemName: "doc.on.clipboard"),
-                score: 0,
                 primaryAction: CommandAction(id: "calculator.fallback.clipboard.open", title: "Open", kind: .openClipboardHistory),
                 secondaryActions: []
             ),
@@ -701,7 +700,6 @@ struct CommandPanelView: View {
                 title: "File Shelf",
                 subtitle: "Hold files for quick actions",
                 icon: CommandIcon(fallback: "FS", systemName: "tray.full"),
-                score: 0,
                 primaryAction: CommandAction(id: "calculator.fallback.fileshelf.open", title: "Open", kind: .openFileShelf),
                 secondaryActions: []
             ),
@@ -710,7 +708,6 @@ struct CommandPanelView: View {
                 title: "Open Foundry Settings",
                 subtitle: "Customize widgets and Foundry preferences",
                 icon: CommandIcon(fallback: "ST", systemName: "slider.horizontal.3"),
-                score: 0,
                 primaryAction: CommandAction(id: "calculator.fallback.settings.open", title: "Open", kind: .openSettings),
                 secondaryActions: []
             )
@@ -786,6 +783,8 @@ struct CommandPanelView: View {
             "URL"
         case .terminateProcess, .quitApplication, .terminatePort, .toggleKeepAwake, .setAudioDevice, .rebuildApp:
             "Utility"
+        case .resetRanking:
+            "Command"
         case .runProcess:
             "Script"
         case .log:
@@ -2692,6 +2691,8 @@ private struct ActionRow: View {
             "network"
         case .setAudioDevice:
             "speaker.wave.2.fill"
+        case .resetRanking:
+            "arrow.counterclockwise"
         case .rebuildApp:
             "hammer.fill"
         case .runProcess:

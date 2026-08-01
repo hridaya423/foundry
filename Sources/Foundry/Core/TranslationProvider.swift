@@ -12,7 +12,7 @@ final class TranslationProvider: CommandProvider {
                 title: translated,
                 subtitle: "Translate to \(request.language.capitalized)",
                 icon: CommandIcon(fallback: "TR", systemName: "globe"),
-                score: 120,
+                route: .translation,
                 primaryAction: CommandAction(id: "translate.copy", title: "Copy Translation", kind: .copyToClipboard(translated)),
                 secondaryActions: [
                     CommandAction(id: "translate.open", title: "Open Translator", kind: .openTranslator(text: request.text, language: request.language)),

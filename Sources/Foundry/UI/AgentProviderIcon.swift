@@ -27,10 +27,15 @@ struct AgentProviderIcon: View {
     }
 
     private var brandIcon: NSImage? {
-        guard let resource = Self.brandResources[provider],
-              let url = Bundle.module.url(forResource: resource, withExtension: "svg", subdirectory: "ProviderIcons"),
+        guard let url = Self.brandResourceURL(for: provider),
               let image = NSImage(contentsOf: url) else { return nil }
         return image
+    }
+
+    nonisolated static func brandResourceURL(for provider: AgentProviderKind) -> URL? {
+        guard let resource = brandResources[provider] else { return nil }
+        return Bundle.module.url(forResource: resource, withExtension: "svg")
+            ?? Bundle.module.url(forResource: resource, withExtension: "svg", subdirectory: "ProviderIcons")
     }
 
     private var appIcon: NSImage? {
@@ -46,7 +51,7 @@ struct AgentProviderIcon: View {
         .opencode: ["/Applications/OpenCode.app", "~/Applications/OpenCode.app"].map(expandHome)
     ]
 
-    private static let brandResources: [AgentProviderKind: String] = [
+    nonisolated private static let brandResources: [AgentProviderKind: String] = [
         .claude: "anthropic",
         .opencode: "opencode"
     ]

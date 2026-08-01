@@ -1,13 +1,50 @@
 import Foundation
 
+enum SearchRoute: String, CaseIterable, Hashable, Sendable {
+    case calculator
+    case translation
+    case mediaDownload
+    case notesSearch
+    case aiResponse
+    case macUtility
+    case browserTab
+    case browserBookmark
+    case browserHistory
+    case developerTool
+}
+
 struct CommandResult: Identifiable, Hashable, Sendable {
     let id: String
     let title: String
     let subtitle: String?
     let icon: CommandIcon
-    let score: Double
+    let searchAliases: [String]
+    let searchKeywords: [String]
+    let route: SearchRoute?
     let primaryAction: CommandAction
     let secondaryActions: [CommandAction]
+
+    init(
+        id: String,
+        title: String,
+        subtitle: String?,
+        icon: CommandIcon,
+        searchAliases: [String] = [],
+        searchKeywords: [String] = [],
+        route: SearchRoute? = nil,
+        primaryAction: CommandAction,
+        secondaryActions: [CommandAction]
+    ) {
+        self.id = id
+        self.title = title
+        self.subtitle = subtitle
+        self.icon = icon
+        self.searchAliases = searchAliases
+        self.searchKeywords = searchKeywords
+        self.route = route
+        self.primaryAction = primaryAction
+        self.secondaryActions = secondaryActions
+    }
 }
 
 struct CommandIcon: Codable, Hashable, Sendable {
@@ -66,6 +103,7 @@ enum CommandActionKind: Hashable, Sendable {
     case toggleKeepAwake
     case terminatePort(Int)
     case setAudioDevice(id: UInt32, kind: AudioDeviceKind)
+    case resetRanking(commandID: String)
     case rebuildApp
     case runProcess(path: String, arguments: [String])
     case quit
@@ -80,10 +118,20 @@ enum AudioDeviceKind: Hashable, Sendable {
 protocol CommandProvider: Sendable {
     var id: String { get }
     func results(matching query: String) async -> [CommandResult]
+    func results(matching query: String, customAliases: [String: [String]]) async -> [CommandResult]
+    func results(matching query: String, customAliases: [String: [String]], sensitivity: SearchSensitivity) async -> [CommandResult]
     func defaultResults() async -> [CommandResult]
 }
 
 extension CommandProvider {
+    func results(matching query: String, customAliases: [String: [String]]) async -> [CommandResult] {
+        await results(matching: query)
+    }
+
+    func results(matching query: String, customAliases: [String: [String]], sensitivity: SearchSensitivity) async -> [CommandResult] {
+        await results(matching: query, customAliases: customAliases)
+    }
+
     func defaultResults() async -> [CommandResult] { [] }
 }
 
@@ -130,67 +178,106 @@ final class CommandRegistry: @unchecked Sendable {
     }
 
     func results(matching query: String) async -> [CommandResult] {
-        let activeProviders = enabledProviders
-        var allResults: [CommandResult] = []
-        var timings: [ProviderSearchTiming] = []
+        await results(matching: query, customAliases: customAliases)
+    }
 
-        await withTaskGroup(of: ProviderSearchResult.self) { group in
-            for provider in activeProviders {
-                group.addTask {
-                    let startedAt = Date().timeIntervalSinceReferenceDate
-                    let results = await provider.results(matching: query)
-                    let elapsedMilliseconds = (Date().timeIntervalSinceReferenceDate - startedAt) * 1_000
-                    await self.providerHealth.recordRequest(providerID: provider.id, elapsedMilliseconds: elapsedMilliseconds, resultCount: results.count)
-                    return ProviderSearchResult(providerID: provider.id, results: results, elapsedMilliseconds: elapsedMilliseconds)
-                }
-            }
+    func immediateResults(matching query: String) async -> [CommandResult] {
+        let activeProviders = enabledProviders.filter { immediateProviderIDs.contains($0.id) }
+        let (providerCandidates, _) = await collectCandidates(query: query, providers: activeProviders, aliases: customAliases)
+        var candidates = providerCandidates.filter { isCommandEnabled($0.result) }
+        let sensitivity = configService?.current.searchSensitivity ?? .medium
 
-            for await providerResult in group {
-                guard Task.isCancelled == false else {
-                    group.cancelAll()
-                    return
-                }
-                allResults.append(contentsOf: providerResult.results)
-                timings.append(ProviderSearchTiming(providerID: providerResult.providerID, elapsedMilliseconds: providerResult.elapsedMilliseconds))
-            }
+        if let browserProvider = enabledProviders.compactMap({ $0 as? BrowserProvider }).first {
+            candidates.append(contentsOf: browserProvider.cachedResults(matching: query, sensitivity: sensitivity).enumerated().map { index, result in
+                RankCandidate(result: result, providerID: browserProvider.id, sourceOrder: index)
+            })
         }
 
-        guard Task.isCancelled == false else { return [] }
+        return Array(ordered(deduplicated(candidates), query: query).prefix(12))
+    }
 
-        if let browserProvider = activeProviders.compactMap({ $0 as? BrowserProvider }).first {
-            allResults.append(contentsOf: browserProvider.cachedResults(matching: query))
-            if allResults.isEmpty {
-                allResults.append(contentsOf: await browserProvider.fallbackResults(matching: query))
-            }
+    func completeResults(matching query: String, initialResults: [CommandResult]) async -> [CommandResult] {
+        let deferredProviders = enabledProviders.filter { immediateProviderIDs.contains($0.id) == false }
+        let (providerCandidates, timings) = await collectCandidates(query: query, providers: deferredProviders, aliases: customAliases)
+        var candidates = initialResults.enumerated().map { index, result in
+            RankCandidate(result: result, providerID: "foundry.immediate", sourceOrder: index)
+        }
+        candidates.append(contentsOf: providerCandidates)
+        let sensitivity = configService?.current.searchSensitivity ?? .medium
+
+        if let browserProvider = deferredProviders.compactMap({ $0 as? BrowserProvider }).first {
+            let existingIDs = Set(candidates.map { $0.result.id })
+            candidates.append(contentsOf: browserProvider.cachedResults(matching: query, sensitivity: sensitivity).enumerated().compactMap { index, result in
+                existingIDs.contains(result.id) ? nil : RankCandidate(result: result, providerID: browserProvider.id, sourceOrder: index)
+            })
         }
 
-        allResults = allResults.filter(isCommandEnabled)
-
-        if allResults.isEmpty {
+        candidates = deduplicated(candidates.filter { isCommandEnabled($0.result) })
+        if candidates.isEmpty {
             let prompt = query.trimmingCharacters(in: .whitespacesAndNewlines)
             if prompt.isEmpty == false {
-                allResults.append(CommandResult(
+                candidates.append(RankCandidate(result: CommandResult(
                     id: "foundry.quick.\(AIRequestIdentifier.make(prompt: prompt, backend: .appleFoundationModels))",
                     title: "Ask AI about \(prompt)",
                     subtitle: "Open the research assistant",
                     icon: CommandIcon(fallback: "AI", systemName: "sparkles"),
-                    score: 95,
                     primaryAction: CommandAction(id: "ai.quick", title: "Ask AI", kind: .openQuickAI(prompt: prompt)),
                     secondaryActions: []
-                ))
+                ), providerID: "foundry.ai", sourceOrder: 0))
+            }
+        }
+
+        logSearchTimings(timings)
+        return Array(ordered(candidates, query: query).prefix(12))
+    }
+
+    func results(matching query: String, customAliases: [String: [String]]) async -> [CommandResult] {
+        let activeProviders = enabledProviders
+        let (providerCandidates, timings) = await collectCandidates(query: query, providers: activeProviders, aliases: customAliases)
+        var allCandidates = providerCandidates
+
+        guard Task.isCancelled == false else { return [] }
+
+        if let browserProvider = activeProviders.compactMap({ $0 as? BrowserProvider }).first {
+            let sensitivity = configService?.current.searchSensitivity ?? .medium
+            let cachedResults = browserProvider.cachedResults(matching: query, sensitivity: sensitivity)
+            allCandidates.append(contentsOf: cachedResults.enumerated().map { index, result in
+                RankCandidate(result: result, providerID: browserProvider.id, sourceOrder: index)
+            })
+            if allCandidates.isEmpty {
+                let fallbackResults = await browserProvider.fallbackResults(matching: query, sensitivity: sensitivity)
+                allCandidates.append(contentsOf: fallbackResults.enumerated().map { index, result in
+                    RankCandidate(result: result, providerID: browserProvider.id, sourceOrder: index)
+                })
+            }
+        }
+
+        allCandidates = deduplicated(allCandidates.filter { isCommandEnabled($0.result) })
+
+        if allCandidates.isEmpty {
+            let prompt = query.trimmingCharacters(in: .whitespacesAndNewlines)
+            if prompt.isEmpty == false {
+                allCandidates.append(RankCandidate(result: CommandResult(
+                    id: "foundry.quick.\(AIRequestIdentifier.make(prompt: prompt, backend: .appleFoundationModels))",
+                    title: "Ask AI about \(prompt)",
+                    subtitle: "Open the research assistant",
+                    icon: CommandIcon(fallback: "AI", systemName: "sparkles"),
+                    primaryAction: CommandAction(id: "ai.quick", title: "Ask AI", kind: .openQuickAI(prompt: prompt)),
+                    secondaryActions: []
+                ), providerID: "foundry.ai", sourceOrder: 0))
             }
         }
 
         logSearchTimings(timings)
 
-        return ordered(allResults)
+        return ordered(allCandidates, query: query)
             .prefix(12)
             .map { $0 }
     }
 
     func homeResults() async -> [CommandResult] {
         let activeProviders = enabledProviders
-        var allResults: [CommandResult] = []
+        var allCandidates: [RankCandidate] = []
         await withTaskGroup(of: [CommandResult].self) { group in
             for provider in activeProviders {
                 group.addTask {
@@ -203,11 +290,13 @@ final class CommandRegistry: @unchecked Sendable {
             }
 
             for await results in group {
-                allResults.append(contentsOf: results)
+                allCandidates.append(contentsOf: results.enumerated().map { index, result in
+                    RankCandidate(result: result, providerID: "", sourceOrder: index)
+                })
             }
         }
 
-        let sorted = ordered(allResults.filter(isCommandEnabled))
+        let sorted = ordered(allCandidates.filter { isCommandEnabled($0.result) }, query: nil)
 
         let apps = sorted.filter { result in
             if case .openApp = result.primaryAction.kind { return true }
@@ -221,8 +310,12 @@ final class CommandRegistry: @unchecked Sendable {
         return Array(apps.prefix(6) + commands.prefix(5))
     }
 
-    func recordExecution(resultID: String) {
-        usageRanking.recordExecution(resultID: resultID)
+    func recordExecution(resultID: String, query: String? = nil) {
+        usageRanking.recordExecution(resultID: resultID, query: query)
+    }
+
+    func resetRanking(for resultID: String) {
+        usageRanking.resetRanking(for: resultID)
     }
 
     func statusSummary(resultCount: Int, fallback: String) -> String {
@@ -273,39 +366,151 @@ final class CommandRegistry: @unchecked Sendable {
         diagnostics.log("Search providers: \(summary)")
     }
 
+    private func collectCandidates(
+        query: String,
+        providers: [CommandProvider],
+        aliases: [String: [String]]
+    ) async -> ([RankCandidate], [ProviderSearchTiming]) {
+        let sensitivity = configService?.current.searchSensitivity ?? .medium
+        return await withTaskGroup(of: ProviderSearchResult.self, returning: ([RankCandidate], [ProviderSearchTiming]).self) { group in
+            for provider in providers {
+                group.addTask {
+                    let startedAt = Date().timeIntervalSinceReferenceDate
+                    let results = await provider.results(matching: query, customAliases: aliases, sensitivity: sensitivity)
+                    let elapsedMilliseconds = (Date().timeIntervalSinceReferenceDate - startedAt) * 1_000
+                    await self.providerHealth.recordRequest(providerID: provider.id, elapsedMilliseconds: elapsedMilliseconds, resultCount: results.count)
+                    return ProviderSearchResult(providerID: provider.id, results: results, elapsedMilliseconds: elapsedMilliseconds)
+                }
+            }
+
+            var candidates: [RankCandidate] = []
+            var timings: [ProviderSearchTiming] = []
+            for await providerResult in group {
+                guard Task.isCancelled == false else {
+                    group.cancelAll()
+                    return ([], [])
+                }
+                candidates.append(contentsOf: providerResult.results.enumerated().map { index, result in
+                    RankCandidate(result: result, providerID: providerResult.providerID, sourceOrder: index)
+                })
+                timings.append(ProviderSearchTiming(providerID: providerResult.providerID, elapsedMilliseconds: providerResult.elapsedMilliseconds))
+            }
+            return (candidates, timings)
+        }
+    }
+
+    private func deduplicated(_ candidates: [RankCandidate]) -> [RankCandidate] {
+        var seen = Set<String>()
+        return candidates.filter { seen.insert($0.result.id).inserted }
+    }
+
     private var enabledProviders: [CommandProvider] {
         providers.filter { provider in
             configService?.current.providerEnabled[provider.id] != false
         }
     }
 
+    private var immediateProviderIDs: Set<String> {
+        [
+            "foundry.apps",
+            "foundry.builtin",
+            "foundry.calculator",
+            "foundry.developer-tools",
+            "foundry.library",
+            "foundry.mac-utilities",
+            "foundry.system"
+        ]
+    }
+
+    private var customAliases: [String: [String]] {
+        Dictionary(uniqueKeysWithValues: (configService?.current.commandPreferences ?? [:]).compactMap { commandID, preference in
+            preference.aliases.isEmpty ? nil : (commandID, preference.aliases)
+        })
+    }
+
     private func isCommandEnabled(_ result: CommandResult) -> Bool {
         configService?.current.commandPreferences[result.id]?.isEnabled != false
     }
 
-    private func ordered(_ results: [CommandResult]) -> [CommandResult] {
-        results.sorted { lhs, rhs in
-            let lhsPreference = configService?.current.commandPreferences[lhs.id]
-            let rhsPreference = configService?.current.commandPreferences[rhs.id]
-            switch (lhsPreference?.favoriteRank, rhsPreference?.favoriteRank) {
-            case let (lhsRank?, rhsRank?):
-                if lhsRank != rhsRank { return lhsRank < rhsRank }
-            case (_?, nil):
-                return true
-            case (nil, _?):
-                return false
-            default:
-                break
+    private func ordered(_ candidates: [RankCandidate], query: String?) -> [CommandResult] {
+        candidates
+            .map { candidate in
+                let preference = configService?.current.commandPreferences[candidate.result.id]
+                let match = query.flatMap { query in
+                    SearchScoring.match(
+                        query: query,
+                        title: candidate.result.title,
+                        subtitle: candidate.result.subtitle,
+                        keywords: candidate.result.searchKeywords,
+                        aliases: candidate.result.searchAliases + (preference?.aliases ?? []),
+                        sensitivity: configService?.current.searchSensitivity ?? .medium
+                    )
+                }
+                return RankedResult(
+                    candidate: candidate,
+                    preference: preference,
+                    match: match,
+                    usageBoost: query.flatMap { usageRanking.usageBoost(for: candidate.result.id, query: $0) } ?? 0
+                )
             }
+            .sorted { (lhs: RankedResult, rhs: RankedResult) in
+                if query == nil, lhs.preference?.favoriteRank != rhs.preference?.favoriteRank {
+                    switch (lhs.preference?.favoriteRank, rhs.preference?.favoriteRank) {
+                    case let (lhsRank?, rhsRank?):
+                        if lhsRank != rhsRank { return lhsRank < rhsRank }
+                    case (_?, nil):
+                        return true
+                    case (nil, _?):
+                        return false
+                    default:
+                        break
+                    }
+                }
 
-            let lhsScore = usageRanking.adjustedScore(for: lhs)
-            let rhsScore = usageRanking.adjustedScore(for: rhs)
-            if lhsScore == rhsScore {
-                return lhs.title.localizedCaseInsensitiveCompare(rhs.title) == .orderedAscending
+                if let lhsMatch = lhs.match, let rhsMatch = rhs.match, lhsMatch != rhsMatch {
+                    let lhsIsBetter = SearchScoring.isBetter(lhsMatch, than: rhsMatch)
+                    let rhsIsBetter = SearchScoring.isBetter(rhsMatch, than: lhsMatch)
+                    if SearchScoring.areComparable(lhsMatch, rhsMatch), lhs.usageBoost != rhs.usageBoost {
+                        return lhs.usageBoost > rhs.usageBoost
+                    }
+                    if lhsIsBetter || rhsIsBetter {
+                        return lhsIsBetter
+                    }
+                } else if lhs.match != nil, rhs.match == nil {
+                    return true
+                } else if lhs.match == nil, rhs.match != nil {
+                    return false
+                }
+
+                if lhs.usageBoost != rhs.usageBoost {
+                    return lhs.usageBoost > rhs.usageBoost
+                }
+                if lhs.candidate.providerID != rhs.candidate.providerID {
+                    return lhs.candidate.providerID < rhs.candidate.providerID
+                }
+                if lhs.candidate.result.title.localizedCaseInsensitiveCompare(rhs.candidate.result.title) != .orderedSame {
+                    return lhs.candidate.result.title.localizedCaseInsensitiveCompare(rhs.candidate.result.title) == .orderedAscending
+                }
+                if lhs.candidate.result.id != rhs.candidate.result.id {
+                    return lhs.candidate.result.id < rhs.candidate.result.id
+                }
+                return lhs.candidate.sourceOrder < rhs.candidate.sourceOrder
             }
-            return lhsScore > rhsScore
-        }
+            .map(\.candidate.result)
     }
+}
+
+private struct RankCandidate {
+    let result: CommandResult
+    let providerID: String
+    let sourceOrder: Int
+}
+
+private struct RankedResult {
+    let candidate: RankCandidate
+    let preference: CommandPreference?
+    let match: SearchMatch?
+    let usageBoost: Double
 }
 
 private struct ProviderSearchResult: Sendable {

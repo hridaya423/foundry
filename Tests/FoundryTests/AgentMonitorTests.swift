@@ -2,6 +2,11 @@ import XCTest
 @testable import Foundry
 
 final class AgentMonitorTests: XCTestCase {
+    func testBrandProviderIconsResolveFromPackagedResources() {
+        XCTAssertNotNil(AgentProviderIcon.brandResourceURL(for: .opencode))
+        XCTAssertNotNil(AgentProviderIcon.brandResourceURL(for: .claude))
+    }
+
     func testAgentEventValidationRejectsDeadlinesOutsideTheFiveMinuteWindow() {
         let now = Date()
         let envelope = AgentEventEnvelope(

@@ -12,6 +12,10 @@ final class BrowserProvider: CommandProvider, @unchecked Sendable {
     }
 
     func results(matching query: String) async -> [CommandResult] {
+        await results(matching: query, customAliases: [:], sensitivity: .medium)
+    }
+
+    func results(matching query: String, customAliases: [String: [String]], sensitivity: SearchSensitivity) async -> [CommandResult] {
         let request = BrowserSearchRequest(query: query)
         guard request.isBrowserIntent else { return [] }
 
@@ -22,8 +26,7 @@ final class BrowserProvider: CommandProvider, @unchecked Sendable {
         }
 
         return allRecords
-            .filter { request.search.isEmpty || $0.matches(request.search) }
-            .prefix(12)
+            .filter { request.search.isEmpty || $0.matches(request.search, sensitivity: sensitivity) }
             .map(makeResult)
     }
 
@@ -36,19 +39,19 @@ final class BrowserProvider: CommandProvider, @unchecked Sendable {
         return BrowserSource.allCases.map(browserLaunchResult)
     }
 
-    func cachedResults(matching query: String) -> [CommandResult] {
+    func cachedResults(matching query: String, sensitivity: SearchSensitivity = .medium) -> [CommandResult] {
         let search = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         guard search.count >= 2, let tabs = liveTabsCache.value(for: selectedMainBrowser) else { return [] }
-        return tabs.filter { $0.matches(search) }.prefix(6).map(makeResult)
+        return tabs.filter { $0.matches(search, sensitivity: sensitivity) }.prefix(50).map(makeResult)
     }
 
-    func fallbackResults(matching query: String) async -> [CommandResult] {
+    func fallbackResults(matching query: String, sensitivity: SearchSensitivity = .medium) async -> [CommandResult] {
         let search = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         guard search.count >= 2 else { return [] }
         let source = selectedMainBrowser
         return records(for: source, kind: nil)
-            .filter { $0.matches(search) }
-            .prefix(12)
+            .filter { $0.matches(search, sensitivity: sensitivity) }
+            .prefix(50)
             .map(makeResult)
     }
 
@@ -198,19 +201,25 @@ final class BrowserProvider: CommandProvider, @unchecked Sendable {
     }
 
     private func makeResult(_ record: BrowserRecord) -> CommandResult {
-        CommandResult(
+        let route: SearchRoute
+        switch record.kind {
+        case .tab: route = .browserTab
+        case .bookmark: route = .browserBookmark
+        case .history: route = .browserHistory
+        }
+        return CommandResult(
             id: "browser.\(record.id)",
             title: record.title,
             subtitle: record.subtitle,
             icon: CommandIcon(fallback: record.browser.abbreviation, systemName: record.icon),
-            score: record.kind == .tab ? 122 : (record.kind == .bookmark ? 118 : 112),
+            route: route,
             primaryAction: CommandAction(id: "browser.open.\(record.id)", title: "Open in \(record.browser.displayName)", kind: .runProcess(path: "/usr/bin/open", arguments: ["-a", record.browser.applicationName, record.url.absoluteString])),
             secondaryActions: [CommandAction(id: "browser.copy.\(record.id)", title: "Copy URL", kind: .copyToClipboard(record.url.absoluteString))]
         )
     }
 
     private func browserLaunchResult(_ browser: BrowserSource) -> CommandResult {
-        CommandResult(id: "foundry.browser.\(browser.rawValue)", title: browser.displayName, subtitle: "Search tabs, history, and bookmarks with: \(browser.rawValue) <text>", icon: CommandIcon(fallback: browser.abbreviation, systemName: "globe"), score: 0, primaryAction: CommandAction(id: "foundry.browser.launch.\(browser.rawValue)", title: "Open", kind: .runProcess(path: "/usr/bin/open", arguments: ["-a", browser.applicationName])), secondaryActions: [])
+        CommandResult(id: "foundry.browser.\(browser.rawValue)", title: browser.displayName, subtitle: "Search tabs, history, and bookmarks with: \(browser.rawValue) <text>", icon: CommandIcon(fallback: browser.abbreviation, systemName: "globe"), primaryAction: CommandAction(id: "foundry.browser.launch.\(browser.rawValue)", title: "Open", kind: .runProcess(path: "/usr/bin/open", arguments: ["-a", browser.applicationName])), secondaryActions: [])
     }
 
     private var selectedMainBrowser: BrowserSource {
@@ -448,9 +457,15 @@ struct BrowserRecord: Sendable {
     let url: URL
     let icon: String
 
-    func matches(_ query: String) -> Bool {
-        let haystack = "\(title) \(subtitle) \(url.absoluteString)".lowercased()
-        return haystack.contains(query)
+    func matches(_ query: String, sensitivity: SearchSensitivity = .medium) -> Bool {
+        SearchScoring.match(
+            query: query,
+            title: title,
+            subtitle: subtitle,
+            keywords: [url.absoluteString],
+            aliases: [],
+            sensitivity: sensitivity
+        ) != nil
     }
 }
 
