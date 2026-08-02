@@ -4,12 +4,14 @@ struct AIChatThread: Identifiable, Codable, Hashable, Sendable {
     let id: UUID
     var title: String
     var updatedAt: Date
+    var providerProfileID: UUID?
     var messages: [AIChatMessage]
 
-    init(id: UUID = UUID(), title: String, updatedAt: Date = .now, messages: [AIChatMessage] = []) {
+    init(id: UUID = UUID(), title: String, updatedAt: Date = .now, providerProfileID: UUID? = nil, messages: [AIChatMessage] = []) {
         self.id = id
         self.title = title
         self.updatedAt = updatedAt
+        self.providerProfileID = providerProfileID
         self.messages = messages
     }
 }

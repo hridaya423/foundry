@@ -1,7 +1,7 @@
 import Foundation
 
 struct FoundryConfig: Codable, Equatable {
-    static let currentSchemaVersion = 3
+    static let currentSchemaVersion = 5
 
     var schemaVersion = FoundryConfig.currentSchemaVersion
     var hotkey: FoundryHotkey = .commandSpace
@@ -56,6 +56,11 @@ struct AIConfig: Codable, Equatable {
     var openAIModel: String = "gpt-4.1-mini"
     var anthropicModel: String = "claude-3-5-sonnet-latest"
     var geminiModel: String = "gemini-2.0-flash"
+    var profiles: [AIProviderProfile] = [AIProviderProfile.appleDefault, AIProviderProfile.ollamaDefault]
+    var defaultProfileID: UUID? = AIProviderProfile.appleID
+    var fallbackProfileIDs: [UUID] = []
+    var acceptedCodexPrivateBackendWarning = false
+    var codexLoginMethod: OpenAICodexLoginMethod = .browser
 
     static let `default` = AIConfig()
 
@@ -70,6 +75,69 @@ struct AIConfig: Codable, Equatable {
         openAIModel = try container.decodeIfPresent(String.self, forKey: .openAIModel) ?? "gpt-4.1-mini"
         anthropicModel = try container.decodeIfPresent(String.self, forKey: .anthropicModel) ?? "claude-3-5-sonnet-latest"
         geminiModel = try container.decodeIfPresent(String.self, forKey: .geminiModel) ?? "gemini-2.0-flash"
+        if let savedProfiles = try container.decodeIfPresent([AIProviderProfile].self, forKey: .profiles), savedProfiles.isEmpty == false {
+            profiles = savedProfiles
+        } else {
+            var legacyOllama = AIProviderProfile.ollamaDefault
+            legacyOllama.enabled = isOllamaEnabled
+            legacyOllama.endpoint = ollamaHost
+            legacyOllama.model = ollamaModel
+            profiles = [AIProviderProfile.appleDefault, legacyOllama]
+        }
+        profiles = profiles.map { profile in
+            guard profile.kind == .openAISubscription else { return profile }
+            var migrated = profile
+            if CodexModelPolicy.contains(migrated.model) == false {
+                migrated.model = CodexModelPolicy.defaultModel
+            }
+            if migrated.requestOptions.reasoningEffort == nil {
+                migrated.requestOptions.reasoningEffort = AIRequestOptions.codexDefault.reasoningEffort
+            }
+            return migrated
+        }
+        defaultProfileID = try container.decodeIfPresent(UUID.self, forKey: .defaultProfileID)
+            ?? profiles.first(where: { $0.kind == .appleFoundationModels })?.id
+        let savedFallbackProfileIDs = try container.decodeIfPresent([UUID].self, forKey: .fallbackProfileIDs) ?? []
+        fallbackProfileIDs = savedFallbackProfileIDs.filter { id in
+            profiles.first(where: { $0.id == id })?.kind != .ollama
+        }
+        acceptedCodexPrivateBackendWarning = try container.decodeIfPresent(Bool.self, forKey: .acceptedCodexPrivateBackendWarning) ?? false
+        codexLoginMethod = try container.decodeIfPresent(OpenAICodexLoginMethod.self, forKey: .codexLoginMethod) ?? .browser
+        if let index = profiles.firstIndex(where: { $0.kind == .ollama }) {
+            isOllamaEnabled = profiles[index].enabled
+            ollamaHost = profiles[index].endpoint ?? ollamaHost
+            ollamaModel = profiles[index].model
+        }
+    }
+
+    func profile(for backend: AIBackend) -> AIProviderProfile {
+        AIProfileResolver.profile(for: backend, in: self)
+    }
+
+    mutating func syncProfilesFromLegacyFields() {
+        guard let index = profiles.firstIndex(where: { $0.kind == .ollama }) else { return }
+        profiles[index].enabled = isOllamaEnabled
+        profiles[index].endpoint = ollamaHost
+        profiles[index].model = ollamaModel
+    }
+
+    static func == (lhs: AIConfig, rhs: AIConfig) -> Bool {
+        var left = lhs
+        var right = rhs
+        left.syncProfilesFromLegacyFields()
+        right.syncProfilesFromLegacyFields()
+        return left.preferredBackend == right.preferredBackend
+            && left.isOllamaEnabled == right.isOllamaEnabled
+            && left.ollamaHost == right.ollamaHost
+            && left.ollamaModel == right.ollamaModel
+            && left.openAIModel == right.openAIModel
+            && left.anthropicModel == right.anthropicModel
+            && left.geminiModel == right.geminiModel
+            && left.profiles == right.profiles
+            && left.defaultProfileID == right.defaultProfileID
+            && left.fallbackProfileIDs == right.fallbackProfileIDs
+            && left.acceptedCodexPrivateBackendWarning == right.acceptedCodexPrivateBackendWarning
+            && left.codexLoginMethod == right.codexLoginMethod
     }
 }
 
@@ -128,7 +196,49 @@ final class ConfigService {
 
     func updateAIConfig(_ ai: AIConfig) throws {
         var candidate = current
-        candidate.ai = ai
+        var normalized = ai
+        normalized.syncProfilesFromLegacyFields()
+        candidate.ai = normalized
+        try commit(candidate)
+    }
+
+    func updateAIProfile(_ profile: AIProviderProfile) throws {
+        var candidate = current
+        if let index = candidate.ai.profiles.firstIndex(where: { $0.id == profile.id }) {
+            candidate.ai.profiles[index] = profile
+        } else {
+            candidate.ai.profiles.append(profile)
+        }
+        if profile.kind == .ollama {
+            candidate.ai.isOllamaEnabled = profile.enabled
+            candidate.ai.ollamaHost = profile.endpoint ?? candidate.ai.ollamaHost
+            candidate.ai.ollamaModel = profile.model
+        }
+        try commit(candidate)
+    }
+
+    func removeAIProfile(id: UUID) throws {
+        var candidate = current
+        guard candidate.ai.profiles.contains(where: { $0.id == id }) else { return }
+        candidate.ai.profiles.removeAll { $0.id == id }
+        candidate.ai.fallbackProfileIDs.removeAll { $0 == id }
+        if candidate.ai.defaultProfileID == id {
+            candidate.ai.defaultProfileID = candidate.ai.profiles.first(where: { $0.enabled })?.id
+        }
+        try commit(candidate)
+    }
+
+    func setDefaultAIProfile(id: UUID?) throws {
+        var candidate = current
+        guard id == nil || candidate.ai.profiles.contains(where: { $0.id == id }) else { return }
+        candidate.ai.defaultProfileID = id
+        try commit(candidate)
+    }
+
+    func setAIFallbackProfiles(_ ids: [UUID]) throws {
+        var candidate = current
+        let available = Set(candidate.ai.profiles.map(\.id))
+        candidate.ai.fallbackProfileIDs = ids.filter { available.contains($0) }
         try commit(candidate)
     }
 

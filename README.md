@@ -22,6 +22,9 @@ Foundry is a native macOS alternative to raycast
 - Launch-at-login prompt on first run
 - Widget dashboard with customizable home cards
 - File conversion
+- AI provider profiles with Apple Intelligence, Ollama, OpenAI-compatible endpoints, OpenAI, Anthropic, Gemini, and vendor presets
+- Local model support for Ollama, LM Studio, MLX, vLLM, llama.cpp, and compatible servers
+- API keys stored in macOS Keychain with ordered provider fallback and model discovery
 
 ## Development
 

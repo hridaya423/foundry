@@ -85,6 +85,57 @@ final class ConfigServiceTests: XCTestCase {
         XCTAssertEqual(config.ai.openAIModel, "gpt-4.1-mini")
     }
 
+    func testLegacyAIConfigMigratesOllamaFieldsIntoAProfile() throws {
+        let data = Data(#"{"ai":{"isOllamaEnabled":true,"ollamaHost":"http://192.168.1.20:11434","ollamaModel":"qwen2.5"}}"#.utf8)
+        let config = try JSONDecoder().decode(FoundryConfig.self, from: data)
+        let ollama = try XCTUnwrap(config.ai.profiles.first(where: { $0.kind == .ollama }))
+
+        XCTAssertTrue(ollama.enabled)
+        XCTAssertEqual(ollama.endpoint, "http://192.168.1.20:11434")
+        XCTAssertEqual(ollama.model, "qwen2.5")
+        XCTAssertTrue(config.ai.fallbackProfileIDs.isEmpty)
+    }
+
+    func testPersistedOllamaFallbackIsRemovedFromDefaults() throws {
+        var ai = AIConfig()
+        ai.fallbackProfileIDs = [AIProviderProfile.ollamaID]
+        let data = try JSONEncoder().encode(FoundryConfig(ai: ai))
+        let config = try JSONDecoder().decode(FoundryConfig.self, from: data)
+
+        XCTAssertTrue(config.ai.fallbackProfileIDs.isEmpty)
+    }
+
+    func testUnsupportedChatGPTModelMigratesToCurrentDefault() throws {
+        let profile = AIProviderProfile(
+            name: "ChatGPT subscription",
+            kind: .openAISubscription,
+            authentication: .oauth,
+            model: "codex"
+        )
+        var ai = AIConfig()
+        ai.profiles = [AIProviderProfile.appleDefault, profile]
+        let data = try JSONEncoder().encode(FoundryConfig(ai: ai))
+        let config = try JSONDecoder().decode(FoundryConfig.self, from: data)
+
+        XCTAssertEqual(config.ai.profiles.first(where: { $0.kind == .openAISubscription })?.model, CodexModelPolicy.defaultModel)
+        XCTAssertEqual(config.ai.profiles.first(where: { $0.kind == .openAISubscription })?.requestOptions.reasoningEffort, "low")
+    }
+
+    func testAIProfileCanBeAddedSelectedAndRemovedWithoutLeavingFallbackIDs() throws {
+        let url = temporaryDirectory.appendingPathComponent("config.json")
+        let service = ConfigService(diagnostics: DiagnosticsService(), url: url)
+        let profile = try XCTUnwrap(AIProviderPreset.find("openrouter")?.makeProfile())
+
+        try service.updateAIProfile(profile)
+        try service.setDefaultAIProfile(id: profile.id)
+        try service.setAIFallbackProfiles([profile.id])
+        try service.removeAIProfile(id: profile.id)
+
+        XCTAssertFalse(service.current.ai.profiles.contains { $0.id == profile.id })
+        XCTAssertFalse(service.current.ai.fallbackProfileIDs.contains(profile.id))
+        XCTAssertNotEqual(service.current.ai.defaultProfileID, profile.id)
+    }
+
     func testFailedWriteLeavesCurrentConfigUnchanged() throws {
         let url = temporaryDirectory.appendingPathComponent("blocked", isDirectory: true)
         try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)

@@ -33,6 +33,104 @@ final class AIProviderTests: XCTestCase {
         XCTAssertNotEqual(appleID, AIRequestIdentifier.make(prompt: "latest models", backend: .ollama))
     }
 
+    func testProviderPresetsCoverCloudVendorsAndLocalServers() {
+        XCTAssertNotNil(AIProviderPreset.find("openai"))
+        XCTAssertNotNil(AIProviderPreset.find("anthropic"))
+        XCTAssertNotNil(AIProviderPreset.find("gemini"))
+        XCTAssertNotNil(AIProviderPreset.find("openrouter"))
+        XCTAssertNotNil(AIProviderPreset.find("lmstudio"))
+        XCTAssertNotNil(AIProviderPreset.find("vllm"))
+        XCTAssertEqual(AIProviderPreset.find("custom-openai-compatible")?.authentication, .optionalAPIKey)
+    }
+
+    func testCodexModelCatalogIncludesCurrentSubscriptionModels() throws {
+        XCTAssertEqual(
+            CodexModelPolicy.models.map(\.id),
+            ["gpt-5.6-sol", "gpt-5.6-terra", "gpt-5.6-luna", "gpt-5.5", "gpt-5.4", "gpt-5.4-mini", "gpt-5.2"]
+        )
+        XCTAssertEqual(CodexModelPolicy.defaultModel, "gpt-5.6-luna")
+        let preset = try XCTUnwrap(AIProviderPreset.find("chatgpt-subscription"))
+        XCTAssertEqual(preset.defaultModel, "gpt-5.6-luna")
+        XCTAssertEqual(preset.makeProfile().requestOptions.reasoningEffort, "low")
+        XCTAssertTrue(preset.capabilities.modelDiscovery)
+    }
+
+    func testCompatibleEndpointBuilderPreservesPresetVersionPaths() throws {
+        let deepInfra = try XCTUnwrap(AIProviderPreset.find("deepinfra")?.makeProfile())
+        let perplexity = try XCTUnwrap(AIProviderPreset.find("perplexity")?.makeProfile())
+
+        XCTAssertEqual(AITransportSupport.endpoint(deepInfra, path: "chat/completions")?.path, "/v1/openai/chat/completions")
+        XCTAssertEqual(AITransportSupport.endpoint(perplexity, path: "chat/completions")?.path, "/v1/chat/completions")
+    }
+
+    func testEndpointPolicyRejectsCredentialsAndFlagsRemotePlainHTTP() {
+        XCTAssertEqual(AIEndpointPolicy.normalized(" https://example.com/v1/ "), "https://example.com/v1")
+        XCTAssertNil(AIEndpointPolicy.normalized("https://user:secret@example.com/v1"))
+        XCTAssertNil(AIEndpointPolicy.normalized("file:///tmp/model"))
+        XCTAssertFalse(AIEndpointPolicy.requiresPlainHTTPWarning("http://127.0.0.1:1234/v1"))
+        XCTAssertTrue(AIEndpointPolicy.requiresPlainHTTPWarning("http://example.com/v1"))
+    }
+
+    func testProfileResolverPreservesLegacyBackendSemantics() {
+        var config = AIConfig()
+        var ollama = AIProviderProfile.ollamaDefault
+        ollama.enabled = true
+        ollama.model = "qwen2.5"
+        config.profiles = [AIProviderProfile.appleDefault, ollama]
+
+        XCTAssertEqual(config.profile(for: .ollama).model, "qwen2.5")
+        XCTAssertEqual(AIProfileResolver.defaultProfile(in: config).kind, .appleFoundationModels)
+    }
+
+    func testGenericFallbackPolicyRetriesAvailabilityAndRateLimitsOnly() {
+        let profile = AIProviderProfile.appleDefault
+        XCTAssertTrue(AIFallbackPolicy.shouldFallback(failureKind: .unavailable, profile: profile, hasFallback: true))
+        XCTAssertTrue(AIFallbackPolicy.shouldFallback(failureKind: .rateLimited, profile: profile, hasFallback: true))
+        XCTAssertFalse(AIFallbackPolicy.shouldFallback(failureKind: .configuration, profile: profile, hasFallback: true))
+        XCTAssertFalse(AIFallbackPolicy.shouldFallback(failureKind: .unavailable, profile: profile, hasFallback: false))
+    }
+
+    func testCodexPKCEAndAuthorizationURLContainRequiredSecurityParameters() throws {
+        let pkce = CodexPKCE.generate()
+        XCTAssertGreaterThanOrEqual(pkce.verifier.count, 43)
+        XCTAssertFalse(pkce.challenge.contains("="))
+        let url = try XCTUnwrap(CodexOAuthHTTP.authorizeURL(redirectURI: "http://localhost:1455/auth/callback", pkce: pkce, state: "state-value"))
+        let query = try XCTUnwrap(URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems)
+        XCTAssertEqual(query.first(where: { $0.name == "client_id" })?.value, CodexOAuthHTTP.clientID)
+        XCTAssertEqual(query.first(where: { $0.name == "code_challenge_method" })?.value, "S256")
+        XCTAssertEqual(query.first(where: { $0.name == "state" })?.value, "state-value")
+        XCTAssertEqual(query.first(where: { $0.name == "originator" })?.value, "foundry")
+    }
+
+    func testCodexJWTExtractsAccountIDFromSupportedClaims() {
+        let header = CodexOAuthSecurity.base64URL(Data(#"{"alg":"none"}"#.utf8))
+        let payload = CodexOAuthSecurity.base64URL(Data(#"{"https://api.openai.com/auth":{"chatgpt_account_id":"acct_nested"}}"#.utf8))
+        XCTAssertEqual(OpenAIJWT.accountID(from: "\(header).\(payload).signature"), "acct_nested")
+    }
+
+    func testCodexStateComparisonIsConstantTimeCompatible() {
+        XCTAssertTrue(CodexOAuthSecurity.constantTimeEqual("same-state", "same-state"))
+        XCTAssertFalse(CodexOAuthSecurity.constantTimeEqual("same-state", "different-state"))
+        XCTAssertFalse(CodexOAuthSecurity.constantTimeEqual("short", "shorter"))
+    }
+
+    func testCodexResponsesDecoderNormalizesTextAndFunctionCalls() {
+        var decoder = CodexResponsesStreamDecoder()
+        XCTAssertEqual(decoder.decode(line: #"data: {"type":"response.output_text.delta","delta":"Hello"}"#)?.contentDelta, "Hello")
+        _ = decoder.decode(line: #"data: {"type":"response.output_item.added","item":{"type":"function_call","name":"system_context"}}"#)
+        _ = decoder.decode(line: #"data: {"type":"response.function_call_arguments.done","arguments":"{}"}"#)
+        let frame = decoder.decode(line: #"data: {"type":"response.completed"}"#)
+        XCTAssertEqual(frame?.toolCall, AgentToolCall(name: "system_context", arguments: [:]))
+        XCTAssertTrue(frame?.isDone == true)
+    }
+
+    func testOAuthCredentialRoundTripsAccountAndExpiry() throws {
+        let credential = AICredential.oauth(AIOAuthCredential(accessToken: "access", refreshToken: "refresh", idToken: "id", accountID: "acct", expiresAt: Date(timeIntervalSince1970: 1234)))
+        let data = try JSONEncoder().encode(credential)
+        let restored = try JSONDecoder().decode(AICredential.self, from: data)
+        XCTAssertEqual(restored, credential)
+    }
+
     func testToolCallParserNormalizesStringArguments() {
         let call = AgentToolCall.from(json: [
             "name": "open_url",

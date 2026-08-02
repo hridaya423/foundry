@@ -3,7 +3,8 @@ import XCTest
 
 final class AIChatStoreTests: XCTestCase {
     func testChatThreadCodableRoundTrip() throws {
-        let thread = AIChatThread(title: "Test", messages: [
+        let profileID = UUID()
+        let thread = AIChatThread(title: "Test", providerProfileID: profileID, messages: [
             AIChatMessage(role: .user, content: "Hello"),
             AIChatMessage(role: .assistant, content: "World")
         ])
@@ -12,6 +13,7 @@ final class AIChatStoreTests: XCTestCase {
         let restored = try JSONDecoder().decode([AIChatThread].self, from: data)
 
         XCTAssertEqual(restored.first?.title, "Test")
+        XCTAssertEqual(restored.first?.providerProfileID, profileID)
         XCTAssertEqual(restored.first?.messages.count, 2)
         XCTAssertEqual(restored.first?.messages.first?.content, "Hello")
     }
