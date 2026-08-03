@@ -5,7 +5,11 @@ import Foundation
 final class MacUtilitiesProvider: CommandProvider {
     let id = "foundry.mac-utilities"
 
-    private let activitySampler = ActivityMonitorSampler()
+    private let processSnapshotProvider: any ProcessSnapshotProviding
+
+    init(processSnapshotProvider: any ProcessSnapshotProviding = NativeProcessSnapshotProvider()) {
+        self.processSnapshotProvider = processSnapshotProvider
+    }
 
     func results(matching query: String) async -> [CommandResult] {
         await results(matching: query, customAliases: [:], sensitivity: .medium)
@@ -41,22 +45,24 @@ final class MacUtilitiesProvider: CommandProvider {
 
     private func killProcessResults(query: String) -> [CommandResult] {
         guard let needle = payload(in: query, prefixes: ["kill", "terminate", "kill process", "stop process"]), needle.isEmpty == false else { return [] }
-        let snapshot = activitySampler.sample()
-        return snapshot.processes
+        let normalizedNeedle = SearchScoring.normalize(needle)
+        let snapshot = processSnapshotProvider.capture()
+        return snapshot
             .filter { process in
-                let haystacks = [process.displayName, process.name, process.path ?? "", String(process.pid)]
-                return haystacks.contains { SearchScoring.normalize($0).contains(SearchScoring.normalize(needle)) }
+                let haystacks = [process.executableName, process.args, process.pid]
+                return haystacks.contains { SearchScoring.normalize($0).contains(normalizedNeedle) }
             }
             .prefix(8)
             .map { process in
-                makeResult(
+                let name = process.executableName.isEmpty ? process.args : process.executableName
+                return makeResult(
                     id: "mac.kill.\(process.pid)",
-                    title: "Kill \(process.displayName)",
-                    subtitle: process.subtitle,
-                    icon: process.symbolName ?? "xmark.app.fill",
+                    title: "Kill \(name)",
+                    subtitle: "PID \(process.pid)",
+                    icon: "xmark.app.fill",
                     fallback: "KP",
                     route: .macUtility,
-                    primary: .terminateProcess(pid: process.pid)
+                    primary: .terminateProcess(pid: Int32(process.pid) ?? 0)
                 )
             }
     }
@@ -145,15 +151,13 @@ final class MacUtilitiesProvider: CommandProvider {
 
 private enum PortUtility {
     static func lookup(port: Int) -> String? {
-        let process = Process()
-        let pipe = Pipe()
-        process.executableURL = URL(fileURLWithPath: "/usr/sbin/lsof")
-        process.arguments = ["-nP", "-iTCP:\(port)", "-sTCP:LISTEN"]
-        process.standardOutput = pipe
-        try? process.run()
-        process.waitUntilExit()
-        let data = pipe.fileHandleForReading.readDataToEndOfFile()
-        guard let text = String(data: data, encoding: .utf8) else { return nil }
+        guard let result = ProcessRunner.runSynchronously(
+            path: "/usr/sbin/lsof",
+            arguments: ["-nP", "-iTCP:\(port)", "-sTCP:LISTEN"],
+            timeout: 2,
+            outputLimit: 256 * 1024
+        ), result.succeeded else { return nil }
+        let text = result.stdout
         let lines = text.split(separator: "\n")
         guard lines.count > 1 else { return nil }
         let columns = lines[1].split(whereSeparator: { $0.isWhitespace })

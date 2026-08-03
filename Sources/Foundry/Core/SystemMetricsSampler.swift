@@ -34,34 +34,66 @@ struct SystemMetrics: Sendable, Equatable {
     )
 }
 
+struct SystemMetricNeeds: OptionSet, Sendable {
+    let rawValue: UInt8
+
+    static let cpu = Self(rawValue: 1 << 0)
+    static let memory = Self(rawValue: 1 << 1)
+    static let battery = Self(rawValue: 1 << 2)
+    static let disk = Self(rawValue: 1 << 3)
+    static let network = Self(rawValue: 1 << 4)
+    static let loadAverage = Self(rawValue: 1 << 5)
+    static let all: Self = [.cpu, .memory, .battery, .disk, .network, .loadAverage]
+}
+
 final class SystemMetricsSampler: @unchecked Sendable {
     private let lock = NSLock()
     private var previousCPU: SystemCPUTicks?
+    private var lastBatterySample = Date.distantPast
+    private var lastDiskSample = Date.distantPast
+    private var lastNetworkSample = Date.distantPast
+    private var cachedBattery: (percent: Int?, charging: Bool, hasBattery: Bool) = (nil, false, false)
+    private var cachedDisk: (free: Int64, total: Int64) = (0, 0)
+    private var cachedIPAddress: String?
 
     init() {
         previousCPU = readCPUTicks()
     }
 
-    func sample() -> SystemMetrics {
-        let memory = memoryUsage()
-        let battery = batteryInfo()
-        let disk = diskCapacity()
+    func sample(needs: SystemMetricNeeds = .all) -> SystemMetrics {
+        let memory = needs.contains(.memory) ? memoryUsage() : (used: 0, total: ProcessInfo.processInfo.physicalMemory)
+        let slow = lock.withLock { () -> (battery: (percent: Int?, charging: Bool, hasBattery: Bool), disk: (free: Int64, total: Int64), ip: String?) in
+            let now = Date()
+            if needs.contains(.battery), now.timeIntervalSince(lastBatterySample) >= 30 {
+                cachedBattery = batteryInfo()
+                lastBatterySample = now
+            }
+            if needs.contains(.disk), now.timeIntervalSince(lastDiskSample) >= 30 {
+                cachedDisk = diskCapacity()
+                lastDiskSample = now
+            }
+            if needs.contains(.network), now.timeIntervalSince(lastNetworkSample) >= 30 {
+                cachedIPAddress = localIPAddress()
+                lastNetworkSample = now
+            }
+            return (cachedBattery, cachedDisk, cachedIPAddress)
+        }
         let memoryPercent = memory.total == 0 ? 0 : Double(memory.used) / Double(memory.total) * 100
 
         return SystemMetrics(
-            cpuPercent: cpuUsage(),
+            cpuPercent: needs.contains(.cpu) ? cpuUsage() : 0,
             memoryUsed: memory.used,
             memoryTotal: memory.total,
             memoryPercent: memoryPercent,
-            batteryPercent: battery.percent,
-            isCharging: battery.charging,
-            hasBattery: battery.hasBattery,
-            diskFreeBytes: disk.free,
-            diskTotalBytes: disk.total,
+            batteryPercent: slow.battery.percent,
+            isCharging: slow.battery.charging,
+            hasBattery: slow.battery.hasBattery,
+            diskFreeBytes: slow.disk.free,
+            diskTotalBytes: slow.disk.total,
             uptimeSeconds: ProcessInfo.processInfo.systemUptime,
             thermal: ProcessInfo.processInfo.thermalState,
-            localIPAddress: localIPAddress(),
-            loadAverage1m: loadAverage()
+            localIPAddress: slow.ip,
+            loadAverage1m: needs.contains(.loadAverage) ? loadAverage() : 0
         )
     }
 

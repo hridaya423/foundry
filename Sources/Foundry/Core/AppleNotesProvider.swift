@@ -45,24 +45,13 @@ final class AppleNotesProvider: CommandProvider {
     }
 
     private func searchNotes(_ query: String) -> [AppleNoteResult] {
-        let process = Process()
-        let pipe = Pipe()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")
-        process.arguments = searchScriptArguments(query: query)
-        process.standardOutput = pipe
-        process.standardError = Pipe()
-
-        do {
-            try process.run()
-            process.waitUntilExit()
-        } catch {
-            return []
-        }
-
-        guard process.terminationStatus == 0 else { return [] }
-        let data = pipe.fileHandleForReading.readDataToEndOfFile()
-        guard let output = String(data: data, encoding: .utf8) else { return [] }
-        guard let data = output.data(using: .utf8),
+        guard let result = ProcessRunner.runSynchronously(
+            path: "/usr/bin/osascript",
+            arguments: searchScriptArguments(query: query),
+            timeout: 3,
+            outputLimit: 4 * 1024 * 1024
+        ), result.succeeded,
+        let data = result.stdout.data(using: .utf8),
               let notes = try? JSONDecoder().decode([AppleNoteResult].self, from: data) else { return [] }
         return notes
     }

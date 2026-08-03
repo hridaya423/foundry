@@ -1,5 +1,7 @@
 import AppKit
 import Foundation
+import ImageIO
+import UniformTypeIdentifiers
 
 @MainActor
 final class ClipboardHistoryState: ObservableObject {
@@ -11,7 +13,7 @@ final class ClipboardHistoryState: ObservableObject {
 
     private var timer: Timer?
     private var lastChangeCount = NSPasteboard.general.changeCount
-    private let maxItems = 40
+    private let diagnostics = DiagnosticsService()
 
     var visibleItems: [ClipboardHistoryItem] {
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
@@ -33,6 +35,12 @@ final class ClipboardHistoryState: ObservableObject {
         timer = Timer.scheduledTimer(withTimeInterval: 0.7, repeats: true) { [weak self] _ in
             Task { @MainActor in self?.captureIfChanged() }
         }
+        timer?.tolerance = 0.2
+    }
+
+    func stop() {
+        timer?.invalidate()
+        timer = nil
     }
 
     func reset() {
@@ -81,13 +89,24 @@ final class ClipboardHistoryState: ObservableObject {
     }
 
     private func captureCurrentPasteboard() {
+        let span = diagnostics.startSpan("clipboard.capture")
+        defer { diagnostics.endSpan(span) }
         guard let item = ClipboardHistoryItem.current() else { return }
         items.removeAll { $0.signature == item.signature }
         items.insert(item, at: 0)
-        if items.count > maxItems {
-            items.removeLast(items.count - maxItems)
+        if items.count > ClipboardHistoryPolicy.maxItems {
+            items.removeLast(items.count - ClipboardHistoryPolicy.maxItems)
         }
+        trimToMemoryBudget()
         keepSelectionValid()
+    }
+
+    private func trimToMemoryBudget() {
+        var total = items.reduce(0) { $0 + $1.memoryCost }
+        while total > ClipboardHistoryPolicy.maxBytes, items.count > 1 {
+            guard let removed = items.popLast() else { break }
+            total -= removed.memoryCost
+        }
     }
 
     private func copy(item: ClipboardHistoryItem) {
@@ -116,10 +135,32 @@ final class ClipboardHistoryState: ObservableObject {
 }
 
 struct ClipboardHistoryItem: Identifiable, Hashable {
-    let id = UUID().uuidString
-    let createdAt = Date()
+    let id: String
+    let createdAt: Date
     let payload: ClipboardPayload
     let signature: String
+    let imageWidth: Int?
+    let imageHeight: Int?
+
+    init(payload: ClipboardPayload, signature: String, imageWidth: Int? = nil, imageHeight: Int? = nil) {
+        self.id = UUID().uuidString
+        self.createdAt = Date()
+        self.payload = payload
+        self.signature = signature
+        self.imageWidth = imageWidth
+        self.imageHeight = imageHeight
+    }
+
+    var memoryCost: Int {
+        switch payload {
+        case let .text(value):
+            return value.utf8.count
+        case let .files(urls):
+            return urls.reduce(0) { $0 + $1.path.utf8.count }
+        case let .image(data):
+            return data.count
+        }
+    }
 
     var title: String {
         switch payload {
@@ -128,9 +169,9 @@ struct ClipboardHistoryItem: Identifiable, Hashable {
             return firstLine.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "Text" : firstLine
         case let .files(urls):
             return urls.count == 1 ? urls[0].lastPathComponent : "\(urls.count) files"
-        case let .image(data):
-            if let image = NSImage(data: data) {
-                return "Image \(Int(image.size.width))×\(Int(image.size.height))"
+        case .image:
+            if let imageWidth, let imageHeight {
+                return "Image \(imageWidth)×\(imageHeight)"
             }
             return "Image"
         }
@@ -179,15 +220,67 @@ struct ClipboardHistoryItem: Identifiable, Hashable {
             let signature = "files:" + urls.map(\.path).joined(separator: "|")
             return ClipboardHistoryItem(payload: .files(urls), signature: signature)
         }
-        if let image = NSImage(pasteboard: pasteboard), let data = image.tiffRepresentation {
-            return ClipboardHistoryItem(payload: .image(data), signature: "image:\(data.hashValue)")
+        if let image = NSImage(pasteboard: pasteboard) {
+            if let compressed = compressedImageData(from: image) {
+                return ClipboardHistoryItem(
+                    payload: .image(compressed.data),
+                    signature: "image:\(compressed.data.hashValue):\(compressed.data.count)",
+                    imageWidth: compressed.width,
+                    imageHeight: compressed.height
+                )
+            }
+            if let data = image.tiffRepresentation, data.count <= ClipboardHistoryPolicy.maxImageBytes {
+                return ClipboardHistoryItem(
+                    payload: .image(data),
+                    signature: "image:\(data.hashValue):\(data.count)",
+                    imageWidth: Int(image.size.width),
+                    imageHeight: Int(image.size.height)
+                )
+            }
         }
         if let text = pasteboard.string(forType: .string), text.isEmpty == false {
-            return ClipboardHistoryItem(payload: .text(text), signature: "text:\(text)")
+            let storedText = String(decoding: text.utf8.prefix(ClipboardHistoryPolicy.maxTextBytes), as: UTF8.self)
+            return ClipboardHistoryItem(payload: .text(storedText), signature: "text:\(storedText.hashValue):\(storedText.utf8.count)")
         }
         return nil
     }
 
+    private static func compressedImageData(from image: NSImage) -> (data: Data, width: Int, height: Int)? {
+        guard let tiff = image.tiffRepresentation,
+              let source = CGImageSourceCreateWithData(tiff as CFData, nil) else { return nil }
+
+        let dimensions = [1600, 1200, 800, 600, 400]
+        let qualities: [Double] = [0.78, 0.6, 0.4, 0.25]
+        for dimension in dimensions {
+            let options: CFDictionary = [
+                kCGImageSourceCreateThumbnailFromImageAlways: true,
+                kCGImageSourceCreateThumbnailWithTransform: true,
+                kCGImageSourceThumbnailMaxPixelSize: dimension
+            ] as CFDictionary
+            guard let thumbnail = CGImageSourceCreateThumbnailAtIndex(source, 0, options) else { continue }
+
+            for quality in qualities {
+                let output = NSMutableData()
+                guard let destination = CGImageDestinationCreateWithData(output, UTType.jpeg.identifier as CFString, 1, nil) else { continue }
+                CGImageDestinationAddImage(destination, thumbnail, [kCGImageDestinationLossyCompressionQuality: quality] as CFDictionary)
+                guard CGImageDestinationFinalize(destination), output.length <= ClipboardHistoryPolicy.maxImageBytes else { continue }
+                return (
+                    Data(bytes: output.bytes, count: output.length),
+                    thumbnail.width,
+                    thumbnail.height
+                )
+            }
+        }
+        return nil
+    }
+
+}
+
+enum ClipboardHistoryPolicy {
+    static let maxItems = 40
+    static let maxBytes = 16 * 1024 * 1024
+    static let maxImageBytes = 4 * 1024 * 1024
+    static let maxTextBytes = 2 * 1024 * 1024
 }
 
 enum ClipboardPayload: Hashable {

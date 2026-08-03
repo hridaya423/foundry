@@ -12,9 +12,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let config = ConfigService(diagnostics: diagnostics)
         let actionRunner = ActionRunner(diagnostics: diagnostics)
 
-        configureLoginItem(diagnostics: diagnostics)
-        FirefoxConnectorInstaller(diagnostics: diagnostics).configureMainBrowser()
-
         let registry = CommandRegistry.defaultRegistry(
             config: config,
             diagnostics: diagnostics
@@ -28,6 +25,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         self.shellController = shellController
         shellController.start()
+
+        Task { @MainActor [weak self] in
+            await Task.yield()
+            guard let self else { return }
+            self.configureLoginItem(diagnostics: diagnostics)
+            FirefoxConnectorInstaller(diagnostics: diagnostics).configureMainBrowser()
+        }
     }
 
     func applicationWillTerminate(_ notification: Notification) {

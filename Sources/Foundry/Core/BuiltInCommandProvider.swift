@@ -57,9 +57,6 @@ final class BuiltInCommandProvider: CommandProvider {
                 secondaryActions: []
             )
         }
-        .filter { result in
-            result.primaryAction.kind != .openActivityMonitor
-        }
     }
 
     private func commands() -> [BuiltInCommand] {
@@ -72,16 +69,6 @@ final class BuiltInCommandProvider: CommandProvider {
                 systemIcon: "face.smiling",
                 fallback: "EM",
                 primaryAction: CommandAction(id: "foundry.emoji-picker.open", title: "Open", kind: .openEmojiPicker),
-                secondaryActions: []
-            ),
-            BuiltInCommand(
-                id: "foundry.activity-monitor",
-                title: "Activity Monitor",
-                subtitle: "Inspect CPU, memory, and running processes",
-                aliases: ["processes", "process monitor", "cpu", "memory", "ram", "system monitor", "task manager"],
-                systemIcon: "cpu",
-                fallback: "AM",
-                primaryAction: CommandAction(id: "foundry.activity-monitor.open", title: "Open", kind: .openActivityMonitor),
                 secondaryActions: []
             ),
             BuiltInCommand(

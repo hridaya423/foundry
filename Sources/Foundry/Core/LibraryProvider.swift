@@ -2,6 +2,7 @@ import Foundation
 
 final class LibraryProvider: CommandProvider {
     let id = "foundry.library"
+    private let snippetsCache = StoredSnippetCache()
 
     func results(matching query: String) async -> [CommandResult] {
         await results(matching: query, customAliases: [:], sensitivity: .medium)
@@ -11,7 +12,7 @@ final class LibraryProvider: CommandProvider {
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard trimmed.isEmpty == false else { return [] }
 
-        let snippetResults = LibraryPersistence.loadSnippets()
+        let snippetResults = snippetsCache.current()
             .sorted { lhs, rhs in
                 if lhs.isPinned != rhs.isPinned { return lhs.isPinned && !rhs.isPinned }
                 return lhs.updatedAt > rhs.updatedAt
@@ -44,5 +45,41 @@ final class LibraryProvider: CommandProvider {
             }
 
         return snippetResults
+    }
+}
+
+private final class StoredSnippetCache: @unchecked Sendable {
+    private let lock = NSLock()
+    private var signature: StoredSnippetFileSignature?
+    private var snippets: [StoredSnippet] = []
+
+    func current() -> [StoredSnippet] {
+        let url = LibraryPersistence.snippetsURL
+        let values = try? url.resourceValues(forKeys: [.contentModificationDateKey, .fileSizeKey])
+        let nextSignature = StoredSnippetFileSignature(
+            modificationDate: values?.contentModificationDate,
+            fileSize: values?.fileSize
+        )
+        return lock.withLock {
+            if signature == nextSignature {
+                return snippets
+            }
+            snippets = LibraryPersistence.loadSnippets()
+            signature = nextSignature
+            return snippets
+        }
+    }
+}
+
+private struct StoredSnippetFileSignature: Equatable {
+    let modificationDate: Date?
+    let fileSize: Int?
+}
+
+private extension NSLock {
+    func withLock<T>(_ body: () -> T) -> T {
+        lock()
+        defer { unlock() }
+        return body()
     }
 }

@@ -35,12 +35,14 @@ final class CameraPreviewState: ObservableObject {
     nonisolated(unsafe) let session = AVCaptureSession()
 
     private let queue = DispatchQueue(label: "foundry.camera.session")
+    private let lifecycle = CameraLifecycleGate()
     private var configured = false
     private var startTask: Task<Void, Never>?
 
     func start() {
         guard status != .active, status != .starting, status != .requestingPermission else { return }
         startTask?.cancel()
+        let generation = lifecycle.advance()
         startTask = Task {
             status = .requestingPermission
             let permission = await cameraPermission()
@@ -51,8 +53,8 @@ final class CameraPreviewState: ObservableObject {
             }
 
             status = .starting
-            let configuration = await configureIfNeeded()
-            guard Task.isCancelled == false else { return }
+            let configuration = await configureIfNeeded(generation: generation)
+            guard Task.isCancelled == false, lifecycle.isCurrent(generation) else { return }
             switch configuration {
             case .configured:
                 configured = true
@@ -63,10 +65,13 @@ final class CameraPreviewState: ObservableObject {
                 status = .unavailable
             case let .failed(message):
                 status = .failed(message)
+            case .cancelled:
+                return
             }
 
             guard status == .active else { return }
-            queue.async { [session] in
+            queue.async { [session, lifecycle] in
+                guard lifecycle.isCurrent(generation) else { return }
                 if session.isRunning == false {
                     session.startRunning()
                 }
@@ -77,7 +82,9 @@ final class CameraPreviewState: ObservableObject {
     func stop() {
         startTask?.cancel()
         startTask = nil
-        queue.async { [session] in
+        let generation = lifecycle.advance()
+        queue.async { [session, lifecycle] in
+            guard lifecycle.isCurrent(generation) else { return }
             if session.isRunning {
                 session.stopRunning()
             }
@@ -111,14 +118,25 @@ final class CameraPreviewState: ObservableObject {
         case alreadyConfigured
         case unavailable
         case failed(String)
+        case cancelled
     }
 
-    private func configureIfNeeded() async -> ConfigurationResult {
+    private func configureIfNeeded(generation: Int) async -> ConfigurationResult {
         guard configured == false else { return .alreadyConfigured }
         return await withCheckedContinuation { continuation in
-            queue.async { [session] in
+            queue.async { [session, lifecycle] in
+                guard lifecycle.isCurrent(generation) else {
+                    continuation.resume(returning: .cancelled)
+                    return
+                }
                 session.beginConfiguration()
-                session.sessionPreset = .high
+                if session.canSetSessionPreset(.hd1280x720) {
+                    session.sessionPreset = .hd1280x720
+                } else if session.canSetSessionPreset(.medium) {
+                    session.sessionPreset = .medium
+                } else {
+                    session.sessionPreset = .low
+                }
                 defer { session.commitConfiguration() }
 
                 guard let device = AVCaptureDevice.default(for: .video) else {
@@ -135,4 +153,22 @@ final class CameraPreviewState: ObservableObject {
         }
     }
 
+}
+
+private final class CameraLifecycleGate: @unchecked Sendable {
+    private let lock = NSLock()
+    private var generation = 0
+
+    func advance() -> Int {
+        lock.lock()
+        defer { lock.unlock() }
+        generation += 1
+        return generation
+    }
+
+    func isCurrent(_ expected: Int) -> Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        return generation == expected
+    }
 }

@@ -92,10 +92,11 @@ final class FileConversionState: ObservableObject {
         outputURL = nil
         status = FileConversionService.preflightStatus(for: target) ?? "Converting to \(target.title)…"
 
-        conversionTask = Task.detached {
-            let result = FileConversionService.convert(sourceURL: sourceURL, target: target, outputFolderURL: outputFolderURL)
+        conversionTask = Task { [weak self] in
+            let result = await FileConversionService.convert(sourceURL: sourceURL, target: target, outputFolderURL: outputFolderURL)
             guard Task.isCancelled == false else { return }
             await MainActor.run {
+                guard let self else { return }
                 self.isConverting = false
                 switch result {
                 case let .success(url):
@@ -252,31 +253,32 @@ enum FileConversionService {
         return targets.first?.id
     }
 
-    static func convert(sourceURL: URL, target: FileConversionTarget, outputFolderURL: URL) -> Result<URL, Error> {
+    static func convert(sourceURL: URL, target: FileConversionTarget, outputFolderURL: URL) async -> Result<URL, Error> {
         do {
+            try Task.checkCancellation()
             try FileManager.default.createDirectory(at: outputFolderURL, withIntermediateDirectories: true)
             let destination = uniqueDestination(for: sourceURL, target: target, in: outputFolderURL)
 
             switch target.family {
             case .image:
-                try run("/usr/bin/sips", ["-s", "format", target.outputExtension == "jpg" ? "jpeg" : target.outputExtension, sourceURL.path, "--out", destination.path])
+                try await run("/usr/bin/sips", ["-s", "format", target.outputExtension == "jpg" ? "jpeg" : target.outputExtension, sourceURL.path, "--out", destination.path])
             case .text:
-                try run("/usr/bin/textutil", ["-convert", target.outputExtension, "-output", destination.path, sourceURL.path])
-            case .mediaFFmpeg:  
-                let ffmpeg = try installFFmpegIfNeeded()
-                try run(ffmpeg, ["-y", "-i", sourceURL.path, destination.path])
+                try await run("/usr/bin/textutil", ["-convert", target.outputExtension, "-output", destination.path, sourceURL.path])
+            case .mediaFFmpeg:
+                let ffmpeg = try await installFFmpegIfNeeded()
+                try await run(ffmpeg, ["-y", "-i", sourceURL.path, destination.path])
             case .imageMagick:
-                let magick = try installImageMagickIfNeeded()
-                try run(magick, [sourceURL.path, destination.path])
+                let magick = try await installImageMagickIfNeeded()
+                try await run(magick, [sourceURL.path, destination.path])
             case .pandoc:
-                let pandoc = try installPandocIfNeeded()
-                try run(pandoc, [sourceURL.path, "-o", destination.path])
+                let pandoc = try await installPandocIfNeeded()
+                try await run(pandoc, [sourceURL.path, "-o", destination.path])
             case .soffice:
-                let soffice = try installSofficeIfNeeded()
+                let soffice = try await installSofficeIfNeeded()
                 let temporaryFolder = FileManager.default.temporaryDirectory.appendingPathComponent("Foundry-Conversion-\(UUID().uuidString)")
                 try FileManager.default.createDirectory(at: temporaryFolder, withIntermediateDirectories: true)
                 defer { try? FileManager.default.removeItem(at: temporaryFolder) }
-                try run(soffice, ["--headless", "--convert-to", sofficeFormat(target.outputExtension), "--outdir", temporaryFolder.path, sourceURL.path])
+                try await run(soffice, ["--headless", "--convert-to", sofficeFormat(target.outputExtension), "--outdir", temporaryFolder.path, sourceURL.path])
                 let generated = temporaryFolder.appendingPathComponent(sourceURL.deletingPathExtension().lastPathComponent + "." + target.outputExtension)
                 guard FileManager.default.fileExists(atPath: generated.path) else {
                     throw NSError(domain: "FoundryConversion", code: 2, userInfo: [NSLocalizedDescriptionKey: "LibreOffice did not produce the expected output."])
@@ -305,18 +307,15 @@ enum FileConversionService {
         }
     }
 
-    private static func run(_ path: String, _ arguments: [String]) throws {
-        let process = Process()
-        let pipe = Pipe()
-        process.executableURL = URL(fileURLWithPath: path)
-        process.arguments = arguments
-        process.standardOutput = pipe
-        process.standardError = pipe
-        try process.run()
-        process.waitUntilExit()
-        guard process.terminationStatus == 0 else {
-            let output = String(data: pipe.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? "Conversion failed"
-            throw NSError(domain: "FoundryConversion", code: Int(process.terminationStatus), userInfo: [NSLocalizedDescriptionKey: output.trimmingCharacters(in: .whitespacesAndNewlines)])
+    private static func run(_ path: String, _ arguments: [String]) async throws {
+        let result = try await ProcessRunner.run(path: path, arguments: arguments, timeout: 30 * 60)
+        guard result.succeeded else {
+            if result.timedOut {
+                throw NSError(domain: "FoundryConversion", code: 124, userInfo: [NSLocalizedDescriptionKey: "Conversion timed out."])
+            }
+            let output = result.stderr.isEmpty ? result.stdout : result.stderr
+            let message = output.trimmingCharacters(in: .whitespacesAndNewlines)
+            throw NSError(domain: "FoundryConversion", code: Int(result.exitCode), userInfo: [NSLocalizedDescriptionKey: message.isEmpty ? "Conversion failed" : message])
         }
     }
 
@@ -324,42 +323,42 @@ enum FileConversionService {
         paths.first { FileManager.default.isExecutableFile(atPath: $0) }
     }
 
-    private static func installFFmpegIfNeeded() throws -> String {
+    private static func installFFmpegIfNeeded() async throws -> String {
         if let ffmpeg = firstExecutable(["/opt/homebrew/bin/ffmpeg", "/usr/local/bin/ffmpeg"]) { return ffmpeg }
         guard let brew = firstExecutable(["/opt/homebrew/bin/brew", "/usr/local/bin/brew"]) else {
             throw NSError(domain: "FoundryConversion", code: 1, userInfo: [NSLocalizedDescriptionKey: "ffmpeg is missing and Homebrew was not found"])
         }
-        try run(brew, ["install", "ffmpeg"])
+        try await run(brew, ["install", "ffmpeg"])
         if let ffmpeg = firstExecutable(["/opt/homebrew/bin/ffmpeg", "/usr/local/bin/ffmpeg"]) { return ffmpeg }
         throw NSError(domain: "FoundryConversion", code: 1, userInfo: [NSLocalizedDescriptionKey: "ffmpeg install finished, but ffmpeg was not found"])
     }
 
-    private static func installImageMagickIfNeeded() throws -> String {
+    private static func installImageMagickIfNeeded() async throws -> String {
         if let magick = firstExecutable(["/opt/homebrew/bin/magick", "/usr/local/bin/magick"]) { return magick }
         guard let brew = firstExecutable(["/opt/homebrew/bin/brew", "/usr/local/bin/brew"]) else {
             throw NSError(domain: "FoundryConversion", code: 1, userInfo: [NSLocalizedDescriptionKey: "ImageMagick is missing and Homebrew was not found"])
         }
-        try run(brew, ["install", "imagemagick"])
+        try await run(brew, ["install", "imagemagick"])
         if let magick = firstExecutable(["/opt/homebrew/bin/magick", "/usr/local/bin/magick"]) { return magick }
         throw NSError(domain: "FoundryConversion", code: 1, userInfo: [NSLocalizedDescriptionKey: "ImageMagick install finished, but magick was not found"])
     }
 
-    private static func installPandocIfNeeded() throws -> String {
+    private static func installPandocIfNeeded() async throws -> String {
         if let pandoc = firstExecutable(["/opt/homebrew/bin/pandoc", "/usr/local/bin/pandoc"]) { return pandoc }
         guard let brew = firstExecutable(["/opt/homebrew/bin/brew", "/usr/local/bin/brew"]) else {
             throw NSError(domain: "FoundryConversion", code: 1, userInfo: [NSLocalizedDescriptionKey: "pandoc is missing and Homebrew was not found"])
         }
-        try run(brew, ["install", "pandoc"])
+        try await run(brew, ["install", "pandoc"])
         if let pandoc = firstExecutable(["/opt/homebrew/bin/pandoc", "/usr/local/bin/pandoc"]) { return pandoc }
         throw NSError(domain: "FoundryConversion", code: 1, userInfo: [NSLocalizedDescriptionKey: "pandoc install finished, but pandoc was not found"])
     }
 
-    private static func installSofficeIfNeeded() throws -> String {
+    private static func installSofficeIfNeeded() async throws -> String {
         if let soffice = firstExecutable(["/Applications/LibreOffice.app/Contents/MacOS/soffice", "/Applications/OpenOffice.app/Contents/MacOS/soffice", "/opt/homebrew/bin/soffice", "/usr/local/bin/soffice"]) { return soffice }
         guard let brew = firstExecutable(["/opt/homebrew/bin/brew", "/usr/local/bin/brew"]) else {
             throw NSError(domain: "FoundryConversion", code: 1, userInfo: [NSLocalizedDescriptionKey: "LibreOffice is missing and Homebrew was not found"])
         }
-        try run(brew, ["install", "--cask", "libreoffice"])
+        try await run(brew, ["install", "--cask", "libreoffice"])
         if let soffice = firstExecutable(["/Applications/LibreOffice.app/Contents/MacOS/soffice", "/opt/homebrew/bin/soffice", "/usr/local/bin/soffice"]) { return soffice }
         throw NSError(domain: "FoundryConversion", code: 1, userInfo: [NSLocalizedDescriptionKey: "LibreOffice install finished, but soffice was not found"])
     }

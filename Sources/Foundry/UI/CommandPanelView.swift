@@ -148,8 +148,6 @@ struct CommandPanelView: View {
                 WidgetSettingsView(state: state)
             } else if state.mode == .quickAI {
                 quickAISurface
-            } else if state.mode == .activityMonitor {
-                ActivityMonitorView(state: state.activityMonitor)
             } else if state.mode == .emojiPicker {
                 EmojiPickerView(state: state.emojiPicker) {
                     if state.emojiPicker.copySelectedEmoji() {
@@ -250,7 +248,6 @@ struct CommandPanelView: View {
         if state.mode == .agents { return "agents" }
         if state.mode == .dashboard { return "dashboard" }
         if state.mode == .quickAI { return "quickAI" }
-        if state.mode == .activityMonitor { return "activity" }
         if state.mode == .emojiPicker { return "emoji" }
         if state.mode == .fileConversion { return "fileConversion" }
         if state.mode == .camera { return "camera" }
@@ -350,13 +347,7 @@ struct CommandPanelView: View {
                  Text("Dashboard")
                      .font(FoundryTheme.body(size: 21, weight: .regular))
                      .foregroundStyle(FoundryTheme.primaryText)
-             } else if state.mode == .activityMonitor {
-                TextField("Filter processes...", text: activityQueryBinding)
-                    .textFieldStyle(.plain)
-                    .font(FoundryTheme.body(size: 21, weight: .regular))
-                    .foregroundStyle(FoundryTheme.primaryText)
-                    .focused($inputFocused)
-            } else if state.mode == .emojiPicker {
+             } else if state.mode == .emojiPicker {
                 TextField("Search emoji and symbols...", text: emojiQueryBinding)
                     .textFieldStyle(.plain)
                     .font(FoundryTheme.body(size: 21, weight: .regular))
@@ -765,7 +756,7 @@ struct CommandPanelView: View {
             "AI"
         case .openApp:
             "Application"
-        case .openEmojiPicker, .openFileShelf, .openClipboardHistory, .openSnippets, .openFileConverter, .openCamera, .openTranslator, .openDeveloperTools, .openActivityMonitor, .openConfigFolder, .openSettings, .openDashboard, .quit:
+        case .openEmojiPicker, .openFileShelf, .openClipboardHistory, .openSnippets, .openFileConverter, .openCamera, .openTranslator, .openDeveloperTools, .openConfigFolder, .openSettings, .openDashboard, .quit:
             "Command"
         case .revealInFinder:
             "Finder"
@@ -948,9 +939,6 @@ struct CommandPanelView: View {
         case .agents:
             FooterAction(label: "Open", keys: "Click", emphasized: true)
             FooterAction(label: "Close", keys: "esc")
-        case .activityMonitor:
-            FooterAction(label: "Select", keys: "↑↓")
-            FooterAction(label: "Close", keys: "esc")
         case .emojiPicker:
             FooterAction(label: "Copy", keys: "↵")
             FooterAction(label: "Close", keys: "esc")
@@ -978,13 +966,6 @@ struct CommandPanelView: View {
             FooterAction(label: selectedCalculatorResult == nil ? "Open" : "Copy Answer", keys: "↵", emphasized: true)
             FooterAction(label: "Actions", keys: "⌘K")
         }
-    }
-
-    private var activityQueryBinding: Binding<String> {
-        Binding(
-            get: { state.activityMonitor.query },
-            set: { state.activityMonitor.query = $0 }
-        )
     }
 
     private var emojiQueryBinding: Binding<String> {
@@ -1086,23 +1067,11 @@ private struct QuickAIToolEventRow: View {
 
 private struct QuickAIShimmerLabel: View {
     let text: String
-    @State private var phase: CGFloat = -0.8
 
     var body: some View {
         Text(text)
             .font(FoundryTheme.body(size: 14, weight: .medium))
-            .foregroundStyle(
-                LinearGradient(
-                    colors: [FoundryTheme.faintText, Color.white.opacity(0.75), FoundryTheme.faintText],
-                    startPoint: UnitPoint(x: phase, y: 0.5),
-                    endPoint: UnitPoint(x: phase + 0.8, y: 0.5)
-                )
-            )
-            .onAppear {
-                withAnimation(.linear(duration: 1.35).repeatForever(autoreverses: false)) {
-                    phase = 1
-                }
-            }
+            .foregroundStyle(FoundryTheme.secondaryText)
     }
 }
 
@@ -2663,8 +2632,6 @@ private struct ActionRow: View {
             "arrow.down.circle"
         case .chooseMediaDownloadFolder:
             "folder.badge.gearshape"
-        case .openActivityMonitor:
-            "cpu"
         case .openEmojiPicker:
             "face.smiling"
         case .openFileShelf:

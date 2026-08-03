@@ -109,10 +109,11 @@ private final class InstalledAppCache: @unchecked Sendable {
     private let diagnostics: DiagnosticsService
     private let lock = NSLock()
     private var apps: [InstalledApp] = []
-    private var rootSignature: [Date?] = []
-    private var nextRefresh = Date.distantPast
+    private var rootSignature: [AppRootSignature] = []
+    private var hasLoaded = false
     private var refreshTask: Task<[InstalledApp], Never>?
-    private let refreshInterval: TimeInterval = 2
+    private var nextRefresh = Date.distantPast
+    private let refreshInterval: TimeInterval = 30
 
     init(roots: [URL], diagnostics: DiagnosticsService) {
         self.roots = roots
@@ -120,33 +121,36 @@ private final class InstalledAppCache: @unchecked Sendable {
     }
 
     func current() async -> [InstalledApp] {
-        let signature = roots.map { root in
-            try? root.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate
-        }
+        let signature = rootSignatures()
         let now = Date()
-
         if let cached = withLock({ () -> [InstalledApp]? in
-            guard now < nextRefresh, signature == rootSignature else { return nil }
+            guard hasLoaded, now < nextRefresh, signature == rootSignature else { return nil }
             return apps
         }) {
             return cached
         }
 
-        if let refreshTask = withLock({ refreshTask }) {
-            return await refreshTask.value
-        }
+        let task: Task<[InstalledApp], Never> = withLock {
+            if let refreshTask {
+                return refreshTask
+            }
 
-        let roots = roots
-        let diagnostics = diagnostics
-        let task = Task.detached(priority: .userInitiated) {
-            AppSearchProvider.loadApps(roots: roots, diagnostics: diagnostics)
+            let roots = roots
+            let diagnostics = diagnostics
+            let task = Task.detached(priority: .utility) {
+                AppSearchProvider.loadApps(roots: roots, diagnostics: diagnostics)
+            }
+            refreshTask = task
+            return task
         }
-        withLock { refreshTask = task }
 
         let discovered = await task.value
         return withLock {
-            apps = discovered
-            rootSignature = signature
+            if discovered.isEmpty == false || apps.isEmpty {
+                apps = discovered
+            }
+            rootSignature = rootSignatures()
+            hasLoaded = true
             nextRefresh = Date().addingTimeInterval(refreshInterval)
             refreshTask = nil
             return apps
@@ -154,7 +158,10 @@ private final class InstalledAppCache: @unchecked Sendable {
     }
 
     func invalidate() {
-        withLock { nextRefresh = .distantPast }
+        withLock {
+            hasLoaded = false
+            nextRefresh = .distantPast
+        }
     }
 
     private func withLock<T>(_ body: () -> T) -> T {
@@ -162,6 +169,24 @@ private final class InstalledAppCache: @unchecked Sendable {
         defer { lock.unlock() }
         return body()
     }
+
+    private func rootSignatures() -> [AppRootSignature] {
+        roots.map { root in
+            let modificationDate = try? root.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate
+            let children = (try? FileManager.default.contentsOfDirectory(at: root, includingPropertiesForKeys: nil, options: [.skipsHiddenFiles])) ?? []
+            var hasher = Hasher()
+            for child in children {
+                hasher.combine(child.lastPathComponent)
+            }
+            return AppRootSignature(modificationDate: modificationDate ?? nil, childCount: children.count, childHash: hasher.finalize())
+        }
+    }
+}
+
+private struct AppRootSignature: Equatable {
+    let modificationDate: Date?
+    let childCount: Int
+    let childHash: Int
 }
 
 private struct InstalledApp: Sendable {

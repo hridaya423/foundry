@@ -7,6 +7,7 @@ import UniformTypeIdentifiers
 @MainActor
 final class ActionRunner {
     private let diagnostics: DiagnosticsService
+    private var mediaTask: Task<Void, Never>?
     var mediaStatusHandler: (@MainActor @Sendable (String) -> Void)?
     var feedbackHandler: (@MainActor @Sendable (ActionFeedback) -> Void)?
 
@@ -93,8 +94,10 @@ final class ActionRunner {
             diagnostics.log("Starting media download")
             let statusHandler = mediaStatusHandler
             let feedback = feedbackHandler
-            Task.detached { [diagnostics, feedback] in
+            mediaTask?.cancel()
+            mediaTask = Task.detached { [diagnostics, feedback] in
                 let result = await Self.downloadMedia(urlString: urlString, status: statusHandler)
+                guard Task.isCancelled == false else { return }
                 await MainActor.run {
                     statusHandler?(result)
                     diagnostics.log(result)
@@ -114,9 +117,6 @@ final class ActionRunner {
                 mediaStatusHandler?("Downloads will save to \(url.lastPathComponent)")
                 diagnostics.log("Media download folder changed: \(url.path)")
             }
-
-        case .openActivityMonitor:
-            diagnostics.log("Activity Monitor should be opened by panel state")
 
         case .openEmojiPicker:
             diagnostics.log("Emoji Picker should be opened by panel state")
@@ -185,19 +185,9 @@ final class ActionRunner {
         case let .terminatePort(port):
             let command = "lsof -ti tcp:\(port) | xargs -r kill"
             DispatchQueue.global(qos: .userInitiated).async {
-                let process = Process()
-                process.executableURL = URL(fileURLWithPath: "/bin/zsh")
-                process.arguments = ["-lc", command]
-                do {
-                    try process.run()
-                    process.waitUntilExit()
-                    DispatchQueue.main.async {
-                        self.diagnostics.log(process.terminationStatus == 0 ? "Stopped port \(port)" : "Failed to stop port \(port)")
-                    }
-                } catch {
-                    DispatchQueue.main.async {
-                        self.diagnostics.log("Failed to stop port \(port): \(error.localizedDescription)")
-                    }
+                let result = ProcessRunner.runSynchronously(path: "/bin/zsh", arguments: ["-lc", command], timeout: 3)
+                DispatchQueue.main.async {
+                    self.diagnostics.log(result?.succeeded == true ? "Stopped port \(port)" : "Failed to stop port \(port)")
                 }
             }
 
@@ -247,6 +237,11 @@ final class ActionRunner {
         case let .log(message):
             diagnostics.log(message)
         }
+    }
+
+    func cancelMediaDownload() {
+        mediaTask?.cancel()
+        mediaTask = nil
     }
 
     nonisolated private static let downloadFolder = MediaDownloadDestination.folder
@@ -317,7 +312,7 @@ final class ActionRunner {
                 let executable = try installYTDLPIfNeeded()
                 let playlistLabel = isPlaylist(url) ? "playlist" : "media"
                 report("Downloading \(playlistLabel)", status)
-                try runYTDLP(executable, url: url, status: status)
+                try await runYTDLP(executable, url: url)
                 return "Downloaded YouTube media to \(downloadFolder.path)"
             }
 
@@ -333,10 +328,7 @@ final class ActionRunner {
         let (temporaryURL, response) = try await URLSession.shared.download(from: sourceURL)
         let fallbackName = response.suggestedFilename ?? sourceURL.lastPathComponent
         let name = fallbackName.isEmpty ? "media-\(Int(Date().timeIntervalSince1970)).\(sourceURL.pathExtension)" : fallbackName
-        let destination = downloadFolder.appendingPathComponent(safeFilename(name))
-        if FileManager.default.fileExists(atPath: destination.path) {
-            try FileManager.default.removeItem(at: destination)
-        }
+        let destination = uniqueDestination(for: name)
         try FileManager.default.moveItem(at: temporaryURL, to: destination)
         return destination
     }
@@ -395,48 +387,21 @@ final class ActionRunner {
         report("Downloading media", status)
         let (temporaryURL, response) = try await URLSession.shared.download(from: downloadURL)
         let fallbackName = response.suggestedFilename ?? "media-\(Int(Date().timeIntervalSince1970))"
-        let destination = downloadFolder.appendingPathComponent(safeFilename(fallbackName))
-        if FileManager.default.fileExists(atPath: destination.path) {
-            try FileManager.default.removeItem(at: destination)
-        }
+        let destination = uniqueDestination(for: fallbackName)
         try FileManager.default.moveItem(at: temporaryURL, to: destination)
         return destination
     }
 
-    nonisolated private static func runYTDLP(_ path: String, url: URL, status: (@MainActor @Sendable (String) -> Void)?) throws {
-        let process = Process()
-        let pipe = Pipe()
-        process.executableURL = URL(fileURLWithPath: path)
-        process.arguments = ["--newline", "-P", downloadFolder.path, "-o", "%(title).200B [%(id)s].%(ext)s", url.absoluteString]
-        process.standardOutput = pipe
-        process.standardError = pipe
-
-        let output = MediaDownloadOutput()
-        pipe.fileHandleForReading.readabilityHandler = { handle in
-            let data = handle.availableData
-            guard data.isEmpty == false, let chunk = String(data: data, encoding: .utf8) else { return }
-            output.append(chunk, status: status)
+    nonisolated private static func runYTDLP(_ path: String, url: URL) async throws {
+        let result = try await ProcessRunner.run(
+            path: path,
+            arguments: ["--newline", "-P", downloadFolder.path, "-o", "%(title).200B [%(id)s].%(ext)s", url.absoluteString],
+            timeout: 30 * 60,
+            outputLimit: 8 * 1024 * 1024
+        )
+        guard result.succeeded else {
+            throw MediaDownloadError.message(result.stderr.isEmpty ? result.stdout.trimmingCharacters(in: .whitespacesAndNewlines) : result.stderr.trimmingCharacters(in: .whitespacesAndNewlines))
         }
-
-        try process.run()
-        process.waitUntilExit()
-        pipe.fileHandleForReading.readabilityHandler = nil
-        if process.terminationStatus != 0 {
-            throw MediaDownloadError.message(output.text.trimmingCharacters(in: .whitespacesAndNewlines))
-        }
-    }
-
-    nonisolated fileprivate static func playlistItemLabel(in line: String) -> String? {
-        guard let range = line.range(of: "Downloading item ") else { return nil }
-        let suffix = line[range.upperBound...]
-        let label = suffix.split(separator: " ").prefix(3).joined(separator: " ")
-        return label.isEmpty ? nil : label
-    }
-
-    nonisolated fileprivate static func downloadPercent(in line: String) -> String? {
-        guard line.contains("[download]") else { return nil }
-        let parts = line.split(separator: " ").map(String.init)
-        return parts.first { $0.hasSuffix("%") }
     }
 
     nonisolated fileprivate static func report(_ message: String, _ status: (@MainActor @Sendable (String) -> Void)?) {
@@ -453,20 +418,26 @@ final class ActionRunner {
     }
 
     nonisolated private static func runAndCapture(_ path: String, _ arguments: [String]) throws -> String {
-        let process = Process()
-        let pipe = Pipe()
-        process.executableURL = URL(fileURLWithPath: path)
-        process.arguments = arguments
-        process.standardOutput = pipe
-        process.standardError = pipe
-        try process.run()
-        process.waitUntilExit()
-        let data = pipe.fileHandleForReading.readDataToEndOfFile()
-        let output = String(data: data, encoding: .utf8) ?? ""
-        guard process.terminationStatus == 0 else {
-            throw MediaDownloadError.message(output.trimmingCharacters(in: .whitespacesAndNewlines))
+        guard let result = ProcessRunner.runSynchronously(path: path, arguments: arguments, timeout: 5 * 60, outputLimit: 8 * 1024 * 1024), result.succeeded else {
+            throw MediaDownloadError.message("Process failed: \(path)")
         }
-        return output
+        return result.stdout
+    }
+
+    nonisolated private static func uniqueDestination(for name: String) -> URL {
+        let baseName = safeFilename(name)
+        let folder = downloadFolder
+        let original = folder.appendingPathComponent(baseName)
+        guard FileManager.default.fileExists(atPath: original.path) else { return original }
+        let url = URL(fileURLWithPath: baseName)
+        let stem = url.deletingPathExtension().lastPathComponent
+        let extensionName = url.pathExtension
+        for index in 1...10_000 {
+            let candidateName = extensionName.isEmpty ? "\(stem) (\(index))" : "\(stem) (\(index)).\(extensionName)"
+            let candidate = folder.appendingPathComponent(candidateName)
+            if FileManager.default.fileExists(atPath: candidate.path) == false { return candidate }
+        }
+        return folder.appendingPathComponent("media-\(UUID().uuidString).\(extensionName)")
     }
 
     nonisolated private static func safeFilename(_ name: String) -> String {
@@ -478,6 +449,7 @@ final class ActionRunner {
 
 enum KeepAwakeController {
     private static let marker = "foundry.keepawake"
+    private static let processSnapshotProvider = NativeProcessSnapshotProvider()
 
     static func toggle() -> Bool {
         if let pid = currentPID() {
@@ -498,16 +470,9 @@ enum KeepAwakeController {
     }
 
     private static func currentPID() -> Int32? {
-        let process = Process()
-        let pipe = Pipe()
-        process.executableURL = URL(fileURLWithPath: "/bin/zsh")
-        process.arguments = ["-lc", "ps -axo pid=,command= | grep 'caffeinate -dimsu' | grep -v grep | awk '{print $1}' | head -n 1"]
-        process.standardOutput = pipe
-        try? process.run()
-        process.waitUntilExit()
-        let data = pipe.fileHandleForReading.readDataToEndOfFile()
-        guard let string = String(data: data, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines), let pid = Int32(string) else { return nil }
-        return pid
+        processSnapshotProvider.capture()
+            .first { $0.executableName == "caffeinate" && $0.args.contains("-dimsu") }
+            .flatMap { Int32($0.pid) }
     }
 }
 
@@ -528,40 +493,6 @@ private struct RaycastSnippetImport: Decodable {
     let name: String
     let text: String
     let keyword: String?
-}
-
-private final class MediaDownloadOutput: @unchecked Sendable {
-    private let lock = NSLock()
-    private var value = ""
-    private var currentItem: String?
-
-    var text: String {
-        lock.lock()
-        defer { lock.unlock() }
-        return value
-    }
-
-    func append(_ chunk: String, status: (@MainActor @Sendable (String) -> Void)?) {
-        lock.lock()
-        value += chunk
-        let lines = chunk.components(separatedBy: .newlines)
-        lock.unlock()
-
-        for line in lines {
-            if let item = ActionRunner.playlistItemLabel(in: line) {
-                lock.lock()
-                currentItem = item
-                lock.unlock()
-                ActionRunner.report("Downloading \(item)", status)
-            } else if let percent = ActionRunner.downloadPercent(in: line) {
-                lock.lock()
-                let item = currentItem
-                lock.unlock()
-                let prefix = item.map { "Downloading \($0)" } ?? "Downloading"
-                ActionRunner.report("\(prefix) · \(percent)", status)
-            }
-        }
-    }
 }
 
 private enum MediaDownloadError: LocalizedError {

@@ -56,7 +56,7 @@ enum AIConversationContext {
     }
 }
 
-final class AIChatStore {
+final class AIChatStore: @unchecked Sendable {
     private let url: URL
     private let encoder = JSONEncoder()
     private let decoder = JSONDecoder()
@@ -88,6 +88,14 @@ final class AIChatStore {
         }
     }
 
+    func loadAsync() async -> [AIChatThread] {
+        let url = url
+        let diagnostics = diagnostics
+        return await Task.detached(priority: .utility) {
+            AIChatStore(url: url, diagnostics: diagnostics).load()
+        }.value
+    }
+
     func save(_ threads: [AIChatThread]) {
         do {
             try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
@@ -97,6 +105,14 @@ final class AIChatStore {
         } catch {
             diagnostics?.log("Failed to save AI chats: \(error.localizedDescription)")
         }
+    }
+
+    func saveAsync(_ threads: [AIChatThread]) async {
+        let url = url
+        let diagnostics = diagnostics
+        await Task.detached(priority: .utility) {
+            AIChatStore(url: url, diagnostics: diagnostics).save(threads)
+        }.value
     }
 
     private func compacted(_ messages: [AIChatMessage]) -> [AIChatMessage] {

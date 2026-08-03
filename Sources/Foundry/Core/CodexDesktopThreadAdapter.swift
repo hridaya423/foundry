@@ -183,21 +183,12 @@ struct CodexDesktopThreadAdapter: Sendable {
     }
 
     private static func runSQLite(query: String, databasePath: String) -> String? {
-        let process = Process()
-        let output = Pipe()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/sqlite3")
-        process.arguments = ["-readonly", "-separator", sqliteSeparator, databasePath, query]
-        process.standardOutput = output
-        process.standardError = Pipe()
-        do {
-            try process.run()
-            let data = output.fileHandleForReading.readDataToEndOfFile()
-            process.waitUntilExit()
-            guard process.terminationStatus == 0 else { return nil }
-            return String(data: data, encoding: .utf8)
-        } catch {
-            return nil
-        }
+        let result = ProcessRunner.runSynchronously(
+            path: "/usr/bin/sqlite3",
+            arguments: ["-readonly", "-separator", sqliteSeparator, databasePath, query]
+        )
+        guard let result, result.succeeded else { return nil }
+        return result.stdout
     }
 
     private static func unixMillisecondsDate(_ raw: String) -> Date? {

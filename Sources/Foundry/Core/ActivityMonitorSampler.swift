@@ -44,6 +44,9 @@ final class ActivityMonitorSampler: @unchecked Sendable {
     private var previousSample: [Int32: ProcessCPUReading] = [:]
     private var previousSystemCPU: SystemCPUReading?
     private var previousDate: Date?
+    private var metadataCache: [Int32: ProcessMetadata] = [:]
+    private var applicationPathCache: [String: String] = [:]
+    private var bundleFamilyCache: [String: ProcessFamily] = [:]
 
     func sample() -> ActivitySnapshot {
         let now = Date()
@@ -64,18 +67,17 @@ final class ActivityMonitorSampler: @unchecked Sendable {
 
             let previous = lock.withLock { previousSample[pid] }
             let cpuUsage = previous.map { max(0, (cpuTime - $0.cpuTime) / safeElapsed * 100) } ?? 0
-            let path = processPath(pid: pid)
-            let name = processName(pid: pid, path: path)
             let app = appByPID[pid]
-            let derivedBundlePath = app?.bundleURL?.path ?? appBundlePath(containing: path)
+            let startTime = bsdInfo.map(processStartTime)
+            let metadata = processMetadata(for: pid, startTime: startTime, runningApplication: app)
 
             rawProcesses.append(
                 RawActivityProcess(
                     pid: pid,
                     parentPID: bsdInfo.map { Int32($0.pbi_ppid) } ?? 0,
-                    name: name,
-                    path: path,
-                    bundlePath: derivedBundlePath,
+                    name: metadata.name,
+                    path: metadata.path,
+                    bundlePath: metadata.bundlePath,
                     runningAppName: app?.localizedName,
                     cpuUsage: cpuUsage.isFinite ? cpuUsage : 0,
                     hasCPUReading: previous != nil,
@@ -111,6 +113,8 @@ final class ActivityMonitorSampler: @unchecked Sendable {
         lock.withLock {
             previousSample = readings
             previousDate = now
+            let activePIDs = Set(pids)
+            metadataCache = metadataCache.filter { activePIDs.contains($0.key) }
         }
 
         let sortedProcesses = processFamilies.sorted {
@@ -173,6 +177,24 @@ final class ActivityMonitorSampler: @unchecked Sendable {
             guard let baseAddress = pointer.baseAddress else { return nil }
             return String(cString: baseAddress)
         }
+    }
+
+    private func processMetadata(for pid: Int32, startTime: Date?, runningApplication: NSRunningApplication?) -> ProcessMetadata {
+        if let startTime, let cached = lock.withLock({ metadataCache[pid] }), cached.startTime == startTime {
+            return cached
+        }
+
+        let path = processPath(pid: pid)
+        let metadata = ProcessMetadata(
+            startTime: startTime,
+            name: processName(pid: pid, path: path),
+            path: path,
+            bundlePath: runningApplication?.bundleURL?.path ?? appBundlePath(containing: path)
+        )
+        if startTime != nil {
+            lock.withLock { metadataCache[pid] = metadata }
+        }
+        return metadata
     }
 
     private func processName(pid: Int32, path: String?) -> String {
@@ -268,16 +290,23 @@ final class ActivityMonitorSampler: @unchecked Sendable {
     }
 
     private func appFamily(bundlePath: String, fallbackName: String) -> ProcessFamily {
-        let name = Bundle(path: bundlePath)?.object(forInfoDictionaryKey: "CFBundleDisplayName") as? String
-            ?? Bundle(path: bundlePath)?.object(forInfoDictionaryKey: "CFBundleName") as? String
+        if let cached = lock.withLock({ bundleFamilyCache[bundlePath] }) {
+            return cached
+        }
+
+        let bundle = Bundle(path: bundlePath)
+        let name = bundle?.object(forInfoDictionaryKey: "CFBundleDisplayName") as? String
+            ?? bundle?.object(forInfoDictionaryKey: "CFBundleName") as? String
             ?? fallbackName
-        return ProcessFamily(
+        let family = ProcessFamily(
             key: "app:\(bundlePath)",
             name: normalizedGroupName(for: name),
             bundlePath: bundlePath,
             iconPath: bundlePath,
             symbolName: nil
         )
+        lock.withLock { bundleFamilyCache[bundlePath] = family }
+        return family
     }
 
     private func knownAppFamily(for name: String, path: String?) -> ProcessFamily? {
@@ -298,7 +327,7 @@ final class ActivityMonitorSampler: @unchecked Sendable {
             family.prefixes.contains(where: { normalized.hasPrefix($0) })
                 || family.pathContains.contains(where: { normalizedPath.contains($0) })
         }) else { return nil }
-        let appPath = applicationPath(named: match.name)
+        let appPath = cachedApplicationPath(named: match.name)
         return ProcessFamily(
             key: "family:\(match.name.lowercased())",
             name: match.name,
@@ -314,6 +343,16 @@ final class ActivityMonitorSampler: @unchecked Sendable {
             FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Applications/\(name).app").path
         ]
         return candidates.first { FileManager.default.fileExists(atPath: $0) }
+    }
+
+    private func cachedApplicationPath(named name: String) -> String? {
+        if let cached = lock.withLock({ applicationPathCache[name] }) {
+            return cached.isEmpty ? nil : cached
+        }
+
+        let path = applicationPath(named: name)
+        lock.withLock { applicationPathCache[name] = path ?? "" }
+        return path
     }
 
     private func systemFamily(for name: String) -> ProcessFamily? {
@@ -343,6 +382,10 @@ final class ActivityMonitorSampler: @unchecked Sendable {
             guard totalDelta > 0 else { return 0 }
             return min(max((1 - Double(idleDelta) / Double(totalDelta)) * 100, 0), 100)
         }
+    }
+
+    private func processStartTime(_ info: proc_bsdinfo) -> Date {
+        Date(timeIntervalSince1970: Double(info.pbi_start_tvsec) + Double(info.pbi_start_tvusec) / 1_000_000)
     }
 
     private func readSystemCPU() -> SystemCPUReading? {
@@ -380,6 +423,13 @@ final class ActivityMonitorSampler: @unchecked Sendable {
 
 private struct ProcessCPUReading: Sendable {
     let cpuTime: Double
+}
+
+private struct ProcessMetadata: Sendable {
+    let startTime: Date?
+    let name: String
+    let path: String?
+    let bundlePath: String?
 }
 
 private struct SystemCPUReading: Sendable {

@@ -7,7 +7,6 @@ final class CommandPanelState: ObservableObject {
     enum Mode {
         case search
         case quickAI
-        case activityMonitor
         case emojiPicker
         case fileShelf
         case clipboardHistory
@@ -76,7 +75,6 @@ final class CommandPanelState: ObservableObject {
     @Published var expandedCommandID: String?
     var onHotkeyChanged: ((FoundryHotkey) throws -> Void)?
 
-    let activityMonitor = ActivityMonitorState()
     let emojiPicker = EmojiPickerState()
     let fileShelf = FileShelfState()
     let agents = AgentMonitorState()
@@ -96,9 +94,9 @@ final class CommandPanelState: ObservableObject {
     private let aiChatStore = AIChatStore()
     private let aiCredentialStore: AICredentialStore
     private let codexOAuthService: OpenAICodexOAuthService
-    private var statusTimer: Timer?
     private var searchTask: Task<Void, Never>?
     private var quickAITask: Task<Void, Never>?
+    private var chatPersistenceTask: Task<Void, Never>?
     private var quickAIRequestID: UUID?
     private var searchGeneration = 0
     private var isMediaDownloadActive = false
@@ -107,6 +105,7 @@ final class CommandPanelState: ObservableObject {
     private var aiProfileTestTask: Task<Void, Never>?
     private var aiModelTask: Task<Void, Never>?
     private var codexOAuthTask: Task<Void, Never>?
+    private var isPanelOpen = false
 
     var selectedResult: CommandResult? {
         results.first { $0.id == selectedResultID }
@@ -135,9 +134,8 @@ final class CommandPanelState: ObservableObject {
         self.aiProvider = AIProvider(config: config, diagnostics: diagnostics)
         self.aiCredentialStore = KeychainAICredentialStore()
         self.codexOAuthService = .shared
-        let loadedThreads = aiChatStore.load()
-        self.quickAIThreads = loadedThreads
-        self.activeQuickAIThreadID = loadedThreads.first?.id
+        self.quickAIThreads = []
+        self.activeQuickAIThreadID = nil
         self.isAgentShelfVisible = config.current.showAgentShelf
         self.hotkey = config.current.hotkey
         self.themeIntensity = config.current.themeIntensity
@@ -156,7 +154,7 @@ final class CommandPanelState: ObservableObject {
         self.acceptedCodexPrivateBackendWarning = config.current.ai.acceptedCodexPrivateBackendWarning
         self.settingsPersistenceError = nil
         self.commandPreferences = config.current.commandPreferences
-        self.widgetBoard = WidgetBoardState(configService: config)
+        self.widgetBoard = WidgetBoardState(configService: config, diagnostics: diagnostics)
         self.widgetBoard.persistenceErrorHandler = { [weak self] error in
             self?.showSettingsPersistenceError(error)
         }
@@ -168,17 +166,28 @@ final class CommandPanelState: ObservableObject {
         actionRunner.feedbackHandler = { [weak self] feedback in
             self?.showActionFeedback(feedback)
         }
-        clipboardHistory.start()
-        agents.start()
-        self.statusTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
-            Task { @MainActor in
-                self?.refreshStatusSummary()
-            }
+        agents.startSocket()
+        Task { [weak self] in
+            guard let self else { return }
+            let threads = await self.aiChatStore.loadAsync()
+            guard threads.isEmpty == false, self.quickAIThreads.isEmpty else { return }
+            self.quickAIThreads = threads
+            self.activeQuickAIThreadID = threads.first?.id
         }
     }
 
     private func persistAIThreads() {
-        aiChatStore.save(quickAIThreads)
+        chatPersistenceTask?.cancel()
+        let threads = quickAIThreads
+        chatPersistenceTask = Task { [store = aiChatStore] in
+            do {
+                try await Task.sleep(for: .milliseconds(150))
+                guard Task.isCancelled == false else { return }
+                await store.saveAsync(threads)
+            } catch {
+                return
+            }
+        }
     }
 
     private func showActionFeedback(_ feedback: ActionFeedback) {
@@ -201,6 +210,13 @@ final class CommandPanelState: ObservableObject {
         do {
             try configService.updateAgentShelfVisibility(isVisible)
             settingsPersistenceError = nil
+            if isPanelOpen {
+                if isVisible {
+                    agents.start()
+                } else {
+                    agents.stopPolling()
+                }
+            }
         } catch {
             isAgentShelfVisible = previous
             showSettingsPersistenceError(error)
@@ -633,11 +649,16 @@ final class CommandPanelState: ObservableObject {
     }
 
     func resetForOpen() {
+        isPanelOpen = true
         mode = .search
         widgetBoard.start()
-        agents.start()
-        activityMonitor.stop()
+        if isAgentShelfVisible {
+            agents.start()
+        } else {
+            agents.stopPolling()
+        }
         emojiPicker.reset()
+        clipboardHistory.stop()
         clipboardHistory.reset()
         snippets.reset()
         fileConversion.reset()
@@ -662,22 +683,29 @@ final class CommandPanelState: ObservableObject {
     }
 
     func panelWillClose() {
+        isPanelOpen = false
+        searchTask?.cancel()
+        searchTask = nil
         widgetBoard.stop()
-        activityMonitor.stop()
         emojiPicker.reset()
+        clipboardHistory.stop()
         clipboardHistory.reset()
         snippets.reset()
         fileConversion.reset()
         camera.stop()
         translator.reset()
         developerTools.reset()
+        agents.stopPolling()
     }
 
     func shutdown() {
-        statusTimer?.invalidate()
-        statusTimer = nil
+        isPanelOpen = false
+        searchTask?.cancel()
+        searchTask = nil
         commandCatalogTask?.cancel()
         commandCatalogTask = nil
+        chatPersistenceTask?.cancel()
+        chatPersistenceTask = nil
         aiProfileTestTask?.cancel()
         aiProfileTestTask = nil
         aiModelTask?.cancel()
@@ -685,14 +713,18 @@ final class CommandPanelState: ObservableObject {
         codexOAuthTask?.cancel()
         codexOAuthTask = nil
         Task { await codexOAuthService.cancelCurrentLogin() }
+        actionRunner.cancelMediaDownload()
+        clipboardHistory.stop()
         agents.stop()
     }
 
     func openSettings() {
+        stopTransientPolling()
         withAnimation(.easeOut(duration: 0.14)) {
             mode = .settings
         }
-        widgetBoard.start()
+        widgetBoard.stop()
+        agents.stopPolling()
         isShowingActions = false
         selectedActionID = nil
         searchTask?.cancel()
@@ -830,11 +862,16 @@ final class CommandPanelState: ObservableObject {
     }
 
     func openDashboard() {
+        stopTransientPolling()
         withAnimation(.easeOut(duration: 0.14)) {
             mode = .dashboard
         }
         widgetBoard.start()
-        agents.start()
+        if isAgentShelfVisible {
+            agents.start()
+        } else {
+            agents.stopPolling()
+        }
         isShowingActions = false
         selectedActionID = nil
         searchTask?.cancel()
@@ -844,6 +881,7 @@ final class CommandPanelState: ObservableObject {
     }
 
     func openAgents() {
+        stopTransientPolling()
         withAnimation(.easeOut(duration: 0.14)) {
             mode = .agents
         }
@@ -869,8 +907,8 @@ final class CommandPanelState: ObservableObject {
             mode = .search
         }
         widgetBoard.stop()
-        activityMonitor.stop()
         emojiPicker.reset()
+        clipboardHistory.stop()
         camera.stop()
         fileConversion.reset()
         translator.reset()
@@ -930,10 +968,6 @@ final class CommandPanelState: ObservableObject {
         registry.recordExecution(resultID: selectedResult.id, query: query)
         if case let .openQuickAI(prompt) = selectedResult.primaryAction.kind {
             openQuickAI(initialPrompt: prompt)
-            return false
-        }
-        if selectedResult.primaryAction.kind == .openActivityMonitor {
-            openActivityMonitor()
             return false
         }
         if selectedResult.primaryAction.kind == .openEmojiPicker {
@@ -1016,8 +1050,6 @@ final class CommandPanelState: ObservableObject {
         switch mode {
         case .search:
             query += text
-        case .activityMonitor:
-            activityMonitor.query += text
         case .emojiPicker:
             emojiPicker.query += text
         case .clipboardHistory:
@@ -1045,11 +1077,6 @@ final class CommandPanelState: ObservableObject {
     }
 
     private func moveSelection(offset: Int) {
-        if mode == .activityMonitor {
-            activityMonitor.moveSelection(offset: offset)
-            return
-        }
-
         if mode == .emojiPicker {
             offset > 0 ? emojiPicker.moveDown() : emojiPicker.moveUp()
             return
@@ -1126,17 +1153,22 @@ final class CommandPanelState: ObservableObject {
         let span = diagnostics.startSpan("search.async")
 
         searchTask = Task { [weak self] in
-            guard Task.isCancelled == false else {
+            defer {
                 diagnostics.endSpan(span)
+            }
+
+            do {
+                try await Task.sleep(for: .milliseconds(40))
+            } catch {
                 return
             }
+            guard Task.isCancelled == false else { return }
 
             let immediateResults = await registry.immediateResults(matching: trimmed)
             guard let self,
-                  Task.isCancelled == false,
-                  self.searchGeneration == generation,
-                  self.query.trimmingCharacters(in: .whitespacesAndNewlines) == trimmed else {
-                diagnostics.endSpan(span)
+                   Task.isCancelled == false,
+                   self.searchGeneration == generation,
+                   self.query.trimmingCharacters(in: .whitespacesAndNewlines) == trimmed else {
                 return
             }
 
@@ -1145,14 +1177,12 @@ final class CommandPanelState: ObservableObject {
 
             let foundResults = await registry.completeResults(matching: trimmed, initialResults: immediateResults)
             guard Task.isCancelled == false,
-                  self.searchGeneration == generation,
-                  self.query.trimmingCharacters(in: .whitespacesAndNewlines) == trimmed else {
-                diagnostics.endSpan(span)
+                   self.searchGeneration == generation,
+                   self.query.trimmingCharacters(in: .whitespacesAndNewlines) == trimmed else {
                 return
             }
 
             self.applySearchResults(foundResults, preserving: self.selectedResultID)
-            diagnostics.endSpan(span)
         }
     }
 
@@ -1193,21 +1223,14 @@ final class CommandPanelState: ObservableObject {
         }
     }
 
-    private func openActivityMonitor() {
-        withAnimation(.easeOut(duration: 0.14)) {
-            mode = .activityMonitor
-        }
-        isShowingActions = false
-        selectedActionID = nil
-        searchTask?.cancel()
-        results = []
-        selectedResultID = nil
-        activityMonitor.reset()
-        activityMonitor.start()
-        diagnosticsSummary = "activity monitor"
+    private func stopTransientPolling() {
+        clipboardHistory.stop()
+        widgetBoard.stop()
+        agents.stopPolling()
     }
 
     private func openEmojiPicker() {
+        stopTransientPolling()
         withAnimation(.easeOut(duration: 0.14)) {
             mode = .emojiPicker
         }
@@ -1221,6 +1244,7 @@ final class CommandPanelState: ObservableObject {
     }
 
     private func openFileShelf() {
+        stopTransientPolling()
         withAnimation(.easeOut(duration: 0.14)) {
             mode = .fileShelf
         }
@@ -1234,6 +1258,7 @@ final class CommandPanelState: ObservableObject {
     }
 
     private func openClipboardHistory() {
+        stopTransientPolling()
         withAnimation(.easeOut(duration: 0.14)) {
             mode = .clipboardHistory
         }
@@ -1242,11 +1267,13 @@ final class CommandPanelState: ObservableObject {
         searchTask?.cancel()
         results = []
         selectedResultID = nil
+        clipboardHistory.start()
         clipboardHistory.reset()
         diagnosticsSummary = "clipboard history"
     }
 
     private func openSnippets() {
+        stopTransientPolling()
         withAnimation(.easeOut(duration: 0.14)) {
             mode = .snippets
         }
@@ -1260,6 +1287,7 @@ final class CommandPanelState: ObservableObject {
     }
 
     private func openFileConverter(path: String? = nil) {
+        stopTransientPolling()
         withAnimation(.easeOut(duration: 0.14)) {
             mode = .fileConversion
         }
@@ -1278,6 +1306,7 @@ final class CommandPanelState: ObservableObject {
     }
 
     private func openCamera() {
+        stopTransientPolling()
         withAnimation(.easeOut(duration: 0.14)) {
             mode = .camera
         }
@@ -1291,6 +1320,7 @@ final class CommandPanelState: ObservableObject {
     }
 
     private func openTranslator(text: String? = nil, language: String? = nil) {
+        stopTransientPolling()
         withAnimation(.easeOut(duration: 0.14)) {
             mode = .translator
         }
@@ -1306,6 +1336,7 @@ final class CommandPanelState: ObservableObject {
     }
 
     private func openDeveloperTools(tool: String? = nil) {
+        stopTransientPolling()
         withAnimation(.easeOut(duration: 0.14)) {
             mode = .developerTools
         }

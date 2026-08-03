@@ -2,25 +2,45 @@ import Foundation
 
 enum AgentMonitorService {
     private static let recentSessionWindow: TimeInterval = 24 * 60 * 60
+    private static let defaultProcessSnapshotProvider = NativeProcessSnapshotProvider()
 
     static func collect() -> [AgentSessionCard] {
-        let processes = ProcessSnapshot.capture()
-        return (openCodeSessions(processes: processes)
-            + claudeSessions(processes: processes)
-            + cursorSessions(processes: processes)
-            + codexSessions(processes: processes)
+        var cache = AgentMonitorCache()
+        return collect(using: &cache)
+    }
+
+    static func collect(using cache: inout AgentMonitorCache) -> [AgentSessionCard] {
+        collect(using: &cache, processProvider: defaultProcessSnapshotProvider)
+    }
+
+    static func collect(using cache: inout AgentMonitorCache, processProvider: any ProcessSnapshotProviding) -> [AgentSessionCard] {
+        let processes = processProvider.capture()
+        return (openCodeSessions(processes: processes, cache: &cache)
+            + claudeSessions(processes: processes, cache: &cache)
+            + cursorSessions(processes: processes, cache: &cache)
+            + codexSessions(processes: processes, cache: &cache)
             + processAgentSessions(processes: processes))
             .deduped()
-            .map(enrichWithWorkspaceDiff)
+            .map { enrichWithWorkspaceDiff($0, cache: &cache) }
             .sorted { lhs, rhs in
                 if lhs.status.sortPriority != rhs.status.sortPriority { return lhs.status.sortPriority < rhs.status.sortPriority }
                 return (lhs.updatedAt ?? lhs.startedAt ?? .distantPast) > (rhs.updatedAt ?? rhs.startedAt ?? .distantPast)
             }
     }
 
-    private static func openCodeSessions(processes: [ProcessInfoRow]) -> [AgentSessionCard] {
+    private static func openCodeSessions(processes: [ProcessInfoRow], cache: inout AgentMonitorCache) -> [AgentSessionCard] {
         let rows = openCodeDatabasePaths().flatMap { db in
-            sqlite(db, "select id,title,directory,model,agent,time_created,time_updated,time_archived from session where time_archived is null order by time_updated desc limit 16;")
+            let stamp = sourceStamp(for: db)
+            if let stamp, let cached = cache.openCode[db], cached.stamp == stamp {
+                return cached.rows
+            }
+            guard let rows = sqlite(db, "select id,title,directory,model,agent,time_created,time_updated,time_archived from session where time_archived is null order by time_updated desc limit 16;") else {
+                return cache.openCode[db]?.rows ?? []
+            }
+            if let stamp {
+                cache.openCode[db] = AgentMonitorCachedRows(stamp: stamp, rows: rows)
+            }
+            return rows
         }
         .sorted {
             let lhsDate = date(milliseconds: $0.count > 6 ? $0[6] : "") ?? .distantPast
@@ -59,7 +79,7 @@ enum AgentMonitorService {
         }
     }
 
-    private static func claudeSessions(processes: [ProcessInfoRow]) -> [AgentSessionCard] {
+    private static func claudeSessions(processes: [ProcessInfoRow], cache: inout AgentMonitorCache) -> [AgentSessionCard] {
         let running: [AgentSessionCard] = processes.compactMap { process in
             guard process.args.contains("--session-id"), process.args.contains("--resume") else { return nil }
             guard isRecent(process.startedAt, within: 60 * 60) else { return nil }
@@ -83,14 +103,20 @@ enum AgentMonitorService {
                 capabilities: [.observe, .jumpTerminal]
             )
         }
-        return running + claudeHistorySessions()
+        return running + claudeHistorySessions(cache: &cache)
     }
 
-    private static func claudeHistorySessions() -> [AgentSessionCard] {
+    private static func claudeHistorySessions(cache: inout AgentMonitorCache) -> [AgentSessionCard] {
         let historyURL = URL(fileURLWithPath: home(".claude/history.jsonl"))
+        guard let stamp = sourceStamp(for: historyURL.path) else { return [] }
+        if let cached = cache.claudeHistory, cached.stamp == stamp {
+            return cached.cards.filter { isRecent($0.updatedAt, within: 7 * 24 * 60 * 60) }
+        }
         guard let data = try? Data(contentsOf: historyURL),
-               let text = String(data: data, encoding: .utf8) else { return [] }
-        return claudeHistorySessions(from: text)
+              let text = String(data: data, encoding: .utf8) else { return [] }
+        let cards = claudeHistorySessions(from: text)
+        cache.claudeHistory = AgentMonitorCachedCards(stamp: stamp, cards: cards)
+        return cards
     }
 
     static func claudeHistorySessions(from text: String, now: Date = Date()) -> [AgentSessionCard] {
@@ -152,12 +178,31 @@ enum AgentMonitorService {
         return String(title.prefix(80))
     }
 
-    private static func cursorSessions(processes: [ProcessInfoRow]) -> [AgentSessionCard] {
+    private static func cursorSessions(processes: [ProcessInfoRow], cache: inout AgentMonitorCache) -> [AgentSessionCard] {
         let cursorRunning = processes.contains { process in
             process.args.hasPrefix("/Applications/Cursor.app/Contents/MacOS/Cursor") || process.executableName == "cursor-agent"
         }
-        let composers = CursorComposerAdapter().discover()
-        let workspaces = cursorWorkspaces()
+        let cursorDatabase = CursorComposerAdapter.defaultDatabaseURL().path
+        let composers: [CursorComposerSnapshot]
+        if let stamp = sourceStamp(for: cursorDatabase), let cached = cache.cursorComposers, cached.stamp == stamp {
+            composers = cached.snapshots
+        } else {
+            let discovery = CursorComposerAdapter().discoverResult()
+            composers = discovery.snapshots
+            if discovery.isAvailable, let stamp = sourceStamp(for: cursorDatabase) {
+                cache.cursorComposers = AgentMonitorCachedComposers(stamp: stamp, snapshots: composers)
+            }
+        }
+        let workspaceRoot = home("Library/Application Support/Cursor/User/workspaceStorage")
+        let workspaces: [String: String]
+        if let stamp = sourceStamp(for: workspaceRoot), let cached = cache.cursorWorkspaces, cached.stamp == stamp {
+            workspaces = cached.workspaces
+        } else {
+            workspaces = cursorWorkspaces(root: workspaceRoot)
+            if let stamp = sourceStamp(for: workspaceRoot) {
+                cache.cursorWorkspaces = AgentMonitorCachedWorkspaces(stamp: stamp, workspaces: workspaces)
+            }
+        }
 
         let cards = composers.prefix(8).compactMap { composer -> AgentSessionCard? in
             guard composer.isDraft == false else { return nil }
@@ -211,10 +256,19 @@ enum AgentMonitorService {
         return composer.subtitle?.nilIfEmpty
     }
 
-    private static func enrichWithWorkspaceDiff(_ card: AgentSessionCard) -> AgentSessionCard {
+    private static func enrichWithWorkspaceDiff(_ card: AgentSessionCard, cache: inout AgentMonitorCache) -> AgentSessionCard {
         guard card.provider != .cursor,
-              let directory = card.workingDirectory,
-              let summary = workspaceDiffSummary(directory: directory) else { return card }
+              let directory = card.workingDirectory else { return card }
+        let now = Date()
+        if let cached = cache.workspaceDiffs[directory], now.timeIntervalSince(cached.checkedAt) < 90 {
+            guard let summary = cached.summary else { return card }
+            var enriched = card
+            enriched.subtitle = summary
+            return enriched
+        }
+        let summary = workspaceDiffSummary(directory: directory)
+        cache.workspaceDiffs[directory] = AgentMonitorCachedDiff(checkedAt: now, summary: summary)
+        guard let summary else { return card }
         var enriched = card
         enriched.subtitle = summary
         return enriched
@@ -238,13 +292,46 @@ enum AgentMonitorService {
         return number.flatMap { Int($0) }
     }
 
-    private static func codexSessions(processes: [ProcessInfoRow]) -> [AgentSessionCard] {
+    private static func codexSessions(processes: [ProcessInfoRow], cache: inout AgentMonitorCache) -> [AgentSessionCard] {
         let app = processes.first { $0.args.hasPrefix("/Applications/Codex.app/Contents/MacOS/Codex") }
         let server = processes.first { $0.args.contains("/codex app-server") || $0.args.contains("/Codex.app/Contents/Resources/codex app-server") }
         let computerUse = processes.first { $0.args.contains("Codex Computer Use.app") || $0.args.contains("SkyComputerUse") || $0.args.contains("Codex for Chrome") }
         let process = app ?? server ?? computerUse
-        let discovery = CodexDesktopThreadAdapter().discoverResult()
-        guard discovery.snapshots.isEmpty == false else {
+        let databasePath = CodexDesktopThreadAdapter.latestDatabaseURL()?.path
+        let discovery: CodexDesktopDiscoveryResult
+        if let databasePath,
+           let stamp = sourceStamp(for: databasePath),
+           let cached = cache.codexDiscovery,
+           cached.stamp == stamp {
+            discovery = cached.discovery
+        } else {
+            discovery = CodexDesktopThreadAdapter().discoverResult()
+            if let databasePath, let stamp = sourceStamp(for: databasePath) {
+                cache.codexDiscovery = AgentMonitorCachedCodex(stamp: stamp, discovery: discovery)
+            }
+        }
+        let now = Date()
+        let snapshots = discovery.snapshots.map { thread -> CodexDesktopThreadSnapshot in
+            guard thread.isProcessing || now.timeIntervalSince(thread.updatedAt) <= CodexDesktopThreadAdapter.liveActivityWindow else { return thread }
+            let processing = CodexDesktopThreadAdapter.isRolloutProcessing(rolloutPath: thread.rolloutPath, updatedAt: thread.updatedAt, now: now)
+            guard processing != thread.isProcessing else { return thread }
+            return CodexDesktopThreadSnapshot(
+                id: thread.id,
+                title: thread.title,
+                preview: thread.preview,
+                cwd: thread.cwd,
+                rolloutPath: thread.rolloutPath,
+                createdAt: thread.createdAt,
+                updatedAt: thread.updatedAt,
+                modelProvider: thread.modelProvider,
+                model: thread.model,
+                gitBranch: thread.gitBranch,
+                threadSource: thread.threadSource,
+                isProcessing: processing,
+                titleIsPrompt: thread.titleIsPrompt
+            )
+        }
+        guard snapshots.isEmpty == false else {
             guard let process else { return [] }
             return [AgentSessionCard(
                 id: "codex.app",
@@ -261,8 +348,7 @@ enum AgentMonitorService {
             )]
         }
 
-        let now = Date()
-        return discovery.snapshots.filter { thread in
+        return snapshots.filter { thread in
             thread.isProcessing || now.timeIntervalSince(thread.updatedAt) <= recentSessionWindow
         }.map { thread in
             let target: AgentOpenTarget = if let url = URL(string: "codex://threads/\(thread.id)") {
@@ -378,8 +464,8 @@ enum AgentMonitorService {
         return nil
     }
 
-    private static func cursorWorkspaces() -> [String: String] {
-        let root = URL(fileURLWithPath: home("Library/Application Support/Cursor/User/workspaceStorage"))
+    private static func cursorWorkspaces(root: String) -> [String: String] {
+        let root = URL(fileURLWithPath: root)
         guard let entries = try? FileManager.default.contentsOfDirectory(at: root, includingPropertiesForKeys: nil) else { return [:] }
         var result: [String: String] = [:]
         for entry in entries {
@@ -393,8 +479,12 @@ enum AgentMonitorService {
         return result
     }
 
-    private static func sqlite(_ db: String, _ sql: String) -> [[String]] {
-        run("/usr/bin/sqlite3", ["-readonly", "-separator", "\t", db, sql])
+    private static func sqlite(_ db: String, _ sql: String) -> [[String]]? {
+        guard let result = ProcessRunner.runSynchronously(
+            path: "/usr/bin/sqlite3",
+            arguments: ["-readonly", "-separator", "\t", db, sql]
+        ), result.succeeded else { return nil }
+        return result.stdout
             .split(separator: "\n", omittingEmptySubsequences: false)
             .map { $0.split(separator: "\t", omittingEmptySubsequences: false).map(String.init) }
             .filter { $0.isEmpty == false && ($0.count > 1 || $0.first?.isEmpty == false) }
@@ -408,37 +498,22 @@ enum AgentMonitorService {
         ].filter { FileManager.default.fileExists(atPath: $0) }
     }
 
+    private static func sourceStamp(for path: String) -> AgentSourceStamp? {
+        let candidatePaths = [path, "\(path)-wal", "\(path)-shm"]
+        let attributes = candidatePaths.compactMap { candidate in
+            try? FileManager.default.attributesOfItem(atPath: candidate)
+        }
+        guard attributes.isEmpty == false,
+              let modificationDate = attributes.compactMap({ $0[.modificationDate] as? Date }).max() else { return nil }
+        let size = attributes.reduce(UInt64(0)) { total, values in
+            total + ((values[.size] as? NSNumber)?.uint64Value ?? 0)
+        }
+        return AgentSourceStamp(modificationDate: modificationDate, size: size)
+    }
+
     private static func run(_ path: String, _ args: [String]) -> String {
-        let process = Process()
-        let pipe = Pipe()
-        let output = LockedDataBuffer()
-        process.executableURL = URL(fileURLWithPath: path)
-        process.arguments = args
-        process.standardOutput = pipe
-        process.standardError = Pipe()
-        pipe.fileHandleForReading.readabilityHandler = { handle in
-            let chunk = handle.availableData
-            guard chunk.isEmpty == false else { return }
-            output.append(chunk)
-        }
-        do {
-            let semaphore = DispatchSemaphore(value: 0)
-            process.terminationHandler = { _ in
-                pipe.fileHandleForReading.readabilityHandler = nil
-                semaphore.signal()
-            }
-            try process.run()
-            if semaphore.wait(timeout: .now() + 2) == .timedOut {
-                process.terminate()
-                pipe.fileHandleForReading.readabilityHandler = nil
-                return ""
-            }
-            output.append(pipe.fileHandleForReading.readDataToEndOfFile())
-        } catch {
-            pipe.fileHandleForReading.readabilityHandler = nil
-            return ""
-        }
-        return String(data: output.data, encoding: .utf8) ?? ""
+        guard let result = ProcessRunner.runSynchronously(path: path, arguments: args), result.succeeded else { return "" }
+        return result.stdout
     }
 
     private static func home(_ path: String) -> String {
@@ -501,16 +576,6 @@ private struct ClaudeHistoryEntry: Decodable {
     let sessionId: String
 }
 
-private struct ProcessInfoRow {
-    let pid: String
-    let startedAt: Date?
-    let args: String
-
-    var executableName: String {
-        args.split(separator: " ").first.map { URL(fileURLWithPath: String($0)).lastPathComponent } ?? ""
-    }
-}
-
 private struct ProcessAgentDescriptor {
     let provider: AgentProviderKind
     let title: String
@@ -535,69 +600,68 @@ private let processAgentDescriptors: [ProcessAgentDescriptor] = [
     ProcessAgentDescriptor(provider: .factory, title: "Factory Droid", commandNames: ["droid"], appPrefixes: ["/Applications/Factory.app/Contents/MacOS/Factory"], openTarget: .terminal(command: "droid")),
 ]
 
-private enum ProcessSnapshot {
-    static func capture() -> [ProcessInfoRow] {
-        let output = runPS()
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "en_US_POSIX")
-        formatter.dateFormat = "EEE MMM d HH:mm:ss yyyy"
-        return output.split(separator: "\n").compactMap { line in
-            let parts = line.trimmingCharacters(in: .whitespaces).split(separator: " ", maxSplits: 6, omittingEmptySubsequences: true).map(String.init)
-            guard parts.count >= 7 else { return nil }
-            let date = formatter.date(from: parts[1...5].joined(separator: " "))
-            return ProcessInfoRow(pid: parts[0], startedAt: date, args: parts[6])
-        }
+protocol AgentMonitorCollecting: Sendable {
+    func collect() -> [AgentSessionCard]
+}
+
+final class AgentMonitorCollector: @unchecked Sendable, AgentMonitorCollecting {
+    private let lock = NSLock()
+    private let processProvider: any ProcessSnapshotProviding
+    private var cache = AgentMonitorCache()
+
+    init(processProvider: any ProcessSnapshotProviding = NativeProcessSnapshotProvider()) {
+        self.processProvider = processProvider
     }
 
-    private static func runPS() -> String {
-        let process = Process()
-        let pipe = Pipe()
-        let output = LockedDataBuffer()
-        process.executableURL = URL(fileURLWithPath: "/bin/ps")
-        process.arguments = ["-axo", "pid=,lstart=,args="]
-        process.standardOutput = pipe
-        process.standardError = Pipe()
-        pipe.fileHandleForReading.readabilityHandler = { handle in
-            let chunk = handle.availableData
-            guard chunk.isEmpty == false else { return }
-            output.append(chunk)
-        }
-        do {
-            let semaphore = DispatchSemaphore(value: 0)
-            process.terminationHandler = { _ in
-                pipe.fileHandleForReading.readabilityHandler = nil
-                semaphore.signal()
-            }
-            try process.run()
-            if semaphore.wait(timeout: .now() + 2) == .timedOut {
-                process.terminate()
-                pipe.fileHandleForReading.readabilityHandler = nil
-                return ""
-            }
-            output.append(pipe.fileHandleForReading.readDataToEndOfFile())
-        } catch {
-            pipe.fileHandleForReading.readabilityHandler = nil
-            return ""
-        }
-        return String(data: output.data, encoding: .utf8) ?? ""
+    func collect() -> [AgentSessionCard] {
+        lock.lock()
+        defer { lock.unlock() }
+        return AgentMonitorService.collect(using: &cache, processProvider: processProvider)
     }
 }
 
-private final class LockedDataBuffer: @unchecked Sendable {
-    private let lock = NSLock()
-    private var storage = Data()
+struct AgentMonitorCache {
+    var openCode: [String: AgentMonitorCachedRows] = [:]
+    var claudeHistory: AgentMonitorCachedCards?
+    var cursorComposers: AgentMonitorCachedComposers?
+    var cursorWorkspaces: AgentMonitorCachedWorkspaces?
+    var codexDiscovery: AgentMonitorCachedCodex?
+    var workspaceDiffs: [String: AgentMonitorCachedDiff] = [:]
+}
 
-    var data: Data {
-        lock.lock()
-        defer { lock.unlock() }
-        return storage
-    }
+struct AgentSourceStamp: Equatable {
+    let modificationDate: Date
+    let size: UInt64
+}
 
-    func append(_ data: Data) {
-        lock.lock()
-        storage.append(data)
-        lock.unlock()
-    }
+struct AgentMonitorCachedRows {
+    let stamp: AgentSourceStamp
+    let rows: [[String]]
+}
+
+struct AgentMonitorCachedCards {
+    let stamp: AgentSourceStamp
+    let cards: [AgentSessionCard]
+}
+
+struct AgentMonitorCachedComposers {
+    let stamp: AgentSourceStamp
+    let snapshots: [CursorComposerSnapshot]
+}
+
+struct AgentMonitorCachedWorkspaces {
+    let stamp: AgentSourceStamp
+    let workspaces: [String: String]
+}
+
+struct AgentMonitorCachedCodex {
+    let stamp: AgentSourceStamp
+    let discovery: CodexDesktopDiscoveryResult
+}
+
+struct AgentMonitorCachedDiff {
+    let checkedAt: Date
+    let summary: String?
 }
 
 private extension Array where Element == AgentSessionCard {

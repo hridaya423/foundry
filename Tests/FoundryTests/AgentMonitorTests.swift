@@ -2,6 +2,27 @@ import XCTest
 @testable import Foundry
 
 final class AgentMonitorTests: XCTestCase {
+    func testNativeProcessArgumentParsingUsesArgumentCount() {
+        var argumentCount: Int32 = 2
+        var buffer = [UInt8]()
+        withUnsafeBytes(of: &argumentCount) { buffer.append(contentsOf: $0) }
+        buffer.append(contentsOf: Array("/usr/bin/claude".utf8) + [0])
+        buffer.append(contentsOf: Array("claude".utf8) + [0])
+        buffer.append(contentsOf: Array("--session-id".utf8) + [0])
+        buffer.append(contentsOf: Array("ignored-environment-value".utf8) + [0])
+
+        XCTAssertEqual(
+            NativeProcessSnapshotProvider.parseArguments(from: buffer),
+            "/usr/bin/claude claude --session-id"
+        )
+    }
+
+    func testProcessInfoRowUsesFirstArgumentAsExecutableName() {
+        let process = ProcessInfoRow(pid: "42", startedAt: nil, args: "/Applications/Codex.app/Contents/MacOS/Codex --resume")
+
+        XCTAssertEqual(process.executableName, "Codex")
+    }
+
     func testBrandProviderIconsResolveFromPackagedResources() {
         XCTAssertNotNil(AgentProviderIcon.brandResourceURL(for: .opencode))
         XCTAssertNotNil(AgentProviderIcon.brandResourceURL(for: .claude))
@@ -221,5 +242,34 @@ final class AgentMonitorTests: XCTestCase {
 
         XCTAssertEqual(cards.first?.origin, .catalog)
         XCTAssertEqual(cards.first?.status, .working)
+    }
+
+    func testGeneratedTitleSurvivesCatalogReconciliation() async {
+        let store = AgentSessionStore()
+        let key = AgentSessionKey(provider: .codex, rawSessionID: "thread-2")
+        let card = AgentSessionCard(
+            id: "codex.thread-2",
+            provider: .codex,
+            title: "Original prompt",
+            subtitle: "Project",
+            project: "Project",
+            model: "gpt-test",
+            status: .recent,
+            startedAt: Date(),
+            updatedAt: Date(),
+            openTarget: .deepLink(URL(string: "codex://threads/thread-2")!),
+            key: key,
+            origin: .catalog,
+            capabilities: [.observe, .jumpTask],
+            needsTitleGeneration: true
+        )
+
+        _ = await store.reconcileObserved([card])
+        await store.updateTitle("Generated title", for: key)
+        let reconciled = await store.reconcileObserved([card])
+
+        XCTAssertEqual(reconciled.first?.title, "Generated title")
+        XCTAssertEqual(reconciled.first?.needsTitleGeneration, false)
+        XCTAssertEqual(reconciled.first?.isGeneratedTitle, true)
     }
 }

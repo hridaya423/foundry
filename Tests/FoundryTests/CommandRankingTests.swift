@@ -2,6 +2,23 @@ import XCTest
 @testable import Foundry
 
 final class CommandRankingTests: XCTestCase {
+    func testSlowProviderDoesNotBlockFastProvider() async {
+        let registry = CommandRegistry(
+            providers: [
+                SlowProvider(),
+                TestProvider(results: [command(id: "test.fast", title: "Fast Result")])
+            ],
+            usageRanking: UsageRankingStore(diagnostics: DiagnosticsService()),
+            diagnostics: DiagnosticsService()
+        )
+        let startedAt = Date()
+
+        let results = await registry.results(matching: "result")
+
+        XCTAssertEqual(results.first?.id, "test.fast")
+        XCTAssertLessThan(Date().timeIntervalSince(startedAt), 0.5)
+    }
+
     func testConfiguredAliasesParticipateInRuntimeRanking() async throws {
         let configURL = temporaryURL()
         defer { try? FileManager.default.removeItem(at: configURL) }
@@ -215,6 +232,15 @@ final class CommandRankingTests: XCTestCase {
 
         func results(matching query: String) async -> [CommandResult] {
             resultsToReturn
+        }
+    }
+
+    private struct SlowProvider: CommandProvider {
+        let id = "test.slow"
+
+        func results(matching query: String) async -> [CommandResult] {
+            try? await Task.sleep(for: .seconds(5))
+            return []
         }
     }
 }

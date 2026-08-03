@@ -14,7 +14,6 @@ final class AppSearchProviderTests: XCTestCase {
         XCTAssertEqual(firstResults.first?.title, "First App")
 
         try writeApp(named: "Second App", to: root)
-        try await Task.sleep(for: .milliseconds(2_100))
         let secondResults = await provider.results(matching: "second app")
         XCTAssertEqual(secondResults.first?.title, "Second App")
     }

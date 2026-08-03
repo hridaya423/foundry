@@ -7,10 +7,12 @@ final class WidgetBoardState: ObservableObject {
     @Published private(set) var metrics = SystemMetrics.placeholder
     @Published private(set) var weather: WeatherSnapshot?
     @Published private(set) var stock: StockSnapshot?
+    @Published private(set) var downloads = DownloadsSnapshot.empty
     @Published private(set) var isWeatherLoading = false
     @Published private(set) var isStockLoading = false
 
     private let configService: ConfigService
+    private let diagnostics: DiagnosticsService
     var persistenceErrorHandler: ((Error) -> Void)?
     private let sampler = SystemMetricsSampler()
     private let weatherService = WeatherService()
@@ -18,13 +20,15 @@ final class WidgetBoardState: ObservableObject {
 
     private var metricsTask: Task<Void, Never>?
     private var networkTask: Task<Void, Never>?
+    private var downloadsTask: Task<Void, Never>?
     private var weatherTask: Task<Void, Never>?
     private var stockTask: Task<Void, Never>?
     private var weatherRequestID: UUID?
     private var stockRequestID: UUID?
 
-    init(configService: ConfigService) {
+    init(configService: ConfigService, diagnostics: DiagnosticsService = DiagnosticsService()) {
         self.configService = configService
+        self.diagnostics = diagnostics
         let saved = configService.current.widgets
         var normalized = saved
         if saved == .legacyDefault || saved == .legacyExpandedDefault || saved == .legacyDemo || (saved.weatherCity == "San Francisco" && saved.stockSymbol == "AAPL") {
@@ -67,30 +71,9 @@ final class WidgetBoardState: ObservableObject {
     }
 
     func start() {
-        if metricsTask == nil {
-            metricsTask = Task { [weak self] in
-                while Task.isCancelled == false {
-                    await self?.sampleMetrics()
-                    do {
-                        try await Task.sleep(for: .seconds(2))
-                    } catch {
-                        return
-                    }
-                }
-            }
-        }
-        if networkTask == nil {
-            networkTask = Task { [weak self] in
-                while Task.isCancelled == false {
-                    await self?.refreshNetwork()
-                    do {
-                        try await Task.sleep(for: .seconds(600))
-                    } catch {
-                        return
-                    }
-                }
-            }
-        }
+        updateMetricsTask()
+        updateDownloadsTask()
+        updateNetworkTask()
     }
 
     func stop() {
@@ -98,6 +81,8 @@ final class WidgetBoardState: ObservableObject {
         metricsTask = nil
         networkTask?.cancel()
         networkTask = nil
+        downloadsTask?.cancel()
+        downloadsTask = nil
         weatherTask?.cancel()
         weatherTask = nil
         stockTask?.cancel()
@@ -113,6 +98,9 @@ final class WidgetBoardState: ObservableObject {
         var next = config
         next.enabled = normalized
         guard persist(next) else { return }
+        updateMetricsTask()
+        updateDownloadsTask()
+        updateNetworkTask()
         if kind == .weather { fetchWeather() }
         if kind == .stock { fetchStock() }
     }
@@ -120,7 +108,10 @@ final class WidgetBoardState: ObservableObject {
     func remove(_ kind: WidgetKind) {
         var next = config
         next.enabled.removeAll { $0 == kind }
-        _ = persist(next)
+        guard persist(next) else { return }
+        updateMetricsTask()
+        updateDownloadsTask()
+        updateNetworkTask()
     }
 
     func moveUp(_ kind: WidgetKind) {
@@ -181,14 +172,126 @@ final class WidgetBoardState: ObservableObject {
 
     private func sampleMetrics() async {
         let sampler = sampler
-        metrics = await Task.detached(priority: .utility) {
-            sampler.sample()
+        let needs = metricNeeds
+        let span = diagnostics.startSpan("dashboard.metrics")
+        let sampled = await Task.detached(priority: .utility) {
+            sampler.sample(needs: needs)
         }.value
+        diagnostics.endSpan(span)
+        guard Task.isCancelled == false else { return }
+        metrics = sampled
+    }
+
+    private func updateMetricsTask() {
+        if metricNeeds.isEmpty {
+            metricsTask?.cancel()
+            metricsTask = nil
+            return
+        }
+        guard metricsTask == nil else { return }
+        metricsTask = Task { [weak self] in
+            while Task.isCancelled == false {
+                await self?.sampleMetrics()
+                do {
+                    try await Task.sleep(for: FoundryPollingPolicy.current.metricsInterval)
+                } catch {
+                    return
+                }
+            }
+        }
+    }
+
+    private func updateDownloadsTask() {
+        guard homeWidgets.contains(.downloads) else {
+            downloadsTask?.cancel()
+            downloadsTask = nil
+            return
+        }
+        guard downloadsTask == nil else { return }
+        downloadsTask = Task { [weak self] in
+            while Task.isCancelled == false {
+                await self?.refreshDownloads()
+                do {
+                    try await Task.sleep(for: FoundryPollingPolicy.current.downloadsInterval)
+                } catch {
+                    return
+                }
+            }
+        }
+    }
+
+    private func refreshDownloads() async {
+        let home = FileManager.default.homeDirectoryForCurrentUser
+        let span = diagnostics.startSpan("dashboard.downloads")
+        let snapshot = await Task.detached(priority: .utility) {
+            let directory = home.appendingPathComponent("Downloads")
+            let files = (try? FileManager.default.contentsOfDirectory(
+                at: directory,
+                includingPropertiesForKeys: [.isRegularFileKey, .contentModificationDateKey],
+                options: [.skipsHiddenFiles]
+            )) ?? []
+            var count = 0
+            var newest: (date: Date, name: String)?
+            for file in files {
+                guard let values = try? file.resourceValues(forKeys: [.isRegularFileKey, .contentModificationDateKey]),
+                      values.isRegularFile == true else { continue }
+                count += 1
+                if let date = values.contentModificationDate, newest?.date ?? .distantPast < date {
+                    newest = (date, file.lastPathComponent)
+                }
+            }
+            return DownloadsSnapshot(count: count, newestName: newest?.name)
+        }.value
+        diagnostics.endSpan(span)
+        guard Task.isCancelled == false else { return }
+        downloads = snapshot
+    }
+
+    private func updateNetworkTask() {
+        guard homeWidgets.contains(.weather) || homeWidgets.contains(.stock) else {
+            networkTask?.cancel()
+            networkTask = nil
+            return
+        }
+        guard networkTask == nil else { return }
+        networkTask = Task { [weak self] in
+            while Task.isCancelled == false {
+                await self?.refreshNetwork()
+                do {
+                    try await Task.sleep(for: FoundryPollingPolicy.current.networkInterval)
+                } catch {
+                    return
+                }
+            }
+        }
+    }
+
+    private var metricNeeds: SystemMetricNeeds {
+        homeWidgets.reduce(into: SystemMetricNeeds()) { needs, kind in
+            switch kind {
+            case .system:
+                needs.formUnion([.cpu, .memory])
+            case .cpu:
+                needs.insert(.cpu)
+            case .memory:
+                needs.insert(.memory)
+            case .battery:
+                needs.insert(.battery)
+            case .disk, .diskUsage:
+                needs.insert(.disk)
+            case .network:
+                needs.insert(.network)
+            case .loadAverage:
+                needs.insert(.loadAverage)
+            default:
+                break
+            }
+        }
     }
 
     private func refreshNetwork() async {
-        if config.enabled.contains(.weather) { fetchWeather() }
-        if config.enabled.contains(.stock) { fetchStock() }
+        if homeWidgets.contains(.weather) { fetchWeather() }
+        if homeWidgets.contains(.stock) { fetchStock() }
     }
 
     private func fetchWeather() {
@@ -222,6 +325,13 @@ final class WidgetBoardState: ObservableObject {
             self.isStockLoading = false
         }
     }
+}
+
+struct DownloadsSnapshot: Sendable, Equatable {
+    let count: Int
+    let newestName: String?
+
+    static let empty = DownloadsSnapshot(count: 0, newestName: nil)
 }
 
 extension SystemMetrics {

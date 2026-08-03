@@ -294,6 +294,11 @@ actor AgentSessionStore {
             guard existing.origin.priority <= card.origin.priority else { continue }
             var observedCard = card
             observedCard.key = key
+            if existing.isGeneratedTitle, card.needsTitleGeneration {
+                observedCard.title = existing.title
+                observedCard.needsTitleGeneration = false
+                observedCard.isGeneratedTitle = true
+            }
             sessions[key] = observedCard
         }
 

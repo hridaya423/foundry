@@ -226,7 +226,6 @@ final class AIProviderTests: XCTestCase {
         let modes: [CommandPanelState.Mode] = [
             .search,
             .quickAI,
-            .activityMonitor,
             .emojiPicker,
             .fileShelf,
             .clipboardHistory,

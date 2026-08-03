@@ -10,14 +10,27 @@ final class AgentMonitorState: ObservableObject {
 
     private let sessionStore = AgentSessionStore()
     private let titleService = AgentTitleService()
+    private let diagnostics: DiagnosticsService
+    private var collector: any AgentMonitorCollecting
     private let socketServer = AgentEventSocketServer()
     private let integrationInstaller: AgentIntegrationInstaller
-    private var timer: Timer?
+    private var pollingTask: Task<Void, Never>?
     private var refreshTask: Task<Void, Never>?
+    private var titleTasks: [String: Task<Void, Never>] = [:]
+    private var titleTaskIDs: [String: UUID] = [:]
+    private var refreshRequested = false
+    private var isRefreshing = false
+    private var lifecycleGeneration = 0
     private var socketStarted = false
 
-    init(integrationInstaller: AgentIntegrationInstaller = AgentIntegrationInstaller()) {
+    init(
+        integrationInstaller: AgentIntegrationInstaller = AgentIntegrationInstaller(),
+        collector: any AgentMonitorCollecting = AgentMonitorCollector(),
+        diagnostics: DiagnosticsService = DiagnosticsService()
+    ) {
         self.integrationInstaller = integrationInstaller
+        self.collector = collector
+        self.diagnostics = diagnostics
         refreshIntegrationStatuses()
     }
 
@@ -49,7 +62,26 @@ final class AgentMonitorState: ObservableObject {
     }
 
     func start() {
+        startSocket()
+        if pollingTask == nil {
+            collector = AgentMonitorCollector()
+        }
         refresh()
+        guard pollingTask == nil else { return }
+        pollingTask = Task { @MainActor [weak self] in
+            while Task.isCancelled == false {
+                do {
+                    try await Task.sleep(for: FoundryPollingPolicy.current.agentsInterval)
+                } catch {
+                    return
+                }
+                guard Task.isCancelled == false else { return }
+                self?.refresh()
+            }
+        }
+    }
+
+    func startSocket() {
         if socketStarted == false {
             socketStarted = socketServer.start { [weak self] envelope in
                 guard let self else { return .rejected(error: "Agent monitor is unavailable") }
@@ -57,17 +89,23 @@ final class AgentMonitorState: ObservableObject {
             }
             socketListening = socketStarted
         }
-        guard timer == nil else { return }
-        timer = Timer.scheduledTimer(withTimeInterval: 3, repeats: true) { [weak self] _ in
-            Task { @MainActor in self?.refresh() }
-        }
+    }
+
+    func stopPolling() {
+        lifecycleGeneration += 1
+        pollingTask?.cancel()
+        pollingTask = nil
+        refreshTask?.cancel()
+        refreshTask = nil
+        titleTasks.values.forEach { $0.cancel() }
+        titleTasks.removeAll()
+        titleTaskIDs.removeAll()
+        refreshRequested = false
+        isRefreshing = false
     }
 
     func stop() {
-        timer?.invalidate()
-        timer = nil
-        refreshTask?.cancel()
-        refreshTask = nil
+        stopPolling()
         socketServer.stop()
         socketStarted = false
         socketListening = false
@@ -94,25 +132,52 @@ final class AgentMonitorState: ObservableObject {
     }
 
     func refresh() {
-        refreshTask?.cancel()
+        refreshRequested = true
+        guard isRefreshing == false else { return }
+
+        isRefreshing = true
+        refreshRequested = false
+        let generation = lifecycleGeneration
+        let collector = collector
+        let diagnostics = self.diagnostics
+        let span = diagnostics.startSpan("agents.refresh")
         refreshTask = Task { [weak self] in
+            defer { diagnostics.endSpan(span) }
             let found = await Task.detached(priority: .utility) {
-                AgentMonitorService.collect()
+                collector.collect()
             }.value
-            guard Task.isCancelled == false else { return }
-            let merged = await self?.sessionStore.reconcileObserved(found)
-            self?.sessions = merged ?? []
-            self?.requestMissingTitles(for: merged ?? [])
+            guard let self,
+                  Task.isCancelled == false,
+                  self.lifecycleGeneration == generation else { return }
+            let merged = await self.sessionStore.reconcileObserved(found)
+            self.sessions = merged
+            self.requestMissingTitles(for: merged)
+            self.isRefreshing = false
+            self.refreshTask = nil
+            if self.refreshRequested {
+                self.refresh()
+            }
         }
     }
 
     private func requestMissingTitles(for cards: [AgentSessionCard]) {
         for card in cards where card.needsTitleGeneration {
-            Task { [weak self] in
+            guard titleTasks[card.id] == nil else { continue }
+            let taskID = UUID()
+            titleTaskIDs[card.id] = taskID
+            titleTasks[card.id] = Task { [weak self] in
+                defer {
+                    if let self, self.titleTaskIDs[card.id] == taskID {
+                        self.titleTaskIDs[card.id] = nil
+                        self.titleTasks[card.id] = nil
+                    }
+                }
                 guard let self else { return }
                 guard let title = await self.titleService.title(for: card.id, prompt: card.title) else { return }
-                guard let index = self.sessions.firstIndex(where: { $0.id == card.id }) else { return }
-                self.sessions[index].title = title
+                guard Task.isCancelled == false else { return }
+                let key = card.key ?? AgentSessionKey(provider: card.provider, rawSessionID: card.id)
+                await self.sessionStore.updateTitle(title, for: key)
+                self.sessions = await self.sessionStore.snapshot()
             }
         }
     }

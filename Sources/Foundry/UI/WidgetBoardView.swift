@@ -103,7 +103,7 @@ struct WidgetBoardView: View {
         case .clipboard:
             DynamicStatWidget(symbol: "doc.on.clipboard", title: "Clipboard", caption: WidgetSystemInfo.clipboardCaption) { WidgetSystemInfo.clipboardValue }
         case .downloads:
-            DynamicStatWidget(symbol: "arrow.down.circle", title: "Downloads", caption: WidgetSystemInfo.downloadsCaption) { WidgetSystemInfo.downloadsValue }
+            StatWidget(symbol: "arrow.down.circle", title: "Downloads", value: "\(board.downloads.count) files", caption: board.downloads.newestName ?? "Downloads")
         case .activeApp:
             DynamicStatWidget(symbol: "macwindow", title: "Active App", caption: "frontmost") { WidgetSystemInfo.activeAppName }
         case .device:
@@ -163,7 +163,7 @@ struct WidgetBoardView: View {
         case .clipboard:
             DynamicStatWidget(symbol: "doc.on.clipboard", title: "Clipboard", caption: WidgetSystemInfo.clipboardCaption) { WidgetSystemInfo.clipboardValue }
         case .downloads:
-            DynamicStatWidget(symbol: "arrow.down.circle", title: "Downloads", caption: WidgetSystemInfo.downloadsCaption) { WidgetSystemInfo.downloadsValue }
+            StatWidget(symbol: "arrow.down.circle", title: "Downloads", value: "\(board.downloads.count) files", caption: board.downloads.newestName ?? "Downloads")
         case .activeApp:
             DynamicStatWidget(symbol: "macwindow", title: "Active App", caption: "frontmost") { WidgetSystemInfo.activeAppName }
         case .device:
@@ -414,7 +414,7 @@ private struct DynamicStatWidget: View {
     let value: () -> String
 
     var body: some View {
-        TimelineView(.periodic(from: .now, by: 2)) { _ in
+        TimelineView(.periodic(from: .now, by: 10)) { _ in
             StatWidget(symbol: symbol, title: title, value: value(), caption: caption)
         }
     }
@@ -624,27 +624,6 @@ private enum WidgetSystemInfo {
         NSPasteboard.general.string(forType: .string)?.components(separatedBy: .newlines).first?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false ? "text" : "no text"
     }
 
-    static var downloadsValue: String {
-        "\(downloads.count) files"
-    }
-
-    static var downloadsCaption: String {
-        downloads.first?.lastPathComponent ?? "Downloads"
-    }
-
-    private static var downloads: [URL] {
-        let url = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Downloads")
-        let files = (try? FileManager.default.contentsOfDirectory(
-            at: url,
-            includingPropertiesForKeys: [.contentModificationDateKey],
-            options: [.skipsHiddenFiles]
-        )) ?? []
-        return files.sorted {
-            let left = (try? $0.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast
-            let right = (try? $1.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast
-            return left > right
-        }
-    }
 }
 
 private struct SystemWidget: View {

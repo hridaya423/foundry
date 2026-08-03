@@ -17,6 +17,11 @@ struct CursorComposerSnapshot: Equatable, Sendable {
     let totalLinesRemoved: Int
 }
 
+struct CursorComposerDiscoveryResult: Equatable, Sendable {
+    let snapshots: [CursorComposerSnapshot]
+    let isAvailable: Bool
+}
+
 struct CursorComposerAdapter: Sendable {
     typealias QueryRunner = @Sendable (String, String) -> String?
 
@@ -32,9 +37,15 @@ struct CursorComposerAdapter: Sendable {
     }
 
     func discover() -> [CursorComposerSnapshot] {
+        discoverResult().snapshots
+    }
+
+    func discoverResult() -> CursorComposerDiscoveryResult {
         guard let databaseURL, FileManager.default.fileExists(atPath: databaseURL.path),
-              let output = queryRunner(Self.query, databaseURL.path) else { return [] }
-        return Self.snapshots(from: output)
+              let output = queryRunner(Self.query, databaseURL.path) else {
+            return CursorComposerDiscoveryResult(snapshots: [], isAvailable: false)
+        }
+        return CursorComposerDiscoveryResult(snapshots: Self.snapshots(from: output), isAvailable: true)
     }
 
     static let query = """
@@ -93,21 +104,12 @@ struct CursorComposerAdapter: Sendable {
     }
 
     private static func runSQLite(query: String, databasePath: String) -> String? {
-        let process = Process()
-        let output = Pipe()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/sqlite3")
-        process.arguments = ["-readonly", "-separator", "\t", databasePath, query]
-        process.standardOutput = output
-        process.standardError = Pipe()
-        do {
-            try process.run()
-            let data = output.fileHandleForReading.readDataToEndOfFile()
-            process.waitUntilExit()
-            guard process.terminationStatus == 0 else { return nil }
-            return String(data: data, encoding: .utf8)
-        } catch {
-            return nil
-        }
+        let result = ProcessRunner.runSynchronously(
+            path: "/usr/bin/sqlite3",
+            arguments: ["-readonly", "-separator", "\t", databasePath, query]
+        )
+        guard let result, result.succeeded else { return nil }
+        return result.stdout
     }
 
     private static func millisecondsDate(_ value: String) -> Date? {

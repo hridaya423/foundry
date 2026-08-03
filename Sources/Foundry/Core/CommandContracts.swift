@@ -322,7 +322,7 @@ extension CommandActionKind {
 
     var executionPolicy: CommandExecutionPolicy {
         switch self {
-        case .copyToClipboard, .openURL, .openQuickAI, .openConfigFolder, .openActivityMonitor, .openEmojiPicker, .openFileShelf, .openClipboardHistory, .openSnippets, .openFileConverter, .openCamera, .openTranslator, .openDeveloperTools, .openSettings, .openDashboard, .log:
+        case .copyToClipboard, .openURL, .openQuickAI, .openConfigFolder, .openEmojiPicker, .openFileShelf, .openClipboardHistory, .openSnippets, .openFileConverter, .openCamera, .openTranslator, .openDeveloperTools, .openSettings, .openDashboard, .log:
             .readOnly
         case .openApp, .revealInFinder, .createSnippetFromClipboard, .importSnippets, .pasteText, .chooseMediaDownloadFolder, .setAudioDevice, .resetRanking:
             .localMutation

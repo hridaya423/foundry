@@ -6,6 +6,7 @@ final class BrowserProvider: CommandProvider, @unchecked Sendable {
 
     private let homeDirectory: URL
     private let liveTabsCache = BrowserLiveTabsCache()
+    private let recordsCache = BrowserRecordsCache()
 
     init(homeDirectory: URL = FileManager.default.homeDirectoryForCurrentUser) {
         self.homeDirectory = homeDirectory
@@ -31,11 +32,6 @@ final class BrowserProvider: CommandProvider, @unchecked Sendable {
     }
 
     func defaultResults() async -> [CommandResult] {
-        let source = selectedMainBrowser
-        Task.detached { [weak self] in
-            guard let self else { return }
-            _ = self.liveTabs(for: source)
-        }
         return BrowserSource.allCases.map(browserLaunchResult)
     }
 
@@ -46,20 +42,25 @@ final class BrowserProvider: CommandProvider, @unchecked Sendable {
     }
 
     func fallbackResults(matching query: String, sensitivity: SearchSensitivity = .medium) async -> [CommandResult] {
-        let search = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        guard search.count >= 2 else { return [] }
+        let request = BrowserSearchRequest(query: query)
+        guard request.isBrowserIntent, request.search.count >= 2 else { return [] }
         let source = selectedMainBrowser
         return records(for: source, kind: nil)
-            .filter { $0.matches(search, sensitivity: sensitivity) }
+            .filter { $0.matches(request.search, sensitivity: sensitivity) }
             .prefix(50)
             .map(makeResult)
     }
 
     private func records(for source: BrowserSource, kind: BrowserRecordKind?) -> [BrowserRecord] {
+        let cacheKey = BrowserRecordsCache.Key(source: source, kind: kind)
+        if let cached = recordsCache.value(for: cacheKey) {
+            return cached
+        }
         var records: [BrowserRecord] = []
         if kind == nil || kind == .tab { records += liveTabs(for: source) }
         if kind == nil || kind == .history { records += history(for: source) }
         if kind == nil || kind == .bookmark { records += bookmarks(for: source) }
+        recordsCache.store(records, for: cacheKey)
         return records
     }
 
@@ -189,15 +190,13 @@ final class BrowserProvider: CommandProvider, @unchecked Sendable {
     }
 
     private func runOSAScript(_ script: String) -> String? {
-        let process = Process()
-        let pipe = Pipe()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")
-        process.arguments = ["-l", "JavaScript", "-e", script]
-        process.standardOutput = pipe
-        process.standardError = Pipe()
-        do { try process.run(); process.waitUntilExit() } catch { return nil }
-        guard process.terminationStatus == 0 else { return nil }
-        return String(data: pipe.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let result = ProcessRunner.runSynchronously(
+            path: "/usr/bin/osascript",
+            arguments: ["-l", "JavaScript", "-e", script],
+            timeout: 2,
+            outputLimit: 4 * 1024 * 1024
+        ), result.succeeded else { return nil }
+        return result.stdout.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     private func makeResult(_ record: BrowserRecord) -> CommandResult {
@@ -419,7 +418,7 @@ enum BrowserSource: String, CaseIterable, Sendable, Hashable {
     }
 }
 
-enum BrowserRecordKind: Sendable, Equatable { case tab, history, bookmark }
+enum BrowserRecordKind: Sendable, Equatable, Hashable { case tab, history, bookmark }
 
 private final class BrowserLiveTabsCache: @unchecked Sendable {
     private struct Entry {
@@ -444,6 +443,38 @@ private final class BrowserLiveTabsCache: @unchecked Sendable {
     func store(_ records: [BrowserRecord], for source: BrowserSource) {
         lock.lock()
         entries[source] = Entry(createdAt: Date(), records: records)
+        lock.unlock()
+    }
+}
+
+private final class BrowserRecordsCache: @unchecked Sendable {
+    struct Key: Hashable, Sendable {
+        let source: BrowserSource
+        let kind: BrowserRecordKind?
+    }
+
+    private struct Entry {
+        let createdAt: Date
+        let records: [BrowserRecord]
+    }
+
+    private let lock = NSLock()
+    private var entries: [Key: Entry] = [:]
+    private let lifetime: TimeInterval = 60
+
+    func value(for key: Key) -> [BrowserRecord]? {
+        lock.lock()
+        defer { lock.unlock() }
+        guard let entry = entries[key], Date().timeIntervalSince(entry.createdAt) < lifetime else {
+            entries[key] = nil
+            return nil
+        }
+        return entry.records
+    }
+
+    func store(_ records: [BrowserRecord], for key: Key) {
+        lock.lock()
+        entries[key] = Entry(createdAt: Date(), records: records)
         lock.unlock()
     }
 }
@@ -607,16 +638,14 @@ private enum LocalSQLite {
         for sidecar in sidecars where FileManager.default.fileExists(atPath: sidecar.source.path) {
             try? FileManager.default.copyItem(at: sidecar.source, to: sidecar.destination)
         }
-        let process = Process()
-        let pipe = Pipe()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/sqlite3")
-        process.arguments = ["-readonly", "-json", temporary.path, query]
-        process.standardOutput = pipe
-        process.standardError = Pipe()
-        do { try process.run(); process.waitUntilExit() } catch { return [] }
-        guard process.terminationStatus == 0 else { return [] }
-        let data = pipe.fileHandleForReading.readDataToEndOfFile()
-        guard let objects = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] else { return [] }
+        guard let result = ProcessRunner.runSynchronously(
+            path: "/usr/bin/sqlite3",
+            arguments: ["-readonly", "-json", temporary.path, query],
+            timeout: 3,
+            outputLimit: 8 * 1024 * 1024
+        ), result.succeeded,
+        let data = result.stdout.data(using: .utf8),
+        let objects = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] else { return [] }
         return objects.map { row in row.reduce(into: [String: String]()) { result, item in result[item.key] = String(describing: item.value) } }
     }
 }
