@@ -1,8 +1,18 @@
 import AppKit
 import Foundation
+import FoundryDomain
+import FoundryServices
 
 final class BrowserProvider: CommandProvider, @unchecked Sendable {
     let id = "foundry.browsers"
+
+    var searchPolicy: CommandProviderSearchPolicy {
+        CommandProviderSearchPolicy(tier: .deferred, includesSupplementalResults: true)
+    }
+
+    func isActive(for query: String) -> Bool {
+        BrowserSearchRequest(query: query).isBrowserIntent
+    }
 
     private let homeDirectory: URL
     private let liveTabsCache = BrowserLiveTabsCache()
@@ -12,22 +22,18 @@ final class BrowserProvider: CommandProvider, @unchecked Sendable {
         self.homeDirectory = homeDirectory
     }
 
-    func results(matching query: String) async -> [CommandResult] {
-        await results(matching: query, customAliases: [:], sensitivity: .medium)
-    }
+    func search(_ request: CommandSearchRequest) async -> [CommandResult] {
+        let browserRequest = BrowserSearchRequest(query: request.query)
+        guard browserRequest.isBrowserIntent else { return [] }
 
-    func results(matching query: String, customAliases: [String: [String]], sensitivity: SearchSensitivity) async -> [CommandResult] {
-        let request = BrowserSearchRequest(query: query)
-        guard request.isBrowserIntent else { return [] }
-
-        let sources: [BrowserSource] = request.browser.map { [$0] } ?? BrowserSource.allCases
+        let sources: [BrowserSource] = browserRequest.browser.map { [$0] } ?? BrowserSource.allCases
         var allRecords: [BrowserRecord] = []
         for source in sources {
-            allRecords.append(contentsOf: records(for: source, kind: request.kind))
+            allRecords.append(contentsOf: records(for: source, kind: browserRequest.kind))
         }
 
         return allRecords
-            .filter { request.search.isEmpty || $0.matches(request.search, sensitivity: sensitivity) }
+            .filter { browserRequest.search.isEmpty || $0.matches(browserRequest.search, sensitivity: request.sensitivity) }
             .map(makeResult)
     }
 
@@ -39,6 +45,10 @@ final class BrowserProvider: CommandProvider, @unchecked Sendable {
         let search = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         guard search.count >= 2, let tabs = liveTabsCache.value(for: selectedMainBrowser) else { return [] }
         return tabs.filter { $0.matches(search, sensitivity: sensitivity) }.prefix(50).map(makeResult)
+    }
+
+    func supplementalResults(matching query: String, sensitivity: SearchSensitivity) -> [CommandResult] {
+        cachedResults(matching: query, sensitivity: sensitivity)
     }
 
     func fallbackResults(matching query: String, sensitivity: SearchSensitivity = .medium) async -> [CommandResult] {

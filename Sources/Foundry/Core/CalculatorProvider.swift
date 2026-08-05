@@ -1,21 +1,22 @@
 import Foundation
+import FoundryDomain
 
 final class CalculatorProvider: CommandProvider {
     let id = "foundry.calculator"
 
-    func results(matching query: String) async -> [CommandResult] {
-        let currencyConversions = await Self.convertCurrency(query)
+    func search(_ request: CommandSearchRequest) async -> [CommandResult] {
+        let currencyConversions = await Self.convertCurrency(request.query)
         if currencyConversions.isEmpty == false {
             return Self.conversionResults(currencyConversions)
         }
 
-        let conversions = Self.convert(query)
+        let conversions = Self.convert(request.query)
         if conversions.isEmpty == false {
             return Self.conversionResults(conversions)
         }
 
-        let explicitCalculation = Self.isExplicitCalculation(query)
-        let expression = Self.expression(from: query)
+        let explicitCalculation = Self.isExplicitCalculation(request.query)
+        let expression = Self.expression(from: request.query)
         guard expression.isEmpty == false, Self.looksLikeCalculation(expression, explicit: explicitCalculation) else { return [] }
 
         guard let evaluation = Self.evaluate(expression: expression) else { return [] }

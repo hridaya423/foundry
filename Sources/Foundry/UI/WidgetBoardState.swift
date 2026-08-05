@@ -1,5 +1,6 @@
 import Foundation
 import SwiftUI
+import FoundryServices
 
 @MainActor
 final class WidgetBoardState: ObservableObject {

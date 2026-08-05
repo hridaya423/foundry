@@ -1,15 +1,16 @@
 import Foundation
+import FoundryDomain
 
 final class LibraryProvider: CommandProvider {
     let id = "foundry.library"
-    private let snippetsCache = StoredSnippetCache()
+    private let snippetsCache: StoredSnippetCache
 
-    func results(matching query: String) async -> [CommandResult] {
-        await results(matching: query, customAliases: [:], sensitivity: .medium)
+    init(store: any SnippetStore = FileSnippetStore()) {
+        snippetsCache = StoredSnippetCache(store: store)
     }
 
-    func results(matching query: String, customAliases: [String: [String]], sensitivity: SearchSensitivity) async -> [CommandResult] {
-        let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
+    func search(_ request: CommandSearchRequest) async -> [CommandResult] {
+        let trimmed = request.query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard trimmed.isEmpty == false else { return [] }
 
         let snippetResults = snippetsCache.current()
@@ -24,7 +25,7 @@ final class LibraryProvider: CommandProvider {
                     subtitle: snippet.content,
                     keywords: [snippet.keyword] + snippet.tags,
                     aliases: [],
-                    sensitivity: sensitivity
+                    sensitivity: request.sensitivity
                 ) != nil
             }
             .prefix(32)
@@ -49,12 +50,17 @@ final class LibraryProvider: CommandProvider {
 }
 
 private final class StoredSnippetCache: @unchecked Sendable {
+    private let store: any SnippetStore
     private let lock = NSLock()
     private var signature: StoredSnippetFileSignature?
     private var snippets: [StoredSnippet] = []
 
+    init(store: any SnippetStore) {
+        self.store = store
+    }
+
     func current() -> [StoredSnippet] {
-        let url = LibraryPersistence.snippetsURL
+        let url = store.url
         let values = try? url.resourceValues(forKeys: [.contentModificationDateKey, .fileSizeKey])
         let nextSignature = StoredSnippetFileSignature(
             modificationDate: values?.contentModificationDate,
@@ -64,7 +70,7 @@ private final class StoredSnippetCache: @unchecked Sendable {
             if signature == nextSignature {
                 return snippets
             }
-            snippets = LibraryPersistence.loadSnippets()
+            snippets = store.load()
             signature = nextSignature
             return snippets
         }

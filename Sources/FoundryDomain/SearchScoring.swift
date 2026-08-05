@@ -1,13 +1,13 @@
 import Foundation
 
-enum SearchSensitivity: String, Codable, CaseIterable, Identifiable, Sendable {
+public enum SearchSensitivity: String, Codable, CaseIterable, Identifiable, Sendable {
     case high
     case medium
     case low
 
-    var id: String { rawValue }
+    public var id: String { rawValue }
 
-    var title: String {
+    public var title: String {
         switch self {
         case .high: "High"
         case .medium: "Medium"
@@ -15,7 +15,7 @@ enum SearchSensitivity: String, Codable, CaseIterable, Identifiable, Sendable {
         }
     }
 
-    var subtitle: String {
+    public var subtitle: String {
         switch self {
         case .high: "Fewer, closer matches"
         case .medium: "Balanced results"
@@ -24,7 +24,7 @@ enum SearchSensitivity: String, Codable, CaseIterable, Identifiable, Sendable {
     }
 }
 
-enum SearchMatchKind: String, CaseIterable, Equatable, Sendable {
+public enum SearchMatchKind: String, CaseIterable, Equatable, Sendable {
     case exact
     case phrasePrefix
     case tokenMatch
@@ -33,14 +33,14 @@ enum SearchMatchKind: String, CaseIterable, Equatable, Sendable {
     case fuzzy
 }
 
-enum SearchMatchField: String, CaseIterable, Equatable, Sendable {
+public enum SearchMatchField: String, CaseIterable, Equatable, Sendable {
     case alias
     case title
     case subtitle
     case keyword
 }
 
-enum SearchMatchTier: String, CaseIterable, Equatable, Sendable {
+public enum SearchMatchTier: String, CaseIterable, Equatable, Sendable {
     case aliasExact
     case aliasPrefix
     case titleExact
@@ -54,27 +54,27 @@ enum SearchMatchTier: String, CaseIterable, Equatable, Sendable {
 }
 
 extension SearchMatchTier: Comparable {
-    static func < (lhs: SearchMatchTier, rhs: SearchMatchTier) -> Bool {
+    public static func < (lhs: SearchMatchTier, rhs: SearchMatchTier) -> Bool {
         guard let lhsIndex = allCases.firstIndex(of: lhs), let rhsIndex = allCases.firstIndex(of: rhs) else { return false }
         return lhsIndex < rhsIndex
     }
 }
 
-struct SearchMatch: Equatable, Sendable {
-    let kind: SearchMatchKind
-    let field: SearchMatchField
-    let tier: SearchMatchTier
-    let matchedTokenCount: Int
-    let exactTokenCount: Int
-    let queryTokenCount: Int
-    let queryLength: Int
-    let candidateLength: Int
-    let editDistance: Int?
-    let fuzzyScore: Int?
+public struct SearchMatch: Equatable, Sendable {
+    public let kind: SearchMatchKind
+    public let field: SearchMatchField
+    public let tier: SearchMatchTier
+    public let matchedTokenCount: Int
+    public let exactTokenCount: Int
+    public let queryTokenCount: Int
+    public let queryLength: Int
+    public let candidateLength: Int
+    public let editDistance: Int?
+    public let fuzzyScore: Int?
 }
 
-enum SearchScoring {
-    static func match(query: String, title: String, aliases: [String] = [], allowFuzzy: Bool = true) -> SearchMatch? {
+public enum SearchScoring {
+    public static func match(query: String, title: String, aliases: [String] = [], allowFuzzy: Bool = true) -> SearchMatch? {
         let normalizedQuery = normalize(query)
         guard normalizedQuery.isEmpty == false else { return nil }
         return match(
@@ -88,7 +88,7 @@ enum SearchScoring {
         )
     }
 
-    static func match(
+    public static func match(
         query: String,
         title: String,
         subtitle: String?,
@@ -108,7 +108,7 @@ enum SearchScoring {
         )
     }
 
-    static func normalize(_ value: String) -> String {
+    public static func normalize(_ value: String) -> String {
         let folded = value.folding(
             options: [.caseInsensitive, .diacriticInsensitive],
             locale: Locale(identifier: "en_US_POSIX")
@@ -397,7 +397,7 @@ enum SearchScoring {
         return MatchDetails(kind: .tokenMatch, matchedTokenCount: queryTokens.count, exactTokenCount: matchedExact, editDistance: nil, fuzzyScore: nil)
     }
 
-    static func isBetter(_ lhs: SearchMatch, than rhs: SearchMatch) -> Bool {
+    public static func isBetter(_ lhs: SearchMatch, than rhs: SearchMatch) -> Bool {
         if lhs.tier != rhs.tier { return lhs.tier < rhs.tier }
         if lhs.kind != rhs.kind {
             return SearchMatchKind.allCases.firstIndex(of: lhs.kind)! < SearchMatchKind.allCases.firstIndex(of: rhs.kind)!
@@ -420,7 +420,7 @@ enum SearchScoring {
         return SearchMatchKind.allCases.firstIndex(of: lhs.kind)! < SearchMatchKind.allCases.firstIndex(of: rhs.kind)!
     }
 
-    static func areComparable(_ lhs: SearchMatch, _ rhs: SearchMatch) -> Bool {
+    public static func areComparable(_ lhs: SearchMatch, _ rhs: SearchMatch) -> Bool {
         guard lhs.tier == rhs.tier,
               lhs.exactTokenCount == rhs.exactTokenCount,
               lhs.matchedTokenCount == rhs.matchedTokenCount else { return false }

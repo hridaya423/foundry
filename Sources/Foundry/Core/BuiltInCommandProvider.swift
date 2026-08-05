@@ -1,5 +1,7 @@
 import AppKit
 import Foundation
+import FoundryDomain
+import FoundryServices
 
 final class BuiltInCommandProvider: CommandProvider {
     let id = "foundry.builtin"
@@ -10,25 +12,17 @@ final class BuiltInCommandProvider: CommandProvider {
         self.diagnostics = diagnostics
     }
 
-    func results(matching query: String) async -> [CommandResult] {
-        await results(matching: query, customAliases: [:])
-    }
-
-    func results(matching query: String, customAliases: [String: [String]]) async -> [CommandResult] {
-        await results(matching: query, customAliases: customAliases, sensitivity: .medium)
-    }
-
-    func results(matching query: String, customAliases: [String: [String]], sensitivity: SearchSensitivity) async -> [CommandResult] {
+    func search(_ request: CommandSearchRequest) async -> [CommandResult] {
         commands().compactMap { command in
             guard Task.isCancelled == false else { return nil }
-            let aliases = customAliases[command.id] ?? []
+            let aliases = request.customAliases[command.id] ?? []
             guard SearchScoring.match(
-                query: query,
+                query: request.query,
                 title: command.title,
                 subtitle: command.subtitle,
                 keywords: [],
                 aliases: command.aliases + aliases,
-                sensitivity: sensitivity
+                sensitivity: request.sensitivity
             ) != nil else {
                 return nil
             }

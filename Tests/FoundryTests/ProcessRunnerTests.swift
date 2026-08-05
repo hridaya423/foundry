@@ -1,5 +1,6 @@
 import XCTest
 @testable import Foundry
+import FoundryServices
 
 final class ProcessRunnerTests: XCTestCase {
     func testSynchronousRunnerDrainsBothStreams() {

@@ -1,5 +1,6 @@
 import AppKit
 import SwiftUI
+import FoundryServices
 
 @MainActor
 final class ShellController {
@@ -11,18 +12,33 @@ final class ShellController {
     private let panelController: PanelController
     private let panelState: CommandPanelState
 
-    init(registry: CommandRegistry, actionRunner: ActionRunner, config: ConfigService, diagnostics: DiagnosticsService) {
+    init(
+        registry: CommandRegistry,
+        actionRunner: ActionRunner,
+        config: ConfigService,
+        diagnostics: DiagnosticsService,
+        snippetStore: any SnippetStore = FileSnippetStore()
+    ) {
         self.registry = registry
         self.actionRunner = actionRunner
         self.config = config
         self.diagnostics = diagnostics
         self.hotkeyController = HotkeyController()
-        self.panelState = CommandPanelState(registry: registry, actionRunner: actionRunner, diagnostics: diagnostics, config: config)
+        self.panelState = CommandPanelState(
+            registry: registry,
+            actionRunner: actionRunner,
+            diagnostics: diagnostics,
+            config: config,
+            snippetStore: snippetStore
+        )
         self.panelController = PanelController(state: panelState, diagnostics: diagnostics)
         self.panelState.onHotkeyChanged = { [weak self] hotkey in
             guard let self else { return }
             try self.hotkeyController.register(hotkey: hotkey)
             self.diagnostics.log("Registered global hotkey: \(hotkey.displayName)")
+        }
+        self.panelState.onCommandPreferencesChanged = { [weak self] in
+            self?.registerCommandHotkeys()
         }
     }
 
@@ -40,6 +56,7 @@ final class ShellController {
         } catch {
             diagnostics.log("Failed to register hotkey: \(error.localizedDescription)")
         }
+        registerCommandHotkeys()
 
     }
 
@@ -62,5 +79,32 @@ final class ShellController {
         panelState.resetForOpen()
         panelController.show()
         NSApp.activate(ignoringOtherApps: true)
+    }
+
+    private func registerCommandHotkeys() {
+        let hotkeys: [String: FoundryHotkey] = Dictionary(uniqueKeysWithValues: config.current.commandPreferences.compactMap { commandID, preference in
+            guard preference.isEnabled, let hotkey = preference.globalHotkey else { return nil }
+            return (
+                commandID,
+                FoundryHotkey(
+                    keyCode: hotkey.keyCode,
+                    modifiers: hotkey.modifiers,
+                    displayName: hotkey.displayName
+                )
+            )
+        })
+
+        do {
+            try hotkeyController.registerCommandHotkeys(hotkeys) { [weak self] commandID in
+                Task { @MainActor [weak self] in
+                    guard let self else { return }
+                    self.showPanel()
+                    await self.panelState.executeCommand(commandID: commandID)
+                }
+            }
+            diagnostics.log("Registered \(hotkeys.count) command hotkey\(hotkeys.count == 1 ? "" : "s")")
+        } catch {
+            diagnostics.log("Failed to register command hotkeys: \(error.localizedDescription)")
+        }
     }
 }

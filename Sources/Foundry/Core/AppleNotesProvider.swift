@@ -1,10 +1,19 @@
 import Foundation
+import FoundryDomain
+import FoundryServices
 
 final class AppleNotesProvider: CommandProvider {
     let id = "foundry.apple-notes"
 
-    func results(matching query: String) async -> [CommandResult] {
-        let search = normalizedSearch(from: query)
+    var searchPolicy: CommandProviderSearchPolicy { CommandProviderSearchPolicy(tier: .deferred) }
+
+    func isActive(for query: String) -> Bool {
+        let lowercased = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        return ["apple notes ", "apple note ", "notes ", "note "].contains { lowercased.hasPrefix($0) }
+    }
+
+    func search(_ request: CommandSearchRequest) async -> [CommandResult] {
+        let search = normalizedSearch(from: request.query)
         guard search.count >= 2 else { return [] }
 
         return searchNotes(search).prefix(8).map { note in

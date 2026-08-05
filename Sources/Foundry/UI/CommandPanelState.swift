@@ -1,6 +1,8 @@
 import AppKit
 import Foundation
 import SwiftUI
+import FoundryDomain
+import FoundryServices
 
 @MainActor
 final class CommandPanelState: ObservableObject {
@@ -23,13 +25,6 @@ final class CommandPanelState: ObservableObject {
     @Published var query = "" {
         didSet { refreshResults() }
     }
-    @Published var quickAIQuery = ""
-    @Published var quickAIResponse = ""
-    @Published var quickAIStatus = ""
-    @Published var isQuickAILoading = false
-    @Published var quickAILastFailedPrompt: String?
-    @Published var quickAIThreads: [AIChatThread]
-    @Published var activeQuickAIThreadID: UUID?
     @Published var results: [CommandResult] = []
     @Published var selectedResultID: String?
     @Published private(set) var selectionScrollToken = UUID()
@@ -45,23 +40,6 @@ final class CommandPanelState: ObservableObject {
     @Published var hotkeyError: String? = nil
     @Published var themeIntensity: Double
     @Published var searchSensitivity: SearchSensitivity
-    @Published var isOllamaEnabled: Bool
-    @Published var ollamaHost: String
-    @Published var ollamaModel: String
-    @Published var ollamaHostError: String?
-    @Published var ollamaModelError: String?
-    @Published var aiProfiles: [AIProviderProfile]
-    @Published var defaultAIProfileID: UUID?
-    @Published var fallbackAIProfileIDs: [UUID]
-    @Published var selectedAIProfileID: UUID?
-    @Published var aiCredentialInput = ""
-    @Published var aiProfileStatus: String?
-    @Published var aiProfileTestingID: UUID?
-    @Published var aiAvailableModels: [AIModel] = []
-    @Published var aiModelsLoading = false
-    @Published var codexLoginState: CodexLoginState
-    @Published var codexDeviceAuthorization: OpenAIDeviceAuthorization?
-    @Published var acceptedCodexPrivateBackendWarning: Bool
     @Published var settingsPersistenceError: String?
     @Published var commandSettingsQuery = "" {
         didSet { rebuildCommandRows() }
@@ -70,41 +48,37 @@ final class CommandPanelState: ObservableObject {
     @Published private(set) var commandPreferences: [String: CommandPreference]
     @Published private(set) var commandRows: [CommandSettingsRowModel] = []
     @Published private(set) var visibleCommandRows: [CommandSettingsRowModel] = []
+    @Published private(set) var commandCatalogFailures: [String] = []
     @Published private(set) var isCommandCatalogLoading = false
     @Published private(set) var isCommandCatalogReady = false
+    @Published private(set) var configLoadError: String?
     @Published var expandedCommandID: String?
     var onHotkeyChanged: ((FoundryHotkey) throws -> Void)?
+    var onCommandPreferencesChanged: (() -> Void)?
 
     let emojiPicker = EmojiPickerState()
     let fileShelf = FileShelfState()
     let agents = AgentMonitorState()
     let clipboardHistory = ClipboardHistoryState()
-    let snippets = SnippetState()
+    let snippets: SnippetState
     let fileConversion = FileConversionState()
     let camera = CameraPreviewState()
     let translator = TranslatorState()
     let developerTools = DeveloperToolsState()
     let widgetBoard: WidgetBoardState
+    let aiSettings: AISettingsState
+    let quickAI: QuickAIState
     private let configService: ConfigService
 
     private let registry: CommandRegistry
+    private let searchCoordinator: CommandSearchCoordinator
     private let actionRunner: ActionRunner
     private let diagnostics: DiagnosticsService
-    private let aiProvider: AIProvider
-    private let aiChatStore = AIChatStore()
-    private let aiCredentialStore: AICredentialStore
-    private let codexOAuthService: OpenAICodexOAuthService
-    private var searchTask: Task<Void, Never>?
-    private var quickAITask: Task<Void, Never>?
-    private var chatPersistenceTask: Task<Void, Never>?
-    private var quickAIRequestID: UUID?
-    private var searchGeneration = 0
-    private var isMediaDownloadActive = false
+    private var activeActionCancellationID: UUID?
+    private var actionGeneration = 0
+    @Published private(set) var isActionInProgress = false
     private var feedbackTask: Task<Void, Never>?
     private var commandCatalogTask: Task<Void, Never>?
-    private var aiProfileTestTask: Task<Void, Never>?
-    private var aiModelTask: Task<Void, Never>?
-    private var codexOAuthTask: Task<Void, Never>?
     private var isPanelOpen = false
 
     var selectedResult: CommandResult? {
@@ -113,8 +87,7 @@ final class CommandPanelState: ObservableObject {
 
     var selectedActions: [CommandAction] {
         guard let selectedResult else { return [] }
-        return [selectedResult.primaryAction]
-            + selectedResult.secondaryActions
+        return orderedActions(for: selectedResult)
             + [CommandAction(
                 id: "ranking.reset.\(selectedResult.id)",
                 title: "Reset Ranking",
@@ -126,68 +99,34 @@ final class CommandPanelState: ObservableObject {
         selectedActions.first { $0.id == selectedActionID }
     }
 
-    init(registry: CommandRegistry, actionRunner: ActionRunner, diagnostics: DiagnosticsService, config: ConfigService) {
+    init(
+        registry: CommandRegistry,
+        actionRunner: ActionRunner,
+        diagnostics: DiagnosticsService,
+        config: ConfigService,
+        snippetStore: any SnippetStore = FileSnippetStore()
+    ) {
         self.registry = registry
+        self.searchCoordinator = CommandSearchCoordinator(registry: registry, diagnostics: diagnostics)
         self.actionRunner = actionRunner
         self.diagnostics = diagnostics
         self.configService = config
-        self.aiProvider = AIProvider(config: config, diagnostics: diagnostics)
-        self.aiCredentialStore = KeychainAICredentialStore()
-        self.codexOAuthService = .shared
-        self.quickAIThreads = []
-        self.activeQuickAIThreadID = nil
+        self.snippets = SnippetState(store: snippetStore)
         self.isAgentShelfVisible = config.current.showAgentShelf
         self.hotkey = config.current.hotkey
         self.themeIntensity = config.current.themeIntensity
         self.searchSensitivity = config.current.searchSensitivity
-        self.isOllamaEnabled = config.current.ai.isOllamaEnabled
-        self.ollamaHost = config.current.ai.ollamaHost
-        self.ollamaModel = config.current.ai.ollamaModel
-        self.ollamaHostError = nil
-        self.ollamaModelError = nil
-        self.aiProfiles = config.current.ai.profiles
-        self.defaultAIProfileID = config.current.ai.defaultProfileID
-        self.fallbackAIProfileIDs = config.current.ai.fallbackProfileIDs
-        self.selectedAIProfileID = config.current.ai.defaultProfileID ?? config.current.ai.profiles.first?.id
-        self.codexLoginState = .disconnected
-        self.codexDeviceAuthorization = nil
-        self.acceptedCodexPrivateBackendWarning = config.current.ai.acceptedCodexPrivateBackendWarning
         self.settingsPersistenceError = nil
         self.commandPreferences = config.current.commandPreferences
+        self.commandCatalogFailures = []
+        self.configLoadError = config.loadErrorMessage
         self.widgetBoard = WidgetBoardState(configService: config, diagnostics: diagnostics)
+        self.aiSettings = AISettingsState(config: config, diagnostics: diagnostics)
+        self.quickAI = QuickAIState(aiProvider: AIProvider(config: config, diagnostics: diagnostics))
         self.widgetBoard.persistenceErrorHandler = { [weak self] error in
             self?.showSettingsPersistenceError(error)
         }
-        actionRunner.mediaStatusHandler = { [weak self] message in
-            let normalized = message.lowercased()
-            self?.isMediaDownloadActive = normalized.hasPrefix("downloaded") == false && normalized.contains("failed") == false
-            self?.diagnosticsSummary = message
-        }
-        actionRunner.feedbackHandler = { [weak self] feedback in
-            self?.showActionFeedback(feedback)
-        }
         agents.startSocket()
-        Task { [weak self] in
-            guard let self else { return }
-            let threads = await self.aiChatStore.loadAsync()
-            guard threads.isEmpty == false, self.quickAIThreads.isEmpty else { return }
-            self.quickAIThreads = threads
-            self.activeQuickAIThreadID = threads.first?.id
-        }
-    }
-
-    private func persistAIThreads() {
-        chatPersistenceTask?.cancel()
-        let threads = quickAIThreads
-        chatPersistenceTask = Task { [store = aiChatStore] in
-            do {
-                try await Task.sleep(for: .milliseconds(150))
-                guard Task.isCancelled == false else { return }
-                await store.saveAsync(threads)
-            } catch {
-                return
-            }
-        }
     }
 
     private func showActionFeedback(_ feedback: ActionFeedback) {
@@ -261,394 +200,13 @@ final class CommandPanelState: ObservableObject {
         }
     }
 
-    func setOllamaEnabled(_ isEnabled: Bool) {
-        let previous = isOllamaEnabled
-        isOllamaEnabled = isEnabled
-        var ai = configService.current.ai
-        ai.isOllamaEnabled = isEnabled
-        do {
-            try configService.updateAIConfig(ai)
-            settingsPersistenceError = nil
-        } catch {
-            isOllamaEnabled = previous
-            showSettingsPersistenceError(error)
-        }
-    }
-
-    func setOllamaHost(_ host: String) {
-        let previous = ollamaHost
-        ollamaHost = host
-        guard let value = Self.validatedOllamaHost(host) else {
-            ollamaHostError = "Enter an absolute http or https URL."
-            return
-        }
-        ollamaHostError = nil
-        var ai = configService.current.ai
-        ai.ollamaHost = value
-        do {
-            try configService.updateAIConfig(ai)
-            ollamaHost = value
-            settingsPersistenceError = nil
-        } catch {
-            ollamaHost = previous
-            showSettingsPersistenceError(error)
-        }
-    }
-
-    func setOllamaModel(_ model: String) {
-        let previous = ollamaModel
-        ollamaModel = model
-        let value = model.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard value.isEmpty == false else {
-            ollamaModelError = "Enter an Ollama model name."
-            return
-        }
-        ollamaModelError = nil
-        var ai = configService.current.ai
-        ai.ollamaModel = value
-        do {
-            try configService.updateAIConfig(ai)
-            ollamaModel = value
-            settingsPersistenceError = nil
-        } catch {
-            ollamaModel = previous
-            showSettingsPersistenceError(error)
-        }
-    }
-
-    var selectedAIProfile: AIProviderProfile? {
-        guard let selectedAIProfileID else { return nil }
-        return aiProfiles.first { $0.id == selectedAIProfileID }
-    }
-
-    func selectAIProfile(_ id: UUID) {
-        selectedAIProfileID = id
-        aiCredentialInput = ""
-        aiProfileStatus = nil
-        refreshAIModels()
-    }
-
-    func addAIProfile(presetID: String) {
-        guard let preset = AIProviderPreset.find(presetID) else { return }
-        let profile = preset.makeProfile()
-        aiProfiles.append(profile)
-        selectedAIProfileID = profile.id
-        aiCredentialInput = ""
-        aiProfileStatus = nil
-        refreshAIModels()
-        do {
-            try configService.updateAIProfile(profile)
-            settingsPersistenceError = nil
-        } catch {
-            aiProfiles.removeAll { $0.id == profile.id }
-            showSettingsPersistenceError(error)
-        }
-    }
-
-    func removeSelectedAIProfile() {
-        guard let profile = selectedAIProfile, profile.kind != .appleFoundationModels else { return }
-        let previousProfiles = aiProfiles
-        let previousDefault = defaultAIProfileID
-        let previousFallbacks = fallbackAIProfileIDs
-        aiProfiles.removeAll { $0.id == profile.id }
-        fallbackAIProfileIDs.removeAll { $0 == profile.id }
-        if defaultAIProfileID == profile.id { defaultAIProfileID = aiProfiles.first(where: { $0.enabled })?.id }
-        selectedAIProfileID = defaultAIProfileID ?? aiProfiles.first?.id
-        aiCredentialInput = ""
-        do {
-            try configService.removeAIProfile(id: profile.id)
-            try aiCredentialStore.delete(for: profile.id)
-            settingsPersistenceError = nil
-        } catch {
-            aiProfiles = previousProfiles
-            defaultAIProfileID = previousDefault
-            fallbackAIProfileIDs = previousFallbacks
-            selectedAIProfileID = profile.id
-            showSettingsPersistenceError(error)
-        }
-    }
-
-    func setAIProfileEnabled(_ enabled: Bool, id: UUID) {
-        updateAIProfile(id: id) { profile in
-            profile.enabled = enabled
-        }
-    }
-
-    func setAIProfileName(_ name: String, id: UUID) {
-        let value = name.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard value.isEmpty == false else { return }
-        updateAIProfile(id: id) { profile in
-            profile.name = value
-        }
-    }
-
-    func setAIProfileEndpoint(_ endpoint: String, id: UUID) {
-        guard let value = AIEndpointPolicy.normalized(endpoint) else {
-            aiProfileStatus = "Enter an absolute HTTP or HTTPS endpoint without embedded credentials."
-            return
-        }
-        updateAIProfile(id: id) { profile in
-            profile.endpoint = value
-        }
-        if AIEndpointPolicy.requiresPlainHTTPWarning(value) {
-            aiProfileStatus = "This endpoint uses unencrypted HTTP. Use it only on a network you trust."
-        } else {
-            aiProfileStatus = nil
-        }
-    }
-
-    func setAIProfileModel(_ model: String, id: UUID) {
-        let value = model.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard value.isEmpty == false else {
-            aiProfileStatus = "Enter a model name."
-            return
-        }
-        updateAIProfile(id: id) { profile in
-            profile.model = value
-        }
-        aiProfileStatus = nil
-    }
-
-    func setDefaultAIProfile(_ id: UUID) {
-        let previous = defaultAIProfileID
-        defaultAIProfileID = id
-        do {
-            try configService.setDefaultAIProfile(id: id)
-            settingsPersistenceError = nil
-        } catch {
-            defaultAIProfileID = previous
-            showSettingsPersistenceError(error)
-        }
-    }
-
-    func setAIFallback(_ enabled: Bool, id: UUID) {
-        let previous = fallbackAIProfileIDs
-        if enabled {
-            fallbackAIProfileIDs.append(contentsOf: fallbackAIProfileIDs.contains(id) ? [] : [id])
-        } else {
-            fallbackAIProfileIDs.removeAll { $0 == id }
-        }
-        do {
-            try configService.setAIFallbackProfiles(fallbackAIProfileIDs)
-            settingsPersistenceError = nil
-        } catch {
-            fallbackAIProfileIDs = previous
-            showSettingsPersistenceError(error)
-        }
-    }
-
-    func setAIProfileAPIKey(_ value: String, id: UUID) {
-        let key = value.trimmingCharacters(in: .whitespacesAndNewlines)
-        do {
-            if key.isEmpty {
-                try aiCredentialStore.delete(for: id)
-                aiProfileStatus = "Credential removed."
-            } else {
-                try aiCredentialStore.save(.apiKey(key), for: id)
-                aiProfileStatus = "Credential stored in Keychain."
-            }
-            aiCredentialInput = ""
-        } catch {
-            aiProfileStatus = "Could not update the Keychain credential."
-            diagnostics.log("AI credential update failed: \(error.localizedDescription)")
-        }
-    }
-
-    func setCodexPrivateBackendWarningAccepted(_ accepted: Bool) {
-        let previous = acceptedCodexPrivateBackendWarning
-        acceptedCodexPrivateBackendWarning = accepted
-        var ai = configService.current.ai
-        ai.acceptedCodexPrivateBackendWarning = accepted
-        do {
-            try configService.updateAIConfig(ai)
-            settingsPersistenceError = nil
-        } catch {
-            acceptedCodexPrivateBackendWarning = previous
-            showSettingsPersistenceError(error)
-        }
-    }
-
-    func loginCodexBrowser() {
-        guard acceptedCodexPrivateBackendWarning, let profile = selectedAIProfile, profile.kind == .openAISubscription else {
-            aiProfileStatus = "Review and accept the private Codex backend warning before signing in."
-            return
-        }
-        codexOAuthTask?.cancel()
-        codexDeviceAuthorization = nil
-        persistCodexLoginMethod(.browser)
-        codexLoginState = .waitingForBrowser
-        aiProfileStatus = "Complete ChatGPT sign-in in your browser."
-        codexOAuthTask = Task { [weak self] in
-            do {
-                _ = try await self?.codexOAuthService.browserLogin(profileID: profile.id)
-                guard Task.isCancelled == false else { return }
-                self?.codexLoginState = .connected
-                self?.aiProfileStatus = "ChatGPT subscription connected."
-                self?.updateAIProfile(id: profile.id) { $0.enabled = true }
-            } catch {
-                guard Task.isCancelled == false else { return }
-                self?.codexLoginState = .failed(error.localizedDescription)
-                self?.aiProfileStatus = error.localizedDescription
-            }
-        }
-    }
-
-    func requestCodexDeviceLogin() {
-        guard acceptedCodexPrivateBackendWarning, selectedAIProfile?.kind == .openAISubscription else {
-            aiProfileStatus = "Review and accept the private Codex backend warning before signing in."
-            return
-        }
-        codexOAuthTask?.cancel()
-        persistCodexLoginMethod(.device)
-        codexLoginState = .starting
-        aiProfileStatus = "Requesting a device code..."
-        codexOAuthTask = Task { [weak self] in
-            do {
-                let authorization = try await self?.codexOAuthService.requestDeviceAuthorization()
-                guard let authorization, Task.isCancelled == false else { return }
-                self?.codexDeviceAuthorization = authorization
-                self?.codexLoginState = .waitingForDeviceApproval
-                self?.aiProfileStatus = "Open \(authorization.verificationURL) and enter \(authorization.userCode)."
-            } catch {
-                guard Task.isCancelled == false else { return }
-                self?.codexLoginState = .failed(error.localizedDescription)
-                self?.aiProfileStatus = error.localizedDescription
-            }
-        }
-    }
-
-    func completeCodexDeviceLogin() {
-        guard let authorization = codexDeviceAuthorization, let profile = selectedAIProfile, profile.kind == .openAISubscription else { return }
-        codexLoginState = .exchangingCode
-        aiProfileStatus = "Waiting for ChatGPT device approval..."
-        codexOAuthTask?.cancel()
-        codexOAuthTask = Task { [weak self] in
-            do {
-                _ = try await self?.codexOAuthService.completeDeviceLogin(authorization, profileID: profile.id)
-                guard Task.isCancelled == false else { return }
-                self?.codexDeviceAuthorization = nil
-                self?.codexLoginState = .connected
-                self?.aiProfileStatus = "ChatGPT subscription connected."
-                self?.updateAIProfile(id: profile.id) { $0.enabled = true }
-            } catch {
-                guard Task.isCancelled == false else { return }
-                self?.codexLoginState = .failed(error.localizedDescription)
-                self?.aiProfileStatus = error.localizedDescription
-            }
-        }
-    }
-
-    func cancelCodexLogin() {
-        codexOAuthTask?.cancel()
-        codexOAuthTask = nil
-        Task { await codexOAuthService.cancelCurrentLogin() }
-        codexDeviceAuthorization = nil
-        codexLoginState = .cancelled
-        aiProfileStatus = "ChatGPT login cancelled."
-    }
-
-    func logoutCodex() {
-        guard let profile = selectedAIProfile, profile.kind == .openAISubscription else { return }
-        Task { [weak self] in
-            do {
-                try await self?.codexOAuthService.signOut(profileID: profile.id)
-                self?.codexLoginState = .disconnected
-                self?.aiProfileStatus = "ChatGPT subscription disconnected."
-                self?.updateAIProfile(id: profile.id) { $0.enabled = false }
-            } catch {
-                self?.aiProfileStatus = "Could not remove the ChatGPT credential."
-            }
-        }
-    }
-
-    func aiProfileHasCredential(_ profile: AIProviderProfile) -> Bool {
-        if profile.authentication == .oauth {
-            do {
-                guard let credential = try aiCredentialStore.credential(for: profile.id), case let .oauth(value) = credential else { return false }
-                return value.isUsable
-            } catch { return false }
-        }
-        guard profile.authentication == .apiKey || profile.authentication == .optionalAPIKey else { return profile.authentication == .none }
-        do {
-            return try aiCredentialStore.credential(for: profile.id) != nil
-        } catch {
-            return false
-        }
-    }
-
-    private func persistCodexLoginMethod(_ method: OpenAICodexLoginMethod) {
-        var ai = configService.current.ai
-        ai.codexLoginMethod = method
-        try? configService.updateAIConfig(ai)
-    }
-
-    func testSelectedAIProfile() {
-        guard let profile = selectedAIProfile else { return }
-        aiProfileTestTask?.cancel()
-        aiProfileTestingID = profile.id
-        aiProfileStatus = "Testing connection..."
-        aiProfileTestTask = Task { [weak self] in
-            let result = await AITransportRouter.test(profile: profile)
-            guard Task.isCancelled == false else { return }
-            await MainActor.run {
-                guard let self else { return }
-                self.aiProfileTestingID = nil
-                self.aiProfileStatus = result.message
-            }
-        }
-    }
-
-    func refreshAIModels() {
-        guard let profile = selectedAIProfile, profile.capabilities.modelDiscovery else {
-            aiAvailableModels = []
-            return
-        }
-        aiModelTask?.cancel()
-        aiModelsLoading = true
-        aiModelTask = Task { [weak self] in
-            let models = await AITransportRouter.models(profile: profile)
-            guard Task.isCancelled == false else { return }
-            await MainActor.run {
-                guard let self else { return }
-                self.aiAvailableModels = models
-                self.aiModelsLoading = false
-                if models.isEmpty == false {
-                    self.aiProfileStatus = "Found \(models.count) model\(models.count == 1 ? "" : "s")."
-                }
-            }
-        }
-    }
-
-    private func updateAIProfile(id: UUID, change: (inout AIProviderProfile) -> Void) {
-        guard let index = aiProfiles.firstIndex(where: { $0.id == id }) else { return }
-        let previous = aiProfiles[index]
-        var profile = previous
-        change(&profile)
-        aiProfiles[index] = profile
-        do {
-            try configService.updateAIProfile(profile)
-            settingsPersistenceError = nil
-        } catch {
-            aiProfiles[index] = previous
-            showSettingsPersistenceError(error)
-        }
-    }
-
-    static func validatedOllamaHost(_ host: String) -> String? {
-        let value = host.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard let url = URL(string: value),
-              let scheme = url.scheme?.lowercased(),
-              scheme == "http" || scheme == "https",
-              url.host != nil else { return nil }
-        return value
-    }
-
     private func showSettingsPersistenceError(_ error: Error) {
         settingsPersistenceError = "Preferences could not be saved. Your previous settings were kept."
         diagnostics.log("Settings persistence failed: \(error.localizedDescription)")
     }
 
     func resetForOpen() {
+        detachActiveAction()
         isPanelOpen = true
         mode = .search
         widgetBoard.start()
@@ -666,26 +224,18 @@ final class CommandPanelState: ObservableObject {
         translator.reset()
         developerTools.reset()
         query = ""
-        quickAIQuery = ""
-        quickAIResponse = ""
-        quickAIStatus = ""
-        isQuickAILoading = false
-        quickAILastFailedPrompt = nil
-        quickAITask?.cancel()
-        quickAITask = nil
-        quickAIRequestID = nil
+        quickAI.resetTransientState()
         results = []
         selectedResultID = nil
         isShowingActions = false
         selectedActionID = nil
-        isMediaDownloadActive = false
         refreshStatusSummary()
     }
 
     func panelWillClose() {
+        detachActiveAction()
         isPanelOpen = false
-        searchTask?.cancel()
-        searchTask = nil
+        searchCoordinator.cancel()
         widgetBoard.stop()
         emojiPicker.reset()
         clipboardHistory.stop()
@@ -700,58 +250,61 @@ final class CommandPanelState: ObservableObject {
 
     func shutdown() {
         isPanelOpen = false
-        searchTask?.cancel()
-        searchTask = nil
+        searchCoordinator.cancel()
         commandCatalogTask?.cancel()
         commandCatalogTask = nil
-        chatPersistenceTask?.cancel()
-        chatPersistenceTask = nil
-        aiProfileTestTask?.cancel()
-        aiProfileTestTask = nil
-        aiModelTask?.cancel()
-        aiModelTask = nil
-        codexOAuthTask?.cancel()
-        codexOAuthTask = nil
-        Task { await codexOAuthService.cancelCurrentLogin() }
-        actionRunner.cancelMediaDownload()
+        quickAI.shutdown()
+        aiSettings.shutdown()
+        cancelActiveAction()
         clipboardHistory.stop()
         agents.stop()
     }
 
     func openSettings() {
-        stopTransientPolling()
-        withAnimation(.easeOut(duration: 0.14)) {
-            mode = .settings
-        }
-        widgetBoard.stop()
-        agents.stopPolling()
-        isShowingActions = false
-        selectedActionID = nil
-        searchTask?.cancel()
-        results = []
-        selectedResultID = nil
-        diagnosticsSummary = "settings"
+        beginFeatureMode(.settings, status: "settings")
     }
 
     var commandCatalogCount: Int {
         commandRows.count
     }
 
-    func prepareCommandCatalog() {
-        guard isCommandCatalogLoading == false, isCommandCatalogReady == false else { return }
+    func prepareCommandCatalog(forceRefresh: Bool = false) {
+        guard isCommandCatalogLoading == false, forceRefresh || isCommandCatalogReady == false else { return }
         isCommandCatalogLoading = true
+        if forceRefresh {
+            isCommandCatalogReady = false
+        }
         let registry = registry
         let diagnostics = diagnostics
         let span = diagnostics.startSpan("commands.catalog.prepare")
         commandCatalogTask = Task { [weak self] in
-            let snapshot = await registry.commandCatalog()
+            let snapshot = await registry.commandCatalog(forceRefresh: forceRefresh)
             diagnostics.endSpan(span)
             guard let self, Task.isCancelled == false else { return }
             self.commandDescriptors = snapshot.descriptors
+            self.commandCatalogFailures = snapshot.providerFailures
             self.isCommandCatalogLoading = false
             self.isCommandCatalogReady = true
             self.rebuildCommandRows()
             self.commandCatalogTask = nil
+        }
+    }
+
+    func retryCommandCatalog() {
+        commandCatalogTask?.cancel()
+        commandCatalogTask = nil
+        isCommandCatalogLoading = false
+        prepareCommandCatalog(forceRefresh: true)
+    }
+
+    func resetConfiguration() {
+        do {
+            try configService.resetToDefaults()
+            configLoadError = nil
+            NSApp.terminate(nil)
+        } catch {
+            settingsPersistenceError = "Could not reset Foundry settings. Your existing configuration was kept."
+            diagnostics.log("Settings reset failed: \(error.localizedDescription)")
         }
     }
 
@@ -760,31 +313,13 @@ final class CommandPanelState: ObservableObject {
     }
 
     private func rebuildCommandRows() {
-        let preferences = commandPreferences
-        let rows = commandDescriptors.map { descriptor in
-            CommandSettingsRowModel(
-                descriptor: descriptor,
-                preference: preferences[descriptor.id] ?? CommandPreference()
-            )
-        }
-        let query = commandSettingsQuery.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        let visible = rows
-            .filter { query.isEmpty || $0.searchText.contains(query) }
-            .sorted { lhs, rhs in
-                switch (lhs.preference.favoriteRank, rhs.preference.favoriteRank) {
-                case let (lhsRank?, rhsRank?):
-                    if lhsRank != rhsRank { return lhsRank < rhsRank }
-                case (_?, nil):
-                    return true
-                case (nil, _?):
-                    return false
-                default:
-                    break
-                }
-                return lhs.title.localizedCaseInsensitiveCompare(rhs.title) == .orderedAscending
-            }
-        commandRows = rows
-        visibleCommandRows = visible
+        let catalog = CommandSettingsCatalog.build(
+            descriptors: commandDescriptors,
+            preferences: commandPreferences,
+            query: commandSettingsQuery
+        )
+        commandRows = catalog.rows
+        visibleCommandRows = catalog.visibleRows
     }
 
     func commandPreference(for commandID: String) -> CommandPreference {
@@ -822,6 +357,20 @@ final class CommandPanelState: ObservableObject {
         updateCommandPreference(preference, for: commandID)
     }
 
+    func setCommandHotkey(_ hotkey: FoundryHotkey?, for commandID: String) {
+        var preference = commandPreference(for: commandID)
+        preference.globalHotkey = hotkey.map {
+            CommandHotkey(keyCode: $0.keyCode, modifiers: $0.modifiers, displayName: $0.displayName)
+        }
+        updateCommandPreference(preference, for: commandID)
+    }
+
+    func setCommandFallbackEligible(_ isEligible: Bool, for commandID: String) {
+        var preference = commandPreference(for: commandID)
+        preference.fallbackEligible = isEligible
+        updateCommandPreference(preference, for: commandID)
+    }
+
     func resetCommandPreference(for commandID: String) {
         updateCommandPreference(CommandPreference(), for: commandID)
     }
@@ -850,6 +399,7 @@ final class CommandPanelState: ObservableObject {
         do {
             try configService.updateCommandPreference(preference, for: commandID)
             settingsPersistenceError = nil
+            onCommandPreferencesChanged?()
         } catch {
             if let previous {
                 commandPreferences[commandID] = previous
@@ -862,36 +412,18 @@ final class CommandPanelState: ObservableObject {
     }
 
     func openDashboard() {
-        stopTransientPolling()
-        withAnimation(.easeOut(duration: 0.14)) {
-            mode = .dashboard
-        }
+        beginFeatureMode(.dashboard, status: "dashboard")
         widgetBoard.start()
         if isAgentShelfVisible {
             agents.start()
         } else {
             agents.stopPolling()
         }
-        isShowingActions = false
-        selectedActionID = nil
-        searchTask?.cancel()
-        results = []
-        selectedResultID = nil
-        diagnosticsSummary = "dashboard"
     }
 
     func openAgents() {
-        stopTransientPolling()
-        withAnimation(.easeOut(duration: 0.14)) {
-            mode = .agents
-        }
+        beginFeatureMode(.agents, status: "agents")
         agents.start()
-        isShowingActions = false
-        selectedActionID = nil
-        searchTask?.cancel()
-        results = []
-        selectedResultID = nil
-        diagnosticsSummary = "agents"
     }
 
     func handleEscape() -> Bool {
@@ -903,6 +435,7 @@ final class CommandPanelState: ObservableObject {
     }
 
     func backToSearch() {
+        detachActiveAction()
         withAnimation(.easeOut(duration: 0.14)) {
             mode = .search
         }
@@ -914,14 +447,7 @@ final class CommandPanelState: ObservableObject {
         translator.reset()
         developerTools.reset()
         query = ""
-        quickAIQuery = ""
-        quickAIResponse = ""
-        quickAIStatus = ""
-        isQuickAILoading = false
-        quickAILastFailedPrompt = nil
-        quickAITask?.cancel()
-        quickAITask = nil
-        quickAIRequestID = nil
+        quickAI.resetTransientState()
         results = []
         selectedResultID = nil
         isShowingActions = false
@@ -929,100 +455,153 @@ final class CommandPanelState: ObservableObject {
         refreshStatusSummary()
     }
 
+    private func execute(_ action: CommandAction, commandID: String) async -> CommandOutcome {
+        let request = CommandExecutionRequest(commandID: commandID, action: action)
+        let generation = actionGeneration
+        activeActionCancellationID = request.invocation.cancellationID
+        isActionInProgress = true
+        let outcome = await actionRunner.execute(request) { [weak self] event in
+            guard let self else { return }
+            guard self.actionGeneration == generation else { return }
+            switch event {
+            case let .status(message):
+                diagnosticsSummary = message
+            case let .feedback(feedback):
+                showActionFeedback(feedback)
+            }
+        }
+        guard actionGeneration == generation else { return .cancelled }
+        isActionInProgress = false
+        if activeActionCancellationID == request.invocation.cancellationID {
+            activeActionCancellationID = nil
+        }
+        apply(outcome)
+        return outcome
+    }
+
+    private func cancelActiveAction() {
+        if let activeActionCancellationID {
+            actionRunner.cancel(activeActionCancellationID)
+        }
+        activeActionCancellationID = nil
+        isActionInProgress = false
+        actionGeneration &+= 1
+    }
+
+    private func detachActiveAction() {
+        activeActionCancellationID = nil
+        isActionInProgress = false
+        actionGeneration &+= 1
+    }
+
+    func cancelCurrentAction() {
+        cancelActiveAction()
+        diagnosticsSummary = "Cancelled"
+    }
+
     @discardableResult
-    func executeSelectedResult() -> Bool {
+    func executeSelectedResult() async -> Bool {
+        guard isActionInProgress == false else { return false }
         guard let selectedResult else {
             if let request = AIProvider.request(from: query) {
                 openQuickAI(initialPrompt: request.prompt)
             }
             return false
         }
-        if isShowingActions, let selectedAction {
-            diagnostics.log("Executing action: \(selectedAction.id)")
-            if case let .resetRanking(commandID) = selectedAction.kind {
-                registry.resetRanking(for: commandID)
-                showActionFeedback(.success("Ranking reset"))
-                return false
-            }
-            registry.recordExecution(resultID: selectedResult.id, query: query)
-            if case let .openQuickAI(prompt) = selectedAction.kind {
-                openQuickAI(initialPrompt: prompt)
-                return false
-            }
-            if case .downloadMedia = selectedAction.kind {
-                isMediaDownloadActive = true
-                diagnosticsSummary = "Starting download"
-                actionRunner.perform(selectedAction)
-                return false
-            }
-            if selectedAction.kind == .chooseMediaDownloadFolder {
-                actionRunner.perform(selectedAction)
-                refreshResults()
-                return false
-            }
-            actionRunner.perform(selectedAction)
-            return true
+        let action: CommandAction
+        if isShowingActions {
+            guard let selectedAction else { return false }
+            action = selectedAction
+        } else {
+            action = preferredAction(for: selectedResult)
         }
 
-        diagnostics.log("Executing result: \(selectedResult.id)")
+        diagnostics.log("Executing action \(action.id) for result \(selectedResult.id)")
         registry.recordExecution(resultID: selectedResult.id, query: query)
-        if case let .openQuickAI(prompt) = selectedResult.primaryAction.kind {
-            openQuickAI(initialPrompt: prompt)
-            return false
-        }
-        if selectedResult.primaryAction.kind == .openEmojiPicker {
-            openEmojiPicker()
-            return false
-        }
-        if selectedResult.primaryAction.kind == .openFileShelf {
-            openFileShelf()
-            return false
-        }
-        if selectedResult.primaryAction.kind == .openClipboardHistory {
-            openClipboardHistory()
-            return false
-        }
-        if selectedResult.primaryAction.kind == .openSnippets {
-            openSnippets()
-            return false
-        }
-        if case let .openFileConverter(path) = selectedResult.primaryAction.kind {
-            openFileConverter(path: path)
-            return false
-        }
-        if selectedResult.primaryAction.kind == .openCamera {
-            openCamera()
-            return false
-        }
-        if case let .openTranslator(text, language) = selectedResult.primaryAction.kind {
-            openTranslator(text: text, language: language)
-            return false
-        }
-        if case let .openDeveloperTools(tool) = selectedResult.primaryAction.kind {
-            openDeveloperTools(tool: tool)
-            return false
-        }
-        if selectedResult.primaryAction.kind == .openSettings {
-            openSettings()
-            return false
-        }
-        if selectedResult.primaryAction.kind == .openDashboard {
-            openDashboard()
-            return false
-        }
-        if case .downloadMedia = selectedResult.primaryAction.kind {
-            isMediaDownloadActive = true
-            diagnosticsSummary = "Starting download"
-            actionRunner.perform(selectedResult.primaryAction)
-            return false
-        }
-        if selectedResult.primaryAction.kind == .chooseMediaDownloadFolder {
-            actionRunner.perform(selectedResult.primaryAction)
+        let outcome = await execute(action, commandID: selectedResult.id)
+        return outcome.shouldDismissPanel
+    }
+
+    private func apply(_ outcome: CommandOutcome) {
+        switch outcome {
+        case let .open(route):
+            open(route)
+        case let .success(message):
+            if let message { diagnosticsSummary = message }
+            refreshStatusSummary(fallback: message ?? "")
+        case let .failure(message, _):
+            diagnosticsSummary = message
+        case let .denied(message):
+            diagnosticsSummary = message
+        case .cancelled:
+            refreshStatusSummary()
+        case let .stayOpen(message):
+            if let message { diagnosticsSummary = message }
+        case let .refreshResults(message):
+            if let message { diagnosticsSummary = message }
             refreshResults()
-            return false
+        case let .fileResults(urls):
+            if urls.isEmpty {
+                diagnosticsSummary = "No files returned"
+            } else {
+                NSWorkspace.shared.activateFileViewerSelecting(urls)
+                diagnosticsSummary = "Opened \(urls.count) file\(urls.count == 1 ? "" : "s")"
+            }
+        case let .followUp(actionIDs):
+            let availableIDs = Set(selectedActions.map(\.id))
+            if let actionID = actionIDs.first(where: { availableIDs.contains($0) }) {
+                isShowingActions = true
+                selectedActionID = actionID
+                diagnosticsSummary = "Choose a follow-up action"
+            } else {
+                diagnosticsSummary = "No follow-up action available"
+            }
+        case .copied, .pasted:
+            refreshStatusSummary()
         }
-        actionRunner.perform(selectedResult.primaryAction)
-        return true
+    }
+
+    private func orderedActions(for result: CommandResult) -> [CommandAction] {
+        let actions = [result.primaryAction] + result.secondaryActions
+        guard let preferredID = configService.current.commandPreferences[result.id]?.preferredPrimaryActionID,
+              let preferredIndex = actions.firstIndex(where: { $0.id == preferredID }) else {
+            return actions
+        }
+        let preferred = actions[preferredIndex]
+        return [preferred] + actions.enumerated().compactMap { index, action in
+            index == preferredIndex ? nil : action
+        }
+    }
+
+    private func preferredAction(for result: CommandResult) -> CommandAction {
+        orderedActions(for: result).first ?? result.primaryAction
+    }
+
+    private func open(_ route: CommandRoute) {
+        switch route {
+        case let .quickAI(initialPrompt):
+            openQuickAI(initialPrompt: initialPrompt)
+        case .emojiPicker:
+            openEmojiPicker()
+        case .fileShelf:
+            openFileShelf()
+        case .clipboardHistory:
+            openClipboardHistory()
+        case .snippets:
+            openSnippets()
+        case let .fileConversion(path):
+            openFileConverter(path: path)
+        case .camera:
+            openCamera()
+        case let .translator(text, language):
+            openTranslator(text: text, language: language)
+        case let .developerTools(tool):
+            openDeveloperTools(tool: tool)
+        case .settings:
+            openSettings()
+        case .dashboard:
+            openDashboard()
+        }
     }
 
     func select(resultID: String) {
@@ -1127,7 +706,7 @@ final class CommandPanelState: ObservableObject {
 
     private func refreshResults() {
         guard mode == .search else { return }
-        searchTask?.cancel()
+        searchCoordinator.cancel()
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
         isShowingActions = false
         selectedActionID = nil
@@ -1146,44 +725,18 @@ final class CommandPanelState: ObservableObject {
             return
         }
 
-        searchGeneration += 1
-        let generation = searchGeneration
-        let registry = registry
-        let diagnostics = diagnostics
-        let span = diagnostics.startSpan("search.async")
-
-        searchTask = Task { [weak self] in
-            defer {
-                diagnostics.endSpan(span)
+        searchCoordinator.search(
+            query: trimmed,
+            onImmediate: { [weak self] immediateResults in
+                guard let self else { return }
+                self.selectedResultID = nil
+                self.applySearchResults(immediateResults, preserving: nil)
+            },
+            onComplete: { [weak self] completeResults in
+                guard let self else { return }
+                self.applySearchResults(completeResults, preserving: self.selectedResultID)
             }
-
-            do {
-                try await Task.sleep(for: .milliseconds(40))
-            } catch {
-                return
-            }
-            guard Task.isCancelled == false else { return }
-
-            let immediateResults = await registry.immediateResults(matching: trimmed)
-            guard let self,
-                   Task.isCancelled == false,
-                   self.searchGeneration == generation,
-                   self.query.trimmingCharacters(in: .whitespacesAndNewlines) == trimmed else {
-                return
-            }
-
-            self.selectedResultID = nil
-            self.applySearchResults(immediateResults, preserving: nil)
-
-            let foundResults = await registry.completeResults(matching: trimmed, initialResults: immediateResults)
-            guard Task.isCancelled == false,
-                   self.searchGeneration == generation,
-                   self.query.trimmingCharacters(in: .whitespacesAndNewlines) == trimmed else {
-                return
-            }
-
-            self.applySearchResults(foundResults, preserving: self.selectedResultID)
-        }
+        )
     }
 
     private func applySearchResults(_ nextResults: [CommandResult], preserving preferredID: String?) {
@@ -1198,21 +751,14 @@ final class CommandPanelState: ObservableObject {
     }
 
     private func refreshStatusSummary(fallback: String = "") {
-        guard isMediaDownloadActive == false else { return }
+        guard isActionInProgress == false else { return }
         diagnosticsSummary = registry.statusSummary(resultCount: results.count, fallback: fallback)
     }
 
     private func refreshHomeResults() {
-        searchGeneration += 1
-        let generation = searchGeneration
-        let registry = registry
-        searchTask?.cancel()
-        searchTask = Task { [weak self] in
-            var homeResults = await registry.homeResults()
-            guard let self,
-                  Task.isCancelled == false,
-                  self.searchGeneration == generation,
-                  self.query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+        searchCoordinator.loadHome { [weak self] loadedResults in
+            guard let self, self.query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+            var homeResults = loadedResults
             if self.fileShelf.files.isEmpty == false {
                 homeResults.removeAll { $0.id == "foundry.file-shelf" }
             }
@@ -1229,289 +775,94 @@ final class CommandPanelState: ObservableObject {
         agents.stopPolling()
     }
 
-    private func openEmojiPicker() {
+    private func beginFeatureMode(_ nextMode: Mode, status: String) {
         stopTransientPolling()
         withAnimation(.easeOut(duration: 0.14)) {
-            mode = .emojiPicker
+            mode = nextMode
         }
         isShowingActions = false
         selectedActionID = nil
-        searchTask?.cancel()
+        searchCoordinator.cancel()
         results = []
         selectedResultID = nil
+        diagnosticsSummary = status
+    }
+
+    private func openEmojiPicker() {
+        beginFeatureMode(.emojiPicker, status: "emoji & symbols")
         emojiPicker.reset()
-        diagnosticsSummary = "emoji & symbols"
     }
 
     private func openFileShelf() {
-        stopTransientPolling()
-        withAnimation(.easeOut(duration: 0.14)) {
-            mode = .fileShelf
-        }
-        isShowingActions = false
-        selectedActionID = nil
-        searchTask?.cancel()
-        results = []
-        selectedResultID = nil
+        beginFeatureMode(.fileShelf, status: "file shelf")
         fileShelf.selectFirst()
-        diagnosticsSummary = "file shelf"
     }
 
     private func openClipboardHistory() {
-        stopTransientPolling()
-        withAnimation(.easeOut(duration: 0.14)) {
-            mode = .clipboardHistory
-        }
-        isShowingActions = false
-        selectedActionID = nil
-        searchTask?.cancel()
-        results = []
-        selectedResultID = nil
+        beginFeatureMode(.clipboardHistory, status: "clipboard history")
         clipboardHistory.start()
         clipboardHistory.reset()
-        diagnosticsSummary = "clipboard history"
     }
 
     private func openSnippets() {
-        stopTransientPolling()
-        withAnimation(.easeOut(duration: 0.14)) {
-            mode = .snippets
-        }
-        isShowingActions = false
-        selectedActionID = nil
-        searchTask?.cancel()
-        results = []
-        selectedResultID = nil
+        beginFeatureMode(.snippets, status: "snippets")
         snippets.reset()
-        diagnosticsSummary = "snippets"
     }
 
     private func openFileConverter(path: String? = nil) {
-        stopTransientPolling()
-        withAnimation(.easeOut(duration: 0.14)) {
-            mode = .fileConversion
-        }
-        isShowingActions = false
-        selectedActionID = nil
-        searchTask?.cancel()
-        results = []
-        selectedResultID = nil
+        beginFeatureMode(.fileConversion, status: "file converter")
         fileConversion.reset()
         if let path {
             fileConversion.setSource(url: URL(fileURLWithPath: path))
         } else if let selectedFile = fileShelf.selectedFile {
             fileConversion.setSource(url: selectedFile.url)
         }
-        diagnosticsSummary = "file converter"
     }
 
     private func openCamera() {
-        stopTransientPolling()
-        withAnimation(.easeOut(duration: 0.14)) {
-            mode = .camera
-        }
-        isShowingActions = false
-        selectedActionID = nil
-        searchTask?.cancel()
-        results = []
-        selectedResultID = nil
+        beginFeatureMode(.camera, status: "camera")
         camera.start()
-        diagnosticsSummary = "camera"
     }
 
     private func openTranslator(text: String? = nil, language: String? = nil) {
-        stopTransientPolling()
-        withAnimation(.easeOut(duration: 0.14)) {
-            mode = .translator
-        }
-        isShowingActions = false
-        selectedActionID = nil
-        searchTask?.cancel()
-        results = []
-        selectedResultID = nil
+        beginFeatureMode(.translator, status: "translator")
         translator.reset()
         if let text { translator.sourceText = text }
         if let language { translator.targetLanguage = language.capitalized }
-        diagnosticsSummary = "translator"
     }
 
     private func openDeveloperTools(tool: String? = nil) {
-        stopTransientPolling()
-        withAnimation(.easeOut(duration: 0.14)) {
-            mode = .developerTools
-        }
-        isShowingActions = false
-        selectedActionID = nil
-        searchTask?.cancel()
-        results = []
-        selectedResultID = nil
+        beginFeatureMode(.developerTools, status: "developer tools")
         developerTools.reset()
         if let tool, let selectedTool = DeveloperToolsState.Tool(commandID: tool) {
             developerTools.selectedTool = selectedTool
         }
-        diagnosticsSummary = "developer tools"
     }
 
     func openQuickAI(initialPrompt: String = "") {
-        quickAITask?.cancel()
-        quickAITask = nil
-        quickAIRequestID = nil
-        let prompt = AIProvider.request(from: initialPrompt)?.prompt ?? initialPrompt
         withAnimation(.easeOut(duration: 0.14)) {
             mode = .quickAI
         }
-        searchTask?.cancel()
+        searchCoordinator.cancel()
         results = []
         selectedResultID = nil
         isShowingActions = false
         selectedActionID = nil
-        quickAIQuery = prompt
-        quickAIResponse = ""
-        quickAIStatus = prompt.isEmpty ? "Ask anything" : "Ready"
-        isQuickAILoading = false
-        quickAILastFailedPrompt = nil
-        let thread = AIChatThread(title: prompt.isEmpty ? "New Chat" : prompt, providerProfileID: defaultAIProfileID)
-        quickAIThreads.insert(thread, at: 0)
-        activeQuickAIThreadID = thread.id
-        persistAIThreads()
-        if prompt.isEmpty == false {
-            Task { await submitQuickAI() }
-        }
+        quickAI.startNewThread(initialPrompt: initialPrompt, selectedAIProfileID: aiSettings.defaultAIProfileID)
     }
 
-    func submitQuickAI() async {
-        let prompt = quickAIQuery.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard prompt.isEmpty == false else {
-            quickAIStatus = "Type a question first"
+    func executeCommand(commandID: String) async {
+        guard let result = await registry.commandResult(for: commandID) else {
+            diagnostics.log("Command hotkey target is unavailable: \(commandID)")
+            diagnosticsSummary = "Command unavailable"
             return
         }
-        quickAIQuery = ""
-        quickAITask?.cancel()
-        quickAIRequestID = nil
-        guard let threadID = activeQuickAIThreadID else {
-            quickAIStatus = "Start a chat first"
-            return
-        }
-        let requestID = UUID()
-        quickAIRequestID = requestID
-        quickAITask = Task { [weak self] in
-            await self?.performQuickAI(prompt: prompt, threadID: threadID, requestID: requestID)
-        }
-        await quickAITask?.value
-    }
-
-    func retryQuickAI() {
-        guard let prompt = quickAILastFailedPrompt, isQuickAILoading == false else { return }
-        quickAILastFailedPrompt = nil
-        quickAITask?.cancel()
-        guard let threadID = activeQuickAIThreadID else { return }
-        let requestID = UUID()
-        quickAIRequestID = requestID
-        quickAITask = Task { [weak self] in
-            await self?.performQuickAI(prompt: prompt, persistUserMessage: false, threadID: threadID, requestID: requestID)
-        }
-    }
-
-    private func performQuickAI(prompt: String, persistUserMessage: Bool = true, threadID: UUID, requestID: UUID) async {
-        guard isCurrentQuickAIRequest(requestID, threadID: threadID) else { return }
-        isQuickAILoading = true
-        quickAIStatus = "Thinking"
-        quickAIResponse = ""
-        var didFail = false
-        var response = ""
-        let priorMessages = quickAIThreads.first(where: { $0.id == threadID })
-            .map { Array($0.messages.filter { $0.role == .user || $0.role == .assistant }.suffix(10)) } ?? []
-        let conversationContext = AIConversationContext.build(from: priorMessages)
-        let profileID = quickAIThreads.first(where: { $0.id == threadID })?.providerProfileID
-        if persistUserMessage, let index = quickAIThreads.firstIndex(where: { $0.id == threadID }) {
-            quickAIThreads[index].messages.append(AIChatMessage(role: .user, content: prompt))
-            quickAIThreads[index].updatedAt = .now
-            if quickAIThreads[index].title == "New Chat" {
-                quickAIThreads[index].title = prompt.prefix(48).description
-            }
-            persistAIThreads()
-        }
-
-        for await event in aiProvider.stream(prompt: prompt, context: conversationContext, profileID: profileID, sessionID: threadID.uuidString) {
-            guard Task.isCancelled == false else {
-                guard isCurrentQuickAIRequest(requestID, threadID: threadID) else { return }
-                isQuickAILoading = false
-                quickAIStatus = "Cancelled"
-                quickAILastFailedPrompt = prompt
-                return
-            }
-            guard isCurrentQuickAIRequest(requestID, threadID: threadID) else { return }
-            switch event {
-            case let .status(status):
-                quickAIStatus = status
-            case let .textDelta(delta):
-                response += delta
-                quickAIResponse = response
-            case let .toolCallStarted(name):
-                quickAIStatus = "Using \(name.replacingOccurrences(of: "_", with: " "))"
-                recordToolStarted(name, threadID: threadID)
-            case let .toolResult(name, result):
-                quickAIStatus = "Finished \(name.replacingOccurrences(of: "_", with: " "))"
-                recordToolFinished(name, result: result, threadID: threadID)
-            case .completed:
-                quickAIStatus = "Done"
-            case let .failed(message):
-                didFail = true
-                quickAILastFailedPrompt = prompt
-                quickAIStatus = message
-                response = message
-                quickAIResponse = message
-            }
-        }
-
-        guard Task.isCancelled == false else {
-            guard isCurrentQuickAIRequest(requestID, threadID: threadID) else { return }
-            isQuickAILoading = false
-            quickAIStatus = "Cancelled"
-            quickAILastFailedPrompt = prompt
-            return
-        }
-        guard isCurrentQuickAIRequest(requestID, threadID: threadID) else { return }
-        quickAIStatus = didFail ? "Failed" : response.isEmpty ? "No response" : "Done"
-        isQuickAILoading = false
-        if let index = quickAIThreads.firstIndex(where: { $0.id == threadID }) {
-            if response.isEmpty == false, didFail == false {
-                quickAIThreads[index].messages.append(AIChatMessage(role: .assistant, content: response))
-            }
-            quickAIThreads[index].updatedAt = .now
-            persistAIThreads()
-        }
-    }
-
-    private func recordToolStarted(_ name: String, threadID: UUID) {
-        guard let index = quickAIThreads.firstIndex(where: { $0.id == threadID }) else { return }
-        quickAIThreads[index].messages.append(AIChatMessage(role: .tool, content: "running:\(name)"))
-        quickAIThreads[index].updatedAt = .now
-        persistAIThreads()
-    }
-
-    private func recordToolFinished(_ name: String, result: String, threadID: UUID) {
-        guard let threadIndex = quickAIThreads.firstIndex(where: { $0.id == threadID }),
-              let messageIndex = quickAIThreads[threadIndex].messages.lastIndex(where: { $0.role == .tool && $0.content == "running:\(name)" }) else { return }
-        quickAIThreads[threadIndex].messages[messageIndex].content = "complete:\(name)\n\(String(result.prefix(1800)))"
-        quickAIThreads[threadIndex].updatedAt = .now
-        persistAIThreads()
-    }
-
-    func selectQuickAIThread(_ thread: AIChatThread) {
-        quickAITask?.cancel()
-        quickAITask = nil
-        quickAIRequestID = nil
-        activeQuickAIThreadID = thread.id
-        quickAIQuery = ""
-        quickAIResponse = thread.messages.last(where: { $0.role == .assistant })?.content ?? ""
-        quickAIStatus = thread.messages.isEmpty ? "Ask anything" : "Loaded"
-        quickAILastFailedPrompt = nil
-        mode = .quickAI
-    }
-
-    private func isCurrentQuickAIRequest(_ requestID: UUID, threadID: UUID) -> Bool {
-        requestID == quickAIRequestID && threadID == activeQuickAIThreadID
+        results = [result]
+        selectedResultID = result.id
+        isShowingActions = false
+        selectedActionID = nil
+        diagnosticsSummary = result.title
+        _ = await executeSelectedResult()
     }
 
 }

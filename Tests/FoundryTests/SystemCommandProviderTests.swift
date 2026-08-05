@@ -1,5 +1,7 @@
 import XCTest
 @testable import Foundry
+import FoundryDomain
+import FoundryServices
 
 final class SystemCommandProviderTests: XCTestCase {
     func testSettingsShortcutsOpenNativeSystemSettingsPanes() async throws {

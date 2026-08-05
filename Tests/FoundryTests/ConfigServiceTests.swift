@@ -1,6 +1,8 @@
 import Foundation
 import XCTest
 @testable import Foundry
+import FoundryDomain
+import FoundryServices
 
 final class ConfigServiceTests: XCTestCase {
     private var temporaryDirectory: URL!
@@ -55,6 +57,52 @@ final class ConfigServiceTests: XCTestCase {
         XCTAssertFalse(config.showAgentShelf)
         XCTAssertTrue(config.commandPreferences.isEmpty)
         XCTAssertTrue(config.providerEnabled.isEmpty)
+    }
+
+    func testFutureConfigVersionIsRejectedWithoutOverwritingTheFile() throws {
+        let url = temporaryDirectory.appendingPathComponent("config.json")
+        let data = Data(#"{"schemaVersion":999,"themeIntensity":0.11}"#.utf8)
+        try data.write(to: url)
+
+        XCTAssertThrowsError(try FoundryConfigMigration.migrate(data)) { error in
+            XCTAssertEqual(error as? FoundryConfigMigrationError, .unsupportedVersion(999))
+        }
+
+        let service = ConfigService(diagnostics: DiagnosticsService(), url: url)
+        XCTAssertEqual(service.current.themeIntensity, 0.72)
+        XCTAssertNotNil(service.loadErrorMessage)
+
+        XCTAssertThrowsError(try service.updateThemeIntensity(0.31)) { error in
+            guard case .readOnly = error as? ConfigServiceError else {
+                return XCTFail("Expected the config service to remain read-only")
+            }
+        }
+        XCTAssertEqual(try Data(contentsOf: url), data)
+
+        try service.resetToDefaults()
+        XCTAssertNil(service.loadErrorMessage)
+        XCTAssertEqual(service.current.themeIntensity, 0.72)
+        XCTAssertEqual(try JSONDecoder().decode(FoundryConfig.self, from: Data(contentsOf: url)), service.current)
+    }
+
+    func testConfigSnapshotsRemainConsistentDuringConcurrentWrites() async throws {
+        let url = temporaryDirectory.appendingPathComponent("config.json")
+        let service = ConfigService(diagnostics: DiagnosticsService(), url: url)
+
+        await withTaskGroup(of: Void.self) { group in
+            for index in 0..<20 {
+                group.addTask {
+                    try? service.updateThemeIntensity(Double(index) / 20)
+                    _ = service.current
+                }
+            }
+        }
+
+        let saved = try Data(contentsOf: url)
+        let decoded = try JSONDecoder().decode(FoundryConfig.self, from: saved)
+        XCTAssertEqual(decoded, service.current)
+        XCTAssertGreaterThanOrEqual(decoded.themeIntensity, 0)
+        XCTAssertLessThan(decoded.themeIntensity, 1)
     }
 
     func testCommandPreferencesRoundTripAndRejectBlankIDs() throws {
@@ -148,11 +196,21 @@ final class ConfigServiceTests: XCTestCase {
 
     @MainActor
     func testOllamaHostValidationAcceptsOnlyAbsoluteHTTPURLs() {
-        XCTAssertEqual(CommandPanelState.validatedOllamaHost(" https://localhost:11434 "), "https://localhost:11434")
-        XCTAssertEqual(CommandPanelState.validatedOllamaHost("http://127.0.0.1:11434"), "http://127.0.0.1:11434")
-        XCTAssertNil(CommandPanelState.validatedOllamaHost("localhost:11434"))
-        XCTAssertNil(CommandPanelState.validatedOllamaHost("file:///tmp/ollama"))
-        XCTAssertNil(CommandPanelState.validatedOllamaHost("http:///missing-host"))
+        XCTAssertEqual(AISettingsState.validatedOllamaHost(" https://localhost:11434 "), "https://localhost:11434")
+        XCTAssertEqual(AISettingsState.validatedOllamaHost("http://127.0.0.1:11434"), "http://127.0.0.1:11434")
+        XCTAssertNil(AISettingsState.validatedOllamaHost("localhost:11434"))
+        XCTAssertNil(AISettingsState.validatedOllamaHost("file:///tmp/ollama"))
+        XCTAssertNil(AISettingsState.validatedOllamaHost("http:///missing-host"))
+    }
+
+    @MainActor
+    func testAISettingsStateInitializesFromConfigSelection() {
+        let service = ConfigService(diagnostics: DiagnosticsService(), url: temporaryDirectory.appendingPathComponent("config.json"))
+        let state = AISettingsState(config: service, diagnostics: DiagnosticsService())
+
+        XCTAssertEqual(state.aiProfiles, service.current.ai.profiles)
+        XCTAssertEqual(state.defaultAIProfileID, service.current.ai.defaultProfileID)
+        XCTAssertEqual(state.selectedAIProfileID, service.current.ai.defaultProfileID ?? service.current.ai.profiles.first?.id)
     }
 
     @MainActor

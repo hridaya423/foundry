@@ -4,10 +4,15 @@ import Carbon
 import Foundation
 
 final class SnippetExpansionService: @unchecked Sendable {
+    private let snippetStore: any SnippetStore
     private var eventTap: CFMachPort?
     private var runLoopSource: CFRunLoopSource?
     private var buffer = ""
     private var suppressing = false
+
+    init(snippetStore: any SnippetStore = FileSnippetStore()) {
+        self.snippetStore = snippetStore
+    }
 
     @MainActor
     func start() {
@@ -93,7 +98,7 @@ final class SnippetExpansionService: @unchecked Sendable {
     }
 
     private func matchingSnippet(for keyword: String) -> StoredSnippet? {
-        LibraryPersistence.loadSnippets()
+        snippetStore.load()
             .filter { $0.keyword.isEmpty == false }
             .sorted {
                 if $0.isPinned != $1.isPinned { return $0.isPinned && !$1.isPinned }

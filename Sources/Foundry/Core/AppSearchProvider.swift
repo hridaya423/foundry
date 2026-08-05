@@ -1,5 +1,7 @@
 import AppKit
 import Foundation
+import FoundryDomain
+import FoundryServices
 
 final class AppSearchProvider: CommandProvider, @unchecked Sendable {
     let id = "foundry.apps"
@@ -12,29 +14,21 @@ final class AppSearchProvider: CommandProvider, @unchecked Sendable {
         self.appCache = InstalledAppCache(roots: roots ?? Self.appSearchRoots(), diagnostics: diagnostics)
     }
 
-    func results(matching query: String) async -> [CommandResult] {
-        await results(matching: query, customAliases: [:])
-    }
-
-    func results(matching query: String, customAliases: [String: [String]]) async -> [CommandResult] {
-        await results(matching: query, customAliases: customAliases, sensitivity: .medium)
-    }
-
-    func results(matching query: String, customAliases: [String: [String]], sensitivity: SearchSensitivity) async -> [CommandResult] {
-        let normalizedQuery = SearchScoring.normalize(query)
+    func search(_ request: CommandSearchRequest) async -> [CommandResult] {
+        let normalizedQuery = SearchScoring.normalize(request.query)
         guard normalizedQuery.isEmpty == false else { return [] }
 
         return await appCache.current().compactMap { app -> CommandResult? in
             guard Task.isCancelled == false else { return nil }
             let resultID = "app.\(app.identity)"
-            let aliases = customAliases[resultID] ?? []
+            let aliases = request.customAliases[resultID] ?? []
             guard SearchScoring.match(
                 query: normalizedQuery,
                 title: app.name,
                 subtitle: nil,
                 keywords: app.normalizedSearchCandidates,
                 aliases: aliases,
-                sensitivity: sensitivity
+                sensitivity: request.sensitivity
             ) != nil else { return nil }
 
             return Self.result(for: app, searchAliases: aliases, searchKeywords: app.normalizedSearchCandidates)

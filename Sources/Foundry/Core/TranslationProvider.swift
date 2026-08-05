@@ -1,10 +1,17 @@
 import Foundation
+import FoundryDomain
 
 final class TranslationProvider: CommandProvider {
     let id = "foundry.translation"
 
-    func results(matching query: String) async -> [CommandResult] {
-        guard let request = Self.request(from: query) else { return [] }
+    var searchPolicy: CommandProviderSearchPolicy { CommandProviderSearchPolicy(tier: .deferred) }
+
+    func isActive(for query: String) -> Bool {
+        Self.request(from: query) != nil
+    }
+
+    func search(_ searchRequest: CommandSearchRequest) async -> [CommandResult] {
+        guard let request = Self.request(from: searchRequest.query) else { return [] }
         let translated = await AppleTranslator.translate(request.text, to: request.language)
         return [
             CommandResult(

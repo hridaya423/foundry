@@ -1,5 +1,6 @@
 import AppKit
 import Foundation
+import FoundryServices
 
 @MainActor
 final class FirefoxConnectorInstaller {

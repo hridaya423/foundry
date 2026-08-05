@@ -1,21 +1,14 @@
 import Foundation
+import FoundryDomain
 
 final class DeveloperToolsProvider: CommandProvider {
     let id = "foundry.developer-tools"
 
-    func results(matching query: String) async -> [CommandResult] {
-        await results(matching: query, customAliases: [:])
-    }
-
-    func results(matching query: String, customAliases: [String: [String]]) async -> [CommandResult] {
-        await results(matching: query, customAliases: customAliases, sensitivity: .medium)
-    }
-
-    func results(matching query: String, customAliases: [String: [String]], sensitivity: SearchSensitivity) async -> [CommandResult] {
-        let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
+    func search(_ request: CommandSearchRequest) async -> [CommandResult] {
+        let trimmed = request.query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard trimmed.isEmpty == false else { return [] }
 
-        var results = staticCommandResults(query: trimmed, customAliases: customAliases, sensitivity: sensitivity)
+        var results = staticCommandResults(query: trimmed, customAliases: request.customAliases, sensitivity: request.sensitivity)
         results.append(contentsOf: uuidResults(query: trimmed))
         results.append(contentsOf: base64Results(query: trimmed))
         results.append(contentsOf: jsonResults(query: trimmed))
@@ -24,8 +17,8 @@ final class DeveloperToolsProvider: CommandProvider {
         results.append(contentsOf: bitwiseResults(query: trimmed))
         results.append(contentsOf: baseConversionResults(query: trimmed))
         results.append(contentsOf: wordCountResults(query: trimmed))
-        results.append(contentsOf: loremResults(query: trimmed, sensitivity: sensitivity))
-        results.append(contentsOf: randomDataResults(query: trimmed, sensitivity: sensitivity))
+        results.append(contentsOf: loremResults(query: trimmed, sensitivity: request.sensitivity))
+        results.append(contentsOf: randomDataResults(query: trimmed, sensitivity: request.sensitivity))
 
         return results.map { result in
             CommandResult(

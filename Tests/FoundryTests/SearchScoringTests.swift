@@ -1,5 +1,6 @@
 import XCTest
 @testable import Foundry
+import FoundryDomain
 
 final class SearchScoringTests: XCTestCase {
     func testExactAliasIsStrongestMatch() {

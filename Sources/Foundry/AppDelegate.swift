@@ -1,5 +1,7 @@
 import AppKit
 import ServiceManagement
+import FoundryDomain
+import FoundryServices
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
@@ -10,17 +12,31 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         let diagnostics = DiagnosticsService()
         let config = ConfigService(diagnostics: diagnostics)
-        let actionRunner = ActionRunner(diagnostics: diagnostics)
+        let snippetStore = FileSnippetStore()
+        let usageRanking = UsageRankingStore(diagnostics: diagnostics)
+        let actionRunner = ActionRunner(
+            diagnostics: diagnostics,
+            snippetStore: snippetStore,
+            resetRanking: { commandID in
+                usageRanking.resetRanking(for: commandID)
+            },
+            confirmAction: { action, source in
+                Self.confirm(action: action, source: source)
+            }
+        )
 
         let registry = CommandRegistry.defaultRegistry(
             config: config,
-            diagnostics: diagnostics
+            diagnostics: diagnostics,
+            snippetStore: snippetStore,
+            usageRanking: usageRanking
         )
         let shellController = ShellController(
             registry: registry,
             actionRunner: actionRunner,
             config: config,
-            diagnostics: diagnostics
+            diagnostics: diagnostics,
+            snippetStore: snippetStore
         )
 
         self.shellController = shellController
@@ -36,6 +52,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationWillTerminate(_ notification: Notification) {
         shellController?.stop()
+    }
+
+    private static func confirm(action: CommandActionDescriptor, source: CommandInvocationSource) -> Bool {
+        let alert = NSAlert()
+        alert.alertStyle = .warning
+        alert.messageText = "Confirm \(action.title)"
+        alert.informativeText = source == .external
+            ? "An external integration requested this destructive action. Continue?"
+            : "This action can change or terminate system state. Continue?"
+        alert.addButton(withTitle: "Continue")
+        alert.addButton(withTitle: "Cancel")
+        return alert.runModal() == .alertFirstButtonReturn
     }
 
     private func configureLoginItem(diagnostics: DiagnosticsService) {

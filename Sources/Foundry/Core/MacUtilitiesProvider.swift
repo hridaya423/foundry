@@ -1,6 +1,8 @@
 import AppKit
 import CoreAudio
 import Foundation
+import FoundryDomain
+import FoundryServices
 
 final class MacUtilitiesProvider: CommandProvider {
     let id = "foundry.mac-utilities"
@@ -11,20 +13,16 @@ final class MacUtilitiesProvider: CommandProvider {
         self.processSnapshotProvider = processSnapshotProvider
     }
 
-    func results(matching query: String) async -> [CommandResult] {
-        await results(matching: query, customAliases: [:], sensitivity: .medium)
-    }
-
-    func results(matching query: String, customAliases: [String: [String]], sensitivity: SearchSensitivity) async -> [CommandResult] {
-        let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
+    func search(_ request: CommandSearchRequest) async -> [CommandResult] {
+        let trimmed = request.query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard trimmed.isEmpty == false else { return [] }
 
         var results: [CommandResult] = []
-        results.append(contentsOf: keepAwakeResults(query: trimmed, sensitivity: sensitivity))
+        results.append(contentsOf: keepAwakeResults(query: trimmed, sensitivity: request.sensitivity))
         results.append(contentsOf: killProcessResults(query: trimmed))
         results.append(contentsOf: quitAppResults(query: trimmed))
         results.append(contentsOf: portResults(query: trimmed))
-        results.append(contentsOf: audioDeviceResults(query: trimmed, sensitivity: sensitivity))
+        results.append(contentsOf: audioDeviceResults(query: trimmed, sensitivity: request.sensitivity))
 
         return results
     }
@@ -195,10 +193,10 @@ private enum AudioDevicesUtility {
 
     private static func name(id: AudioDeviceID) -> String? {
         var address = AudioObjectPropertyAddress(mSelector: kAudioObjectPropertyName, mScope: kAudioObjectPropertyScopeGlobal, mElement: kAudioObjectPropertyElementMain)
-        var cfName: CFString = "" as CFString
-        var size = UInt32(MemoryLayout<CFString>.size)
+        var cfName: Unmanaged<CFString>?
+        var size = UInt32(MemoryLayout<Unmanaged<CFString>?>.size)
         guard AudioObjectGetPropertyData(id, &address, 0, nil, &size, &cfName) == noErr else { return nil }
-        return cfName as String
+        return cfName?.takeUnretainedValue() as String?
     }
 
     private static func hasStreams(id: AudioDeviceID, scope: AudioObjectPropertyScope) -> Bool {

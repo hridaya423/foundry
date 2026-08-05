@@ -1,4 +1,5 @@
 import Foundation
+import FoundryServices
 
 enum AgentMonitorService {
     private static let recentSessionWindow: TimeInterval = 24 * 60 * 60

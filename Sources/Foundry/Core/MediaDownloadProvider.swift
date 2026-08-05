@@ -1,4 +1,5 @@
 import Foundation
+import FoundryDomain
 
 enum MediaDownloadDestination {
     private static let key = "mediaDownloadFolder"
@@ -18,8 +19,14 @@ enum MediaDownloadDestination {
 final class MediaDownloadProvider: CommandProvider {
     let id = "foundry.media-download"
 
-    func results(matching query: String) async -> [CommandResult] {
-        guard let url = Self.mediaURL(in: query) else { return [] }
+    var searchPolicy: CommandProviderSearchPolicy { CommandProviderSearchPolicy(tier: .deferred) }
+
+    func isActive(for query: String) -> Bool {
+        Self.mediaURL(in: query) != nil
+    }
+
+    func search(_ request: CommandSearchRequest) async -> [CommandResult] {
+        guard let url = Self.mediaURL(in: request.query) else { return [] }
         let isYouTube = Self.isYouTube(url)
         let isDirectFile = Self.isDirectMediaFile(url)
         let isPlaylist = Self.isPlaylist(url)

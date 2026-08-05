@@ -1,6 +1,8 @@
 import Foundation
 import XCTest
 @testable import Foundry
+import FoundryDomain
+import FoundryServices
 
 final class AppSearchProviderTests: XCTestCase {
     func testSearchDiscoversAppsInstalledAfterProviderInitialization() async throws {

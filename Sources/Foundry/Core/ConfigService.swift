@@ -1,4 +1,6 @@
 import Foundation
+import FoundryDomain
+import FoundryServices
 
 struct FoundryConfig: Codable, Equatable {
     static let currentSchemaVersion = 5
@@ -27,7 +29,11 @@ struct FoundryConfig: Codable, Equatable {
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        schemaVersion = max(try container.decodeIfPresent(Int.self, forKey: .schemaVersion) ?? 1, Self.currentSchemaVersion)
+        let savedSchemaVersion = try container.decodeIfPresent(Int.self, forKey: .schemaVersion) ?? 1
+        guard savedSchemaVersion <= Self.currentSchemaVersion else {
+            throw FoundryConfigMigrationError.unsupportedVersion(savedSchemaVersion)
+        }
+        schemaVersion = Self.currentSchemaVersion
         let savedHotkey = try container.decodeIfPresent(FoundryHotkey.self, forKey: .hotkey)
         if let savedHotkey,
            savedHotkey.keyCode == FoundryHotkey.commandSpace.keyCode,
@@ -151,15 +157,38 @@ enum AIBackend: String, Codable, CaseIterable, Identifiable {
     var id: String { rawValue }
 }
 
-final class ConfigService {
+final class ConfigService: @unchecked Sendable {
     private let diagnostics: DiagnosticsService
     private let url: URL
-    private(set) var current: FoundryConfig
+    private let lock = NSLock()
+    private var storedCurrent: FoundryConfig
+    private var loadError: String?
+
+    var current: FoundryConfig {
+        lock.withLock { storedCurrent }
+    }
+
+    var loadErrorMessage: String? {
+        lock.withLock { loadError }
+    }
 
     init(diagnostics: DiagnosticsService, url: URL = ConfigService.configURL) {
         self.diagnostics = diagnostics
         self.url = url
-        self.current = Self.load(from: url) ?? FoundryConfig()
+        if FileManager.default.fileExists(atPath: url.path) {
+            do {
+                let data = try Data(contentsOf: url)
+                self.storedCurrent = try FoundryConfigMigration.migrate(data)
+                self.loadError = nil
+            } catch {
+                self.storedCurrent = FoundryConfig()
+                self.loadError = error.localizedDescription
+                diagnostics.log("Could not load config at \(url.path): \(error.localizedDescription)")
+            }
+        } else {
+            self.storedCurrent = FoundryConfig()
+            self.loadError = nil
+        }
     }
 
     static var configURL: URL {
@@ -168,122 +197,158 @@ final class ConfigService {
     }
 
     func updateWidgets(_ widgets: WidgetBoardConfig, showAgentShelf: Bool? = nil) throws {
-        var candidate = current
-        candidate.widgets = widgets
-        if let showAgentShelf {
-            candidate.showAgentShelf = showAgentShelf
+        try update { candidate in
+            candidate.widgets = widgets
+            if let showAgentShelf {
+                candidate.showAgentShelf = showAgentShelf
+            }
         }
-        try commit(candidate)
     }
 
     func updateAgentShelfVisibility(_ isVisible: Bool) throws {
-        var candidate = current
-        candidate.showAgentShelf = isVisible
-        try commit(candidate)
+        try update { $0.showAgentShelf = isVisible }
     }
 
     func updateHotkey(_ hotkey: FoundryHotkey) throws {
-        var candidate = current
-        candidate.hotkey = hotkey
-        try commit(candidate)
+        try update { $0.hotkey = hotkey }
     }
 
     func updateThemeIntensity(_ intensity: Double) throws {
-        var candidate = current
-        candidate.themeIntensity = intensity
-        try commit(candidate)
+        try update { $0.themeIntensity = intensity }
     }
 
     func updateAIConfig(_ ai: AIConfig) throws {
-        var candidate = current
-        var normalized = ai
-        normalized.syncProfilesFromLegacyFields()
-        candidate.ai = normalized
-        try commit(candidate)
+        try update { candidate in
+            var normalized = ai
+            normalized.syncProfilesFromLegacyFields()
+            candidate.ai = normalized
+        }
     }
 
     func updateAIProfile(_ profile: AIProviderProfile) throws {
-        var candidate = current
-        if let index = candidate.ai.profiles.firstIndex(where: { $0.id == profile.id }) {
-            candidate.ai.profiles[index] = profile
-        } else {
-            candidate.ai.profiles.append(profile)
+        try update { candidate in
+            if let index = candidate.ai.profiles.firstIndex(where: { $0.id == profile.id }) {
+                candidate.ai.profiles[index] = profile
+            } else {
+                candidate.ai.profiles.append(profile)
+            }
+            if profile.kind == .ollama {
+                candidate.ai.isOllamaEnabled = profile.enabled
+                candidate.ai.ollamaHost = profile.endpoint ?? candidate.ai.ollamaHost
+                candidate.ai.ollamaModel = profile.model
+            }
         }
-        if profile.kind == .ollama {
-            candidate.ai.isOllamaEnabled = profile.enabled
-            candidate.ai.ollamaHost = profile.endpoint ?? candidate.ai.ollamaHost
-            candidate.ai.ollamaModel = profile.model
-        }
-        try commit(candidate)
     }
 
     func removeAIProfile(id: UUID) throws {
-        var candidate = current
-        guard candidate.ai.profiles.contains(where: { $0.id == id }) else { return }
-        candidate.ai.profiles.removeAll { $0.id == id }
-        candidate.ai.fallbackProfileIDs.removeAll { $0 == id }
-        if candidate.ai.defaultProfileID == id {
-            candidate.ai.defaultProfileID = candidate.ai.profiles.first(where: { $0.enabled })?.id
+        try update { candidate in
+            guard candidate.ai.profiles.contains(where: { $0.id == id }) else { return }
+            candidate.ai.profiles.removeAll { $0.id == id }
+            candidate.ai.fallbackProfileIDs.removeAll { $0 == id }
+            if candidate.ai.defaultProfileID == id {
+                candidate.ai.defaultProfileID = candidate.ai.profiles.first(where: { $0.enabled })?.id
+            }
         }
-        try commit(candidate)
     }
 
     func setDefaultAIProfile(id: UUID?) throws {
-        var candidate = current
-        guard id == nil || candidate.ai.profiles.contains(where: { $0.id == id }) else { return }
-        candidate.ai.defaultProfileID = id
-        try commit(candidate)
+        try update { candidate in
+            guard id == nil || candidate.ai.profiles.contains(where: { $0.id == id }) else { return }
+            candidate.ai.defaultProfileID = id
+        }
     }
 
     func setAIFallbackProfiles(_ ids: [UUID]) throws {
-        var candidate = current
-        let available = Set(candidate.ai.profiles.map(\.id))
-        candidate.ai.fallbackProfileIDs = ids.filter { available.contains($0) }
-        try commit(candidate)
+        try update { candidate in
+            let available = Set(candidate.ai.profiles.map(\.id))
+            candidate.ai.fallbackProfileIDs = ids.filter { available.contains($0) }
+        }
     }
 
     func updateSearchSensitivity(_ sensitivity: SearchSensitivity) throws {
-        var candidate = current
-        candidate.searchSensitivity = sensitivity
-        try commit(candidate)
+        try update { $0.searchSensitivity = sensitivity }
     }
 
     func updateCommandPreference(_ preference: CommandPreference, for commandID: String) throws {
         let normalizedID = commandID.trimmingCharacters(in: .whitespacesAndNewlines)
         guard normalizedID.isEmpty == false else { return }
-        var candidate = current
-        candidate.commandPreferences[normalizedID] = preference
-        try commit(candidate)
+        try update { $0.commandPreferences[normalizedID] = preference }
     }
 
     func updateProviderEnabled(_ isEnabled: Bool, for providerID: String) throws {
         let normalizedID = providerID.trimmingCharacters(in: .whitespacesAndNewlines)
         guard normalizedID.isEmpty == false else { return }
-        var candidate = current
-        candidate.providerEnabled[normalizedID] = isEnabled
-        try commit(candidate)
+        try update { $0.providerEnabled[normalizedID] = isEnabled }
     }
 
     func save() throws {
-        try commit(current)
+        lock.lock()
+        defer { lock.unlock() }
+        if let loadError {
+            throw ConfigServiceError.readOnly(loadError)
+        }
+        try writeLocked(storedCurrent)
     }
 
-    private func commit(_ candidate: FoundryConfig) throws {
+    func resetToDefaults() throws {
+        let defaults = FoundryConfig()
+        try write(defaults)
+    }
+
+    private func update(_ mutate: (inout FoundryConfig) -> Void) throws {
+        lock.lock()
+        defer { lock.unlock() }
+
+        if let loadError {
+            throw ConfigServiceError.readOnly(loadError)
+        }
+
+        var candidate = storedCurrent
+        mutate(&candidate)
+        try writeLocked(candidate)
+    }
+
+    private func write(_ candidate: FoundryConfig) throws {
+        lock.lock()
+        defer { lock.unlock() }
+        try writeLocked(candidate)
+    }
+
+    private func writeLocked(_ candidate: FoundryConfig) throws {
+
         do {
             try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
             let data = try JSONEncoder().encode(candidate)
             try data.write(to: url, options: .atomic)
-            current = candidate
+            storedCurrent = candidate
+            loadError = nil
             diagnostics.log("Saved config to \(url.path)")
         } catch {
             diagnostics.log("Failed to save config: \(error.localizedDescription)")
             throw error
         }
     }
+}
 
-    private static func load(from url: URL) -> FoundryConfig? {
-        guard let data = try? Data(contentsOf: url) else { return nil }
-        return try? FoundryConfigMigration.migrate(data)
+enum ConfigServiceError: LocalizedError, Equatable {
+    case readOnly(String)
+
+    var errorDescription: String? {
+        switch self {
+        case let .readOnly(reason):
+            "Foundry settings are read-only until the incompatible configuration is reset: \(reason)"
+        }
+    }
+}
+
+enum FoundryConfigMigrationError: LocalizedError, Equatable {
+    case unsupportedVersion(Int)
+
+    var errorDescription: String? {
+        switch self {
+        case let .unsupportedVersion(version):
+            "Config schema version \(version) is newer than this build supports"
+        }
     }
 }
 
@@ -298,5 +363,13 @@ enum FoundryConfigMigration {
             return 1
         }
         return version
+    }
+}
+
+private extension NSLock {
+    func withLock<T>(_ body: () throws -> T) rethrows -> T {
+        lock()
+        defer { unlock() }
+        return try body()
     }
 }

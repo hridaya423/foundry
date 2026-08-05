@@ -1,10 +1,7 @@
 import AppKit
-import AVFoundation
 import SwiftUI
 import UniformTypeIdentifiers
-#if canImport(Translation)
-import Translation
-#endif
+import FoundryDomain
 
 struct CommandPanelView: View {
     @ObservedObject var state: CommandPanelState
@@ -38,7 +35,7 @@ struct CommandPanelView: View {
     }
 
     var body: some View {
-        VStack(spacing: 0) {
+        let base = VStack(spacing: 0) {
             header
 
             if shouldShowHomeAccessory {
@@ -50,13 +47,18 @@ struct CommandPanelView: View {
 
             footer
         }
-        .background(FoundryBackdrop(intensity: state.themeIntensity, isOpaque: reduceTransparency))
-        .overlay(shellChrome)
-        .clipShape(FoundrySmoothedRectangle(cornerRadius: 28, smoothing: 0.75))
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .environment(\.foundryHoverHighlightsArmed, state.hoverHighlightsArmed)
-        .overlay(dropOverlay)
-        .overlay(alignment: .bottom) {
+
+        let decorated = base
+            .background(FoundryBackdrop(intensity: state.themeIntensity, isOpaque: reduceTransparency))
+            .overlay(shellChrome)
+            .clipShape(FoundrySmoothedRectangle(cornerRadius: 28, smoothing: 0.75))
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+        let highlighted = decorated
+            .environment(\.foundryHoverHighlightsArmed, state.hoverHighlightsArmed)
+            .overlay(dropOverlay)
+
+        let feedbackWrapped = highlighted.overlay(alignment: Alignment.bottom) {
             if let actionFeedback = state.actionFeedback {
                 FoundryGlassSurface(role: .floatingOverlay, shape: Capsule()) {
                     Label(actionFeedback.message, systemImage: actionFeedback.symbolName)
@@ -70,56 +72,60 @@ struct CommandPanelView: View {
                     .transition(.opacity.combined(with: .move(edge: .bottom)))
             }
         }
-        .animation(reduceMotion ? nil : .easeOut(duration: 0.14), value: state.mode)
-        .animation(reduceMotion ? nil : .easeOut(duration: 0.14), value: state.fileShelf.files.count)
-        .animation(reduceMotion ? nil : .easeOut(duration: 0.14), value: state.agents.sessions.count)
-        .onChange(of: state.mode) { _, _ in
-            inputFocused = true
-        }
-        .onChange(of: state.focusToken) { _, _ in
-            inputFocused = true
-        }
-        .onDrop(of: [.fileURL], isTargeted: $isDropTargeted, perform: handleFileDrop)
-        .onDeleteCommand {
-            if state.mode == .fileShelf {
-                state.fileShelf.removeSelected()
+
+        let animated = feedbackWrapped
+            .animation(reduceMotion ? nil : Animation.easeOut(duration: 0.14), value: state.mode)
+            .animation(reduceMotion ? nil : Animation.easeOut(duration: 0.14), value: state.fileShelf.files.count)
+            .animation(reduceMotion ? nil : Animation.easeOut(duration: 0.14), value: state.agents.sessions.count)
+
+        return animated
+            .onChange(of: state.mode) { _, _ in
+                inputFocused = true
             }
-            if state.mode == .clipboardHistory {
-                state.clipboardHistory.removeSelected()
+            .onChange(of: state.focusToken) { _, _ in
+                inputFocused = true
             }
-        }
-        .onAppear {
-            inputFocused = true
-        }
-        .onMoveCommand { direction in
-            switch direction {
-            case .down:
-                if state.mode == .clipboardHistory {
-                    state.clipboardHistory.moveSelection(offset: 3)
-                } else {
-                    state.moveSelectionDown()
+            .onDrop(of: [UTType.fileURL], isTargeted: $isDropTargeted, perform: handleFileDrop)
+            .onDeleteCommand {
+                if state.mode == .fileShelf {
+                    state.fileShelf.removeSelected()
                 }
-            case .up:
                 if state.mode == .clipboardHistory {
-                    state.clipboardHistory.moveSelection(offset: -3)
-                } else {
-                    state.moveSelectionUp()
+                    state.clipboardHistory.removeSelected()
                 }
-            case .left:
-                if state.mode == .emojiPicker { state.emojiPicker.moveLeft() }
-                if state.mode == .clipboardHistory { state.clipboardHistory.moveSelection(offset: -1) }
-            case .right:
-                if state.mode == .emojiPicker { state.emojiPicker.moveRight() }
-                if state.mode == .clipboardHistory { state.clipboardHistory.moveSelection(offset: 1) }
-            default:
-                break
             }
-        }
-        .onExitCommand {
-            if state.handleEscape() == false {
-                dismiss()
+            .onAppear {
+                inputFocused = true
             }
-        }
+            .onMoveCommand { direction in
+                switch direction {
+                case .down:
+                    if state.mode == .clipboardHistory {
+                        state.clipboardHistory.moveSelection(offset: 3)
+                    } else {
+                        state.moveSelectionDown()
+                    }
+                case .up:
+                    if state.mode == .clipboardHistory {
+                        state.clipboardHistory.moveSelection(offset: -3)
+                    } else {
+                        state.moveSelectionUp()
+                    }
+                case .left:
+                    if state.mode == .emojiPicker { state.emojiPicker.moveLeft() }
+                    if state.mode == .clipboardHistory { state.clipboardHistory.moveSelection(offset: -1) }
+                case .right:
+                    if state.mode == .emojiPicker { state.emojiPicker.moveRight() }
+                    if state.mode == .clipboardHistory { state.clipboardHistory.moveSelection(offset: 1) }
+                default:
+                    break
+                }
+            }
+            .onExitCommand {
+                if state.handleEscape() == false {
+                    dismiss()
+                }
+            }
     }
 
     @ViewBuilder
@@ -147,7 +153,7 @@ struct CommandPanelView: View {
             } else if state.mode == .settings {
                 WidgetSettingsView(state: state)
             } else if state.mode == .quickAI {
-                quickAISurface
+                QuickAISurfaceView(quickAI: state.quickAI)
             } else if state.mode == .emojiPicker {
                 EmojiPickerView(state: state.emojiPicker) {
                     if state.emojiPicker.copySelectedEmoji() {
@@ -243,6 +249,47 @@ struct CommandPanelView: View {
         .padding(.bottom, 4)
     }
 
+    private var shelfStrip: some View {
+        Button {
+            state.showFileShelf()
+        } label: {
+            HStack(spacing: 14) {
+                ShelfIconStack(files: Array(state.fileShelf.files.prefix(3)))
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("File Shelf")
+                        .font(FoundryTheme.body(size: 16, weight: .semibold))
+                        .foregroundStyle(FoundryTheme.primaryText)
+                    Text(state.fileShelf.summary)
+                        .font(FoundryTheme.body(size: 12, weight: .regular))
+                        .foregroundStyle(FoundryTheme.secondaryText)
+                }
+
+                Spacer()
+
+                HStack(spacing: 6) {
+                    Text("Open")
+                    Image(systemName: "arrow.right")
+                        .font(.system(size: 11, weight: .semibold))
+                }
+                    .font(FoundryTheme.body(size: 12, weight: .semibold))
+                    .foregroundStyle(FoundryTheme.secondaryText)
+            }
+            .padding(.horizontal, 18)
+            .frame(height: 66)
+            .background(Color.white.opacity(0.075))
+            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .stroke(Color.white.opacity(0.08), lineWidth: 1)
+            )
+            .padding(.horizontal, 20)
+            .padding(.top, 12)
+        }
+        .buttonStyle(PressableButtonStyle())
+        .pointerCursor()
+    }
+
     private var contentID: String {
         if state.mode == .settings { return "settings" }
         if state.mode == .agents { return "agents" }
@@ -309,31 +356,8 @@ struct CommandPanelView: View {
             }
 
             if state.mode == .quickAI {
-                HStack(spacing: 8) {
-                    QuickAIComposer(
-                        text: $state.quickAIQuery,
-                        placeholder: "Ask follow-up...",
-                        onSubmit: { Task { await state.submitQuickAI() } }
-                    )
-                    .focused($inputFocused)
-                    .frame(height: 42)
-
-                    Menu {
-                        Button("New Chat") { state.openQuickAI() }
-                        if state.quickAIThreads.isEmpty == false {
-                            Divider()
-                            ForEach(state.quickAIThreads) { thread in
-                                Button(thread.title) { state.selectQuickAIThread(thread) }
-                            }
-                        }
-                     } label: {
-                         Image(systemName: "text.bubble")
-                             .font(.system(size: 15, weight: .medium))
-                             .foregroundStyle(FoundryTheme.secondaryText)
-                             .frame(width: 30, height: 30)
-                     }
-                     .menuStyle(.borderlessButton)
-                     .pointerCursor()
+                QuickAIHeaderControlsView(quickAI: state.quickAI, inputFocused: $inputFocused) {
+                    state.openQuickAI(initialPrompt: state.query)
                 }
               } else if state.mode == .settings {
                   Text("Settings")
@@ -426,9 +450,7 @@ struct CommandPanelView: View {
                         state.openQuickAI(initialPrompt: state.query)
                     },
                     onReturn: {
-                        if state.executeSelectedResult() {
-                            dismiss()
-                        }
+                        executeSelectedResult()
                     }
                 )
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -473,6 +495,16 @@ struct CommandPanelView: View {
                     .padding(.leading, 6)
                     .transition(.opacity.combined(with: .move(edge: .trailing)))
                 }
+
+                if state.isActionInProgress {
+                    FoundryIconButton(
+                        systemName: "xmark.circle.fill",
+                        accessibilityLabel: "Cancel current action",
+                        tint: FoundryTheme.faintText,
+                        action: state.cancelCurrentAction
+                    )
+                    .help("Cancel current action")
+                }
             }
         }
         .animation(.easeOut(duration: 0.12), value: state.query.isEmpty)
@@ -486,110 +518,6 @@ struct CommandPanelView: View {
                     .frame(height: 1)
             }
         }
-    }
-
-    private var quickAISurface: some View {
-        ScrollView {
-            LazyVStack(alignment: .leading, spacing: 18) {
-                if let active = state.quickAIThreads.first(where: { $0.id == state.activeQuickAIThreadID }) {
-                    ForEach(active.messages) { message in
-                        quickAIMessageRow(message)
-                    }
-                }
-
-                if state.isQuickAILoading,
-                   state.quickAIStatus.hasPrefix("Using ") == false,
-                   state.quickAIStatus.hasPrefix("Finished ") == false {
-                    QuickAIActivityRow(status: state.quickAIStatus)
-                }
-
-                if state.quickAIResponse.isEmpty == false,
-                   state.isQuickAILoading || state.quickAIThreads.first(where: { $0.id == state.activeQuickAIThreadID })?.messages.last?.content != state.quickAIResponse {
-                    AIFormattedText(content: state.quickAIResponse)
-                        .font(FoundryTheme.body(size: 15, weight: .regular))
-                        .foregroundStyle(FoundryTheme.primaryText)
-                        .textSelection(.enabled)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                }
-
-                if state.quickAILastFailedPrompt != nil, state.isQuickAILoading == false {
-                    FoundryActionButton(title: "Retry", systemName: "arrow.clockwise") {
-                        state.retryQuickAI()
-                    }
-                        .padding(.top, 2)
-                }
-            }
-            .padding(.horizontal, 28)
-            .padding(.vertical, 24)
-        }
-    }
-
-    @ViewBuilder
-    private func quickAIMessageRow(_ message: AIChatMessage) -> some View {
-        if message.role == .tool {
-            let isRunning = message.content.hasPrefix("running:")
-            let isComplete = message.content.hasPrefix("complete:")
-            let markerLength = isRunning ? 8 : isComplete ? 9 : 0
-            let payload = String(message.content.dropFirst(markerLength))
-            let parts = payload.split(separator: "\n", maxSplits: 1, omittingEmptySubsequences: false)
-            let name = parts.first.map(String.init) ?? payload
-            let result = parts.dropFirst().first.map(String.init)
-            QuickAIToolEventRow(name: name, isRunning: isRunning, result: result)
-        } else {
-            HStack(alignment: .firstTextBaseline, spacing: 12) {
-                Image(systemName: message.role == .user ? "person.crop.circle" : "sparkles")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(FoundryTheme.faintText)
-                    .frame(width: 20)
-
-                AIFormattedText(content: message.content)
-                    .font(FoundryTheme.body(size: 15, weight: .regular))
-                    .foregroundStyle(message.role == .user ? FoundryTheme.secondaryText : FoundryTheme.primaryText)
-                    .textSelection(.enabled)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-            }
-        }
-    }
-
-    private var shelfStrip: some View {
-        Button {
-            state.showFileShelf()
-        } label: {
-            HStack(spacing: 14) {
-                ShelfIconStack(files: Array(state.fileShelf.files.prefix(3)))
-
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("File Shelf")
-                        .font(FoundryTheme.body(size: 16, weight: .semibold))
-                        .foregroundStyle(FoundryTheme.primaryText)
-                    Text(state.fileShelf.summary)
-                        .font(FoundryTheme.body(size: 12, weight: .regular))
-                        .foregroundStyle(FoundryTheme.secondaryText)
-                }
-
-                Spacer()
-
-                HStack(spacing: 6) {
-                    Text("Open")
-                    Image(systemName: "arrow.right")
-                        .font(.system(size: 11, weight: .semibold))
-                }
-                    .font(FoundryTheme.body(size: 12, weight: .semibold))
-                    .foregroundStyle(FoundryTheme.secondaryText)
-            }
-            .padding(.horizontal, 18)
-            .frame(height: 66)
-            .background(Color.white.opacity(0.075))
-            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .stroke(Color.white.opacity(0.08), lineWidth: 1)
-            )
-            .padding(.horizontal, 20)
-            .padding(.top, 12)
-        }
-        .buttonStyle(PressableButtonStyle())
-        .pointerCursor()
     }
 
     private var resultsSurface: some View {
@@ -745,8 +673,14 @@ struct CommandPanelView: View {
 
     private func execute(_ result: CommandResult) {
         state.select(resultID: result.id)
-        if state.executeSelectedResult() {
-            dismiss()
+        executeSelectedResult()
+    }
+
+    private func executeSelectedResult() {
+        Task { @MainActor in
+            if await state.executeSelectedResult() {
+                dismiss()
+            }
         }
     }
 
@@ -817,9 +751,7 @@ struct CommandPanelView: View {
                             .contentShape(Rectangle())
                             .onTapGesture {
                                 state.select(actionID: action.id)
-                                if state.executeSelectedResult() {
-                                    dismiss()
-                                }
+                                executeSelectedResult()
                             }
                         }
                     }
@@ -1012,108 +944,6 @@ struct CommandPanelView: View {
 
 }
 
-private struct QuickAIActivityRow: View {
-    let status: String
-
-    var body: some View {
-        let presentation = QuickAIToolPresentation.activity(for: status)
-        HStack(spacing: 10) {
-            Image(systemName: presentation.icon)
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(FoundryTheme.faintText)
-                .frame(width: 20)
-
-            QuickAIShimmerLabel(text: presentation.label)
-        }
-    }
-}
-
-private struct QuickAIToolEventRow: View {
-    let name: String
-    let isRunning: Bool
-    let result: String?
-
-    var body: some View {
-        let presentation = QuickAIToolPresentation.tool(named: name, running: isRunning)
-        VStack(alignment: .leading, spacing: 6) {
-            HStack(spacing: 10) {
-                Image(systemName: presentation.icon)
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(FoundryTheme.faintText)
-                    .frame(width: 20)
-
-                if isRunning {
-                    QuickAIShimmerLabel(text: presentation.label)
-                } else {
-                    Text(presentation.label)
-                        .font(FoundryTheme.body(size: 14, weight: .medium))
-                        .foregroundStyle(FoundryTheme.secondaryText)
-                    Image(systemName: "checkmark")
-                        .font(.system(size: 9, weight: .bold))
-                        .foregroundStyle(FoundryTheme.faintText)
-                }
-            }
-
-            if let result, result.isEmpty == false {
-                Text(result)
-                    .font(FoundryTheme.body(size: 11, weight: .regular))
-                    .foregroundStyle(FoundryTheme.mutedText)
-                    .lineLimit(4)
-                    .padding(.leading, 30)
-            }
-        }
-    }
-}
-
-private struct QuickAIShimmerLabel: View {
-    let text: String
-
-    var body: some View {
-        Text(text)
-            .font(FoundryTheme.body(size: 14, weight: .medium))
-            .foregroundStyle(FoundryTheme.secondaryText)
-    }
-}
-
-private enum QuickAIToolPresentation {
-    static func activity(for status: String) -> (icon: String, label: String) {
-        tool(named: status.lowercased(), running: true)
-    }
-
-    static func tool(named name: String, running: Bool) -> (icon: String, label: String) {
-        let normalized = name.replacingOccurrences(of: "_", with: " ").lowercased()
-        if normalized.hasPrefix("web search:") {
-            let query = name.split(separator: ":", maxSplits: 1).last.map(String.init)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? "the web"
-            let summary = String(query.prefix(72))
-            let isSource = query.lowercased().hasPrefix("http://") || query.lowercased().hasPrefix("https://")
-            if isSource { return ("link", running ? "Checking source" : "Source: \(summary)") }
-            return ("link", running ? "Searching: \(summary)" : "Searched: \(summary)")
-        }
-        if normalized.contains("web search") { return ("link", running ? "Searching the web" : "Web search") }
-        if normalized.contains("system context") { return ("clock", running ? "Checking system context" : "System context") }
-        if normalized.contains("clipboard") { return ("doc.on.clipboard", running ? "Reading clipboard" : "Clipboard") }
-        if normalized.contains("open url") { return ("safari", running ? "Opening website" : "Opened website") }
-        if normalized.contains("open app") { return ("app", running ? "Opening application" : "Opened application") }
-        if normalized.contains("copy text") { return ("doc.on.doc", running ? "Copying text" : "Copied text") }
-        if normalized.contains("synthesizing") { return ("sparkles", "Synthesizing answer") }
-        return ("sparkles", running ? "Thinking" : normalized.capitalized)
-    }
-}
-
-private struct AIFormattedText: View {
-    let content: String
-
-    var body: some View {
-        if let attributed = try? AttributedString(
-            markdown: content,
-            options: .init(interpretedSyntax: .inlineOnlyPreservingWhitespace)
-        ) {
-            Text(attributed)
-        } else {
-            Text(content)
-        }
-    }
-}
 
 struct FoundrySmoothedRectangle: InsettableShape {
     var cornerRadius: CGFloat
@@ -1155,1422 +985,6 @@ struct FoundrySmoothedRectangle: InsettableShape {
             let y = copysign(pow(abs(sin(angle)), 2 / exponent), sin(angle)) * radius
             path.addLine(to: CGPoint(x: center.x + x, y: center.y + y))
         }
-    }
-}
-
-private struct FileShelfView: View {
-    @ObservedObject var state: FileShelfState
-    let convertSelected: () -> Void
-    @State private var isConfirmingClear = false
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            if state.files.isEmpty {
-                VStack(spacing: 12) {
-                    Image(systemName: "tray.and.arrow.down")
-                        .font(.system(size: 34, weight: .regular))
-                        .foregroundStyle(FoundryTheme.secondaryText)
-                    Text("Drop files anywhere on Foundry")
-                        .font(FoundryTheme.body(size: 16, weight: .semibold))
-                        .foregroundStyle(FoundryTheme.primaryText)
-                    Text("They stay here temporarily until you remove them or quit.")
-                        .font(FoundryTheme.body(size: 13, weight: .regular))
-                        .foregroundStyle(FoundryTheme.secondaryText)
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-            } else {
-                HStack {
-                    Text("\(state.files.count) file\(state.files.count == 1 ? "" : "s") waiting")
-                        .font(FoundryTheme.body(size: 11, weight: .semibold))
-                        .foregroundStyle(FoundryTheme.faintText)
-                        .textCase(.uppercase)
-                        .tracking(0.5)
-                    Spacer()
-                    if state.selectedFile != nil {
-                        Button("Convert") { convertSelected() }
-                            .buttonStyle(PressableButtonStyle())
-                            .font(FoundryTheme.body(size: 12, weight: .semibold))
-                            .foregroundStyle(FoundryTheme.mutedText)
-                            .pointerCursor()
-                    }
-                    Button("Clear") { isConfirmingClear = true }
-                        .buttonStyle(PressableButtonStyle())
-                        .font(FoundryTheme.body(size: 12, weight: .semibold))
-                        .foregroundStyle(FoundryTheme.mutedText)
-                        .pointerCursor()
-                }
-                .padding(.horizontal, 4)
-
-                ScrollView {
-                    LazyVStack(spacing: 2) {
-                        ForEach(state.files) { file in
-                            FileShelfRow(
-                                file: file,
-                                isSelected: state.selectedID == file.id,
-                                reveal: { NSWorkspace.shared.activateFileViewerSelecting([file.url]) },
-                                remove: { state.remove(id: file.id) }
-                            )
-                            .id(file.id)
-                            .contentShape(Rectangle())
-                            .onTapGesture { state.select(id: file.id) }
-                            .onDrag { NSItemProvider(object: file.url as NSURL) }
-                        }
-                    }
-                }
-                .scrollIndicators(.never)
-            }
-        }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 14)
-        .alert("Clear File Shelf?", isPresented: $isConfirmingClear) {
-            Button("Clear Shelf", role: .destructive) { state.clear() }
-            Button("Cancel", role: .cancel) {}
-        } message: {
-            Text("Remove all waiting files from Foundry. The original files will not be deleted.")
-        }
-    }
-}
-
-private struct FileShelfRow: View {
-    let file: ShelfFile
-    let isSelected: Bool
-    let reveal: () -> Void
-    let remove: () -> Void
-
-    @State private var isHovering = false
-
-    var body: some View {
-        HStack(spacing: 12) {
-            Image(nsImage: IconCache.shared.icon(forFile: file.url.path))
-                .resizable()
-                .aspectRatio(contentMode: .fit)
-                .frame(width: 30, height: 30)
-
-            VStack(alignment: .leading, spacing: 2) {
-                Text(file.name)
-                    .font(FoundryTheme.body(size: 14, weight: .medium))
-                    .foregroundStyle(FoundryTheme.primaryText)
-                    .lineLimit(1)
-                Text(file.location)
-                    .font(FoundryTheme.body(size: 12, weight: .regular))
-                    .foregroundStyle(FoundryTheme.mutedText)
-                    .lineLimit(1)
-            }
-
-            Spacer()
-
-            if isSelected || isHovering {
-                Button(action: reveal) {
-                    Image(systemName: "folder")
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(FoundryTheme.mutedText)
-                        .frame(width: 26, height: 26)
-                        .background(Color.white.opacity(0.06))
-                        .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
-                }
-                .buttonStyle(PressableButtonStyle())
-                .pointerCursor()
-                .accessibilityLabel("Reveal \(file.name) in Finder")
-                .help("Reveal in Finder")
-
-                Button(action: remove) {
-                    Image(systemName: "xmark")
-                        .font(.system(size: 11, weight: .bold))
-                        .foregroundStyle(FoundryTheme.mutedText)
-                        .frame(width: 26, height: 26)
-                        .background(Color.white.opacity(0.06))
-                        .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
-                }
-                .buttonStyle(PressableButtonStyle())
-                .pointerCursor()
-                .accessibilityLabel("Remove \(file.name) from File Shelf")
-                .help("Remove from File Shelf")
-            }
-        }
-        .padding(.horizontal, 12)
-        .frame(height: 48)
-        .background(RowBackground(isSelected: isSelected, isHovering: isHovering, cornerRadius: 10))
-        .animation(.easeOut(duration: 0.10), value: isSelected)
-        .animation(.easeOut(duration: 0.12), value: isHovering)
-        .onHover { hovering in
-            isHovering = hovering
-            if hovering { NSCursor.pointingHand.set() } else { NSCursor.arrow.set() }
-        }
-    }
-}
-
-private struct ShelfIconStack: View {
-    let files: [ShelfFile]
-
-    private var stackWidth: CGFloat {
-        files.count <= 1 ? 40 : min(40 + CGFloat(files.count - 1) * 14, 70)
-    }
-
-    var body: some View {
-        ZStack {
-            ForEach(Array(files.enumerated()), id: \.element.id) { index, file in
-                Image(nsImage: IconCache.shared.icon(forFile: file.url.path))
-                    .resizable()
-                    .aspectRatio(contentMode: .fit)
-                    .frame(width: 34, height: 34)
-                    .background(Color.white.opacity(0.16))
-                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-                    .rotationEffect(.degrees(Double(index - 1) * 5))
-                    .offset(x: CGFloat(index) * 13)
-            }
-        }
-        .frame(width: stackWidth, height: 42, alignment: .leading)
-    }
-}
-
-private struct RowBackground: View {
-    let isSelected: Bool
-    let isHovering: Bool
-    var cornerRadius: CGFloat = 9
-    @Environment(\.foundryHoverHighlightsArmed) private var hoverHighlightsArmed
-
-    private var fill: Color {
-        if isSelected { return FoundryTheme.selection }
-        if isHovering && hoverHighlightsArmed { return FoundryTheme.hover }
-        return Color.clear
-    }
-
-    var body: some View {
-        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-            .fill(fill)
-    }
-}
-
-private struct FoundryHoverHighlightsArmedKey: EnvironmentKey {
-    static let defaultValue = true
-}
-
-private extension EnvironmentValues {
-    var foundryHoverHighlightsArmed: Bool {
-        get { self[FoundryHoverHighlightsArmedKey.self] }
-        set { self[FoundryHoverHighlightsArmedKey.self] = newValue }
-    }
-}
-
-private struct HomeSectionHeader: View {
-    let title: String
-    var action: (() -> Void)? = nil
-
-    var body: some View {
-        HStack {
-            Text(title)
-                .font(FoundryTheme.body(size: 13, weight: .semibold))
-                .foregroundStyle(FoundryTheme.primaryText.opacity(0.72))
-            Spacer()
-            if let action {
-                Button(action: action) {
-                    Image(systemName: "slider.horizontal.3")
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(FoundryTheme.secondaryText)
-                        .frame(width: 28, height: 28)
-                }
-                    .buttonStyle(FoundryQuietButtonStyle())
-                    .pointerCursor()
-                    .accessibilityLabel("Customize widgets")
-                    .help("Customize widgets")
-            }
-        }
-        .padding(.horizontal, 12)
-        .padding(.top, 10)
-        .padding(.bottom, 6)
-    }
-}
-
-private struct HomeResultRow: View {
-    let result: CommandResult
-    let isSelected: Bool
-    let label: String
-
-    @State private var isHovering = false
-
-    var body: some View {
-        HStack(spacing: 12) {
-            AppIcon(icon: result.icon, size: 26, cornerRadius: 6)
-
-            Text(result.title)
-                .font(FoundryTheme.body(size: 14, weight: .medium))
-                .foregroundStyle(FoundryTheme.primaryText)
-                .lineLimit(1)
-
-            Spacer()
-
-            Text(label)
-                .font(FoundryTheme.body(size: 12, weight: .regular))
-                .foregroundStyle(FoundryTheme.faintText)
-                .lineLimit(1)
-        }
-        .padding(.horizontal, 12)
-        .frame(height: 40)
-        .background(RowBackground(isSelected: isSelected, isHovering: isHovering))
-        .animation(.easeOut(duration: 0.12), value: isSelected)
-        .animation(.easeOut(duration: 0.12), value: isHovering)
-        .onHover { hovering in
-            isHovering = hovering
-            if hovering { NSCursor.pointingHand.set() } else { NSCursor.arrow.set() }
-        }
-    }
-}
-
-private struct MediaResultRow: View {
-    let result: CommandResult
-    let isSelected: Bool
-    var isExpanded = false
-
-    @State private var isHovering = false
-
-    var body: some View {
-        HStack(alignment: isExpanded ? .top : .center, spacing: 16) {
-            MediaThumbnail(icon: result.icon, isExpanded: isExpanded)
-
-            VStack(alignment: .leading, spacing: 5) {
-                HStack(spacing: 8) {
-                    Text(result.title)
-                        .font(FoundryTheme.body(size: isExpanded ? 20 : 15, weight: .semibold))
-                        .foregroundStyle(FoundryTheme.primaryText)
-                        .lineLimit(isExpanded ? 2 : 1)
-
-                    Text("Download")
-                        .font(FoundryTheme.body(size: 10, weight: .semibold))
-                        .foregroundStyle(FoundryTheme.secondaryText)
-                        .padding(.horizontal, 7)
-                        .frame(height: 18)
-                        .background(Color.white.opacity(0.08))
-                        .clipShape(Capsule())
-                }
-
-                if let subtitle = result.subtitle {
-                    Text(subtitle)
-                        .font(FoundryTheme.body(size: isExpanded ? 14 : 12, weight: .regular))
-                        .foregroundStyle(FoundryTheme.mutedText)
-                        .lineLimit(isExpanded ? 3 : 2)
-                }
-
-                if isExpanded {
-                    HStack(spacing: 8) {
-                        Image(systemName: "folder")
-                            .font(.system(size: 12, weight: .semibold))
-                        Text(MediaDownloadDestination.folder.path)
-                            .lineLimit(1)
-                            .truncationMode(.middle)
-                    }
-                    .font(FoundryTheme.body(size: 12, weight: .medium))
-                    .foregroundStyle(FoundryTheme.secondaryText)
-                    .padding(.top, 10)
-
-                    Text("Open Actions (⌘K) to change the folder.")
-                        .font(FoundryTheme.body(size: 12, weight: .regular))
-                        .foregroundStyle(FoundryTheme.faintText)
-                }
-            }
-
-            Spacer()
-
-            Image(systemName: "arrow.down.circle.fill")
-                .font(.system(size: 20, weight: .semibold))
-                .foregroundStyle(FoundryTheme.secondaryText)
-        }
-        .padding(.horizontal, isExpanded ? 20 : 12)
-        .padding(.vertical, isExpanded ? 20 : 0)
-        .frame(height: isExpanded ? 260 : 76)
-        .background(RowBackground(isSelected: isSelected, isHovering: isHovering))
-        .animation(.easeOut(duration: 0.12), value: isSelected)
-        .animation(.easeOut(duration: 0.12), value: isHovering)
-        .onHover { hovering in
-            isHovering = hovering
-            if hovering { NSCursor.pointingHand.set() } else { NSCursor.arrow.set() }
-        }
-    }
-}
-
-private struct MediaThumbnail: View {
-    let icon: CommandIcon
-    var isExpanded = false
-
-    var body: some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .fill(Color.white.opacity(0.075))
-
-            if let url = icon.thumbnailURL {
-                AsyncImage(url: url) { phase in
-                    switch phase {
-                    case let .success(image):
-                        image
-                            .resizable()
-                            .scaledToFill()
-                    case .failure:
-                        fallback
-                    case .empty:
-                        ProgressView()
-                            .controlSize(.small)
-                    @unknown default:
-                        fallback
-                    }
-                }
-            } else {
-                fallback
-            }
-        }
-        .frame(width: isExpanded ? 300 : 92, height: isExpanded ? 170 : 52)
-        .clipShape(RoundedRectangle(cornerRadius: isExpanded ? 18 : 10, style: .continuous))
-        .overlay(alignment: .center) {
-            Circle()
-                .fill(Color.black.opacity(0.34))
-                .frame(width: isExpanded ? 44 : 24, height: isExpanded ? 44 : 24)
-                .overlay(
-                    Image(systemName: "play.fill")
-                        .font(.system(size: isExpanded ? 17 : 10, weight: .bold))
-                        .foregroundStyle(.white)
-                        .offset(x: 1)
-                )
-        }
-    }
-
-    private var fallback: some View {
-        Image(systemName: icon.systemName ?? "arrow.down.circle")
-            .font(.system(size: 20, weight: .medium))
-            .foregroundStyle(FoundryTheme.secondaryText)
-    }
-}
-
-private struct ResultRow: View {
-    let result: CommandResult
-    let isSelected: Bool
-    let index: Int
-
-    @State private var isHovering = false
-
-    var body: some View {
-        HStack(spacing: 12) {
-            AppIcon(icon: result.icon, size: 28, cornerRadius: 7)
-
-            VStack(alignment: .leading, spacing: 2) {
-                Text(result.title)
-                    .font(FoundryTheme.body(size: 14, weight: .medium))
-                    .foregroundStyle(FoundryTheme.primaryText)
-                    .lineLimit(1)
-
-                if let subtitle = result.subtitle {
-                    Text(subtitle)
-                        .font(FoundryTheme.body(size: 12, weight: .regular))
-                        .foregroundStyle(FoundryTheme.mutedText)
-                        .lineLimit(1)
-                }
-            }
-
-            Spacer()
-        }
-        .padding(.horizontal, 12)
-        .frame(height: result.subtitle == nil ? 40 : 46)
-        .background(RowBackground(isSelected: isSelected, isHovering: isHovering))
-        .animation(.easeOut(duration: 0.12), value: isSelected)
-        .animation(.easeOut(duration: 0.12), value: isHovering)
-        .onHover { hovering in
-            isHovering = hovering
-            if hovering { NSCursor.pointingHand.set() } else { NSCursor.arrow.set() }
-        }
-    }
-}
-
-private struct ClipboardHistoryView: View {
-    @ObservedObject var state: ClipboardHistoryState
-    @ObservedObject var fileShelf: FileShelfState
-    @State private var isConfirmingClear = false
-
-    private let columns = Array(repeating: GridItem(.flexible(), spacing: 10), count: 3)
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            if state.items.isEmpty {
-                VStack(spacing: 12) {
-                    Image(systemName: "doc.on.clipboard")
-                        .font(.system(size: 34, weight: .regular))
-                        .foregroundStyle(FoundryTheme.secondaryText)
-                    Text("Copy something to start history")
-                        .font(FoundryTheme.body(size: 16, weight: .semibold))
-                        .foregroundStyle(FoundryTheme.primaryText)
-                    Text("Foundry keeps text, files, and images while it is running.")
-                        .font(FoundryTheme.body(size: 13, weight: .regular))
-                        .foregroundStyle(FoundryTheme.secondaryText)
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-            } else {
-                HStack {
-                    Text("\(state.visibleItems.count) item\(state.visibleItems.count == 1 ? "" : "s")")
-                        .font(FoundryTheme.body(size: 11, weight: .semibold))
-                        .foregroundStyle(FoundryTheme.faintText)
-                        .textCase(.uppercase)
-                        .tracking(0.5)
-                    Spacer()
-                    Button("Clear") { isConfirmingClear = true }
-                        .buttonStyle(PressableButtonStyle())
-                        .font(FoundryTheme.body(size: 12, weight: .semibold))
-                        .foregroundStyle(FoundryTheme.mutedText)
-                        .pointerCursor()
-                }
-                .padding(.horizontal, 4)
-
-                ScrollView {
-                    LazyVGrid(columns: columns, alignment: .leading, spacing: 10) {
-                        ForEach(state.visibleItems) { item in
-                            ClipboardHistoryCard(
-                                item: item,
-                                isSelected: state.selectedID == item.id,
-                                copy: { state.copySelected() },
-                                remove: { state.select(id: item.id); state.removeSelected() },
-                                addToShelf: { state.select(id: item.id); state.addSelectedFiles(to: fileShelf) }
-                            )
-                            .id(item.id)
-                            .contentShape(Rectangle())
-                            .onTapGesture {
-                                state.select(id: item.id)
-                            }
-                            .onTapGesture(count: 2) { state.copySelected() }
-                        }
-                    }
-                    .padding(.bottom, 6)
-                }
-                .scrollIndicators(.never)
-            }
-        }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 14)
-        .alert("Clear Clipboard History?", isPresented: $isConfirmingClear) {
-            Button("Clear History", role: .destructive) { state.clear() }
-            Button("Cancel", role: .cancel) {}
-        } message: {
-            Text("Remove the copied items currently held by Foundry.")
-        }
-    }
-}
-
-private struct SnippetsView: View {
-    @ObservedObject var state: SnippetState
-    @State private var isConfirmingDelete = false
-
-    var body: some View {
-        HStack(spacing: 14) {
-            sidebar
-            detail
-        }
-        .padding(.horizontal, 20)
-        .padding(.vertical, 18)
-        .alert("Delete Snippet?", isPresented: $isConfirmingDelete) {
-            Button("Delete Snippet", role: .destructive) { state.removeSelected() }
-            Button("Cancel", role: .cancel) {}
-        } message: {
-            Text("This removes the snippet from Foundry's saved library.")
-        }
-    }
-
-    private var sidebar: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 8) {
-                Text(state.visibleItems.count == 1 ? "1 SNIPPET" : "\(state.visibleItems.count) SNIPPETS")
-                    .font(FoundryTheme.body(size: 11, weight: .semibold))
-                    .foregroundStyle(FoundryTheme.faintText)
-                    .tracking(0.6)
-                    .padding(.leading, 11)
-                Spacer()
-                SnippetIconButton(symbol: "plus", help: "New snippet", action: state.newSnippet)
-            }
-            .frame(height: 30)
-
-            if state.visibleItems.isEmpty {
-                sidebarEmptyState
-            } else {
-                ScrollView {
-                    LazyVStack(spacing: 3) {
-                        ForEach(state.visibleItems) { snippet in
-                            SnippetRow(
-                                snippet: snippet,
-                                subtitle: snippetSubtitle(snippet),
-                                isSelected: state.selectedItem?.id == snippet.id,
-                                select: { state.select(id: snippet.id) }
-                            )
-                        }
-                    }
-                    .padding(.bottom, 2)
-                }
-                .scrollIndicators(.never)
-            }
-        }
-        .padding(16)
-        .frame(width: 264)
-        .frame(maxHeight: .infinity, alignment: .topLeading)
-        .modifier(SnippetPanelSurface())
-    }
-
-    private var sidebarEmptyState: some View {
-        VStack(spacing: 12) {
-            Spacer()
-            Image(systemName: "curlybraces")
-                .font(.system(size: 24, weight: .regular))
-                .foregroundStyle(FoundryTheme.faintText)
-            Text("No snippets yet")
-                .font(FoundryTheme.body(size: 13, weight: .medium))
-                .foregroundStyle(FoundryTheme.secondaryText)
-            newSnippetButton
-            Spacer()
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
-
-
-    @ViewBuilder
-    private var detail: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            if let persistenceError = state.persistenceError {
-                Label(persistenceError, systemImage: "exclamationmark.triangle.fill")
-                    .font(FoundryTheme.body(size: 12, weight: .medium))
-                    .foregroundStyle(FoundryTheme.error)
-                    .lineLimit(2)
-            }
-            if let selected = state.selectedItem {
-                HStack(spacing: 4) {
-                    Text("EDIT SNIPPET")
-                        .font(FoundryTheme.body(size: 11, weight: .semibold))
-                        .foregroundStyle(FoundryTheme.faintText)
-                        .tracking(0.6)
-                        .padding(.leading, 13)
-                    Spacer()
-                    SnippetIconButton(
-                        symbol: selected.isPinned ? "pin.fill" : "pin",
-                        help: selected.isPinned ? "Unpin" : "Pin",
-                        tint: selected.isPinned ? FoundryTheme.primaryText : FoundryTheme.secondaryText,
-                        action: state.togglePinnedSelected
-                    )
-                    SnippetIconButton(symbol: "doc.on.doc", help: "Copy to clipboard", action: state.copySelected)
-                    SnippetIconButton(symbol: "trash", help: "Delete snippet", destructive: true, action: { isConfirmingDelete = true })
-                }
-                .frame(height: 30)
-                SnippetEditor(state: state)
-            } else {
-                detailEmptyState
-            }
-        }
-        .padding(16)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .modifier(SnippetPanelSurface())
-    }
-
-    private var detailEmptyState: some View {
-        VStack(spacing: 12) {
-            Spacer()
-            Image(systemName: "curlybraces.square")
-                .font(.system(size: 30, weight: .regular))
-                .foregroundStyle(FoundryTheme.faintText)
-            VStack(spacing: 4) {
-                Text("No snippet selected")
-                    .font(FoundryTheme.body(size: 14, weight: .semibold))
-                    .foregroundStyle(FoundryTheme.secondaryText)
-                Text("Create a snippet or pick one from the list.")
-                    .font(FoundryTheme.body(size: 12, weight: .regular))
-                    .foregroundStyle(FoundryTheme.mutedText)
-            }
-            newSnippetButton
-            Spacer()
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
-
-    private var newSnippetButton: some View {
-        Button(action: state.newSnippet) {
-            HStack(spacing: 6) {
-                Image(systemName: "plus")
-                    .font(.system(size: 11, weight: .bold))
-                Text("New Snippet")
-                    .font(FoundryTheme.body(size: 12.5, weight: .semibold))
-            }
-            .foregroundStyle(FoundryTheme.primaryText)
-            .padding(.horizontal, 14)
-            .frame(height: 32)
-            .background(
-                RoundedRectangle(cornerRadius: 9, style: .continuous)
-                    .fill(Color.white.opacity(0.08))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 9, style: .continuous)
-                            .strokeBorder(Color.white.opacity(0.10), lineWidth: 1)
-                    )
-            )
-        }
-        .buttonStyle(PressableButtonStyle())
-        .pointerCursor()
-    }
-
-    private func snippetSubtitle(_ snippet: StoredSnippet) -> String {
-        let parts: [String?] = [
-            snippet.keyword.isEmpty ? nil : snippet.keyword,
-            snippet.tags.isEmpty ? nil : snippet.tags.map { "#\($0)" }.joined(separator: " "),
-            relativeDate(snippet.updatedAt)
-        ]
-        return parts.compactMap { $0 }.joined(separator: "  •  ")
-    }
-}
-
-private struct SnippetPanelSurface: ViewModifier {
-    func body(content: Content) -> some View {
-        content
-            .background(Color.white.opacity(0.05))
-            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .strokeBorder(Color.white.opacity(0.07), lineWidth: 1)
-            )
-    }
-}
-
-private struct SnippetIconButton: View {
-    let symbol: String
-    var help: String = ""
-    var tint: Color = FoundryTheme.secondaryText
-    var destructive = false
-    let action: () -> Void
-
-    @State private var isHovering = false
-
-    private var foreground: Color {
-        if isHovering {
-            return destructive ? Color(red: 1.0, green: 0.45, blue: 0.45) : FoundryTheme.primaryText
-        }
-        return tint
-    }
-
-    var body: some View {
-        Button(action: action) {
-            Image(systemName: symbol)
-                .font(.system(size: 12.5, weight: .semibold))
-                .foregroundStyle(foreground)
-                .frame(width: 30, height: 30)
-                .background(
-                    RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .fill(Color.white.opacity(isHovering ? 0.09 : 0))
-                )
-        }
-        .buttonStyle(.plain)
-        .help(help)
-        .accessibilityLabel(help)
-        .animation(.easeOut(duration: 0.12), value: isHovering)
-        .onHover { hovering in
-            isHovering = hovering
-            if hovering { NSCursor.pointingHand.set() } else { NSCursor.arrow.set() }
-        }
-    }
-}
-
-private struct SnippetRow: View {
-    let snippet: StoredSnippet
-    let subtitle: String
-    let isSelected: Bool
-    let select: () -> Void
-
-    @State private var isHovering = false
-
-    var body: some View {
-        HStack(spacing: 10) {
-            VStack(alignment: .leading, spacing: 3) {
-                HStack(spacing: 6) {
-                    Text(snippet.title.isEmpty ? "Untitled Snippet" : snippet.title)
-                        .font(FoundryTheme.body(size: 14, weight: .medium))
-                        .foregroundStyle(FoundryTheme.primaryText)
-                        .lineLimit(1)
-                    if snippet.isPinned {
-                        Image(systemName: "pin.fill")
-                            .font(.system(size: 9, weight: .bold))
-                            .foregroundStyle(FoundryTheme.mutedText)
-                    }
-                }
-                if subtitle.isEmpty == false {
-                    Text(subtitle)
-                        .font(FoundryTheme.body(size: 11.5, weight: .regular))
-                        .foregroundStyle(FoundryTheme.mutedText)
-                        .lineLimit(1)
-                }
-            }
-            Spacer(minLength: 0)
-        }
-        .padding(.horizontal, 11)
-        .frame(height: 48)
-        .background(RowBackground(isSelected: isSelected, isHovering: isHovering, cornerRadius: 10))
-        .contentShape(Rectangle())
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel(snippet.title.isEmpty ? "Untitled Snippet" : snippet.title)
-        .accessibilityValue(isSelected ? "Selected" : subtitle)
-        .accessibilityAddTraits(.isButton)
-        .accessibilityAddTraits(isSelected ? .isSelected : [])
-        .accessibilityHint("Select snippet")
-        .onTapGesture(perform: select)
-        .animation(.easeOut(duration: 0.10), value: isHovering)
-        .onHover { hovering in
-            isHovering = hovering
-            if hovering { NSCursor.pointingHand.set() } else { NSCursor.arrow.set() }
-        }
-    }
-}
-
-private struct SnippetEditor: View {
-    @ObservedObject var state: SnippetState
-    @State private var title = ""
-    @State private var keyword = ""
-    @State private var tags = ""
-    @State private var content = ""
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            TextField("Snippet title", text: $title)
-                .textFieldStyle(.plain)
-                .font(FoundryTheme.body(size: 16, weight: .semibold))
-                .foregroundStyle(FoundryTheme.primaryText)
-                .padding(.horizontal, 13)
-                .frame(height: 40)
-                .background(fieldBackground)
-
-            HStack(spacing: 10) {
-                labeledField(icon: "number", placeholder: "Keyword", text: $keyword)
-                labeledField(icon: "tag", placeholder: "Tags, comma separated", text: $tags)
-            }
-
-            ZStack(alignment: .topLeading) {
-                if content.isEmpty {
-                    Text("Write your snippet…")
-                        .font(FoundryTheme.body(size: 13.5, weight: .regular))
-                        .foregroundStyle(FoundryTheme.faintText)
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 12)
-                        .allowsHitTesting(false)
-                }
-                TextEditor(text: $content)
-                    .font(FoundryTheme.body(size: 13.5, weight: .regular))
-                    .foregroundStyle(FoundryTheme.primaryText)
-                    .scrollContentBackground(.hidden)
-                    .padding(.horizontal, 9)
-                    .padding(.vertical, 5)
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(fieldBackground)
-
-            HStack(spacing: 6) {
-                Image(systemName: "wand.and.stars")
-                    .font(.system(size: 10, weight: .semibold))
-                Text("{clipboard}  {date}  {time}  {cursor}  auto-expand when used")
-                    .font(FoundryTheme.body(size: 11, weight: .regular))
-            }
-            .foregroundStyle(FoundryTheme.faintText)
-            .padding(.leading, 2)
-        }
-        .onAppear { sync() }
-        .onChange(of: state.selectedID) { _, _ in sync() }
-        .onChange(of: title) { _, _ in persist() }
-        .onChange(of: keyword) { _, _ in persist() }
-        .onChange(of: tags) { _, _ in persist() }
-        .onChange(of: content) { _, _ in persist() }
-    }
-
-    private func labeledField(icon: String, placeholder: String, text: Binding<String>) -> some View {
-        HStack(spacing: 8) {
-            Image(systemName: icon)
-                .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(FoundryTheme.faintText)
-            TextField(placeholder, text: text)
-                .textFieldStyle(.plain)
-                .font(FoundryTheme.body(size: 13, weight: .medium))
-                .foregroundStyle(FoundryTheme.primaryText)
-        }
-        .padding(.horizontal, 12)
-        .frame(height: 36)
-        .frame(maxWidth: .infinity)
-        .background(fieldBackground)
-    }
-
-    private var fieldBackground: some View {
-        RoundedRectangle(cornerRadius: 10, style: .continuous)
-            .fill(Color.white.opacity(0.06))
-            .overlay(
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .strokeBorder(Color.white.opacity(0.07), lineWidth: 1)
-            )
-    }
-
-    private func sync() {
-        title = state.selectedItem?.title ?? ""
-        keyword = state.selectedItem?.keyword ?? ""
-        tags = state.selectedItem?.tags.joined(separator: ", ") ?? ""
-        content = state.selectedItem?.content ?? ""
-    }
-
-    private func persist() {
-        state.updateSelected(title: title, content: content, keyword: keyword, tags: tags.split(separator: ",").map { $0.trimmingCharacters(in: .whitespacesAndNewlines) })
-    }
-}
-
-private func relativeDate(_ date: Date) -> String {
-    let seconds = max(0, Int(Date().timeIntervalSince(date)))
-    if seconds < 60 { return "now" }
-    let minutes = seconds / 60
-    if minutes < 60 { return "\(minutes)m ago" }
-    let hours = minutes / 60
-    if hours < 24 { return "\(hours)h ago" }
-    return "\(hours / 24)d ago"
-}
-
-private func relativeDuration(_ date: Date) -> String {
-    let seconds = max(0, Int(Date().timeIntervalSince(date)))
-    if seconds < 60 { return "<1m" }
-    let minutes = seconds / 60
-    if minutes < 60 { return "\(minutes)m" }
-    let hours = minutes / 60
-    if hours < 24 { return "\(hours)h \(minutes % 60)m" }
-    return "\(hours / 24)d"
-}
-
-private struct ClipboardHistoryCard: View {
-    let item: ClipboardHistoryItem
-    let isSelected: Bool
-    let copy: () -> Void
-    let remove: () -> Void
-    let addToShelf: () -> Void
-
-    @State private var isHovering = false
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 12) {
-                RoundedRectangle(cornerRadius: 9, style: .continuous)
-                    .fill(Color.white.opacity(0.075))
-                    .overlay(
-                        Image(systemName: item.systemImage)
-                            .font(.system(size: 15, weight: .medium))
-                            .foregroundStyle(FoundryTheme.secondaryText)
-                    )
-                    .frame(width: 32, height: 32)
-
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(item.title)
-                        .font(FoundryTheme.body(size: 14, weight: .medium))
-                        .foregroundStyle(FoundryTheme.primaryText)
-                        .lineLimit(1)
-                        .truncationMode(.middle)
-                    HStack(spacing: 6) {
-                        Text(item.kindLabel)
-                        Text("•")
-                        Text(item.subtitle)
-                        Text("•")
-                        Text(item.timeLabel)
-                    }
-                    .font(FoundryTheme.body(size: 12, weight: .regular))
-                    .foregroundStyle(FoundryTheme.mutedText)
-                    .lineLimit(1)
-                }
-
-                Spacer(minLength: 0)
-            }
-
-            ClipboardInlinePreview(item: item)
-
-            HStack(spacing: 7) {
-                if item.kindLabel == "Files" {
-                    ClipboardCardButton(symbol: "tray.and.arrow.down", label: "Add files to shelf", action: addToShelf)
-                }
-                ClipboardCardButton(symbol: "doc.on.doc", label: "Copy item", action: copy)
-                ClipboardCardButton(symbol: "xmark", label: "Remove item", action: remove)
-                Spacer(minLength: 0)
-            }
-            .opacity(isSelected || isHovering ? 1 : 0)
-        }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 10)
-        .frame(height: 210, alignment: .topLeading)
-        .background(RowBackground(isSelected: isSelected, isHovering: isHovering, cornerRadius: 10))
-        .animation(.easeOut(duration: 0.10), value: isSelected)
-        .animation(.easeOut(duration: 0.12), value: isHovering)
-        .onHover { hovering in
-            isHovering = hovering
-            if hovering { NSCursor.pointingHand.set() } else { NSCursor.arrow.set() }
-        }
-    }
-}
-
-private struct ClipboardCardButton: View {
-    let symbol: String
-    let label: String
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            Image(systemName: symbol)
-                .font(.system(size: 11, weight: .bold))
-                .foregroundStyle(FoundryTheme.mutedText)
-                .frame(width: 24, height: 24)
-                .background(Color.white.opacity(0.06))
-                .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
-        }
-        .buttonStyle(PressableButtonStyle())
-        .pointerCursor()
-        .accessibilityLabel(label)
-        .help(label)
-    }
-}
-
-private struct TranslatorView: View {
-    @ObservedObject var state: TranslatorState
-
-    var body: some View {
-        VStack(spacing: 14) {
-            HStack(spacing: 12) {
-                TranslatorPane(placeholder: "Enter text", text: $state.sourceText, isEditable: true, accessory: {
-                    sourceLanguageMenu
-                })
-
-                Image(systemName: "arrow.right")
-                    .font(.system(size: 22, weight: .semibold))
-                    .foregroundStyle(FoundryTheme.secondaryText)
-
-                TranslatorPane(placeholder: "Translation", text: $state.result, isEditable: false, copy: state.copyResult) {
-                    languageMenu
-                }
-            }
-
-            HStack(spacing: 10) {
-                if state.isTranslating {
-                    ProgressView()
-                        .controlSize(.small)
-                    Text("Translating")
-                        .font(FoundryTheme.body(size: 13, weight: .semibold))
-                        .foregroundStyle(FoundryTheme.secondaryText)
-                }
-
-                if let translationError = state.translationError {
-                    Image(systemName: "exclamationmark.triangle.fill")
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(FoundryTheme.warning)
-                    Text(translationError)
-                        .font(FoundryTheme.body(size: 12, weight: .medium))
-                        .foregroundStyle(FoundryTheme.warning)
-                        .lineLimit(2)
-                }
-
-                if shouldShowAppleFallback {
-                    FoundryActionButton(title: "Try Apple Translation", systemName: "apple.logo") {
-                        state.requestAppleTranslationFallback()
-                    }
-                }
-
-                Spacer()
-            }
-        }
-        .padding(.horizontal, 20)
-        .padding(.vertical, 18)
-        .background(translationBackend)
-    }
-
-    private var shouldShowAppleFallback: Bool {
-        let value = (state.translationError ?? state.result).lowercased()
-        return value.contains("unsafe") || value.contains("unavailable") || value.contains("failed") || value.contains("require macos")
-    }
-
-    @ViewBuilder
-    private var translationBackend: some View {
-        #if canImport(Translation)
-        if #available(macOS 15.0, *) {
-            AppleTranslationTask(state: state, requestVersion: state.requestVersion)
-        }
-        #endif
-    }
-
-    private var languageMenu: some View {
-        Menu {
-            ForEach(state.languages, id: \.self) { language in
-                Button(language) {
-                    state.targetLanguage = language
-                }
-            }
-        } label: {
-            HStack(spacing: 5) {
-                Text(state.targetLanguage)
-                Image(systemName: "chevron.down")
-                    .font(.system(size: 9, weight: .bold))
-            }
-            .font(FoundryTheme.body(size: 12, weight: .semibold))
-            .foregroundStyle(FoundryTheme.secondaryText)
-            .padding(.horizontal, 10)
-            .frame(height: 26)
-            .background(Color.white.opacity(0.07))
-            .clipShape(Capsule())
-        }
-        .menuStyle(.borderlessButton)
-        .menuIndicator(.hidden)
-        .accessibilityLabel("Target language")
-    }
-
-    private var sourceLanguageMenu: some View {
-        Menu {
-            ForEach(state.languages, id: \.self) { language in
-                Button(language) {
-                    state.sourceLanguage = language
-                }
-            }
-        } label: {
-            HStack(spacing: 5) {
-                Text(state.sourceLanguage)
-                Image(systemName: "chevron.down")
-                    .font(.system(size: 9, weight: .bold))
-            }
-            .font(FoundryTheme.body(size: 12, weight: .semibold))
-            .foregroundStyle(FoundryTheme.secondaryText)
-            .padding(.horizontal, 10)
-            .frame(height: 26)
-            .background(Color.white.opacity(0.07))
-            .clipShape(Capsule())
-        }
-        .menuStyle(.borderlessButton)
-        .menuIndicator(.hidden)
-        .accessibilityLabel("Source language")
-    }
-}
-
-#if canImport(Translation)
-@available(macOS 15.0, *)
-private struct AppleTranslationTask: View {
-    @ObservedObject var state: TranslatorState
-    let requestVersion: Int
-
-    @State private var configuration: TranslationSession.Configuration?
-
-    var body: some View {
-        Color.clear
-            .frame(width: 0, height: 0)
-            .onChange(of: requestVersion) { _, _ in
-                configure()
-            }
-            .translationTask(configuration) { session in
-                let text = state.sourceText.trimmingCharacters(in: .whitespacesAndNewlines)
-                guard text.isEmpty == false else { return }
-                guard state.needsAppleTranslationFallback else {
-                    let modelTranslation = await AppleTranslator.translate(text, from: state.sourceLanguage, to: state.targetLanguage)
-                    state.finishTranslation(modelTranslation)
-                    return
-                }
-
-                do {
-                    nonisolated(unsafe) let translationSession = session
-                    let response = try await translationSession.translate(text)
-                    state.finishTranslation(response.targetText)
-                } catch {
-                    state.finishTranslationError("Apple Translation failed: \(error.localizedDescription)")
-                }
-            }
-    }
-
-    private func configure() {
-        guard requestVersion > 0,
-              let sourceCode = state.languageCode(for: state.sourceLanguage),
-              let targetCode = state.languageCode(for: state.targetLanguage) else { return }
-        configuration = TranslationSession.Configuration(
-            source: Locale.Language(identifier: sourceCode),
-            target: Locale.Language(identifier: targetCode)
-        )
-        configuration?.invalidate()
-    }
-}
-#endif
-
-private struct TranslatorPane<Accessory: View>: View {
-    let placeholder: String
-    @Binding var text: String
-    let isEditable: Bool
-    var copy: (() -> Void)? = nil
-    @ViewBuilder var accessory: () -> Accessory
-
-    init(placeholder: String, text: Binding<String>, isEditable: Bool, copy: (() -> Void)? = nil, @ViewBuilder accessory: @escaping () -> Accessory = { EmptyView() }) {
-        self.placeholder = placeholder
-        self._text = text
-        self.isEditable = isEditable
-        self.copy = copy
-        self.accessory = accessory
-    }
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                if isEditable {
-                    HStack {
-                        accessory()
-                        Spacer()
-                    }
-                } else {
-                    accessory()
-                    if text.isEmpty == false, let copy {
-                        Button(action: copy) {
-                            Image(systemName: "doc.on.doc")
-                                .font(.system(size: 12, weight: .semibold))
-                                .foregroundStyle(FoundryTheme.secondaryText)
-                                .frame(width: 26, height: 26)
-                                .background(Color.white.opacity(0.07))
-                                .clipShape(Circle())
-                        }
-                        .buttonStyle(.plain)
-                        .pointerCursor()
-                        .accessibilityLabel("Copy translation")
-                        .help("Copy translation")
-                    }
-                }
-                Spacer()
-            }
-
-            ZStack(alignment: .topLeading) {
-                if text.isEmpty && isEditable == false {
-                    Text(placeholder)
-                        .font(FoundryTheme.body(size: 18, weight: .regular))
-                        .foregroundStyle(FoundryTheme.faintText)
-                        .padding(.top, 8)
-                        .padding(.leading, 4)
-                }
-
-                if isEditable {
-                    TextField(placeholder, text: $text, axis: .vertical)
-                        .font(FoundryTheme.body(size: 18, weight: .regular))
-                        .foregroundStyle(FoundryTheme.primaryText)
-                        .textFieldStyle(.plain)
-                        .background(Color.clear)
-                        .lineLimit(8...12)
-                        .padding(.top, 8)
-                        .padding(.leading, 4)
-                } else {
-                    Text(text)
-                        .font(FoundryTheme.body(size: 20, weight: .semibold))
-                        .foregroundStyle(FoundryTheme.primaryText)
-                        .textSelection(.enabled)
-                        .padding(.top, 8)
-                        .padding(.leading, 4)
-                }
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        }
-        .padding(18)
-        .frame(maxWidth: .infinity, minHeight: 265, maxHeight: .infinity, alignment: .topLeading)
-        .background(Color.white.opacity(0.055))
-        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .stroke(Color.white.opacity(0.07), lineWidth: 1)
-        )
-    }
-}
-
-private struct ClipboardInlinePreview: View {
-    let item: ClipboardHistoryItem
-
-    var body: some View {
-        switch item.payload {
-        case let .text(value):
-            Text(value)
-                .font(FoundryTheme.body(size: 12, weight: .regular))
-                .foregroundStyle(FoundryTheme.secondaryText)
-                .lineLimit(5)
-                .padding(10)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(Color.black.opacity(0.14))
-                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-        case let .image(data):
-            if let image = NSImage(data: data) {
-                Image(nsImage: image)
-                    .resizable()
-                    .aspectRatio(contentMode: .fill)
-                    .frame(maxWidth: .infinity, minHeight: 96, maxHeight: 104)
-                    .clipped()
-                    .padding(8)
-                    .background(Color.black.opacity(0.16))
-                    .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-            }
-        case let .files(urls):
-            VStack(alignment: .leading, spacing: 5) {
-                ForEach(Array(urls.prefix(3)), id: \.path) { url in
-                    HStack(spacing: 8) {
-                        Image(nsImage: IconCache.shared.icon(forFile: url.path))
-                            .resizable()
-                            .aspectRatio(contentMode: .fit)
-                            .frame(width: 18, height: 18)
-                        Text(url.lastPathComponent)
-                            .font(FoundryTheme.body(size: 12, weight: .medium))
-                            .foregroundStyle(FoundryTheme.secondaryText)
-                            .lineLimit(1)
-                    }
-                }
-            }
-            .padding(10)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Color.black.opacity(0.14))
-            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-        }
-    }
-}
-
-private struct CalculatorResultCard: View {
-    let result: CommandResult
-    var alternatives: [CommandResult] = []
-    var executeAlternative: (CommandResult) -> Void = { _ in }
-
-    private var expression: String {
-        result.subtitle ?? "Calculation"
-    }
-
-    private var separator: String {
-        "→"
-    }
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            header
-            equation
-        }
-        .padding(.horizontal, 8)
-        .padding(.top, 4)
-    }
-
-    private var header: some View {
-        HStack(spacing: 0) {
-            Text("Calculator")
-                .font(FoundryTheme.body(size: 11, weight: .semibold))
-                .foregroundStyle(FoundryTheme.faintText)
-                .textCase(.uppercase)
-                .tracking(0.5)
-
-            Spacer()
-        }
-        .padding(.horizontal, 8)
-    }
-
-    private var equation: some View {
-        HStack(spacing: 0) {
-            CalculatorValuePane(value: expression)
-
-            VStack(spacing: 0) {
-                Rectangle()
-                    .fill(Color.white.opacity(0.08))
-                    .frame(width: 1)
-
-                Text(separator)
-                    .font(.system(size: 32, weight: .regular))
-                    .foregroundStyle(FoundryTheme.secondaryText)
-                    .frame(width: 72, height: 54)
-
-                Rectangle()
-                    .fill(Color.white.opacity(0.08))
-                    .frame(width: 1)
-            }
-
-            CalculatorValuePane(value: result.title, alternatives: alternatives, executeAlternative: executeAlternative)
-        }
-        .frame(height: 112)
-        .background(Color.white.opacity(0.05))
-        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .stroke(Color.white.opacity(0.07), lineWidth: 1)
-        )
-    }
-}
-
-private struct CalculatorValuePane: View {
-    let value: String
-    var alternatives: [CommandResult] = []
-    var executeAlternative: (CommandResult) -> Void = { _ in }
-
-    private var splitValue: (amount: String, unit: String?) {
-        split(value)
-    }
-
-    var body: some View {
-        VStack(spacing: 8) {
-            Text(splitValue.amount)
-                .font(FoundryTheme.display(size: 36, weight: .bold))
-                .foregroundStyle(FoundryTheme.primaryText)
-                .lineLimit(1)
-                .minimumScaleFactor(0.45)
-
-            if let unit = splitValue.unit {
-                Menu {
-                    ForEach(alternatives, id: \.id) { alternative in
-                        Button(split(alternative.title).unit ?? alternative.title) {
-                            withAnimation(.easeOut(duration: 0.16)) {
-                                if let code = currencyCode(in: alternative.title) {
-                                    UserDefaults.standard.set(code, forKey: "preferredCurrencyQuote")
-                                }
-                                executeAlternative(alternative)
-                            }
-                        }
-                    }
-                } label: {
-                    HStack(spacing: 5) {
-                        Text(unit)
-                        if alternatives.isEmpty == false {
-                            Image(systemName: "chevron.down")
-                                .font(.system(size: 9, weight: .bold))
-                        }
-                    }
-                    .font(FoundryTheme.body(size: 13, weight: .semibold))
-                    .foregroundStyle(FoundryTheme.secondaryText)
-                    .padding(.horizontal, 10)
-                    .frame(height: 26)
-                    .background(Color.white.opacity(0.07))
-                    .clipShape(Capsule())
-                }
-                .menuStyle(.borderlessButton)
-                .menuIndicator(.hidden)
-                .fixedSize()
-            }
-        }
-        .frame(maxWidth: .infinity, alignment: .center)
-        .padding(.horizontal, 32)
-    }
-
-    private func split(_ value: String) -> (amount: String, unit: String?) {
-        guard let space = value.firstIndex(of: " ") else { return (value, nil) }
-        return (String(value[..<space]), String(value[value.index(after: space)...]))
-    }
-
-    private func currencyCode(in value: String) -> String? {
-        guard let unit = split(value).unit else { return nil }
-        switch unit {
-        case "US Dollar": return "USD"
-        case "Euro": return "EUR"
-        case "British Pound": return "GBP"
-        case "Indian Rupee": return "INR"
-        case "Japanese Yen": return "JPY"
-        case "Canadian Dollar": return "CAD"
-        case "Australian Dollar": return "AUD"
-        case "Swiss Franc": return "CHF"
-        case "Chinese Yuan": return "CNY"
-        default: return nil
-        }
-    }
-}
-
-private struct CalculatorUseWithHeader: View {
-    let query: String
-
-    private var trimmedQuery: String {
-        query.trimmingCharacters(in: .whitespacesAndNewlines)
-    }
-
-    var body: some View {
-        HStack(spacing: 10) {
-            Text("Use \"\(trimmedQuery)\" with...")
-                .font(FoundryTheme.body(size: 13, weight: .semibold))
-                .foregroundStyle(FoundryTheme.secondaryText)
-
-            Image(systemName: "gearshape")
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(FoundryTheme.mutedText)
-
-            Spacer()
-        }
-        .padding(.horizontal, 8)
     }
 }
 
@@ -2672,396 +1086,6 @@ private struct ActionRow: View {
     }
 }
 
-private struct CameraPreviewView: View {
-    @ObservedObject var state: CameraPreviewState
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            ZStack {
-                RoundedRectangle(cornerRadius: 20, style: .continuous)
-                    .fill(Color.white.opacity(0.05))
-
-                CameraPreviewSurface(session: state.session)
-                    .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
-
-                if let message = state.status.message {
-                    VStack(spacing: 10) {
-                        if state.status == .requestingPermission || state.status == .starting {
-                            ProgressView()
-                                .controlSize(.large)
-                        } else {
-                            Image(systemName: "camera")
-                                .font(.system(size: 28, weight: .medium))
-                                .foregroundStyle(FoundryTheme.secondaryText)
-                        }
-                        Text(message)
-                            .font(FoundryTheme.body(size: 15, weight: .semibold))
-                            .foregroundStyle(FoundryTheme.primaryText)
-
-                        if state.status == .denied {
-                            HStack(spacing: 8) {
-                                Button("Open Privacy Settings") { state.openPrivacySettings() }
-                                Button("Retry") { state.retry() }
-                            }
-                            .buttonStyle(PressableButtonStyle())
-                            .font(FoundryTheme.body(size: 12, weight: .semibold))
-                        } else if state.status == .unavailable || state.status.message?.isEmpty == false && state.status != .requestingPermission && state.status != .starting {
-                            Button("Retry") { state.retry() }
-                                .buttonStyle(PressableButtonStyle())
-                                .font(FoundryTheme.body(size: 12, weight: .semibold))
-                        }
-                    }
-                    .padding(24)
-                }
-            }
-            .overlay(
-                RoundedRectangle(cornerRadius: 20, style: .continuous)
-                    .stroke(Color.white.opacity(0.07), lineWidth: 1)
-            )
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .accessibilityLabel("Live camera preview")
-        }
-        .padding(.horizontal, 20)
-        .padding(.vertical, 18)
-        .onAppear { state.start() }
-        .onDisappear { state.stop() }
-    }
-}
-
-private struct FileConversionView: View {
-    @ObservedObject var state: FileConversionState
-
-    var body: some View {
-        HStack(spacing: 14) {
-            VStack(alignment: .leading, spacing: 14) {
-                HStack {
-                    Text("Source")
-                        .font(FoundryTheme.body(size: 11, weight: .semibold))
-                        .foregroundStyle(FoundryTheme.faintText)
-                        .textCase(.uppercase)
-                        .tracking(0.5)
-                    Spacer()
-                    Button("Choose File") { state.chooseSourceFile() }
-                        .buttonStyle(PressableButtonStyle())
-                        .font(FoundryTheme.body(size: 12, weight: .semibold))
-                        .foregroundStyle(FoundryTheme.secondaryText)
-                        .pointerCursor()
-                }
-
-                sourceCard
-                Spacer(minLength: 0)
-            }
-
-            VStack(alignment: .leading, spacing: 14) {
-                HStack {
-                    Text("Convert To")
-                        .font(FoundryTheme.body(size: 11, weight: .semibold))
-                        .foregroundStyle(FoundryTheme.faintText)
-                        .textCase(.uppercase)
-                        .tracking(0.5)
-                    Spacer()
-                }
-
-                settingsCard
-                Spacer(minLength: 0)
-            }
-        }
-        .padding(.horizontal, 20)
-        .padding(.vertical, 18)
-        .alert("Additional Tool Required", isPresented: dependencyPromptBinding) {
-            Button("Install and Convert") { state.confirmDependencyInstallation() }
-            Button("Cancel", role: .cancel) { state.dependencyPrompt = nil }
-        } message: {
-            Text("Foundry needs \(state.dependencyPrompt ?? "an external tool") to convert this file. Homebrew will install it on your Mac.")
-        }
-    }
-
-    private var dependencyPromptBinding: Binding<Bool> {
-        Binding(
-            get: { state.dependencyPrompt != nil },
-            set: { isPresented in
-                if isPresented == false { state.dependencyPrompt = nil }
-            }
-        )
-    }
-
-    private var sourceCard: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            if let sourceURL = state.sourceURL {
-                HStack(alignment: .top, spacing: 12) {
-                    Image(nsImage: IconCache.shared.icon(forFile: sourceURL.path))
-                        .resizable()
-                        .aspectRatio(contentMode: .fit)
-                        .frame(width: 42, height: 42)
-
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(sourceURL.lastPathComponent)
-                            .font(FoundryTheme.body(size: 15, weight: .semibold))
-                            .foregroundStyle(FoundryTheme.primaryText)
-                            .lineLimit(2)
-                        Text(prettyFolder(sourceURL.deletingLastPathComponent()))
-                            .font(FoundryTheme.body(size: 12, weight: .regular))
-                            .foregroundStyle(FoundryTheme.mutedText)
-                            .lineLimit(2)
-                            .truncationMode(.middle)
-                    }
-                    Spacer(minLength: 0)
-                    if sourceURL.pathExtension.isEmpty == false {
-                        Text(sourceURL.pathExtension.uppercased())
-                            .font(FoundryTheme.body(size: 10, weight: .bold))
-                            .foregroundStyle(FoundryTheme.secondaryText)
-                            .tracking(0.5)
-                            .padding(.horizontal, 8)
-                            .frame(height: 22)
-                            .background(Color.white.opacity(0.08))
-                            .clipShape(Capsule())
-                    }
-                }
-                Spacer(minLength: 0)
-            } else {
-                Button { state.chooseSourceFile() } label: {
-                    VStack(spacing: 12) {
-                        Image(systemName: "doc.badge.plus")
-                            .font(.system(size: 30, weight: .regular))
-                            .foregroundStyle(FoundryTheme.secondaryText)
-                        Text("Choose a file to convert")
-                            .font(FoundryTheme.body(size: 15, weight: .semibold))
-                            .foregroundStyle(FoundryTheme.primaryText)
-                        Text("or drop one onto Foundry")
-                            .font(FoundryTheme.body(size: 12, weight: .regular))
-                            .foregroundStyle(FoundryTheme.faintText)
-                    }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .pointerCursor()
-            }
-        }
-        .padding(18)
-        .frame(maxWidth: .infinity, minHeight: 220, maxHeight: .infinity, alignment: .topLeading)
-        .background(Color.white.opacity(0.055))
-        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(Color.white.opacity(0.07), lineWidth: 1))
-    }
-
-    private var canConvert: Bool {
-        state.sourceURL != nil && state.selectedTarget != nil && state.isConverting == false
-    }
-
-    private var settingsCard: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            if state.availableTargets.isEmpty == false {
-                fieldLabel("Format")
-
-                Menu {
-                    ForEach(groupedTargetCategories, id: \.self) { category in
-                        Section(category.rawValue) {
-                            ForEach(groupedTargets[category] ?? []) { target in
-                                Button(target.title) { state.selectedTargetID = target.id }
-                            }
-                        }
-                    }
-                } label: {
-                    HStack(spacing: 8) {
-                        VStack(alignment: .leading, spacing: 1) {
-                            Text(state.selectedTarget?.title ?? "Choose format")
-                                .font(FoundryTheme.body(size: 14, weight: .semibold))
-                                .foregroundStyle(FoundryTheme.primaryText)
-                            if let category = state.selectedTarget?.category {
-                                Text(category.rawValue)
-                                    .font(FoundryTheme.body(size: 11, weight: .medium))
-                                    .foregroundStyle(FoundryTheme.faintText)
-                            }
-                        }
-                        Spacer(minLength: 0)
-                        Image(systemName: "chevron.up.chevron.down")
-                            .font(.system(size: 11, weight: .semibold))
-                            .foregroundStyle(FoundryTheme.mutedText)
-                    }
-                    .padding(.horizontal, 13)
-                    .frame(height: 40)
-                    .background(fieldBackground)
-                }
-                .menuStyle(.button)
-                .buttonStyle(.plain)
-                .menuIndicator(.hidden)
-                .pointerCursor()
-
-                fieldLabel("Save To")
-
-                Button {
-                    state.chooseOutputFolder()
-                } label: {
-                    HStack(spacing: 8) {
-                        Image(systemName: "folder")
-                            .font(.system(size: 12, weight: .medium))
-                            .foregroundStyle(FoundryTheme.mutedText)
-                        Text(prettyFolder(state.outputFolderURL))
-                            .font(FoundryTheme.body(size: 13, weight: .medium))
-                            .foregroundStyle(FoundryTheme.primaryText)
-                            .lineLimit(1)
-                            .truncationMode(.middle)
-                        Spacer(minLength: 0)
-                    }
-                    .padding(.horizontal, 13)
-                    .frame(height: 40)
-                    .background(fieldBackground)
-                }
-                .buttonStyle(.plain)
-                .pointerCursor()
-
-                Spacer(minLength: 0)
-
-                convertButton
-
-                if let detail = statusDetail {
-                    HStack(spacing: 6) {
-                        Image(systemName: detail.icon)
-                            .font(.system(size: 11, weight: .semibold))
-                        Text(detail.text)
-                            .font(FoundryTheme.body(size: 12, weight: .medium))
-                            .lineLimit(2)
-                    }
-                    .foregroundStyle(detail.color)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                }
-
-                if state.outputURL != nil {
-                    Button("Reveal in Finder") { state.revealOutput() }
-                        .buttonStyle(PressableButtonStyle())
-                        .font(FoundryTheme.body(size: 12, weight: .semibold))
-                        .foregroundStyle(FoundryTheme.secondaryText)
-                        .frame(maxWidth: .infinity)
-                        .pointerCursor()
-                }
-            } else if state.sourceURL != nil {
-                Spacer(minLength: 0)
-                VStack(spacing: 10) {
-                    Image(systemName: "questionmark.folder")
-                        .font(.system(size: 28, weight: .regular))
-                        .foregroundStyle(FoundryTheme.mutedText)
-                    Text("No converter for this file yet")
-                        .font(FoundryTheme.body(size: 14, weight: .semibold))
-                        .foregroundStyle(FoundryTheme.primaryText)
-                    Text("Images, documents and PDFs work out of the box. Audio and video need ffmpeg installed.")
-                        .font(FoundryTheme.body(size: 12, weight: .regular))
-                        .foregroundStyle(FoundryTheme.faintText)
-                        .multilineTextAlignment(.center)
-                }
-                .frame(maxWidth: .infinity)
-                Spacer(minLength: 0)
-            } else {
-                Spacer(minLength: 0)
-                Text("Choose a file to see the formats you can convert it to.")
-                    .font(FoundryTheme.body(size: 13, weight: .regular))
-                    .foregroundStyle(FoundryTheme.faintText)
-                    .frame(maxWidth: .infinity, alignment: .center)
-                    .multilineTextAlignment(.center)
-                Spacer(minLength: 0)
-            }
-        }
-        .padding(18)
-        .frame(maxWidth: .infinity, minHeight: 220, maxHeight: .infinity, alignment: .topLeading)
-        .background(Color.white.opacity(0.055))
-        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(Color.white.opacity(0.07), lineWidth: 1))
-    }
-
-    private var groupedTargets: [FileConversionTarget.Category: [FileConversionTarget]] {
-        Dictionary(grouping: state.availableTargets, by: \.category)
-    }
-
-    private var groupedTargetCategories: [FileConversionTarget.Category] {
-        FileConversionTarget.Category.allCases.filter { groupedTargets[$0]?.isEmpty == false }
-    }
-
-    private var convertButton: some View {
-        Button { state.isConverting ? state.cancel() : state.convert() } label: {
-            HStack(spacing: 8) {
-                if state.isConverting {
-                    ProgressView()
-                        .controlSize(.small)
-                        .tint(FoundryTheme.primaryText)
-                }
-                Text(state.isConverting ? "Cancel Conversion" : "Convert")
-                    .font(FoundryTheme.body(size: 14, weight: .bold))
-            }
-            .frame(maxWidth: .infinity)
-            .frame(height: 44)
-            .foregroundStyle(FoundryTheme.primaryText)
-            .background(convertButtonGlass)
-            .opacity(state.isConverting || canConvert ? 1 : 0.45)
-        }
-        .buttonStyle(PressableButtonStyle())
-        .disabled(state.isConverting == false && canConvert == false)
-        .keyboardShortcut(.defaultAction)
-        .pointerCursor()
-    }
-
-    private var convertButtonGlass: some View {
-        let shape = RoundedRectangle(cornerRadius: 14, style: .continuous)
-        return shape
-            .fill(.ultraThinMaterial)
-            .overlay {
-                shape.fill(Color.white.opacity(0.10))
-            }
-            .overlay {
-                shape.strokeBorder(Color.white.opacity(0.16), lineWidth: 1)
-            }
-            .compositingGroup()
-            .shadow(color: Color.black.opacity(0.28), radius: 12, y: 6)
-    }
-
-    private func fieldLabel(_ text: String) -> some View {
-        Text(text)
-            .font(FoundryTheme.body(size: 11, weight: .semibold))
-            .foregroundStyle(FoundryTheme.faintText)
-            .textCase(.uppercase)
-            .tracking(0.5)
-    }
-
-    private var fieldBackground: some View {
-        RoundedRectangle(cornerRadius: 11, style: .continuous)
-            .fill(Color.white.opacity(0.06))
-            .overlay(
-                RoundedRectangle(cornerRadius: 11, style: .continuous)
-                    .stroke(Color.white.opacity(0.08), lineWidth: 1)
-            )
-    }
-
-    private func prettyFolder(_ url: URL?) -> String {
-        guard let url else { return "Choose folder" }
-        let home = FileManager.default.homeDirectoryForCurrentUser.path
-        let path = url.path
-        return path.hasPrefix(home) ? "~" + path.dropFirst(home.count) : path
-    }
-
-    private var statusDetail: (text: String, icon: String, color: Color)? {
-        if state.isConverting { return nil }
-        if state.status.isEmpty { return nil }
-        if state.outputURL != nil {
-            return (state.status, "checkmark.circle.fill", Color.green.opacity(0.85))
-        }
-        return (state.status, "exclamationmark.triangle.fill", Color.orange.opacity(0.9))
-    }
-}
-
-private struct CameraPreviewSurface: NSViewRepresentable {
-    let session: AVCaptureSession
-
-    func makeNSView(context: Context) -> PreviewView {
-        let view = PreviewView()
-        view.previewLayer.videoGravity = .resizeAspectFill
-        view.previewLayer.session = session
-        return view
-    }
-
-    func updateNSView(_ nsView: PreviewView, context: Context) {
-        nsView.previewLayer.session = session
-    }
-}
-
 private struct LauncherSearchField: NSViewRepresentable {
     @Binding var text: String
     let placeholder: String
@@ -3129,114 +1153,6 @@ private struct LauncherSearchField: NSViewRepresentable {
     }
 }
 
-private struct QuickAIComposer: NSViewRepresentable {
-    @Binding var text: String
-    let placeholder: String
-    let onSubmit: () -> Void
-
-    func makeNSView(context: Context) -> QuickAITextView {
-        let view = QuickAITextView()
-        view.placeholder = placeholder
-        view.onSubmit = onSubmit
-        view.delegate = context.coordinator
-        DispatchQueue.main.async {
-            view.window?.makeFirstResponder(view.textView)
-        }
-        return view
-    }
-
-    func updateNSView(_ nsView: QuickAITextView, context: Context) {
-        if nsView.textView.string != text { nsView.textView.string = text }
-        nsView.placeholder = placeholder
-        nsView.onSubmit = onSubmit
-        nsView.delegate = context.coordinator
-    }
-
-    func makeCoordinator() -> Coordinator { Coordinator(text: $text) }
-
-    final class Coordinator: NSObject, NSTextViewDelegate {
-        var text: Binding<String>
-        init(text: Binding<String>) { self.text = text }
-        func textDidChange(_ notification: Notification) {
-            guard let view = notification.object as? NSTextView else { return }
-            text.wrappedValue = view.string
-        }
-    }
-}
-
-private final class QuickAITextView: NSScrollView {
-    fileprivate var placeholder: String = "" { didSet { textView.needsDisplay = true } }
-    fileprivate var onSubmit: (() -> Void)?
-    fileprivate var textView: QuickAITextViewContent { textViewContent }
-    fileprivate var delegate: NSTextViewDelegate? {
-        get { textViewContent.delegate }
-        set { textViewContent.delegate = newValue }
-    }
-
-    private let textViewContent = QuickAITextViewContent()
-
-    override init(frame frameRect: NSRect) {
-        super.init(frame: frameRect)
-        drawsBackground = false
-        borderType = .noBorder
-        hasVerticalScroller = true
-        verticalScroller?.controlSize = .small
-        scrollerStyle = .overlay
-        documentView = textViewContent
-        textViewContent.isEditable = true
-        textViewContent.isSelectable = true
-        textViewContent.isRichText = false
-        textViewContent.importsGraphics = false
-        textViewContent.drawsBackground = false
-        textViewContent.isVerticallyResizable = true
-        textViewContent.isHorizontallyResizable = false
-        textViewContent.textContainerInset = NSSize(width: 2, height: 8)
-        textViewContent.textContainer?.widthTracksTextView = true
-        textViewContent.textContainer?.containerSize = NSSize(width: 0, height: CGFloat.greatestFiniteMagnitude)
-        textViewContent.placeholderRef = { [weak self] in self?.placeholder ?? "" }
-        textViewContent.submitAction = { [weak self] in self?.onSubmit?() }
-        textViewContent.font = NSFont.systemFont(ofSize: 21, weight: .regular)
-        textViewContent.textColor = .white
-        textViewContent.insertionPointColor = .white
-        textViewContent.isAutomaticTextCompletionEnabled = false
-    }
-
-    required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
-}
-
-private final class QuickAITextViewContent: NSTextView {
-    var placeholderRef: (() -> String)?
-    var submitAction: (() -> Void)?
-
-    override func keyDown(with event: NSEvent) {
-        switch event.keyCode {
-        case 48:
-            interpretKeyEvents([event])
-        case 36:
-            if event.modifierFlags.contains(.shift) {
-                super.keyDown(with: event)
-            } else {
-                submitAction?()
-            }
-        default:
-            super.keyDown(with: event)
-        }
-    }
-
-    override func insertTab(_ sender: Any?) {
-        insertText("\t", replacementRange: selectedRange())
-    }
-
-    override func draw(_ dirtyRect: NSRect) {
-        super.draw(dirtyRect)
-        guard string.isEmpty, let placeholder = placeholderRef?(), placeholder.isEmpty == false else { return }
-        let attrs: [NSAttributedString.Key: Any] = [
-            .font: font ?? NSFont.systemFont(ofSize: 21),
-            .foregroundColor: NSColor.white.withAlphaComponent(0.34)
-        ]
-        placeholder.draw(in: NSRect(x: 4, y: 10, width: bounds.width - 8, height: 24), withAttributes: attrs)
-    }
-}
 
 private final class LauncherSearchTextField: NSTextField {
     var onTab: (() -> Void)?
@@ -3259,85 +1175,6 @@ private final class LauncherSearchTextField: NSTextField {
         default:
             super.keyDown(with: event)
         }
-    }
-}
-
-private final class PreviewView: NSView {
-    let previewLayer = AVCaptureVideoPreviewLayer()
-
-    override init(frame frameRect: NSRect) {
-        super.init(frame: frameRect)
-        wantsLayer = true
-        layer = CALayer()
-        previewLayer.autoresizingMask = [.layerWidthSizable, .layerHeightSizable]
-        previewLayer.frame = bounds
-        layer?.addSublayer(previewLayer)
-    }
-
-    required init?(coder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
-    }
-
-    override func layout() {
-        super.layout()
-        previewLayer.frame = bounds
-    }
-}
-
-private struct AppIcon: View {
-    let icon: CommandIcon
-    var size: CGFloat = 34
-    var cornerRadius: CGFloat = 9
-
-    var body: some View {
-        Group {
-            if let image = nsImage {
-                Image(nsImage: image)
-                    .resizable()
-                    .aspectRatio(contentMode: .fit)
-            } else if let systemName = icon.systemName {
-                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .fill(Color.white.opacity(0.075))
-                    .overlay(
-                        Image(systemName: systemName)
-                            .font(.system(size: size * 0.47, weight: .medium))
-                            .foregroundStyle(FoundryTheme.secondaryText)
-                    )
-            } else {
-                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .fill(Color.white.opacity(0.075))
-                    .overlay(
-                        Text(icon.fallback)
-                            .font(FoundryTheme.body(size: size * 0.32, weight: .semibold))
-                            .foregroundStyle(FoundryTheme.secondaryText)
-                    )
-            }
-        }
-        .frame(width: size, height: size)
-    }
-
-    private var nsImage: NSImage? {
-        guard let filePath = icon.filePath else { return nil }
-        return IconCache.shared.icon(forFile: filePath)
-    }
-}
-
-@MainActor
-private final class IconCache {
-    static let shared = IconCache()
-
-    private let cache = NSCache<NSString, NSImage>()
-
-    func icon(forFile path: String) -> NSImage {
-        let key = path as NSString
-        if let cached = cache.object(forKey: key) {
-            return cached
-        }
-
-        let image = NSWorkspace.shared.icon(forFile: path)
-        image.size = NSSize(width: 34, height: 34)
-        cache.setObject(image, forKey: key)
-        return image
     }
 }
 
@@ -3365,15 +1202,5 @@ private struct FooterAction: View {
 
             KeycapHint(text: keys)
         }
-    }
-}
-
-
-private struct PressableButtonStyle: ButtonStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .scaleEffect(configuration.isPressed ? 0.975 : 1)
-            .opacity(configuration.isPressed ? 0.82 : 1)
-            .animation(.easeOut(duration: 0.10), value: configuration.isPressed)
     }
 }

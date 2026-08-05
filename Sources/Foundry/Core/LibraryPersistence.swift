@@ -20,30 +20,31 @@ struct StoredSnippet: Codable, Identifiable, Hashable {
     }
 }
 
-enum LibraryPersistence {
-    static var snippetsURL: URL {
-        ConfigService.configURL.deletingLastPathComponent().appendingPathComponent("snippets.json")
+protocol SnippetStore: Sendable {
+    var url: URL { get }
+    func load() -> [StoredSnippet]
+    @discardableResult
+    func save(_ snippets: [StoredSnippet]) -> Result<Void, Error>
+}
+
+final class FileSnippetStore: SnippetStore, @unchecked Sendable {
+    let url: URL
+
+    init(url: URL = ConfigService.configURL.deletingLastPathComponent().appendingPathComponent("snippets.json")) {
+        self.url = url
     }
 
-    static func loadSnippets() -> [StoredSnippet] {
-        load([StoredSnippet].self, from: snippetsURL) ?? []
+    func load() -> [StoredSnippet] {
+        guard let data = try? Data(contentsOf: url) else { return [] }
+        return (try? JSONDecoder().decode([StoredSnippet].self, from: data)) ?? []
     }
 
     @discardableResult
-    static func saveSnippets(_ snippets: [StoredSnippet]) -> Result<Void, Error> {
-        save(snippets, to: snippetsURL)
-    }
-
-    private static func load<T: Decodable>(_ type: T.Type, from url: URL) -> T? {
-        guard let data = try? Data(contentsOf: url) else { return nil }
-        return try? JSONDecoder().decode(T.self, from: data)
-    }
-
-    private static func save<T: Encodable>(_ value: T, to url: URL) -> Result<Void, Error> {
+    func save(_ snippets: [StoredSnippet]) -> Result<Void, Error> {
         let folder = url.deletingLastPathComponent()
         do {
             try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-            let data = try JSONEncoder().encode(value)
+            let data = try JSONEncoder().encode(snippets)
             try data.write(to: url, options: .atomic)
             return .success(())
         } catch {

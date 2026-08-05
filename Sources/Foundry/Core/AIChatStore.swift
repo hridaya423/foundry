@@ -1,4 +1,5 @@
 import Foundation
+import FoundryServices
 
 struct AIChatThread: Identifiable, Codable, Hashable, Sendable {
     let id: UUID

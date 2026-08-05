@@ -1,172 +1,34 @@
 import Foundation
-
-enum SearchRoute: String, CaseIterable, Hashable, Sendable {
-    case calculator
-    case translation
-    case mediaDownload
-    case notesSearch
-    case aiResponse
-    case macUtility
-    case browserTab
-    case browserBookmark
-    case browserHistory
-    case developerTool
-}
-
-struct CommandResult: Identifiable, Hashable, Sendable {
-    let id: String
-    let title: String
-    let subtitle: String?
-    let icon: CommandIcon
-    let searchAliases: [String]
-    let searchKeywords: [String]
-    let route: SearchRoute?
-    let primaryAction: CommandAction
-    let secondaryActions: [CommandAction]
-
-    init(
-        id: String,
-        title: String,
-        subtitle: String?,
-        icon: CommandIcon,
-        searchAliases: [String] = [],
-        searchKeywords: [String] = [],
-        route: SearchRoute? = nil,
-        primaryAction: CommandAction,
-        secondaryActions: [CommandAction]
-    ) {
-        self.id = id
-        self.title = title
-        self.subtitle = subtitle
-        self.icon = icon
-        self.searchAliases = searchAliases
-        self.searchKeywords = searchKeywords
-        self.route = route
-        self.primaryAction = primaryAction
-        self.secondaryActions = secondaryActions
-    }
-}
-
-struct CommandIcon: Codable, Hashable, Sendable {
-    let fallback: String
-    let filePath: String?
-    let systemName: String?
-    let thumbnailURL: URL?
-
-    init(fallback: String, filePath: String? = nil, systemName: String? = nil, thumbnailURL: URL? = nil) {
-        self.fallback = fallback
-        self.filePath = filePath
-        self.systemName = systemName
-        self.thumbnailURL = thumbnailURL
-    }
-}
-
-struct CommandAction: Hashable, Sendable {
-    let id: String
-    let title: String
-    let kind: CommandActionKind
-
-    static func == (lhs: CommandAction, rhs: CommandAction) -> Bool {
-        lhs.id == rhs.id
-    }
-
-    func hash(into hasher: inout Hasher) {
-        hasher.combine(id)
-    }
-}
-
-enum CommandActionKind: Hashable, Sendable {
-    case openQuickAI(prompt: String)
-    case openApp(path: String, name: String)
-    case openURL(String)
-    case openConfigFolder
-    case revealInFinder(path: String)
-    case copyToClipboard(String)
-    case pasteText(String)
-    case createSnippetFromClipboard
-    case importSnippets
-    case downloadMedia(url: String)
-    case chooseMediaDownloadFolder
-    case openEmojiPicker
-    case openFileShelf
-    case openClipboardHistory
-    case openSnippets
-    case openFileConverter(path: String? = nil)
-    case openCamera
-    case openTranslator(text: String? = nil, language: String? = nil)
-    case openDeveloperTools(tool: String? = nil)
-    case openSettings
-    case openDashboard
-    case terminateProcess(pid: Int32)
-    case quitApplication(bundleID: String?, name: String)
-    case toggleKeepAwake
-    case terminatePort(Int)
-    case setAudioDevice(id: UInt32, kind: AudioDeviceKind)
-    case resetRanking(commandID: String)
-    case rebuildApp
-    case runProcess(path: String, arguments: [String])
-    case quit
-    case log(String)
-}
-
-enum AudioDeviceKind: Hashable, Sendable {
-    case output
-    case input
-}
-
-protocol CommandProvider: Sendable {
-    var id: String { get }
-    func results(matching query: String) async -> [CommandResult]
-    func results(matching query: String, customAliases: [String: [String]]) async -> [CommandResult]
-    func results(matching query: String, customAliases: [String: [String]], sensitivity: SearchSensitivity) async -> [CommandResult]
-    func results(matching query: String, customAliases: [String: [String]], sensitivity: SearchSensitivity, deadline: ContinuousClock.Instant) async -> [CommandResult]
-    func defaultResults() async -> [CommandResult]
-    func defaultResults(deadline: ContinuousClock.Instant) async -> [CommandResult]
-}
-
-extension CommandProvider {
-    func results(matching query: String, customAliases: [String: [String]]) async -> [CommandResult] {
-        await results(matching: query)
-    }
-
-    func results(matching query: String, customAliases: [String: [String]], sensitivity: SearchSensitivity) async -> [CommandResult] {
-        await results(matching: query, customAliases: customAliases)
-    }
-
-    func results(matching query: String, customAliases: [String: [String]], sensitivity: SearchSensitivity, deadline: ContinuousClock.Instant) async -> [CommandResult] {
-        guard ContinuousClock().now < deadline else { return [] }
-        return await results(matching: query, customAliases: customAliases, sensitivity: sensitivity)
-    }
-
-    func defaultResults() async -> [CommandResult] { [] }
-
-    func defaultResults(deadline: ContinuousClock.Instant) async -> [CommandResult] {
-        guard ContinuousClock().now < deadline else { return [] }
-        return await defaultResults()
-    }
-}
+import FoundryDomain
+import FoundryServices
 
 final class CommandRegistry: @unchecked Sendable {
     private let providers: [CommandProvider]
     private let usageRanking: UsageRankingStore
     private let diagnostics: DiagnosticsService
     private let providerHealth: ProviderHealthStore
+    private let providerScheduler: CommandProviderScheduler
+    private let ranker: CommandRanker
     private let configService: ConfigService?
-    private let catalogCache = CommandCatalogCache()
+    private let catalogCache: CommandCatalogCache
 
     init(providers: [CommandProvider], usageRanking: UsageRankingStore, diagnostics: DiagnosticsService, providerHealth: ProviderHealthStore = ProviderHealthStore(), configService: ConfigService? = nil) {
         self.providers = providers
         self.usageRanking = usageRanking
         self.diagnostics = diagnostics
         self.providerHealth = providerHealth
+        self.providerScheduler = CommandProviderScheduler(diagnostics: diagnostics, providerHealth: providerHealth)
+        self.ranker = CommandRanker(usageRanking: usageRanking, configService: configService)
         self.configService = configService
+        self.catalogCache = CommandCatalogCache(scheduler: providerScheduler)
     }
 
     static func defaultRegistry(
         config: ConfigService,
-        diagnostics: DiagnosticsService
+        diagnostics: DiagnosticsService,
+        snippetStore: any SnippetStore = FileSnippetStore(),
+        usageRanking: UsageRankingStore? = nil
     ) -> CommandRegistry {
-        let usageRanking = UsageRankingStore(diagnostics: diagnostics)
         return CommandRegistry(
             providers: [
                 AppSearchProvider(diagnostics: diagnostics),
@@ -177,12 +39,12 @@ final class CommandRegistry: @unchecked Sendable {
                 AIProvider(config: config, diagnostics: diagnostics),
                 AppleNotesProvider(),
                 BrowserProvider(),
-                LibraryProvider(),
+                LibraryProvider(store: snippetStore),
                 MediaDownloadProvider(),
                 SystemCommandProvider(diagnostics: diagnostics),
                 BuiltInCommandProvider(config: config, diagnostics: diagnostics)
             ],
-            usageRanking: usageRanking,
+            usageRanking: usageRanking ?? UsageRankingStore(diagnostics: diagnostics),
             diagnostics: diagnostics,
             configService: config
         )
@@ -193,37 +55,66 @@ final class CommandRegistry: @unchecked Sendable {
     }
 
     func immediateResults(matching query: String) async -> [CommandResult] {
-        let activeProviders = enabledProviders.filter { immediateProviderIDs.contains($0.id) }
-        let (providerCandidates, _) = await collectCandidates(query: query, providers: activeProviders, aliases: customAliases, timeout: .milliseconds(80))
+        await immediateSearchPhase(matching: query).results
+    }
+
+    func immediateSearchPhase(matching query: String) async -> CommandSearchPhase {
+        let activeProviders = enabledProviders.filter {
+            $0.searchPolicy.tier == .immediate && $0.isActive(for: query)
+        }
+        let (providerCandidates, timings) = await collectCandidates(query: query, providers: activeProviders, aliases: customAliases, timeout: .milliseconds(80))
         var candidates = providerCandidates.filter { isCommandEnabled($0.result) }
         let sensitivity = configService?.current.searchSensitivity ?? .medium
 
-        if let browserProvider = enabledProviders.compactMap({ $0 as? BrowserProvider }).first {
-            candidates.append(contentsOf: browserProvider.cachedResults(matching: query, sensitivity: sensitivity).enumerated().map { index, result in
-                RankCandidate(result: result, providerID: browserProvider.id, sourceOrder: index)
+        for provider in supplementalProviders {
+            candidates.append(contentsOf: provider.supplementalResults(matching: query, sensitivity: sensitivity).enumerated().map { index, result in
+                RankCandidate(result: result, providerID: provider.id, sourceOrder: index)
             })
         }
 
-        return Array(ordered(deduplicated(candidates), query: query).prefix(12))
+        return CommandSearchPhase(
+            results: Array(ranker.ordered(ranker.deduplicated(candidates), query: query).prefix(12)),
+            completedProviderIDs: Set(timings.compactMap { timing in
+                timing.status == .success ? timing.providerID : nil
+            })
+        )
     }
 
-    func completeResults(matching query: String, initialResults: [CommandResult]) async -> [CommandResult] {
-        let deferredProviders = deferredProviders(for: query)
-        let (providerCandidates, timings) = await collectCandidates(query: query, providers: deferredProviders, aliases: customAliases, timeout: .milliseconds(250))
+    func completeResults(
+        matching query: String,
+        initialResults: [CommandResult],
+        completedProviderIDs: Set<String> = []
+    ) async -> [CommandResult] {
+        let activeProviders = enabledProviders.filter { $0.isActive(for: query) }
+        let providers = activeProviders.filter { provider in
+            provider.searchPolicy.tier == .deferred || completedProviderIDs.contains(provider.id) == false
+        }
+        let (providerCandidates, timings) = await collectCandidates(query: query, providers: providers, aliases: customAliases, timeout: .milliseconds(250))
         var candidates = initialResults.enumerated().map { index, result in
             RankCandidate(result: result, providerID: "foundry.immediate", sourceOrder: index)
         }
         candidates.append(contentsOf: providerCandidates)
         let sensitivity = configService?.current.searchSensitivity ?? .medium
 
-        if let browserProvider = deferredProviders.compactMap({ $0 as? BrowserProvider }).first {
+        for provider in supplementalProviders {
             let existingIDs = Set(candidates.map { $0.result.id })
-            candidates.append(contentsOf: browserProvider.cachedResults(matching: query, sensitivity: sensitivity).enumerated().compactMap { index, result in
-                existingIDs.contains(result.id) ? nil : RankCandidate(result: result, providerID: browserProvider.id, sourceOrder: index)
+            candidates.append(contentsOf: provider.supplementalResults(matching: query, sensitivity: sensitivity).enumerated().compactMap { index, result in
+                existingIDs.contains(result.id) ? nil : RankCandidate(result: result, providerID: provider.id, sourceOrder: index)
             })
         }
 
-        candidates = deduplicated(candidates.filter { isCommandEnabled($0.result) })
+        candidates = ranker.deduplicated(candidates.filter { isCommandEnabled($0.result) })
+        if candidates.isEmpty {
+            for provider in activeProviders {
+                guard isFallbackEligible(for: provider) else { continue }
+                let fallbackResults = (try? await provider.fallbackResults(matching: query, sensitivity: sensitivity)) ?? []
+                let eligibleResults = fallbackResults.filter { isFallbackEligible(for: $0) && isCommandEnabled($0) }
+                candidates.append(contentsOf: eligibleResults.enumerated().map { index, result in
+                    RankCandidate(result: result, providerID: provider.id, sourceOrder: index)
+                })
+                if eligibleResults.isEmpty == false { break }
+            }
+        }
         if candidates.isEmpty {
             let prompt = query.trimmingCharacters(in: .whitespacesAndNewlines)
             if prompt.isEmpty == false {
@@ -239,31 +130,35 @@ final class CommandRegistry: @unchecked Sendable {
         }
 
         logSearchTimings(timings)
-        return Array(ordered(candidates, query: query).prefix(12))
+        return Array(ranker.ordered(candidates, query: query).prefix(12))
     }
 
     func results(matching query: String, customAliases: [String: [String]]) async -> [CommandResult] {
-        let activeProviders = enabledProviders
+        let activeProviders = enabledProviders.filter { $0.isActive(for: query) }
         let (providerCandidates, timings) = await collectCandidates(query: query, providers: activeProviders, aliases: customAliases, timeout: .milliseconds(250))
         var allCandidates = providerCandidates
 
         guard Task.isCancelled == false else { return [] }
 
-        if let browserProvider = activeProviders.compactMap({ $0 as? BrowserProvider }).first {
-            let sensitivity = configService?.current.searchSensitivity ?? .medium
-            let cachedResults = browserProvider.cachedResults(matching: query, sensitivity: sensitivity)
-            allCandidates.append(contentsOf: cachedResults.enumerated().map { index, result in
-                RankCandidate(result: result, providerID: browserProvider.id, sourceOrder: index)
+        let sensitivity = configService?.current.searchSensitivity ?? .medium
+        for provider in supplementalProviders {
+            allCandidates.append(contentsOf: provider.supplementalResults(matching: query, sensitivity: sensitivity).enumerated().map { index, result in
+                RankCandidate(result: result, providerID: provider.id, sourceOrder: index)
             })
-            if allCandidates.isEmpty {
-                let fallbackResults = await browserProvider.fallbackResults(matching: query, sensitivity: sensitivity)
-                allCandidates.append(contentsOf: fallbackResults.enumerated().map { index, result in
-                    RankCandidate(result: result, providerID: browserProvider.id, sourceOrder: index)
+        }
+        if allCandidates.isEmpty {
+            for provider in activeProviders {
+                guard isFallbackEligible(for: provider) else { continue }
+                let fallbackResults = (try? await provider.fallbackResults(matching: query, sensitivity: sensitivity)) ?? []
+                let eligibleResults = fallbackResults.filter { isFallbackEligible(for: $0) }
+                allCandidates.append(contentsOf: eligibleResults.enumerated().map { index, result in
+                    RankCandidate(result: result, providerID: provider.id, sourceOrder: index)
                 })
+                if eligibleResults.isEmpty == false { break }
             }
         }
 
-        allCandidates = deduplicated(allCandidates.filter { isCommandEnabled($0.result) })
+        allCandidates = ranker.deduplicated(allCandidates.filter { isCommandEnabled($0.result) })
 
         if allCandidates.isEmpty {
             let prompt = query.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -281,7 +176,7 @@ final class CommandRegistry: @unchecked Sendable {
 
         logSearchTimings(timings)
 
-        return ordered(allCandidates, query: query)
+        return ranker.ordered(allCandidates, query: query)
             .prefix(12)
             .map { $0 }
     }
@@ -295,11 +190,8 @@ final class CommandRegistry: @unchecked Sendable {
                 group.addTask {
                     let span = self.diagnostics.startSpan("home.provider.\(provider.id)")
                     defer { self.diagnostics.endSpan(span) }
-                    let startedAt = Date().timeIntervalSinceReferenceDate
-                    let results = await self.providerDefaultResults(provider, deadline: deadline)
-                    let elapsedMilliseconds = (Date().timeIntervalSinceReferenceDate - startedAt) * 1_000
-                    await self.providerHealth.recordRequest(providerID: provider.id, elapsedMilliseconds: elapsedMilliseconds, resultCount: results.count)
-                    return results
+                    let outcome = await self.providerScheduler.defaults(for: provider, deadline: deadline)
+                    return outcome.value ?? []
                 }
             }
 
@@ -310,7 +202,7 @@ final class CommandRegistry: @unchecked Sendable {
             }
         }
 
-        let sorted = ordered(allCandidates.filter { isCommandEnabled($0.result) }, query: nil)
+        let sorted = ranker.ordered(allCandidates.filter { isCommandEnabled($0.result) }, query: nil)
 
         let apps = sorted.filter { result in
             if case .openApp = result.primaryAction.kind { return true }
@@ -326,10 +218,6 @@ final class CommandRegistry: @unchecked Sendable {
 
     func recordExecution(resultID: String, query: String? = nil) {
         usageRanking.recordExecution(resultID: resultID, query: query)
-    }
-
-    func resetRanking(for resultID: String) {
-        usageRanking.resetRanking(for: resultID)
     }
 
     func statusSummary(resultCount: Int, fallback: String) -> String {
@@ -355,6 +243,7 @@ final class CommandRegistry: @unchecked Sendable {
                 availability: descriptor.availability,
                 requiredPermissions: descriptor.requiredPermissions,
                 supportedContexts: descriptor.supportedContexts,
+                searchPolicy: descriptor.searchPolicy,
                 health: health[descriptor.id]
             )
         }
@@ -369,12 +258,45 @@ final class CommandRegistry: @unchecked Sendable {
         await providerHealth.recordFailure(providerID: providerID, message: message)
     }
 
+    func commandResult(for commandID: String) async -> CommandResult? {
+        let deadline = ContinuousClock().now.advanced(by: .milliseconds(400))
+        return await withTaskGroup(of: CommandResult?.self, returning: CommandResult?.self) { group in
+            for provider in enabledProviders {
+                group.addTask { [providerScheduler] in
+                    let outcome = await providerScheduler.defaults(for: provider, deadline: deadline)
+                    return outcome.value?.first { $0.id == commandID }
+                }
+            }
+
+            for await result in group {
+                if let result, isCommandEnabled(result) {
+                    group.cancelAll()
+                    return result
+                }
+            }
+            return nil
+        }
+    }
+
     private func logSearchTimings(_ timings: [ProviderSearchTiming]) {
         guard timings.isEmpty == false else { return }
         let summary = timings
             .sorted { $0.providerID < $1.providerID }
             .map { timing in
-                "\(timing.providerID)=\(String(format: "%.1f", timing.elapsedMilliseconds))ms"
+                let suffix: String
+                switch timing.status {
+                case .success:
+                    suffix = ""
+                case .timedOut:
+                    suffix = " timeout"
+                case .cancelled:
+                    suffix = " cancelled"
+                case .busy:
+                    suffix = " busy"
+                case let .failed(message):
+                    suffix = " failed=\(message)"
+                }
+                return "\(timing.providerID)=\(String(format: "%.1f", timing.elapsedMilliseconds))ms\(suffix)"
             }
             .joined(separator: " ")
         diagnostics.log("Search providers: \(summary)")
@@ -387,131 +309,18 @@ final class CommandRegistry: @unchecked Sendable {
         timeout: Duration
     ) async -> ([RankCandidate], [ProviderSearchTiming]) {
         let sensitivity = configService?.current.searchSensitivity ?? .medium
-        return await withTaskGroup(of: ProviderSearchResult.self, returning: ([RankCandidate], [ProviderSearchTiming]).self) { group in
-            for provider in providers {
-                group.addTask {
-                    let span = self.diagnostics.startSpan("search.provider.\(provider.id)")
-                    defer { self.diagnostics.endSpan(span) }
-                    let startedAt = Date().timeIntervalSinceReferenceDate
-                    let deadline = ContinuousClock().now.advanced(by: timeout)
-                    let results = await self.providerResults(provider, query: query, aliases: aliases, sensitivity: sensitivity, deadline: deadline)
-                    let elapsedMilliseconds = (Date().timeIntervalSinceReferenceDate - startedAt) * 1_000
-                    await self.providerHealth.recordRequest(providerID: provider.id, elapsedMilliseconds: elapsedMilliseconds, resultCount: results.count)
-                    return ProviderSearchResult(providerID: provider.id, results: results, elapsedMilliseconds: elapsedMilliseconds)
-                }
-            }
-
-            var candidates: [RankCandidate] = []
-            var timings: [ProviderSearchTiming] = []
-            for await providerResult in group {
-                guard Task.isCancelled == false else {
-                    group.cancelAll()
-                    return ([], [])
-                }
-                candidates.append(contentsOf: providerResult.results.enumerated().map { index, result in
-                    RankCandidate(result: result, providerID: providerResult.providerID, sourceOrder: index)
-                })
-                timings.append(ProviderSearchTiming(providerID: providerResult.providerID, elapsedMilliseconds: providerResult.elapsedMilliseconds))
-            }
-            return (candidates, timings)
-        }
-    }
-
-    private func providerResults(
-        _ provider: CommandProvider,
-        query: String,
-        aliases: [String: [String]],
-        sensitivity: SearchSensitivity,
-        deadline: ContinuousClock.Instant
-    ) async -> [CommandResult] {
-        let race = FirstResultRace<[CommandResult]>()
-        let operation = Task {
-            let results = await provider.results(matching: query, customAliases: aliases, sensitivity: sensitivity, deadline: deadline)
-            race.finish(results)
-        }
-        let timeout = Task {
-            let clock = ContinuousClock()
-            let remaining = clock.now.duration(to: deadline)
-            if remaining > .zero {
-                try? await Task.sleep(for: remaining)
-            }
-            race.finish(nil)
-        }
-        let result = await withTaskCancellationHandler {
-            await race.wait()
-        } onCancel: {
-            race.finish(nil)
-        }
-        operation.cancel()
-        timeout.cancel()
-        return result ?? []
-    }
-
-    private func providerDefaultResults(_ provider: CommandProvider, deadline: ContinuousClock.Instant) async -> [CommandResult] {
-        let race = FirstResultRace<[CommandResult]>()
-        let operation = Task {
-            race.finish(await provider.defaultResults(deadline: deadline))
-        }
-        let timeout = Task {
-            let clock = ContinuousClock()
-            let remaining = clock.now.duration(to: deadline)
-            if remaining > .zero {
-                try? await Task.sleep(for: remaining)
-            }
-            race.finish(nil)
-        }
-        let result = await withTaskCancellationHandler {
-            await race.wait()
-        } onCancel: {
-            race.finish(nil)
-        }
-        operation.cancel()
-        timeout.cancel()
-        return result ?? []
-    }
-
-    private func deduplicated(_ candidates: [RankCandidate]) -> [RankCandidate] {
-        var seen = Set<String>()
-        return candidates.filter { seen.insert($0.result.id).inserted }
+        return await providerScheduler.search(
+            query: query,
+            providers: providers,
+            aliases: aliases,
+            sensitivity: sensitivity,
+            timeout: timeout
+        )
     }
 
     private var enabledProviders: [CommandProvider] {
         providers.filter { provider in
             configService?.current.providerEnabled[provider.id] != false
-        }
-    }
-
-    private var immediateProviderIDs: Set<String> {
-        [
-            "foundry.apps",
-            "foundry.builtin",
-            "foundry.calculator",
-            "foundry.developer-tools",
-            "foundry.library",
-            "foundry.mac-utilities",
-            "foundry.system"
-        ]
-    }
-
-    private func deferredProviders(for query: String) -> [CommandProvider] {
-        let lowercased = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        let browserIntent = BrowserSearchRequest(query: query).isBrowserIntent
-        return enabledProviders.filter { provider in
-            guard immediateProviderIDs.contains(provider.id) == false else { return false }
-            switch provider.id {
-            case "foundry.ai":
-                return AIProvider.request(from: query) != nil
-            case "foundry.apple-notes":
-                return ["apple notes ", "apple note ", "notes ", "note "].contains { lowercased.hasPrefix($0) }
-            case "foundry.browsers":
-                return browserIntent
-            case "foundry.media-download":
-                return lowercased.contains("://")
-            case "foundry.translation":
-                return lowercased.contains(" to ")
-            default:
-                return true
-            }
         }
     }
 
@@ -521,138 +330,38 @@ final class CommandRegistry: @unchecked Sendable {
         })
     }
 
+    private var supplementalProviders: [CommandProvider] {
+        enabledProviders.filter { $0.searchPolicy.includesSupplementalResults }
+    }
+
     private func isCommandEnabled(_ result: CommandResult) -> Bool {
         configService?.current.commandPreferences[result.id]?.isEnabled != false
     }
 
-    private func ordered(_ candidates: [RankCandidate], query: String?) -> [CommandResult] {
-        candidates
-            .map { candidate in
-                let preference = configService?.current.commandPreferences[candidate.result.id]
-                let match = query.flatMap { query in
-                    SearchScoring.match(
-                        query: query,
-                        title: candidate.result.title,
-                        subtitle: candidate.result.subtitle,
-                        keywords: candidate.result.searchKeywords,
-                        aliases: candidate.result.searchAliases + (preference?.aliases ?? []),
-                        sensitivity: configService?.current.searchSensitivity ?? .medium
-                    )
-                }
-                return RankedResult(
-                    candidate: candidate,
-                    preference: preference,
-                    match: match,
-                    usageBoost: query.flatMap { usageRanking.usageBoost(for: candidate.result.id, query: $0) } ?? 0
-                )
-            }
-            .sorted { (lhs: RankedResult, rhs: RankedResult) in
-                if query == nil, lhs.preference?.favoriteRank != rhs.preference?.favoriteRank {
-                    switch (lhs.preference?.favoriteRank, rhs.preference?.favoriteRank) {
-                    case let (lhsRank?, rhsRank?):
-                        if lhsRank != rhsRank { return lhsRank < rhsRank }
-                    case (_?, nil):
-                        return true
-                    case (nil, _?):
-                        return false
-                    default:
-                        break
-                    }
-                }
-
-                if let lhsMatch = lhs.match, let rhsMatch = rhs.match, lhsMatch != rhsMatch {
-                    let lhsIsBetter = SearchScoring.isBetter(lhsMatch, than: rhsMatch)
-                    let rhsIsBetter = SearchScoring.isBetter(rhsMatch, than: lhsMatch)
-                    if SearchScoring.areComparable(lhsMatch, rhsMatch), lhs.usageBoost != rhs.usageBoost {
-                        return lhs.usageBoost > rhs.usageBoost
-                    }
-                    if lhsIsBetter || rhsIsBetter {
-                        return lhsIsBetter
-                    }
-                } else if lhs.match != nil, rhs.match == nil {
-                    return true
-                } else if lhs.match == nil, rhs.match != nil {
-                    return false
-                }
-
-                if lhs.usageBoost != rhs.usageBoost {
-                    return lhs.usageBoost > rhs.usageBoost
-                }
-                if lhs.candidate.providerID != rhs.candidate.providerID {
-                    return lhs.candidate.providerID < rhs.candidate.providerID
-                }
-                if lhs.candidate.result.title.localizedCaseInsensitiveCompare(rhs.candidate.result.title) != .orderedSame {
-                    return lhs.candidate.result.title.localizedCaseInsensitiveCompare(rhs.candidate.result.title) == .orderedAscending
-                }
-                if lhs.candidate.result.id != rhs.candidate.result.id {
-                    return lhs.candidate.result.id < rhs.candidate.result.id
-                }
-                return lhs.candidate.sourceOrder < rhs.candidate.sourceOrder
-            }
-            .map(\.candidate.result)
+    private func isFallbackEligible(for provider: CommandProvider) -> Bool {
+        provider.descriptor.availability == .available
     }
+
+    private func isFallbackEligible(for result: CommandResult) -> Bool {
+        configService?.current.commandPreferences[result.id]?.fallbackEligible != false
+    }
+
 }
 
-private struct RankCandidate {
-    let result: CommandResult
-    let providerID: String
-    let sourceOrder: Int
-}
-
-private struct RankedResult {
-    let candidate: RankCandidate
-    let preference: CommandPreference?
-    let match: SearchMatch?
-    let usageBoost: Double
-}
-
-private struct ProviderSearchResult: Sendable {
-    let providerID: String
+struct CommandSearchPhase: Sendable {
     let results: [CommandResult]
-    let elapsedMilliseconds: Double
-}
-
-private struct ProviderSearchTiming {
-    let providerID: String
-    let elapsedMilliseconds: Double
-}
-
-private final class FirstResultRace<Value: Sendable>: @unchecked Sendable {
-    private let lock = NSLock()
-    private var continuation: CheckedContinuation<Value?, Never>?
-    private var finished = false
-    private var finishedValue: Value?
-
-    func wait() async -> Value? {
-        await withCheckedContinuation { continuation in
-            let state = lock.withLock { () -> (shouldResume: Bool, value: Value?) in
-                if finished { return (true, finishedValue) }
-                self.continuation = continuation
-                return (false, nil)
-            }
-            if state.shouldResume {
-                continuation.resume(returning: state.value)
-            }
-        }
-    }
-
-    func finish(_ value: Value?) {
-        let continuation = lock.withLock { () -> CheckedContinuation<Value?, Never>? in
-            guard finished == false else { return nil }
-            finished = true
-            finishedValue = value
-            let continuation = self.continuation
-            self.continuation = nil
-            return continuation
-        }
-        continuation?.resume(returning: value)
-    }
+    let completedProviderIDs: Set<String>
 }
 
 private actor CommandCatalogCache {
+    private let scheduler: CommandProviderScheduler
     private var cachedSnapshot: CommandCatalogSnapshot?
     private var inFlight: Task<CommandCatalogSnapshot, Never>?
     private var nextGeneration = 0
+
+    init(scheduler: CommandProviderScheduler) {
+        self.scheduler = scheduler
+    }
 
     func snapshot(forceRefresh: Bool, providers: [CommandProvider]) async -> CommandCatalogSnapshot {
         if forceRefresh == false, let cachedSnapshot {
@@ -665,18 +374,41 @@ private actor CommandCatalogCache {
 
         nextGeneration += 1
         let generation = nextGeneration
-        let task = Task.detached(priority: .userInitiated) {
+        let scheduler = scheduler
+        let task = Task {
             var descriptors: [CommandDescriptor] = []
-            await withTaskGroup(of: [CommandDescriptor].self) { group in
+            var providerFailures: [String] = []
+            let deadline = ContinuousClock().now.advanced(by: .milliseconds(400))
+            await withTaskGroup(of: CatalogProviderResult.self) { group in
                 for provider in providers {
                     group.addTask {
-                        let results = await provider.defaultResults()
-                        return results.map { $0.descriptor(providerID: provider.id) }
+                        let outcome = await scheduler.defaults(for: provider, deadline: deadline)
+                        let failure: String?
+                        switch outcome.status {
+                        case .success:
+                            failure = nil
+                        case .timedOut:
+                            failure = "timed out"
+                        case .cancelled:
+                            failure = "cancelled"
+                        case .busy:
+                            failure = "busy"
+                        case let .failed(message):
+                            failure = message
+                        }
+                        return CatalogProviderResult(
+                            providerID: provider.id,
+                            descriptors: (outcome.value ?? []).map { $0.descriptor(providerID: provider.id) },
+                            failure: failure
+                        )
                     }
                 }
 
-                for await providerDescriptors in group {
-                    descriptors.append(contentsOf: providerDescriptors)
+                for await providerResult in group {
+                    descriptors.append(contentsOf: providerResult.descriptors)
+                    if let failure = providerResult.failure {
+                        providerFailures.append("\(providerResult.providerID): \(failure)")
+                    }
                 }
             }
 
@@ -686,7 +418,7 @@ private actor CommandCatalogCache {
                 descriptors: descriptors.sorted { lhs, rhs in
                     lhs.title.localizedCaseInsensitiveCompare(rhs.title) == .orderedAscending
                 },
-                providerFailures: []
+                providerFailures: providerFailures.sorted()
             )
         }
         inFlight = task
@@ -695,4 +427,10 @@ private actor CommandCatalogCache {
         inFlight = nil
         return result
     }
+}
+
+private struct CatalogProviderResult: Sendable {
+    let providerID: String
+    let descriptors: [CommandDescriptor]
+    let failure: String?
 }

@@ -1,5 +1,7 @@
 import XCTest
 @testable import Foundry
+import FoundryDomain
+import FoundryServices
 
 final class CommandRankingTests: XCTestCase {
     func testSlowProviderDoesNotBlockFastProvider() async {
@@ -17,6 +19,80 @@ final class CommandRankingTests: XCTestCase {
 
         XCTAssertEqual(results.first?.id, "test.fast")
         XCTAssertLessThan(Date().timeIntervalSince(startedAt), 0.5)
+    }
+
+    func testProviderTimeoutIsRecordedAsAProviderFailure() async {
+        let health = ProviderHealthStore()
+        let registry = CommandRegistry(
+            providers: [SlowProvider()],
+            usageRanking: UsageRankingStore(diagnostics: DiagnosticsService()),
+            diagnostics: DiagnosticsService(),
+            providerHealth: health
+        )
+
+        _ = await registry.results(matching: "result")
+        let snapshot = await health.snapshot(for: "test.slow")
+
+        XCTAssertEqual(snapshot.timeoutCount, 1)
+        XCTAssertEqual(snapshot.failureCount, 1)
+        XCTAssertEqual(snapshot.successCount, 0)
+    }
+
+    func testProviderErrorIsRecordedWithoutPoisoningOtherResults() async {
+        let health = ProviderHealthStore()
+        let registry = CommandRegistry(
+            providers: [
+                FailingProvider(),
+                TestProvider(results: [command(id: "test.healthy", title: "Healthy Result")])
+            ],
+            usageRanking: UsageRankingStore(diagnostics: DiagnosticsService()),
+            diagnostics: DiagnosticsService(),
+            providerHealth: health
+        )
+
+        let results = await registry.results(matching: "result")
+        let snapshot = await health.snapshot(for: "test.failing")
+
+        XCTAssertTrue(results.contains { $0.id == "test.healthy" })
+        XCTAssertEqual(snapshot.failureCount, 1)
+        XCTAssertEqual(snapshot.successCount, 0)
+        XCTAssertEqual(snapshot.lastFailure, "Unavailable")
+    }
+
+    func testCancellationInsensitiveProviderCannotRunOverlappingSearches() async throws {
+        let probe = OverlapProbe()
+        let registry = CommandRegistry(
+            providers: [CancellationInsensitiveProvider(probe: probe)],
+            usageRanking: UsageRankingStore(diagnostics: DiagnosticsService()),
+            diagnostics: DiagnosticsService()
+        )
+
+        _ = await registry.immediateResults(matching: "first")
+        _ = await registry.immediateResults(matching: "second")
+        try await Task.sleep(for: .milliseconds(180))
+        let maximumConcurrent = await probe.maximumConcurrent()
+
+        XCTAssertEqual(maximumConcurrent, 1)
+    }
+
+    func testFallbackEligibilityCanSuppressAProviderFallbackResult() async throws {
+        let configURL = temporaryURL()
+        defer { try? FileManager.default.removeItem(at: configURL) }
+        let config = ConfigService(diagnostics: DiagnosticsService(), url: configURL)
+        var preference = CommandPreference()
+        preference.fallbackEligible = false
+        try config.updateCommandPreference(preference, for: "test.fallback")
+
+        let registry = CommandRegistry(
+            providers: [FallbackProvider()],
+            usageRanking: UsageRankingStore(diagnostics: DiagnosticsService()),
+            diagnostics: DiagnosticsService(),
+            configService: config
+        )
+
+        let results = await registry.results(matching: "fallback")
+
+        XCTAssertFalse(results.contains { $0.id == "test.fallback" })
     }
 
     func testConfiguredAliasesParticipateInRuntimeRanking() async throws {
@@ -230,7 +306,7 @@ final class CommandRankingTests: XCTestCase {
             resultsToReturn = results
         }
 
-        func results(matching query: String) async -> [CommandResult] {
+        func search(_ request: CommandSearchRequest) async -> [CommandResult] {
             resultsToReturn
         }
     }
@@ -238,9 +314,70 @@ final class CommandRankingTests: XCTestCase {
     private struct SlowProvider: CommandProvider {
         let id = "test.slow"
 
-        func results(matching query: String) async -> [CommandResult] {
+        func search(_ request: CommandSearchRequest) async -> [CommandResult] {
             try? await Task.sleep(for: .seconds(5))
             return []
+        }
+    }
+
+    private struct FailingProvider: CommandProvider {
+        let id = "test.failing"
+
+        func search(_ request: CommandSearchRequest) async throws -> [CommandResult] {
+            throw Failure.unavailable
+        }
+
+        private enum Failure: LocalizedError {
+            case unavailable
+
+            var errorDescription: String? { "Unavailable" }
+        }
+    }
+
+    private struct CancellationInsensitiveProvider: CommandProvider {
+        let id = "test.cancellation-insensitive"
+        let probe: OverlapProbe
+
+        func search(_ request: CommandSearchRequest) async -> [CommandResult] {
+            await probe.enter()
+            try? await Task.sleep(for: .milliseconds(150))
+            await probe.leave()
+            return []
+        }
+    }
+
+    private struct FallbackProvider: CommandProvider {
+        let id = "test.fallback-provider"
+
+        func search(_ request: CommandSearchRequest) async -> [CommandResult] { [] }
+
+        func fallbackResults(matching query: String, sensitivity: SearchSensitivity) async throws -> [CommandResult] {
+            [CommandResult(
+                id: "test.fallback",
+                title: "Fallback result",
+                subtitle: nil,
+                icon: CommandIcon(fallback: "F"),
+                primaryAction: CommandAction(id: "test.fallback.open", title: "Open", kind: .openDashboard),
+                secondaryActions: []
+            )]
+        }
+    }
+
+    private actor OverlapProbe {
+        private var active = 0
+        private var maximum = 0
+
+        func enter() {
+            active += 1
+            maximum = max(maximum, active)
+        }
+
+        func leave() {
+            active -= 1
+        }
+
+        func maximumConcurrent() -> Int {
+            maximum
         }
     }
 }

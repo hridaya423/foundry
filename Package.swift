@@ -11,8 +11,18 @@ let package = Package(
         .executable(name: "Foundry", targets: ["Foundry"])
     ],
     targets: [
+        .target(
+            name: "FoundryDomain",
+            path: "Sources/FoundryDomain"
+        ),
+        .target(
+            name: "FoundryServices",
+            dependencies: ["FoundryDomain"],
+            path: "Sources/FoundryServices"
+        ),
         .executableTarget(
             name: "Foundry",
+            dependencies: ["FoundryDomain", "FoundryServices"],
             path: "Sources/Foundry",
             resources: [
                 .process("Resources")
@@ -23,7 +33,7 @@ let package = Package(
         ),
         .testTarget(
             name: "FoundryTests",
-            dependencies: ["Foundry"],
+            dependencies: ["Foundry", "FoundryDomain", "FoundryServices"],
             path: "Tests/FoundryTests"
         )
     ]

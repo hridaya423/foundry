@@ -2,109 +2,179 @@ import AppKit
 import Carbon
 import CoreAudio
 import Foundation
+import FoundryDomain
+import FoundryServices
 import UniformTypeIdentifiers
 
 @MainActor
-final class ActionRunner {
+final class ActionRunner: CommandExecuting {
     private let diagnostics: DiagnosticsService
-    private var mediaTask: Task<Void, Never>?
-    var mediaStatusHandler: (@MainActor @Sendable (String) -> Void)?
-    var feedbackHandler: (@MainActor @Sendable (ActionFeedback) -> Void)?
+    private let snippetStore: any SnippetStore
+    private let mediaDownloadService: any MediaDownloading
+    private let resetRanking: (String) -> Void
+    private let confirmAction: (CommandActionDescriptor, CommandInvocationSource) -> Bool
+    private var activeExecutionTasks: [UUID: Task<CommandOutcome, Never>] = [:]
 
-    init(diagnostics: DiagnosticsService) {
+    init(
+        diagnostics: DiagnosticsService,
+        snippetStore: any SnippetStore = FileSnippetStore(),
+        mediaDownloadService: any MediaDownloading = MediaDownloadService(),
+        resetRanking: @escaping (String) -> Void = { _ in },
+        confirmAction: @escaping (CommandActionDescriptor, CommandInvocationSource) -> Bool = { _, _ in true }
+    ) {
         self.diagnostics = diagnostics
+        self.snippetStore = snippetStore
+        self.mediaDownloadService = mediaDownloadService
+        self.resetRanking = resetRanking
+        self.confirmAction = confirmAction
     }
 
-    func perform(_ action: CommandAction) {
-        switch action.kind {
-        case .openQuickAI:
-            diagnostics.log("Quick AI should be opened by panel state")
+    func execute(
+        _ request: CommandExecutionRequest,
+        emit: @escaping @MainActor @Sendable (CommandExecutionEvent) -> Void
+    ) async -> CommandOutcome {
+        let invocationID = request.invocation.cancellationID
+        guard activeExecutionTasks[invocationID] == nil else {
+            return .failure(message: "An action with this cancellation ID is already running", retryable: true)
+        }
+        let task = Task { @MainActor [weak self] in
+            guard let self else { return CommandOutcome.cancelled }
+            return await self.perform(request, emit: emit)
+        }
+        activeExecutionTasks[invocationID] = task
+        let outcome = await withTaskCancellationHandler {
+            await task.value
+        } onCancel: {
+            task.cancel()
+        }
+        activeExecutionTasks.removeValue(forKey: invocationID)
+        return outcome
+    }
+
+    private func perform(
+        _ request: CommandExecutionRequest,
+        emit: @escaping @MainActor @Sendable (CommandExecutionEvent) -> Void
+    ) async -> CommandOutcome {
+        func finish(_ outcome: CommandOutcome, feedback: ActionFeedback? = nil) -> CommandOutcome {
+            if let feedback {
+                emit(.feedback(feedback))
+            }
+            return outcome
+        }
+
+        if request.action.descriptor.confirmation != .never,
+           confirmAction(request.action.descriptor, request.invocation.source) == false {
+            return finish(.denied(message: "Action cancelled"), feedback: .info("Action cancelled"))
+        }
+
+        switch request.action.kind {
+        case let .openQuickAI(prompt):
+            return .open(route: .quickAI(initialPrompt: prompt))
 
         case let .openApp(path, name):
             let configuration = NSWorkspace.OpenConfiguration()
-            let feedback = feedbackHandler
-            NSWorkspace.shared.openApplication(at: URL(fileURLWithPath: path), configuration: configuration) { [diagnostics, feedback] _, error in
-                if let error {
-                    diagnostics.log("Failed to launch \(name): \(error.localizedDescription)")
-                    Task { @MainActor in feedback?(.failure("Could not open \(name)")) }
-                } else {
-                    diagnostics.log("Launched app: \(name)")
+            return await withCheckedContinuation { continuation in
+                NSWorkspace.shared.openApplication(at: URL(fileURLWithPath: path), configuration: configuration) { [diagnostics] _, error in
+                    Task { @MainActor in
+                        if let error {
+                            diagnostics.log("Failed to launch \(name): \(error.localizedDescription)")
+                            emit(.feedback(.failure("Could not open \(name)")))
+                            continuation.resume(returning: .failure(message: "Could not open \(name)", retryable: true))
+                        } else {
+                            diagnostics.log("Launched app: \(name)")
+                            continuation.resume(returning: .success(message: "Opened \(name)"))
+                        }
+                    }
                 }
             }
 
         case let .openURL(urlString):
             guard let url = URL(string: urlString) else {
                 diagnostics.log("Invalid URL: \(urlString)")
-                feedbackHandler?(.failure("Invalid URL"))
-                return
+                return finish(.failure(message: "Invalid URL", retryable: false), feedback: .failure("Invalid URL"))
             }
             if NSWorkspace.shared.open(url) == false {
-                feedbackHandler?(.failure("Could not open link"))
+                return finish(.failure(message: "Could not open link", retryable: true), feedback: .failure("Could not open link"))
             }
+            return .success(message: "Opened link")
 
         case .openConfigFolder:
             let folder = ConfigService.configURL.deletingLastPathComponent()
             do {
                 try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
                 if NSWorkspace.shared.open(folder) == false {
-                    feedbackHandler?(.failure("Could not open Foundry folder"))
+                    return finish(.failure(message: "Could not open Foundry folder", retryable: true), feedback: .failure("Could not open Foundry folder"))
                 }
+                return .success(message: "Opened Foundry folder")
             } catch {
-                feedbackHandler?(.failure("Could not create Foundry folder"))
+                return finish(.failure(message: "Could not create Foundry folder", retryable: true), feedback: .failure("Could not create Foundry folder"))
             }
 
         case let .revealInFinder(path):
             NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: path)])
             diagnostics.log("Revealed in Finder: \(path)")
+            return .success(message: "Revealed in Finder")
 
         case let .copyToClipboard(value):
             NSPasteboard.general.clearContents()
             NSPasteboard.general.setString(value, forType: .string)
             diagnostics.log("Copied to clipboard")
-            feedbackHandler?(.success("Copied to clipboard"))
+            return finish(.copied(content: value), feedback: .success("Copied to clipboard"))
 
         case let .pasteText(value):
             NSPasteboard.general.clearContents()
             NSPasteboard.general.setString(value, forType: .string)
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) {
-                Self.sendPasteShortcut()
-            }
+            try? await Task.sleep(for: .milliseconds(120))
+            guard Task.isCancelled == false else { return .cancelled }
+            Self.sendPasteShortcut()
             diagnostics.log("Inserted snippet")
-            feedbackHandler?(.success("Inserted snippet"))
+            return finish(.pasted(content: value), feedback: .success("Inserted snippet"))
 
         case .createSnippetFromClipboard:
             guard let content = NSPasteboard.general.string(forType: .string)?.trimmingCharacters(in: .whitespacesAndNewlines), content.isEmpty == false else {
                 diagnostics.log("Clipboard is empty")
-                return
+                return finish(.failure(message: "Clipboard is empty", retryable: false), feedback: .info("Clipboard is empty"))
             }
-            var snippets = LibraryPersistence.loadSnippets()
+            var snippets = snippetStore.load()
             snippets.insert(StoredSnippet(title: Self.snippetTitle(from: content), content: String(content.prefix(Self.snippetLimit))), at: 0)
-                if case let .failure(error) = LibraryPersistence.saveSnippets(snippets) {
-                    diagnostics.log("Failed to save clipboard snippet: \(error.localizedDescription)")
-                    feedbackHandler?(.failure("Could not save snippet"))
-                } else {
-                    feedbackHandler?(.success("Created snippet"))
-                }
+            if case let .failure(error) = snippetStore.save(snippets) {
+                diagnostics.log("Failed to save clipboard snippet: \(error.localizedDescription)")
+                return finish(.failure(message: "Could not save snippet", retryable: true), feedback: .failure("Could not save snippet"))
+            }
             diagnostics.log("Created snippet from clipboard")
+            return finish(.success(message: "Created snippet"), feedback: .success("Created snippet"))
 
         case .importSnippets:
-            importSnippets()
+            let outcome = importSnippets()
+            if case let .success(message) = outcome, let message {
+                emit(.feedback(.success(message)))
+            }
+            return outcome
 
         case let .downloadMedia(urlString):
             diagnostics.log("Starting media download")
-            let statusHandler = mediaStatusHandler
-            let feedback = feedbackHandler
-            mediaTask?.cancel()
-            mediaTask = Task.detached { [diagnostics, feedback] in
-                let result = await Self.downloadMedia(urlString: urlString, status: statusHandler)
-                guard Task.isCancelled == false else { return }
-                await MainActor.run {
-                    statusHandler?(result)
-                    diagnostics.log(result)
-                    feedback?(result.lowercased().contains("failed") ? .failure(result) : .success(result))
-                    NSWorkspace.shared.open(Self.downloadFolder)
+            let result: String
+            do {
+                result = try await mediaDownloadService.download(urlString: urlString) { status in
+                    emit(.status(status))
                 }
+            } catch {
+                if Self.isCancellation(error) {
+                    return .cancelled
+                }
+                let message = "Media download failed: \(error.localizedDescription)"
+                diagnostics.log(message)
+                return finish(.stayOpen(message: message), feedback: .failure(message))
             }
+            guard Task.isCancelled == false else { return .cancelled }
+            emit(.status(result))
+            diagnostics.log(result)
+            let failed = result.lowercased().contains("failed")
+            let outcome: CommandOutcome = .stayOpen(message: result)
+            if failed == false {
+                NSWorkspace.shared.open(mediaDownloadService.downloadFolder)
+            }
+            return finish(outcome, feedback: failed ? .failure(result) : .success(result))
 
         case .chooseMediaDownloadFolder:
             let panel = NSOpenPanel()
@@ -112,53 +182,56 @@ final class ActionRunner {
             panel.canChooseDirectories = true
             panel.allowsMultipleSelection = false
             panel.directoryURL = MediaDownloadDestination.folder
-            if panel.runModal() == .OK, let url = panel.url {
+            guard panel.runModal() == .OK, let url = panel.url else { return .cancelled }
                 MediaDownloadDestination.setFolder(url)
-                mediaStatusHandler?("Downloads will save to \(url.lastPathComponent)")
+                emit(.status("Downloads will save to \(url.lastPathComponent)"))
                 diagnostics.log("Media download folder changed: \(url.path)")
-            }
+            return finish(.refreshResults(message: "Download folder changed"), feedback: .success("Download folder changed"))
 
         case .openEmojiPicker:
-            diagnostics.log("Emoji Picker should be opened by panel state")
+            return .open(route: .emojiPicker)
 
         case .openFileShelf:
-            diagnostics.log("File Shelf should be opened by panel state")
+            return .open(route: .fileShelf)
 
         case .openClipboardHistory:
-            diagnostics.log("Clipboard History should be opened by panel state")
+            return .open(route: .clipboardHistory)
 
         case .openSnippets:
-            diagnostics.log("Snippets should be opened by panel state")
+            return .open(route: .snippets)
 
-        case .openFileConverter:
-            diagnostics.log("File Converter should be opened by panel state")
+        case let .openFileConverter(path):
+            return .open(route: .fileConversion(path: path))
 
         case .openCamera:
-            diagnostics.log("Camera should be opened by panel state")
+            return .open(route: .camera)
 
-        case .openTranslator:
-            diagnostics.log("Translator should be opened by panel state")
+        case let .openTranslator(text, language):
+            return .open(route: .translator(text: text, language: language))
 
-        case .openDeveloperTools:
-            diagnostics.log("Developer Tools should be opened by panel state")
+        case let .openDeveloperTools(tool):
+            return .open(route: .developerTools(tool: tool))
 
         case .openSettings:
-            diagnostics.log("Settings should be opened by panel state")
+            return .open(route: .settings)
 
         case .openDashboard:
-            diagnostics.log("Dashboard should be opened by panel state")
+            return .open(route: .dashboard)
 
         case let .terminateProcess(pid):
             do {
                 if kill(pid, SIGTERM) == 0 {
                     diagnostics.log("Terminated process \(pid)")
-                    feedbackHandler?(.success("Terminated process"))
+                    return finish(.success(message: "Terminated process"), feedback: .success("Terminated process"))
                 } else {
                     throw POSIXError(POSIXErrorCode(rawValue: errno) ?? .EPERM)
                 }
             } catch {
+                if Self.isCancellation(error) {
+                    return .cancelled
+                }
                 diagnostics.log("Failed to terminate process \(pid): \(error.localizedDescription)")
-                feedbackHandler?(.failure("Could not terminate process"))
+                return finish(.failure(message: "Could not terminate process", retryable: true), feedback: .failure("Could not terminate process"))
             }
 
         case let .quitApplication(bundleID, name):
@@ -169,44 +242,54 @@ final class ActionRunner {
             if let running {
                 if running.terminate() || running.forceTerminate() {
                     diagnostics.log("Quit \(name)")
-                    feedbackHandler?(.success("Quit \(name)"))
+                    return finish(.success(message: "Quit \(name)"), feedback: .success("Quit \(name)"))
                 } else {
                     diagnostics.log("Failed to quit \(name)")
-                    feedbackHandler?(.failure("Could not quit \(name)"))
+                    return finish(.failure(message: "Could not quit \(name)", retryable: true), feedback: .failure("Could not quit \(name)"))
                 }
             } else {
                 diagnostics.log("\(name) is not running")
+                return .failure(message: "\(name) is not running", retryable: false)
             }
 
         case .toggleKeepAwake:
             let state = KeepAwakeController.toggle()
             diagnostics.log(state ? "Keep Awake enabled" : "Keep Awake disabled")
+            return finish(.success(message: state ? "Keep Awake enabled" : "Keep Awake disabled"), feedback: .success(state ? "Keep Awake enabled" : "Keep Awake disabled"))
 
         case let .terminatePort(port):
             let command = "lsof -ti tcp:\(port) | xargs -r kill"
-            DispatchQueue.global(qos: .userInitiated).async {
-                let result = ProcessRunner.runSynchronously(path: "/bin/zsh", arguments: ["-lc", command], timeout: 3)
-                DispatchQueue.main.async {
-                    self.diagnostics.log(result?.succeeded == true ? "Stopped port \(port)" : "Failed to stop port \(port)")
+            do {
+                let result = try await ProcessRunner.run(path: "/bin/zsh", arguments: ["-lc", command], timeout: 3)
+                let message = result.succeeded ? "Stopped port \(port)" : "Failed to stop port \(port)"
+                diagnostics.log(message)
+                return finish(result.succeeded ? .success(message: message) : .failure(message: message, retryable: true), feedback: result.succeeded ? .success(message) : .failure(message))
+            } catch {
+                if Self.isCancellation(error) {
+                    return .cancelled
                 }
+                diagnostics.log("Failed to stop port \(port): \(error.localizedDescription)")
+                return finish(.failure(message: "Failed to stop port \(port)", retryable: true), feedback: .failure("Failed to stop port \(port)"))
             }
 
         case let .setAudioDevice(id, kind):
             do {
                 try AudioDeviceController.setDevice(id: id, kind: kind)
                 diagnostics.log("Updated \(kind == .output ? "output" : "input") audio device")
+                return finish(.success(message: "Audio device updated"), feedback: .success("Audio device updated"))
             } catch {
                 diagnostics.log("Failed to switch audio device: \(error.localizedDescription)")
-                feedbackHandler?(.failure("Could not switch audio device"))
+                return finish(.failure(message: "Could not switch audio device", retryable: true), feedback: .failure("Could not switch audio device"))
             }
 
-        case .resetRanking:
-            diagnostics.log("Ranking reset is handled by the command registry")
+        case let .resetRanking(commandID):
+            resetRanking(commandID)
+            return finish(.stayOpen(message: "Ranking reset"), feedback: .success("Ranking reset"))
 
         case .rebuildApp:
             guard let sourceRoot = Bundle.main.object(forInfoDictionaryKey: "FoundrySourceRoot") as? String else {
                 diagnostics.log("Cannot rebuild Foundry: source root is unavailable")
-                return
+                return .failure(message: "Cannot rebuild Foundry", retryable: false)
             }
             let process = Process()
             process.executableURL = URL(fileURLWithPath: "/bin/zsh")
@@ -214,50 +297,55 @@ final class ActionRunner {
             do {
                 try process.run()
                 diagnostics.log("Started Foundry app rebuild")
+                return .success(message: "Started Foundry app rebuild")
             } catch {
                 diagnostics.log("Failed to rebuild Foundry app: \(error.localizedDescription)")
+                return .failure(message: "Failed to rebuild Foundry app", retryable: true)
             }
 
         case let .runProcess(path, arguments):
-            DispatchQueue.global(qos: .userInitiated).async {
-                let process = Process()
-                process.executableURL = URL(fileURLWithPath: path)
-                process.arguments = arguments
-
-                do {
-                    try process.run()
-                } catch {
-                    self.diagnostics.log("Failed to run \(path): \(error.localizedDescription)")
+            do {
+                let result = try await ProcessRunner.run(path: path, arguments: arguments)
+                guard result.succeeded else {
+                    diagnostics.log("Failed to run \(path)")
+                    return .failure(message: "Failed to run process", retryable: true)
                 }
+                return .success(message: "Process completed")
+            } catch {
+                if Self.isCancellation(error) {
+                    return .cancelled
+                }
+                diagnostics.log("Failed to run \(path): \(error.localizedDescription)")
+                return .failure(message: "Failed to run process", retryable: true)
             }
 
         case .quit:
             NSApp.terminate(nil)
+            return .success(message: "Quitting Foundry")
 
         case let .log(message):
             diagnostics.log(message)
+            return .success(message: nil)
         }
     }
 
-    func cancelMediaDownload() {
-        mediaTask?.cancel()
-        mediaTask = nil
+    func cancel(_ cancellationID: UUID) {
+        activeExecutionTasks[cancellationID]?.cancel()
     }
 
-    nonisolated private static let downloadFolder = MediaDownloadDestination.folder
     nonisolated private static let snippetLimit = 65_536
 
-    private func importSnippets() {
+    private func importSnippets() -> CommandOutcome {
         let panel = NSOpenPanel()
         panel.allowedContentTypes = [.json]
         panel.allowsMultipleSelection = false
         panel.canChooseDirectories = false
-        guard panel.runModal() == .OK, let url = panel.url else { return }
+        guard panel.runModal() == .OK, let url = panel.url else { return .cancelled }
 
         do {
             let data = try Data(contentsOf: url)
             let imported = try JSONDecoder().decode([RaycastSnippetImport].self, from: data)
-            var snippets = LibraryPersistence.loadSnippets()
+            var snippets = snippetStore.load()
             var added = 0
             var skipped = 0
 
@@ -273,12 +361,16 @@ final class ActionRunner {
                 added += 1
             }
 
-            if case let .failure(error) = LibraryPersistence.saveSnippets(snippets) {
+            if case let .failure(error) = snippetStore.save(snippets) {
                 diagnostics.log("Failed to save imported snippets: \(error.localizedDescription)")
+                return .failure(message: "Could not save imported snippets", retryable: true)
             }
-            diagnostics.log("Imported \(added) snippets, skipped \(skipped) duplicates")
+            let message = "Imported \(added) snippets, skipped \(skipped) duplicates"
+            diagnostics.log(message)
+            return .success(message: message)
         } catch {
             diagnostics.log("Snippet import failed: \(error.localizedDescription)")
+            return .failure(message: "Snippet import failed", retryable: false)
         }
     }
 
@@ -297,154 +389,11 @@ final class ActionRunner {
         return firstLine.isEmpty ? "Clipboard Snippet" : String(firstLine.prefix(60))
     }
 
-    nonisolated private static func downloadMedia(urlString: String, status: (@MainActor @Sendable (String) -> Void)?) async -> String {
-        guard let url = URL(string: urlString) else { return "Invalid media URL" }
-
-        do {
-            try FileManager.default.createDirectory(at: downloadFolder, withIntermediateDirectories: true)
-            if MediaDownloadProvider.isDirectMediaFile(url) {
-                let file = try await downloadDirectFile(url, status: status)
-                return "Downloaded \(file.lastPathComponent)"
-            }
-
-            if isYouTube(url) {
-                report("Preparing yt-dlp", status)
-                let executable = try installYTDLPIfNeeded()
-                let playlistLabel = isPlaylist(url) ? "playlist" : "media"
-                report("Downloading \(playlistLabel)", status)
-                try await runYTDLP(executable, url: url)
-                return "Downloaded YouTube media to \(downloadFolder.path)"
-            }
-
-            let file = try await downloadWithCobalt(url, status: status)
-            return "Downloaded \(file.lastPathComponent)"
-        } catch {
-            return "Media download failed: \(error.localizedDescription)"
-        }
+    nonisolated private static func isCancellation(_ error: Error) -> Bool {
+        if Task.isCancelled { return true }
+        return (error as? ProcessRunnerError) == .cancelled
     }
 
-    nonisolated private static func downloadDirectFile(_ sourceURL: URL, status: (@MainActor @Sendable (String) -> Void)?) async throws -> URL {
-        report("Downloading \(sourceURL.lastPathComponent)", status)
-        let (temporaryURL, response) = try await URLSession.shared.download(from: sourceURL)
-        let fallbackName = response.suggestedFilename ?? sourceURL.lastPathComponent
-        let name = fallbackName.isEmpty ? "media-\(Int(Date().timeIntervalSince1970)).\(sourceURL.pathExtension)" : fallbackName
-        let destination = uniqueDestination(for: name)
-        try FileManager.default.moveItem(at: temporaryURL, to: destination)
-        return destination
-    }
-
-    nonisolated private static func isYouTube(_ url: URL) -> Bool {
-        guard let host = url.host?.lowercased() else { return false }
-        return host == "youtu.be" || host == "youtube.com" || host.hasSuffix(".youtube.com")
-    }
-
-    nonisolated private static func isPlaylist(_ url: URL) -> Bool {
-        guard isYouTube(url), let components = URLComponents(url: url, resolvingAgainstBaseURL: false) else { return false }
-        if url.path == "/playlist" { return true }
-        return components.queryItems?.contains { $0.name == "list" && ($0.value?.isEmpty == false) } == true
-    }
-
-    nonisolated private static func installYTDLPIfNeeded() throws -> String {
-        if let existing = firstExistingPath(["/opt/homebrew/bin/yt-dlp", "/usr/local/bin/yt-dlp"]) { return existing }
-        if let found = try? runAndCapture("/usr/bin/which", ["yt-dlp"]).trimmingCharacters(in: .whitespacesAndNewlines), found.isEmpty == false {
-            return found
-        }
-
-        guard let brew = firstExistingPath(["/opt/homebrew/bin/brew", "/usr/local/bin/brew"]) else {
-            throw MediaDownloadError.message("yt-dlp is missing and Homebrew was not found")
-        }
-
-        try run(brew, ["install", "yt-dlp"])
-        if let installed = firstExistingPath(["/opt/homebrew/bin/yt-dlp", "/usr/local/bin/yt-dlp"]) { return installed }
-        throw MediaDownloadError.message("yt-dlp install finished, but yt-dlp was not found")
-    }
-
-    nonisolated private static func downloadWithCobalt(_ sourceURL: URL, status: (@MainActor @Sendable (String) -> Void)?) async throws -> URL {
-        report("Requesting media link from cobalt", status)
-        var request = URLRequest(url: URL(string: "https://api.cobalt.tools/")!)
-        request.httpMethod = "POST"
-        request.setValue("application/json", forHTTPHeaderField: "Accept")
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.httpBody = try JSONSerialization.data(withJSONObject: ["url": sourceURL.absoluteString])
-
-        let (data, _) = try await URLSession.shared.data(for: request)
-        guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
-            throw MediaDownloadError.message("invalid cobalt response")
-        }
-
-        if let error = json["error"] as? [String: Any], let code = error["code"] as? String {
-            throw MediaDownloadError.message("cobalt error: \(code)")
-        }
-
-        let downloadURLString = json["url"] as? String
-            ?? json["tunnel"] as? String
-            ?? (json["picker"] as? [[String: Any]])?.compactMap { $0["url"] as? String ?? $0["tunnel"] as? String }.first
-
-        guard let downloadURLString, let downloadURL = URL(string: downloadURLString) else {
-            throw MediaDownloadError.message("cobalt did not return a downloadable file")
-        }
-
-        report("Downloading media", status)
-        let (temporaryURL, response) = try await URLSession.shared.download(from: downloadURL)
-        let fallbackName = response.suggestedFilename ?? "media-\(Int(Date().timeIntervalSince1970))"
-        let destination = uniqueDestination(for: fallbackName)
-        try FileManager.default.moveItem(at: temporaryURL, to: destination)
-        return destination
-    }
-
-    nonisolated private static func runYTDLP(_ path: String, url: URL) async throws {
-        let result = try await ProcessRunner.run(
-            path: path,
-            arguments: ["--newline", "-P", downloadFolder.path, "-o", "%(title).200B [%(id)s].%(ext)s", url.absoluteString],
-            timeout: 30 * 60,
-            outputLimit: 8 * 1024 * 1024
-        )
-        guard result.succeeded else {
-            throw MediaDownloadError.message(result.stderr.isEmpty ? result.stdout.trimmingCharacters(in: .whitespacesAndNewlines) : result.stderr.trimmingCharacters(in: .whitespacesAndNewlines))
-        }
-    }
-
-    nonisolated fileprivate static func report(_ message: String, _ status: (@MainActor @Sendable (String) -> Void)?) {
-        guard let status else { return }
-        Task { await status(message) }
-    }
-
-    nonisolated private static func firstExistingPath(_ paths: [String]) -> String? {
-        paths.first { FileManager.default.isExecutableFile(atPath: $0) }
-    }
-
-    nonisolated private static func run(_ path: String, _ arguments: [String]) throws {
-        _ = try runAndCapture(path, arguments)
-    }
-
-    nonisolated private static func runAndCapture(_ path: String, _ arguments: [String]) throws -> String {
-        guard let result = ProcessRunner.runSynchronously(path: path, arguments: arguments, timeout: 5 * 60, outputLimit: 8 * 1024 * 1024), result.succeeded else {
-            throw MediaDownloadError.message("Process failed: \(path)")
-        }
-        return result.stdout
-    }
-
-    nonisolated private static func uniqueDestination(for name: String) -> URL {
-        let baseName = safeFilename(name)
-        let folder = downloadFolder
-        let original = folder.appendingPathComponent(baseName)
-        guard FileManager.default.fileExists(atPath: original.path) else { return original }
-        let url = URL(fileURLWithPath: baseName)
-        let stem = url.deletingPathExtension().lastPathComponent
-        let extensionName = url.pathExtension
-        for index in 1...10_000 {
-            let candidateName = extensionName.isEmpty ? "\(stem) (\(index))" : "\(stem) (\(index)).\(extensionName)"
-            let candidate = folder.appendingPathComponent(candidateName)
-            if FileManager.default.fileExists(atPath: candidate.path) == false { return candidate }
-        }
-        return folder.appendingPathComponent("media-\(UUID().uuidString).\(extensionName)")
-    }
-
-    nonisolated private static func safeFilename(_ name: String) -> String {
-        let invalid = CharacterSet(charactersIn: "/:")
-        let cleaned = name.components(separatedBy: invalid).joined(separator: "-")
-        return cleaned.isEmpty ? "media-\(Int(Date().timeIntervalSince1970))" : cleaned
-    }
 }
 
 enum KeepAwakeController {
@@ -493,14 +442,4 @@ private struct RaycastSnippetImport: Decodable {
     let name: String
     let text: String
     let keyword: String?
-}
-
-private enum MediaDownloadError: LocalizedError {
-    case message(String)
-
-    var errorDescription: String? {
-        switch self {
-        case let .message(message): message
-        }
-    }
 }

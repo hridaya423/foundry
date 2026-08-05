@@ -9,8 +9,13 @@ final class SnippetState: ObservableObject {
     @Published private(set) var items: [StoredSnippet] = []
     @Published var selectedID: String?
     @Published private(set) var persistenceError: String? = nil
+    private let store: any SnippetStore
     private let contentLimit = 65_536
     private var persistTask: Task<Void, Never>?
+
+    init(store: any SnippetStore = FileSnippetStore()) {
+        self.store = store
+    }
 
     var visibleItems: [StoredSnippet] {
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
@@ -28,7 +33,7 @@ final class SnippetState: ObservableObject {
     }
 
     func load() {
-        items = sorted(LibraryPersistence.loadSnippets())
+        items = sorted(store.load())
         keepSelectionValid()
     }
 
@@ -89,7 +94,7 @@ final class SnippetState: ObservableObject {
 
     private func persist() {
         items = sorted(items)
-        switch LibraryPersistence.saveSnippets(items) {
+        switch store.save(items) {
         case .success:
             persistenceError = nil
         case let .failure(error):

@@ -1,4 +1,5 @@
 import Foundation
+import FoundryServices
 
 struct CursorComposerSnapshot: Equatable, Sendable {
     let id: String

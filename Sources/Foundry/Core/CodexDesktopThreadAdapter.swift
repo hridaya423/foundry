@@ -1,4 +1,5 @@
 import Foundation
+import FoundryServices
 
 struct CodexDesktopThreadSnapshot: Equatable, Sendable {
     let id: String

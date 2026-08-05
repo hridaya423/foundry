@@ -1,5 +1,7 @@
 import XCTest
 @testable import Foundry
+import FoundryDomain
+import FoundryServices
 
 final class PerformanceRegressionTests: XCTestCase {
     func testSearchScoringHandlesARepresentativeCatalog() {

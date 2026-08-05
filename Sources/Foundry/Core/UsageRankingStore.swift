@@ -1,4 +1,6 @@
 import Foundation
+import FoundryDomain
+import FoundryServices
 
 final class UsageRankingStore: @unchecked Sendable {
     private struct StoredUsage: Codable {

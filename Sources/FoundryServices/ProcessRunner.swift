@@ -1,25 +1,25 @@
 import Darwin
 import Foundation
 
-struct ProcessResult: Sendable {
-    let exitCode: Int32
-    let stdout: String
-    let stderr: String
-    let timedOut: Bool
-    let cancelled: Bool
+public struct ProcessResult: Sendable {
+    public let exitCode: Int32
+    public let stdout: String
+    public let stderr: String
+    public let timedOut: Bool
+    public let cancelled: Bool
 
-    var succeeded: Bool {
+    public var succeeded: Bool {
         exitCode == 0 && timedOut == false && cancelled == false
     }
 }
 
-enum ProcessRunnerError: Error, Equatable {
+public enum ProcessRunnerError: Error, Equatable {
     case launchFailed(String)
     case cancelled
 }
 
-enum ProcessRunner {
-    static func run(
+public enum ProcessRunner {
+    public static func run(
         path: String,
         arguments: [String],
         timeout: TimeInterval = 10,
@@ -52,7 +52,7 @@ enum ProcessRunner {
         return result
     }
 
-    static func runSynchronously(
+    public static func runSynchronously(
         path: String,
         arguments: [String],
         timeout: TimeInterval = 2,

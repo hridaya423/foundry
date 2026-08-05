@@ -132,6 +132,15 @@ struct FoundryQuietButtonStyle: ButtonStyle {
     }
 }
 
+struct PressableButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? 0.975 : 1)
+            .opacity(configuration.isPressed ? 0.82 : 1)
+            .animation(.easeOut(duration: 0.10), value: configuration.isPressed)
+    }
+}
+
 struct FoundrySurface<Content: View>: View {
     let content: Content
     var padding: CGFloat = FoundryTheme.Spacing.lg
