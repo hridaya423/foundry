@@ -20,6 +20,7 @@ final class CommandPanelState: ObservableObject {
         case agents
         case settings
         case dashboard
+        case mediaDownloads
     }
 
     @Published var query = "" {
@@ -68,6 +69,7 @@ final class CommandPanelState: ObservableObject {
     let widgetBoard: WidgetBoardState
     let aiSettings: AISettingsState
     let quickAI: QuickAIState
+    let mediaDownloads: MediaDownloadManager
     private let configService: ConfigService
 
     private let registry: CommandRegistry
@@ -104,7 +106,8 @@ final class CommandPanelState: ObservableObject {
         actionRunner: ActionRunner,
         diagnostics: DiagnosticsService,
         config: ConfigService,
-        snippetStore: any SnippetStore = FileSnippetStore()
+        snippetStore: any SnippetStore = FileSnippetStore(),
+        mediaDownloadManager: MediaDownloadManager = MediaDownloadManager()
     ) {
         self.registry = registry
         self.searchCoordinator = CommandSearchCoordinator(registry: registry, diagnostics: diagnostics)
@@ -123,6 +126,7 @@ final class CommandPanelState: ObservableObject {
         self.widgetBoard = WidgetBoardState(configService: config, diagnostics: diagnostics)
         self.aiSettings = AISettingsState(config: config, diagnostics: diagnostics)
         self.quickAI = QuickAIState(aiProvider: AIProvider(config: config, diagnostics: diagnostics))
+        self.mediaDownloads = mediaDownloadManager
         self.widgetBoard.persistenceErrorHandler = { [weak self] error in
             self?.showSettingsPersistenceError(error)
         }
@@ -421,6 +425,45 @@ final class CommandPanelState: ObservableObject {
         }
     }
 
+    func openMediaDownloads() {
+        beginFeatureMode(.mediaDownloads, status: "downloads")
+    }
+
+    func cancelDownload(_ id: UUID) {
+        actionRunner.cancel(id)
+    }
+
+    func retryDownload(_ item: MediaDownloadItem) {
+        guard item.status != .active else { return }
+        let action = CommandAction(
+            id: "media.download.retry.\(UUID().uuidString)",
+            title: "Retry Download",
+            kind: .downloadMedia(url: item.sourceURL)
+        )
+        openMediaDownloads()
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            _ = await execute(action, commandID: "media.download.retry")
+        }
+    }
+
+    @discardableResult
+    func startMediaDownloads(from value: String) -> Int {
+        let urls = MediaDownloadProvider.mediaURLs(in: value)
+        for url in urls {
+            let action = CommandAction(
+                id: "media.download.batch.\(UUID().uuidString)",
+                title: "Download",
+                kind: .downloadMedia(url: url.absoluteString)
+            )
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                _ = await execute(action, commandID: "media.download.batch")
+            }
+        }
+        return urls.count
+    }
+
     func openAgents() {
         beginFeatureMode(.agents, status: "agents")
         agents.start()
@@ -466,6 +509,8 @@ final class CommandPanelState: ObservableObject {
             switch event {
             case let .status(message):
                 diagnosticsSummary = message
+            case let .downloadProgress(progress):
+                diagnosticsSummary = progress.message
             case let .feedback(feedback):
                 showActionFeedback(feedback)
             }
@@ -514,6 +559,12 @@ final class CommandPanelState: ObservableObject {
             action = selectedAction
         } else {
             action = preferredAction(for: selectedResult)
+        }
+
+        if case .downloadMedia = action.kind {
+            openMediaDownloads()
+        } else if case .downloadMediaBatch = action.kind {
+            openMediaDownloads()
         }
 
         diagnostics.log("Executing action \(action.id) for result \(selectedResult.id)")
@@ -601,6 +652,8 @@ final class CommandPanelState: ObservableObject {
             openSettings()
         case .dashboard:
             openDashboard()
+        case .mediaDownloads:
+            openMediaDownloads()
         }
     }
 
@@ -637,7 +690,7 @@ final class CommandPanelState: ObservableObject {
             snippets.query += text
         case .translator:
             translator.sourceText += text
-        case .camera, .fileConversion, .fileShelf, .settings, .dashboard, .developerTools, .quickAI, .agents:
+        case .camera, .fileConversion, .fileShelf, .settings, .dashboard, .mediaDownloads, .developerTools, .quickAI, .agents:
             return false
         }
         return true
@@ -741,7 +794,10 @@ final class CommandPanelState: ObservableObject {
 
     private func applySearchResults(_ nextResults: [CommandResult], preserving preferredID: String?) {
         results = nextResults
-        if let preferredID, nextResults.contains(where: { $0.id == preferredID }) {
+        if MediaDownloadProvider.mediaURLs(in: query).isEmpty == false,
+           let mediaResult = nextResults.first(where: { $0.route == .mediaDownload }) {
+            selectedResultID = mediaResult.id
+        } else if let preferredID, nextResults.contains(where: { $0.id == preferredID }) {
             selectedResultID = preferredID
         } else if selectedResultID == nil || nextResults.contains(where: { $0.id == selectedResultID }) == false {
             selectedResultID = nextResults.first?.id

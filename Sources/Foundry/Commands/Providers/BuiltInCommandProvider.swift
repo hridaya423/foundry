@@ -66,6 +66,16 @@ final class BuiltInCommandProvider: CommandProvider {
                 secondaryActions: []
             ),
             BuiltInCommand(
+                id: "foundry.downloads",
+                title: "Downloads",
+                subtitle: "View and manage media downloads",
+                aliases: ["download", "downloads", "media downloads", "download queue", "media queue", "download manager"],
+                systemIcon: "arrow.down.circle",
+                fallback: "DL",
+                primaryAction: CommandAction(id: "foundry.downloads.open", title: "Open", kind: .openMediaDownloads),
+                secondaryActions: []
+            ),
+            BuiltInCommand(
                 id: "foundry.file-shelf",
                 title: "File Shelf",
                 subtitle: "Hold dragged files temporarily",

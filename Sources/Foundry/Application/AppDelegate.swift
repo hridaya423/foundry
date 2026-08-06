@@ -14,9 +14,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let config = ConfigService(diagnostics: diagnostics)
         let snippetStore = FileSnippetStore()
         let usageRanking = UsageRankingStore(diagnostics: diagnostics)
+        let mediaDownloadManager = MediaDownloadManager()
         let actionRunner = ActionRunner(
             diagnostics: diagnostics,
             snippetStore: snippetStore,
+            mediaDownloadManager: mediaDownloadManager,
             resetRanking: { commandID in
                 usageRanking.resetRanking(for: commandID)
             },
@@ -36,7 +38,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             actionRunner: actionRunner,
             config: config,
             diagnostics: diagnostics,
-            snippetStore: snippetStore
+            snippetStore: snippetStore,
+            mediaDownloadManager: mediaDownloadManager
         )
 
         self.shellController = shellController

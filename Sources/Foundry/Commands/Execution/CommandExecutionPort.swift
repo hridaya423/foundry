@@ -13,6 +13,7 @@ enum CommandRoute: Codable, Equatable, Sendable {
     case developerTools(tool: String?)
     case settings
     case dashboard
+    case mediaDownloads
 }
 
 struct CommandExecutionRequest: Sendable {
@@ -40,6 +41,7 @@ struct CommandExecutionRequest: Sendable {
 
 enum CommandExecutionEvent: Sendable {
     case status(String)
+    case downloadProgress(MediaDownloadProgress)
     case feedback(ActionFeedback)
 }
 

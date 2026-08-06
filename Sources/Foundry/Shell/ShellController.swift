@@ -17,7 +17,8 @@ final class ShellController {
         actionRunner: ActionRunner,
         config: ConfigService,
         diagnostics: DiagnosticsService,
-        snippetStore: any SnippetStore = FileSnippetStore()
+        snippetStore: any SnippetStore = FileSnippetStore(),
+        mediaDownloadManager: MediaDownloadManager = MediaDownloadManager()
     ) {
         self.registry = registry
         self.actionRunner = actionRunner
@@ -29,7 +30,8 @@ final class ShellController {
             actionRunner: actionRunner,
             diagnostics: diagnostics,
             config: config,
-            snippetStore: snippetStore
+            snippetStore: snippetStore,
+            mediaDownloadManager: mediaDownloadManager
         )
         self.panelController = PanelController(state: panelState, diagnostics: diagnostics)
         self.panelState.onHotkeyChanged = { [weak self] hotkey in

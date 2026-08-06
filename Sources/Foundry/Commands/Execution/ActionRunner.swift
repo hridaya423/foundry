@@ -11,6 +11,7 @@ final class ActionRunner: CommandExecuting {
     private let diagnostics: DiagnosticsService
     private let snippetStore: any SnippetStore
     private let mediaDownloadService: any MediaDownloading
+    private let mediaDownloadManager: MediaDownloadManager
     private let resetRanking: (String) -> Void
     private let confirmAction: (CommandActionDescriptor, CommandInvocationSource) -> Bool
     private var activeExecutionTasks: [UUID: Task<CommandOutcome, Never>] = [:]
@@ -19,12 +20,14 @@ final class ActionRunner: CommandExecuting {
         diagnostics: DiagnosticsService,
         snippetStore: any SnippetStore = FileSnippetStore(),
         mediaDownloadService: any MediaDownloading = MediaDownloadService(),
+        mediaDownloadManager: MediaDownloadManager = MediaDownloadManager(),
         resetRanking: @escaping (String) -> Void = { _ in },
         confirmAction: @escaping (CommandActionDescriptor, CommandInvocationSource) -> Bool = { _, _ in true }
     ) {
         self.diagnostics = diagnostics
         self.snippetStore = snippetStore
         self.mediaDownloadService = mediaDownloadService
+        self.mediaDownloadManager = mediaDownloadManager
         self.resetRanking = resetRanking
         self.confirmAction = confirmAction
     }
@@ -151,30 +154,62 @@ final class ActionRunner: CommandExecuting {
             }
             return outcome
 
+        case let .downloadMediaBatch(urls):
+            for url in urls {
+                let childRequest = CommandExecutionRequest(
+                    commandID: request.invocation.commandID,
+                    action: CommandAction(
+                        id: "media.download.batch.\(UUID().uuidString)",
+                        title: "Download",
+                        kind: .downloadMedia(url: url)
+                    ),
+                    source: request.invocation.source,
+                    context: request.invocation.context
+                )
+                Task { @MainActor [weak self] in
+                    _ = await self?.execute(childRequest, emit: emit)
+                }
+            }
+            return .open(route: .mediaDownloads)
+
         case let .downloadMedia(urlString):
             diagnostics.log("Starting media download")
+            let downloadID = request.invocation.cancellationID
+            mediaDownloadManager.start(id: downloadID, sourceURL: urlString)
             let result: String
             do {
-                result = try await mediaDownloadService.download(urlString: urlString) { status in
-                    emit(.status(status))
-                }
+                result = try await mediaDownloadService.download(
+                    urlString: urlString,
+                    status: { status in emit(.status(status)) },
+                    progress: { progress in
+                        self.mediaDownloadManager.update(id: downloadID, progress: progress)
+                        emit(.downloadProgress(progress))
+                    }
+                )
             } catch {
                 if Self.isCancellation(error) {
+                    mediaDownloadManager.cancel(id: downloadID)
                     return .cancelled
                 }
                 let message = "Media download failed: \(error.localizedDescription)"
+                mediaDownloadManager.fail(id: downloadID, message: message)
                 diagnostics.log(message)
                 return finish(.stayOpen(message: message), feedback: .failure(message))
             }
-            guard Task.isCancelled == false else { return .cancelled }
+            guard Task.isCancelled == false else {
+                mediaDownloadManager.cancel(id: downloadID)
+                return .cancelled
+            }
             emit(.status(result))
             diagnostics.log(result)
-            let failed = result.lowercased().contains("failed")
-            let outcome: CommandOutcome = .stayOpen(message: result)
-            if failed == false {
-                NSWorkspace.shared.open(mediaDownloadService.downloadFolder)
+            let failed = Self.isMediaDownloadFailure(result)
+            if failed {
+                mediaDownloadManager.fail(id: downloadID, message: result)
+            } else {
+                mediaDownloadManager.complete(id: downloadID, message: result)
             }
-            return finish(outcome, feedback: failed ? .failure(result) : .success(result))
+            let outcome: CommandOutcome = .stayOpen(message: result)
+            return outcome
 
         case .chooseMediaDownloadFolder:
             let panel = NSOpenPanel()
@@ -217,6 +252,9 @@ final class ActionRunner: CommandExecuting {
 
         case .openDashboard:
             return .open(route: .dashboard)
+
+        case .openMediaDownloads:
+            return .open(route: .mediaDownloads)
 
         case let .terminateProcess(pid):
             do {
@@ -392,6 +430,11 @@ final class ActionRunner: CommandExecuting {
     nonisolated private static func isCancellation(_ error: Error) -> Bool {
         if Task.isCancelled { return true }
         return (error as? ProcessRunnerError) == .cancelled
+    }
+
+    nonisolated private static func isMediaDownloadFailure(_ result: String) -> Bool {
+        let normalized = result.lowercased()
+        return normalized.contains("media download failed") || normalized.contains("invalid media url")
     }
 
 }

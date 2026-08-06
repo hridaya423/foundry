@@ -79,6 +79,7 @@ enum CommandActionKind: Hashable, Sendable {
     case createSnippetFromClipboard
     case importSnippets
     case downloadMedia(url: String)
+    case downloadMediaBatch(urls: [String])
     case chooseMediaDownloadFolder
     case openEmojiPicker
     case openFileShelf
@@ -90,6 +91,7 @@ enum CommandActionKind: Hashable, Sendable {
     case openDeveloperTools(tool: String? = nil)
     case openSettings
     case openDashboard
+    case openMediaDownloads
     case terminateProcess(pid: Int32)
     case quitApplication(bundleID: String?, name: String)
     case toggleKeepAwake
@@ -209,11 +211,11 @@ extension CommandActionKind {
 
     var executionPolicy: CommandExecutionPolicy {
         switch self {
-        case .copyToClipboard, .openURL, .openQuickAI, .openConfigFolder, .openEmojiPicker, .openFileShelf, .openClipboardHistory, .openSnippets, .openFileConverter, .openCamera, .openTranslator, .openDeveloperTools, .openSettings, .openDashboard, .log:
+        case .copyToClipboard, .openURL, .openQuickAI, .openConfigFolder, .openEmojiPicker, .openFileShelf, .openClipboardHistory, .openSnippets, .openFileConverter, .openCamera, .openTranslator, .openDeveloperTools, .openSettings, .openDashboard, .openMediaDownloads, .log:
             .readOnly
         case .openApp, .revealInFinder, .createSnippetFromClipboard, .importSnippets, .pasteText, .chooseMediaDownloadFolder, .setAudioDevice, .resetRanking:
             .localMutation
-        case .downloadMedia:
+        case .downloadMedia, .downloadMediaBatch:
             .network
         case .terminateProcess, .quitApplication, .terminatePort, .rebuildApp, .quit:
             .destructive

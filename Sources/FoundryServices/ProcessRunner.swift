@@ -13,6 +13,21 @@ public struct ProcessResult: Sendable {
     }
 }
 
+public struct ProcessOutputLine: Sendable, Equatable {
+    public enum Stream: Sendable, Equatable {
+        case stdout
+        case stderr
+    }
+
+    public let stream: Stream
+    public let line: String
+
+    public init(stream: Stream, line: String) {
+        self.stream = stream
+        self.line = line
+    }
+}
+
 public enum ProcessRunnerError: Error, Equatable {
     case launchFailed(String)
     case cancelled
@@ -23,7 +38,8 @@ public enum ProcessRunner {
         path: String,
         arguments: [String],
         timeout: TimeInterval = 10,
-        outputLimit: Int = 2 * 1024 * 1024
+        outputLimit: Int = 2 * 1024 * 1024,
+        onOutput: (@Sendable (ProcessOutputLine) -> Void)? = nil
     ) async throws -> ProcessResult {
         let control = ManagedProcessControl()
         let result = try await withTaskCancellationHandler {
@@ -35,6 +51,7 @@ public enum ProcessRunner {
                             arguments: arguments,
                             timeout: timeout,
                             outputLimit: outputLimit,
+                            onOutput: onOutput,
                             control: control
                         ))
                     } catch {
@@ -56,13 +73,15 @@ public enum ProcessRunner {
         path: String,
         arguments: [String],
         timeout: TimeInterval = 2,
-        outputLimit: Int = 2 * 1024 * 1024
+        outputLimit: Int = 2 * 1024 * 1024,
+        onOutput: (@Sendable (ProcessOutputLine) -> Void)? = nil
     ) -> ProcessResult? {
         try? runSynchronously(
             path: path,
             arguments: arguments,
             timeout: timeout,
             outputLimit: outputLimit,
+            onOutput: onOutput,
             control: ManagedProcessControl()
         )
     }
@@ -72,6 +91,7 @@ public enum ProcessRunner {
         arguments: [String],
         timeout: TimeInterval,
         outputLimit: Int,
+        onOutput: (@Sendable (ProcessOutputLine) -> Void)?,
         control: ManagedProcessControl
     ) throws -> ProcessResult {
         let process = Process()
@@ -79,6 +99,8 @@ public enum ProcessRunner {
         let stderrPipe = Pipe()
         let stdoutBuffer = LimitedDataBuffer(limit: outputLimit)
         let stderrBuffer = LimitedDataBuffer(limit: outputLimit)
+        let stdoutLines = ProcessOutputLineBuffer(stream: .stdout, handler: onOutput)
+        let stderrLines = ProcessOutputLineBuffer(stream: .stderr, handler: onOutput)
         let termination = DispatchSemaphore(value: 0)
 
         process.executableURL = URL(fileURLWithPath: path)
@@ -87,11 +109,17 @@ public enum ProcessRunner {
         process.standardError = stderrPipe
         stdoutPipe.fileHandleForReading.readabilityHandler = { handle in
             let data = handle.availableData
-            if data.isEmpty == false { stdoutBuffer.append(data) }
+            if data.isEmpty == false {
+                stdoutBuffer.append(data)
+                stdoutLines.append(data)
+            }
         }
         stderrPipe.fileHandleForReading.readabilityHandler = { handle in
             let data = handle.availableData
-            if data.isEmpty == false { stderrBuffer.append(data) }
+            if data.isEmpty == false {
+                stderrBuffer.append(data)
+                stderrLines.append(data)
+            }
         }
         process.terminationHandler = { _ in termination.signal() }
 
@@ -124,8 +152,14 @@ public enum ProcessRunner {
         }
 
         clearHandlers(stdoutPipe: stdoutPipe, stderrPipe: stderrPipe)
-        stdoutBuffer.append(stdoutPipe.fileHandleForReading.readDataToEndOfFile())
-        stderrBuffer.append(stderrPipe.fileHandleForReading.readDataToEndOfFile())
+        let stdoutRemainder = stdoutPipe.fileHandleForReading.readDataToEndOfFile()
+        let stderrRemainder = stderrPipe.fileHandleForReading.readDataToEndOfFile()
+        stdoutBuffer.append(stdoutRemainder)
+        stderrBuffer.append(stderrRemainder)
+        stdoutLines.append(stdoutRemainder)
+        stderrLines.append(stderrRemainder)
+        stdoutLines.finish()
+        stderrLines.finish()
 
         let flags = control.flags
         return ProcessResult(
@@ -231,6 +265,45 @@ private final class LimitedDataBuffer: @unchecked Sendable {
         defer { lock.unlock() }
         guard storage.count < limit else { return }
         storage.append(data.prefix(limit - storage.count))
+    }
+}
+
+private final class ProcessOutputLineBuffer: @unchecked Sendable {
+    private let lock = NSLock()
+    private let stream: ProcessOutputLine.Stream
+    private let handler: (@Sendable (ProcessOutputLine) -> Void)?
+    private var pending = ""
+
+    init(stream: ProcessOutputLine.Stream, handler: (@Sendable (ProcessOutputLine) -> Void)?) {
+        self.stream = stream
+        self.handler = handler
+    }
+
+    func append(_ data: Data) {
+        let text = String(decoding: data, as: UTF8.self)
+        lock.withLock {
+            pending.append(text)
+            emitCompleteLines()
+        }
+    }
+
+    func finish() {
+        lock.withLock {
+            if pending.isEmpty == false {
+                handler?(ProcessOutputLine(stream: stream, line: pending))
+                pending = ""
+            }
+        }
+    }
+
+    private func emitCompleteLines() {
+        while let newline = pending.firstIndex(of: "\n") {
+            let line = String(pending[..<newline]).trimmingCharacters(in: CharacterSet(charactersIn: "\r"))
+            pending.removeSubrange(...newline)
+            if line.isEmpty == false {
+                handler?(ProcessOutputLine(stream: stream, line: line))
+            }
+        }
     }
 }
 

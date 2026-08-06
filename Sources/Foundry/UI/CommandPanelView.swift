@@ -179,6 +179,13 @@ struct CommandPanelView: View {
                 TranslatorView(state: state.translator)
             } else if state.mode == .developerTools {
                 DeveloperToolsView(state: state.developerTools)
+            } else if state.mode == .mediaDownloads {
+                MediaDownloadsView(
+                    manager: state.mediaDownloads,
+                    start: state.startMediaDownloads,
+                    cancel: state.cancelDownload,
+                    retry: state.retryDownload
+                )
             } else if state.isShowingActions {
                 actionsSurface
             } else if state.results.isEmpty {
@@ -302,7 +309,8 @@ struct CommandPanelView: View {
         if state.mode == .clipboardHistory { return "clipboard" }
         if state.mode == .snippets { return "snippets" }
         if state.mode == .translator { return "translator" }
-        if state.mode == .developerTools { return "developerTools" }
+         if state.mode == .developerTools { return "developerTools" }
+        if state.mode == .mediaDownloads { return "mediaDownloads" }
         if state.isShowingActions { return "actions" }
         if state.results.isEmpty { return "empty" }
         return "results"
@@ -434,12 +442,20 @@ struct CommandPanelView: View {
                 Text("Translate")
                     .font(FoundryTheme.body(size: 21, weight: .regular))
                     .foregroundStyle(FoundryTheme.primaryText)
-            } else if state.mode == .developerTools {
-                Image(systemName: "hammer")
+             } else if state.mode == .developerTools {
+                 Image(systemName: "hammer")
+                     .font(.system(size: 16, weight: .regular))
+                     .foregroundStyle(FoundryTheme.mutedText)
+
+                 Text(state.developerTools.selectedTool.rawValue)
+                     .font(FoundryTheme.body(size: 21, weight: .regular))
+                     .foregroundStyle(FoundryTheme.primaryText)
+            } else if state.mode == .mediaDownloads {
+                Image(systemName: "arrow.down.circle")
                     .font(.system(size: 16, weight: .regular))
                     .foregroundStyle(FoundryTheme.mutedText)
 
-                Text(state.developerTools.selectedTool.rawValue)
+                Text("Downloads")
                     .font(FoundryTheme.body(size: 21, weight: .regular))
                     .foregroundStyle(FoundryTheme.primaryText)
             } else {
@@ -490,6 +506,7 @@ struct CommandPanelView: View {
                         .pointerCursor()
                         .accessibilityLabel("Ask AI")
                         .help("Ask AI with Tab")
+
                     }
                     .zIndex(1)
                     .padding(.leading, 6)
@@ -690,7 +707,7 @@ struct CommandPanelView: View {
             "AI"
         case .openApp:
             "Application"
-        case .openEmojiPicker, .openFileShelf, .openClipboardHistory, .openSnippets, .openFileConverter, .openCamera, .openTranslator, .openDeveloperTools, .openConfigFolder, .openSettings, .openDashboard, .quit:
+        case .openEmojiPicker, .openFileShelf, .openClipboardHistory, .openSnippets, .openFileConverter, .openCamera, .openTranslator, .openDeveloperTools, .openConfigFolder, .openSettings, .openDashboard, .openMediaDownloads, .quit:
             "Command"
         case .revealInFinder:
             "Finder"
@@ -700,7 +717,7 @@ struct CommandPanelView: View {
             "Insert"
         case .createSnippetFromClipboard, .importSnippets:
             "Snippet"
-        case .downloadMedia:
+        case .downloadMedia, .downloadMediaBatch:
             "Download"
         case .chooseMediaDownloadFolder:
             "Folder"
@@ -894,6 +911,8 @@ struct CommandPanelView: View {
         case .developerTools:
             FooterAction(label: "Copy Value", keys: "Click")
             FooterAction(label: "Close", keys: "esc")
+        case .mediaDownloads:
+            FooterAction(label: "Close", keys: "esc")
         case .search:
             FooterAction(label: selectedCalculatorResult == nil ? "Open" : "Copy Answer", keys: "↵", emphasized: true)
             FooterAction(label: "Actions", keys: "⌘K")
@@ -1032,6 +1051,8 @@ private struct ActionRow: View {
             "slider.horizontal.3"
         case .openDashboard:
             "rectangle.3.group"
+        case .openMediaDownloads:
+            "arrow.down.circle"
         case .revealInFinder:
             "folder"
         case .copyToClipboard:
@@ -1042,7 +1063,7 @@ private struct ActionRow: View {
             "plus.rectangle.on.rectangle"
         case .importSnippets:
             "square.and.arrow.down"
-        case .downloadMedia:
+        case .downloadMedia, .downloadMediaBatch:
             "arrow.down.circle"
         case .chooseMediaDownloadFolder:
             "folder.badge.gearshape"

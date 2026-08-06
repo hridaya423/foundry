@@ -5,6 +5,34 @@ import FoundryServices
 
 @MainActor
 final class CommandPanelStateTests: XCTestCase {
+    func testMediaURLBecomesSelectedWhenImmediateResultsAlsoMatch() async throws {
+        let diagnostics = DiagnosticsService()
+        let config = ConfigService(
+            diagnostics: diagnostics,
+            url: FileManager.default.temporaryDirectory.appendingPathComponent("foundry-panel-media-selection-\(UUID().uuidString).json")
+        )
+        let registry = CommandRegistry(
+            providers: [URLCollisionProvider(), MediaDownloadProvider()],
+            usageRanking: UsageRankingStore(diagnostics: diagnostics),
+            diagnostics: diagnostics,
+            configService: config
+        )
+        let state = CommandPanelState(
+            registry: registry,
+            actionRunner: ActionRunner(diagnostics: diagnostics),
+            diagnostics: diagnostics,
+            config: config
+        )
+
+        state.query = "http://127.0.0.1:8765/video.mp4"
+        for _ in 0..<40 where state.selectedResult?.route != .mediaDownload {
+            try await Task.sleep(for: .milliseconds(10))
+        }
+
+        XCTAssertEqual(state.selectedResult?.route, .mediaDownload)
+        state.shutdown()
+    }
+
     func testClosingPanelDetachesFromABackgroundDownloadWithoutCancellingIt() async throws {
         let media = DelayedMediaDownloadService()
         let diagnostics = DiagnosticsService()
@@ -66,5 +94,22 @@ final class CommandPanelStateTests: XCTestCase {
         func didComplete() -> Bool {
             completed
         }
+    }
+}
+
+private struct URLCollisionProvider: CommandProvider {
+    let id = "test.url-collision"
+    var searchPolicy: CommandProviderSearchPolicy { CommandProviderSearchPolicy(tier: .immediate) }
+
+    func search(_ request: CommandSearchRequest) async -> [CommandResult] {
+        guard request.query.contains("127") else { return [] }
+        return [CommandResult(
+            id: "test.kill-port",
+            title: "Kill Port 127",
+            subtitle: "Unrelated immediate result",
+            icon: CommandIcon(fallback: "P"),
+            primaryAction: CommandAction(id: "test.kill-port.perform", title: "Run", kind: .log("collision")),
+            secondaryActions: []
+        )]
     }
 }

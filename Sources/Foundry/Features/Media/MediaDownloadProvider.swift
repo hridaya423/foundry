@@ -22,18 +22,23 @@ final class MediaDownloadProvider: CommandProvider {
     var searchPolicy: CommandProviderSearchPolicy { CommandProviderSearchPolicy(tier: .deferred) }
 
     func isActive(for query: String) -> Bool {
-        Self.mediaURL(in: query) != nil
+        Self.mediaURLs(in: query).isEmpty == false
     }
 
     func search(_ request: CommandSearchRequest) async -> [CommandResult] {
-        guard let url = Self.mediaURL(in: request.query) else { return [] }
+        let urls = Self.mediaURLs(in: request.query)
+        guard let url = urls.first else { return [] }
         let isYouTube = Self.isYouTube(url)
         let isDirectFile = Self.isDirectMediaFile(url)
         let isPlaylist = Self.isPlaylist(url)
         let metadata = isYouTube ? await Self.youtubeMetadata(for: url) : nil
-        let title = isPlaylist ? "Download Playlist" : "Download Media"
-        let detail = metadata?.title ?? (isPlaylist ? "all videos in this playlist" : url.lastPathComponent)
-        let service = isYouTube ? "yt-dlp" : (isDirectFile ? "direct link" : "cobalt")
+        let isBatch = urls.count > 1
+        let title = isBatch ? "Download \(urls.count) Media Links" : (isPlaylist ? "Download Playlist" : "Download Media")
+        let detail = isBatch ? "add all links to the download queue" : (metadata?.title ?? (isPlaylist ? "all videos in this playlist" : url.lastPathComponent))
+        let service = isBatch ? "parallel downloads" : (isYouTube ? "yt-dlp" : (isDirectFile ? "direct link" : "cobalt"))
+        let primaryKind: CommandActionKind = isBatch
+            ? .downloadMediaBatch(urls: urls.map(\.absoluteString))
+            : .downloadMedia(url: url.absoluteString)
         return [
             CommandResult(
                 id: "media.download.\(url.absoluteString)",
@@ -41,8 +46,9 @@ final class MediaDownloadProvider: CommandProvider {
                 subtitle: "\(detail) · save via \(service) to \(MediaDownloadDestination.folder.lastPathComponent)",
                 icon: CommandIcon(fallback: "DL", systemName: "arrow.down.circle", thumbnailURL: metadata?.thumbnailURL),
                 route: .mediaDownload,
-                primaryAction: CommandAction(id: "media.download.perform", title: "Download", kind: .downloadMedia(url: url.absoluteString)),
+                primaryAction: CommandAction(id: "media.download.perform", title: isBatch ? "Download All" : "Download", kind: primaryKind),
                 secondaryActions: [
+                    CommandAction(id: "media.download.open-manager", title: "View Downloads", kind: .openMediaDownloads),
                     CommandAction(id: "media.download.open-folder", title: "Open Download Folder", kind: .openURL(MediaDownloadDestination.folder.absoluteString)),
                     CommandAction(id: "media.download.choose-folder", title: "Change Download Folder", kind: .chooseMediaDownloadFolder),
                     CommandAction(id: "media.download.copy-url", title: "Copy URL", kind: .copyToClipboard(url.absoluteString))
@@ -51,13 +57,15 @@ final class MediaDownloadProvider: CommandProvider {
         ]
     }
 
-    private static func mediaURL(in value: String) -> URL? {
+    static func mediaURLs(in value: String) -> [URL] {
         let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard let detector = try? NSDataDetector(types: NSTextCheckingResult.CheckingType.link.rawValue) else { return nil }
+        guard let detector = try? NSDataDetector(types: NSTextCheckingResult.CheckingType.link.rawValue) else { return [] }
         let range = NSRange(trimmed.startIndex..<trimmed.endIndex, in: trimmed)
-        return detector.matches(in: trimmed, range: range).compactMap(\.url).first { url in
+        var seen = Set<String>()
+        return detector.matches(in: trimmed, range: range).compactMap(\.url).filter { url in
             guard let scheme = url.scheme?.lowercased(), ["http", "https"].contains(scheme), let host = url.host?.lowercased() else { return false }
-            return isDirectMediaFile(url) || mediaHosts.contains { host == $0 || host.hasSuffix("." + $0) }
+            guard isDirectMediaFile(url) || mediaHosts.contains(where: { host == $0 || host.hasSuffix("." + $0) }) else { return false }
+            return seen.insert(url.absoluteString).inserted
         }
     }
 
