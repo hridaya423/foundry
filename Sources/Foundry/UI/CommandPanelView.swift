@@ -165,11 +165,10 @@ struct CommandPanelView: View {
             } else if state.mode == .camera {
                 CameraPreviewView(state: state.camera)
             } else if state.mode == .fileShelf {
-                FileShelfView(state: state.fileShelf) {
-                    if let selectedFile = state.fileShelf.selectedFile {
-                        state.fileConversion.setSource(url: selectedFile.url)
-                        state.mode = .fileConversion
-                    }
+                FileShelfView(state: state.fileShelf) { selectedFiles in
+                    guard selectedFiles.isEmpty == false else { return }
+                    state.fileConversion.setSources(urls: selectedFiles.map(\.url))
+                    state.mode = .fileConversion
                 }
             } else if state.mode == .clipboardHistory {
                 ClipboardHistoryView(state: state.clipboardHistory, fileShelf: state.fileShelf)
@@ -395,7 +394,7 @@ struct CommandPanelView: View {
                     .font(.system(size: 16, weight: .regular))
                     .foregroundStyle(FoundryTheme.mutedText)
 
-                Text("Convert File")
+                Text(state.fileConversion.sourceURLs.count > 1 ? "Convert Files" : "Convert File")
                     .font(FoundryTheme.body(size: 21, weight: .regular))
                     .foregroundStyle(FoundryTheme.primaryText)
             } else if state.mode == .camera {

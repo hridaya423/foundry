@@ -6,12 +6,13 @@ import FoundryServices
 
 @MainActor
 final class FileConversionState: ObservableObject {
-    @Published var sourceURL: URL?
+    @Published var sourceURLs: [URL] = []
     @Published var outputFolderURL: URL?
     @Published var availableTargets: [FileConversionTarget] = []
     @Published var selectedTargetID: String?
     @Published var status = ""
     @Published var isConverting = false
+    @Published var outputURLs: [URL] = []
     @Published var outputURL: URL?
     @Published var dependencyPrompt: String? = nil
 
@@ -21,13 +22,18 @@ final class FileConversionState: ObservableObject {
         availableTargets.first { $0.id == selectedTargetID } ?? availableTargets.first
     }
 
+    var sourceURL: URL? {
+        sourceURLs.first
+    }
+
     func reset() {
-        sourceURL = nil
+        sourceURLs = []
         outputFolderURL = nil
         availableTargets = []
         selectedTargetID = nil
         status = ""
         isConverting = false
+        outputURLs = []
         outputURL = nil
         dependencyPrompt = nil
         conversionTask?.cancel()
@@ -56,27 +62,44 @@ final class FileConversionState: ObservableObject {
     }
 
     func setSource(url: URL) {
-        sourceURL = url
-        outputFolderURL = outputFolderURL ?? url.deletingLastPathComponent()
-        availableTargets = FileConversionService.availableTargets(for: url)
-        selectedTargetID = FileConversionService.defaultTargetID(for: url, in: availableTargets)
+        setSources(urls: [url])
+    }
+
+    func setSources(urls: [URL]) {
+        var seen = Set<URL>()
+        sourceURLs = urls.filter { $0.isFileURL && seen.insert($0).inserted }
+        if outputFolderURL == nil {
+            outputFolderURL = sourceURLs.first.map { $0.deletingLastPathComponent() }
+        }
+        availableTargets = commonTargets(for: sourceURLs)
+        selectedTargetID = sourceURLs.first
+            .flatMap { FileConversionService.defaultTargetID(for: $0, in: availableTargets) }
+        outputURLs = []
         outputURL = nil
-        status = availableTargets.isEmpty ? "No local converter available for this file yet" : ""
+        if sourceURLs.isEmpty {
+            status = ""
+        } else if availableTargets.isEmpty {
+            status = sourceURLs.count == 1
+                ? "No local converter available for this file yet"
+                : "No common conversion format for these files"
+        } else {
+            status = ""
+        }
     }
 
     func convert() {
-        guard let sourceURL, let target = selectedTarget else { return }
+        guard sourceURLs.isEmpty == false, let target = selectedTarget else { return }
         if let dependency = FileConversionService.missingDependencyName(for: target) {
             dependencyPrompt = dependency
             return
         }
-        startConversion(sourceURL: sourceURL, target: target)
+        startConversion(sourceURLs: sourceURLs, target: target)
     }
 
     func confirmDependencyInstallation() {
         dependencyPrompt = nil
-        guard let sourceURL, let target = selectedTarget else { return }
-        startConversion(sourceURL: sourceURL, target: target)
+        guard sourceURLs.isEmpty == false, let target = selectedTarget else { return }
+        startConversion(sourceURLs: sourceURLs, target: target)
     }
 
     func cancel() {
@@ -86,33 +109,73 @@ final class FileConversionState: ObservableObject {
         status = "Conversion cancelled"
     }
 
-    private func startConversion(sourceURL: URL, target: FileConversionTarget) {
-        let outputFolderURL = outputFolderURL ?? sourceURL.deletingLastPathComponent()
+    private func startConversion(sourceURLs: [URL], target: FileConversionTarget) {
+        let outputFolderURL = outputFolderURL ?? sourceURLs[0].deletingLastPathComponent()
+        let total = sourceURLs.count
         conversionTask?.cancel()
         isConverting = true
+        outputURLs = []
         outputURL = nil
-        status = FileConversionService.preflightStatus(for: target) ?? "Converting to \(target.title)…"
+        status = total == 1
+            ? (FileConversionService.preflightStatus(for: target) ?? "Converting to \(target.title)…")
+            : "Preparing \(total) files..."
 
         conversionTask = Task { [weak self] in
-            let result = await FileConversionService.convert(sourceURL: sourceURL, target: target, outputFolderURL: outputFolderURL)
-            guard Task.isCancelled == false else { return }
+            var outputs: [URL] = []
+            var failures: [String] = []
+
+            for (index, sourceURL) in sourceURLs.enumerated() {
+                guard Task.isCancelled == false else { return }
+                await MainActor.run { [weak self] in
+                    guard let self else { return }
+                    let prefix = total == 1 ? "" : "\(index + 1) of \(total): "
+                    self.status = prefix + (FileConversionService.preflightStatus(for: target) ?? "Converting to \(target.title)…")
+                }
+
+                let result = await FileConversionService.convert(sourceURL: sourceURL, target: target, outputFolderURL: outputFolderURL)
+                guard Task.isCancelled == false else { return }
+                switch result {
+                case let .success(outputURL):
+                    outputs.append(outputURL)
+                case let .failure(error):
+                    failures.append(total == 1 ? error.localizedDescription : "\(sourceURL.lastPathComponent): \(error.localizedDescription)")
+                }
+            }
+
             await MainActor.run {
                 guard let self else { return }
                 self.isConverting = false
-                switch result {
-                case let .success(url):
-                    self.outputURL = url
-                    self.status = "Created \(url.lastPathComponent)"
-                case let .failure(error):
-                    self.status = error.localizedDescription
+                self.outputURLs = outputs
+                self.outputURL = outputs.last
+                if failures.isEmpty {
+                    self.status = outputs.count == 1
+                        ? "Created \(outputs[0].lastPathComponent)"
+                        : "Created \(outputs.count) files"
+                } else if outputs.isEmpty {
+                    self.status = failures.joined(separator: "\n")
+                } else {
+                    self.status = "Created \(outputs.count) of \(total) files; \(failures.count) failed"
                 }
             }
         }
     }
 
     func revealOutput() {
-        guard let outputURL else { return }
-        NSWorkspace.shared.activateFileViewerSelecting([outputURL])
+        guard outputURLs.isEmpty == false else { return }
+        NSWorkspace.shared.activateFileViewerSelecting(outputURLs)
+    }
+
+    private func commonTargets(for urls: [URL]) -> [FileConversionTarget] {
+        guard let firstURL = urls.first else { return [] }
+        let firstTargets = FileConversionService.availableTargets(for: firstURL)
+        guard urls.count > 1 else { return firstTargets }
+
+        let remainingTargets = urls.dropFirst().map { FileConversionService.availableTargets(for: $0) }
+        return firstTargets.filter { target in
+            remainingTargets.allSatisfy { targets in
+                targets.contains { $0.id == target.id && $0.family == target.family }
+            }
+        }
     }
 }
 

@@ -871,8 +871,8 @@ final class CommandPanelState: ObservableObject {
         fileConversion.reset()
         if let path {
             fileConversion.setSource(url: URL(fileURLWithPath: path))
-        } else if let selectedFile = fileShelf.selectedFile {
-            fileConversion.setSource(url: selectedFile.url)
+        } else if fileShelf.selectedFiles.isEmpty == false {
+            fileConversion.setSources(urls: fileShelf.selectedFiles.map(\.url))
         }
     }
 

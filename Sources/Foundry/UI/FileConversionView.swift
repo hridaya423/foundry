@@ -61,7 +61,7 @@ struct FileConversionView: View {
 
     private var sourceCard: some View {
         VStack(alignment: .leading, spacing: 12) {
-            if let sourceURL = state.sourceURL {
+            if state.sourceURLs.count == 1, let sourceURL = state.sourceURL {
                 HStack(alignment: .top, spacing: 12) {
                     Image(nsImage: IconCache.shared.icon(forFile: sourceURL.path))
                         .resizable()
@@ -89,6 +89,44 @@ struct FileConversionView: View {
                             .frame(height: 22)
                             .background(Color.white.opacity(0.08))
                             .clipShape(Capsule())
+                    }
+                }
+                Spacer(minLength: 0)
+            } else if state.sourceURLs.isEmpty == false {
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack(spacing: 12) {
+                        Image(systemName: "doc.on.doc")
+                            .font(.system(size: 30, weight: .regular))
+                            .foregroundStyle(FoundryTheme.secondaryText)
+
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("\(state.sourceURLs.count) files selected")
+                                .font(FoundryTheme.body(size: 15, weight: .semibold))
+                                .foregroundStyle(FoundryTheme.primaryText)
+                            Text("The same output format will be applied to each file.")
+                                .font(FoundryTheme.body(size: 12, weight: .regular))
+                                .foregroundStyle(FoundryTheme.mutedText)
+                        }
+                    }
+
+                    ForEach(Array(state.sourceURLs.prefix(4)), id: \.self) { sourceURL in
+                        HStack(spacing: 8) {
+                            Image(nsImage: IconCache.shared.icon(forFile: sourceURL.path))
+                                .resizable()
+                                .aspectRatio(contentMode: .fit)
+                                .frame(width: 22, height: 22)
+                            Text(sourceURL.lastPathComponent)
+                                .font(FoundryTheme.body(size: 12, weight: .medium))
+                                .foregroundStyle(FoundryTheme.secondaryText)
+                                .lineLimit(1)
+                            Spacer(minLength: 0)
+                        }
+                    }
+
+                    if state.sourceURLs.count > 4 {
+                        Text("+\(state.sourceURLs.count - 4) more files")
+                            .font(FoundryTheme.body(size: 12, weight: .medium))
+                            .foregroundStyle(FoundryTheme.faintText)
                     }
                 }
                 Spacer(minLength: 0)
@@ -120,7 +158,7 @@ struct FileConversionView: View {
     }
 
     private var canConvert: Bool {
-        state.sourceURL != nil && state.selectedTarget != nil && state.isConverting == false
+        state.sourceURLs.isEmpty == false && state.selectedTarget != nil && state.isConverting == false
     }
 
     private var settingsCard: some View {
@@ -201,15 +239,15 @@ struct FileConversionView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                 }
 
-                if state.outputURL != nil {
-                    Button("Reveal in Finder") { state.revealOutput() }
+                if state.outputURLs.isEmpty == false {
+                    Button(state.outputURLs.count == 1 ? "Reveal in Finder" : "Reveal Outputs in Finder") { state.revealOutput() }
                         .buttonStyle(PressableButtonStyle())
                         .font(FoundryTheme.body(size: 12, weight: .semibold))
                         .foregroundStyle(FoundryTheme.secondaryText)
                         .frame(maxWidth: .infinity)
                         .pointerCursor()
                 }
-            } else if state.sourceURL != nil {
+            } else if state.sourceURLs.isEmpty == false {
                 Spacer(minLength: 0)
                 VStack(spacing: 10) {
                     Image(systemName: "questionmark.folder")
@@ -258,7 +296,11 @@ struct FileConversionView: View {
                         .controlSize(.small)
                         .tint(FoundryTheme.primaryText)
                 }
-                Text(state.isConverting ? "Cancel Conversion" : "Convert")
+                Text(
+                    state.isConverting
+                        ? "Cancel Conversion"
+                        : state.sourceURLs.count > 1 ? "Convert \(state.sourceURLs.count) Files" : "Convert"
+                )
                     .font(FoundryTheme.body(size: 14, weight: .bold))
             }
             .frame(maxWidth: .infinity)

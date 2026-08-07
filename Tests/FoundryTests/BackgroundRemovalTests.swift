@@ -85,6 +85,47 @@ final class BackgroundRemovalTests: XCTestCase {
         XCTAssertNil(state.backgroundRemovalEngine)
     }
 
+    func testShelfSupportsToggleAndRangeSelection() throws {
+        let folder = try temporaryFolder()
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let urls = ["one.png", "two.png", "three.png"].map { folder.appendingPathComponent($0) }
+        let state = FileShelfState()
+        state.add(urls: urls)
+
+        state.toggleSelection(id: urls[1].path)
+        XCTAssertEqual(state.selectedFiles.map(\.url), [urls[0], urls[1]])
+
+        state.select(id: urls[0].path)
+        state.extendSelection(to: urls[2].path)
+        XCTAssertEqual(state.selectedFiles.map(\.url), urls)
+
+        state.toggleSelection(id: urls[1].path)
+        XCTAssertEqual(state.selectedFiles.map(\.url), [urls[0], urls[2]])
+
+        state.select(id: urls[0].path)
+        state.toggleSelection(id: urls[0].path)
+        XCTAssertTrue(state.selectedFiles.isEmpty)
+    }
+
+    func testShelfRemovesBackgroundFromMultipleSelectedFiles() async throws {
+        let folder = try temporaryFolder()
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let sourceURLs = ["one.png", "two.png"].map { folder.appendingPathComponent($0) }
+        let outputURLs = ["one - background removed.png", "two - background removed.png"].map { folder.appendingPathComponent($0) }
+        let service = MappingBackgroundRemovalService(outputs: Dictionary(uniqueKeysWithValues: zip(sourceURLs, outputURLs)))
+        let state = FileShelfState(backgroundRemovalService: service)
+        state.add(urls: sourceURLs)
+        state.toggleSelection(id: sourceURLs[1].path)
+
+        state.removeBackgroundFromSelected()
+        try await waitForBackgroundRemovalToFinish(state)
+
+        XCTAssertEqual(state.files.map(\.url), sourceURLs + outputURLs)
+        XCTAssertEqual(state.selectedFiles.map(\.url), outputURLs)
+        XCTAssertEqual(state.backgroundRemovalStatus, "Processed 2 files")
+        XCTAssertNil(state.backgroundRemovalError)
+    }
+
     func testShelfExposesBEN2AsTheOnlyExperimentalEngine() {
         let state = FileShelfState()
 
@@ -173,6 +214,21 @@ private struct SlowBackgroundRemovalService: BackgroundRemoving {
 
     func removeBackground(from sourceURL: URL, destinationURL: URL?) async throws -> URL {
         try await Task.sleep(for: .seconds(1))
+        return outputURL
+    }
+}
+
+private struct MappingBackgroundRemovalService: BackgroundRemoving {
+    let outputs: [URL: URL]
+
+    func supports(_ sourceURL: URL) -> Bool {
+        outputs[sourceURL] != nil
+    }
+
+    func removeBackground(from sourceURL: URL, destinationURL: URL?) async throws -> URL {
+        guard let outputURL = outputs[sourceURL] else {
+            throw BackgroundRemovalError.unsupportedFile
+        }
         return outputURL
     }
 }

@@ -21,6 +21,7 @@ enum BackgroundRemovalEngine: String, CaseIterable, Identifiable, Sendable {
 final class FileShelfState: ObservableObject {
     @Published private(set) var files: [ShelfFile] = []
     @Published var selectedID: String?
+    @Published private(set) var selectedIDs: Set<String> = []
     @Published private(set) var backgroundRemovalFileID: String?
     @Published private(set) var backgroundRemovalStatus = ""
     @Published private(set) var backgroundRemovalError: String?
@@ -30,6 +31,7 @@ final class FileShelfState: ObservableObject {
     private let backgroundRemovalServices: [BackgroundRemovalEngine: any BackgroundRemoving]
     private var backgroundRemovalTask: Task<Void, Never>?
     private var backgroundRemovalGeneration = 0
+    private var selectionAnchorID: String?
 
     init(
         backgroundRemovalService: any BackgroundRemoving = VisionBackgroundRemovalService(),
@@ -48,7 +50,19 @@ final class FileShelfState: ObservableObject {
     }
 
     var selectedFile: ShelfFile? {
-        files.first { $0.id == selectedID } ?? files.first
+        guard let selectedID else { return nil }
+        return files.first { $0.id == selectedID }
+    }
+
+    var selectedFiles: [ShelfFile] {
+        let ids: Set<String>
+        if selectedIDs.isEmpty, let selectedID {
+            ids = [selectedID]
+        } else {
+            ids = selectedIDs
+        }
+
+        return files.filter { ids.contains($0.id) }
     }
 
     var isRemovingBackground: Bool {
@@ -56,13 +70,13 @@ final class FileShelfState: ObservableObject {
     }
 
     var canRemoveBackgroundFromSelected: Bool {
-        guard isRemovingBackground == false, let selectedFile else { return false }
-        return supportsBackgroundRemoval(for: selectedFile)
+        guard isRemovingBackground == false else { return false }
+        return selectedFiles.contains { supportsBackgroundRemoval(for: $0) }
     }
 
     var canTryExperimentalBackgroundRemovalFromSelected: Bool {
-        guard isRemovingBackground == false, let selectedFile else { return false }
-        return experimentalEngines.contains { supportsBackgroundRemoval(for: selectedFile, using: $0) }
+        guard isRemovingBackground == false else { return false }
+        return selectedFiles.contains { canTryExperimentalBackgroundRemoval(for: $0) }
     }
 
     var summary: String {
@@ -76,12 +90,16 @@ final class FileShelfState: ObservableObject {
             .map(ShelfFile.init(url:))
         guard newFiles.isEmpty == false else { return }
         files.append(contentsOf: newFiles)
-        selectedID = selectedID ?? files.first?.id
+        if selectedIDs.isEmpty, selectedID == nil {
+            selectFirst()
+        }
     }
 
     func removeSelected() {
-        guard let selectedFile else { return }
-        remove(id: selectedFile.id)
+        let selectedIDs = selectedFiles.map(\.id)
+        for id in selectedIDs {
+            remove(id: id)
+        }
     }
 
     func remove(id: String) {
@@ -89,13 +107,19 @@ final class FileShelfState: ObservableObject {
             cancelBackgroundRemoval()
         }
         files.removeAll { $0.id == id }
-        selectFirst()
+        selectedIDs.remove(id)
+        if selectionAnchorID == id {
+            selectionAnchorID = nil
+        }
+        repairSelection()
     }
 
     func clear() {
         cancelBackgroundRemoval()
         files.removeAll()
         selectedID = nil
+        selectedIDs = []
+        selectionAnchorID = nil
     }
 
     func shutdown() {
@@ -103,29 +127,72 @@ final class FileShelfState: ObservableObject {
     }
 
     func select(id: String) {
+        guard files.contains(where: { $0.id == id }) else { return }
+        selectedIDs = [id]
+        selectedID = id
+        selectionAnchorID = id
+    }
+
+    func toggleSelection(id: String) {
+        guard files.contains(where: { $0.id == id }) else { return }
+        if selectedIDs.contains(id) {
+            selectedIDs.remove(id)
+            if selectedIDs.isEmpty {
+                selectedID = nil
+                selectionAnchorID = nil
+            } else {
+                if selectedID == id {
+                    selectedID = files.first(where: { selectedIDs.contains($0.id) })?.id
+                }
+                selectionAnchorID = selectionAnchorID.flatMap { selectedIDs.contains($0) ? $0 : selectedID }
+            }
+        } else {
+            selectedIDs.insert(id)
+            selectedID = id
+            selectionAnchorID = id
+        }
+    }
+
+    func extendSelection(to id: String) {
+        guard let targetIndex = files.firstIndex(where: { $0.id == id }) else { return }
+        let anchorID = selectionAnchorID ?? selectedID ?? id
+        guard let anchorIndex = files.firstIndex(where: { $0.id == anchorID }) else {
+            select(id: id)
+            return
+        }
+        let range = min(anchorIndex, targetIndex)...max(anchorIndex, targetIndex)
+        selectedIDs = Set(files[range].map(\.id))
         selectedID = id
     }
 
     func selectFirst() {
-        selectedID = files.first?.id
+        guard let firstID = files.first?.id else {
+            selectedID = nil
+            selectedIDs = []
+            selectionAnchorID = nil
+            return
+        }
+        select(id: firstID)
     }
 
     func moveSelection(offset: Int) {
         guard files.isEmpty == false else { return }
         let currentIndex = selectedID.flatMap { id in files.firstIndex { $0.id == id } } ?? 0
         let nextIndex = min(max(currentIndex + offset, 0), files.count - 1)
-        selectedID = files[nextIndex].id
+        select(id: files[nextIndex].id)
     }
 
     func revealSelected() {
-        guard let selectedFile else { return }
-        NSWorkspace.shared.activateFileViewerSelecting([selectedFile.url])
+        let urls = selectedFiles.map(\.url)
+        guard urls.isEmpty == false else { return }
+        NSWorkspace.shared.activateFileViewerSelecting(urls)
     }
 
     func copySelectedPath() {
-        guard let selectedFile else { return }
+        let paths = selectedFiles.map(\.url.path)
+        guard paths.isEmpty == false else { return }
         NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(selectedFile.url.path, forType: .string)
+        NSPasteboard.general.setString(paths.joined(separator: "\n"), forType: .string)
     }
 
     func supportsBackgroundRemoval(for file: ShelfFile) -> Bool {
@@ -141,25 +208,26 @@ final class FileShelfState: ObservableObject {
     }
 
     func removeBackgroundFromSelected() {
-        guard let selectedFile,
-              backgroundRemovalTask == nil,
-              supportsBackgroundRemoval(for: selectedFile) else { return }
+        let selectedFiles = selectedFiles
+        let supportedFiles = selectedFiles.filter { supportsBackgroundRemoval(for: $0) }
+        guard backgroundRemovalTask == nil, supportedFiles.isEmpty == false else { return }
         startBackgroundRemoval(
-            for: selectedFile,
+            files: supportedFiles,
             engine: .vision,
-            destinationURL: nil
+            destinationURL: nil,
+            skippedCount: selectedFiles.count - supportedFiles.count
         )
     }
 
     func removeBackground(using engine: BackgroundRemovalEngine) {
-        guard engine != .vision,
-              let selectedFile,
-              backgroundRemovalTask == nil,
-              supportsBackgroundRemoval(for: selectedFile, using: engine) else { return }
+        let selectedFiles = selectedFiles
+        let supportedFiles = selectedFiles.filter { supportsBackgroundRemoval(for: $0, using: engine) }
+        guard engine != .vision, backgroundRemovalTask == nil, supportedFiles.isEmpty == false else { return }
         startBackgroundRemoval(
-            for: selectedFile,
+            files: supportedFiles,
             engine: engine,
-            destinationURL: nil
+            destinationURL: nil,
+            skippedCount: selectedFiles.count - supportedFiles.count
         )
     }
 
@@ -184,9 +252,10 @@ final class FileShelfState: ObservableObject {
 
         let engine = backgroundRemovalEngine ?? .vision
         startBackgroundRemoval(
-            for: file,
+            files: [file],
             engine: engine,
-            destinationURL: destinationURL
+            destinationURL: destinationURL,
+            skippedCount: 0
         )
     }
 
@@ -208,50 +277,114 @@ final class FileShelfState: ObservableObject {
     }
 
     private func startBackgroundRemoval(
-        for file: ShelfFile,
+        files: [ShelfFile],
         engine: BackgroundRemovalEngine,
-        destinationURL: URL?
+        destinationURL: URL?,
+        skippedCount: Int
     ) {
         guard let service = backgroundRemovalServices[engine] else { return }
+        guard files.isEmpty == false else { return }
+        let total = files.count
         backgroundRemovalGeneration += 1
         let generation = backgroundRemovalGeneration
         backgroundRemovalTask?.cancel()
-        backgroundRemovalFileID = file.id
+        backgroundRemovalFileID = files.first?.id
         backgroundRemovalEngine = engine
-        backgroundRemovalStatus = engine == .vision
-            ? "Removing background..."
-            : "Preparing \(engine.title)..."
+        backgroundRemovalStatus = total == 1
+            ? (engine == .vision ? "Removing background..." : "Preparing \(engine.title)...")
+            : "Preparing \(total) files with \(engine.title)..."
         backgroundRemovalError = nil
         backgroundRemovalNeedsDestination = false
 
         backgroundRemovalTask = Task { [weak self] in
-            do {
+            var outputURLs: [URL] = []
+            var failureMessages: [String] = []
+            var hasDestinationFailure = false
+
+            for (index, file) in files.enumerated() {
+                guard Task.isCancelled == false, let self else { return }
+                self.backgroundRemovalFileID = file.id
+
                 let status: @MainActor @Sendable (String) -> Void = { [weak self] message in
                     guard let self, self.backgroundRemovalGeneration == generation else { return }
-                    self.backgroundRemovalStatus = message
+                    self.backgroundRemovalStatus = total == 1
+                        ? message
+                        : "\(index + 1) of \(total): \(message)"
                 }
-                let outputURL = try await service.removeBackground(
-                    from: file.url,
-                    destinationURL: destinationURL,
-                    status: status
+
+                do {
+                    let outputURL = try await service.removeBackground(
+                        from: file.url,
+                        destinationURL: total == 1 ? destinationURL : nil,
+                        status: status
+                    )
+                    guard Task.isCancelled == false, self.backgroundRemovalGeneration == generation else { return }
+                    outputURLs.append(outputURL)
+                    self.add(urls: [outputURL])
+                } catch is CancellationError {
+                    return
+                } catch {
+                    if (error as? BackgroundRemovalError) == .destinationNotWritable {
+                        hasDestinationFailure = true
+                    }
+                    failureMessages.append(total == 1 ? error.localizedDescription : "\(file.name): \(error.localizedDescription)")
+                }
+            }
+
+            guard Task.isCancelled == false, let self, self.backgroundRemovalGeneration == generation else { return }
+            self.backgroundRemovalTask = nil
+            self.backgroundRemovalEngine = failureMessages.isEmpty || total > 1 ? nil : engine
+            self.backgroundRemovalFileID = failureMessages.isEmpty || total > 1 ? nil : files[0].id
+            self.backgroundRemovalNeedsDestination = total == 1 && hasDestinationFailure
+
+            if failureMessages.isEmpty {
+                self.backgroundRemovalError = nil
+                self.backgroundRemovalStatus = outputURLs.count == 1 && skippedCount == 0
+                    ? "Created \(outputURLs[0].lastPathComponent)"
+                    : self.batchStatus(processed: outputURLs.count, skipped: skippedCount)
+                self.selectGeneratedOutputs(outputURLs)
+            } else {
+                self.backgroundRemovalStatus = self.batchStatus(
+                    processed: outputURLs.count,
+                    skipped: skippedCount,
+                    failed: failureMessages.count
                 )
-                guard Task.isCancelled == false, let self, self.backgroundRemovalGeneration == generation else { return }
-                self.backgroundRemovalTask = nil
-                self.backgroundRemovalFileID = nil
-                self.backgroundRemovalEngine = nil
-                self.backgroundRemovalStatus = "Created \(outputURL.lastPathComponent)"
-                self.add(urls: [outputURL])
-                self.selectedID = outputURL.path
-            } catch is CancellationError {
-                return
-            } catch {
-                guard Task.isCancelled == false, let self, self.backgroundRemovalGeneration == generation else { return }
-                self.backgroundRemovalTask = nil
-                self.backgroundRemovalStatus = "Background removal failed"
-                self.backgroundRemovalError = error.localizedDescription
-                self.backgroundRemovalNeedsDestination = (error as? BackgroundRemovalError) == .destinationNotWritable
+                self.backgroundRemovalError = failureMessages.joined(separator: "\n")
+                self.selectGeneratedOutputs(outputURLs)
             }
         }
+    }
+
+    private func selectGeneratedOutputs(_ outputURLs: [URL]) {
+        guard outputURLs.isEmpty == false else { return }
+        selectedIDs = Set(outputURLs.map(\.path))
+        selectedID = outputURLs.last?.path
+        selectionAnchorID = selectedID
+    }
+
+    private func repairSelection() {
+        selectedIDs = selectedIDs.intersection(Set(files.map(\.id)))
+        if selectedIDs.isEmpty {
+            selectFirst()
+            return
+        }
+        if selectedID == nil || selectedIDs.contains(selectedID ?? "") == false {
+            selectedID = files.first(where: { selectedIDs.contains($0.id) })?.id
+        }
+        if selectionAnchorID == nil || selectedIDs.contains(selectionAnchorID ?? "") == false {
+            selectionAnchorID = selectedID
+        }
+    }
+
+    private func batchStatus(processed: Int, skipped: Int, failed: Int = 0) -> String {
+        var parts = ["Processed \(processed) file\(processed == 1 ? "" : "s")"]
+        if failed > 0 {
+            parts.append("\(failed) failed")
+        }
+        if skipped > 0 {
+            parts.append("\(skipped) unsupported skipped")
+        }
+        return parts.joined(separator: ", ")
     }
 
     private func backgroundRemovalSuffix(for engine: BackgroundRemovalEngine) -> String {
