@@ -36,6 +36,26 @@ struct FileShelfView: View {
                             .foregroundStyle(FoundryTheme.mutedText)
                             .pointerCursor()
                     }
+                    if state.isRemovingBackground {
+                        Button("Cancel") { state.cancelBackgroundRemoval() }
+                            .buttonStyle(PressableButtonStyle())
+                            .font(FoundryTheme.body(size: 12, weight: .semibold))
+                            .foregroundStyle(FoundryTheme.mutedText)
+                            .pointerCursor()
+                    } else if state.canRemoveBackgroundFromSelected {
+                        Button("Remove Background") { state.removeBackgroundFromSelected() }
+                            .buttonStyle(PressableButtonStyle())
+                            .font(FoundryTheme.body(size: 12, weight: .semibold))
+                            .foregroundStyle(FoundryTheme.mutedText)
+                            .pointerCursor()
+                    }
+                    if state.canTryExperimentalBackgroundRemovalFromSelected {
+                        Button("Try BEN2") { state.removeBackgroundWithBEN2() }
+                            .buttonStyle(PressableButtonStyle())
+                            .font(FoundryTheme.body(size: 12, weight: .semibold))
+                            .foregroundStyle(FoundryTheme.mutedText)
+                            .pointerCursor()
+                    }
                     Button("Clear") { isConfirmingClear = true }
                         .buttonStyle(PressableButtonStyle())
                         .font(FoundryTheme.body(size: 12, weight: .semibold))
@@ -44,13 +64,42 @@ struct FileShelfView: View {
                 }
                 .padding(.horizontal, 4)
 
+                if state.backgroundRemovalStatus.isEmpty == false {
+                    HStack(spacing: 6) {
+                        if state.isRemovingBackground {
+                            ProgressView()
+                                .controlSize(.small)
+                        } else {
+                            Image(systemName: state.backgroundRemovalError == nil ? "checkmark.circle" : "exclamationmark.triangle")
+                                .font(.system(size: 11, weight: .semibold))
+                        }
+                        Text(state.backgroundRemovalStatus)
+                            .lineLimit(1)
+                    }
+                    .font(FoundryTheme.body(size: 12, weight: .medium))
+                    .foregroundStyle(state.backgroundRemovalError == nil ? FoundryTheme.secondaryText : Color.orange.opacity(0.9))
+                    .padding(.horizontal, 4)
+                }
+
                 ScrollView {
                     LazyVStack(spacing: 2) {
                         ForEach(state.files) { file in
                             FileShelfRow(
                                 file: file,
                                 isSelected: state.selectedID == file.id,
+                                canRemoveBackground: state.isRemovingBackground == false && state.supportsBackgroundRemoval(for: file),
+                                canTryBEN2: state.isRemovingBackground == false && state.canTryExperimentalBackgroundRemoval(for: file),
+                                isRemovingBackground: state.backgroundRemovalFileID == file.id && state.isRemovingBackground,
                                 reveal: { NSWorkspace.shared.activateFileViewerSelecting([file.url]) },
+                                removeBackground: {
+                                    state.select(id: file.id)
+                                    state.removeBackgroundFromSelected()
+                                },
+                                tryBEN2: {
+                                    state.select(id: file.id)
+                                    state.removeBackgroundWithBEN2()
+                                },
+                                cancelBackgroundRemoval: { state.cancelBackgroundRemoval() },
                                 remove: { state.remove(id: file.id) }
                             )
                             .id(file.id)
@@ -71,13 +120,36 @@ struct FileShelfView: View {
         } message: {
             Text("Remove all waiting files from Foundry. The original files will not be deleted.")
         }
+        .alert("Couldn't Remove Background", isPresented: backgroundRemovalErrorBinding) {
+            if state.backgroundRemovalNeedsDestination {
+                Button("Choose Save Location") { state.chooseBackgroundRemovalDestination() }
+            }
+            Button("Dismiss", role: .cancel) { state.dismissBackgroundRemovalError() }
+        } message: {
+            Text(state.backgroundRemovalError ?? "Foundry could not process this image.")
+        }
+    }
+
+    private var backgroundRemovalErrorBinding: Binding<Bool> {
+        Binding(
+            get: { state.backgroundRemovalError != nil },
+            set: { isPresented in
+                if isPresented == false { state.dismissBackgroundRemovalError() }
+            }
+        )
     }
 }
 
 struct FileShelfRow: View {
     let file: ShelfFile
     let isSelected: Bool
+    let canRemoveBackground: Bool
+    let canTryBEN2: Bool
+    let isRemovingBackground: Bool
     let reveal: () -> Void
+    let removeBackground: () -> Void
+    let tryBEN2: () -> Void
+    let cancelBackgroundRemoval: () -> Void
     let remove: () -> Void
 
     @State private var isHovering = false
@@ -138,6 +210,19 @@ struct FileShelfRow: View {
         .onHover { hovering in
             isHovering = hovering
             if hovering { NSCursor.pointingHand.set() } else { NSCursor.arrow.set() }
+        }
+        .contextMenu {
+            if isRemovingBackground {
+                Button("Cancel Background Removal", action: cancelBackgroundRemoval)
+            } else if canRemoveBackground {
+                Button("Remove Background", action: removeBackground)
+            }
+            if canTryBEN2 {
+                Button("Try BEN2", action: tryBEN2)
+            }
+            Button("Reveal in Finder", action: reveal)
+            Divider()
+            Button("Remove from File Shelf", action: remove)
         }
     }
 }

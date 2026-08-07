@@ -13,6 +13,8 @@ Foundry is a native macOS alternative to raycast
 - Clipboard history for text, files, and images
 - Apple Notes search and quick actions
 - File Shelf for temporary file actions
+- Local photo background removal for still images
+- Experimental BEN2 background removal with an optional local ONNX runtime
 - Mac utilities
 - Activity Monitor view
 - Emoji and symbol picker

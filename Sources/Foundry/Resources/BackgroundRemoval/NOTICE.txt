@@ -1,0 +1,7 @@
+Foundry's experimental BEN2 background-removal integration uses:
+
+- BEN2 Base by PramaLLC.
+- Pinned model revision: e48a20765fb421d19dcdb0bf3cc61e802ca5ec8f
+- Model license metadata: MIT
+- Model card: https://huggingface.co/PramaLLC/BEN2
+- ONNX Runtime: https://onnxruntime.ai

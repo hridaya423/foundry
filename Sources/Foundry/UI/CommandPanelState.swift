@@ -262,6 +262,7 @@ final class CommandPanelState: ObservableObject {
         cancelActiveAction()
         clipboardHistory.stop()
         agents.stop()
+        fileShelf.shutdown()
     }
 
     func openSettings() {
