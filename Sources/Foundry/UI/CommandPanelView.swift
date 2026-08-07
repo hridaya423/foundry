@@ -7,10 +7,22 @@ struct CommandPanelView: View {
     @ObservedObject var state: CommandPanelState
     let dismiss: () -> Void
 
+    @ObservedObject private var fileShelf: FileShelfState
+    @ObservedObject private var agents: AgentMonitorState
+    @ObservedObject private var widgetBoard: WidgetBoardState
+
     @FocusState private var inputFocused: Bool
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @State private var isDropTargeted = false
+
+    init(state: CommandPanelState, dismiss: @escaping () -> Void) {
+        self.state = state
+        self.dismiss = dismiss
+        _fileShelf = ObservedObject(wrappedValue: state.fileShelf)
+        _agents = ObservedObject(wrappedValue: state.agents)
+        _widgetBoard = ObservedObject(wrappedValue: state.widgetBoard)
+    }
 
     private var selectedCalculatorResult: CommandResult? {
         guard let selectedResult = state.selectedResult, selectedResult.id.hasPrefix("calculator.") else { return nil }
@@ -31,7 +43,9 @@ struct CommandPanelView: View {
     private var shouldShowHomeAccessory: Bool {
         guard state.mode == .search,
               state.query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return false }
-        return state.agents.visibleSessions.isEmpty == false || state.widgetBoard.homeWidgets.contains { $0 != .agents }
+        return fileShelf.files.isEmpty == false
+            || agents.visibleSessions.isEmpty == false
+            || widgetBoard.homeWidgets.contains { $0 != .agents }
     }
 
     var body: some View {
@@ -40,7 +54,7 @@ struct CommandPanelView: View {
 
             if shouldShowHomeAccessory {
                 homeAccessoryStrip
-                    .transition(.opacity.combined(with: .move(edge: .top)))
+                    .transition(reduceMotion ? .opacity : .opacity.combined(with: .move(edge: .top)))
             }
 
             contentSurface
@@ -69,14 +83,14 @@ struct CommandPanelView: View {
                 }
                     .padding(.bottom, 50)
                     .padding(.horizontal, 18)
-                    .transition(.opacity.combined(with: .move(edge: .bottom)))
+                    .transition(reduceMotion ? .opacity : .opacity.combined(with: .move(edge: .bottom)))
             }
         }
 
         let animated = feedbackWrapped
             .animation(reduceMotion ? nil : Animation.easeOut(duration: 0.14), value: state.mode)
-            .animation(reduceMotion ? nil : Animation.easeOut(duration: 0.14), value: state.fileShelf.files.count)
-            .animation(reduceMotion ? nil : Animation.easeOut(duration: 0.14), value: state.agents.sessions.count)
+            .animation(reduceMotion ? nil : Animation.easeOut(duration: 0.14), value: fileShelf.files.count)
+            .animation(reduceMotion ? nil : Animation.easeOut(duration: 0.14), value: agents.sessions.count)
 
         return animated
             .onChange(of: state.mode) { _, _ in
@@ -146,9 +160,7 @@ struct CommandPanelView: View {
     @ViewBuilder
     private var contentSurface: some View {
         Group {
-            if state.mode == .dashboard {
-                dashboardSurface
-            } else if state.mode == .agents {
+            if state.mode == .agents {
                 AgentShelfView(agents: state.agents, dismiss: dismiss)
             } else if state.mode == .settings {
                 WidgetSettingsView(state: state)
@@ -194,55 +206,16 @@ struct CommandPanelView: View {
             }
         }
         .id(contentID)
-        .transition(.opacity.combined(with: .scale(scale: 0.985, anchor: .center)))
-    }
-
-    private var dashboardSurface: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 14) {
-                HStack {
-                    Text("Dashboard")
-                        .font(FoundryTheme.body(size: 13, weight: .semibold))
-                        .foregroundStyle(FoundryTheme.primaryText.opacity(0.72))
-
-                    Spacer()
-
-                    Button("Back to launcher") {
-                        state.backToSearch()
-                    }
-                    .font(FoundryTheme.body(size: 12, weight: .medium))
-                    .foregroundStyle(FoundryTheme.secondaryText)
-                    .buttonStyle(FoundryQuietButtonStyle())
-                    .pointerCursor()
-                }
-                .padding(.horizontal, 16)
-
-                if state.fileShelf.files.isEmpty == false {
-                    shelfStrip
-                }
-
-                if state.widgetBoard.homeWidgets.contains(where: { $0 != .agents }) || state.agents.sessions.isEmpty == false {
-                    WidgetBoardView(board: state.widgetBoard, agents: state.agents)
-                        .padding(.horizontal, 16)
-                } else {
-                    Text("Choose widgets in Settings to build your dashboard.")
-                        .font(FoundryTheme.body(size: 12, weight: .regular))
-                        .foregroundStyle(FoundryTheme.mutedText)
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 12)
-                }
-            }
-            .padding(.vertical, 12)
-        }
-        .scrollIndicators(.never)
+        .transition(reduceMotion ? .opacity : .opacity.combined(with: .scale(scale: 0.985, anchor: .center)))
     }
 
     private var homeAccessoryStrip: some View {
-        WidgetBoardView(
-            board: state.widgetBoard,
-            agents: state.agents,
+        HomeAccessoryStrip(
+            board: widgetBoard,
+            agents: agents,
+            fileShelf: fileShelf,
             onAgentOpen: state.openAgents,
-            compact: true,
+            onShelfOpen: state.showFileShelf,
             compactMaximum: 4,
             compactBackground: false,
             compactHeight: 44
@@ -255,51 +228,9 @@ struct CommandPanelView: View {
         .padding(.bottom, 4)
     }
 
-    private var shelfStrip: some View {
-        Button {
-            state.showFileShelf()
-        } label: {
-            HStack(spacing: 14) {
-                ShelfIconStack(files: Array(state.fileShelf.files.prefix(3)))
-
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("File Shelf")
-                        .font(FoundryTheme.body(size: 16, weight: .semibold))
-                        .foregroundStyle(FoundryTheme.primaryText)
-                    Text(state.fileShelf.summary)
-                        .font(FoundryTheme.body(size: 12, weight: .regular))
-                        .foregroundStyle(FoundryTheme.secondaryText)
-                }
-
-                Spacer()
-
-                HStack(spacing: 6) {
-                    Text("Open")
-                    Image(systemName: "arrow.right")
-                        .font(.system(size: 11, weight: .semibold))
-                }
-                    .font(FoundryTheme.body(size: 12, weight: .semibold))
-                    .foregroundStyle(FoundryTheme.secondaryText)
-            }
-            .padding(.horizontal, 18)
-            .frame(height: 66)
-            .background(Color.white.opacity(0.075))
-            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .stroke(Color.white.opacity(0.08), lineWidth: 1)
-            )
-            .padding(.horizontal, 20)
-            .padding(.top, 12)
-        }
-        .buttonStyle(PressableButtonStyle())
-        .pointerCursor()
-    }
-
     private var contentID: String {
         if state.mode == .settings { return "settings" }
         if state.mode == .agents { return "agents" }
-        if state.mode == .dashboard { return "dashboard" }
         if state.mode == .quickAI { return "quickAI" }
         if state.mode == .emojiPicker { return "emoji" }
         if state.mode == .fileConversion { return "fileConversion" }
@@ -335,7 +266,7 @@ struct CommandPanelView: View {
                     .padding(.vertical, 16)
                     .background(Color.black.opacity(0.18))
                     .clipShape(FoundrySmoothedRectangle(cornerRadius: 18, smoothing: 0.75))
-                    .transition(.opacity.combined(with: .scale(scale: 0.96)))
+                     .transition(reduceMotion ? .opacity : .opacity.combined(with: .scale(scale: 0.96)))
                 }
             }
             .allowsHitTesting(false)
@@ -357,7 +288,7 @@ struct CommandPanelView: View {
             if state.mode != .search {
                 FoundryIconButton(
                     systemName: "chevron.left",
-                    accessibilityLabel: "Back to search",
+                    accessibilityLabel: "Back to Home",
                     action: state.backToSearch
                 )
             }
@@ -370,15 +301,7 @@ struct CommandPanelView: View {
                   Text("Settings")
                       .font(FoundryTheme.body(size: 18, weight: .semibold))
                       .foregroundStyle(FoundryTheme.primaryText)
-             } else if state.mode == .dashboard {
-                 Image(systemName: "rectangle.3.group")
-                     .font(.system(size: 16, weight: .regular))
-                     .foregroundStyle(FoundryTheme.mutedText)
-
-                 Text("Dashboard")
-                     .font(FoundryTheme.body(size: 21, weight: .regular))
-                     .foregroundStyle(FoundryTheme.primaryText)
-             } else if state.mode == .emojiPicker {
+              } else if state.mode == .emojiPicker {
                 TextField("Search emoji and symbols...", text: emojiQueryBinding)
                     .textFieldStyle(.plain)
                     .font(FoundryTheme.body(size: 21, weight: .regular))
@@ -482,7 +405,7 @@ struct CommandPanelView: View {
                                 state.query = ""
                                 inputFocused = true
                             }
-                            .transition(.opacity.combined(with: .scale(scale: 0.7)))
+                         .transition(reduceMotion ? .opacity : .opacity.combined(with: .scale(scale: 0.7)))
                         }
 
                         Button {
@@ -509,7 +432,7 @@ struct CommandPanelView: View {
                     }
                     .zIndex(1)
                     .padding(.leading, 6)
-                    .transition(.opacity.combined(with: .move(edge: .trailing)))
+                         .transition(reduceMotion ? .opacity : .opacity.combined(with: .move(edge: .trailing)))
                 }
 
                 if state.isActionInProgress {
@@ -523,15 +446,18 @@ struct CommandPanelView: View {
                 }
             }
         }
-        .animation(.easeOut(duration: 0.12), value: state.query.isEmpty)
+        .animation(reduceMotion ? nil : .easeOut(duration: 0.12), value: state.query.isEmpty)
         .padding(.horizontal, 22)
         .frame(height: state.mode == .settings ? 52 : 60)
         .background(Color.clear)
         .overlay(alignment: .bottom) {
             if nativeGlassEnabled == false {
-                Rectangle()
-                    .fill(Color.white.opacity(0.07))
-                    .frame(height: 1)
+                LinearGradient(
+                    colors: [Color.white.opacity(0.09), Color.white.opacity(0.02), Color.clear],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+                .frame(height: 4)
             }
         }
     }
@@ -595,7 +521,7 @@ struct CommandPanelView: View {
             .background(Color.clear)
             .onChange(of: state.selectionScrollToken) { _, _ in
                 guard let resultID = state.selectedResultID else { return }
-                withAnimation(.easeOut(duration: 0.12)) {
+                withAnimation(reduceMotion ? nil : .easeOut(duration: 0.12)) {
                     proxy.scrollTo(resultID, anchor: .center)
                 }
             }
@@ -641,7 +567,7 @@ struct CommandPanelView: View {
             CommandResult(
                 id: "calculator.fallback.settings",
                 title: "Open Foundry Settings",
-                subtitle: "Customize widgets and Foundry preferences",
+                 subtitle: "Customize Home, commands, and Foundry preferences",
                 icon: CommandIcon(fallback: "ST", systemName: "slider.horizontal.3"),
                 primaryAction: CommandAction(id: "calculator.fallback.settings.open", title: "Open", kind: .openSettings),
                 secondaryActions: []
@@ -706,7 +632,7 @@ struct CommandPanelView: View {
             "AI"
         case .openApp:
             "Application"
-        case .openEmojiPicker, .openFileShelf, .openClipboardHistory, .openSnippets, .openFileConverter, .openCamera, .openTranslator, .openDeveloperTools, .openConfigFolder, .openSettings, .openDashboard, .openMediaDownloads, .quit:
+        case .openEmojiPicker, .openFileShelf, .openClipboardHistory, .openSnippets, .openFileConverter, .openCamera, .openTranslator, .openDeveloperTools, .openConfigFolder, .openSettings, .openHome, .openMediaDownloads, .quit:
             "Command"
         case .revealInFinder:
             "Finder"
@@ -778,7 +704,7 @@ struct CommandPanelView: View {
                 .background(Color.clear)
                 .onChange(of: state.selectedActionID) { _, actionID in
                     guard let actionID else { return }
-                    withAnimation(.easeOut(duration: 0.12)) {
+                    withAnimation(reduceMotion ? nil : .easeOut(duration: 0.12)) {
                         proxy.scrollTo(actionID, anchor: .center)
                     }
                 }
@@ -795,28 +721,54 @@ struct CommandPanelView: View {
         return VStack(spacing: 14) {
             Spacer()
 
-            ZStack {
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .fill(Color.white.opacity(0.075))
-                    .frame(width: 68, height: 68)
+            if state.isHomeLoading && hasQuery == false {
+                ProgressView()
+                    .controlSize(.small)
+                    .tint(FoundryTheme.secondaryText)
 
-                Image(systemName: hasQuery ? "magnifyingglass" : "command")
-                    .font(.system(size: 28, weight: .regular))
+                Text("Loading Home")
+                    .font(FoundryTheme.body(size: 15, weight: .medium))
+                    .foregroundStyle(FoundryTheme.primaryText)
+
+                Text("Preparing your recent apps and commands.")
+                    .font(FoundryTheme.body(size: 13, weight: .regular))
                     .foregroundStyle(FoundryTheme.secondaryText)
+            } else if state.isSearchLoading {
+                ProgressView()
+                    .controlSize(.small)
+                    .tint(FoundryTheme.secondaryText)
+
+                Text("Searching")
+                    .font(FoundryTheme.body(size: 15, weight: .medium))
+                    .foregroundStyle(FoundryTheme.primaryText)
+
+                Text("Checking apps, commands, and connected tools.")
+                    .font(FoundryTheme.body(size: 13, weight: .regular))
+                    .foregroundStyle(FoundryTheme.secondaryText)
+            } else {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                        .fill(Color.white.opacity(0.075))
+                        .frame(width: 68, height: 68)
+
+                    Image(systemName: hasQuery ? "magnifyingglass" : "command")
+                        .font(.system(size: 28, weight: .regular))
+                        .foregroundStyle(FoundryTheme.secondaryText)
+                }
+
+                Text(hasQuery ? "No results" : "Start typing")
+                    .font(FoundryTheme.body(size: 17, weight: .medium))
+                    .foregroundStyle(FoundryTheme.primaryText)
+
+                Text(hasQuery
+                    ? "Nothing matches \u{201C}\(trimmedQuery)\u{201D}."
+                    : "Find apps, commands, emoji, system tools, and shelf actions.")
+                    .font(FoundryTheme.body(size: 13, weight: .regular))
+                    .foregroundStyle(FoundryTheme.secondaryText)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                    .padding(.horizontal, 40)
             }
-
-            Text(hasQuery ? "No results" : "Start typing")
-                .font(FoundryTheme.body(size: 17, weight: .medium))
-                .foregroundStyle(FoundryTheme.primaryText)
-
-            Text(hasQuery
-                ? "Nothing matches \u{201C}\(trimmedQuery)\u{201D}."
-                : "Find apps, commands, emoji, system tools, and shelf actions.")
-                .font(FoundryTheme.body(size: 13, weight: .regular))
-                .foregroundStyle(FoundryTheme.secondaryText)
-                .lineLimit(1)
-                .truncationMode(.middle)
-                .padding(.horizontal, 40)
 
             Spacer()
         }
@@ -839,7 +791,12 @@ struct CommandPanelView: View {
                 settingsButton
             }
 
-            if state.mode == .search, state.diagnosticsSummary.contains("result") {
+            if state.mode == .search, state.isSearchLoading {
+                Text("Searching...")
+                    .font(FoundryTheme.body(size: 11, weight: .medium))
+                    .foregroundStyle(FoundryTheme.mutedText)
+                    .padding(.horizontal, 12)
+            } else if state.mode == .search, state.diagnosticsSummary.contains("result") {
                 Text(state.diagnosticsSummary)
                     .font(FoundryTheme.body(size: 11, weight: .medium))
                     .foregroundStyle(FoundryTheme.faintText)
@@ -878,40 +835,37 @@ struct CommandPanelView: View {
         switch state.mode {
         case .quickAI:
             FooterAction(label: "Submit", keys: "↵", emphasized: true)
-            FooterAction(label: "Close", keys: "esc")
+            FooterAction(label: "Home", keys: "esc")
         case .settings:
-            FooterAction(label: "Done", keys: "esc")
-        case .dashboard:
-            FooterAction(label: "Open", keys: "↵", emphasized: true)
-            FooterAction(label: "Close", keys: "esc")
+            FooterAction(label: "Home", keys: "esc")
         case .agents:
             FooterAction(label: "Open", keys: "Click", emphasized: true)
-            FooterAction(label: "Close", keys: "esc")
+            FooterAction(label: "Home", keys: "esc")
         case .emojiPicker:
             FooterAction(label: "Copy", keys: "↵")
-            FooterAction(label: "Close", keys: "esc")
+            FooterAction(label: "Home", keys: "esc")
         case .fileConversion:
             FooterAction(label: "Convert", keys: "↵", emphasized: true)
-            FooterAction(label: "Close", keys: "esc")
+            FooterAction(label: "Home", keys: "esc")
         case .camera:
-            FooterAction(label: "Close", keys: "esc")
+            FooterAction(label: "Home", keys: "esc")
         case .fileShelf:
             FooterAction(label: "Remove", keys: "⌫")
-            FooterAction(label: "Close", keys: "esc")
+            FooterAction(label: "Home", keys: "esc")
         case .clipboardHistory:
             FooterAction(label: "Copy", keys: "↵", emphasized: true)
             FooterAction(label: "Remove", keys: "⌫")
-            FooterAction(label: "Close", keys: "esc")
+            FooterAction(label: "Home", keys: "esc")
         case .snippets:
             FooterAction(label: "Copy", keys: "Click", emphasized: true)
-            FooterAction(label: "Close", keys: "esc")
+            FooterAction(label: "Home", keys: "esc")
         case .translator:
-            FooterAction(label: "Close", keys: "esc")
+            FooterAction(label: "Home", keys: "esc")
         case .developerTools:
             FooterAction(label: "Copy Value", keys: "Click")
-            FooterAction(label: "Close", keys: "esc")
+            FooterAction(label: "Home", keys: "esc")
         case .mediaDownloads:
-            FooterAction(label: "Close", keys: "esc")
+            FooterAction(label: "Home", keys: "esc")
         case .search:
             FooterAction(label: selectedCalculatorResult == nil ? "Open" : "Copy Answer", keys: "↵", emphasized: true)
             FooterAction(label: "Actions", keys: "⌘K")
@@ -940,24 +894,31 @@ struct CommandPanelView: View {
     }
 
     private func handleFileDrop(_ providers: [NSItemProvider]) -> Bool {
-        var didLoad = false
-        for provider in providers where provider.hasItemConformingToTypeIdentifier(UTType.fileURL.identifier) {
-            didLoad = true
-            provider.loadItem(forTypeIdentifier: UTType.fileURL.identifier, options: nil) { item, _ in
-                let url: URL?
-                if let data = item as? Data {
-                    url = URL(dataRepresentation: data, relativeTo: nil)
-                } else {
-                    url = item as? URL
+        let fileProviders = providers.filter { $0.hasItemConformingToTypeIdentifier(UTType.fileURL.identifier) }
+        guard fileProviders.isEmpty == false else { return false }
+
+        Task { @MainActor in
+            var urls: [URL] = []
+            for provider in fileProviders {
+                if let url = await loadFileURL(from: provider) {
+                    urls.append(url)
                 }
-                guard let url else { return }
-                Task { @MainActor in
-                    state.fileShelf.add(urls: [url])
-                    state.showFileShelf()
+            }
+            state.handleDroppedFiles(urls)
+        }
+        return true
+    }
+
+    private func loadFileURL(from provider: NSItemProvider) async -> URL? {
+        await withCheckedContinuation { continuation in
+            provider.loadItem(forTypeIdentifier: UTType.fileURL.identifier, options: nil) { item, _ in
+                if let data = item as? Data {
+                    continuation.resume(returning: URL(dataRepresentation: data, relativeTo: nil))
+                } else {
+                    continuation.resume(returning: item as? URL)
                 }
             }
         }
-        return didLoad
     }
 
 }
@@ -1011,6 +972,7 @@ private struct ActionRow: View {
     let isSelected: Bool
 
     @State private var isHovering = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         HStack(spacing: 12) {
@@ -1032,8 +994,8 @@ private struct ActionRow: View {
         .padding(.horizontal, 12)
         .frame(height: 40)
         .background(RowBackground(isSelected: isSelected, isHovering: isHovering))
-        .animation(.easeOut(duration: 0.12), value: isSelected)
-        .animation(.easeOut(duration: 0.12), value: isHovering)
+        .animation(reduceMotion ? nil : .easeOut(duration: 0.12), value: isSelected)
+        .animation(reduceMotion ? nil : .easeOut(duration: 0.12), value: isHovering)
         .onHover { hovering in
             isHovering = hovering
             if hovering { NSCursor.pointingHand.set() } else { NSCursor.arrow.set() }
@@ -1048,8 +1010,8 @@ private struct ActionRow: View {
             "arrow.up.right.square"
         case .openSettings:
             "slider.horizontal.3"
-        case .openDashboard:
-            "rectangle.3.group"
+        case .openHome:
+            "house"
         case .openMediaDownloads:
             "arrow.down.circle"
         case .revealInFinder:

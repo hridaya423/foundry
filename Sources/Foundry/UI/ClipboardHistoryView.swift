@@ -4,6 +4,7 @@ import SwiftUI
 struct ClipboardHistoryView: View {
     @ObservedObject var state: ClipboardHistoryState
     @ObservedObject var fileShelf: FileShelfState
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var isConfirmingClear = false
 
     private let columns = Array(repeating: GridItem(.flexible(), spacing: 10), count: 3)
@@ -11,55 +12,55 @@ struct ClipboardHistoryView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             if state.items.isEmpty {
-                VStack(spacing: 12) {
-                    Image(systemName: "doc.on.clipboard")
-                        .font(.system(size: 34, weight: .regular))
-                        .foregroundStyle(FoundryTheme.secondaryText)
-                    Text("Copy something to start history")
-                        .font(FoundryTheme.body(size: 16, weight: .semibold))
-                        .foregroundStyle(FoundryTheme.primaryText)
-                    Text("Foundry keeps text, files, and images while it is running.")
-                        .font(FoundryTheme.body(size: 13, weight: .regular))
-                        .foregroundStyle(FoundryTheme.secondaryText)
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                FoundryEmptyState(
+                    symbol: "doc.on.clipboard",
+                    title: "Clipboard history is empty",
+                    message: "Copy text, files, or images while Foundry is running and they will appear here."
+                )
+            } else if state.visibleItems.isEmpty {
+                FoundryEmptyState(
+                    symbol: "magnifyingglass",
+                    title: "No clipboard matches",
+                    message: "Try a shorter search or clear the search field."
+                )
             } else {
-                HStack {
-                    Text("\(state.visibleItems.count) item\(state.visibleItems.count == 1 ? "" : "s")")
-                        .font(FoundryTheme.body(size: 11, weight: .semibold))
-                        .foregroundStyle(FoundryTheme.faintText)
-                        .textCase(.uppercase)
-                        .tracking(0.5)
-                    Spacer()
-                    Button("Clear") { isConfirmingClear = true }
-                        .buttonStyle(PressableButtonStyle())
-                        .font(FoundryTheme.body(size: 12, weight: .semibold))
-                        .foregroundStyle(FoundryTheme.mutedText)
-                        .pointerCursor()
-                }
+                FoundrySectionHeader(
+                    title: "Clipboard",
+                    count: "\(state.visibleItems.count) item\(state.visibleItems.count == 1 ? "" : "s")",
+                    actionTitle: "Clear",
+                    action: { isConfirmingClear = true }
+                )
                 .padding(.horizontal, 4)
 
-                ScrollView {
-                    LazyVGrid(columns: columns, alignment: .leading, spacing: 10) {
-                        ForEach(state.visibleItems) { item in
-                            ClipboardHistoryCard(
-                                item: item,
-                                isSelected: state.selectedID == item.id,
-                                copy: { state.copySelected() },
-                                remove: { state.select(id: item.id); state.removeSelected() },
-                                addToShelf: { state.select(id: item.id); state.addSelectedFiles(to: fileShelf) }
-                            )
-                            .id(item.id)
-                            .contentShape(Rectangle())
-                            .onTapGesture {
-                                state.select(id: item.id)
+                ScrollViewReader { proxy in
+                    ScrollView {
+                        LazyVGrid(columns: columns, alignment: .leading, spacing: 10) {
+                            ForEach(state.visibleItems) { item in
+                                ClipboardHistoryCard(
+                                    item: item,
+                                    isSelected: state.selectedID == item.id,
+                                    copy: { state.copySelected() },
+                                    remove: { state.select(id: item.id); state.removeSelected() },
+                                    addToShelf: { state.select(id: item.id); state.addSelectedFiles(to: fileShelf) }
+                                )
+                                .id(item.id)
+                                .contentShape(Rectangle())
+                                .onTapGesture {
+                                    state.select(id: item.id)
+                                }
+                                .onTapGesture(count: 2) { state.copySelected() }
                             }
-                            .onTapGesture(count: 2) { state.copySelected() }
+                        }
+                        .padding(.bottom, 6)
+                    }
+                    .scrollIndicators(.never)
+                    .onChange(of: state.selectedID) { _, id in
+                        guard let id else { return }
+                        withAnimation(reduceMotion ? nil : .easeOut(duration: 0.12)) {
+                            proxy.scrollTo(id, anchor: .center)
                         }
                     }
-                    .padding(.bottom, 6)
                 }
-                .scrollIndicators(.never)
             }
         }
         .padding(.horizontal, 12)
@@ -81,6 +82,7 @@ private struct ClipboardHistoryCard: View {
     let addToShelf: () -> Void
 
     @State private var isHovering = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -131,8 +133,8 @@ private struct ClipboardHistoryCard: View {
         .padding(.vertical, 10)
         .frame(height: 210, alignment: .topLeading)
         .background(RowBackground(isSelected: isSelected, isHovering: isHovering, cornerRadius: 10))
-        .animation(.easeOut(duration: 0.10), value: isSelected)
-        .animation(.easeOut(duration: 0.12), value: isHovering)
+        .animation(reduceMotion ? nil : .easeOut(duration: 0.10), value: isSelected)
+        .animation(reduceMotion ? nil : .easeOut(duration: 0.12), value: isHovering)
         .onHover { hovering in
             isHovering = hovering
             if hovering { NSCursor.pointingHand.set() } else { NSCursor.arrow.set() }

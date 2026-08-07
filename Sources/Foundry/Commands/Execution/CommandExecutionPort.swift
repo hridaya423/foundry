@@ -12,7 +12,7 @@ enum CommandRoute: Codable, Equatable, Sendable {
     case translator(text: String?, language: String?)
     case developerTools(tool: String?)
     case settings
-    case dashboard
+    case home
     case mediaDownloads
 }
 

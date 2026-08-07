@@ -101,7 +101,7 @@ final class CommandRankingTests: XCTestCase {
         let config = ConfigService(diagnostics: DiagnosticsService(), url: configURL)
         var preference = CommandPreference()
         preference.aliases = ["ship"]
-        try config.updateCommandPreference(preference, for: "foundry.dashboard")
+        try config.updateCommandPreference(preference, for: "foundry.settings")
 
         let registry = CommandRegistry(
             providers: [BuiltInCommandProvider(config: config, diagnostics: DiagnosticsService())],
@@ -111,7 +111,7 @@ final class CommandRankingTests: XCTestCase {
         )
 
         let results = await registry.results(matching: "ship")
-        XCTAssertEqual(results.first?.id, "foundry.dashboard")
+        XCTAssertEqual(results.first?.id, "foundry.settings")
     }
 
     func testRelevantLexicalMatchBeatsUnmatchedProviderResults() async {
@@ -289,7 +289,7 @@ final class CommandRankingTests: XCTestCase {
             searchAliases: aliases,
             searchKeywords: searchKeywords,
             route: route,
-            primaryAction: CommandAction(id: id + ".open", title: "Open", kind: .openDashboard),
+            primaryAction: CommandAction(id: id + ".open", title: "Open", kind: .openHome),
             secondaryActions: []
         )
     }
@@ -357,7 +357,7 @@ final class CommandRankingTests: XCTestCase {
                 title: "Fallback result",
                 subtitle: nil,
                 icon: CommandIcon(fallback: "F"),
-                primaryAction: CommandAction(id: "test.fallback.open", title: "Open", kind: .openDashboard),
+                primaryAction: CommandAction(id: "test.fallback.open", title: "Open", kind: .openHome),
                 secondaryActions: []
             )]
         }

@@ -174,7 +174,7 @@ final class WidgetBoardState: ObservableObject {
     private func sampleMetrics() async {
         let sampler = sampler
         let needs = metricNeeds
-        let span = diagnostics.startSpan("dashboard.metrics")
+        let span = diagnostics.startSpan("home.metrics")
         let sampled = await Task.detached(priority: .utility) {
             sampler.sample(needs: needs)
         }.value
@@ -223,7 +223,7 @@ final class WidgetBoardState: ObservableObject {
 
     private func refreshDownloads() async {
         let home = FileManager.default.homeDirectoryForCurrentUser
-        let span = diagnostics.startSpan("dashboard.downloads")
+        let span = diagnostics.startSpan("home.downloads")
         let snapshot = await Task.detached(priority: .utility) {
             let directory = home.appendingPathComponent("Downloads")
             let files = (try? FileManager.default.contentsOfDirectory(

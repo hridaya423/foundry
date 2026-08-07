@@ -234,8 +234,7 @@ final class AIProviderTests: XCTestCase {
             .camera,
             .translator,
             .developerTools,
-            .settings,
-            .dashboard
+            .settings
         ]
 
         for mode in modes {

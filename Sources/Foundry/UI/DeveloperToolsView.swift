@@ -59,9 +59,9 @@ struct DeveloperToolsView: View {
         .buttonStyle(.plain)
         .pointerCursor()
         .accessibilityLabel(tool.rawValue)
+        .accessibilityValue(state.selectedTool == tool ? "Selected" : "Not selected")
         .accessibilityAddTraits(state.selectedTool == tool ? .isSelected : [])
-        .accessibilityLabel("Copy value")
-        .help("Copy value")
+        .help("Use \(tool.rawValue)")
     }
 
     private var baseTool: some View {

@@ -60,6 +60,9 @@ final class TranslatorState: ObservableObject {
             needsAppleTranslationFallback = false
             return
         }
+        result = ""
+        translationError = nil
+        isTranslating = true
         task = Task { [weak self] in
             if debounce {
                 do {
@@ -69,7 +72,6 @@ final class TranslatorState: ObservableObject {
                 }
             }
             guard Task.isCancelled == false else { return }
-            self?.isTranslating = true
             self?.needsAppleTranslationFallback = false
             self?.requestVersion += 1
         }

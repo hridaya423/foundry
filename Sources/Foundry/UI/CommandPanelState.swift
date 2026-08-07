@@ -19,7 +19,6 @@ final class CommandPanelState: ObservableObject {
         case developerTools
         case agents
         case settings
-        case dashboard
         case mediaDownloads
     }
 
@@ -34,6 +33,8 @@ final class CommandPanelState: ObservableObject {
     @Published var diagnosticsSummary = "IDLE"
     @Published var mode: Mode = .search
     @Published var focusToken = UUID()
+    @Published private(set) var isSearchLoading = false
+    @Published private(set) var isHomeLoading = false
     @Published var hoverHighlightsArmed = true
     @Published private(set) var actionFeedback: ActionFeedback? = nil
     @Published var isAgentShelfVisible: Bool
@@ -82,6 +83,7 @@ final class CommandPanelState: ObservableObject {
     private var feedbackTask: Task<Void, Never>?
     private var commandCatalogTask: Task<Void, Never>?
     private var isPanelOpen = false
+    private var homeRefreshID = UUID()
 
     var selectedResult: CommandResult? {
         results.first { $0.id == selectedResultID }
@@ -213,6 +215,7 @@ final class CommandPanelState: ObservableObject {
         detachActiveAction()
         isPanelOpen = true
         mode = .search
+        isSearchLoading = false
         widgetBoard.start()
         if isAgentShelfVisible {
             agents.start()
@@ -239,6 +242,9 @@ final class CommandPanelState: ObservableObject {
     func panelWillClose() {
         detachActiveAction()
         isPanelOpen = false
+        homeRefreshID = UUID()
+        isSearchLoading = false
+        isHomeLoading = false
         searchCoordinator.cancel()
         widgetBoard.stop()
         emojiPicker.reset()
@@ -416,14 +422,8 @@ final class CommandPanelState: ObservableObject {
         }
     }
 
-    func openDashboard() {
-        beginFeatureMode(.dashboard, status: "dashboard")
-        widgetBoard.start()
-        if isAgentShelfVisible {
-            agents.start()
-        } else {
-            agents.stopPolling()
-        }
+    func openHome() {
+        showHome()
     }
 
     func openMediaDownloads() {
@@ -479,13 +479,18 @@ final class CommandPanelState: ObservableObject {
     }
 
     func backToSearch() {
+        showHome()
+    }
+
+    func showHome() {
         detachActiveAction()
-        withAnimation(.easeOut(duration: 0.14)) {
-            mode = .search
-        }
-        widgetBoard.stop()
+        stopTransientPolling()
+        searchCoordinator.cancel()
+        homeRefreshID = UUID()
+        mode = .search
+        isSearchLoading = false
+        isHomeLoading = false
         emojiPicker.reset()
-        clipboardHistory.stop()
         camera.stop()
         fileConversion.reset()
         translator.reset()
@@ -496,6 +501,10 @@ final class CommandPanelState: ObservableObject {
         selectedResultID = nil
         isShowingActions = false
         selectedActionID = nil
+        widgetBoard.start()
+        if isAgentShelfVisible {
+            agents.start()
+        }
         refreshStatusSummary()
     }
 
@@ -651,8 +660,8 @@ final class CommandPanelState: ObservableObject {
             openDeveloperTools(tool: tool)
         case .settings:
             openSettings()
-        case .dashboard:
-            openDashboard()
+        case .home:
+            openHome()
         case .mediaDownloads:
             openMediaDownloads()
         }
@@ -691,7 +700,7 @@ final class CommandPanelState: ObservableObject {
             snippets.query += text
         case .translator:
             translator.sourceText += text
-        case .camera, .fileConversion, .fileShelf, .settings, .dashboard, .mediaDownloads, .developerTools, .quickAI, .agents:
+        case .camera, .fileConversion, .fileShelf, .settings, .mediaDownloads, .developerTools, .quickAI, .agents:
             return false
         }
         return true
@@ -699,6 +708,34 @@ final class CommandPanelState: ObservableObject {
 
     func showFileShelf() {
         openFileShelf()
+    }
+
+    func handleDroppedFiles(_ urls: [URL]) {
+        let result = fileShelf.add(urls: urls)
+        guard result.didReceiveFiles else {
+            showActionFeedback(.failure("Couldn't add those files"))
+            return
+        }
+
+        if result.addedCount > 0 {
+            let noun = result.addedCount == 1 ? "file" : "files"
+            let duplicateSuffix = result.duplicateCount > 0 ? " · \(result.duplicateCount) already waiting" : ""
+            let rejectedSuffix = result.rejectedCount > 0 ? " · \(result.rejectedCount) unsupported" : ""
+            showActionFeedback(.success("Added \(result.addedCount) \(noun) to File Shelf\(duplicateSuffix)\(rejectedSuffix)"))
+        } else if result.duplicateCount > 0 {
+            let noun = result.duplicateCount == 1 ? "file is" : "files are"
+            showActionFeedback(.info("Those \(noun) already on File Shelf"))
+        } else {
+            showActionFeedback(.failure("Couldn't add those files"))
+        }
+
+        if mode == .search {
+            if query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                refreshHomeResults()
+            }
+        } else if mode != .fileShelf, result.addedCount > 0 {
+            openFileShelf()
+        }
     }
 
     func moveSelectionDown() {
@@ -765,6 +802,7 @@ final class CommandPanelState: ObservableObject {
         isShowingActions = false
         selectedActionID = nil
         guard trimmed.isEmpty == false else {
+            isSearchLoading = false
             results = []
             selectedResultID = nil
             refreshStatusSummary()
@@ -772,7 +810,11 @@ final class CommandPanelState: ObservableObject {
             return
         }
 
+        isHomeLoading = false
+        isSearchLoading = true
+
         if AIProvider.request(from: trimmed) != nil {
+            isSearchLoading = false
             results = []
             selectedResultID = nil
             refreshStatusSummary(fallback: "Press Tab or Return to ask AI")
@@ -788,6 +830,7 @@ final class CommandPanelState: ObservableObject {
             },
             onComplete: { [weak self] completeResults in
                 guard let self else { return }
+                self.isSearchLoading = false
                 self.applySearchResults(completeResults, preserving: self.selectedResultID)
             }
         )
@@ -813,8 +856,13 @@ final class CommandPanelState: ObservableObject {
     }
 
     private func refreshHomeResults() {
+        let refreshID = UUID()
+        homeRefreshID = refreshID
+        isHomeLoading = true
         searchCoordinator.loadHome { [weak self] loadedResults in
-            guard let self, self.query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+            guard let self,
+                  self.homeRefreshID == refreshID,
+                  self.query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
             var homeResults = loadedResults
             if self.fileShelf.files.isEmpty == false {
                 homeResults.removeAll { $0.id == "foundry.file-shelf" }
@@ -822,6 +870,7 @@ final class CommandPanelState: ObservableObject {
             self.results = homeResults
             self.selectedResultID = homeResults.first?.id
             self.selectionScrollToken = UUID()
+            self.isHomeLoading = false
             self.refreshStatusSummary()
         }
     }
@@ -834,9 +883,10 @@ final class CommandPanelState: ObservableObject {
 
     private func beginFeatureMode(_ nextMode: Mode, status: String) {
         stopTransientPolling()
-        withAnimation(.easeOut(duration: 0.14)) {
-            mode = nextMode
-        }
+        homeRefreshID = UUID()
+        isSearchLoading = false
+        isHomeLoading = false
+        mode = nextMode
         isShowingActions = false
         selectedActionID = nil
         searchCoordinator.cancel()
@@ -897,9 +947,7 @@ final class CommandPanelState: ObservableObject {
     }
 
     func openQuickAI(initialPrompt: String = "") {
-        withAnimation(.easeOut(duration: 0.14)) {
-            mode = .quickAI
-        }
+        mode = .quickAI
         searchCoordinator.cancel()
         results = []
         selectedResultID = nil

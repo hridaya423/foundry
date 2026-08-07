@@ -37,11 +37,11 @@ enum FoundryTheme {
     static let success = Color(red: 0.42, green: 0.86, blue: 0.66)
     static let warning = Color(red: 1.0, green: 0.72, blue: 0.34)
     static let error = Color(red: 1.0, green: 0.42, blue: 0.45)
-    static let primaryText = Color.white.opacity(0.95)
-    static let secondaryText = Color.white.opacity(0.66)
-    static let mutedText = Color.white.opacity(0.46)
-    static let faintText = Color.white.opacity(0.36)
-    static let glassHighlight = Color.white.opacity(0.36)
+    static let primaryText = Color.white.opacity(0.97)
+    static let secondaryText = Color.white.opacity(0.74)
+    static let mutedText = Color.white.opacity(0.56)
+    static let faintText = Color.white.opacity(0.44)
+    static let glassHighlight = Color.white.opacity(0.42)
     static let glassShadow = Color.black.opacity(0.36)
 
     enum Spacing {

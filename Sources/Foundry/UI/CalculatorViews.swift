@@ -72,6 +72,7 @@ struct CalculatorValuePane: View {
     let value: String
     var alternatives: [CommandResult] = []
     var executeAlternative: (CommandResult) -> Void = { _ in }
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var splitValue: (amount: String, unit: String?) {
         split(value)
@@ -89,7 +90,7 @@ struct CalculatorValuePane: View {
                 Menu {
                     ForEach(alternatives, id: \.id) { alternative in
                         Button(split(alternative.title).unit ?? alternative.title) {
-                            withAnimation(.easeOut(duration: 0.16)) {
+                            withAnimation(reduceMotion ? nil : .easeOut(duration: 0.16)) {
                                 if let code = currencyCode(in: alternative.title) {
                                     UserDefaults.standard.set(code, forKey: "preferredCurrencyQuote")
                                 }

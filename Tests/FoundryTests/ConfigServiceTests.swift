@@ -221,16 +221,14 @@ final class ConfigServiceTests: XCTestCase {
         )
     }
 
-    func testBuiltInProviderExposesDashboardCommand() async {
+    func testBuiltInProviderDoesNotExposeHomeAsACommand() async {
         let provider = BuiltInCommandProvider(
             config: ConfigService(diagnostics: DiagnosticsService(), url: temporaryDirectory.appendingPathComponent("config.json")),
             diagnostics: DiagnosticsService()
         )
         let results = await provider.results(matching: "dashboard")
 
-        XCTAssertTrue(results.contains { result in
-            result.id == "foundry.dashboard" && result.primaryAction.kind == .openDashboard
-        })
+        XCTAssertFalse(results.contains { $0.id == "foundry.dashboard" })
     }
 
     @MainActor

@@ -7,6 +7,22 @@ import XCTest
 
 @MainActor
 final class BackgroundRemovalTests: XCTestCase {
+    func testShelfBatchAddReportsDuplicatesAndRejectedURLs() throws {
+        let folder = try temporaryFolder()
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let urls = ["one.png", "two.png", "three.png"].map { folder.appendingPathComponent($0) }
+        let state = FileShelfState()
+
+        let first = state.add(urls: urls)
+        let second = state.add(urls: [urls[0], urls[0], URL(string: "https://example.com/file.png")!])
+
+        XCTAssertEqual(first, FileShelfAddResult(addedCount: 3, duplicateCount: 0, rejectedCount: 0))
+        XCTAssertEqual(second, FileShelfAddResult(addedCount: 0, duplicateCount: 2, rejectedCount: 1))
+        XCTAssertEqual(state.files.count, 3)
+        XCTAssertTrue(second.didReceiveFiles)
+        XCTAssertTrue(state.compactSummary.contains("three.png"))
+    }
+
     func testVisionServiceSupportsStillImagesButNotTextFiles() throws {
         let folder = try temporaryFolder()
         defer { try? FileManager.default.removeItem(at: folder) }

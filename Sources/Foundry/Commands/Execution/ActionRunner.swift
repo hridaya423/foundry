@@ -250,8 +250,8 @@ final class ActionRunner: CommandExecuting {
         case .openSettings:
             return .open(route: .settings)
 
-        case .openDashboard:
-            return .open(route: .dashboard)
+        case .openHome:
+            return .open(route: .home)
 
         case .openMediaDownloads:
             return .open(route: .mediaDownloads)

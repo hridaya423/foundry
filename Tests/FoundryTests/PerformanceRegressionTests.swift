@@ -39,8 +39,8 @@ final class PerformanceRegressionTests: XCTestCase {
         XCTAssertLessThanOrEqual(retained.count, ClipboardHistoryPolicy.maxItems)
     }
 
-    func testDashboardPollingWorkload() async throws {
-        let configURL = FileManager.default.temporaryDirectory.appendingPathComponent("foundry-dashboard-profile-\(UUID().uuidString).json")
+    func testHomePollingWorkload() async throws {
+        let configURL = FileManager.default.temporaryDirectory.appendingPathComponent("foundry-home-profile-\(UUID().uuidString).json")
         defer { try? FileManager.default.removeItem(at: configURL) }
         let config = ConfigService(diagnostics: DiagnosticsService(), url: configURL)
         let board = await MainActor.run { WidgetBoardState(configService: config) }

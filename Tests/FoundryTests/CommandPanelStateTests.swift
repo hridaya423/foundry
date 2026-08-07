@@ -5,6 +5,72 @@ import FoundryServices
 
 @MainActor
 final class CommandPanelStateTests: XCTestCase {
+    func testHomePreservesShelfAndReturnsFromFeatureModes() {
+        let diagnostics = DiagnosticsService()
+        let config = ConfigService(
+            diagnostics: diagnostics,
+            url: FileManager.default.temporaryDirectory.appendingPathComponent("foundry-panel-home-\(UUID().uuidString).json")
+        )
+        let registry = CommandRegistry(
+            providers: [],
+            usageRanking: UsageRankingStore(diagnostics: diagnostics),
+            diagnostics: diagnostics,
+            configService: config
+        )
+        let state = CommandPanelState(
+            registry: registry,
+            actionRunner: ActionRunner(diagnostics: diagnostics),
+            diagnostics: diagnostics,
+            config: config
+        )
+        let fileURL = FileManager.default.temporaryDirectory.appendingPathComponent("home-file.txt")
+        state.fileShelf.add(urls: [fileURL])
+
+        state.openSettings()
+        state.showHome()
+
+        if case .search = state.mode {
+            XCTAssertTrue(true)
+        } else {
+            XCTFail("Expected Home to use search mode")
+        }
+        XCTAssertTrue(state.query.isEmpty)
+        XCTAssertEqual(state.fileShelf.files.map(\.url), [fileURL])
+        state.shutdown()
+    }
+
+    func testDroppedFilesStayOnHomeAndReportTheBatch() {
+        let diagnostics = DiagnosticsService()
+        let config = ConfigService(
+            diagnostics: diagnostics,
+            url: FileManager.default.temporaryDirectory.appendingPathComponent("foundry-panel-drop-\(UUID().uuidString).json")
+        )
+        let registry = CommandRegistry(
+            providers: [],
+            usageRanking: UsageRankingStore(diagnostics: diagnostics),
+            diagnostics: diagnostics,
+            configService: config
+        )
+        let state = CommandPanelState(
+            registry: registry,
+            actionRunner: ActionRunner(diagnostics: diagnostics),
+            diagnostics: diagnostics,
+            config: config
+        )
+        let fileURL = FileManager.default.temporaryDirectory.appendingPathComponent("dropped.txt")
+
+        state.handleDroppedFiles([fileURL, fileURL])
+
+        if case .search = state.mode {
+            XCTAssertTrue(true)
+        } else {
+            XCTFail("Dropping on Home should not navigate away")
+        }
+        XCTAssertEqual(state.fileShelf.files.count, 1)
+        XCTAssertEqual(state.actionFeedback?.message, "Added 1 file to File Shelf · 1 already waiting")
+        state.shutdown()
+    }
+
     func testMediaURLBecomesSelectedWhenImmediateResultsAlsoMatch() async throws {
         let diagnostics = DiagnosticsService()
         let config = ConfigService(
@@ -78,6 +144,36 @@ final class CommandPanelStateTests: XCTestCase {
         state.shutdown()
     }
 
+    func testSearchLoadingStaysActiveUntilTheLatestSearchCompletes() async throws {
+        let diagnostics = DiagnosticsService()
+        let config = ConfigService(
+            diagnostics: diagnostics,
+            url: FileManager.default.temporaryDirectory.appendingPathComponent("foundry-panel-loading-\(UUID().uuidString).json")
+        )
+        let registry = CommandRegistry(
+            providers: [SlowSearchProvider()],
+            usageRanking: UsageRankingStore(diagnostics: diagnostics),
+            diagnostics: diagnostics,
+            configService: config
+        )
+        let state = CommandPanelState(
+            registry: registry,
+            actionRunner: ActionRunner(diagnostics: diagnostics),
+            diagnostics: diagnostics,
+            config: config
+        )
+
+        state.query = "slow"
+        try await Task.sleep(for: .milliseconds(15))
+        XCTAssertTrue(state.isSearchLoading)
+
+        for _ in 0..<30 where state.isSearchLoading {
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        XCTAssertFalse(state.isSearchLoading)
+        state.shutdown()
+    }
+
     private actor DelayedMediaDownloadService: MediaDownloading {
         nonisolated let downloadFolder = URL(fileURLWithPath: "/tmp")
         private var completed = false
@@ -111,5 +207,14 @@ private struct URLCollisionProvider: CommandProvider {
             primaryAction: CommandAction(id: "test.kill-port.perform", title: "Run", kind: .log("collision")),
             secondaryActions: []
         )]
+    }
+}
+
+private struct SlowSearchProvider: CommandProvider {
+    let id = "test.slow-search"
+
+    func search(_ request: CommandSearchRequest) async throws -> [CommandResult] {
+        try await Task.sleep(for: .milliseconds(80))
+        return []
     }
 }

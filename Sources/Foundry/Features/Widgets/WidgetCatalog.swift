@@ -84,7 +84,7 @@ enum WidgetKind: String, Codable, CaseIterable, Sendable, Identifiable {
         case .agents: return "Recent local coding sessions"
         case .calendar: return "Month at a glance"
         case .date: return "Today's day and date"
-        case .clock: return "Analog wall clock"
+        case .clock: return "Current time and time zone"
         case .system: return "Live CPU and memory load"
         case .battery: return "Charge level and state"
         case .disk: return "Free space on Macintosh HD"

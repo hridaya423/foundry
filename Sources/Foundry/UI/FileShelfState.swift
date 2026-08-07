@@ -17,6 +17,16 @@ enum BackgroundRemovalEngine: String, CaseIterable, Identifiable, Sendable {
     }
 }
 
+struct FileShelfAddResult: Equatable, Sendable {
+    let addedCount: Int
+    let duplicateCount: Int
+    let rejectedCount: Int
+
+    var didReceiveFiles: Bool {
+        addedCount + duplicateCount > 0
+    }
+}
+
 @MainActor
 final class FileShelfState: ObservableObject {
     @Published private(set) var files: [ShelfFile] = []
@@ -83,16 +93,51 @@ final class FileShelfState: ObservableObject {
         files.isEmpty ? "Drop files here" : "\(files.count) file\(files.count == 1 ? "" : "s") waiting"
     }
 
-    func add(urls: [URL]) {
+    var compactSummary: String {
+        if isRemovingBackground {
+            return backgroundRemovalStatus.isEmpty ? "Processing..." : backgroundRemovalStatus
+        }
+        guard let newest = files.last else { return "Drop files here" }
+        if files.count == 1 { return newest.name }
+        return "\(files.count) files · \(newest.name)"
+    }
+
+    @discardableResult
+    func add(urls: [URL]) -> FileShelfAddResult {
         let existing = Set(files.map(\.url))
-        let newFiles = urls
-            .filter { $0.isFileURL && existing.contains($0) == false }
-            .map(ShelfFile.init(url:))
-        guard newFiles.isEmpty == false else { return }
+        var seen = existing
+        var newFiles: [ShelfFile] = []
+        var duplicateCount = 0
+        var rejectedCount = 0
+
+        for url in urls {
+            guard url.isFileURL else {
+                rejectedCount += 1
+                continue
+            }
+            guard seen.insert(url).inserted else {
+                duplicateCount += 1
+                continue
+            }
+            newFiles.append(ShelfFile(url: url))
+        }
+
+        guard newFiles.isEmpty == false else {
+            return FileShelfAddResult(
+                addedCount: 0,
+                duplicateCount: duplicateCount,
+                rejectedCount: rejectedCount
+            )
+        }
         files.append(contentsOf: newFiles)
         if selectedIDs.isEmpty, selectedID == nil {
             selectFirst()
         }
+        return FileShelfAddResult(
+            addedCount: newFiles.count,
+            duplicateCount: duplicateCount,
+            rejectedCount: rejectedCount
+        )
     }
 
     func removeSelected() {

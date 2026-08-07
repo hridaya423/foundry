@@ -178,21 +178,11 @@ final class BuiltInCommandProvider: CommandProvider {
             BuiltInCommand(
                 id: "foundry.settings",
                 title: "Open Foundry Settings",
-                subtitle: "Customize widgets and Foundry preferences",
+                subtitle: "Customize Home, commands, and Foundry preferences",
                 aliases: ["foundry config", "config", "preferences"],
                 systemIcon: "slider.horizontal.3",
                 fallback: "ST",
                 primaryAction: CommandAction(id: "foundry.settings.open", title: "Open", kind: .openSettings),
-                secondaryActions: []
-            ),
-            BuiltInCommand(
-                id: "foundry.dashboard",
-                title: "Foundry Dashboard",
-                subtitle: "View widgets, agents, and your file shelf",
-                aliases: ["dashboard", "widgets", "board"],
-                systemIcon: "rectangle.3.group",
-                fallback: "DB",
-                primaryAction: CommandAction(id: "foundry.dashboard.open", title: "Open", kind: .openDashboard),
                 secondaryActions: []
             ),
             BuiltInCommand(

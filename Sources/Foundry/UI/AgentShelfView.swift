@@ -70,18 +70,14 @@ struct AgentShelfView: View {
                             section(title: "Recent", sessions: recent)
                         }
                         if filteredSessions.isEmpty {
-                            VStack(spacing: 8) {
-                                AgentProviderIcon(provider: selectedProvider ?? .codex, size: 28)
-                                    .opacity(0.55)
-                                Text(selectedProvider.map { "No \($0.rawValue) sessions found" } ?? "No agent sessions found")
-                                    .font(FoundryTheme.body(size: 13, weight: .semibold))
-                                    .foregroundStyle(FoundryTheme.secondaryText)
-                                Text("Provider hooks, plugins, and desktop catalogs appear here.")
-                                    .font(FoundryTheme.body(size: 11, weight: .regular))
-                                    .foregroundStyle(FoundryTheme.mutedText)
-                            }
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 54)
+                            FoundryEmptyState(
+                                symbol: "sparkles.rectangle.stack",
+                                title: selectedProvider.map { "No \($0.rawValue) sessions found" } ?? "No agent sessions found",
+                                message: "Provider hooks, plugins, and desktop catalogs appear here.",
+                                actionTitle: "Refresh",
+                                action: agents.refresh
+                            )
+                            .padding(.vertical, 38)
                         }
                     }
                     .padding(.horizontal, 18)

@@ -7,10 +7,10 @@ final class CommandContractsTests: XCTestCase {
     func testCommandDescriptorRoundTripsStableIdentityAndCapabilities() throws {
         let result = CommandResult(
             id: "foundry.dashboard",
-            title: "Dashboard",
-            subtitle: "Open the Foundry dashboard",
-            icon: CommandIcon(fallback: "DB", systemName: "rectangle.3.group"),
-            primaryAction: CommandAction(id: "foundry.dashboard.open", title: "Open", kind: .openDashboard),
+            title: "Foundry Home",
+            subtitle: "Open Foundry Home",
+            icon: CommandIcon(fallback: "HM", systemName: "house"),
+            primaryAction: CommandAction(id: "foundry.dashboard.open", title: "Open", kind: .openHome),
             secondaryActions: []
         )
 
@@ -86,7 +86,7 @@ final class CommandContractsTests: XCTestCase {
     func testExecutionRequestPreservesInvocationContext() {
         let request = CommandExecutionRequest(
             commandID: "foundry.test",
-            action: CommandAction(id: "foundry.test.open", title: "Open", kind: .openDashboard),
+            action: CommandAction(id: "foundry.test.open", title: "Open", kind: .openHome),
             source: .external,
             arguments: ["path": "/tmp/example"],
             context: ["frontmostApplication": "Terminal"]
@@ -252,7 +252,7 @@ final class CommandContractsTests: XCTestCase {
             title: "Favorite Command",
             subtitle: "Open the favorite",
             icon: CommandIcon(fallback: "F"),
-            primaryAction: CommandAction(id: "favorite.open", title: "Open", kind: .openDashboard),
+            primaryAction: CommandAction(id: "favorite.open", title: "Open", kind: .openHome),
             secondaryActions: []
         ).descriptor(providerID: "foundry.builtin")
         let other = CommandResult(
@@ -260,7 +260,7 @@ final class CommandContractsTests: XCTestCase {
             title: "Other Command",
             subtitle: "Open another command",
             icon: CommandIcon(fallback: "O"),
-            primaryAction: CommandAction(id: "other.open", title: "Open", kind: .openDashboard),
+            primaryAction: CommandAction(id: "other.open", title: "Open", kind: .openHome),
             secondaryActions: []
         ).descriptor(providerID: "foundry.system")
         var preference = CommandPreference()
@@ -285,7 +285,7 @@ final class CommandContractsTests: XCTestCase {
                 title: "Test Command",
                 subtitle: nil,
                 icon: CommandIcon(fallback: "T"),
-                    primaryAction: CommandAction(id: "test.command.open", title: "Open", kind: .openDashboard),
+                    primaryAction: CommandAction(id: "test.command.open", title: "Open", kind: .openHome),
                 secondaryActions: []
             )]
         }
@@ -306,7 +306,7 @@ final class CommandContractsTests: XCTestCase {
                 title: "Conditional Command",
                 subtitle: nil,
                 icon: CommandIcon(fallback: "C"),
-                primaryAction: CommandAction(id: "conditional.command.open", title: "Open", kind: .openDashboard),
+                primaryAction: CommandAction(id: "conditional.command.open", title: "Open", kind: .openHome),
                 secondaryActions: []
             )]
         }
@@ -335,7 +335,7 @@ final class CommandContractsTests: XCTestCase {
                 title: "Cached Result",
                 subtitle: nil,
                 icon: CommandIcon(fallback: "C"),
-                primaryAction: CommandAction(id: "supplemental.cached.open", title: "Open", kind: .openDashboard),
+                primaryAction: CommandAction(id: "supplemental.cached.open", title: "Open", kind: .openHome),
                 secondaryActions: []
             )]
         }
@@ -370,7 +370,7 @@ final class CommandContractsTests: XCTestCase {
                 title: "Counting Command",
                 subtitle: "Test",
                 icon: CommandIcon(fallback: "C"),
-                    primaryAction: CommandAction(id: "counting.command.open", title: "Open", kind: .openDashboard),
+                    primaryAction: CommandAction(id: "counting.command.open", title: "Open", kind: .openHome),
                 secondaryActions: []
             )]
         }

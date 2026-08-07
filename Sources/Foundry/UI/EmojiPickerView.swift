@@ -4,6 +4,7 @@ import SwiftUI
 struct EmojiPickerView: View {
     @ObservedObject var state: EmojiPickerState
     let copyAndDismiss: () -> Void
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private let columns = Array(repeating: GridItem(.fixed(44), spacing: 10), count: 12)
 
@@ -23,7 +24,7 @@ struct EmojiPickerView: View {
             .scrollIndicators(.never)
             .onChange(of: state.selectedID) { _, selectedID in
                 guard let selectedID else { return }
-                withAnimation(.easeOut(duration: 0.12)) {
+                withAnimation(reduceMotion ? nil : .easeOut(duration: 0.12)) {
                     proxy.scrollTo(selectedID, anchor: .center)
                 }
             }
@@ -69,6 +70,7 @@ private struct EmojiCell: View {
     let isSelected: Bool
 
     @State private var isHovering = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var fill: Color {
         if isSelected { return Color.white.opacity(0.16) }
@@ -87,7 +89,7 @@ private struct EmojiCell: View {
                     .stroke(isSelected ? Color.white.opacity(0.18) : Color.clear, lineWidth: 1)
             )
             .scaleEffect(isHovering && isSelected == false ? 1.08 : 1)
-            .animation(.easeOut(duration: 0.12), value: isHovering)
+            .animation(reduceMotion ? nil : .easeOut(duration: 0.12), value: isHovering)
             .accessibilityLabel(item.name)
             .accessibilityValue(isSelected ? "Selected" : "Not selected")
             .accessibilityAddTraits(isSelected ? .isSelected : [])

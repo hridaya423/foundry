@@ -90,7 +90,7 @@ enum CommandActionKind: Hashable, Sendable {
     case openTranslator(text: String? = nil, language: String? = nil)
     case openDeveloperTools(tool: String? = nil)
     case openSettings
-    case openDashboard
+    case openHome
     case openMediaDownloads
     case terminateProcess(pid: Int32)
     case quitApplication(bundleID: String?, name: String)
@@ -211,7 +211,7 @@ extension CommandActionKind {
 
     var executionPolicy: CommandExecutionPolicy {
         switch self {
-        case .copyToClipboard, .openURL, .openQuickAI, .openConfigFolder, .openEmojiPicker, .openFileShelf, .openClipboardHistory, .openSnippets, .openFileConverter, .openCamera, .openTranslator, .openDeveloperTools, .openSettings, .openDashboard, .openMediaDownloads, .log:
+        case .copyToClipboard, .openURL, .openQuickAI, .openConfigFolder, .openEmojiPicker, .openFileShelf, .openClipboardHistory, .openSnippets, .openFileConverter, .openCamera, .openTranslator, .openDeveloperTools, .openSettings, .openHome, .openMediaDownloads, .log:
             .readOnly
         case .openApp, .revealInFinder, .createSnippetFromClipboard, .importSnippets, .pasteText, .chooseMediaDownloadFolder, .setAudioDevice, .resetRanking:
             .localMutation

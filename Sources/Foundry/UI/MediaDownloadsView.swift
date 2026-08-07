@@ -197,39 +197,13 @@ struct MediaDownloadsView: View {
     }
 
     private var emptyState: some View {
-        VStack(spacing: 9) {
-            Spacer()
-
-            ZStack {
-                Circle()
-                    .fill(Color.white.opacity(0.06))
-                    .frame(width: 54, height: 54)
-                Image(systemName: "arrow.down")
-                    .font(.system(size: 21, weight: .medium))
-                    .foregroundStyle(FoundryTheme.secondaryText)
-            }
-
-            Text("Your download queue is empty")
-                .font(FoundryTheme.body(size: 14, weight: .semibold))
-                .foregroundStyle(FoundryTheme.primaryText)
-
-            Text("Direct media, YouTube, playlists, and supported social links appear here.")
-                .font(FoundryTheme.body(size: 11, weight: .regular))
-                .foregroundStyle(FoundryTheme.mutedText)
-
-            Button {
-                NSWorkspace.shared.open(MediaDownloadDestination.folder)
-            } label: {
-                Label("Open download folder", systemImage: "folder")
-                    .font(FoundryTheme.body(size: 11, weight: .medium))
-            }
-            .buttonStyle(FoundryQuietButtonStyle())
-            .foregroundStyle(FoundryTheme.secondaryText)
-            .pointerCursor()
-
-            Spacer()
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        FoundryEmptyState(
+            symbol: "arrow.down",
+            title: "Your download queue is empty",
+            message: "Direct media, YouTube, playlists, and supported social links appear here.",
+            actionTitle: "Open download folder",
+            action: { NSWorkspace.shared.open(MediaDownloadDestination.folder) }
+        )
     }
 
     private func submit() {

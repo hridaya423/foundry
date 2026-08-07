@@ -66,6 +66,7 @@ struct HomeResultRow: View {
     let label: String
 
     @State private var isHovering = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         HStack(spacing: 12) {
@@ -86,8 +87,8 @@ struct HomeResultRow: View {
         .padding(.horizontal, 12)
         .frame(height: 40)
         .background(RowBackground(isSelected: isSelected, isHovering: isHovering))
-        .animation(.easeOut(duration: 0.12), value: isSelected)
-        .animation(.easeOut(duration: 0.12), value: isHovering)
+        .animation(reduceMotion ? nil : .easeOut(duration: 0.12), value: isSelected)
+        .animation(reduceMotion ? nil : .easeOut(duration: 0.12), value: isHovering)
         .onHover { hovering in
             isHovering = hovering
             if hovering { NSCursor.pointingHand.set() } else { NSCursor.arrow.set() }
@@ -101,6 +102,7 @@ struct MediaResultRow: View {
     var isExpanded = false
 
     @State private var isHovering = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         HStack(alignment: isExpanded ? .top : .center, spacing: 16) {
@@ -157,8 +159,8 @@ struct MediaResultRow: View {
         .padding(.vertical, isExpanded ? 20 : 0)
         .frame(height: isExpanded ? 260 : 76)
         .background(RowBackground(isSelected: isSelected, isHovering: isHovering))
-        .animation(.easeOut(duration: 0.12), value: isSelected)
-        .animation(.easeOut(duration: 0.12), value: isHovering)
+        .animation(reduceMotion ? nil : .easeOut(duration: 0.12), value: isSelected)
+        .animation(reduceMotion ? nil : .easeOut(duration: 0.12), value: isHovering)
         .onHover { hovering in
             isHovering = hovering
             if hovering { NSCursor.pointingHand.set() } else { NSCursor.arrow.set() }
@@ -223,6 +225,7 @@ struct ResultRow: View {
     let index: Int
 
     @State private var isHovering = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         HStack(spacing: 12) {
@@ -247,8 +250,8 @@ struct ResultRow: View {
         .padding(.horizontal, 12)
         .frame(height: result.subtitle == nil ? 40 : 46)
         .background(RowBackground(isSelected: isSelected, isHovering: isHovering))
-        .animation(.easeOut(duration: 0.12), value: isSelected)
-        .animation(.easeOut(duration: 0.12), value: isHovering)
+        .animation(reduceMotion ? nil : .easeOut(duration: 0.12), value: isSelected)
+        .animation(reduceMotion ? nil : .easeOut(duration: 0.12), value: isHovering)
         .onHover { hovering in
             isHovering = hovering
             if hovering { NSCursor.pointingHand.set() } else { NSCursor.arrow.set() }

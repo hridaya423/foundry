@@ -184,6 +184,7 @@ private struct SnippetIconButton: View {
     let action: () -> Void
 
     @State private var isHovering = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var foreground: Color {
         if isHovering {
@@ -206,7 +207,7 @@ private struct SnippetIconButton: View {
         .buttonStyle(.plain)
         .help(help)
         .accessibilityLabel(help)
-        .animation(.easeOut(duration: 0.12), value: isHovering)
+        .animation(reduceMotion ? nil : .easeOut(duration: 0.12), value: isHovering)
         .onHover { hovering in
             isHovering = hovering
             if hovering { NSCursor.pointingHand.set() } else { NSCursor.arrow.set() }
@@ -221,6 +222,7 @@ private struct SnippetRow: View {
     let select: () -> Void
 
     @State private var isHovering = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         HStack(spacing: 10) {
@@ -256,7 +258,7 @@ private struct SnippetRow: View {
         .accessibilityAddTraits(isSelected ? .isSelected : [])
         .accessibilityHint("Select snippet")
         .onTapGesture(perform: select)
-        .animation(.easeOut(duration: 0.10), value: isHovering)
+        .animation(reduceMotion ? nil : .easeOut(duration: 0.10), value: isHovering)
         .onHover { hovering in
             isHovering = hovering
             if hovering { NSCursor.pointingHand.set() } else { NSCursor.arrow.set() }

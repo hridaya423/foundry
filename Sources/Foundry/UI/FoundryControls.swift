@@ -124,20 +124,24 @@ struct FoundryActionButton: View {
 }
 
 struct FoundryQuietButtonStyle: ButtonStyle {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .opacity(configuration.isPressed ? 0.55 : 1)
             .scaleEffect(configuration.isPressed ? 0.97 : 1)
-            .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
+            .animation(reduceMotion ? nil : .easeOut(duration: 0.12), value: configuration.isPressed)
     }
 }
 
 struct PressableButtonStyle: ButtonStyle {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .scaleEffect(configuration.isPressed ? 0.975 : 1)
             .opacity(configuration.isPressed ? 0.82 : 1)
-            .animation(.easeOut(duration: 0.10), value: configuration.isPressed)
+            .animation(reduceMotion ? nil : .easeOut(duration: 0.10), value: configuration.isPressed)
     }
 }
 
@@ -163,5 +167,118 @@ struct FoundrySurface<Content: View>: View {
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                     .stroke(emphasized ? Color.white.opacity(0.13) : Color.white.opacity(0.07), lineWidth: 1)
             }
+    }
+}
+
+struct FoundrySectionHeader: View {
+    let title: String
+    var count: String?
+    var actionTitle: String?
+    var action: (() -> Void)?
+
+    var body: some View {
+        HStack(spacing: 7) {
+            Text(title.uppercased())
+                .font(FoundryTheme.body(size: 10, weight: .bold))
+                .foregroundStyle(FoundryTheme.faintText)
+                .tracking(0.7)
+
+            if let count {
+                Text(count)
+                    .font(FoundryTheme.mono(size: 10, weight: .medium))
+                    .foregroundStyle(FoundryTheme.faintText)
+            }
+
+            Spacer(minLength: 0)
+
+            if let actionTitle, let action {
+                Button(actionTitle, action: action)
+                    .font(FoundryTheme.body(size: 11, weight: .semibold))
+                    .foregroundStyle(FoundryTheme.secondaryText)
+                    .buttonStyle(FoundryQuietButtonStyle())
+                    .pointerCursor()
+            }
+        }
+        .accessibilityElement(children: .contain)
+    }
+}
+
+struct FoundryStatusBanner: View {
+    let text: String
+    let symbol: String
+    var tint: Color = FoundryTheme.secondaryText
+    var isLoading = false
+
+    var body: some View {
+        HStack(spacing: 8) {
+            if isLoading {
+                ProgressView()
+                    .controlSize(.small)
+                    .tint(tint)
+            } else {
+                Image(systemName: symbol)
+                    .font(.system(size: 11, weight: .semibold))
+            }
+
+            Text(text)
+                .font(FoundryTheme.body(size: 11.5, weight: .medium))
+                .foregroundStyle(tint)
+                .lineLimit(2)
+                .multilineTextAlignment(.leading)
+
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
+        .background(Color.white.opacity(0.045), in: RoundedRectangle(cornerRadius: FoundryTheme.Radius.control, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: FoundryTheme.Radius.control, style: .continuous)
+                .stroke(tint.opacity(0.16), lineWidth: 1)
+        }
+        .accessibilityElement(children: .contain)
+    }
+}
+
+struct FoundryEmptyState: View {
+    let symbol: String
+    let title: String
+    let message: String
+    var actionTitle: String?
+    var action: (() -> Void)?
+
+    var body: some View {
+        VStack(spacing: 10) {
+            Image(systemName: symbol)
+                .font(.system(size: 28, weight: .regular))
+                .foregroundStyle(FoundryTheme.secondaryText)
+                .frame(width: 58, height: 58)
+                .background(Color.white.opacity(0.065))
+                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+
+            Text(title)
+                .font(FoundryTheme.body(size: 15, weight: .semibold))
+                .foregroundStyle(FoundryTheme.primaryText)
+
+            Text(message)
+                .font(FoundryTheme.body(size: 12, weight: .regular))
+                .foregroundStyle(FoundryTheme.secondaryText)
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(.horizontal, 24)
+
+            if let actionTitle, let action {
+                Button(actionTitle, action: action)
+                    .font(FoundryTheme.body(size: 12, weight: .semibold))
+                    .foregroundStyle(FoundryTheme.primaryText)
+                    .padding(.horizontal, 13)
+                    .frame(height: FoundryTheme.Control.compact)
+                    .background(Color.white.opacity(0.08))
+                    .clipShape(RoundedRectangle(cornerRadius: FoundryTheme.Radius.control, style: .continuous))
+                    .buttonStyle(PressableButtonStyle())
+                    .pointerCursor()
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .accessibilityElement(children: .combine)
     }
 }

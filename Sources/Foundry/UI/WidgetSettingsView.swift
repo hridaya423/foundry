@@ -344,10 +344,10 @@ struct WidgetSettingsView: View {
 
     private var widgetsContent: some View {
         VStack(alignment: .leading, spacing: 10) {
-            SettingsSectionLabel(title: "Home widgets", value: "\(state.widgetBoard.config.enabled.count)/\(WidgetBoardConfig.maxEnabled)")
+            SettingsSectionLabel(title: "Home strip", value: "\(state.widgetBoard.config.enabled.count)/\(WidgetBoardConfig.maxEnabled)")
             SettingsGroup {
                 if state.widgetBoard.config.enabled.isEmpty {
-                    Text("No widgets yet. Add one below.")
+                        Text("No Home widgets yet. Add one below.")
                         .font(FoundryTheme.body(size: 13, weight: .regular))
                         .foregroundStyle(FoundryTheme.mutedText)
                         .padding(.vertical, 5)
@@ -403,7 +403,7 @@ struct WidgetSettingsView: View {
                     .padding(.horizontal, 2)
                     .padding(.vertical, 5)
             } else if state.widgetBoard.config.available.isEmpty {
-                Text("All available widgets are on Home.")
+                Text("All available widgets are already on Home.")
                     .font(FoundryTheme.body(size: 12, weight: .regular))
                     .foregroundStyle(FoundryTheme.mutedText)
                     .padding(.horizontal, 2)
@@ -738,7 +738,7 @@ private enum SettingsCategory: String, CaseIterable, Identifiable {
         case .agents: "Agents"
         case .appearance: "Appearance"
         case .ai: "AI"
-        case .widgets: "Widgets"
+        case .widgets: "Home"
         }
     }
 
@@ -749,7 +749,7 @@ private enum SettingsCategory: String, CaseIterable, Identifiable {
         case .agents: "sparkles.rectangle.stack"
         case .appearance: "circle.lefthalf.filled"
         case .ai: "sparkles"
-        case .widgets: "rectangle.3.group"
+        case .widgets: "house"
         }
     }
 
