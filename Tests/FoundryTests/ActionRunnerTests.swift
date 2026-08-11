@@ -93,6 +93,21 @@ final class ActionRunnerTests: XCTestCase {
         XCTAssertEqual(outcome, .denied(message: "Action cancelled"))
     }
 
+    func testWindowPermissionKeepsThePanelStateAvailable() async {
+        let runner = ActionRunner(
+            diagnostics: DiagnosticsService(),
+            windowManager: PermissionWindowManager()
+        )
+        let request = CommandExecutionRequest(
+            commandID: "test.window",
+            action: CommandAction(id: "test.window.perform", title: "Tile", kind: .tileWindow(.leftHalf))
+        )
+
+        let outcome = await runner.execute(request) { _ in }
+
+        XCTAssertEqual(outcome, .stayOpen(message: "Accessibility permission required for window control"))
+    }
+
     func testCancellationCancelsAProcessExecution() async throws {
         let runner = ActionRunner(diagnostics: DiagnosticsService())
         let cancellationID = UUID()
@@ -211,6 +226,15 @@ final class ActionRunnerTests: XCTestCase {
 
         func maxConcurrentValue() -> Int {
             maxConcurrent
+        }
+    }
+
+    @MainActor
+    private final class PermissionWindowManager: WindowManaging {
+        func isTrusted() -> Bool { false }
+
+        func apply(_ placement: WindowPlacement) async -> WindowOperationResult {
+            .needsAccessibilityPermission
         }
     }
 }

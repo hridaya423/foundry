@@ -40,6 +40,11 @@ final class CommandContractsTests: XCTestCase {
         XCTAssertFalse(CommandOutcome.followUp(actionIDs: ["next"]).shouldDismissPanel)
     }
 
+    func testDeniedOutcomeIsNotSuccessful() {
+        XCTAssertFalse(CommandOutcome.denied(message: "Cancelled").isSuccessful)
+        XCTAssertTrue(CommandOutcome.success(message: "Completed").isSuccessful)
+    }
+
     @MainActor
     func testPreferredPrimaryActionAndCommandHotkeyAreAppliedAtRuntime() throws {
         let url = FileManager.default.temporaryDirectory

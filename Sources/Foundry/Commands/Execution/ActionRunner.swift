@@ -14,6 +14,7 @@ final class ActionRunner: CommandExecuting {
     private let mediaDownloadManager: MediaDownloadManager
     private let resetRanking: (String) -> Void
     private let confirmAction: (CommandActionDescriptor, CommandInvocationSource) -> Bool
+    private let windowManager: any WindowManaging
     private var activeExecutionTasks: [UUID: Task<CommandOutcome, Never>] = [:]
 
     init(
@@ -22,7 +23,8 @@ final class ActionRunner: CommandExecuting {
         mediaDownloadService: any MediaDownloading = MediaDownloadService(),
         mediaDownloadManager: MediaDownloadManager = MediaDownloadManager(),
         resetRanking: @escaping (String) -> Void = { _ in },
-        confirmAction: @escaping (CommandActionDescriptor, CommandInvocationSource) -> Bool = { _, _ in true }
+        confirmAction: @escaping (CommandActionDescriptor, CommandInvocationSource) -> Bool = { _, _ in true },
+            windowManager: any WindowManaging = NativeWindowManager()
     ) {
         self.diagnostics = diagnostics
         self.snippetStore = snippetStore
@@ -30,6 +32,7 @@ final class ActionRunner: CommandExecuting {
         self.mediaDownloadManager = mediaDownloadManager
         self.resetRanking = resetRanking
         self.confirmAction = confirmAction
+        self.windowManager = windowManager
     }
 
     func execute(
@@ -355,6 +358,26 @@ final class ActionRunner: CommandExecuting {
                 }
                 diagnostics.log("Failed to run \(path): \(error.localizedDescription)")
                 return .failure(message: "Failed to run process", retryable: true)
+            }
+
+        case let .tileWindow(placement):
+            switch await windowManager.apply(placement) {
+            case let .tiled(resultPlacement):
+                let message = WindowPlacementMetadata(resultPlacement).successMessage
+                return finish(.success(message: message), feedback: .success(message))
+            case let .constrained(resultPlacement):
+                let message = "Window was constrained while applying \(WindowPlacementMetadata(resultPlacement).title.lowercased())"
+                return finish(.success(message: message), feedback: .info(message))
+            case .restored:
+                return finish(.success(message: "Restored previous window frame"), feedback: .success("Restored previous window frame"))
+            case .needsAccessibilityPermission:
+                NSWorkspace.shared.open(NativeWindowManager.accessibilitySettingsURL)
+                return finish(
+                    .stayOpen(message: "Accessibility permission required for window control"),
+                    feedback: .failure("Grant Accessibility access in System Settings to control windows")
+                )
+            case let .failed(message):
+                return finish(.failure(message: message, retryable: false), feedback: .failure(message))
             }
 
         case .quit:

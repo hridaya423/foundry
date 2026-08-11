@@ -72,6 +72,17 @@ enum CommandOutcome: Codable, Equatable, Sendable {
     }
 }
 
+extension CommandOutcome {
+    var isSuccessful: Bool {
+        switch self {
+        case .success, .copied, .pasted, .fileResults:
+            true
+        default:
+            false
+        }
+    }
+}
+
 @MainActor
 protocol CommandExecuting {
     func execute(

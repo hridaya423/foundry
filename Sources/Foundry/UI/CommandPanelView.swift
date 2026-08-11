@@ -199,6 +199,8 @@ struct CommandPanelView: View {
                 )
             } else if state.isShowingActions {
                 actionsSurface
+            } else if isWindowLayoutQuery {
+                windowLayoutSurface
             } else if state.results.isEmpty {
                 emptyState
             } else {
@@ -487,6 +489,18 @@ struct CommandPanelView: View {
                     }
 
                     if isHome {
+                        if windowLayoutResults.isEmpty == false {
+                            WindowLayoutPicker(
+                                results: windowLayoutResults,
+                                onSelect: execute,
+                                onMore: {
+                                    state.query = "window"
+                                    inputFocused = true
+                                }
+                            )
+                            .padding(.bottom, 14)
+                        }
+
                         if suggestionResults.isEmpty == false {
                             HomeSectionHeader(title: "Suggestions")
                             ForEach(Array(suggestionResults.prefix(5)), id: \.id) { result in
@@ -575,6 +589,22 @@ struct CommandPanelView: View {
         ]
     }
 
+    private var isWindowLayoutQuery: Bool {
+        state.mode == .search && FoundryDomain.WindowLayoutQuery.isOverview(state.query)
+    }
+
+    private var windowLayoutSurface: some View {
+        WindowLayoutManager(
+            results: windowLayoutResults,
+            selectedResultID: state.selectedResultID,
+            isLoading: state.isSearchLoading,
+            onSelect: execute,
+            onHover: { result in
+                state.select(resultID: result.id)
+            }
+        )
+    }
+
     private var shouldExpandMediaResult: Bool {
         displayedResults.count == 1 && displayedResults.first.map(isMediaDownload) == true
     }
@@ -589,8 +619,25 @@ struct CommandPanelView: View {
     private var commandResults: [CommandResult] {
         displayedResults.filter { result in
             if case .openApp = result.primaryAction.kind { return false }
-            return true
+            return isPrimaryWindowLayout(result) == false
         }
+    }
+
+    private var windowLayoutResults: [CommandResult] {
+        let order: [FoundryDomain.WindowPlacement] = isWindowLayoutQuery
+            ? FoundryDomain.WindowLayoutGroup.allCases.flatMap(\.placements)
+            : FoundryDomain.WindowPlacement.homeDefaults
+        return order.compactMap { placement in
+            displayedResults.first { result in
+                guard case let .tileWindow(resultPlacement) = result.primaryAction.kind else { return false }
+                return resultPlacement == placement
+            }
+        }
+    }
+
+    private func isPrimaryWindowLayout(_ result: CommandResult) -> Bool {
+        guard case let .tileWindow(placement) = result.primaryAction.kind else { return false }
+        return [FoundryDomain.WindowPlacement.leftHalf, .rightHalf, .topHalf, .bottomHalf, .maximize, .restore].contains(placement)
     }
 
     private func isMediaDownload(_ result: CommandResult) -> Bool {
@@ -654,6 +701,8 @@ struct CommandPanelView: View {
             "Command"
         case .runProcess:
             "Script"
+        case .tileWindow:
+            "Window"
         case .log:
             "Action"
         }
@@ -796,6 +845,11 @@ struct CommandPanelView: View {
                     .font(FoundryTheme.body(size: 11, weight: .medium))
                     .foregroundStyle(FoundryTheme.mutedText)
                     .padding(.horizontal, 12)
+            } else if isWindowLayoutQuery {
+                Text("\(windowLayoutResults.count) layouts")
+                    .font(FoundryTheme.body(size: 11, weight: .medium))
+                    .foregroundStyle(FoundryTheme.faintText)
+                    .padding(.horizontal, 12)
             } else if state.mode == .search, state.diagnosticsSummary.contains("result") {
                 Text(state.diagnosticsSummary)
                     .font(FoundryTheme.body(size: 11, weight: .medium))
@@ -867,7 +921,11 @@ struct CommandPanelView: View {
         case .mediaDownloads:
             FooterAction(label: "Home", keys: "esc")
         case .search:
-            FooterAction(label: selectedCalculatorResult == nil ? "Open" : "Copy Answer", keys: "↵", emphasized: true)
+            FooterAction(
+                label: isWindowLayoutQuery ? "Apply" : (selectedCalculatorResult == nil ? "Open" : "Copy Answer"),
+                keys: "↵",
+                emphasized: true
+            )
             FooterAction(label: "Actions", keys: "⌘K")
         }
     }
@@ -1060,6 +1118,8 @@ private struct ActionRow: View {
             "hammer.fill"
         case .runProcess:
             "terminal"
+        case .tileWindow:
+            "rectangle.split.2x1"
         case .quit:
             "power"
         case .log:

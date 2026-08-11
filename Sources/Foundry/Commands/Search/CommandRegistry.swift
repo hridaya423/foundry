@@ -42,6 +42,7 @@ final class CommandRegistry: @unchecked Sendable {
                 LibraryProvider(store: snippetStore),
                 MediaDownloadProvider(),
                 SystemCommandProvider(diagnostics: diagnostics),
+                WindowManagementProvider(),
                 BuiltInCommandProvider(config: config, diagnostics: diagnostics)
             ],
             usageRanking: usageRanking ?? UsageRankingStore(diagnostics: diagnostics),
@@ -73,7 +74,7 @@ final class CommandRegistry: @unchecked Sendable {
         }
 
         return CommandSearchPhase(
-            results: Array(ranker.ordered(ranker.deduplicated(candidates), query: query).prefix(12)),
+            results: Array(ranker.ordered(ranker.deduplicated(candidates), query: query).prefix(Self.resultLimit(for: query))),
             completedProviderIDs: Set(timings.compactMap { timing in
                 timing.status == .success ? timing.providerID : nil
             })
@@ -130,7 +131,7 @@ final class CommandRegistry: @unchecked Sendable {
         }
 
         logSearchTimings(timings)
-        return Array(ranker.ordered(candidates, query: query).prefix(12))
+        return Array(ranker.ordered(candidates, query: query).prefix(Self.resultLimit(for: query)))
     }
 
     func results(matching query: String, customAliases: [String: [String]]) async -> [CommandResult] {
@@ -177,7 +178,7 @@ final class CommandRegistry: @unchecked Sendable {
         logSearchTimings(timings)
 
         return ranker.ordered(allCandidates, query: query)
-            .prefix(12)
+            .prefix(Self.resultLimit(for: query))
             .map { $0 }
     }
 
@@ -344,6 +345,10 @@ final class CommandRegistry: @unchecked Sendable {
 
     private func isFallbackEligible(for result: CommandResult) -> Bool {
         configService?.current.commandPreferences[result.id]?.fallbackEligible != false
+    }
+
+    private static func resultLimit(for query: String) -> Int {
+        WindowLayoutQuery.isOverview(query) ? WindowLayoutQuery.overviewResultLimit : 12
     }
 
 }

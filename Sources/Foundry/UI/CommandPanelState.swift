@@ -563,23 +563,9 @@ final class CommandPanelState: ObservableObject {
             }
             return false
         }
-        let action: CommandAction
-        if isShowingActions {
-            guard let selectedAction else { return false }
-            action = selectedAction
-        } else {
-            action = preferredAction(for: selectedResult)
-        }
-
-        if case .downloadMedia = action.kind {
-            openMediaDownloads()
-        } else if case .downloadMediaBatch = action.kind {
-            openMediaDownloads()
-        }
-
-        diagnostics.log("Executing action \(action.id) for result \(selectedResult.id)")
-        registry.recordExecution(resultID: selectedResult.id, query: query)
-        let outcome = await execute(action, commandID: selectedResult.id)
+        let action = isShowingActions ? selectedAction : nil
+        guard isShowingActions == false || action != nil else { return false }
+        let outcome = await executeResult(selectedResult, action: action)
         return outcome.shouldDismissPanel
     }
 
@@ -956,6 +942,20 @@ final class CommandPanelState: ObservableObject {
         quickAI.startNewThread(initialPrompt: initialPrompt, selectedAIProfileID: aiSettings.defaultAIProfileID)
     }
 
+    @discardableResult
+    func executeResult(_ result: CommandResult, action override: CommandAction? = nil) async -> CommandOutcome {
+        guard isActionInProgress == false else { return .cancelled }
+        let action = override ?? preferredAction(for: result)
+        if case .downloadMedia = action.kind {
+            openMediaDownloads()
+        } else if case .downloadMediaBatch = action.kind {
+            openMediaDownloads()
+        }
+        diagnostics.log("Executing action \(action.id) for result \(result.id)")
+        registry.recordExecution(resultID: result.id, query: query)
+        return await execute(action, commandID: result.id)
+    }
+
     func executeCommand(commandID: String) async {
         guard let result = await registry.commandResult(for: commandID) else {
             diagnostics.log("Command hotkey target is unavailable: \(commandID)")
@@ -967,7 +967,7 @@ final class CommandPanelState: ObservableObject {
         isShowingActions = false
         selectedActionID = nil
         diagnosticsSummary = result.title
-        _ = await executeSelectedResult()
+        await executeResult(result)
     }
 
 }

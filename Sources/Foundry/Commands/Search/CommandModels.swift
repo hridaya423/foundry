@@ -100,6 +100,7 @@ enum CommandActionKind: Hashable, Sendable {
     case resetRanking(commandID: String)
     case rebuildApp
     case runProcess(path: String, arguments: [String])
+    case tileWindow(WindowPlacement)
     case quit
     case log(String)
 }
@@ -219,8 +220,19 @@ extension CommandActionKind {
             .network
         case .terminateProcess, .quitApplication, .terminatePort, .rebuildApp, .quit:
             .destructive
-        case .runProcess, .toggleKeepAwake:
+        case .runProcess, .toggleKeepAwake, .tileWindow:
             .systemMutation
+        }
+    }
+}
+
+extension CommandActionKind {
+    var shouldHidePanelForHotkey: Bool {
+        switch self {
+        case .tileWindow:
+            true
+        default:
+            false
         }
     }
 }

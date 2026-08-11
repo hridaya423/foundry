@@ -82,6 +82,26 @@ final class ShellController {
         panelController.show()
         NSApp.activate(ignoringOtherApps: true)
     }
+    private func runCommandHotkey(commandID: String) async {
+        guard let result = await registry.commandResult(for: commandID) else {
+            showPanel()
+            await panelState.executeCommand(commandID: commandID)
+            return
+        }
+
+        guard result.primaryAction.kind.shouldHidePanelForHotkey else {
+            showPanel()
+            await panelState.executeResult(result)
+            return
+        }
+
+        let outcome = await panelState.executeResult(result)
+        if outcome.isSuccessful {
+            panelController.hide()
+        } else {
+            showPanel()
+        }
+    }
 
     private func registerCommandHotkeys() {
         let hotkeys: [String: FoundryHotkey] = Dictionary(uniqueKeysWithValues: config.current.commandPreferences.compactMap { commandID, preference in
@@ -100,8 +120,7 @@ final class ShellController {
             try hotkeyController.registerCommandHotkeys(hotkeys) { [weak self] commandID in
                 Task { @MainActor [weak self] in
                     guard let self else { return }
-                    self.showPanel()
-                    await self.panelState.executeCommand(commandID: commandID)
+                    await self.runCommandHotkey(commandID: commandID)
                 }
             }
             diagnostics.log("Registered \(hotkeys.count) command hotkey\(hotkeys.count == 1 ? "" : "s")")

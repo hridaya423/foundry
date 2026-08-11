@@ -21,6 +21,7 @@ Foundry is a native macOS alternative to raycast
 - Snippets with create/import support
 - Developer tools for UUIDs, JSON, base64, casing, timestamps, bitwise ops, and base conversion
 - System commands
+- Window tiling
 - Launch-at-login prompt on first run
 - Customizable Home strip with live widgets, agents, and File Shelf
 - File conversion
