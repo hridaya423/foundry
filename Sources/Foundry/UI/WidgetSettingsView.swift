@@ -93,6 +93,8 @@ struct WidgetSettingsView: View {
                         aiContent
                     case .widgets:
                         widgetsContent
+                    case .clipboard:
+                        clipboardContent
                     }
                 }
                 .padding(.horizontal, 20)
@@ -147,6 +149,47 @@ struct WidgetSettingsView: View {
                 }
                 .padding(.horizontal, 12)
                 .padding(.vertical, 11)
+            }
+
+            snippetExpansionContent
+        }
+    }
+
+    private var snippetExpansionContent: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            SettingsSectionLabel(title: "Snippet expansion", value: state.accessibilityTrusted ? "Accessibility allowed" : "Accessibility required")
+            SettingsGroup {
+                SettingsToggleRow(
+                    title: "Expand keywords as you type",
+                    subtitle: "Only runs when Accessibility access is already granted",
+                    isOn: state.snippetExpansion.isEnabled,
+                    set: state.setSnippetExpansionEnabled
+                )
+                SettingsDivider()
+                HStack(spacing: 8) {
+                    SettingsLabel(title: "Accessibility", subtitle: state.accessibilityTrusted ? "Ready" : "Not granted")
+                    Spacer()
+                    if !state.accessibilityTrusted {
+                        Button("Request access") { state.requestSnippetExpansionAccessibility() }
+                            .buttonStyle(.bordered)
+                            .controlSize(.small)
+                    }
+                    Button("Privacy Settings") { state.openSnippetExpansionPrivacySettings() }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 10)
+                SettingsDivider()
+                ConfigFieldRow(
+                    title: "Excluded apps",
+                    placeholder: "com.example.app, com.other.app",
+                    initialValue: state.snippetExpansion.excludedBundleIdentifiers.joined(separator: ", "),
+                    commit: state.setSnippetExpansionExcludedBundleIdentifiers
+                )
+            }
+            if let error = state.snippetExpansionError {
+                SettingsNotice(text: error, symbol: "exclamationmark.triangle")
             }
         }
     }
@@ -414,6 +457,26 @@ struct WidgetSettingsView: View {
                         AvailableWidgetRow(kind: kind, add: { state.widgetBoard.add(kind) })
                     }
                 }
+            }
+        }
+    }
+
+    private var clipboardContent: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            SettingsSectionLabel(title: "Clipboard history")
+            SettingsGroup {
+                SettingsToggleRow(title: "Pause capture", subtitle: "Keep existing items but stop recording new copies", isOn: state.clipboardHistory.isPaused, set: state.setClipboardPaused)
+                SettingsDivider()
+                HStack {
+                    SettingsLabel(title: "Retain items", subtitle: "Maximum number of entries")
+                    Spacer()
+                    Stepper(value: Binding(get: { state.clipboardHistory.policy.maxItems }, set: { state.setClipboardRetention(maxItems: $0, maxBytes: state.clipboardHistory.policy.maxBytes) }), in: 1...ClipboardConfig.maximumMaxItems) { Text("\(state.clipboardHistory.policy.maxItems)") }
+                }.padding(.horizontal, 12).padding(.vertical, 10)
+                SettingsDivider()
+                ConfigFieldRow(title: "Excluded apps", placeholder: "com.example.app, com.other.app", initialValue: state.clipboardHistory.excludedBundleIdentifiers.joined(separator: ", "), commit: state.setClipboardExcludedBundleIdentifiers)
+            }
+            if let error = state.clipboardHistory.error {
+                SettingsNotice(text: "Clipboard history could not be saved: \(error.localizedDescription)", symbol: "exclamationmark.triangle")
             }
         }
     }
@@ -728,6 +791,7 @@ private enum SettingsCategory: String, CaseIterable, Identifiable {
     case appearance
     case ai
     case widgets
+    case clipboard
 
     var id: String { rawValue }
 
@@ -739,6 +803,7 @@ private enum SettingsCategory: String, CaseIterable, Identifiable {
         case .appearance: "Appearance"
         case .ai: "AI"
         case .widgets: "Home"
+        case .clipboard: "Clipboard"
         }
     }
 
@@ -750,6 +815,7 @@ private enum SettingsCategory: String, CaseIterable, Identifiable {
         case .appearance: "circle.lefthalf.filled"
         case .ai: "sparkles"
         case .widgets: "house"
+        case .clipboard: "doc.on.clipboard"
         }
     }
 

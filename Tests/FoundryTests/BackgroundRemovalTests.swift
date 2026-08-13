@@ -7,6 +7,53 @@ import XCTest
 
 @MainActor
 final class BackgroundRemovalTests: XCTestCase {
+    func testBEN2AssessmentIsReadOnlyAndDisclosesSetup() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent("Foundry-BEN2-" + UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let assessment = BEN2BackgroundRemovalService.assess(root: root, executablePaths: [:])
+        XCTAssertFalse(FileManager.default.fileExists(atPath: root.path))
+        XCTAssertEqual(assessment.modelState, .missing)
+        XCTAssertEqual(assessment.runtimeState, .missing)
+        XCTAssertNotNil(assessment.setupPlan)
+        XCTAssertTrue(assessment.setupPlan?.disclosure.contains("223 MB") == true)
+        XCTAssertTrue(assessment.setupPlan?.disclosure.contains("Python 3.13") == true)
+        XCTAssertTrue(assessment.setupPlan?.disclosure.contains("onnxruntime==1.24.2") == true)
+    }
+
+    func testChoosingBEN2DoesNotProvisionIt() throws {
+        let state = FileShelfState()
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let assessment = BEN2BackgroundRemovalService.assess(root: root, executablePaths: [:])
+        XCTAssertEqual(assessment.modelState, .missing)
+        XCTAssertFalse(state.isSettingUpBEN2)
+    }
+
+    func testBEN2RejectsTamperedRuntimeManifest() throws {
+        let root = try temporaryFolder()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let runtime = root.appendingPathComponent("runtime")
+        try FileManager.default.createDirectory(at: runtime, withIntermediateDirectories: true)
+        try Data("python=3.13\nonnxruntime==1.24.2\nnumpy==2.5.1\nPillow==11.3.0\n".utf8)
+            .write(to: runtime.appendingPathComponent("runtime-manifest.json"))
+        FileManager.default.createFile(atPath: runtime.appendingPathComponent("bin/python").path, contents: Data())
+
+        XCTAssertEqual(BEN2BackgroundRemovalService.assess(root: root, executablePaths: [:]).runtimeState, .invalid)
+    }
+
+    func testBundledWorkerRequiresIdentityAndValidatesStillImageLimits() throws {
+        let worker = try XCTUnwrap(Bundle.module.url(forResource: "background_removal_worker", withExtension: "py"))
+        let source = try String(contentsOf: worker)
+        XCTAssertTrue(source.contains("--worker-sha256"))
+        XCTAssertTrue(source.contains("MAX_PIXELS"))
+        XCTAssertTrue(source.contains("n_frames"))
+        XCTAssertTrue(source.contains("result.format != \"PNG\""))
+    }
+
+    func testBEN2ProvisioningDoesNotUseUnpinnedPipInstall() throws {
+        let source = try String(contentsOf: XCTUnwrap(Bundle.module.url(forResource: "background_removal_worker", withExtension: "py")))
+        XCTAssertFalse(source.contains("uv pip install"))
+        XCTAssertTrue(BEN2BackgroundRemovalService.assess().setupPlan?.disclosure.contains("SHA-256") == true)
+    }
     func testShelfBatchAddReportsDuplicatesAndRejectedURLs() throws {
         let folder = try temporaryFolder()
         defer { try? FileManager.default.removeItem(at: folder) }

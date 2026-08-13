@@ -123,7 +123,6 @@ final class NativeWindowManager: WindowManaging {
     func apply(_ placement: WindowPlacement) async -> WindowOperationResult {
         guard isTrusted() else {
             pendingPID = currentTargetPID()
-            requestTrustedAccess()
             return .needsAccessibilityPermission
         }
 
@@ -259,10 +258,6 @@ final class NativeWindowManager: WindowManaging {
         return frame.maxY
     }
 
-    @discardableResult
-    private func requestTrustedAccess() -> Bool {
-        AXIsProcessTrustedWithOptions(["AXTrustedCheckOptionPrompt": true] as CFDictionary)
-    }
 }
 
 private actor NativeWindowAccessibilityClient: WindowAccessibilityClient {

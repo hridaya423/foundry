@@ -1,5 +1,6 @@
 import AppKit
 import Foundation
+import FoundryServices
 
 enum BackgroundRemovalEngine: String, CaseIterable, Identifiable, Sendable {
     case vision
@@ -37,9 +38,15 @@ final class FileShelfState: ObservableObject {
     @Published private(set) var backgroundRemovalError: String?
     @Published private(set) var backgroundRemovalNeedsDestination = false
     @Published private(set) var backgroundRemovalEngine: BackgroundRemovalEngine?
+    @Published private(set) var backgroundRemovalPhase: OperationPhase = .assessing
+    @Published private(set) var backgroundRemovalProgress: OperationProgress?
+    @Published private(set) var backgroundRemovalFailure: OperationFailure?
+    @Published private(set) var ben2Assessment: BEN2Assessment
+    @Published private(set) var isSettingUpBEN2 = false
 
     private let backgroundRemovalServices: [BackgroundRemovalEngine: any BackgroundRemoving]
     private var backgroundRemovalTask: Task<Void, Never>?
+    private var ben2SetupTask: Task<Void, Never>?
     private var backgroundRemovalGeneration = 0
     private var selectionAnchorID: String?
 
@@ -53,6 +60,7 @@ final class FileShelfState: ObservableObject {
         ]
         backgroundRemovalFileID = nil
         backgroundRemovalEngine = nil
+        ben2Assessment = BEN2BackgroundRemovalService.assess()
     }
 
     var experimentalEngines: [BackgroundRemovalEngine] {
@@ -280,6 +288,40 @@ final class FileShelfState: ObservableObject {
         removeBackground(using: .ben2)
     }
 
+    func setUpBEN2() {
+        guard isSettingUpBEN2 == false else { return }
+        isSettingUpBEN2 = true
+        ben2SetupTask = Task { [weak self] in
+            defer { self?.isSettingUpBEN2 = false; self?.ben2SetupTask = nil }
+            do {
+                try await BEN2BackgroundRemovalService.setup { [weak self] message in
+                    self?.backgroundRemovalStatus = message
+                }
+                self?.ben2Assessment = BEN2BackgroundRemovalService.assess()
+                self?.backgroundRemovalStatus = "BEN2 is ready"
+            } catch is CancellationError {
+                self?.backgroundRemovalStatus = "BEN2 setup cancelled"
+            } catch {
+                self?.backgroundRemovalError = error.localizedDescription
+            }
+        }
+    }
+
+    func cancelBEN2Setup() {
+        ben2SetupTask?.cancel()
+        BEN2BackgroundRemovalService.cancelSetup()
+        ben2SetupTask = nil
+        isSettingUpBEN2 = false
+    }
+
+    func removeBEN2Data() {
+        do {
+            try BEN2BackgroundRemovalService.removeData()
+            ben2Assessment = BEN2BackgroundRemovalService.assess()
+            backgroundRemovalStatus = "BEN2 data removed"
+        } catch { backgroundRemovalError = error.localizedDescription }
+    }
+
     func chooseBackgroundRemovalDestination() {
         guard let fileID = backgroundRemovalFileID ?? selectedFile?.id,
               let file = files.first(where: { $0.id == fileID }) else { return }
@@ -319,6 +361,8 @@ final class FileShelfState: ObservableObject {
         backgroundRemovalNeedsDestination = false
         backgroundRemovalError = nil
         backgroundRemovalStatus = "Background removal cancelled"
+        backgroundRemovalPhase = .cancelled
+        backgroundRemovalFailure = OperationFailure(message: "Background removal cancelled", retryable: true)
     }
 
     private func startBackgroundRemoval(
@@ -339,6 +383,9 @@ final class FileShelfState: ObservableObject {
             ? (engine == .vision ? "Removing background..." : "Preparing \(engine.title)...")
             : "Preparing \(total) files with \(engine.title)..."
         backgroundRemovalError = nil
+        backgroundRemovalPhase = .processing
+        backgroundRemovalProgress = .items(completed: 0, total: total)
+        backgroundRemovalFailure = nil
         backgroundRemovalNeedsDestination = false
 
         backgroundRemovalTask = Task { [weak self] in
@@ -366,6 +413,7 @@ final class FileShelfState: ObservableObject {
                     guard Task.isCancelled == false, self.backgroundRemovalGeneration == generation else { return }
                     outputURLs.append(outputURL)
                     self.add(urls: [outputURL])
+                    self.backgroundRemovalProgress = .items(completed: outputURLs.count, total: total)
                 } catch is CancellationError {
                     return
                 } catch {
@@ -395,6 +443,7 @@ final class FileShelfState: ObservableObject {
                     failed: failureMessages.count
                 )
                 self.backgroundRemovalError = failureMessages.joined(separator: "\n")
+                self.backgroundRemovalFailure = OperationFailure(message: failureMessages.joined(separator: "\n"), retryable: true)
                 self.selectGeneratedOutputs(outputURLs)
             }
         }

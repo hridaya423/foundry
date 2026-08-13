@@ -41,6 +41,7 @@ final class CommandRegistry: @unchecked Sendable {
                 BrowserProvider(),
                 LibraryProvider(store: snippetStore),
                 MediaDownloadProvider(),
+                CameraCommandProvider(),
                 SystemCommandProvider(diagnostics: diagnostics),
                 WindowManagementProvider(),
                 BuiltInCommandProvider(config: config, diagnostics: diagnostics)

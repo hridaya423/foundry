@@ -37,6 +37,27 @@ final class MediaDownloadTests: XCTestCase {
         XCTAssertEqual(urls.map(\.lastPathComponent), ["one.mp4", "two.mp3"])
     }
 
+    func testMediaCapabilitiesExposeRoutesAndCobaltDisclosure() {
+        let result = MediaDownloadProvider().searchPolicy
+        XCTAssertEqual(result.tier, .deferred)
+        let capabilities = MediaDownloadCapabilities(
+            direct: .ready(label: "Direct links · ready"),
+            cobalt: .ready(label: "Cobalt · sends URL to Cobalt"),
+            youtube: .unavailable(label: "YouTube · yt-dlp", reason: "Set up yt-dlp explicitly")
+        )
+
+        XCTAssertEqual(capabilities.cobalt.label, "Cobalt · sends URL to Cobalt")
+        XCTAssertEqual(capabilities.youtube, .unavailable(label: "YouTube · yt-dlp", reason: "Set up yt-dlp explicitly"))
+    }
+
+    func testProvisioningConsentTruthfullyDescribesUnpinnedHomebrewInstall() {
+        let consent = YouTubeProvisioningConsent()
+        XCTAssertEqual(consent.approvedFormula, "yt-dlp")
+        XCTAssertEqual(consent.disclosure, "Homebrew installs the current yt-dlp formula")
+        XCTAssertTrue(MediaDownloadError.invalidProvisioningConsent.isRetryable == false)
+        XCTAssertTrue(MediaDownloadError.provisioningFailed.isRetryable)
+    }
+
     @MainActor
     func testDownloadManagerKeepsActiveItemsUntilFinished() {
         let manager = MediaDownloadManager()

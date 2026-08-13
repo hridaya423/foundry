@@ -166,11 +166,33 @@ final class WindowManagerTests: XCTestCase {
         XCTAssertEqual(setCount, 0)
     }
 
+    @MainActor
+    func testRepeatedDeniedApplyNeedsPermissionWithoutWritingToAccessibilityClient() async {
+        let client = FakeWindowAccessibilityClient()
+        let manager = NativeWindowManager(
+            accessibility: client,
+            trustProvider: { false },
+            targetProvider: { 200 }
+        )
+
+        let first = await manager.apply(.leftHalf)
+        let second = await manager.apply(.rightHalf)
+
+        XCTAssertEqual(first, .needsAccessibilityPermission)
+        XCTAssertEqual(second, .needsAccessibilityPermission)
+        let readCount = await client.windowCount()
+        let writeCount = await client.setCount()
+        XCTAssertEqual(readCount, 0)
+        XCTAssertEqual(writeCount, 0)
+    }
+
     private actor FakeWindowAccessibilityClient: WindowAccessibilityClient {
+        private var reads = 0
         private var writes = 0
 
         func window(for pid: pid_t, anchorHeight: CGFloat) async -> AXWindowSnapshot? {
-            AXWindowSnapshot(
+            reads += 1
+            return AXWindowSnapshot(
                 identity: WindowIdentity(pid: pid, windowNumber: "window"),
                 frame: CGRect(x: 100, y: 100, width: 500, height: 400),
                 canMove: true,
@@ -185,6 +207,10 @@ final class WindowManagerTests: XCTestCase {
 
         func setCount() -> Int {
             writes
+        }
+
+        func windowCount() -> Int {
+            reads
         }
     }
 }

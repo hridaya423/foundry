@@ -25,7 +25,13 @@ let package = Package(
             dependencies: ["FoundryDomain", "FoundryServices"],
             path: "Sources/Foundry",
             resources: [
-                .process("Resources")
+                .copy("Resources/ProviderIcons/anthropic.svg"),
+                .copy("Resources/ProviderIcons/opencode.svg"),
+                .copy("Resources/FirefoxConnector/manifest.json"),
+                .copy("Resources/FirefoxConnector/background.js"),
+                .copy("Resources/BackgroundRemoval/NOTICE.txt"),
+                .copy("Resources/BackgroundRemoval/background_removal_worker.py"),
+                .copy("Resources/emoji.tsv")
             ],
             linkerSettings: [
                 .linkedFramework("IOKit")

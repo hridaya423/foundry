@@ -15,6 +15,9 @@ final class ActionRunner: CommandExecuting {
     private let resetRanking: (String) -> Void
     private let confirmAction: (CommandActionDescriptor, CommandInvocationSource) -> Bool
     private let windowManager: any WindowManaging
+    private let openURL: (URL) -> Bool
+    private let snippetContext: () -> SnippetRenderContext
+    let directPasteService: DirectPasteService
     private var activeExecutionTasks: [UUID: Task<CommandOutcome, Never>] = [:]
 
     init(
@@ -24,7 +27,10 @@ final class ActionRunner: CommandExecuting {
         mediaDownloadManager: MediaDownloadManager = MediaDownloadManager(),
         resetRanking: @escaping (String) -> Void = { _ in },
         confirmAction: @escaping (CommandActionDescriptor, CommandInvocationSource) -> Bool = { _, _ in true },
-            windowManager: any WindowManaging = NativeWindowManager()
+            windowManager: any WindowManaging = NativeWindowManager(),
+        openURL: @escaping (URL) -> Bool = { NSWorkspace.shared.open($0) },
+        directPasteService: DirectPasteService = .shared,
+        snippetContext: @escaping () -> SnippetRenderContext = { .current() }
     ) {
         self.diagnostics = diagnostics
         self.snippetStore = snippetStore
@@ -33,6 +39,9 @@ final class ActionRunner: CommandExecuting {
         self.resetRanking = resetRanking
         self.confirmAction = confirmAction
         self.windowManager = windowManager
+        self.openURL = openURL
+        self.snippetContext = snippetContext
+        self.directPasteService = directPasteService
     }
 
     func execute(
@@ -99,7 +108,7 @@ final class ActionRunner: CommandExecuting {
                 diagnostics.log("Invalid URL: \(urlString)")
                 return finish(.failure(message: "Invalid URL", retryable: false), feedback: .failure("Invalid URL"))
             }
-            if NSWorkspace.shared.open(url) == false {
+            if openURL(url) == false {
                 return finish(.failure(message: "Could not open link", retryable: true), feedback: .failure("Could not open link"))
             }
             return .success(message: "Opened link")
@@ -127,14 +136,31 @@ final class ActionRunner: CommandExecuting {
             diagnostics.log("Copied to clipboard")
             return finish(.copied(content: value), feedback: .success("Copied to clipboard"))
 
-        case let .pasteText(value):
-            NSPasteboard.general.clearContents()
-            NSPasteboard.general.setString(value, forType: .string)
-            try? await Task.sleep(for: .milliseconds(120))
-            guard Task.isCancelled == false else { return .cancelled }
-            Self.sendPasteShortcut()
-            diagnostics.log("Inserted snippet")
-            return finish(.pasted(content: value), feedback: .success("Inserted snippet"))
+        case let .copySnippet(id):
+            guard let snippet = snippetStore.load().first(where: { $0.id == id }) else { return .failure(message: "Snippet not found", retryable: false) }
+            let rendered = SnippetRenderer.render(snippet.content, context: snippetContext())
+            NSPasteboard.general.clearContents(); NSPasteboard.general.setString(rendered.text, forType: .string)
+            return finish(.copied(content: rendered.text), feedback: .success("Copied to clipboard"))
+
+        case let .pasteSnippet(id):
+            guard let snippet = snippetStore.load().first(where: { $0.id == id }) else { return .failure(message: "Snippet not found", retryable: false) }
+            let rendered = SnippetRenderer.render(snippet.content, context: snippetContext())
+            do {
+                try directPasteService.stage(.text(rendered.text), cursorOffset: rendered.cursorOffsetFromEnd, snippetID: id)
+                return finish(.pasted(content: rendered.text), feedback: .success("Inserted snippet"))
+            } catch DirectPasteError.missingTarget { return finish(.stayOpen(message: "No originating application is available"), feedback: .failure("No originating application is available")) }
+            catch { return finish(.stayOpen(message: "Could not stage paste"), feedback: .failure("Could not stage paste")) }
+
+        case let .pasteText(value, cursorOffset, snippetID):
+            do {
+                try directPasteService.stage(.text(value), cursorOffset: cursorOffset, snippetID: snippetID)
+                diagnostics.log("Staged direct paste")
+                return finish(.pasted(content: value), feedback: .success("Inserted snippet"))
+            } catch DirectPasteError.missingTarget {
+                return finish(.stayOpen(message: "No originating application is available"), feedback: .failure("No originating application is available"))
+            } catch {
+                return finish(.stayOpen(message: "Could not stage paste"), feedback: .failure("Could not stage paste"))
+            }
 
         case .createSnippetFromClipboard:
             guard let content = NSPasteboard.general.string(forType: .string)?.trimmingCharacters(in: .whitespacesAndNewlines), content.isEmpty == false else {
@@ -158,25 +184,36 @@ final class ActionRunner: CommandExecuting {
             return outcome
 
         case let .downloadMediaBatch(urls):
+            var completed = 0
+            var failures: [String] = []
             for url in urls {
-                let childRequest = CommandExecutionRequest(
-                    commandID: request.invocation.commandID,
-                    action: CommandAction(
-                        id: "media.download.batch.\(UUID().uuidString)",
-                        title: "Download",
-                        kind: .downloadMedia(url: url)
-                    ),
-                    source: request.invocation.source,
-                    context: request.invocation.context
-                )
-                Task { @MainActor [weak self] in
-                    _ = await self?.execute(childRequest, emit: emit)
+                let id = UUID()
+                mediaDownloadManager.start(id: id, sourceURL: url)
+                do {
+                    let result = try await mediaDownloadService.download(urlString: url, status: { emit(.status($0)) }, progress: {
+                        self.mediaDownloadManager.update(id: id, progress: $0)
+                        emit(.downloadProgress($0))
+                    })
+                    mediaDownloadManager.complete(id: id, message: result)
+                    completed += 1
+                } catch is CancellationError {
+                    mediaDownloadManager.cancel(id: id)
+                    return .cancelled
+                } catch {
+                    let message = error.localizedDescription
+                    mediaDownloadManager.fail(id: id, message: message)
+                    failures.append("\(URL(string: url)?.lastPathComponent ?? url): \(message)")
                 }
             }
+            let message = failures.isEmpty
+                ? "Downloaded \(completed) of \(urls.count) media links"
+                : "Downloaded \(completed) of \(urls.count); failed: \(failures.joined(separator: "; "))"
+            emit(.status(message))
             return .open(route: .mediaDownloads)
 
         case let .downloadMedia(urlString):
             diagnostics.log("Starting media download")
+            mediaDownloadManager.setCapabilities(mediaDownloadService.mediaCapabilities())
             let downloadID = request.invocation.cancellationID
             mediaDownloadManager.start(id: downloadID, sourceURL: urlString)
             let result: String
@@ -194,10 +231,10 @@ final class ActionRunner: CommandExecuting {
                     mediaDownloadManager.cancel(id: downloadID)
                     return .cancelled
                 }
-                let message = "Media download failed: \(error.localizedDescription)"
+                let message = error.localizedDescription
                 mediaDownloadManager.fail(id: downloadID, message: message)
                 diagnostics.log(message)
-                return finish(.stayOpen(message: message), feedback: .failure(message))
+                return finish(.failure(message: message, retryable: (error as? MediaDownloadError)?.isRetryable ?? false), feedback: .failure(message))
             }
             guard Task.isCancelled == false else {
                 mediaDownloadManager.cancel(id: downloadID)
@@ -205,12 +242,7 @@ final class ActionRunner: CommandExecuting {
             }
             emit(.status(result))
             diagnostics.log(result)
-            let failed = Self.isMediaDownloadFailure(result)
-            if failed {
-                mediaDownloadManager.fail(id: downloadID, message: result)
-            } else {
-                mediaDownloadManager.complete(id: downloadID, message: result)
-            }
+            mediaDownloadManager.complete(id: downloadID, message: result)
             let outcome: CommandOutcome = .stayOpen(message: result)
             return outcome
 
@@ -371,7 +403,6 @@ final class ActionRunner: CommandExecuting {
             case .restored:
                 return finish(.success(message: "Restored previous window frame"), feedback: .success("Restored previous window frame"))
             case .needsAccessibilityPermission:
-                NSWorkspace.shared.open(NativeWindowManager.accessibilitySettingsURL)
                 return finish(
                     .stayOpen(message: "Accessibility permission required for window control"),
                     feedback: .failure("Grant Accessibility access in System Settings to control windows")
@@ -453,11 +484,6 @@ final class ActionRunner: CommandExecuting {
     nonisolated private static func isCancellation(_ error: Error) -> Bool {
         if Task.isCancelled { return true }
         return (error as? ProcessRunnerError) == .cancelled
-    }
-
-    nonisolated private static func isMediaDownloadFailure(_ result: String) -> Bool {
-        let normalized = result.lowercased()
-        return normalized.contains("media download failed") || normalized.contains("invalid media url")
     }
 
 }

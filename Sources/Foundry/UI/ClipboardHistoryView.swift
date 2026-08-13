@@ -6,8 +6,17 @@ struct ClipboardHistoryView: View {
     @ObservedObject var fileShelf: FileShelfState
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var isConfirmingClear = false
+    let directPaste: () -> Bool
+    let pause: (Bool) -> Void
 
     private let columns = Array(repeating: GridItem(.flexible(), spacing: 10), count: 3)
+
+    init(state: ClipboardHistoryState, fileShelf: FileShelfState, directPaste: @escaping () -> Bool = { false }, pause: @escaping (Bool) -> Void = { _ in }) {
+        self.state = state
+        self.fileShelf = fileShelf
+        self.directPaste = directPaste
+        self.pause = pause
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -24,13 +33,17 @@ struct ClipboardHistoryView: View {
                     message: "Try a shorter search or clear the search field."
                 )
             } else {
-                FoundrySectionHeader(
+                HStack {
+                    FoundrySectionHeader(
                     title: "Clipboard",
                     count: "\(state.visibleItems.count) item\(state.visibleItems.count == 1 ? "" : "s")",
                     actionTitle: "Clear",
                     action: { isConfirmingClear = true }
                 )
-                .padding(.horizontal, 4)
+                    .padding(.horizontal, 4)
+                    Spacer()
+                    Button(state.isPaused ? "Resume" : "Pause") { pause(!state.isPaused) }
+                }
 
                 ScrollViewReader { proxy in
                     ScrollView {
@@ -40,7 +53,8 @@ struct ClipboardHistoryView: View {
                                     item: item,
                                     isSelected: state.selectedID == item.id,
                                     copy: { state.copySelected() },
-                                    remove: { state.select(id: item.id); state.removeSelected() },
+                                     remove: { state.select(id: item.id); state.removeSelected() },
+                                     paste: { state.select(id: item.id); _ = directPaste() },
                                     addToShelf: { state.select(id: item.id); state.addSelectedFiles(to: fileShelf) }
                                 )
                                 .id(item.id)
@@ -79,6 +93,7 @@ private struct ClipboardHistoryCard: View {
     let isSelected: Bool
     let copy: () -> Void
     let remove: () -> Void
+    let paste: () -> Void
     let addToShelf: () -> Void
 
     @State private var isHovering = false
@@ -124,6 +139,7 @@ private struct ClipboardHistoryCard: View {
                     ClipboardCardButton(symbol: "tray.and.arrow.down", label: "Add files to shelf", action: addToShelf)
                 }
                 ClipboardCardButton(symbol: "doc.on.doc", label: "Copy item", action: copy)
+                ClipboardCardButton(symbol: "text.insert", label: "Paste into originating app", action: paste)
                 ClipboardCardButton(symbol: "xmark", label: "Remove item", action: remove)
                 Spacer(minLength: 0)
             }

@@ -183,7 +183,11 @@ struct CommandPanelView: View {
                     state.mode = .fileConversion
                 }
             } else if state.mode == .clipboardHistory {
-                ClipboardHistoryView(state: state.clipboardHistory, fileShelf: state.fileShelf)
+                ClipboardHistoryView(state: state.clipboardHistory, fileShelf: state.fileShelf, directPaste: {
+                    let staged = state.directPasteSelectedClipboardItem()
+                    if staged { dismiss() }
+                    return staged
+                }, pause: state.setClipboardPaused)
             } else if state.mode == .snippets {
                 SnippetsView(state: state.snippets)
             } else if state.mode == .translator {
@@ -683,9 +687,9 @@ struct CommandPanelView: View {
             "Command"
         case .revealInFinder:
             "Finder"
-        case .copyToClipboard:
+        case .copyToClipboard, .copySnippet:
             "Copy"
-        case .pasteText:
+        case .pasteText, .pasteSnippet:
             "Insert"
         case .createSnippetFromClipboard, .importSnippets:
             "Snippet"
@@ -1074,9 +1078,9 @@ private struct ActionRow: View {
             "arrow.down.circle"
         case .revealInFinder:
             "folder"
-        case .copyToClipboard:
+        case .copyToClipboard, .copySnippet:
             "doc.on.doc"
-        case .pasteText:
+        case .pasteText, .pasteSnippet:
             "text.insert"
         case .createSnippetFromClipboard:
             "plus.rectangle.on.rectangle"

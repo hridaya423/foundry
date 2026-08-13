@@ -42,21 +42,24 @@ struct FileConversionView: View {
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 18)
-        .alert("Additional Tool Required", isPresented: dependencyPromptBinding) {
-            Button("Install and Convert") { state.confirmDependencyInstallation() }
-            Button("Cancel", role: .cancel) { state.dependencyPrompt = nil }
-        } message: {
-            Text("Foundry needs \(state.dependencyPrompt ?? "an external tool") to convert this file. Homebrew will install it on your Mac.")
+        .sheet(item: dependencySetupBinding) { setup in
+            VStack(alignment: .leading, spacing: 14) {
+                Text("Setup required for \(setup.target.title)").font(.headline)
+                Text(setup.plan.disclosure)
+                Text("Command: \(setup.plan.commands.map { $0.executable + " " + $0.arguments.joined(separator: " ") }.joined(separator: "\n"))")
+                    .font(.system(.body, design: .monospaced))
+                Text("Scope: \(setup.plan.mutationScope)\nCleanup: \(setup.plan.cleanupOwnership)")
+                HStack {
+                    Button("Install Tool") { Task { await state.installTool() } }
+                    Button("Install and Convert") { Task { await state.installToolAndConvert() } }
+                    Button("Cancel", role: .cancel) { state.cancelDependencySetup() }
+                }
+            }.padding(22).frame(width: 460)
         }
     }
 
-    private var dependencyPromptBinding: Binding<Bool> {
-        Binding(
-            get: { state.dependencyPrompt != nil },
-            set: { isPresented in
-                if isPresented == false { state.dependencyPrompt = nil }
-            }
-        )
+    private var dependencySetupBinding: Binding<DependencySetup?> {
+        Binding(get: { state.dependencySetup }, set: { if $0 == nil { state.cancelDependencySetup() } })
     }
 
     private var sourceCard: some View {
@@ -170,7 +173,9 @@ struct FileConversionView: View {
                     ForEach(groupedTargetCategories, id: \.self) { category in
                         Section(category.rawValue) {
                             ForEach(groupedTargets[category] ?? []) { target in
-                                Button(target.title) { state.selectedTargetID = target.id }
+                                Button { state.selectedTargetID = target.id } label: {
+                                    HStack { Text(target.title); Spacer(); Text(state.capability(for: target)?.readinessLabel ?? "Assessing…") }
+                                }
                             }
                         }
                     }
@@ -180,10 +185,13 @@ struct FileConversionView: View {
                             Text(state.selectedTarget?.title ?? "Choose format")
                                 .font(FoundryTheme.body(size: 14, weight: .semibold))
                                 .foregroundStyle(FoundryTheme.primaryText)
-                            if let category = state.selectedTarget?.category {
+                             if let category = state.selectedTarget?.category {
                                 Text(category.rawValue)
                                     .font(FoundryTheme.body(size: 11, weight: .medium))
                                     .foregroundStyle(FoundryTheme.faintText)
+                             }
+                            if let capability = state.selectedTarget.flatMap(state.capability(for:)) {
+                                Text(capability.readinessLabel).font(FoundryTheme.body(size: 11, weight: .medium)).foregroundStyle(FoundryTheme.faintText)
                             }
                         }
                         Spacer(minLength: 0)
@@ -239,14 +247,21 @@ struct FileConversionView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                 }
 
-                if state.outputURLs.isEmpty == false {
+                 if state.outputURLs.isEmpty == false {
                     Button(state.outputURLs.count == 1 ? "Reveal in Finder" : "Reveal Outputs in Finder") { state.revealOutput() }
                         .buttonStyle(PressableButtonStyle())
                         .font(FoundryTheme.body(size: 12, weight: .semibold))
                         .foregroundStyle(FoundryTheme.secondaryText)
                         .frame(maxWidth: .infinity)
                         .pointerCursor()
-                }
+                 }
+                 if state.itemOutcomes.contains(where: { $0.state == .failed }) && state.isConverting == false {
+                     Button("Retry Failed") { state.retryFailed() }
+                         .buttonStyle(PressableButtonStyle())
+                         .font(FoundryTheme.body(size: 12, weight: .semibold))
+                         .foregroundStyle(FoundryTheme.secondaryText)
+                         .frame(maxWidth: .infinity)
+                 }
             } else if state.sourceURLs.isEmpty == false {
                 Spacer(minLength: 0)
                 VStack(spacing: 10) {

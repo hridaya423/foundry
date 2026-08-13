@@ -3,6 +3,17 @@ import Foundation
 import ImageIO
 import UniformTypeIdentifiers
 import Vision
+import FoundryServices
+
+enum BEN2ComponentState: Equatable, Sendable { case missing, ready, invalid, unavailable(String) }
+enum BEN2ProvisioningState: Equatable, Sendable { case available, unavailable(String) }
+struct BEN2Assessment: Equatable, Sendable {
+    let visionState: BEN2ComponentState
+    let modelState: BEN2ComponentState
+    let runtimeState: BEN2ComponentState
+    let provisioningState: BEN2ProvisioningState
+    let setupPlan: SetupPlan?
+}
 
 protocol BackgroundRemoving: Sendable {
     func supports(_ sourceURL: URL) -> Bool
@@ -33,6 +44,8 @@ enum BackgroundRemovalError: LocalizedError, Equatable {
     case modelUnavailable(String)
     case modelSetupFailed(String)
     case processingFailed(String)
+    case setupRequired
+    case unavailable(String)
 
     var errorDescription: String? {
         switch self {
@@ -51,6 +64,10 @@ enum BackgroundRemovalError: LocalizedError, Equatable {
         case let .modelSetupFailed(message):
             "Background-removal model setup failed: \(message)"
         case let .processingFailed(message):
+            message
+        case .setupRequired:
+            "Set up BEN2 before processing images."
+        case let .unavailable(message):
             message
         }
     }

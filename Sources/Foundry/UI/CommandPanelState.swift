@@ -43,6 +43,8 @@ final class CommandPanelState: ObservableObject {
     @Published var themeIntensity: Double
     @Published var searchSensitivity: SearchSensitivity
     @Published var settingsPersistenceError: String?
+    @Published private(set) var snippetExpansion: SnippetExpansionConfig
+    @Published private(set) var snippetExpansionError: String?
     @Published var commandSettingsQuery = "" {
         didSet { rebuildCommandRows() }
     }
@@ -61,7 +63,7 @@ final class CommandPanelState: ObservableObject {
     let emojiPicker = EmojiPickerState()
     let fileShelf = FileShelfState()
     let agents = AgentMonitorState()
-    let clipboardHistory = ClipboardHistoryState()
+    let clipboardHistory: ClipboardHistoryState
     let snippets: SnippetState
     let fileConversion = FileConversionState()
     let camera = CameraPreviewState()
@@ -109,19 +111,23 @@ final class CommandPanelState: ObservableObject {
         diagnostics: DiagnosticsService,
         config: ConfigService,
         snippetStore: any SnippetStore = FileSnippetStore(),
-        mediaDownloadManager: MediaDownloadManager = MediaDownloadManager()
+        mediaDownloadManager: MediaDownloadManager = MediaDownloadManager(),
+        clipboardHistory: ClipboardHistoryState? = nil
     ) {
         self.registry = registry
         self.searchCoordinator = CommandSearchCoordinator(registry: registry, diagnostics: diagnostics)
         self.actionRunner = actionRunner
         self.diagnostics = diagnostics
         self.configService = config
+        self.clipboardHistory = clipboardHistory ?? ClipboardHistoryState(configuration: config.current.clipboard)
         self.snippets = SnippetState(store: snippetStore)
         self.isAgentShelfVisible = config.current.showAgentShelf
         self.hotkey = config.current.hotkey
         self.themeIntensity = config.current.themeIntensity
         self.searchSensitivity = config.current.searchSensitivity
         self.settingsPersistenceError = nil
+        self.snippetExpansion = config.current.snippetExpansion
+        self.snippetExpansionError = nil
         self.commandPreferences = config.current.commandPreferences
         self.commandCatalogFailures = []
         self.configLoadError = config.loadErrorMessage
@@ -223,7 +229,6 @@ final class CommandPanelState: ObservableObject {
             agents.stopPolling()
         }
         emojiPicker.reset()
-        clipboardHistory.stop()
         clipboardHistory.reset()
         snippets.reset()
         fileConversion.reset()
@@ -248,7 +253,6 @@ final class CommandPanelState: ObservableObject {
         searchCoordinator.cancel()
         widgetBoard.stop()
         emojiPicker.reset()
-        clipboardHistory.stop()
         clipboardHistory.reset()
         snippets.reset()
         fileConversion.reset()
@@ -352,6 +356,90 @@ final class CommandPanelState: ObservableObject {
             refreshResults()
         } catch {
             searchSensitivity = previous
+            showSettingsPersistenceError(error)
+        }
+    }
+
+    func setClipboardPaused(_ paused: Bool) {
+        var configuration = configService.current.clipboard
+        configuration.isPaused = paused
+        updateClipboard(configuration)
+    }
+
+    var accessibilityTrusted: Bool { AXIsProcessTrusted() }
+
+    func setSnippetExpansionEnabled(_ enabled: Bool) {
+        var next = snippetExpansion
+        next.isEnabled = enabled
+        updateSnippetExpansion(next)
+    }
+
+    func setSnippetExpansionExcludedBundleIdentifiers(_ value: String) {
+        var next = snippetExpansion
+        next.excludedBundleIdentifiers = value.split(separator: ",").map(String.init)
+        updateSnippetExpansion(next)
+    }
+
+    func requestSnippetExpansionAccessibility() { NotificationCenter.default.post(name: .foundryRequestSnippetAccessibility, object: nil) }
+    func openSnippetExpansionPrivacySettings() { NotificationCenter.default.post(name: .foundryOpenSnippetPrivacy, object: nil) }
+
+    func setSnippetExpansionError(_ message: String?) { snippetExpansionError = message }
+
+    func setDirectPasteError(_ error: Error) {
+        diagnosticsSummary = "Could not complete paste: \(error.localizedDescription)"
+        diagnostics.log("Direct paste failed: \(error.localizedDescription)")
+    }
+
+    private func updateSnippetExpansion(_ next: SnippetExpansionConfig) {
+        let previous = snippetExpansion
+        snippetExpansion = next.normalized
+        do {
+            try configService.updateSnippetExpansionConfig(snippetExpansion)
+            settingsPersistenceError = nil
+            NotificationCenter.default.post(name: .foundrySnippetExpansionChanged, object: nil)
+        } catch {
+            snippetExpansion = previous
+            showSettingsPersistenceError(error)
+        }
+    }
+
+    func setClipboardRetention(maxItems: Int, maxBytes: Int) {
+        var configuration = configService.current.clipboard
+        configuration.maxItems = maxItems
+        configuration.maxBytes = maxBytes
+        updateClipboard(configuration)
+    }
+
+    func setClipboardExcludedBundleIdentifiers(_ value: String) {
+        var configuration = configService.current.clipboard
+        configuration.excludedBundleIdentifiers = value.split(separator: ",").map(String.init)
+        updateClipboard(configuration)
+    }
+
+    @discardableResult
+    func directPasteSelectedClipboardItem() -> Bool {
+        guard let item = clipboardHistory.selectedItem else {
+            clipboardHistory.report(ClipboardDirectPasteError.noSelection)
+            diagnosticsSummary = "Could not stage paste: \(ClipboardDirectPasteError.noSelection.localizedDescription)"
+            return false
+        }
+        do {
+            try actionRunner.directPasteService.stage(item.payload)
+            return true
+        } catch {
+            diagnosticsSummary = "Could not stage paste: \(error.localizedDescription)"
+            return false
+        }
+    }
+
+    private func updateClipboard(_ configuration: ClipboardConfig) {
+        let previous = configService.current.clipboard
+        do {
+            try configService.updateClipboardConfig(configuration)
+            clipboardHistory.updateConfiguration(configService.current.clipboard)
+            settingsPersistenceError = nil
+        } catch {
+            clipboardHistory.updateConfiguration(previous)
             showSettingsPersistenceError(error)
         }
     }
@@ -862,7 +950,6 @@ final class CommandPanelState: ObservableObject {
     }
 
     private func stopTransientPolling() {
-        clipboardHistory.stop()
         widgetBoard.stop()
         agents.stopPolling()
     }
@@ -893,7 +980,6 @@ final class CommandPanelState: ObservableObject {
 
     private func openClipboardHistory() {
         beginFeatureMode(.clipboardHistory, status: "clipboard history")
-        clipboardHistory.start()
         clipboardHistory.reset()
     }
 
@@ -970,4 +1056,15 @@ final class CommandPanelState: ObservableObject {
         await executeResult(result)
     }
 
+}
+
+extension Notification.Name {
+    static let foundryRequestSnippetAccessibility = Notification.Name("foundry.requestSnippetAccessibility")
+    static let foundryOpenSnippetPrivacy = Notification.Name("foundry.openSnippetPrivacy")
+    static let foundrySnippetExpansionChanged = Notification.Name("foundry.snippetExpansionChanged")
+}
+
+private enum ClipboardDirectPasteError: LocalizedError {
+    case noSelection
+    var errorDescription: String? { "Select an item to paste." }
 }

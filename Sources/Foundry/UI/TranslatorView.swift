@@ -20,7 +20,7 @@ struct TranslatorView: View {
                     .font(.system(size: 22, weight: .semibold))
                     .foregroundStyle(FoundryTheme.secondaryText)
 
-                TranslatorPane(placeholder: "Translation", text: $state.result, isEditable: false, copy: state.copyResult) {
+                TranslatorPane(placeholder: "Translation", text: Binding(get: { state.result }, set: { _ in }), isEditable: false, copy: state.copyResult) {
                     languageMenu
                 }
             }
@@ -44,9 +44,9 @@ struct TranslatorView: View {
                         .lineLimit(2)
                 }
 
-                if shouldShowAppleFallback {
-                    FoundryActionButton(title: "Try Apple Translation", systemName: "apple.logo") {
-                        state.requestAppleTranslationFallback()
+                if state.translationError != nil {
+                    FoundryActionButton(title: "Try Apple Intelligence", systemName: "apple.logo") {
+                        state.requestAppleIntelligence()
                     }
                 }
 
@@ -56,11 +56,6 @@ struct TranslatorView: View {
         .padding(.horizontal, 20)
         .padding(.vertical, 18)
         .background(translationBackend)
-    }
-
-    private var shouldShowAppleFallback: Bool {
-        let value = (state.translationError ?? state.result).lowercased()
-        return value.contains("unsafe") || value.contains("unavailable") || value.contains("failed") || value.contains("require macos")
     }
 
     @ViewBuilder
@@ -134,32 +129,29 @@ struct AppleTranslationTask: View {
     var body: some View {
         Color.clear
             .frame(width: 0, height: 0)
+            .onAppear { configure() }
             .onChange(of: requestVersion) { _, _ in
                 configure()
             }
             .translationTask(configuration) { session in
-                let text = state.sourceText.trimmingCharacters(in: .whitespacesAndNewlines)
-                guard text.isEmpty == false else { return }
-                guard state.needsAppleTranslationFallback else {
-                    let modelTranslation = await AppleTranslator.translate(text, from: state.sourceLanguage, to: state.targetLanguage)
-                    state.finishTranslation(modelTranslation)
-                    return
-                }
-
+                guard let request = state.activeRequest else { return }
+                let text = request.text
                 do {
                     nonisolated(unsafe) let translationSession = session
                     let response = try await translationSession.translate(text)
-                    state.finishTranslation(response.targetText)
+                    state.finish(.success(response.targetText), for: request)
+                } catch is CancellationError {
+                    state.finish(.failure(.cancelled), for: request)
                 } catch {
-                    state.finishTranslationError("Apple Translation failed: \(error.localizedDescription)")
+                    state.finish(.failure(.backend(error.localizedDescription)), for: request)
                 }
             }
     }
 
     private func configure() {
-        guard requestVersion > 0,
-              let sourceCode = state.languageCode(for: state.sourceLanguage),
-              let targetCode = state.languageCode(for: state.targetLanguage) else { return }
+        guard requestVersion > 0, let request = state.activeRequest,
+              let sourceCode = state.languageCode(for: request.source.displayName),
+              let targetCode = state.languageCode(for: request.target.displayName) else { return }
         configuration = TranslationSession.Configuration(
             source: Locale.Language(identifier: sourceCode),
             target: Locale.Language(identifier: targetCode)

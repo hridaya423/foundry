@@ -29,4 +29,20 @@ final class LibraryPersistenceTests: XCTestCase {
         XCTAssertTrue(store.load().isEmpty)
         XCTAssertEqual(try Data(contentsOf: url), data)
     }
+
+    @MainActor func testSnippetKeywordIsTrimmedBeforeSaving() {
+        let store = InMemorySnippetStore()
+        let state = SnippetState(store: store)
+        state.load()
+        state.newSnippet()
+        state.updateSelected(title: "Example", content: "body", keyword: "  ex  ", tags: [])
+        XCTAssertEqual(state.selectedItem?.keyword, "ex")
+    }
+}
+
+private final class InMemorySnippetStore: SnippetStore, @unchecked Sendable {
+    let url = URL(fileURLWithPath: "/tmp/in-memory-snippets.json")
+    var snippets: [StoredSnippet] = []
+    func load() -> [StoredSnippet] { snippets }
+    @discardableResult func save(_ snippets: [StoredSnippet]) -> Result<Void, Error> { self.snippets = snippets; return .success(()) }
 }

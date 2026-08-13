@@ -15,6 +15,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let snippetStore = FileSnippetStore()
         let usageRanking = UsageRankingStore(diagnostics: diagnostics)
         let mediaDownloadManager = MediaDownloadManager()
+        let directPasteService = DirectPasteService()
         let actionRunner = ActionRunner(
             diagnostics: diagnostics,
             snippetStore: snippetStore,
@@ -24,7 +25,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             },
             confirmAction: { action, source in
                 Self.confirm(action: action, source: source)
-            }
+            },
+            directPasteService: directPasteService
         )
 
         let registry = CommandRegistry.defaultRegistry(
@@ -43,6 +45,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         )
 
         self.shellController = shellController
+        NotificationCenter.default.addObserver(forName: .foundryRequestSnippetAccessibility, object: nil, queue: .main) { [weak shellController] _ in
+            Task { @MainActor in shellController?.requestSnippetAccessibility() }
+        }
+        NotificationCenter.default.addObserver(forName: .foundryOpenSnippetPrivacy, object: nil, queue: .main) { [weak shellController] _ in
+            Task { @MainActor in shellController?.openSnippetPrivacySettings() }
+        }
+        NotificationCenter.default.addObserver(forName: .foundrySnippetExpansionChanged, object: nil, queue: .main) { [weak shellController] _ in
+            Task { @MainActor in shellController?.reconfigureSnippetExpansion() }
+        }
         shellController.start()
 
         Task { @MainActor [weak self] in
@@ -52,6 +63,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             FirefoxConnectorInstaller(diagnostics: diagnostics).configureMainBrowser()
         }
     }
+
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply { .terminateNow }
 
     func applicationWillTerminate(_ notification: Notification) {
         shellController?.stop()

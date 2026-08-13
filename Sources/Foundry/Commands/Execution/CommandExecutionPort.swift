@@ -39,6 +39,13 @@ struct CommandExecutionRequest: Sendable {
     }
 }
 
+extension CommandExecutionRequest {
+    var pasteRequest: (value: String, cursorOffset: Int, snippetID: String?)? {
+        guard case let .pasteText(value, cursorOffset, snippetID) = action.kind else { return nil }
+        return (value, cursorOffset, snippetID)
+    }
+}
+
 enum CommandExecutionEvent: Sendable {
     case status(String)
     case downloadProgress(MediaDownloadProgress)

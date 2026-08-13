@@ -111,6 +111,15 @@ struct MediaDownloadsView: View {
                 .foregroundStyle(FoundryTheme.faintText)
                 .padding(.horizontal, 4)
             }
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text(manager.capabilities.direct.label)
+                Text(manager.capabilities.cobalt.label)
+                Text(manager.capabilities.youtube.label)
+            }
+            .font(FoundryTheme.mono(size: 9, weight: .regular))
+            .foregroundStyle(FoundryTheme.faintText)
+            .padding(.horizontal, 4)
         }
         .padding(.horizontal, 20)
         .padding(.top, 12)

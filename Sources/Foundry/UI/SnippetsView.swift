@@ -97,10 +97,20 @@ struct SnippetsView: View {
                         action: state.togglePinnedSelected
                     )
                     SnippetIconButton(symbol: "doc.on.doc", help: "Copy to clipboard", action: state.copySelected)
+                    SnippetIconButton(symbol: "arrow.down.doc", help: "Insert snippet", action: state.copySelected)
                     SnippetIconButton(symbol: "trash", help: "Delete snippet", destructive: true, action: { isConfirmingDelete = true })
                 }
                 .frame(height: 30)
                 SnippetEditor(state: state)
+                if state.duplicateKeywords.isEmpty == false {
+                    Label("Duplicate keywords: \(state.duplicateKeywords.joined(separator: ", ")). Save is allowed, but auto-expansion is disabled until resolved.", systemImage: "exclamationmark.triangle")
+                        .font(FoundryTheme.body(size: 11, weight: .medium))
+                        .foregroundStyle(FoundryTheme.error)
+                        .lineLimit(2)
+                }
+                Text(state.expansionAvailabilityMessage)
+                    .font(FoundryTheme.body(size: 11, weight: .regular))
+                    .foregroundStyle(FoundryTheme.faintText)
             } else {
                 detailEmptyState
             }

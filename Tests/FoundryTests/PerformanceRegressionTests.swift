@@ -22,21 +22,18 @@ final class PerformanceRegressionTests: XCTestCase {
     }
 
     func testClipboardHistoryPolicyBoundsRepresentativeHistory() {
-        let items = (0..<ClipboardHistoryPolicy.maxItems).map { index in
+        let policy = ClipboardHistoryPolicy()
+        let items = (0..<policy.maxItems).map { index in
             ClipboardHistoryItem(
                 payload: .text(String(repeating: "x", count: 512 * 1024)),
-                signature: "item-\(index)"
+                createdAt: Date(timeIntervalSince1970: TimeInterval(index))
             )
         }
-        var retained = items
-        var total = retained.reduce(0) { $0 + $1.memoryCost }
-        while total > ClipboardHistoryPolicy.maxBytes, retained.count > 1 {
-            guard let removed = retained.popLast() else { break }
-            total -= removed.memoryCost
-        }
+        let retained = policy.bounded(items)
+        let total = retained.reduce(0) { $0 + $1.memoryCost }
 
-        XCTAssertLessThanOrEqual(total, ClipboardHistoryPolicy.maxBytes)
-        XCTAssertLessThanOrEqual(retained.count, ClipboardHistoryPolicy.maxItems)
+        XCTAssertLessThanOrEqual(total, policy.maxBytes)
+        XCTAssertLessThanOrEqual(retained.count, policy.maxItems)
     }
 
     func testHomePollingWorkload() async throws {

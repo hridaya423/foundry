@@ -24,6 +24,20 @@ final class ActionRunnerTests: XCTestCase {
         })
     }
 
+    func testCopySnippetRendersAtExecutionUsingInjectedContext() async {
+        let store = TestSnippetStore(snippets: [StoredSnippet(id: "one", title: "One", content: "{clipboard}")])
+        let runner = ActionRunner(
+            diagnostics: DiagnosticsService(),
+            snippetStore: store,
+            snippetContext: { SnippetRenderContext(now: Date(timeIntervalSince1970: 0), locale: Locale(identifier: "en_US_POSIX"), calendar: Calendar(identifier: .gregorian), clipboard: "later") }
+        )
+        let action = CommandAction(id: "copy", title: "Copy", kind: .copySnippet(id: "one"))
+
+        let outcome = await runner.execute(CommandExecutionRequest(commandID: "copy", action: action)) { _ in }
+
+        XCTAssertEqual(outcome, .copied(content: "later"))
+    }
+
     func testExecutionReturnsProcessFailureWithoutThrowingAcrossTheBoundary() async {
         let runner = ActionRunner(diagnostics: DiagnosticsService())
         let request = CommandExecutionRequest(
@@ -106,6 +120,41 @@ final class ActionRunnerTests: XCTestCase {
         let outcome = await runner.execute(request) { _ in }
 
         XCTAssertEqual(outcome, .stayOpen(message: "Accessibility permission required for window control"))
+    }
+
+    func testWindowPermissionDoesNotOpenSettingsAcrossRepeatedAttemptsButExplicitURLDoes() async {
+        var openedURLs: [URL] = []
+        let runner = ActionRunner(
+            diagnostics: DiagnosticsService(),
+            windowManager: PermissionWindowManager(),
+            openURL: { url in
+                openedURLs.append(url)
+                return true
+            }
+        )
+        let tileRequest = CommandExecutionRequest(
+            commandID: "test.window.repeated",
+            action: CommandAction(id: "test.window.repeated.perform", title: "Tile", kind: .tileWindow(.leftHalf))
+        )
+
+        for _ in 0..<3 {
+            let outcome = await runner.execute(tileRequest) { _ in }
+            XCTAssertEqual(outcome, .stayOpen(message: "Accessibility permission required for window control"))
+        }
+        XCTAssertTrue(openedURLs.isEmpty)
+
+        let openSettingsRequest = CommandExecutionRequest(
+            commandID: "test.accessibility.settings",
+            action: CommandAction(
+                id: "test.accessibility.settings.open",
+                title: "Open Accessibility Settings",
+                kind: .openURL(NativeWindowManager.accessibilitySettingsURL.absoluteString)
+            )
+        )
+
+        let openSettingsOutcome = await runner.execute(openSettingsRequest) { _ in }
+        XCTAssertEqual(openSettingsOutcome, .success(message: "Opened link"))
+        XCTAssertEqual(openedURLs, [NativeWindowManager.accessibilitySettingsURL])
     }
 
     func testCancellationCancelsAProcessExecution() async throws {
@@ -227,6 +276,14 @@ final class ActionRunnerTests: XCTestCase {
         func maxConcurrentValue() -> Int {
             maxConcurrent
         }
+    }
+
+    private final class TestSnippetStore: SnippetStore, @unchecked Sendable {
+        let url = URL(fileURLWithPath: "/tmp/test-snippets.json")
+        var snippets: [StoredSnippet]
+        init(snippets: [StoredSnippet]) { self.snippets = snippets }
+        func load() -> [StoredSnippet] { snippets }
+        @discardableResult func save(_ snippets: [StoredSnippet]) -> Result<Void, Error> { self.snippets = snippets; return .success(()) }
     }
 
     @MainActor

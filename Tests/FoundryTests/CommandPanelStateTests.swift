@@ -144,6 +144,98 @@ final class CommandPanelStateTests: XCTestCase {
         state.shutdown()
     }
 
+    func testClipboardMonitoringSurvivesPanelCloseAndModeChanges() {
+        let diagnostics = DiagnosticsService()
+        let config = ConfigService(diagnostics: diagnostics, url: temporaryURL())
+        let pasteboardClient = TestClipboardPasteboard()
+        let clipboard = ClipboardHistoryState(pasteboard: pasteboardClient, persistence: nil, configuration: config.current.clipboard)
+        let state = makeState(diagnostics: diagnostics, config: config, clipboard: clipboard)
+
+        clipboard.start()
+        state.openSettings()
+        state.panelWillClose()
+
+        XCTAssertTrue(clipboard.isMonitoring)
+        state.shutdown()
+        XCTAssertFalse(clipboard.isMonitoring)
+    }
+
+    func testShellCompositionStartsClipboardOnceAndReloadsArchive() {
+        let diagnostics = DiagnosticsService()
+        let archiveURL = temporaryURL()
+        let config = ConfigService(diagnostics: diagnostics, url: temporaryURL())
+        let pasteboard = TestClipboardPasteboard()
+        let persistence = ClipboardHistoryPersistence(url: archiveURL)
+        let clipboard = ClipboardHistoryState(pasteboard: pasteboard, persistence: persistence, configuration: config.current.clipboard)
+        let registry = CommandRegistry(providers: [], usageRanking: UsageRankingStore(diagnostics: diagnostics), diagnostics: diagnostics, configService: config)
+        let actionRunner = ActionRunner(diagnostics: diagnostics)
+        let shell = ShellController(registry: registry, actionRunner: actionRunner, config: config, diagnostics: diagnostics, clipboardHistory: clipboard)
+
+        shell.start()
+        shell.start()
+        XCTAssertTrue(clipboard.isMonitoring)
+        shell.stop()
+        XCTAssertFalse(clipboard.isMonitoring)
+
+        let item = ClipboardHistoryItem(payload: .text("saved"))
+        try? persistence.save([item])
+        let freshClipboard = ClipboardHistoryState(pasteboard: TestClipboardPasteboard(), persistence: persistence, configuration: config.current.clipboard)
+        XCTAssertEqual(freshClipboard.items, [item])
+    }
+
+    func testClipboardSettingsReconfigureTheSharedState() throws {
+        let diagnostics = DiagnosticsService()
+        let config = ConfigService(diagnostics: diagnostics, url: temporaryURL())
+        let clipboard = ClipboardHistoryState(pasteboard: TestClipboardPasteboard(), persistence: nil, configuration: config.current.clipboard)
+        let state = makeState(diagnostics: diagnostics, config: config, clipboard: clipboard)
+
+        state.setClipboardPaused(true)
+        state.setClipboardRetention(maxItems: 12, maxBytes: 2 * 1024 * 1024)
+        state.setClipboardExcludedBundleIdentifiers("com.example, com.example, com.other")
+
+        XCTAssertTrue(clipboard.isPaused)
+        XCTAssertEqual(config.current.clipboard.maxItems, 12)
+        XCTAssertEqual(config.current.clipboard.maxBytes, 2 * 1024 * 1024)
+        XCTAssertEqual(config.current.clipboard.excludedBundleIdentifiers, ["com.example", "com.other"])
+        state.shutdown()
+    }
+
+    func testDirectPasteStagesSelectedItemAndLeavesFailureActionable() {
+        let diagnostics = DiagnosticsService()
+        let config = ConfigService(diagnostics: diagnostics, url: temporaryURL())
+        let pasteboard = NSPasteboard(name: NSPasteboard.Name("CommandPanelStateTests.directPaste"))
+        let target = DirectPasteTestTarget(processIdentifier: 42)
+        let directPaste = DirectPasteService(pasteboard: pasteboard, ownProcessIdentifier: 7) { target }
+        let actionRunner = ActionRunner(diagnostics: diagnostics, directPasteService: directPaste)
+        let pasteboardClient = TestClipboardPasteboard()
+        let clipboard = ClipboardHistoryState(pasteboard: pasteboardClient, persistence: nil, configuration: config.current.clipboard)
+        let state = makeState(diagnostics: diagnostics, config: config, clipboard: clipboard, actionRunner: actionRunner)
+
+        clipboard.select(id: clipboard.items.first?.id ?? "missing")
+        XCTAssertFalse(state.directPasteSelectedClipboardItem())
+        XCTAssertTrue(state.diagnosticsSummary.contains("Could not stage paste"))
+
+        let item = ClipboardHistoryItem(payload: .text("hello"))
+        pasteboardClient.snapshotValue = PasteboardSnapshot(types: [.string], payload: item.payload, sourceBundleIdentifier: "com.example")
+        pasteboardClient.changeCountValue += 1
+        clipboard.captureIfChangedForTesting()
+        clipboard.select(id: item.id)
+        directPaste.captureTarget()
+
+        XCTAssertTrue(state.directPasteSelectedClipboardItem())
+        XCTAssertTrue(directPaste.hasPendingPaste)
+        state.shutdown()
+    }
+
+    private func makeState(diagnostics: DiagnosticsService, config: ConfigService, clipboard: ClipboardHistoryState, actionRunner: ActionRunner? = nil) -> CommandPanelState {
+        let registry = CommandRegistry(providers: [], usageRanking: UsageRankingStore(diagnostics: diagnostics), diagnostics: diagnostics, configService: config)
+        return CommandPanelState(registry: registry, actionRunner: actionRunner ?? ActionRunner(diagnostics: diagnostics), diagnostics: diagnostics, config: config, clipboardHistory: clipboard)
+    }
+
+    private func temporaryURL() -> URL {
+        FileManager.default.temporaryDirectory.appendingPathComponent("foundry-panel-\(UUID().uuidString).json")
+    }
+
     func testSearchLoadingStaysActiveUntilTheLatestSearchCompletes() async throws {
         let diagnostics = DiagnosticsService()
         let config = ConfigService(
@@ -191,6 +283,20 @@ final class CommandPanelStateTests: XCTestCase {
             completed
         }
     }
+}
+
+private final class TestClipboardPasteboard: PasteboardClient, @unchecked Sendable {
+    var changeCountValue = 0
+    var snapshotValue: PasteboardSnapshot?
+    var changeCount: Int { changeCountValue }
+    func snapshot() -> PasteboardSnapshot? { snapshotValue }
+    func write(_ payload: ClipboardPayload) {}
+}
+
+private final class DirectPasteTestTarget: NSObject, DirectPasteTarget {
+    let processIdentifier: pid_t
+    init(processIdentifier: pid_t) { self.processIdentifier = processIdentifier }
+    func activate(options: NSApplication.ActivationOptions) -> Bool { true }
 }
 
 private struct URLCollisionProvider: CommandProvider {

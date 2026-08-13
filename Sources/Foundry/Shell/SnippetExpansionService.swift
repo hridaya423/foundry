@@ -3,38 +3,58 @@ import ApplicationServices
 import Carbon
 import Foundation
 
+/// Owns the one system event tap used by snippet expansion. Matching and rendering
+/// remain in the feature modules; this type only translates AppKit events and pastes.
 final class SnippetExpansionService: @unchecked Sendable {
+    static let accessibilitySettingsURL = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")!
+
     private let snippetStore: any SnippetStore
+    private let directPaste: DirectPasteService
     private var eventTap: CFMachPort?
     private var runLoopSource: CFRunLoopSource?
-    private var buffer = ""
-    private var suppressing = false
+    private var engine: SnippetExpansionEngine
+    private var isConfigured = false
+    private(set) var lastError: String?
+    var onStatusChanged: ((String?) -> Void)?
 
-    init(snippetStore: any SnippetStore = FileSnippetStore()) {
+    init(snippetStore: any SnippetStore = FileSnippetStore(), directPaste: DirectPasteService) {
         self.snippetStore = snippetStore
+        self.directPaste = directPaste
+        self.engine = SnippetExpansionEngine(snippets: [])
     }
 
-    @MainActor
-    func start() {
-        let options = ["AXTrustedCheckOptionPrompt": true] as CFDictionary
-        guard AXIsProcessTrustedWithOptions(options) else { return }
-        guard eventTap == nil else { return }
+    var isRunning: Bool { eventTap != nil }
+    var isAccessibilityTrusted: Bool { AXIsProcessTrusted() }
 
+    func configure(isEnabled: Bool, excludedBundleIdentifiers: [String]) {
+        lastError = nil
+        onStatusChanged?(nil)
+        engine = SnippetExpansionEngine(
+            snippets: snippetStore.load(),
+            excludedBundleIdentifiers: excludedBundleIdentifiers,
+            render: { SnippetRenderer.render($0.content).text }
+        )
+        engine.setEnabled(isEnabled)
+        isConfigured = isEnabled
+        if isEnabled && AXIsProcessTrusted() { start() } else { stop() }
+    }
+
+    func start() {
+        guard isConfigured, AXIsProcessTrusted(), eventTap == nil else { return }
         let callback: CGEventTapCallBack = { _, type, event, userInfo in
             guard let userInfo else { return Unmanaged.passUnretained(event) }
             let service = Unmanaged<SnippetExpansionService>.fromOpaque(userInfo).takeUnretainedValue()
             return service.handle(type: type, event: event)
         }
-
         guard let tap = CGEvent.tapCreate(
-            tap: .cgSessionEventTap,
-            place: .headInsertEventTap,
-            options: .defaultTap,
+            tap: .cgSessionEventTap, place: .headInsertEventTap, options: .defaultTap,
             eventsOfInterest: CGEventMask(1 << CGEventType.keyDown.rawValue),
-            callback: callback,
-            userInfo: Unmanaged.passUnretained(self).toOpaque()
-        ) else { return }
-
+            callback: callback, userInfo: Unmanaged.passUnretained(self).toOpaque()
+        ) else {
+            lastError = "Could not start snippet expansion. Check Accessibility access and try again."
+            onStatusChanged?(lastError)
+            return
+        }
         let source = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, tap, 0)
         eventTap = tap
         runLoopSource = source
@@ -43,115 +63,90 @@ final class SnippetExpansionService: @unchecked Sendable {
     }
 
     func stop() {
-        if let eventTap {
-            CGEvent.tapEnable(tap: eventTap, enable: false)
-        }
-        if let runLoopSource {
-            CFRunLoopRemoveSource(CFRunLoopGetMain(), runLoopSource, .commonModes)
-        }
+        if let eventTap { CGEvent.tapEnable(tap: eventTap, enable: false) }
+        if let runLoopSource { CFRunLoopRemoveSource(CFRunLoopGetMain(), runLoopSource, .commonModes) }
         eventTap = nil
         runLoopSource = nil
-        buffer = ""
+        _ = engine.receive(.reset)
     }
+
+    func resetForApplicationChange() { _ = engine.receive(.reset) }
+    func recoverFromWake() { _ = engine.receive(.reset); start() }
+
+    func requestAccessibilityAccess() {
+        _ = AXIsProcessTrustedWithOptions(["AXTrustedCheckOptionPrompt": true] as CFDictionary)
+    }
+
+    func openAccessibilitySettings() { NSWorkspace.shared.open(Self.accessibilitySettingsURL) }
 
     private func handle(type: CGEventType, event: CGEvent) -> Unmanaged<CGEvent>? {
-        guard type == .keyDown, suppressing == false else { return Unmanaged.passUnretained(event) }
-        guard let nsEvent = NSEvent(cgEvent: event) else { return Unmanaged.passUnretained(event) }
-
+        if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
+            if let eventTap { CGEvent.tapEnable(tap: eventTap, enable: true) }
+            _ = engine.receive(.reset)
+            return Unmanaged.passUnretained(event)
+        }
+        guard type == .keyDown, isConfigured else { return Unmanaged.passUnretained(event) }
+        guard let nsEvent = NSEvent(cgEvent: event) else { _ = engine.receive(.nonText); return Unmanaged.passUnretained(event) }
+        if isSecureTextFieldFocused() { _ = engine.receive(.secureInputChanged(true)); return Unmanaged.passUnretained(event) }
+        _ = engine.receive(.secureInputChanged(false))
         let flags = nsEvent.modifierFlags.intersection(.deviceIndependentFlagsMask)
         if flags.contains(.command) || flags.contains(.control) || flags.contains(.option) {
-            return Unmanaged.passUnretained(event)
+            _ = engine.receive(.modifier); return Unmanaged.passUnretained(event)
         }
-
-        guard let characters = nsEvent.characters, characters.isEmpty == false else { return Unmanaged.passUnretained(event) }
-
-        if characters == String(UnicodeScalar(NSDeleteCharacter)!) {
-            if buffer.isEmpty == false { buffer.removeLast() }
-            return Unmanaged.passUnretained(event)
+        guard let characters = nsEvent.characters, !characters.isEmpty else { _ = engine.receive(.nonText); return Unmanaged.passUnretained(event) }
+        if characters == String(UnicodeScalar(NSDeleteCharacter)!) { _ = engine.receive(.backspace); return Unmanaged.passUnretained(event) }
+        if characters.count != 1 {
+            _ = engine.receive(.nonText); return Unmanaged.passUnretained(event)
         }
-
-        guard characters.count == 1 else {
-            if characters.contains("\n") || characters.contains("\r") || characters.contains("\t") || characters.contains(" ") {
-                attemptExpansion(delimiter: characters)
-            } else {
-                buffer = ""
+        let input: SnippetExpansionEngine.Input = isDelimiter(characters) ? .delimiter(characters) : .character(characters)
+        guard case let .expanded(expansion) = engine.receive(input) else { return Unmanaged.passUnretained(event) }
+        let rendered = SnippetRenderer.render(expansion.renderedContent)
+        let directPaste = self.directPaste
+        Task { @MainActor in
+            directPaste.captureTarget()
+            do {
+                try directPaste.stage(.text(rendered.text + expansion.delimiter), cursorOffset: rendered.cursorOffsetFromEnd, snippetID: nil)
+                for _ in 0..<expansion.deleteCount { Self.sendBackspace() }
+                try await directPaste.completePendingPaste()
+            } catch {
+                self.lastError = Self.message(for: error)
+                self.onStatusChanged?(self.lastError)
             }
-            return Unmanaged.passUnretained(event) 
         }
-
-        if isDelimiter(characters) {
-            attemptExpansion(delimiter: characters)
-        } else {
-            buffer.append(characters)
-            if buffer.count > 64 { buffer.removeFirst(buffer.count - 64) }
-        }
-
-        return Unmanaged.passUnretained(event)
+        return nil
     }
 
-    private func attemptExpansion(delimiter: String) {
-        defer { buffer = "" }
-        let keyword = buffer.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard keyword.isEmpty == false,
-              let snippet = matchingSnippet(for: keyword) else { return }
-        expand(snippet: snippet, delimiter: delimiter)
+    private func isSecureTextFieldFocused() -> Bool {
+        guard let app = NSWorkspace.shared.frontmostApplication else { return true }
+        let element = AXUIElementCreateApplication(app.processIdentifier)
+        var focused: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(element, kAXFocusedUIElementAttribute as CFString, &focused) == .success,
+              let focused else { return true }
+        var role: CFTypeRef?
+        guard CFGetTypeID(focused) == AXUIElementGetTypeID() else { return true }
+        let focusedElement = unsafeDowncast(focused, to: AXUIElement.self)
+        guard AXUIElementCopyAttributeValue(focusedElement, kAXRoleAttribute as CFString, &role) == .success,
+              let role = role as? String else { return true }
+        return role == "AXSecureTextField"
     }
 
-    private func matchingSnippet(for keyword: String) -> StoredSnippet? {
-        snippetStore.load()
-            .filter { $0.keyword.isEmpty == false }
-            .sorted {
-                if $0.isPinned != $1.isPinned { return $0.isPinned && !$1.isPinned }
-                if $0.keyword.count != $1.keyword.count { return $0.keyword.count > $1.keyword.count }
-                return $0.updatedAt > $1.updatedAt
-            }
-            .first { $0.keyword == keyword }
-    }
-
-    private func expand(snippet: StoredSnippet, delimiter: String) {
-        suppressing = true
-        let expanded = expandPlaceholders(in: snippet.content) + delimiter
-        sendBackspaces(count: snippet.keyword.count + 1)
-        sendText(expanded)
-        DispatchQueue.global(qos: .userInitiated).asyncAfter(deadline: .now() + 0.2) {
-            self.suppressing = false
+    private static func message(for error: Error) -> String {
+        switch error as? DirectPasteError {
+        case .missingTarget: return "Could not paste the snippet because the target app was unavailable."
+        case .accessibilityPermission: return "Snippet expansion is blocked until Accessibility access is granted."
+        case .stagingFailed: return "Could not stage the snippet for insertion."
+        case .activationFailed: return "Could not activate the target app for snippet insertion."
+        case .cancelled: return "Snippet insertion was cancelled."
+        case .eventFailed: return "Could not send the snippet insertion event."
+        case nil: return "Could not insert the snippet. Try again."
         }
     }
 
-    private func sendBackspaces(count: Int) {
-        guard count > 0 else { return }
-        for _ in 0..<count {
-            let down = CGEvent(keyboardEventSource: nil, virtualKey: CGKeyCode(kVK_Delete), keyDown: true)
-            let up = CGEvent(keyboardEventSource: nil, virtualKey: CGKeyCode(kVK_Delete), keyDown: false)
-            down?.post(tap: .cgAnnotatedSessionEventTap)
-            up?.post(tap: .cgAnnotatedSessionEventTap)
-        }
-    }
+    private func isDelimiter(_ value: String) -> Bool { [" ", "\n", "\r", "\t", "'", "\"", "`"].contains(value) }
 
-    private func sendText(_ text: String) {
-        let down = CGEvent(keyboardEventSource: nil, virtualKey: 0, keyDown: true)
-        let up = CGEvent(keyboardEventSource: nil, virtualKey: 0, keyDown: false)
-        down?.keyboardSetUnicodeString(stringLength: text.utf16.count, unicodeString: Array(text.utf16))
-        up?.keyboardSetUnicodeString(stringLength: text.utf16.count, unicodeString: Array(text.utf16))
-        down?.post(tap: .cgAnnotatedSessionEventTap)
-        up?.post(tap: .cgAnnotatedSessionEventTap)
-    }
-
-    private func isDelimiter(_ value: String) -> Bool {
-        value == " " || value == "\n" || value == "\r" || value == "\t" || value == "'" || value == "\"" || value == "`"
-    }
-
-    private func expandPlaceholders(in content: String) -> String {
-        var value = content
-        let formatter = DateFormatter()
-        formatter.dateStyle = .medium
-        formatter.timeStyle = .none
-        value = value.replacingOccurrences(of: "{date}", with: formatter.string(from: Date()))
-        formatter.dateStyle = .none
-        formatter.timeStyle = .short
-        value = value.replacingOccurrences(of: "{time}", with: formatter.string(from: Date()))
-        value = value.replacingOccurrences(of: "{clipboard}", with: NSPasteboard.general.string(forType: .string) ?? "")
-        value = value.replacingOccurrences(of: "{cursor}", with: "")
-        return value
+    private static func sendBackspace() {
+        let down = CGEvent(keyboardEventSource: nil, virtualKey: CGKeyCode(kVK_Delete), keyDown: true)
+        let up = CGEvent(keyboardEventSource: nil, virtualKey: CGKeyCode(kVK_Delete), keyDown: false)
+        down?.post(tap: .cgAnnotatedSessionEventTap); up?.post(tap: .cgAnnotatedSessionEventTap)
     }
 }

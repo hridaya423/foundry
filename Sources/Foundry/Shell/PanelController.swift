@@ -8,19 +8,22 @@ final class PanelController: NSObject, NSWindowDelegate {
 
     private let state: CommandPanelState
     private let diagnostics: DiagnosticsService
+    private let directPasteService: DirectPasteService
     private var panel: FoundryPanel?
 
     var isVisible: Bool {
         panel?.isVisible == true
     }
 
-    init(state: CommandPanelState, diagnostics: DiagnosticsService) {
+    init(state: CommandPanelState, diagnostics: DiagnosticsService, directPasteService: DirectPasteService = .shared) {
         self.state = state
         self.diagnostics = diagnostics
+        self.directPasteService = directPasteService
         super.init()
     }
 
     func show() {
+        directPasteService.captureTarget()
         let span = diagnostics.startSpan("panel.show")
         let panel = panel ?? makePanel()
         self.panel = panel
@@ -39,6 +42,14 @@ final class PanelController: NSObject, NSWindowDelegate {
     func hide() {
         state.panelWillClose()
         panel?.orderOut(nil)
+        guard directPasteService.hasPendingPaste else { return }
+        Task { @MainActor [directPasteService] in
+            do {
+                try await directPasteService.completePendingPaste()
+            } catch {
+                state.setDirectPasteError(error)
+            }
+        }
     }
 
     func windowDidBecomeKey(_ notification: Notification) {

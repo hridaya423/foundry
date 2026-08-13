@@ -1,107 +1,79 @@
 import AppKit
+import Combine
 import Foundation
 
 @MainActor
 final class TranslatorState: ObservableObject {
-    @Published var sourceText = "" {
-        didSet { scheduleTranslation() }
-    }
-    @Published var sourceLanguage = "English" {
-        didSet { scheduleTranslation() }
-    }
-    @Published var targetLanguage = "Spanish" {
-        didSet { scheduleTranslation() }
-    }
-    @Published var result = ""
-    @Published var translationError: String? = nil
-    @Published var isTranslating = false
+    @Published var sourceText = "" { didSet { scheduleTranslation() } }
+    @Published var sourceLanguage = "English" { didSet { scheduleTranslation() } }
+    @Published var targetLanguage = "Spanish" { didSet { scheduleTranslation() } }
+    @Published private(set) var result = ""
+    @Published private(set) var translationError: String?
+    @Published private(set) var isTranslating = false
+    @Published private(set) var activeRequest: TranslationRequest?
+    @Published private(set) var requestVersion = 0
     @Published var needsAppleTranslationFallback = false
-    @Published var requestVersion = 0
 
+    private let availability: TranslationAvailability
+    private let translator: TranslationProvider.Translator
+    private let debounce: Duration
     private var task: Task<Void, Never>?
-    private var isResetting = false
+    private var resetting = false
 
-    let languages = Locale.LanguageCode.isoLanguageCodes
-        .compactMap { Locale.current.localizedString(forLanguageCode: $0.identifier) }
-        .map { $0.capitalized }
-        .uniqued()
-        .sorted()
+    init(availability: TranslationAvailability = .current, debounce: Duration = .milliseconds(450), translator: @escaping TranslationProvider.Translator = { await AppleTranslator.translate($0) }) {
+        self.availability = availability
+        self.debounce = debounce
+        self.translator = translator
+    }
+
+    let languages = ["Arabic", "Chinese", "English", "French", "German", "Hindi", "Italian", "Japanese", "Korean", "Portuguese", "Russian", "Spanish"]
 
     func reset() {
-        isResetting = true
+        resetting = true
+        task?.cancel()
         sourceText = ""
         sourceLanguage = "English"
         targetLanguage = "Spanish"
         result = ""
         translationError = nil
         isTranslating = false
-        needsAppleTranslationFallback = false
+        activeRequest = nil
         requestVersion = 0
-        task?.cancel()
-        isResetting = false
+        needsAppleTranslationFallback = false
+        resetting = false
     }
 
-    func translate() {
-        scheduleTranslation()
-    }
+    func translate() { scheduleTranslation() }
 
-    private func scheduleTranslation() {
-        guard isResetting == false else { return }
-        startTranslation(debounce: true)
-    }
-
-    private func startTranslation(debounce: Bool) {
-        task?.cancel()
-        let text = sourceText.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard text.isEmpty == false else {
-            result = ""
-            translationError = nil
-            isTranslating = false
-            needsAppleTranslationFallback = false
+    func finish(_ outcome: TranslationOutcome, for request: TranslationRequest) {
+        guard activeRequest?.id == request.id else { return }
+        guard !Task.isCancelled else { return }
+        switch outcome {
+        case let .success(text): result = text; translationError = nil
+        case .sessionRequired:
+            // The Translation framework only exposes its session through a
+            // SwiftUI translationTask. Keep this request alive until the
+            // adapter receives the session and returns its typed result.
+            result = ""; translationError = nil; needsAppleTranslationFallback = false
+            isTranslating = true
             return
+        case let .failure(error): result = ""; translationError = error.message
         }
-        result = ""
-        translationError = nil
+        isTranslating = false
+        activeRequest = nil
+    }
+
+    func requestAppleIntelligence() {
+        guard let request = activeRequest ?? makeRequest() else { return }
+        task?.cancel()
+        activeRequest = request
+        requestVersion += 1
         isTranslating = true
         task = Task { [weak self] in
-            if debounce {
-                do {
-                    try await Task.sleep(for: .milliseconds(450))
-                } catch {
-                    return
-                }
-            }
-            guard Task.isCancelled == false else { return }
-            self?.needsAppleTranslationFallback = false
-            self?.requestVersion += 1
+            let outcome = await AppleTranslator.foundationModelsTranslation(request)
+            guard !Task.isCancelled else { return }
+            await MainActor.run { self?.finish(outcome, for: request) }
         }
-    }
-
-    func finishTranslation(_ text: String) {
-        let normalized = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        if Self.isErrorMessage(normalized) {
-            result = ""
-            translationError = normalized
-        } else {
-            result = normalized
-            translationError = nil
-        }
-        isTranslating = false
-        needsAppleTranslationFallback = false
-    }
-
-    func finishTranslationError(_ message: String) {
-        result = ""
-        translationError = message
-        isTranslating = false
-        needsAppleTranslationFallback = false
-    }
-
-    func requestAppleTranslationFallback() {
-        translationError = nil
-        needsAppleTranslationFallback = true
-        isTranslating = true
-        requestVersion += 1
     }
 
     func copyResult() {
@@ -110,25 +82,31 @@ final class TranslatorState: ObservableObject {
         NSPasteboard.general.setString(result, forType: .string)
     }
 
-    func languageCode(for name: String) -> String? {
-        Locale.LanguageCode.isoLanguageCodes.first { code in
-            Locale.current.localizedString(forLanguageCode: code.identifier)?.capitalized == name
-        }?.identifier
+    func languageCode(for name: String) -> String? { TranslationLanguage.parse(name)?.identifier }
+
+    private func scheduleTranslation() {
+        guard !resetting else { return }
+        task?.cancel()
+        guard let request = makeRequest() else {
+            result = ""; translationError = nil; isTranslating = false; activeRequest = nil
+            return
+        }
+        guard availability == .translationFramework else {
+            result = ""; translationError = TranslationFailure.unavailable.message; isTranslating = false; activeRequest = nil
+            return
+        }
+        activeRequest = request
+        if request.source == request.target { finish(.success(request.text), for: request); return }
+        requestVersion += 1
+        isTranslating = true
+        task = Task { [weak self] in
+            do { try await Task.sleep(for: self?.debounce ?? .zero) } catch { return }
+            guard !Task.isCancelled else { return }
+            let outcome = await self?.translator(request) ?? .failure(.cancelled)
+            guard !Task.isCancelled else { return }
+            await MainActor.run { self?.finish(outcome, for: request) }
+        }
     }
 
-    private static func isErrorMessage(_ value: String) -> Bool {
-        let lowercased = value.lowercased()
-        return lowercased.hasPrefix("translation failed:")
-            || lowercased.hasPrefix("apple translation failed:")
-            || lowercased.hasPrefix("apple intelligence unavailable:")
-            || lowercased.contains("foundation models are unavailable")
-            || lowercased.contains("require macos")
-    }
-}
-
-private extension Array where Element: Hashable {
-    func uniqued() -> [Element] {
-        var seen = Set<Element>()
-        return filter { seen.insert($0).inserted }
-    }
+    private func makeRequest() -> TranslationRequest? { TranslationRequest(text: sourceText, source: sourceLanguage, target: targetLanguage) }
 }

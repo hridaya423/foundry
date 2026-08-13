@@ -14,9 +14,36 @@ final class FileConversionState: ObservableObject {
     @Published var isConverting = false
     @Published var outputURLs: [URL] = []
     @Published var outputURL: URL?
-    @Published var dependencyPrompt: String? = nil
+    @Published var dependencySetup: DependencySetup? = nil
+    @Published private(set) var phase: OperationPhase = .assessing
+    @Published private(set) var progress: OperationProgress?
+    @Published private(set) var failure: OperationFailure?
+    @Published private(set) var itemOutcomes: [FileConversionItemOutcome] = []
+    @Published private(set) var capabilities: [String: FileConversionCapability] = [:]
 
     private var conversionTask: Task<Void, Never>?
+    private let assess: @Sendable (FileConversionTarget) async -> CapabilityState
+    private let provision: @Sendable (SetupPlan, String) async throws -> Void
+    private let convertOperation: @Sendable (URL, FileConversionTarget, URL) async -> Result<URL, Error>
+    private let operations: OperationCoordinator
+    private var operationID: UUID?
+    private var lastRequest: (sources: [URL], target: FileConversionTarget, folder: URL)?
+
+    init(
+        assess: @escaping @Sendable (FileConversionTarget) async -> CapabilityState = { await FileConversionService.assess($0) },
+        provision: @escaping @Sendable (SetupPlan, String) async throws -> Void = { plan, fingerprint in
+            let executor = ClosureProvisioningExecutor { command in
+                _ = try await ProcessRunner.run(path: command.executable, arguments: command.arguments)
+            }
+            _ = try await DependencyProvisioner(executor: executor).provision(plan: plan, approvedFingerprint: fingerprint)
+        },
+        convert: @escaping @Sendable (URL, FileConversionTarget, URL) async -> Result<URL, Error> = { source, target, folder in
+            await FileConversionService.convert(sourceURL: source, target: target, outputFolderURL: folder)
+        },
+        operations: OperationCoordinator = OperationCoordinator()
+    ) {
+        self.assess = assess; self.provision = provision; self.convertOperation = convert; self.operations = operations
+    }
 
     var selectedTarget: FileConversionTarget? {
         availableTargets.first { $0.id == selectedTargetID } ?? availableTargets.first
@@ -35,7 +62,9 @@ final class FileConversionState: ObservableObject {
         isConverting = false
         outputURLs = []
         outputURL = nil
-        dependencyPrompt = nil
+        dependencySetup = nil
+        capabilities = [:]
+        phase = .assessing; progress = nil; failure = nil; itemOutcomes = []; operationID = nil; lastRequest = nil
         conversionTask?.cancel()
         conversionTask = nil
     }
@@ -76,6 +105,7 @@ final class FileConversionState: ObservableObject {
             .flatMap { FileConversionService.defaultTargetID(for: $0, in: availableTargets) }
         outputURLs = []
         outputURL = nil
+        capabilities = [:]
         if sourceURLs.isEmpty {
             status = ""
         } else if availableTargets.isEmpty {
@@ -85,33 +115,87 @@ final class FileConversionState: ObservableObject {
         } else {
             status = ""
         }
+        Task { await refreshCapabilities() }
     }
 
     func convert() {
         guard sourceURLs.isEmpty == false, let target = selectedTarget else { return }
-        if let dependency = FileConversionService.missingDependencyName(for: target) {
-            dependencyPrompt = dependency
-            return
+        guard let capability = capabilities[target.id] else { status = "Checking converter readiness…"; return }
+        switch capability.state {
+        case .ready: break
+        case .setupRequired(let plan): dependencySetup = DependencySetup(target: target, plan: plan); return
+        case .unavailable(let reason), .degraded(let reason): status = "\(target.title) unavailable: \(reason)"; return
         }
         startConversion(sourceURLs: sourceURLs, target: target)
     }
 
-    func confirmDependencyInstallation() {
-        dependencyPrompt = nil
-        guard sourceURLs.isEmpty == false, let target = selectedTarget else { return }
-        startConversion(sourceURLs: sourceURLs, target: target)
+    func cancelDependencySetup() { dependencySetup = nil }
+
+    func installToolAndConvert() async {
+        guard let setup = dependencySetup, isCurrentSetup(setup) else { return }
+        let id = beginProvisioning()
+        dependencySetup = nil
+        do {
+            try await provision(setup.plan, setup.plan.fingerprint)
+            guard case .ready = await assess(setup.target) else { throw FileConversionError.unavailable("The installed converter is not ready yet") }
+            startConversion(sourceURLs: sourceURLs, target: setup.target, operationID: id)
+        } catch is CancellationError {
+            phase = .cancelled; status = "Tool installation cancelled"
+            operations.update(id: id, phase: .cancelled, progress: progress, failure: OperationFailure(message: "Tool installation cancelled", retryable: true))
+        } catch { failProvisioning(operationID: id, error: error) }
     }
+
+    func installTool() async {
+        guard let setup = dependencySetup, isCurrentSetup(setup) else { return }
+        let id = beginProvisioning()
+        dependencySetup = nil
+        do {
+            try await provision(setup.plan, setup.plan.fingerprint)
+            await refreshCapabilities()
+            phase = .completed; progress = .items(completed: 1, total: 1); status = "Tool installed"
+            operations.update(id: id, phase: .completed, progress: progress)
+        } catch is CancellationError {
+            phase = .cancelled; status = "Tool installation cancelled"
+            operations.update(id: id, phase: .cancelled, progress: progress, failure: OperationFailure(message: "Tool installation cancelled", retryable: true))
+        } catch { failProvisioning(operationID: id, error: error) }
+    }
+
+    func refreshCapabilities() async {
+        var refreshed: [String: FileConversionCapability] = [:]
+        for target in availableTargets { refreshed[target.id] = FileConversionCapability(state: await assess(target)) }
+        capabilities = refreshed
+    }
+
+    func capability(for target: FileConversionTarget) -> FileConversionCapability? { capabilities[target.id] }
 
     func cancel() {
         conversionTask?.cancel()
         conversionTask = nil
         isConverting = false
         status = "Conversion cancelled"
+        phase = .cancelled
+        cancelRemaining(sourceURLs)
     }
 
-    private func startConversion(sourceURLs: [URL], target: FileConversionTarget) {
+    private func startConversion(sourceURLs: [URL], target: FileConversionTarget, operationID existingID: UUID? = nil, preservingCompleted: [FileConversionItemOutcome] = []) {
         let outputFolderURL = outputFolderURL ?? sourceURLs[0].deletingLastPathComponent()
         let total = sourceURLs.count
+        lastRequest = (sourceURLs, target, outputFolderURL)
+        if existingID == nil {
+            itemOutcomes = preservingCompleted + sourceURLs.map { FileConversionItemOutcome(sourceURL: $0, state: .pending, outputURL: nil, failure: nil) }
+        } else {
+            for sourceURL in sourceURLs { setOutcome(sourceURL, state: .pending, outputURL: nil, failure: nil) }
+        }
+        failure = nil
+        let operationID = existingID ?? operations.start(retryDescriptor: RetryDescriptor(maxAttempts: 3))
+        self.operationID = operationID
+        phase = .processing
+        progress = .items(completed: 0, total: total)
+        if existingID != nil {
+            operations.update(id: operationID, phase: .downloading, progress: progress)
+            operations.update(id: operationID, phase: .verifying, progress: progress)
+            operations.update(id: operationID, phase: .processing, progress: progress)
+        }
         conversionTask?.cancel()
         isConverting = true
         outputURLs = []
@@ -125,20 +209,31 @@ final class FileConversionState: ObservableObject {
             var failures: [String] = []
 
             for (index, sourceURL) in sourceURLs.enumerated() {
-                guard Task.isCancelled == false else { return }
+                guard Task.isCancelled == false else { await MainActor.run { self?.cancelRemaining(sourceURLs) }; return }
+                await MainActor.run { self?.setOutcome(sourceURL, state: .processing, outputURL: nil, failure: nil) }
                 await MainActor.run { [weak self] in
                     guard let self else { return }
                     let prefix = total == 1 ? "" : "\(index + 1) of \(total): "
                     self.status = prefix + (FileConversionService.preflightStatus(for: target) ?? "Converting to \(target.title)…")
                 }
 
-                let result = await FileConversionService.convert(sourceURL: sourceURL, target: target, outputFolderURL: outputFolderURL)
-                guard Task.isCancelled == false else { return }
+                let result = await self?.convertOperation(sourceURL, target, outputFolderURL) ?? .failure(FileConversionError.cancelled)
+                guard Task.isCancelled == false else { await MainActor.run { self?.cancelRemaining(sourceURLs) }; return }
                 switch result {
                 case let .success(outputURL):
                     outputs.append(outputURL)
+                    await MainActor.run { self?.setOutcome(sourceURL, state: .completed, outputURL: outputURL, failure: nil) }
                 case let .failure(error):
+                    if error is CancellationError || self?.isCancellation(error) == true {
+                        await MainActor.run { self?.cancelRemaining(sourceURLs) }
+                        return
+                    }
                     failures.append(total == 1 ? error.localizedDescription : "\(sourceURL.lastPathComponent): \(error.localizedDescription)")
+                    await MainActor.run { self?.setOutcome(sourceURL, state: .failed, outputURL: nil, failure: OperationFailure(message: error.localizedDescription, retryable: true)) }
+                }
+                await MainActor.run { [weak self] in
+                    self?.progress = .items(completed: index + 1, total: total)
+                    if let operationID = self?.operationID { self?.operations.updateProgress(id: operationID, progress: .items(completed: index + 1, total: total)) }
                 }
             }
 
@@ -147,6 +242,11 @@ final class FileConversionState: ObservableObject {
                 self.isConverting = false
                 self.outputURLs = outputs
                 self.outputURL = outputs.last
+                self.phase = failures.isEmpty ? .completed : .failed
+                self.failure = failures.isEmpty ? nil : OperationFailure(message: failures.joined(separator: "\n"), retryable: true)
+                if let operationID = self.operationID {
+                    _ = self.operations.update(id: operationID, phase: failures.isEmpty ? .completed : .failed, progress: self.progress, failure: self.failure)
+                }
                 if failures.isEmpty {
                     self.status = outputs.count == 1
                         ? "Created \(outputs[0].lastPathComponent)"
@@ -158,6 +258,65 @@ final class FileConversionState: ObservableObject {
                 }
             }
         }
+    }
+
+    func retryFailed() {
+        guard let request = lastRequest else { return }
+        let failed = itemOutcomes.filter { $0.state == .failed || $0.state == .cancelled }.map(\.sourceURL)
+        guard failed.isEmpty == false else { return }
+        Task { [weak self] in
+            guard let self else { return }
+            guard case .ready = await self.assess(request.target) else {
+                self.dependencySetup = DependencySetup(target: request.target, plan: FileConversionService.setupPlan(for: request.target))
+                self.status = "Converter readiness changed; setup is required before retrying"
+                return
+            }
+            let completed = self.itemOutcomes.filter { $0.state == .completed }
+            self.startConversion(sourceURLs: failed, target: request.target, preservingCompleted: completed)
+        }
+    }
+
+    private func setOutcome(_ sourceURL: URL, state: FileConversionItemState, outputURL: URL?, failure: OperationFailure?) {
+        guard let index = itemOutcomes.firstIndex(where: { $0.sourceURL == sourceURL }) else { return }
+        itemOutcomes[index] = FileConversionItemOutcome(sourceURL: sourceURL, state: state, outputURL: outputURL, failure: failure)
+    }
+
+    private func isCancellation(_ error: Error) -> Bool {
+        guard let conversionError = error as? FileConversionError else { return false }
+        if case .cancelled = conversionError { return true }
+        return false
+    }
+
+    private func cancelRemaining(_ urls: [URL]) {
+        for url in urls where itemOutcomes.first(where: { $0.sourceURL == url })?.state != .completed {
+            setOutcome(url, state: .cancelled, outputURL: nil, failure: OperationFailure(message: "Cancelled", retryable: true))
+        }
+        let completed = itemOutcomes.filter { $0.state == .completed }.count
+        outputURLs = itemOutcomes.compactMap(\.outputURL)
+        outputURL = outputURLs.last
+        progress = .items(completed: completed, total: itemOutcomes.count)
+        status = "Conversion cancelled after creating \(completed) of \(itemOutcomes.count) files"
+        phase = .cancelled; isConverting = false
+        if let operationID { operations.update(id: operationID, phase: .cancelled, progress: progress, failure: OperationFailure(message: "Conversion cancelled", retryable: true)) }
+    }
+
+    private func isCurrentSetup(_ setup: DependencySetup) -> Bool {
+        guard let target = selectedTarget, target.id == setup.target.id,
+              case let .setupRequired(plan) = capabilities[target.id]?.state else { return false }
+        return plan.fingerprint == setup.plan.fingerprint
+    }
+
+    private func beginProvisioning() -> UUID {
+        let id = operations.start(retryDescriptor: RetryDescriptor(maxAttempts: 3))
+        operationID = id; phase = .provisioning; progress = .items(completed: 0, total: 1)
+        operations.update(id: id, phase: .provisioning, progress: progress)
+        return id
+    }
+
+    private func failProvisioning(operationID: UUID, error: Error) {
+        let typed = OperationFailure(message: error.localizedDescription, retryable: true)
+        failure = typed; phase = .failed; status = "Tool installation failed: \(typed.message)"
+        operations.update(id: operationID, phase: .failed, progress: progress, failure: typed)
     }
 
     func revealOutput() {
@@ -205,19 +364,58 @@ struct FileConversionTarget: Identifiable, Hashable {
     let family: Family
 }
 
+enum FileConversionError: Error { case unavailable(String), cancelled }
+enum FileConversionItemState: Equatable { case pending, processing, completed, failed, cancelled }
+struct FileConversionItemOutcome: Identifiable, Equatable {
+    let sourceURL: URL
+    let state: FileConversionItemState
+    let outputURL: URL?
+    let failure: OperationFailure?
+    var id: URL { sourceURL }
+}
+struct DependencySetup: Identifiable { let target: FileConversionTarget; let plan: SetupPlan; var id: String { plan.fingerprint } }
+struct FileConversionCapability {
+    let state: CapabilityState
+    var isSetupRequired: Bool { if case .setupRequired = state { return true }; return false }
+    var readinessLabel: String { switch state { case .ready: return "Ready"; case .setupRequired: return "Setup required"; case .unavailable: return "Unavailable"; case .degraded: return "Degraded" } }
+}
+private struct ClosureProvisioningExecutor: ProvisioningExecutor {
+    let body: @Sendable (ExactCommand) async throws -> Void
+    func execute(_ command: ExactCommand) async throws { try await body(command) }
+}
+
 enum FileConversionService {
+    static func assess(_ target: FileConversionTarget) async -> CapabilityState {
+        let requirement: CapabilityRequirement?
+        switch target.family {
+        case .mediaFFmpeg: requirement = try? CapabilityRequirement(executableName: "ffmpeg", explicitPaths: ["/opt/homebrew/bin/ffmpeg", "/usr/local/bin/ffmpeg"])
+        case .imageMagick: requirement = try? CapabilityRequirement(executableName: "magick", explicitPaths: ["/opt/homebrew/bin/magick", "/usr/local/bin/magick"])
+        case .pandoc: requirement = try? CapabilityRequirement(executableName: "pandoc", explicitPaths: ["/opt/homebrew/bin/pandoc", "/usr/local/bin/pandoc"])
+        case .soffice: requirement = try? CapabilityRequirement(executableName: "soffice", explicitPaths: ["/Applications/LibreOffice.app/Contents/MacOS/soffice", "/opt/homebrew/bin/soffice", "/usr/local/bin/soffice"])
+        default: return .ready
+        }
+        guard let requirement else { return .unavailable("Missing dependency: \(missingDependencyName(for: target) ?? "converter")") }
+        return (try? await CapabilityAssessor(locator: ExecutableLocator(), versionProbe: VersionProbe()).assess(requirement)) ?? .unavailable("Capability assessment failed")
+    }
+
+    static func setupPlan(for target: FileConversionTarget) -> SetupPlan {
+        let command: ExactCommand
+        switch target.family {
+        case .mediaFFmpeg: command = ExactCommand(executable: "brew", arguments: ["install", "ffmpeg"])
+        case .imageMagick: command = ExactCommand(executable: "brew", arguments: ["install", "imagemagick"])
+        case .pandoc: command = ExactCommand(executable: "brew", arguments: ["install", "pandoc"])
+        case .soffice: command = ExactCommand(executable: "brew", arguments: ["install", "--cask", "libreoffice"])
+        default: command = ExactCommand(executable: "brew", arguments: [])
+        }
+        return SetupPlan(commands: [command], artifacts: [], mutationScope: "Homebrew installs the required tool for this user", cleanupOwnership: "Homebrew owns the installed package", disclosure: "Network access to Homebrew is required; disk impact varies by package.")
+    }
     static func missingDependencyName(for target: FileConversionTarget) -> String? {
         switch target.family {
-        case .mediaFFmpeg where ffmpegInstalled == false:
-            "ffmpeg"
-        case .imageMagick where imageMagickInstalled == false:
-            "ImageMagick"
-        case .pandoc where pandocInstalled == false:
-            "pandoc"
-        case .soffice where sofficeInstalled == false:
-            "LibreOffice"
-        default:
-            nil
+        case .mediaFFmpeg: return "ffmpeg"
+        case .imageMagick: return "magick"
+        case .pandoc: return "pandoc"
+        case .soffice: return "soffice"
+        default: return nil
         }
     }
 
@@ -322,23 +520,25 @@ enum FileConversionService {
             try Task.checkCancellation()
             try FileManager.default.createDirectory(at: outputFolderURL, withIntermediateDirectories: true)
             let destination = uniqueDestination(for: sourceURL, target: target, in: outputFolderURL)
+            let staged = try ArtifactStore().stage(for: destination)
+            defer { try? FileManager.default.removeItem(at: staged.url) }
 
             switch target.family {
             case .image:
-                try await run("/usr/bin/sips", ["-s", "format", target.outputExtension == "jpg" ? "jpeg" : target.outputExtension, sourceURL.path, "--out", destination.path])
+                try await run("/usr/bin/sips", ["-s", "format", target.outputExtension == "jpg" ? "jpeg" : target.outputExtension, sourceURL.path, "--out", staged.url.path])
             case .text:
-                try await run("/usr/bin/textutil", ["-convert", target.outputExtension, "-output", destination.path, sourceURL.path])
+                try await run("/usr/bin/textutil", ["-convert", target.outputExtension, "-output", staged.url.path, sourceURL.path])
             case .mediaFFmpeg:
-                let ffmpeg = try await installFFmpegIfNeeded()
-                try await run(ffmpeg, ["-y", "-i", sourceURL.path, destination.path])
+                let ffmpeg = try await executable(named: "ffmpeg", target: target)
+                try await run(ffmpeg, ["-y", "-i", sourceURL.path, staged.url.path])
             case .imageMagick:
-                let magick = try await installImageMagickIfNeeded()
-                try await run(magick, [sourceURL.path, destination.path])
+                let magick = try await executable(named: "magick", target: target)
+                try await run(magick, [sourceURL.path, staged.url.path])
             case .pandoc:
-                let pandoc = try await installPandocIfNeeded()
-                try await run(pandoc, [sourceURL.path, "-o", destination.path])
+                let pandoc = try await executable(named: "pandoc", target: target)
+                try await run(pandoc, [sourceURL.path, "-o", staged.url.path])
             case .soffice:
-                let soffice = try await installSofficeIfNeeded()
+                let soffice = try await executable(named: "soffice", target: target)
                 let temporaryFolder = FileManager.default.temporaryDirectory.appendingPathComponent("Foundry-Conversion-\(UUID().uuidString)")
                 try FileManager.default.createDirectory(at: temporaryFolder, withIntermediateDirectories: true)
                 defer { try? FileManager.default.removeItem(at: temporaryFolder) }
@@ -347,9 +547,13 @@ enum FileConversionService {
                 guard FileManager.default.fileExists(atPath: generated.path) else {
                     throw NSError(domain: "FoundryConversion", code: 2, userInfo: [NSLocalizedDescriptionKey: "LibreOffice did not produce the expected output."])
                 }
-                try FileManager.default.moveItem(at: generated, to: destination)
+                try FileManager.default.removeItem(at: staged.url)
+                try FileManager.default.moveItem(at: generated, to: staged.url)
             }
-            return .success(destination)
+            let committed = try ArtifactStore().commit(staged) { url in
+                (try? FileManager.default.attributesOfItem(atPath: url.path)[.size] as? NSNumber)?.intValue ?? 0 > 0
+            }
+            return .success(committed)
         } catch {
             return .failure(error)
         }
@@ -387,59 +591,16 @@ enum FileConversionService {
         paths.first { FileManager.default.isExecutableFile(atPath: $0) }
     }
 
-    private static func installFFmpegIfNeeded() async throws -> String {
-        if let ffmpeg = firstExecutable(["/opt/homebrew/bin/ffmpeg", "/usr/local/bin/ffmpeg"]) { return ffmpeg }
-        guard let brew = firstExecutable(["/opt/homebrew/bin/brew", "/usr/local/bin/brew"]) else {
-            throw NSError(domain: "FoundryConversion", code: 1, userInfo: [NSLocalizedDescriptionKey: "ffmpeg is missing and Homebrew was not found"])
+    private static func executable(named name: String, target: FileConversionTarget) async throws -> String {
+        if case .ready = await assess(target) {
+            let paths = ["/opt/homebrew/bin/\(name)", "/usr/local/bin/\(name)", "/Applications/LibreOffice.app/Contents/MacOS/\(name)"]
+            if let path = firstExecutable(paths) { return path }
         }
-        try await run(brew, ["install", "ffmpeg"])
-        if let ffmpeg = firstExecutable(["/opt/homebrew/bin/ffmpeg", "/usr/local/bin/ffmpeg"]) { return ffmpeg }
-        throw NSError(domain: "FoundryConversion", code: 1, userInfo: [NSLocalizedDescriptionKey: "ffmpeg install finished, but ffmpeg was not found"])
-    }
-
-    private static func installImageMagickIfNeeded() async throws -> String {
-        if let magick = firstExecutable(["/opt/homebrew/bin/magick", "/usr/local/bin/magick"]) { return magick }
-        guard let brew = firstExecutable(["/opt/homebrew/bin/brew", "/usr/local/bin/brew"]) else {
-            throw NSError(domain: "FoundryConversion", code: 1, userInfo: [NSLocalizedDescriptionKey: "ImageMagick is missing and Homebrew was not found"])
-        }
-        try await run(brew, ["install", "imagemagick"])
-        if let magick = firstExecutable(["/opt/homebrew/bin/magick", "/usr/local/bin/magick"]) { return magick }
-        throw NSError(domain: "FoundryConversion", code: 1, userInfo: [NSLocalizedDescriptionKey: "ImageMagick install finished, but magick was not found"])
-    }
-
-    private static func installPandocIfNeeded() async throws -> String {
-        if let pandoc = firstExecutable(["/opt/homebrew/bin/pandoc", "/usr/local/bin/pandoc"]) { return pandoc }
-        guard let brew = firstExecutable(["/opt/homebrew/bin/brew", "/usr/local/bin/brew"]) else {
-            throw NSError(domain: "FoundryConversion", code: 1, userInfo: [NSLocalizedDescriptionKey: "pandoc is missing and Homebrew was not found"])
-        }
-        try await run(brew, ["install", "pandoc"])
-        if let pandoc = firstExecutable(["/opt/homebrew/bin/pandoc", "/usr/local/bin/pandoc"]) { return pandoc }
-        throw NSError(domain: "FoundryConversion", code: 1, userInfo: [NSLocalizedDescriptionKey: "pandoc install finished, but pandoc was not found"])
-    }
-
-    private static func installSofficeIfNeeded() async throws -> String {
-        if let soffice = firstExecutable(["/Applications/LibreOffice.app/Contents/MacOS/soffice", "/Applications/OpenOffice.app/Contents/MacOS/soffice", "/opt/homebrew/bin/soffice", "/usr/local/bin/soffice"]) { return soffice }
-        guard let brew = firstExecutable(["/opt/homebrew/bin/brew", "/usr/local/bin/brew"]) else {
-            throw NSError(domain: "FoundryConversion", code: 1, userInfo: [NSLocalizedDescriptionKey: "LibreOffice is missing and Homebrew was not found"])
-        }
-        try await run(brew, ["install", "--cask", "libreoffice"])
-        if let soffice = firstExecutable(["/Applications/LibreOffice.app/Contents/MacOS/soffice", "/opt/homebrew/bin/soffice", "/usr/local/bin/soffice"]) { return soffice }
-        throw NSError(domain: "FoundryConversion", code: 1, userInfo: [NSLocalizedDescriptionKey: "LibreOffice install finished, but soffice was not found"])
+        throw FileConversionError.unavailable("Required converter is not ready")
     }
 
     static func preflightStatus(for target: FileConversionTarget) -> String? {
-        switch target.family {
-        case .mediaFFmpeg where ffmpegInstalled == false:
-            return "Installing ffmpeg, then converting to \(target.title)…"
-        case .imageMagick where imageMagickInstalled == false:
-            return "Installing ImageMagick, then converting to \(target.title)…"
-        case .pandoc where pandocInstalled == false:
-            return "Installing pandoc, then converting to \(target.title)…"
-        case .soffice where sofficeInstalled == false:
-            return "Installing LibreOffice, then converting to \(target.title)…"
-        default:
-            return nil
-        }
+        nil
     }
 
     private static func sofficeFormat(_ ext: String) -> String {
@@ -480,10 +641,6 @@ enum FileConversionService {
         return ImageMetadata(width: width, height: height)
     }
 
-    static let ffmpegInstalled = firstExecutable(["/opt/homebrew/bin/ffmpeg", "/usr/local/bin/ffmpeg"]) != nil
-    private static let imageMagickInstalled = firstExecutable(["/opt/homebrew/bin/magick", "/usr/local/bin/magick"]) != nil
-    private static let pandocInstalled = firstExecutable(["/opt/homebrew/bin/pandoc", "/usr/local/bin/pandoc"]) != nil
-    private static let sofficeInstalled = firstExecutable(["/Applications/LibreOffice.app/Contents/MacOS/soffice", "/Applications/OpenOffice.app/Contents/MacOS/soffice", "/opt/homebrew/bin/soffice", "/usr/local/bin/soffice"]) != nil
     private static let imageExtensions: Set<String> = ["png", "jpg", "jpeg", "heic", "tif", "tiff", "gif", "bmp", "webp"]
     private static let textDocumentExtensions: Set<String> = ["txt", "rtf", "rtfd", "html", "htm", "doc", "docx", "odt", "wordml", "webarchive"]
     private static let officeDocumentExtensions: Set<String> = ["doc", "docx", "odt", "rtf", "ppt", "pptx", "odp", "xls", "xlsx", "ods"]

@@ -11,6 +11,9 @@ final class ShellController {
     private let hotkeyController: HotkeyController
     private let panelController: PanelController
     private let panelState: CommandPanelState
+    private let clipboardHistory: ClipboardHistoryState
+    private let snippetExpansion: SnippetExpansionService
+    private var hasStarted = false
 
     init(
         registry: CommandRegistry,
@@ -18,22 +21,30 @@ final class ShellController {
         config: ConfigService,
         diagnostics: DiagnosticsService,
         snippetStore: any SnippetStore = FileSnippetStore(),
-        mediaDownloadManager: MediaDownloadManager = MediaDownloadManager()
+        mediaDownloadManager: MediaDownloadManager = MediaDownloadManager(),
+        clipboardHistory: ClipboardHistoryState? = nil
     ) {
         self.registry = registry
         self.actionRunner = actionRunner
         self.config = config
         self.diagnostics = diagnostics
         self.hotkeyController = HotkeyController()
+        let sharedClipboardHistory = clipboardHistory ?? ClipboardHistoryState(configuration: config.current.clipboard)
+        self.clipboardHistory = sharedClipboardHistory
+        self.snippetExpansion = SnippetExpansionService(snippetStore: snippetStore, directPaste: actionRunner.directPasteService)
         self.panelState = CommandPanelState(
             registry: registry,
             actionRunner: actionRunner,
             diagnostics: diagnostics,
             config: config,
             snippetStore: snippetStore,
-            mediaDownloadManager: mediaDownloadManager
+            mediaDownloadManager: mediaDownloadManager,
+            clipboardHistory: sharedClipboardHistory
         )
-        self.panelController = PanelController(state: panelState, diagnostics: diagnostics)
+        self.panelController = PanelController(state: panelState, diagnostics: diagnostics, directPasteService: actionRunner.directPasteService)
+        self.snippetExpansion.onStatusChanged = { [weak panelState] message in
+            Task { @MainActor in panelState?.setSnippetExpansionError(message) }
+        }
         self.panelState.onHotkeyChanged = { [weak self] hotkey in
             guard let self else { return }
             try self.hotkeyController.register(hotkey: hotkey)
@@ -45,7 +56,17 @@ final class ShellController {
     }
 
     func start() {
+        guard hasStarted == false else { return }
+        hasStarted = true
         diagnostics.log("Foundry shell starting")
+        clipboardHistory.start()
+        configureSnippetExpansion()
+        NotificationCenter.default.addObserver(forName: NSWorkspace.didActivateApplicationNotification, object: nil, queue: .main) { [weak self] _ in
+            self?.snippetExpansion.resetForApplicationChange()
+        }
+        NotificationCenter.default.addObserver(forName: NSWorkspace.didWakeNotification, object: nil, queue: .main) { [weak self] _ in
+            self?.snippetExpansion.recoverFromWake()
+        }
         hotkeyController.onPressed = { [weak self] in
             Task { @MainActor in
                 self?.togglePanel()
@@ -63,9 +84,21 @@ final class ShellController {
     }
 
     func stop() {
+        guard hasStarted else { return }
+        hasStarted = false
+        snippetExpansion.stop()
         panelState.shutdown()
         hotkeyController.unregister()
     }
+
+    private func configureSnippetExpansion() {
+        let settings = config.current.snippetExpansion
+        snippetExpansion.configure(isEnabled: settings.isEnabled, excludedBundleIdentifiers: settings.excludedBundleIdentifiers)
+    }
+
+    func reconfigureSnippetExpansion() { configureSnippetExpansion() }
+    func requestSnippetAccessibility() { snippetExpansion.requestAccessibilityAccess() }
+    func openSnippetPrivacySettings() { snippetExpansion.openAccessibilitySettings() }
 
     private func togglePanel() {
         let span = diagnostics.startSpan("shell.toggle")

@@ -32,6 +32,16 @@ final class SnippetState: ObservableObject {
         visibleItems.first { $0.id == selectedID } ?? visibleItems.first
     }
 
+    var duplicateKeywords: [String] {
+        Dictionary(grouping: items.filter { !$0.keyword.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }, by: { $0.keyword.trimmingCharacters(in: .whitespacesAndNewlines) })
+            .filter { $0.value.count > 1 }
+            .keys.sorted()
+    }
+
+    var expansionAvailabilityMessage: String {
+        "Auto-expansion is unavailable in secure fields and excluded apps."
+    }
+
     func load() {
         items = sorted(store.load())
         keepSelectionValid()
@@ -54,7 +64,7 @@ final class SnippetState: ObservableObject {
         guard let selectedID, let index = items.firstIndex(where: { $0.id == selectedID }) else { return }
         items[index].title = title.isEmpty ? "Untitled Snippet" : title
         items[index].content = String(content.prefix(contentLimit))
-        items[index].keyword = keyword
+        items[index].keyword = keyword.trimmingCharacters(in: .whitespacesAndNewlines)
         items[index].tags = tags.filter { $0.isEmpty == false }
         items[index].updatedAt = Date()
         schedulePersist()
@@ -77,7 +87,7 @@ final class SnippetState: ObservableObject {
     func copySelected() {
         guard let selectedItem else { return }
         NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(SnippetRenderer.render(selectedItem.content), forType: .string)
+        NSPasteboard.general.setString(SnippetRenderer.render(selectedItem.content).text, forType: .string)
     }
 
     func moveSelection(offset: Int) {

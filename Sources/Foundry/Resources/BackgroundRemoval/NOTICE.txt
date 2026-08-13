@@ -2,6 +2,8 @@ Foundry's experimental BEN2 background-removal integration uses:
 
 - BEN2 Base by PramaLLC.
 - Pinned model revision: e48a20765fb421d19dcdb0bf3cc61e802ca5ec8f
-- Model license metadata: MIT
+- Model license metadata: Apache-2.0
 - Model card: https://huggingface.co/PramaLLC/BEN2
 - ONNX Runtime: https://onnxruntime.ai
+
+Runtime dependencies are installed only from pinned macOS arm64 wheels with SHA-256 hashes recorded by the application; arbitrary package resolution is not permitted.

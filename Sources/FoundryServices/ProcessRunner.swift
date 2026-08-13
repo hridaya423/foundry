@@ -33,12 +33,25 @@ public enum ProcessRunnerError: Error, Equatable {
     case cancelled
 }
 
+public protocol ProcessRunning: Sendable {
+    func run(path: String, arguments: [String], timeout: TimeInterval, outputLimit: Int, environment: [String: String]?, currentDirectoryURL: URL?, onOutput: (@Sendable (ProcessOutputLine) -> Void)?) async throws -> ProcessResult
+}
+
+public struct SystemProcessRunner: ProcessRunning, Sendable {
+    public init() {}
+    public func run(path: String, arguments: [String], timeout: TimeInterval = 10, outputLimit: Int = 2 * 1024 * 1024, environment: [String: String]? = nil, currentDirectoryURL: URL? = nil, onOutput: (@Sendable (ProcessOutputLine) -> Void)? = nil) async throws -> ProcessResult {
+        try await ProcessRunner.run(path: path, arguments: arguments, timeout: timeout, outputLimit: outputLimit, environment: environment, currentDirectoryURL: currentDirectoryURL, onOutput: onOutput)
+    }
+}
+
 public enum ProcessRunner {
     public static func run(
         path: String,
         arguments: [String],
         timeout: TimeInterval = 10,
         outputLimit: Int = 2 * 1024 * 1024,
+        environment: [String: String]? = nil,
+        currentDirectoryURL: URL? = nil,
         onOutput: (@Sendable (ProcessOutputLine) -> Void)? = nil
     ) async throws -> ProcessResult {
         let control = ManagedProcessControl()
@@ -50,7 +63,9 @@ public enum ProcessRunner {
                             path: path,
                             arguments: arguments,
                             timeout: timeout,
-                            outputLimit: outputLimit,
+                             outputLimit: outputLimit,
+                             environment: environment,
+                             currentDirectoryURL: currentDirectoryURL,
                             onOutput: onOutput,
                             control: control
                         ))
@@ -91,6 +106,8 @@ public enum ProcessRunner {
         arguments: [String],
         timeout: TimeInterval,
         outputLimit: Int,
+        environment: [String: String]? = nil,
+        currentDirectoryURL: URL? = nil,
         onOutput: (@Sendable (ProcessOutputLine) -> Void)?,
         control: ManagedProcessControl
     ) throws -> ProcessResult {
@@ -99,12 +116,14 @@ public enum ProcessRunner {
         let stderrPipe = Pipe()
         let stdoutBuffer = LimitedDataBuffer(limit: outputLimit)
         let stderrBuffer = LimitedDataBuffer(limit: outputLimit)
-        let stdoutLines = ProcessOutputLineBuffer(stream: .stdout, handler: onOutput)
-        let stderrLines = ProcessOutputLineBuffer(stream: .stderr, handler: onOutput)
+        let stdoutLines = ProcessOutputLineBuffer(stream: .stdout, limit: outputLimit, handler: onOutput)
+        let stderrLines = ProcessOutputLineBuffer(stream: .stderr, limit: outputLimit, handler: onOutput)
         let termination = DispatchSemaphore(value: 0)
 
         process.executableURL = URL(fileURLWithPath: path)
         process.arguments = arguments
+        process.environment = environment
+        process.currentDirectoryURL = currentDirectoryURL
         process.standardOutput = stdoutPipe
         process.standardError = stderrPipe
         stdoutPipe.fileHandleForReading.readabilityHandler = { handle in
@@ -271,11 +290,13 @@ private final class LimitedDataBuffer: @unchecked Sendable {
 private final class ProcessOutputLineBuffer: @unchecked Sendable {
     private let lock = NSLock()
     private let stream: ProcessOutputLine.Stream
+    private let limit: Int
     private let handler: (@Sendable (ProcessOutputLine) -> Void)?
     private var pending = ""
 
-    init(stream: ProcessOutputLine.Stream, handler: (@Sendable (ProcessOutputLine) -> Void)?) {
+    init(stream: ProcessOutputLine.Stream, limit: Int, handler: (@Sendable (ProcessOutputLine) -> Void)?) {
         self.stream = stream
+        self.limit = max(limit, 1)
         self.handler = handler
     }
 
@@ -283,6 +304,9 @@ private final class ProcessOutputLineBuffer: @unchecked Sendable {
         let text = String(decoding: data, as: UTF8.self)
         lock.withLock {
             pending.append(text)
+            if pending.utf8.count > limit {
+                pending = String(decoding: Data(pending.utf8).suffix(limit), as: UTF8.self)
+            }
             emitCompleteLines()
         }
     }

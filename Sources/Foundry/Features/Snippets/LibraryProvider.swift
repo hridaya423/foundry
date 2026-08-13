@@ -30,16 +30,15 @@ final class LibraryProvider: CommandProvider {
             }
             .prefix(32)
             .map { snippet in
-                let rendered = SnippetRenderer.render(snippet.content)
                 return CommandResult(
                     id: "snippet.\(snippet.id)",
                     title: snippet.title,
                     subtitle: ([snippet.keyword.isEmpty ? nil : snippet.keyword, snippet.tags.isEmpty ? nil : snippet.tags.map { "#\($0)" }.joined(separator: " "), snippet.content.replacingOccurrences(of: "\n", with: " ")].compactMap { $0 }).joined(separator: " • "),
                     icon: CommandIcon(fallback: "SN", systemName: "curlybraces"),
                     searchKeywords: [snippet.keyword] + snippet.tags,
-                    primaryAction: CommandAction(id: "snippet.insert.\(snippet.id)", title: "Insert Snippet", kind: .pasteText(rendered)),
+                    primaryAction: CommandAction(id: "snippet.insert.\(snippet.id)", title: "Insert Snippet", kind: .pasteSnippet(id: snippet.id)),
                     secondaryActions: [
-                        CommandAction(id: "snippet.copy.\(snippet.id)", title: "Copy Snippet", kind: .copyToClipboard(rendered)),
+                        CommandAction(id: "snippet.copy.\(snippet.id)", title: "Copy Snippet", kind: .copySnippet(id: snippet.id)),
                         CommandAction(id: "snippet.open.\(snippet.id)", title: "Open Snippets", kind: .openSnippets)
                     ]
                 )

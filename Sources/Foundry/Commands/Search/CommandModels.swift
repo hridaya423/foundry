@@ -75,7 +75,9 @@ enum CommandActionKind: Hashable, Sendable {
     case openConfigFolder
     case revealInFinder(path: String)
     case copyToClipboard(String)
-    case pasteText(String)
+    case pasteText(String, cursorOffset: Int = 0, snippetID: String? = nil)
+    case copySnippet(id: String)
+    case pasteSnippet(id: String)
     case createSnippetFromClipboard
     case importSnippets
     case downloadMedia(url: String)
@@ -212,9 +214,9 @@ extension CommandActionKind {
 
     var executionPolicy: CommandExecutionPolicy {
         switch self {
-        case .copyToClipboard, .openURL, .openQuickAI, .openConfigFolder, .openEmojiPicker, .openFileShelf, .openClipboardHistory, .openSnippets, .openFileConverter, .openCamera, .openTranslator, .openDeveloperTools, .openSettings, .openHome, .openMediaDownloads, .log:
+        case .copyToClipboard, .copySnippet, .openURL, .openQuickAI, .openConfigFolder, .openEmojiPicker, .openFileShelf, .openClipboardHistory, .openSnippets, .openFileConverter, .openCamera, .openTranslator, .openDeveloperTools, .openSettings, .openHome, .openMediaDownloads, .log:
             .readOnly
-        case .openApp, .revealInFinder, .createSnippetFromClipboard, .importSnippets, .pasteText, .chooseMediaDownloadFolder, .setAudioDevice, .resetRanking:
+        case .openApp, .revealInFinder, .createSnippetFromClipboard, .importSnippets, .pasteText, .pasteSnippet, .chooseMediaDownloadFolder, .setAudioDevice, .resetRanking:
             .localMutation
         case .downloadMedia, .downloadMediaBatch:
             .network

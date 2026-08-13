@@ -38,6 +38,17 @@ struct FileShelfView: View {
                             action: state.cancelBackgroundRemoval
                         )
                     } else {
+                        if state.isSettingUpBEN2 {
+                            Button("Cancel BEN2 Setup", action: state.cancelBEN2Setup)
+                        } else if state.ben2Assessment.modelState != .ready || state.ben2Assessment.runtimeState != .ready {
+                            Menu {
+                                Button("Set Up BEN2", action: state.setUpBEN2)
+                                Button("Remove BEN2 Data", role: .destructive, action: state.removeBEN2Data)
+                                Button("Cancel", role: .cancel) {}
+                            } label: {
+                                Label("BEN2 Setup", systemImage: "shippingbox")
+                            }
+                        }
                         if state.selectedFiles.isEmpty == false {
                             FoundryActionButton(
                                 title: "Convert",

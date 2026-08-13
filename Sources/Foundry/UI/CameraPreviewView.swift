@@ -11,8 +11,10 @@ struct CameraPreviewView: View {
                 RoundedRectangle(cornerRadius: 20, style: .continuous)
                     .fill(Color.white.opacity(0.05))
 
-                CameraPreviewSurface(session: state.session)
-                    .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+                if state.status == .starting || state.status == .active {
+                    CameraPreviewSurface(session: state.session)
+                        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+                }
 
                 if let message = state.status.message {
                     VStack(spacing: 10) {
@@ -35,7 +37,7 @@ struct CameraPreviewView: View {
                             }
                             .buttonStyle(PressableButtonStyle())
                             .font(FoundryTheme.body(size: 12, weight: .semibold))
-                        } else if state.status == .unavailable || state.status.message?.isEmpty == false && state.status != .requestingPermission && state.status != .starting {
+                        } else if state.status != .requestingPermission && state.status != .starting && state.status != .active && state.status != .idle {
                             Button("Retry") { state.retry() }
                                 .buttonStyle(PressableButtonStyle())
                                 .font(FoundryTheme.body(size: 12, weight: .semibold))

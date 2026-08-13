@@ -1,5 +1,6 @@
 import Combine
 import Foundation
+import FoundryServices
 
 enum MediaDownloadPhase: String, Sendable, Equatable {
     case preparing
@@ -8,6 +9,49 @@ enum MediaDownloadPhase: String, Sendable, Equatable {
     case completed
     case failed
     case cancelled
+}
+
+enum MediaDownloadCapability: Equatable, Sendable {
+    case ready(label: String)
+    case unavailable(label: String, reason: String)
+}
+
+extension MediaDownloadCapability {
+    var label: String {
+        switch self {
+        case let .ready(label), let .unavailable(label, _): label
+        }
+    }
+}
+
+struct MediaDownloadCapabilities: Equatable, Sendable {
+    let direct: MediaDownloadCapability
+    let cobalt: MediaDownloadCapability
+    let youtube: MediaDownloadCapability
+}
+
+struct YouTubeProvisioningConsent: Equatable, Sendable {
+    let approvedFormula: String
+    let disclosure: String
+
+    init(approvedFormula: String = "yt-dlp", disclosure: String = "Homebrew installs the current yt-dlp formula") {
+        self.approvedFormula = approvedFormula
+        self.disclosure = disclosure
+    }
+}
+
+enum MediaDownloadProvisioningPhase: String, Sendable, Equatable {
+    case checking
+    case downloading
+    case installing
+    case verifying
+    case completed
+}
+
+struct MediaDownloadProvisioningProgress: Sendable, Equatable {
+    let phase: MediaDownloadProvisioningPhase
+    let message: String
+    let fractionCompleted: Double?
 }
 
 struct MediaDownloadProgress: Sendable, Equatable {
@@ -60,11 +104,17 @@ struct MediaDownloadItem: Identifiable, Sendable, Equatable {
     var status: MediaDownloadStatus
     var progress: MediaDownloadProgress
     var resultMessage: String?
+    var failure: OperationFailure?
 }
 
 @MainActor
 final class MediaDownloadManager: ObservableObject {
     @Published private(set) var items: [MediaDownloadItem] = []
+    @Published private(set) var capabilities = MediaDownloadCapabilities(
+        direct: .ready(label: "Direct links · ready"),
+        cobalt: .ready(label: "Cobalt · sends URL to Cobalt"),
+        youtube: .unavailable(label: "YouTube · yt-dlp", reason: "Set up yt-dlp explicitly")
+    )
 
     var activeCount: Int {
         items.reduce(into: 0) { count, item in
@@ -73,6 +123,10 @@ final class MediaDownloadManager: ObservableObject {
     }
 
     var hasItems: Bool { items.isEmpty == false }
+
+    func setCapabilities(_ capabilities: MediaDownloadCapabilities) {
+        self.capabilities = capabilities
+    }
 
     func start(id: UUID, sourceURL: String) {
         let title: String
@@ -87,7 +141,8 @@ final class MediaDownloadManager: ObservableObject {
             startedAt: Date(),
             status: .active,
             progress: .starting(title: title),
-            resultMessage: nil
+            resultMessage: nil,
+            failure: nil
         )
         items.removeAll { $0.id == id }
         items.insert(item, at: 0)
@@ -102,6 +157,7 @@ final class MediaDownloadManager: ObservableObject {
         }
         items[index].progress = displayProgress
         items[index].resultMessage = nil
+        items[index].failure = nil
     }
 
     func complete(id: UUID, message: String) {
@@ -110,6 +166,7 @@ final class MediaDownloadManager: ObservableObject {
         items[index].progress.phase = .completed
         items[index].progress.message = message
         items[index].resultMessage = message
+        items[index].failure = nil
     }
 
     func fail(id: UUID, message: String) {
@@ -118,6 +175,7 @@ final class MediaDownloadManager: ObservableObject {
         items[index].progress.phase = .failed
         items[index].progress.message = message
         items[index].resultMessage = message
+        items[index].failure = OperationFailure(message: message, retryable: true)
     }
 
     func cancel(id: UUID) {
@@ -126,6 +184,7 @@ final class MediaDownloadManager: ObservableObject {
         items[index].progress.phase = .cancelled
         items[index].progress.message = "Download cancelled"
         items[index].resultMessage = "Download cancelled"
+        items[index].failure = OperationFailure(message: "Download cancelled", retryable: true)
     }
 
     func clearFinished() {
