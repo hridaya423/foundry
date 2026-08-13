@@ -1,7 +1,5 @@
 import Foundation
 
-/// The event-driven, platform-independent core of snippet expansion. AppKit event
-/// taps translate keyboard events into these inputs; this type never observes them.
 struct SnippetExpansionEngine {
     enum Input: Equatable {
         case character(String)
@@ -100,7 +98,6 @@ struct SnippetExpansionEngine {
     }
 
     private static func normalized(_ snippets: [StoredSnippet]) -> [String: StoredSnippet] {
-        // Pinned, then newest, then id makes duplicate precedence deterministic.
         let ordered = snippets.sorted {
             if $0.isPinned != $1.isPinned { return $0.isPinned }
             if $0.updatedAt != $1.updatedAt { return $0.updatedAt > $1.updatedAt }

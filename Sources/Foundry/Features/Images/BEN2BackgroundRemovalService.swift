@@ -96,7 +96,6 @@ private actor BEN2Runtime {
             try await task.value
             try Task.checkCancellation()
         } onCancel: {
-            // A caller leaving its wait must not cancel setup shared by other callers.
         }
     }
 

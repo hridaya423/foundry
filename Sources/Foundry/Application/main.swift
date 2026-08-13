@@ -26,12 +26,14 @@ if Bundle.main.bundleIdentifier == "com.hridya.foundry" {
 }
 
 if Bundle.main.bundleURL.pathExtension != "app" {
-    // A previous source-run build could have registered the debug executable
-    // as a login item. Remove that stale registration before building the app.
     try? SMAppService.mainApp.unregister()
     let build = Process()
     build.executableURL = URL(fileURLWithPath: "/bin/zsh")
     build.arguments = ["-lc", "./scripts/build-app.sh"]
+    build.environment = ProcessInfo.processInfo.environment.merging([
+        "INSTALL_APP": "1",
+        "LAUNCH_APP": "1",
+    ]) { _, sourceRunValue in sourceRunValue }
     do {
         try build.run()
         build.waitUntilExit()

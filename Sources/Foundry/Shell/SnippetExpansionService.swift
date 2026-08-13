@@ -3,8 +3,6 @@ import ApplicationServices
 import Carbon
 import Foundation
 
-/// Owns the one system event tap used by snippet expansion. Matching and rendering
-/// remain in the feature modules; this type only translates AppKit events and pastes.
 final class SnippetExpansionService: @unchecked Sendable {
     static let accessibilitySettingsURL = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")!
 

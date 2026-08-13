@@ -51,9 +51,6 @@ final class TranslatorState: ObservableObject {
         switch outcome {
         case let .success(text): result = text; translationError = nil
         case .sessionRequired:
-            // The Translation framework only exposes its session through a
-            // SwiftUI translationTask. Keep this request alive until the
-            // adapter receives the session and returns its typed result.
             result = ""; translationError = nil; needsAppleTranslationFallback = false
             isTranslating = true
             return

@@ -351,7 +351,6 @@ final class MediaDownloadService: MediaDownloading, @unchecked Sendable {
         }
         let outputs = try dependencies.artifactFileSystem.regularFiles(in: staging)
         guard outputs.isEmpty == false else { throw MediaDownloadError.message("yt-dlp produced no media file") }
-        // Validate the complete batch before reserving or moving any destination.
         for output in outputs {
             try dependencies.networkPolicy.validateStagedMedia(at: output, fileSystem: dependencies.artifactFileSystem)
         }

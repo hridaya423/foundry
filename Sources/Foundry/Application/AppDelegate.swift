@@ -97,8 +97,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         if UserDefaults.standard.object(forKey: launchAtLoginConsentKey) == nil,
            UserDefaults.standard.bool(forKey: launchAtLoginPromptKey) {
-            // Migrate the old prompt-only state so failed or stale registrations
-            // get one clean consent flow with the packaged app.
             UserDefaults.standard.set(false, forKey: launchAtLoginPromptKey)
         }
 

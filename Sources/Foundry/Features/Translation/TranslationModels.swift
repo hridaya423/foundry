@@ -34,9 +34,6 @@ struct TranslationRequest: Identifiable, Hashable, Sendable {
 enum TranslationFailure: Error, Equatable, Hashable, Sendable { case unavailable, unsupportedPair(source: String, target: String), asset, offline, cancelled, backend(String)
     var message: String { switch self { case .unavailable: "Translation is unavailable on this Mac."; case let .unsupportedPair(s, t): "Translation from \(s) to \(t) is not supported."; case .asset: "Translation assets are unavailable."; case .offline: "Translation is offline."; case .cancelled: "Translation was cancelled."; case let .backend(m): "Translation failed: \(m)" } }
 }
-/// A framework translation needs a SwiftUI `translationTask` session. This is
-/// a handoff to that adapter, not a failed translation or a request for the
-/// user to translate manually.
 enum TranslationOutcome: Sendable { case success(String), sessionRequired, failure(TranslationFailure) }
 
 enum TranslationAvailability: Sendable {
