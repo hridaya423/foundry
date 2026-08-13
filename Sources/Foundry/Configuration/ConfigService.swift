@@ -3,7 +3,7 @@ import FoundryDomain
 import FoundryServices
 
 struct FoundryConfig: Codable, Equatable {
-    static let currentSchemaVersion = 5
+    static let currentSchemaVersion = 6
 
     var schemaVersion = FoundryConfig.currentSchemaVersion
     var hotkey: FoundryHotkey = .commandSpace
@@ -14,8 +14,10 @@ struct FoundryConfig: Codable, Equatable {
     var searchSensitivity: SearchSensitivity = .medium
     var commandPreferences: [String: CommandPreference] = [:]
     var providerEnabled: [String: Bool] = [:]
+    var clipboard: ClipboardConfig = .default
+    var snippetExpansion: SnippetExpansionConfig = .default
 
-    init(hotkey: FoundryHotkey = .commandSpace, themeIntensity: Double = 0.72, showAgentShelf: Bool = true, widgets: WidgetBoardConfig = .default, ai: AIConfig = .default, searchSensitivity: SearchSensitivity = .medium, commandPreferences: [String: CommandPreference] = [:], providerEnabled: [String: Bool] = [:]) {
+    init(hotkey: FoundryHotkey = .commandSpace, themeIntensity: Double = 0.72, showAgentShelf: Bool = true, widgets: WidgetBoardConfig = .default, ai: AIConfig = .default, searchSensitivity: SearchSensitivity = .medium, commandPreferences: [String: CommandPreference] = [:], providerEnabled: [String: Bool] = [:], clipboard: ClipboardConfig = .default, snippetExpansion: SnippetExpansionConfig = .default) {
         schemaVersion = Self.currentSchemaVersion
         self.hotkey = hotkey
         self.themeIntensity = themeIntensity
@@ -25,6 +27,8 @@ struct FoundryConfig: Codable, Equatable {
         self.searchSensitivity = searchSensitivity
         self.commandPreferences = commandPreferences
         self.providerEnabled = providerEnabled
+        self.clipboard = clipboard.normalized
+        self.snippetExpansion = snippetExpansion.normalized
     }
 
     init(from decoder: Decoder) throws {
@@ -51,6 +55,76 @@ struct FoundryConfig: Codable, Equatable {
         searchSensitivity = try container.decodeIfPresent(SearchSensitivity.self, forKey: .searchSensitivity) ?? .medium
         commandPreferences = try container.decodeIfPresent([String: CommandPreference].self, forKey: .commandPreferences) ?? [:]
         providerEnabled = try container.decodeIfPresent([String: Bool].self, forKey: .providerEnabled) ?? [:]
+        clipboard = (try container.decodeIfPresent(ClipboardConfig.self, forKey: .clipboard) ?? .default).normalized
+        snippetExpansion = (try container.decodeIfPresent(SnippetExpansionConfig.self, forKey: .snippetExpansion) ?? .default).normalized
+    }
+}
+
+struct ClipboardConfig: Codable, Equatable {
+    static let defaultMaxItems = 40
+    static let defaultMaxBytes = 16 * 1024 * 1024
+    static let minimumMaxItems = 1
+    static let maximumMaxItems = 40
+    static let minimumMaxBytes = 1 * 1024 * 1024
+    static let maximumMaxBytes = 16 * 1024 * 1024
+
+    var isEnabled = true
+    var isPaused = false
+    var maxItems = defaultMaxItems
+    var maxBytes = defaultMaxBytes
+    var excludedBundleIdentifiers: [String] = []
+
+    static let `default` = ClipboardConfig()
+
+    var normalized: ClipboardConfig {
+        var value = self
+        value.maxItems = min(max(maxItems, Self.minimumMaxItems), Self.maximumMaxItems)
+        value.maxBytes = min(max(maxBytes, Self.minimumMaxBytes), Self.maximumMaxBytes)
+        value.excludedBundleIdentifiers = Self.normalizeBundleIdentifiers(excludedBundleIdentifiers)
+        return value
+    }
+
+    init() {}
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        isEnabled = try container.decodeIfPresent(Bool.self, forKey: .isEnabled) ?? true
+        isPaused = try container.decodeIfPresent(Bool.self, forKey: .isPaused) ?? false
+        maxItems = try container.decodeIfPresent(Int.self, forKey: .maxItems) ?? Self.defaultMaxItems
+        maxBytes = try container.decodeIfPresent(Int.self, forKey: .maxBytes) ?? Self.defaultMaxBytes
+        excludedBundleIdentifiers = try container.decodeIfPresent([String].self, forKey: .excludedBundleIdentifiers) ?? []
+        self = normalized
+    }
+
+    fileprivate static func normalizeBundleIdentifiers(_ identifiers: [String]) -> [String] {
+        var seen = Set<String>()
+        return identifiers.compactMap { identifier in
+            let value = identifier.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard value.isEmpty == false, seen.insert(value).inserted else { return nil }
+            return value
+        }
+    }
+}
+
+struct SnippetExpansionConfig: Codable, Equatable {
+    var isEnabled = false
+    var excludedBundleIdentifiers: [String] = []
+
+    static let `default` = SnippetExpansionConfig()
+
+    var normalized: SnippetExpansionConfig {
+        var value = self
+        value.excludedBundleIdentifiers = ClipboardConfig.normalizeBundleIdentifiers(excludedBundleIdentifiers)
+        return value
+    }
+
+    init() {}
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        isEnabled = try container.decodeIfPresent(Bool.self, forKey: .isEnabled) ?? false
+        excludedBundleIdentifiers = try container.decodeIfPresent([String].self, forKey: .excludedBundleIdentifiers) ?? []
+        self = normalized
     }
 }
 
@@ -279,6 +353,14 @@ final class ConfigService: @unchecked Sendable {
         let normalizedID = providerID.trimmingCharacters(in: .whitespacesAndNewlines)
         guard normalizedID.isEmpty == false else { return }
         try update { $0.providerEnabled[normalizedID] = isEnabled }
+    }
+
+    func updateClipboardConfig(_ clipboard: ClipboardConfig) throws {
+        try update { $0.clipboard = clipboard.normalized }
+    }
+
+    func updateSnippetExpansionConfig(_ snippetExpansion: SnippetExpansionConfig) throws {
+        try update { $0.snippetExpansion = snippetExpansion.normalized }
     }
 
     func save() throws {

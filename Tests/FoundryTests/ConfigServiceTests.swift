@@ -13,6 +13,46 @@ final class ConfigServiceTests: XCTestCase {
         try FileManager.default.createDirectory(at: temporaryDirectory, withIntermediateDirectories: true)
     }
 
+    func testSchemaVersionsOneThroughFiveUsePrivacySafeFeatureDefaults() throws {
+        for version in 1...5 {
+            let data = Data(#"{"schemaVersion":"#.utf8) + Data(String(version).utf8) + Data(#"}"#.utf8)
+            let config = try FoundryConfigMigration.migrate(data)
+
+            XCTAssertTrue(config.clipboard.isEnabled)
+            XCTAssertFalse(config.clipboard.isPaused)
+            XCTAssertEqual(config.clipboard.maxItems, ClipboardConfig.defaultMaxItems)
+            XCTAssertEqual(config.clipboard.maxBytes, ClipboardConfig.defaultMaxBytes)
+            XCTAssertFalse(config.snippetExpansion.isEnabled)
+        }
+    }
+
+    func testClipboardAndSnippetConfigsRoundTrip() throws {
+        var clipboard = ClipboardConfig()
+        clipboard.isPaused = true
+        clipboard.maxItems = 12
+        clipboard.maxBytes = 3 * 1024 * 1024
+        clipboard.excludedBundleIdentifiers = ["com.example.one", "com.example.two"]
+        var snippets = SnippetExpansionConfig()
+        snippets.isEnabled = true
+        snippets.excludedBundleIdentifiers = ["com.example.editor"]
+
+        let original = FoundryConfig(clipboard: clipboard, snippetExpansion: snippets)
+        let decoded = try JSONDecoder().decode(FoundryConfig.self, from: JSONEncoder().encode(original))
+
+        XCTAssertEqual(decoded.clipboard, clipboard)
+        XCTAssertEqual(decoded.snippetExpansion, snippets)
+    }
+
+    func testFeatureConfigBoundsAndExcludedBundleIdentifiersAreNormalized() throws {
+        let data = Data(#"{"clipboard":{"maxItems":0,"maxBytes":999999999999,"excludedBundleIdentifiers":[" com.one ","","com.one","com.two "]},"snippetExpansion":{"excludedBundleIdentifiers":[" com.editor ","com.editor","   ","com.other"]}}"#.utf8)
+        let config = try JSONDecoder().decode(FoundryConfig.self, from: data)
+
+        XCTAssertEqual(config.clipboard.maxItems, ClipboardConfig.minimumMaxItems)
+        XCTAssertEqual(config.clipboard.maxBytes, ClipboardConfig.maximumMaxBytes)
+        XCTAssertEqual(config.clipboard.excludedBundleIdentifiers, ["com.one", "com.two"])
+        XCTAssertEqual(config.snippetExpansion.excludedBundleIdentifiers, ["com.editor", "com.other"])
+    }
+
     override func tearDownWithError() throws {
         if let temporaryDirectory {
             try? FileManager.default.removeItem(at: temporaryDirectory)
