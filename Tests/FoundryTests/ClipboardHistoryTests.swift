@@ -24,12 +24,23 @@ final class ClipboardHistoryTests: XCTestCase {
         XCTAssertEqual(try Data(contentsOf: url), Data("not json".utf8))
     }
 
-    func testPolicyDeduplicatesFrontAndEvictsPinsOnlyForHardBound() {
-        let policy = ClipboardHistoryPolicy(maxItems: 3, maxBytes: 5)
+    func testPolicyPreservesNewestFirstInputWhileDeduplicating() {
+        let policy = ClipboardHistoryPolicy(maxItems: 3, maxBytes: 6)
         let oldPinned = ClipboardHistoryItem(payload: .text("1234"), createdAt: Date(timeIntervalSince1970: 1), isPinned: true)
         let newest = ClipboardHistoryItem(payload: .text("12"), createdAt: Date(timeIntervalSince1970: 2))
         let duplicate = ClipboardHistoryItem(payload: .text("12"), createdAt: Date(timeIntervalSince1970: 3))
-        XCTAssertEqual(policy.bounded([oldPinned, newest, duplicate]).map(\.signature), [oldPinned.signature])
+        XCTAssertEqual(policy.bounded([duplicate, newest, oldPinned]).map(\.signature), [duplicate.signature, oldPinned.signature])
+    }
+
+    func testSystemPasteboardCapturesImageOnlyPasteboard() {
+        let pasteboard = NSPasteboard(name: NSPasteboard.Name("ClipboardHistoryTests.image"))
+        pasteboard.clearContents()
+        let data = Data([1, 2, 3])
+        pasteboard.setData(data, forType: .tiff)
+
+        let snapshot = SystemPasteboardClient(pasteboard).snapshot()
+
+        XCTAssertEqual(snapshot?.payload, .image(data))
     }
 
     func testHostilePasteboardTypesAreRejectedAndChangesConsumed() async {

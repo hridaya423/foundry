@@ -137,6 +137,7 @@ fi
 if [[ "${INSTALL_APP:-0}" == "1" ]]; then
     rm -rf "$INSTALL_DIR"
     cp -R "$APP_DIR" "$INSTALL_DIR"
+    /usr/bin/defaults write com.hridya.foundry foundry.sourceRoot "$ROOT_DIR"
 fi
 
 if [[ "${INSTALL_APP:-0}" == "1" ]]; then

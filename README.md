@@ -9,7 +9,7 @@ Foundry is a native macOS launcher and command palette. It requires macOS 14 or 
 - Currency exchange via Frankfurter
 - Translator with live language switching
 - Camera preview inside the launcher
-- Media downloads for direct links, Cobalt, and optional YouTube support
+- Media downloads for direct links, Cobalt, and automatic YouTube support through yt-dlp
 - Persistent local clipboard history for text, files, and images
 - Apple Notes search and quick actions
 - File Shelf and file conversion
@@ -33,3 +33,5 @@ The default build creates `build/Foundry.app` without installing or launching it
 ```
 
 Install with `INSTALL_APP=1 ./scripts/build-app.sh`. Add `LAUNCH_APP=1` to launch the installed copy.
+
+YouTube downloads automatically install the current `yt-dlp` formula through Homebrew when needed.

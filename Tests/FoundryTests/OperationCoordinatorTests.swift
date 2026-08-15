@@ -53,4 +53,21 @@ final class OperationCoordinatorTests: XCTestCase {
         XCTAssertFalse(coordinator.updateProgress(id: id, progress: .items(completed: 2, total: 2)))
         XCTAssertFalse(coordinator.updateProgress(id: UUID(), progress: .indeterminate))
     }
+
+    func testProvisioningCanCompleteWithoutConversion() {
+        let coordinator = OperationCoordinator()
+        let id = coordinator.start()
+        XCTAssertTrue(coordinator.update(id: id, phase: .provisioning, progress: nil))
+        XCTAssertTrue(coordinator.update(id: id, phase: .completed, progress: nil))
+    }
+
+    func testAssessingAndProvisioningCanEnterProcessingDirectly() {
+        let coordinator = OperationCoordinator()
+        let assessing = coordinator.start()
+        XCTAssertTrue(coordinator.update(id: assessing, phase: .processing, progress: nil))
+
+        let provisioning = coordinator.start()
+        XCTAssertTrue(coordinator.update(id: provisioning, phase: .provisioning, progress: nil))
+        XCTAssertTrue(coordinator.update(id: provisioning, phase: .processing, progress: nil))
+    }
 }

@@ -14,6 +14,7 @@ final class ShellController {
     private let clipboardHistory: ClipboardHistoryState
     private let snippetExpansion: SnippetExpansionService
     private var hasStarted = false
+    private var workspaceObservers: [NSObjectProtocol] = []
 
     init(
         registry: CommandRegistry,
@@ -61,12 +62,15 @@ final class ShellController {
         diagnostics.log("Foundry shell starting")
         clipboardHistory.start()
         configureSnippetExpansion()
-        NotificationCenter.default.addObserver(forName: NSWorkspace.didActivateApplicationNotification, object: nil, queue: .main) { [weak self] _ in
-            self?.snippetExpansion.resetForApplicationChange()
-        }
-        NotificationCenter.default.addObserver(forName: NSWorkspace.didWakeNotification, object: nil, queue: .main) { [weak self] _ in
+        let workspaceCenter = NSWorkspace.shared.notificationCenter
+        workspaceObservers.append(workspaceCenter.addObserver(forName: NSWorkspace.didActivateApplicationNotification, object: nil, queue: .main) { [weak self] notification in
+            let application = notification.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication
+            self?.snippetExpansion.handleApplicationActivation(bundleIdentifier: application?.bundleIdentifier)
+        })
+        snippetExpansion.handleApplicationActivation(bundleIdentifier: NSWorkspace.shared.frontmostApplication?.bundleIdentifier)
+        workspaceObservers.append(workspaceCenter.addObserver(forName: NSWorkspace.didWakeNotification, object: nil, queue: .main) { [weak self] _ in
             self?.snippetExpansion.recoverFromWake()
-        }
+        })
         hotkeyController.onPressed = { [weak self] in
             Task { @MainActor in
                 self?.togglePanel()
@@ -86,6 +90,9 @@ final class ShellController {
     func stop() {
         guard hasStarted else { return }
         hasStarted = false
+        let workspaceCenter = NSWorkspace.shared.notificationCenter
+        workspaceObservers.forEach(workspaceCenter.removeObserver)
+        workspaceObservers.removeAll()
         snippetExpansion.stop()
         panelState.shutdown()
         hotkeyController.unregister()

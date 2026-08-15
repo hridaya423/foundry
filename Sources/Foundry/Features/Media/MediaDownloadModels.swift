@@ -30,30 +30,6 @@ struct MediaDownloadCapabilities: Equatable, Sendable {
     let youtube: MediaDownloadCapability
 }
 
-struct YouTubeProvisioningConsent: Equatable, Sendable {
-    let approvedFormula: String
-    let disclosure: String
-
-    init(approvedFormula: String = "yt-dlp", disclosure: String = "Homebrew installs the current yt-dlp formula") {
-        self.approvedFormula = approvedFormula
-        self.disclosure = disclosure
-    }
-}
-
-enum MediaDownloadProvisioningPhase: String, Sendable, Equatable {
-    case checking
-    case downloading
-    case installing
-    case verifying
-    case completed
-}
-
-struct MediaDownloadProvisioningProgress: Sendable, Equatable {
-    let phase: MediaDownloadProvisioningPhase
-    let message: String
-    let fractionCompleted: Double?
-}
-
 struct MediaDownloadProgress: Sendable, Equatable {
     var phase: MediaDownloadPhase
     var title: String
@@ -113,7 +89,7 @@ final class MediaDownloadManager: ObservableObject {
     @Published private(set) var capabilities = MediaDownloadCapabilities(
         direct: .ready(label: "Direct links · ready"),
         cobalt: .ready(label: "Cobalt · sends URL to Cobalt"),
-        youtube: .unavailable(label: "YouTube · yt-dlp", reason: "Set up yt-dlp explicitly")
+        youtube: .ready(label: "YouTube · yt-dlp automatic setup")
     )
 
     var activeCount: Int {

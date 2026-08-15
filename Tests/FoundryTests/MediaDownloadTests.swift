@@ -1,9 +1,151 @@
 import Foundation
 import XCTest
 @testable import Foundry
+import FoundryDomain
 import FoundryServices
 
 final class MediaDownloadTests: XCTestCase {
+    func testYouTubeDownloadResultDoesNotWaitForOptionalMetadata() async {
+        let provider = MediaDownloadProvider()
+
+        let results = await provider.search(CommandSearchRequest(query: "https://www.youtube.com/watch?v=video"))
+
+        XCTAssertEqual(results.first?.route, .mediaDownload)
+        XCTAssertEqual(results.first?.subtitle, "watch · save via YouTube · yt-dlp (automatic setup) to Downloads")
+    }
+
+    func testNonHTTPYouTubeURLDoesNotReachYTDLP() async {
+        let service = MediaDownloadService(dependencies: .init(
+            executableLocator: ExecutableLocator(fileInfo: { _ in true }),
+            processRunner: RejectingProcessRunner(),
+            networkPolicy: MediaNetworkPolicy(locator: EmptyMediaNetworkLocator())
+        ))
+
+        do {
+            _ = try await service.download(urlString: "ftp://youtube.com/watch?v=video")
+            XCTFail("Expected the URL policy to reject FTP")
+        } catch {
+            XCTAssertEqual(error as? MediaNetworkPolicyFailure, .blockedDestination)
+        }
+    }
+
+    func testYouTubeDownloadIsPassedToYTDLPWithoutFoundryDNSPreflight() async {
+        let destination = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: destination) }
+        let service = MediaDownloadService(dependencies: .init(
+            processRunner: RejectingProcessRunner(),
+            destination: destination,
+            networkPolicy: MediaNetworkPolicy(locator: EmptyMediaNetworkLocator())
+        ))
+
+        do {
+            _ = try await service.download(urlString: "https://www.youtube.com/watch?v=video")
+            XCTFail("Expected yt-dlp execution to stop the test")
+        } catch {
+            XCTAssertNotEqual(error as? MediaNetworkPolicyFailure, .blockedDestination)
+        }
+    }
+
+    func testYouTubeDownloadReportsMissingDependencyWhenNeitherYTDLPNorHomebrewExists() async {
+        let destination = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: destination) }
+        let service = MediaDownloadService(dependencies: .init(
+            executableLocator: ExecutableLocator(fileInfo: { _ in false }),
+            processRunner: RejectingProcessRunner(),
+            destination: destination,
+            networkPolicy: MediaNetworkPolicy(locator: EmptyMediaNetworkLocator())
+        ))
+
+        do {
+            _ = try await service.download(urlString: "https://www.youtube.com/watch?v=video")
+            XCTFail("Expected missing dependency")
+        } catch {
+            XCTAssertEqual(error as? MediaDownloadError, .youtubeDependencyMissing)
+        }
+    }
+
+    func testYouTubeDownloadInstallsYTDLPWithHomebrewWhenMissing() async {
+        let destination = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: destination) }
+        let availability = ExecutableAvailability()
+        let runner = AutoInstallingProcessRunner(availability: availability)
+        let service = MediaDownloadService(dependencies: .init(
+            executableLocator: ExecutableLocator(fileInfo: availability.exists),
+            processRunner: runner,
+            destination: destination,
+            networkPolicy: MediaNetworkPolicy(locator: EmptyMediaNetworkLocator())
+        ))
+
+        do {
+            _ = try await service.download(urlString: "https://www.youtube.com/watch?v=video")
+            XCTFail("Expected the fake yt-dlp execution to stop the test")
+        } catch is CancellationError {
+            XCTAssertEqual(runner.paths, ["/opt/homebrew/bin/brew", "/opt/homebrew/bin/yt-dlp"])
+            XCTAssertTrue(runner.arguments[1].contains("youtube:player_client=android,web"))
+            XCTAssertTrue(runner.arguments[1].contains("bv*[vcodec^=avc1][height<=1080]+ba[ext=m4a]/b[ext=mp4]/b"))
+            XCTAssertTrue(runner.arguments[1].contains("--merge-output-format"))
+        } catch {
+            XCTFail("Unexpected error: \(error)")
+        }
+    }
+
+    func testCancellingCobaltDownloadCancelsTheUnderlyingRequest() async throws {
+        let started = expectation(description: "Cobalt request started")
+        let stopped = expectation(description: "Cobalt request stopped")
+        DelayedMediaURLProtocol.onStart = { started.fulfill() }
+        DelayedMediaURLProtocol.onStop = { stopped.fulfill() }
+        defer { DelayedMediaURLProtocol.reset() }
+
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [DelayedMediaURLProtocol.self]
+        let service = MediaDownloadService(dependencies: .init(
+            session: URLSession(configuration: configuration),
+            networkPolicy: MediaNetworkPolicy(locator: StaticPublicMediaNetworkLocator()),
+            cobaltTimeout: 60
+        ))
+        let operation = Task {
+            try await service.download(urlString: "https://example.com/watch")
+        }
+
+        await fulfillment(of: [started], timeout: 1)
+        operation.cancel()
+        await fulfillment(of: [stopped], timeout: 1)
+
+        do {
+            _ = try await operation.value
+            XCTFail("Expected cancellation")
+        } catch is CancellationError {
+        }
+    }
+
+    func testCancellingDirectDownloadCancelsTheUnderlyingRequest() async throws {
+        let started = expectation(description: "Direct request started")
+        let stopped = expectation(description: "Direct request stopped")
+        DelayedMediaURLProtocol.onStart = { started.fulfill() }
+        DelayedMediaURLProtocol.onStop = { stopped.fulfill() }
+        defer { DelayedMediaURLProtocol.reset() }
+
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [DelayedMediaURLProtocol.self]
+        let service = MediaDownloadService(dependencies: .init(
+            session: URLSession(configuration: configuration),
+            networkPolicy: MediaNetworkPolicy(locator: StaticPublicMediaNetworkLocator())
+        ))
+        let operation = Task {
+            try await service.download(urlString: "https://example.com/video.mp4")
+        }
+
+        await fulfillment(of: [started], timeout: 1)
+        operation.cancel()
+        await fulfillment(of: [stopped], timeout: 1)
+
+        do {
+            _ = try await operation.value
+            XCTFail("Expected cancellation")
+        } catch is CancellationError {
+        }
+    }
+
     func testYTDLPParserReportsPlaylistPositionAndByteProgress() {
         let parser = YTDLPProgressParser()
 
@@ -37,25 +179,20 @@ final class MediaDownloadTests: XCTestCase {
         XCTAssertEqual(urls.map(\.lastPathComponent), ["one.mp4", "two.mp3"])
     }
 
-    func testMediaCapabilitiesExposeRoutesAndCobaltDisclosure() {
-        let result = MediaDownloadProvider().searchPolicy
-        XCTAssertEqual(result.tier, .deferred)
-        let capabilities = MediaDownloadCapabilities(
-            direct: .ready(label: "Direct links · ready"),
-            cobalt: .ready(label: "Cobalt · sends URL to Cobalt"),
-            youtube: .unavailable(label: "YouTube · yt-dlp", reason: "Set up yt-dlp explicitly")
-        )
+    func testMediaCapabilitiesReportInstalledYTDLPAsReady() {
+        let service = MediaDownloadService(dependencies: .init(
+            executableLocator: ExecutableLocator(fileInfo: { $0 == "/opt/homebrew/bin/yt-dlp" })
+        ))
 
-        XCTAssertEqual(capabilities.cobalt.label, "Cobalt · sends URL to Cobalt")
-        XCTAssertEqual(capabilities.youtube, .unavailable(label: "YouTube · yt-dlp", reason: "Set up yt-dlp explicitly"))
+        XCTAssertEqual(service.mediaCapabilities().youtube, .ready(label: "YouTube · yt-dlp ready"))
     }
 
-    func testProvisioningConsentTruthfullyDescribesUnpinnedHomebrewInstall() {
-        let consent = YouTubeProvisioningConsent()
-        XCTAssertEqual(consent.approvedFormula, "yt-dlp")
-        XCTAssertEqual(consent.disclosure, "Homebrew installs the current yt-dlp formula")
-        XCTAssertTrue(MediaDownloadError.invalidProvisioningConsent.isRetryable == false)
-        XCTAssertTrue(MediaDownloadError.provisioningFailed.isRetryable)
+    func testMediaCapabilitiesReportAutomaticSetupWhenHomebrewIsAvailable() {
+        let service = MediaDownloadService(dependencies: .init(
+            executableLocator: ExecutableLocator(fileInfo: { $0 == "/opt/homebrew/bin/brew" })
+        ))
+
+        XCTAssertEqual(service.mediaCapabilities().youtube, .ready(label: "YouTube · yt-dlp installs automatically"))
     }
 
     @MainActor
@@ -153,6 +290,89 @@ final class MediaDownloadTests: XCTestCase {
         XCTAssertTrue(collector.lines.contains(ProcessOutputLine(stream: .stdout, line: "out-one")))
         XCTAssertTrue(collector.lines.contains(ProcessOutputLine(stream: .stdout, line: "out-two")))
         XCTAssertTrue(collector.lines.contains(ProcessOutputLine(stream: .stderr, line: "err-one")))
+    }
+}
+
+private struct EmptyMediaNetworkLocator: MediaNetworkAddressLocating {
+    func addresses(for _: String) -> [String] { [] }
+}
+
+private struct StaticPublicMediaNetworkLocator: MediaNetworkAddressLocating {
+    func addresses(for _: String) -> [String] { ["93.184.216.34"] }
+}
+
+private final class DelayedMediaURLProtocol: URLProtocol {
+    nonisolated(unsafe) static var onStart: (() -> Void)?
+    nonisolated(unsafe) static var onStop: (() -> Void)?
+
+    override class func canInit(with _: URLRequest) -> Bool { true }
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+    override func startLoading() { Self.onStart?() }
+    override func stopLoading() { Self.onStop?() }
+
+    static func reset() {
+        onStart = nil
+        onStop = nil
+    }
+}
+
+private struct RejectingProcessRunner: ProcessRunning {
+    func run(path _: String, arguments _: [String], timeout _: TimeInterval, outputLimit _: Int, environment _: [String: String]?, currentDirectoryURL _: URL?, onOutput _: (@Sendable (ProcessOutputLine) -> Void)?) async throws -> ProcessResult {
+        throw CancellationError()
+    }
+}
+
+private final class ExecutableAvailability: @unchecked Sendable {
+    private let lock = NSLock()
+    private var ytDLPInstalled = false
+
+    func exists(_ path: String) -> Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        return path == "/opt/homebrew/bin/brew" || (path == "/opt/homebrew/bin/yt-dlp" && ytDLPInstalled)
+    }
+
+    func installYTDLP() {
+        lock.lock()
+        ytDLPInstalled = true
+        lock.unlock()
+    }
+}
+
+private final class AutoInstallingProcessRunner: ProcessRunning, @unchecked Sendable {
+    private let lock = NSLock()
+    private let availability: ExecutableAvailability
+    private var recordedPaths: [String] = []
+    private var recordedArguments: [[String]] = []
+
+    init(availability: ExecutableAvailability) {
+        self.availability = availability
+    }
+
+    var paths: [String] {
+        lock.lock()
+        defer { lock.unlock() }
+        return recordedPaths
+    }
+
+    var arguments: [[String]] {
+        lock.lock()
+        defer { lock.unlock() }
+        return recordedArguments
+    }
+
+    func run(path: String, arguments: [String], timeout _: TimeInterval, outputLimit _: Int, environment _: [String: String]?, currentDirectoryURL _: URL?, onOutput _: (@Sendable (ProcessOutputLine) -> Void)?) async throws -> ProcessResult {
+        record(path, arguments: arguments)
+        guard path == "/opt/homebrew/bin/brew" else { throw CancellationError() }
+        availability.installYTDLP()
+        return try await ProcessRunner.run(path: "/usr/bin/true", arguments: [])
+    }
+
+    private func record(_ path: String, arguments: [String]) {
+        lock.lock()
+        recordedPaths.append(path)
+        recordedArguments.append(arguments)
+        lock.unlock()
     }
 }
 

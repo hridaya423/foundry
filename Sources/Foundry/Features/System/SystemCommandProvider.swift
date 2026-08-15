@@ -8,7 +8,7 @@ final class SystemCommandProvider: CommandProvider, @unchecked Sendable {
     private let commands: [SystemCommand]
 
     init(diagnostics: DiagnosticsService) {
-        self.commands = Self.systemCommands()
+        self.commands = Self.systemCommands(includeRebuild: SourceRootLocator.locate() != nil)
     }
 
     func search(_ request: CommandSearchRequest) async -> [CommandResult] {
@@ -39,8 +39,8 @@ final class SystemCommandProvider: CommandProvider, @unchecked Sendable {
         }
     }
 
-    private static func systemCommands() -> [SystemCommand] {
-        [
+    private static func systemCommands(includeRebuild: Bool) -> [SystemCommand] {
+        var commands = [
             SystemCommand(
                 id: "system.lock-screen",
                 title: "Lock Screen",
@@ -648,7 +648,9 @@ final class SystemCommandProvider: CommandProvider, @unchecked Sendable {
                 actionTitle: "Open",
                 actionKind: .openApp(path: "/System/Applications/Utilities/Console.app", name: "Console")
             ),
-            SystemCommand(
+        ]
+        if includeRebuild {
+            commands.append(SystemCommand(
                 id: "system.rebuild-app",
                 title: "Rebuild Foundry App",
                 subtitle: "Build and sign a fresh Foundry.app bundle",
@@ -657,8 +659,9 @@ final class SystemCommandProvider: CommandProvider, @unchecked Sendable {
                 fallback: "BA",
                 actionTitle: "Rebuild",
                 actionKind: .rebuildApp
-            )
-        ]
+            ))
+        }
+        return commands
     }
 
     private static func settingsCommand(

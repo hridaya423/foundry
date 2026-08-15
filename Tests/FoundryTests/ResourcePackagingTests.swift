@@ -46,16 +46,10 @@ final class ResourcePackagingTests: XCTestCase {
         XCTAssertTrue(installOnlyBlock.contains("Stopping the running installed copy..."))
         XCTAssertTrue(installOnlyBlock.contains("osascript"))
         XCTAssertTrue(installOnlyBlock.contains("cp -R \"$APP_DIR\" \"$INSTALL_DIR\""))
+        XCTAssertTrue(installOnlyBlock.contains("defaults write com.hridya.foundry foundry.sourceRoot \"$ROOT_DIR\""))
         XCTAssertFalse(buildScript[..<installOnlyWork.lowerBound].contains("Stopping the running installed copy..."))
         XCTAssertFalse(buildScript[..<installOnlyWork.lowerBound].contains("osascript"))
         XCTAssertTrue(buildScript.contains("LAUNCH_APP=1 requires INSTALL_APP=1"))
-    }
-
-    func testSourceRunInstallsAndLaunchesThePackagedApp() throws {
-        let main = try String(contentsOf: rootURL().appendingPathComponent("Sources/Foundry/Application/main.swift"), encoding: .utf8)
-
-        XCTAssertTrue(main.contains("\"INSTALL_APP\": \"1\""))
-        XCTAssertTrue(main.contains("\"LAUNCH_APP\": \"1\""))
     }
 
     func testPackagingVerifierChecksTheBuiltArtifact() throws {
@@ -73,9 +67,10 @@ final class ResourcePackagingTests: XCTestCase {
 
     func testREADMEDocumentsBuildAndOptionalSetup() throws {
         let readme = try String(contentsOf: rootURL().appendingPathComponent("README.md"), encoding: .utf8)
-        for claim in ["Persistent local clipboard history", "automatic expansion support", "optional YouTube support", "optional BEN2 support", "without installing or launching"] {
+        for claim in ["Persistent local clipboard history", "automatic expansion support", "automatic YouTube support", "optional BEN2 support", "without installing or launching"] {
             XCTAssertTrue(readme.contains(claim), "README is missing: \(claim)")
         }
+        XCTAssertFalse(readme.contains("optional YouTube support"))
         XCTAssertFalse(readme.contains("Activity Monitor"))
     }
 

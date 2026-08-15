@@ -86,6 +86,7 @@ final class DirectPasteService {
 
     func stage(_ payload: ClipboardPayload, cursorOffset: Int = 0, snippetID: String? = nil) throws {
         guard target != nil else { throw DirectPasteError.missingTarget }
+        guard pending == nil else { throw DirectPasteError.stagingFailed }
         previousItems = pasteboard.pasteboardItems?.map { item in
             let copy = NSPasteboardItem()
             for type in item.types {

@@ -12,17 +12,35 @@ final class SnippetExpansionService: @unchecked Sendable {
     private var runLoopSource: CFRunLoopSource?
     private var engine: SnippetExpansionEngine
     private var isConfigured = false
+    private var accessibilityRetryCancellation: (() -> Void)?
+    private var accessibilityRetryAttempts = 0
+    private var testEventTapRunning = false
+    private let accessibilityTrusted: () -> Bool
+    private let requestAccessibilityPrompt: () -> Void
+    private let scheduleAccessibilityRetry: (@escaping @Sendable () -> Void) -> (() -> Void)
+    private let startEventTap: (() -> Bool)?
     private(set) var lastError: String?
     var onStatusChanged: ((String?) -> Void)?
 
-    init(snippetStore: any SnippetStore = FileSnippetStore(), directPaste: DirectPasteService) {
+    init(
+        snippetStore: any SnippetStore = FileSnippetStore(),
+        directPaste: DirectPasteService,
+        accessibilityTrusted: @escaping () -> Bool = AXIsProcessTrusted,
+        requestAccessibilityPrompt: @escaping () -> Void = { _ = AXIsProcessTrustedWithOptions(["AXTrustedCheckOptionPrompt": true] as CFDictionary) },
+        scheduleAccessibilityRetry: @escaping (@escaping @Sendable () -> Void) -> (() -> Void) = SnippetExpansionService.scheduleRetry,
+        startEventTap: (() -> Bool)? = nil
+    ) {
         self.snippetStore = snippetStore
         self.directPaste = directPaste
         self.engine = SnippetExpansionEngine(snippets: [])
+        self.accessibilityTrusted = accessibilityTrusted
+        self.requestAccessibilityPrompt = requestAccessibilityPrompt
+        self.scheduleAccessibilityRetry = scheduleAccessibilityRetry
+        self.startEventTap = startEventTap
     }
 
-    var isRunning: Bool { eventTap != nil }
-    var isAccessibilityTrusted: Bool { AXIsProcessTrusted() }
+    var isRunning: Bool { eventTap != nil || testEventTapRunning }
+    var isAccessibilityTrusted: Bool { accessibilityTrusted() }
 
     func configure(isEnabled: Bool, excludedBundleIdentifiers: [String]) {
         lastError = nil
@@ -34,11 +52,15 @@ final class SnippetExpansionService: @unchecked Sendable {
         )
         engine.setEnabled(isEnabled)
         isConfigured = isEnabled
-        if isEnabled && AXIsProcessTrusted() { start() } else { stop() }
+        if isEnabled && accessibilityTrusted() { start() } else { stop() }
     }
 
     func start() {
-        guard isConfigured, AXIsProcessTrusted(), eventTap == nil else { return }
+        guard isConfigured, accessibilityTrusted(), eventTap == nil, testEventTapRunning == false else { return }
+        if let startEventTap {
+            testEventTapRunning = startEventTap()
+            return
+        }
         let callback: CGEventTapCallBack = { _, type, event, userInfo in
             guard let userInfo else { return Unmanaged.passUnretained(event) }
             let service = Unmanaged<SnippetExpansionService>.fromOpaque(userInfo).takeUnretainedValue()
@@ -61,6 +83,9 @@ final class SnippetExpansionService: @unchecked Sendable {
     }
 
     func stop() {
+        accessibilityRetryCancellation?()
+        accessibilityRetryCancellation = nil
+        testEventTapRunning = false
         if let eventTap { CGEvent.tapEnable(tap: eventTap, enable: false) }
         if let runLoopSource { CFRunLoopRemoveSource(CFRunLoopGetMain(), runLoopSource, .commonModes) }
         eventTap = nil
@@ -69,10 +94,25 @@ final class SnippetExpansionService: @unchecked Sendable {
     }
 
     func resetForApplicationChange() { _ = engine.receive(.reset) }
+    func handleApplicationActivation(bundleIdentifier: String?) { _ = engine.receive(.appChanged(bundleIdentifier: bundleIdentifier)) }
     func recoverFromWake() { _ = engine.receive(.reset); start() }
 
     func requestAccessibilityAccess() {
-        _ = AXIsProcessTrustedWithOptions(["AXTrustedCheckOptionPrompt": true] as CFDictionary)
+        requestAccessibilityPrompt()
+        guard isConfigured, eventTap == nil, testEventTapRunning == false, accessibilityRetryCancellation == nil else { return }
+        accessibilityRetryAttempts = 0
+        accessibilityRetryCancellation = scheduleAccessibilityRetry { [weak self] in
+            guard let self else { return }
+            self.accessibilityRetryAttempts += 1
+            if self.accessibilityTrusted() {
+                self.accessibilityRetryCancellation?()
+                self.accessibilityRetryCancellation = nil
+                self.start()
+            } else if self.accessibilityRetryAttempts >= 60 {
+                self.accessibilityRetryCancellation?()
+                self.accessibilityRetryCancellation = nil
+            }
+        }
     }
 
     func openAccessibilitySettings() { NSWorkspace.shared.open(Self.accessibilitySettingsURL) }
@@ -141,6 +181,15 @@ final class SnippetExpansionService: @unchecked Sendable {
     }
 
     private func isDelimiter(_ value: String) -> Bool { [" ", "\n", "\r", "\t", "'", "\"", "`"].contains(value) }
+
+    private static func scheduleRetry(_ callback: @escaping @Sendable () -> Void) -> (() -> Void) {
+        var timer: Timer?
+        timer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { _ in callback() }
+        return {
+            timer?.invalidate()
+            timer = nil
+        }
+    }
 
     private static func sendBackspace() {
         let down = CGEvent(keyboardEventSource: nil, virtualKey: CGKeyCode(kVK_Delete), keyDown: true)

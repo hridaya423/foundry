@@ -6,10 +6,6 @@ protocol MediaDownloading: Sendable {
     var downloadFolder: URL { get }
 
     func mediaCapabilities() -> MediaDownloadCapabilities
-    func provisionYouTube(
-        consent: YouTubeProvisioningConsent,
-        progress: (@MainActor @Sendable (MediaDownloadProvisioningProgress) -> Void)?
-    ) async throws
 
     func download(
         urlString: String,
@@ -28,19 +24,11 @@ extension MediaDownloading {
         MediaDownloadCapabilities(
             direct: .ready(label: "Direct links · ready"),
             cobalt: .ready(label: "Cobalt · sends URL to Cobalt"),
-            youtube: .unavailable(label: "YouTube · yt-dlp", reason: "Set up yt-dlp explicitly")
+            youtube: .ready(label: "YouTube · yt-dlp automatic setup")
         )
     }
 
-    func provisionYouTube(
-        consent _: YouTubeProvisioningConsent,
-        progress _: (@MainActor @Sendable (MediaDownloadProvisioningProgress) -> Void)?
-    ) async throws {
-        throw MediaDownloadError.provisioningUnavailable
-    }
-}
 
-extension MediaDownloading {
     func download(
         urlString: String,
         status: (@MainActor @Sendable (String) -> Void)?,
@@ -111,7 +99,6 @@ final class MediaDownloadService: MediaDownloading, @unchecked Sendable {
         progress: (@MainActor @Sendable (MediaDownloadProgress) -> Void)? = nil
     ) async throws -> String {
         guard let url = URL(string: urlString) else { throw MediaDownloadError.invalidURL }
-        try dependencies.networkPolicy.validate(url)
         let initialTitle = url.lastPathComponent.isEmpty ? "Media download" : url.lastPathComponent
 
         do {
@@ -119,19 +106,21 @@ final class MediaDownloadService: MediaDownloading, @unchecked Sendable {
             emit(.starting(title: initialTitle), progress)
 
             if MediaDownloadProvider.isDirectMediaFile(url) {
+                try dependencies.networkPolicy.validate(url)
                 let file = try await downloadDirectFile(url, status: status, progress: progress)
                 return "Downloaded \(file.lastPathComponent)"
             }
 
             if isYouTube(url) {
-                report("Checking yt-dlp", status)
-                let executable = try existingYTDLP()
+                report("Preparing yt-dlp", status)
+                let executable = try await installYTDLPIfNeeded()
                 let playlistLabel = isPlaylist(url) ? "playlist" : "media"
                 report("Downloading \(playlistLabel)", status)
                 try await runYTDLP(executable, url: url, progress: progress)
                 return "Downloaded YouTube media to \(downloadFolder.path)"
             }
 
+            try dependencies.networkPolicy.validate(url)
             let file = try await downloadWithCobalt(url, status: status, progress: progress)
             return "Downloaded \(file.lastPathComponent)"
         } catch {
@@ -200,7 +189,8 @@ final class MediaDownloadService: MediaDownloading, @unchecked Sendable {
     }
 
     private func isYouTube(_ url: URL) -> Bool {
-        guard let host = url.host?.lowercased() else { return false }
+        guard let scheme = url.scheme?.lowercased(), ["http", "https"].contains(scheme),
+              let host = url.host?.lowercased() else { return false }
         return host == "youtu.be" || host == "youtube.com" || host.hasSuffix(".youtube.com")
     }
 
@@ -216,9 +206,14 @@ final class MediaDownloadService: MediaDownloading, @unchecked Sendable {
     }
 
     func mediaCapabilities() -> MediaDownloadCapabilities {
-        let youtube: MediaDownloadCapability = (try? existingYTDLP()) != nil
-            ? .ready(label: "YouTube · yt-dlp ready")
-            : .unavailable(label: "YouTube · yt-dlp", reason: "Set up yt-dlp explicitly")
+        let youtube: MediaDownloadCapability
+        if (try? existingYTDLP()) != nil {
+            youtube = .ready(label: "YouTube · yt-dlp ready")
+        } else if firstExistingPath(["/opt/homebrew/bin/brew", "/usr/local/bin/brew"]) != nil {
+            youtube = .ready(label: "YouTube · yt-dlp installs automatically")
+        } else {
+            youtube = .unavailable(label: "YouTube · yt-dlp", reason: "Homebrew is required for automatic setup")
+        }
         return MediaDownloadCapabilities(
             direct: .ready(label: "Direct links · ready"),
             cobalt: .ready(label: "Cobalt · sends URL to Cobalt"),
@@ -226,29 +221,14 @@ final class MediaDownloadService: MediaDownloading, @unchecked Sendable {
         )
     }
 
-    func provisionYouTube(
-        consent: YouTubeProvisioningConsent,
-        progress: (@MainActor @Sendable (MediaDownloadProvisioningProgress) -> Void)? = nil
-    ) async throws {
-        guard consent.approvedFormula == "yt-dlp", consent.disclosure == "Homebrew installs the current yt-dlp formula" else {
-            throw MediaDownloadError.invalidProvisioningConsent
-        }
-        emitProvisioning(.init(phase: .checking, message: "Checking Homebrew", fractionCompleted: 0), progress)
-        guard let brew = firstExistingPath(["/opt/homebrew/bin/brew", "/usr/local/bin/brew"]) else {
-            throw MediaDownloadError.provisioningUnavailable
-        }
+    private func installYTDLPIfNeeded() async throws -> String {
+        if let executable = try? existingYTDLP() { return executable }
+        guard let brew = firstExistingPath(["/opt/homebrew/bin/brew", "/usr/local/bin/brew"]) else { throw MediaDownloadError.youtubeDependencyMissing }
         try Task.checkCancellation()
-        emitProvisioning(.init(phase: .installing, message: "Installing yt-dlp via Homebrew (current formula)", fractionCompleted: 0.5), progress)
         let result = try await dependencies.processRunner.run(path: brew, arguments: ["install", "yt-dlp"], timeout: 30 * 60, outputLimit: 2 * 1024 * 1024, environment: nil, currentDirectoryURL: nil, onOutput: nil)
-        guard result.succeeded else { throw MediaDownloadError.provisioningFailed }
+        guard result.succeeded else { throw MediaDownloadError.message(result.stderr.isEmpty ? "Homebrew could not install yt-dlp" : result.stderr) }
         try Task.checkCancellation()
-        guard (try? existingYTDLP()) != nil else { throw MediaDownloadError.provisioningFailed }
-        emitProvisioning(.init(phase: .completed, message: "yt-dlp is ready", fractionCompleted: 1), progress)
-    }
-
-    private func emitProvisioning(_ value: MediaDownloadProvisioningProgress, _ progress: (@MainActor @Sendable (MediaDownloadProvisioningProgress) -> Void)?) {
-        guard let progress else { return }
-        Task { @MainActor in progress(value) }
+        return try existingYTDLP()
     }
 
     private func downloadWithCobalt(
@@ -276,9 +256,6 @@ final class MediaDownloadService: MediaDownloading, @unchecked Sendable {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = try JSONSerialization.data(withJSONObject: ["url": sourceURL.absoluteString])
 
-        let pinned = try dependencies.networkPolicy.pinnedURL(for: dependencies.cobaltEndpoint)
-        request.url = pinned.url
-        request.setValue(pinned.host, forHTTPHeaderField: "Host")
         let (data, cobaltResponse) = try await cobaltResponseData(request)
         if let cobaltResponse = cobaltResponse as? HTTPURLResponse, !(200..<300).contains(cobaltResponse.statusCode) {
             throw MediaNetworkPolicyFailure.invalidStatus(cobaltResponse.statusCode)
@@ -336,7 +313,7 @@ final class MediaDownloadService: MediaDownloading, @unchecked Sendable {
         defer { try? dependencies.artifactFileSystem.removeItem(at: staging) }
         let result = try await dependencies.processRunner.run(
             path: path,
-            arguments: ["--newline", "-P", staging.path, "-o", "%(title).200B [%(id)s].%(ext)s", url.absoluteString],
+            arguments: ["--newline", "--extractor-args", "youtube:player_client=android,web", "-f", "bv*[vcodec^=avc1][height<=1080]+ba[ext=m4a]/b[ext=mp4]/b", "--merge-output-format", "mp4", "-P", staging.path, "-o", "%(title).200B [%(id)s].%(ext)s", url.absoluteString],
             timeout: 30 * 60,
             outputLimit: 8 * 1024 * 1024,
             environment: nil,
@@ -387,15 +364,8 @@ final class MediaDownloadService: MediaDownloading, @unchecked Sendable {
     private func cobaltResponseData(_ request: URLRequest) async throws -> (Data, URLResponse) {
         try await withThrowingTaskGroup(of: (Data, URLResponse).self) { group in
             group.addTask {
-                let (bytes, response) = try await self.dependencies.session.bytes(for: request)
-                var body = Data()
-                for try await chunk in bytes {
-                    body.append(chunk)
-                    if Int64(body.count) > self.dependencies.cobaltResponseMaxBytes {
-                        throw MediaNetworkPolicyFailure.responseTooLarge
-                    }
-                }
-                return (body, response)
+                let delegate = CobaltResponseDelegate(policy: self.dependencies.networkPolicy, maxBytes: self.dependencies.cobaltResponseMaxBytes, trustEvaluator: self.dependencies.trustEvaluator)
+                return try await delegate.start(request, session: self.dependencies.session)
             }
             group.addTask {
                 try await Task.sleep(for: .seconds(self.dependencies.cobaltTimeout))
@@ -424,6 +394,136 @@ final class MediaDownloadService: MediaDownloading, @unchecked Sendable {
         paths.first { (try? dependencies.executableLocator.locate(name: URL(fileURLWithPath: $0).lastPathComponent, candidates: [$0], environment: [:])) != nil }
     }
 
+}
+
+private final class CobaltResponseDelegate: NSObject, URLSessionDataDelegate, URLSessionTaskDelegate, @unchecked Sendable {
+    private let lock = NSLock()
+    private let policy: MediaNetworkPolicy
+    private let maxBytes: Int64
+    private let trustEvaluator: @Sendable (SecTrust) -> Bool
+    private var body = Data()
+    private var continuation: CheckedContinuation<(Data, URLResponse), Error>?
+    private var response: URLResponse?
+    private var pendingError: Error?
+    private var redirectCount = 0
+    private var task: URLSessionDataTask?
+    private var session: URLSession?
+    private var cancelled = false
+
+    init(policy: MediaNetworkPolicy, maxBytes: Int64, trustEvaluator: @escaping @Sendable (SecTrust) -> Bool) {
+        self.policy = policy
+        self.maxBytes = maxBytes
+        self.trustEvaluator = trustEvaluator
+    }
+
+    func start(_ request: URLRequest, session: URLSession) async throws -> (Data, URLResponse) {
+        try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { continuation in
+                lock.lock()
+                guard !cancelled else {
+                    lock.unlock()
+                    continuation.resume(throwing: CancellationError())
+                    return
+                }
+                self.continuation = continuation
+                let delegateSession = URLSession(configuration: session.configuration, delegate: self, delegateQueue: nil)
+                self.session = delegateSession
+                let task = delegateSession.dataTask(with: request)
+                self.task = task
+                lock.unlock()
+                task.resume()
+            }
+        } onCancel: {
+            self.cancel()
+        }
+    }
+
+    func cancel() {
+        lock.lock()
+        cancelled = true
+        let continuation = self.continuation
+        self.continuation = nil
+        let task = self.task
+        self.task = nil
+        let session = self.session
+        self.session = nil
+        lock.unlock()
+        task?.cancel()
+        session?.invalidateAndCancel()
+        continuation?.resume(throwing: CancellationError())
+    }
+
+    func urlSession(_: URLSession, task _: URLSessionTask, willPerformHTTPRedirection response: HTTPURLResponse, newRequest request: URLRequest, completionHandler: @Sendable @escaping (URLRequest?) -> Void) {
+        do {
+            guard let url = request.url else { throw MediaNetworkPolicyFailure.blockedDestination }
+            lock.lock()
+            redirectCount += 1
+            let count = redirectCount
+            lock.unlock()
+            try policy.validateRedirect(from: response.url, to: url, count: count)
+            completionHandler(request)
+        } catch {
+            lock.lock()
+            pendingError = error
+            lock.unlock()
+            completionHandler(nil)
+        }
+    }
+
+    func urlSession(_: URLSession, didReceive challenge: URLAuthenticationChallenge, completionHandler: @Sendable @escaping (URLSession.AuthChallengeDisposition, URLCredential?) -> Void) {
+        guard challenge.protectionSpace.authenticationMethod == NSURLAuthenticationMethodServerTrust,
+              let trust = challenge.protectionSpace.serverTrust,
+              let host = challenge.protectionSpace.host.isEmpty ? nil : challenge.protectionSpace.host else {
+            completionHandler(.performDefaultHandling, nil)
+            return
+        }
+        SecTrustSetPolicies(trust, SecPolicyCreateSSL(true, host as CFString))
+        guard trustEvaluator(trust) else {
+            lock.lock()
+            pendingError = MediaNetworkPolicyFailure.blockedDestination
+            lock.unlock()
+            completionHandler(.cancelAuthenticationChallenge, nil)
+            return
+        }
+        completionHandler(.useCredential, URLCredential(trust: trust))
+    }
+
+    func urlSession(_: URLSession, dataTask: URLSessionDataTask, didReceive response: URLResponse, completionHandler: @Sendable @escaping (URLSession.ResponseDisposition) -> Void) {
+        lock.lock()
+        self.response = response
+        lock.unlock()
+        completionHandler(.allow)
+    }
+
+    func urlSession(_: URLSession, dataTask _: URLSessionDataTask, didReceive data: Data) {
+        lock.lock()
+        body.append(data)
+        let tooLarge = Int64(body.count) > maxBytes
+        let task = self.task
+        lock.unlock()
+        if tooLarge {
+            lock.lock()
+            pendingError = MediaNetworkPolicyFailure.responseTooLarge
+            lock.unlock()
+            task?.cancel()
+        }
+    }
+
+    func urlSession(_: URLSession, task _: URLSessionTask, didCompleteWithError error: Error?) {
+        lock.lock()
+        let result = (continuation, body, response, pendingError ?? error)
+        continuation = nil
+        let session = self.session
+        lock.unlock()
+        if let error = result.3 {
+            result.0?.resume(throwing: error)
+        } else if let response = result.2 {
+            result.0?.resume(returning: (result.1, response))
+        } else {
+            result.0?.resume(throwing: MediaDownloadError.cobaltResponseInvalid)
+        }
+        session?.finishTasksAndInvalidate()
+    }
 }
 
 private final class MediaDownloadDelegate: NSObject, URLSessionDownloadDelegate, URLSessionTaskDelegate, @unchecked Sendable {
@@ -460,7 +560,7 @@ private final class MediaDownloadDelegate: NSObject, URLSessionDownloadDelegate,
             let count = redirectCount
             lock.unlock()
             guard let url = request.url else { throw MediaNetworkPolicyFailure.blockedDestination }
-            try policy.validateRedirect(to: url, count: count)
+            try policy.validateRedirect(from: response.url, to: url, count: count)
             let pinned = try policy.pinnedURL(for: url)
             lock.lock()
             certificateHost = url.host
@@ -471,10 +571,7 @@ private final class MediaDownloadDelegate: NSObject, URLSessionDownloadDelegate,
             completionHandler(pinnedRequest)
         } catch {
             completionHandler(nil)
-            cancel()
-            lock.lock()
-            pendingError = error
-            lock.unlock()
+            cancel(with: error)
         }
         _ = response
     }
@@ -488,6 +585,11 @@ private final class MediaDownloadDelegate: NSObject, URLSessionDownloadDelegate,
             return
         }
         lock.lock()
+        guard didFinish == false else {
+            lock.unlock()
+            continuation.resume(throwing: CancellationError())
+            return
+        }
         self.continuation = continuation
         startedAt = Date()
         let delegateSession = URLSession(configuration: session.configuration, delegate: self, delegateQueue: nil)
@@ -523,11 +625,26 @@ private final class MediaDownloadDelegate: NSObject, URLSessionDownloadDelegate,
         _ = session
     }
 
-    func cancel() {
+    func cancel(with error: Error = CancellationError()) {
         lock.lock()
+        guard didFinish == false else {
+            lock.unlock()
+            return
+        }
+        didFinish = true
+        pendingError = error
+        let continuation = self.continuation
+        self.continuation = nil
         let task = self.task
+        self.task = nil
+        let session = self.session
+        self.session = nil
+        let temporaryURL = self.temporaryURL
         lock.unlock()
         task?.cancel()
+        session?.invalidateAndCancel()
+        if let temporaryURL { try? fileSystem.removeItem(at: temporaryURL) }
+        continuation?.resume(throwing: error)
     }
 
     func urlSession(
@@ -734,9 +851,6 @@ final class YTDLPProgressParser: @unchecked Sendable {
 enum MediaDownloadError: LocalizedError, Equatable {
     case invalidURL
     case youtubeDependencyMissing
-    case invalidProvisioningConsent
-    case provisioningUnavailable
-    case provisioningFailed
     case cobaltResponseInvalid
     case cobaltDidNotReturnFile
     case retryable(String)
@@ -744,7 +858,7 @@ enum MediaDownloadError: LocalizedError, Equatable {
 
     var isRetryable: Bool {
         switch self {
-        case .retryable, .cobaltResponseInvalid, .cobaltDidNotReturnFile, .provisioningFailed: true
+        case .retryable, .cobaltResponseInvalid, .cobaltDidNotReturnFile: true
         default: false
         }
     }
@@ -752,10 +866,7 @@ enum MediaDownloadError: LocalizedError, Equatable {
     var errorDescription: String? {
         switch self {
         case .invalidURL: "Invalid media URL"
-        case .youtubeDependencyMissing: "yt-dlp is not installed; set it up explicitly before downloading YouTube media"
-        case .invalidProvisioningConsent: "Exact yt-dlp provisioning consent is required"
-        case .provisioningUnavailable: "yt-dlp provisioning is unavailable"
-        case .provisioningFailed: "yt-dlp provisioning failed"
+        case .youtubeDependencyMissing: "yt-dlp is missing and Homebrew was not found"
         case .cobaltResponseInvalid: "Cobalt returned an invalid response"
         case .cobaltDidNotReturnFile: "Cobalt did not return a downloadable file"
         case let .retryable(message): message

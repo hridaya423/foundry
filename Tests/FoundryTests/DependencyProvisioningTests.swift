@@ -2,6 +2,19 @@ import XCTest
 import FoundryServices
 
 final class DependencyProvisioningTests: XCTestCase {
+    func testDefaultLocatorAcceptsExecutableSymlinks() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let executable = root.appendingPathComponent("tool-real")
+        let symlink = root.appendingPathComponent("tool")
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        try Data("#!/bin/sh\n".utf8).write(to: executable)
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: executable.path)
+        try FileManager.default.createSymbolicLink(at: symlink, withDestinationURL: executable)
+
+        XCTAssertEqual(try ExecutableLocator().locate(name: "tool", candidates: [symlink.path], environment: [:])?.path, symlink.path)
+    }
+
     func testCapabilityStatesAreEquatable() {
         XCTAssertEqual(CapabilityState.ready, .ready)
         XCTAssertEqual(CapabilityState.setupRequired(SetupPlan(commands: [], artifacts: [], mutationScope: "none", cleanupOwnership: "none", disclosure: "none")), CapabilityState.setupRequired(SetupPlan(commands: [], artifacts: [], mutationScope: "none", cleanupOwnership: "none", disclosure: "none")))

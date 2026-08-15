@@ -12,6 +12,8 @@ final class SystemPasteboardClient: PasteboardClient {
         guard !hostile else { return nil }
         if let urls = pasteboard.readObjects(forClasses: [NSURL.self], options: nil) as? [URL], !urls.isEmpty { return PasteboardSnapshot(types: types, payload: .files(urls), sourceBundleIdentifier: NSWorkspace.shared.frontmostApplication?.bundleIdentifier) }
         if let value = pasteboard.string(forType: .string), !value.isEmpty { return PasteboardSnapshot(types: types, payload: .text(value), sourceBundleIdentifier: NSWorkspace.shared.frontmostApplication?.bundleIdentifier) }
+        if let data = pasteboard.data(forType: .tiff), !data.isEmpty { return PasteboardSnapshot(types: types, payload: .image(data), sourceBundleIdentifier: NSWorkspace.shared.frontmostApplication?.bundleIdentifier) }
+        if let data = pasteboard.data(forType: .png), !data.isEmpty { return PasteboardSnapshot(types: types, payload: .image(data), sourceBundleIdentifier: NSWorkspace.shared.frontmostApplication?.bundleIdentifier) }
         return nil
     }
     func write(_ payload: ClipboardPayload) { pasteboard.clearContents(); switch payload { case .text(let v): pasteboard.setString(v, forType: .string); case .files(let v): pasteboard.writeObjects(v as [NSURL]); case .image(let d): pasteboard.setData(d, forType: .tiff) } }

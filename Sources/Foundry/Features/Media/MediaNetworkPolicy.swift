@@ -147,8 +147,11 @@ struct MediaNetworkPolicy: Sendable {
         return (pinned, host)
     }
 
-    func validateRedirect(to url: URL, count: Int) throws {
+    func validateRedirect(from sourceURL: URL? = nil, to url: URL, count: Int) throws {
         guard count < maxRedirects else { throw MediaNetworkPolicyFailure.tooManyRedirects }
+        if sourceURL?.scheme?.lowercased() == "https", url.scheme?.lowercased() == "http" {
+            throw MediaNetworkPolicyFailure.blockedDestination
+        }
         try validate(url)
     }
 
@@ -217,9 +220,14 @@ struct MediaNetworkPolicy: Sendable {
         var v6 = in6_addr()
         if value.withCString({ inet_pton(AF_INET6, $0, &v6) }) == 1 {
             let bytes = withUnsafeBytes(of: v6) { Array($0) }
+            if bytes.prefix(10).allSatisfy({ $0 == 0 }) && bytes[10] == 255 && bytes[11] == 255 {
+                let hostOrder = UInt32(bytes[12]) << 24 | UInt32(bytes[13]) << 16 | UInt32(bytes[14]) << 8 | UInt32(bytes[15])
+                let first = UInt8((hostOrder >> 24) & 255), second = UInt8((hostOrder >> 16) & 255)
+                return hostOrder == 0 || first == 10 || first == 127 || (first == 169 && second == 254) || (first == 172 && (16...31).contains(second)) || (first == 192 && second == 168) || (first >= 224) || (first == 100 && (64...127).contains(second))
+            }
             return bytes.allSatisfy { $0 == 0 } || (bytes.dropLast().allSatisfy { $0 == 0 } && bytes.last == 1) || (bytes[0] & 0xfe) == 0xfc || (bytes[0] == 0xfe && (bytes[1] & 0xc0) == 0x80) || (bytes[0] & 0xff) == 0xff
         }
-        return true
+        return false
     }
 
     private func isMediaMIME(_ mime: String) -> Bool {

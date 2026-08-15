@@ -27,7 +27,13 @@ final class FileConversionState: ObservableObject {
     private let convertOperation: @Sendable (URL, FileConversionTarget, URL) async -> Result<URL, Error>
     private let operations: OperationCoordinator
     private var operationID: UUID?
+    private var conversionGeneration = UUID()
     private var lastRequest: (sources: [URL], target: FileConversionTarget, folder: URL)?
+
+    var currentOperationSnapshot: OperationSnapshot? {
+        guard let operationID else { return nil }
+        return operations.snapshot(id: operationID)
+    }
 
     init(
         assess: @escaping @Sendable (FileConversionTarget) async -> CapabilityState = { await FileConversionService.assess($0) },
@@ -64,7 +70,7 @@ final class FileConversionState: ObservableObject {
         outputURL = nil
         dependencySetup = nil
         capabilities = [:]
-        phase = .assessing; progress = nil; failure = nil; itemOutcomes = []; operationID = nil; lastRequest = nil
+        phase = .assessing; progress = nil; failure = nil; itemOutcomes = []; operationID = nil; lastRequest = nil; conversionGeneration = UUID()
         conversionTask?.cancel()
         conversionTask = nil
     }
@@ -169,12 +175,13 @@ final class FileConversionState: ObservableObject {
     func capability(for target: FileConversionTarget) -> FileConversionCapability? { capabilities[target.id] }
 
     func cancel() {
+        conversionGeneration = UUID()
         conversionTask?.cancel()
         conversionTask = nil
         isConverting = false
         status = "Conversion cancelled"
         phase = .cancelled
-        cancelRemaining(sourceURLs)
+        cancelRemaining(sourceURLs, operationID: operationID)
     }
 
     private func startConversion(sourceURLs: [URL], target: FileConversionTarget, operationID existingID: UUID? = nil, preservingCompleted: [FileConversionItemOutcome] = []) {
@@ -182,34 +189,35 @@ final class FileConversionState: ObservableObject {
         let total = sourceURLs.count
         lastRequest = (sourceURLs, target, outputFolderURL)
         if existingID == nil {
-            itemOutcomes = preservingCompleted + sourceURLs.map { FileConversionItemOutcome(sourceURL: $0, state: .pending, outputURL: nil, failure: nil) }
+            let completed = Dictionary(uniqueKeysWithValues: preservingCompleted.map { ($0.sourceURL, $0) })
+            itemOutcomes = sourceURLs.map { completed[$0] ?? FileConversionItemOutcome(sourceURL: $0, state: .pending, outputURL: nil, failure: nil) }
         } else {
             for sourceURL in sourceURLs { setOutcome(sourceURL, state: .pending, outputURL: nil, failure: nil) }
         }
         failure = nil
         let operationID = existingID ?? operations.start(retryDescriptor: RetryDescriptor(maxAttempts: 3))
         self.operationID = operationID
+        let generation = UUID()
+        conversionGeneration = generation
         phase = .processing
-        progress = .items(completed: 0, total: total)
-        if existingID != nil {
-            operations.update(id: operationID, phase: .downloading, progress: progress)
-            operations.update(id: operationID, phase: .verifying, progress: progress)
-            operations.update(id: operationID, phase: .processing, progress: progress)
-        }
+        let completedBeforeStart = itemOutcomes.filter { $0.state == .completed }.count
+        progress = .items(completed: completedBeforeStart, total: total)
+        operations.update(id: operationID, phase: .processing, progress: progress)
         conversionTask?.cancel()
         isConverting = true
-        outputURLs = []
-        outputURL = nil
+        outputURLs = itemOutcomes.compactMap(\.outputURL)
+        outputURL = outputURLs.last
         status = total == 1
             ? (FileConversionService.preflightStatus(for: target) ?? "Converting to \(target.title)…")
             : "Preparing \(total) files..."
 
         conversionTask = Task { [weak self] in
-            var outputs: [URL] = []
-            var failures: [String] = []
+            let workSources = sourceURLs.filter { url in
+                self?.itemOutcomes.first(where: { $0.sourceURL == url })?.state != .completed
+            }
 
-            for (index, sourceURL) in sourceURLs.enumerated() {
-                guard Task.isCancelled == false else { await MainActor.run { self?.cancelRemaining(sourceURLs) }; return }
+            for (index, sourceURL) in workSources.enumerated() {
+                guard Task.isCancelled == false else { await MainActor.run { self?.cancelRemaining(sourceURLs, generation: generation, operationID: operationID) }; return }
                 await MainActor.run { self?.setOutcome(sourceURL, state: .processing, outputURL: nil, failure: nil) }
                 await MainActor.run { [weak self] in
                     guard let self else { return }
@@ -218,34 +226,43 @@ final class FileConversionState: ObservableObject {
                 }
 
                 let result = await self?.convertOperation(sourceURL, target, outputFolderURL) ?? .failure(FileConversionError.cancelled)
-                guard Task.isCancelled == false else { await MainActor.run { self?.cancelRemaining(sourceURLs) }; return }
+                guard Task.isCancelled == false else { await MainActor.run { self?.cancelRemaining(sourceURLs, generation: generation, operationID: operationID) }; return }
                 switch result {
                 case let .success(outputURL):
-                    outputs.append(outputURL)
                     await MainActor.run { self?.setOutcome(sourceURL, state: .completed, outputURL: outputURL, failure: nil) }
                 case let .failure(error):
                     if error is CancellationError || self?.isCancellation(error) == true {
-                        await MainActor.run { self?.cancelRemaining(sourceURLs) }
+                        await MainActor.run { self?.cancelRemaining(sourceURLs, generation: generation, operationID: operationID) }
                         return
                     }
-                    failures.append(total == 1 ? error.localizedDescription : "\(sourceURL.lastPathComponent): \(error.localizedDescription)")
                     await MainActor.run { self?.setOutcome(sourceURL, state: .failed, outputURL: nil, failure: OperationFailure(message: error.localizedDescription, retryable: true)) }
                 }
                 await MainActor.run { [weak self] in
-                    self?.progress = .items(completed: index + 1, total: total)
-                    if let operationID = self?.operationID { self?.operations.updateProgress(id: operationID, progress: .items(completed: index + 1, total: total)) }
+                    let completed = completedBeforeStart + index + 1
+                    self?.progress = .items(completed: completed, total: total)
+                    if let operationID = self?.operationID { self?.operations.updateProgress(id: operationID, progress: .items(completed: completed, total: total)) }
                 }
             }
 
             await MainActor.run {
                 guard let self else { return }
+                guard self.conversionGeneration == generation, self.operationID == operationID, self.isConverting else { return }
+                let outputs = self.itemOutcomes.compactMap(\.outputURL)
+                let failures = self.itemOutcomes.compactMap { outcome -> String? in
+                    guard outcome.state == .failed else { return nil }
+                    return total == 1 ? outcome.failure?.message : "\(outcome.sourceURL.lastPathComponent): \(outcome.failure?.message ?? "Conversion failed")"
+                }
                 self.isConverting = false
                 self.outputURLs = outputs
                 self.outputURL = outputs.last
                 self.phase = failures.isEmpty ? .completed : .failed
                 self.failure = failures.isEmpty ? nil : OperationFailure(message: failures.joined(separator: "\n"), retryable: true)
                 if let operationID = self.operationID {
-                    _ = self.operations.update(id: operationID, phase: failures.isEmpty ? .completed : .failed, progress: self.progress, failure: self.failure)
+                    if failures.isEmpty {
+                        _ = self.operations.update(id: operationID, phase: .completed, progress: self.progress)
+                    } else {
+                        _ = self.operations.update(id: operationID, phase: .failed, progress: self.progress, failure: self.failure)
+                    }
                 }
                 if failures.isEmpty {
                     self.status = outputs.count == 1
@@ -266,13 +283,19 @@ final class FileConversionState: ObservableObject {
         guard failed.isEmpty == false else { return }
         Task { [weak self] in
             guard let self else { return }
-            guard case .ready = await self.assess(request.target) else {
-                self.dependencySetup = DependencySetup(target: request.target, plan: FileConversionService.setupPlan(for: request.target))
+            switch await self.assess(request.target) {
+            case .ready:
+                break
+            case let .setupRequired(plan):
+                self.dependencySetup = DependencySetup(target: request.target, plan: plan)
                 self.status = "Converter readiness changed; setup is required before retrying"
+                return
+            case let .unavailable(reason), let .degraded(reason):
+                self.status = "Converter unavailable: \(reason)"
                 return
             }
             let completed = self.itemOutcomes.filter { $0.state == .completed }
-            self.startConversion(sourceURLs: failed, target: request.target, preservingCompleted: completed)
+            self.startConversion(sourceURLs: request.sources, target: request.target, preservingCompleted: completed)
         }
     }
 
@@ -287,7 +310,9 @@ final class FileConversionState: ObservableObject {
         return false
     }
 
-    private func cancelRemaining(_ urls: [URL]) {
+    private func cancelRemaining(_ urls: [URL], generation: UUID? = nil, operationID: UUID? = nil) {
+        if let generation, self.conversionGeneration != generation { return }
+        if let operationID, self.operationID != operationID { return }
         for url in urls where itemOutcomes.first(where: { $0.sourceURL == url })?.state != .completed {
             setOutcome(url, state: .cancelled, outputURL: nil, failure: OperationFailure(message: "Cancelled", retryable: true))
         }
@@ -386,6 +411,10 @@ private struct ClosureProvisioningExecutor: ProvisioningExecutor {
 
 enum FileConversionService {
     static func assess(_ target: FileConversionTarget) async -> CapabilityState {
+        await assess(target, locator: ExecutableLocator(), environment: ProcessInfo.processInfo.environment)
+    }
+
+    static func assess(_ target: FileConversionTarget, locator: ExecutableLocator, environment: [String: String]) async -> CapabilityState {
         let requirement: CapabilityRequirement?
         switch target.family {
         case .mediaFFmpeg: requirement = try? CapabilityRequirement(executableName: "ffmpeg", explicitPaths: ["/opt/homebrew/bin/ffmpeg", "/usr/local/bin/ffmpeg"])
@@ -395,17 +424,25 @@ enum FileConversionService {
         default: return .ready
         }
         guard let requirement else { return .unavailable("Missing dependency: \(missingDependencyName(for: target) ?? "converter")") }
-        return (try? await CapabilityAssessor(locator: ExecutableLocator(), versionProbe: VersionProbe()).assess(requirement)) ?? .unavailable("Capability assessment failed")
+        let assessment = (try? await CapabilityAssessor(locator: locator, versionProbe: VersionProbe(), environment: environment).assess(requirement)) ?? .unavailable("Capability assessment failed")
+        guard case .setupRequired = assessment else { return assessment }
+        guard let brew = (try? locator.locate(name: "brew", candidates: ["/opt/homebrew/bin/brew", "/usr/local/bin/brew"], environment: environment)) ?? nil else {
+            return .unavailable("Homebrew is required to install \(missingDependencyName(for: target) ?? "the converter")")
+        }
+        guard let plan = setupPlan(for: target, homebrewPath: brew.path) else {
+            return .unavailable("No setup plan exists for \(missingDependencyName(for: target) ?? "the converter")")
+        }
+        return .setupRequired(plan)
     }
 
-    static func setupPlan(for target: FileConversionTarget) -> SetupPlan {
+    private static func setupPlan(for target: FileConversionTarget, homebrewPath: String) -> SetupPlan? {
         let command: ExactCommand
         switch target.family {
-        case .mediaFFmpeg: command = ExactCommand(executable: "brew", arguments: ["install", "ffmpeg"])
-        case .imageMagick: command = ExactCommand(executable: "brew", arguments: ["install", "imagemagick"])
-        case .pandoc: command = ExactCommand(executable: "brew", arguments: ["install", "pandoc"])
-        case .soffice: command = ExactCommand(executable: "brew", arguments: ["install", "--cask", "libreoffice"])
-        default: command = ExactCommand(executable: "brew", arguments: [])
+        case .mediaFFmpeg: command = ExactCommand(executable: homebrewPath, arguments: ["install", "ffmpeg"])
+        case .imageMagick: command = ExactCommand(executable: homebrewPath, arguments: ["install", "imagemagick"])
+        case .pandoc: command = ExactCommand(executable: homebrewPath, arguments: ["install", "pandoc"])
+        case .soffice: command = ExactCommand(executable: homebrewPath, arguments: ["install", "--cask", "libreoffice"])
+        default: return nil
         }
         return SetupPlan(commands: [command], artifacts: [], mutationScope: "Homebrew installs the required tool for this user", cleanupOwnership: "Homebrew owns the installed package", disclosure: "Network access to Homebrew is required; disk impact varies by package.")
     }
@@ -520,8 +557,9 @@ enum FileConversionService {
             try Task.checkCancellation()
             try FileManager.default.createDirectory(at: outputFolderURL, withIntermediateDirectories: true)
             let destination = uniqueDestination(for: sourceURL, target: target, in: outputFolderURL)
-            let staged = try ArtifactStore().stage(for: destination)
-            defer { try? FileManager.default.removeItem(at: staged.url) }
+            let artifactStore = ArtifactStore()
+            let staged = try artifactStore.stage(for: destination)
+            defer { artifactStore.discard(staged) }
 
             switch target.family {
             case .image:
@@ -550,7 +588,7 @@ enum FileConversionService {
                 try FileManager.default.removeItem(at: staged.url)
                 try FileManager.default.moveItem(at: generated, to: staged.url)
             }
-            let committed = try ArtifactStore().commit(staged) { url in
+            let committed = try artifactStore.commit(staged) { url in
                 (try? FileManager.default.attributesOfItem(atPath: url.path)[.size] as? NSNumber)?.intValue ?? 0 > 0
             }
             return .success(committed)

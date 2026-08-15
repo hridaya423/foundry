@@ -57,7 +57,7 @@ struct ClipboardHistoryPolicy: Equatable {
     var maxImageBytes: Int = 4 * 1024 * 1024
     func bounded(_ input: [ClipboardHistoryItem]) -> [ClipboardHistoryItem] {
         var result: [ClipboardHistoryItem] = []
-        for item in input { result.removeAll { $0.signature == item.signature }; result.insert(item, at: 0) }
+        for item in input where result.contains(where: { $0.signature == item.signature }) == false { result.append(item) }
         result = Array(result.prefix(maxItems))
         while result.reduce(0, { $0 + $1.memoryCost }) > maxBytes, !result.isEmpty {
             if let index = result.lastIndex(where: { !$0.isPinned }) { result.remove(at: index) } else { result.removeLast() }

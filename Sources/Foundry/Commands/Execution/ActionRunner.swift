@@ -16,6 +16,7 @@ final class ActionRunner: CommandExecuting {
     private let confirmAction: (CommandActionDescriptor, CommandInvocationSource) -> Bool
     private let windowManager: any WindowManaging
     private let openURL: (URL) -> Bool
+    private let openApplication: (URL, NSWorkspace.OpenConfiguration, @escaping @Sendable (NSRunningApplication?, Error?) -> Void) -> Void
     private let snippetContext: () -> SnippetRenderContext
     let directPasteService: DirectPasteService
     private var activeExecutionTasks: [UUID: Task<CommandOutcome, Never>] = [:]
@@ -27,8 +28,11 @@ final class ActionRunner: CommandExecuting {
         mediaDownloadManager: MediaDownloadManager = MediaDownloadManager(),
         resetRanking: @escaping (String) -> Void = { _ in },
         confirmAction: @escaping (CommandActionDescriptor, CommandInvocationSource) -> Bool = { _, _ in true },
-            windowManager: any WindowManaging = NativeWindowManager(),
+        windowManager: any WindowManaging = NativeWindowManager(),
         openURL: @escaping (URL) -> Bool = { NSWorkspace.shared.open($0) },
+        openApplication: @escaping (URL, NSWorkspace.OpenConfiguration, @escaping @Sendable (NSRunningApplication?, Error?) -> Void) -> Void = { url, configuration, completion in
+            NSWorkspace.shared.openApplication(at: url, configuration: configuration, completionHandler: completion)
+        },
         directPasteService: DirectPasteService = .shared,
         snippetContext: @escaping () -> SnippetRenderContext = { .current() }
     ) {
@@ -40,6 +44,7 @@ final class ActionRunner: CommandExecuting {
         self.confirmAction = confirmAction
         self.windowManager = windowManager
         self.openURL = openURL
+        self.openApplication = openApplication
         self.snippetContext = snippetContext
         self.directPasteService = directPasteService
     }
@@ -88,20 +93,31 @@ final class ActionRunner: CommandExecuting {
 
         case let .openApp(path, name):
             let configuration = NSWorkspace.OpenConfiguration()
-            return await withCheckedContinuation { continuation in
-                NSWorkspace.shared.openApplication(at: URL(fileURLWithPath: path), configuration: configuration) { [diagnostics] _, error in
+            let completion = ContinuationGate<CommandOutcome>()
+            return await withTaskCancellationHandler(operation: {
+                await withCheckedContinuation { continuation in
+                    completion.install(continuation)
+                    if Task.isCancelled {
+                        completion.resume(.cancelled)
+                        return
+                    }
+                    self.openApplication(URL(fileURLWithPath: path), configuration) { [diagnostics] _, error in
                     Task { @MainActor in
+                        let outcome: CommandOutcome
                         if let error {
                             diagnostics.log("Failed to launch \(name): \(error.localizedDescription)")
-                            emit(.feedback(.failure("Could not open \(name)")))
-                            continuation.resume(returning: .failure(message: "Could not open \(name)", retryable: true))
+                            outcome = .failure(message: "Could not open \(name)", retryable: true)
                         } else {
                             diagnostics.log("Launched app: \(name)")
-                            continuation.resume(returning: .success(message: "Opened \(name)"))
+                            outcome = .success(message: "Opened \(name)")
+                        }
+                        if completion.resume(outcome), case .failure = outcome {
+                            emit(.feedback(.failure("Could not open \(name)")))
                         }
                     }
                 }
-            }
+                }
+            }, onCancel: { completion.resume(.cancelled) })
 
         case let .openURL(urlString):
             guard let url = URL(string: urlString) else {
@@ -360,13 +376,14 @@ final class ActionRunner: CommandExecuting {
             return finish(.stayOpen(message: "Ranking reset"), feedback: .success("Ranking reset"))
 
         case .rebuildApp:
-            guard let sourceRoot = Bundle.main.object(forInfoDictionaryKey: "FoundrySourceRoot") as? String else {
+            guard let sourceRoot = SourceRootLocator.locate() else {
                 diagnostics.log("Cannot rebuild Foundry: source root is unavailable")
                 return .failure(message: "Cannot rebuild Foundry", retryable: false)
             }
             let process = Process()
             process.executableURL = URL(fileURLWithPath: "/bin/zsh")
-            process.arguments = ["-lc", "cd -- \"$1\" && ./scripts/build-app.sh", "foundry-rebuild", sourceRoot]
+            process.currentDirectoryURL = sourceRoot
+            process.arguments = ["-lc", "INSTALL_APP=1 ./scripts/build-app.sh", "foundry-rebuild"]
             do {
                 try process.run()
                 diagnostics.log("Started Foundry app rebuild")
@@ -534,4 +551,40 @@ private struct RaycastSnippetImport: Decodable {
     let name: String
     let text: String
     let keyword: String?
+}
+
+private final class ContinuationGate<Value: Sendable>: @unchecked Sendable {
+    private let lock = NSLock()
+    private var continuation: CheckedContinuation<Value, Never>?
+    private var result: Value?
+
+    func install(_ continuation: CheckedContinuation<Value, Never>) {
+        var pending: Value?
+        lock.withLock {
+            if self.result != nil {
+                pending = self.result
+                self.result = nil
+                return
+            }
+            self.continuation = continuation
+        }
+        if let pending { continuation.resume(returning: pending) }
+    }
+
+    @discardableResult
+    func resume(_ result: Value) -> Bool {
+        var continuation: CheckedContinuation<Value, Never>?
+        lock.withLock {
+            guard self.result == nil else { return }
+            guard let installed = self.continuation else {
+                self.result = result
+                return
+            }
+            self.continuation = nil
+            continuation = installed
+        }
+        guard let continuation else { return false }
+        continuation.resume(returning: result)
+        return true
+    }
 }

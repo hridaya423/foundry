@@ -34,8 +34,28 @@ final class DirectPasteServiceTests: XCTestCase {
         service.captureTarget()
         try service.stage(ClipboardPayload.files([URL(fileURLWithPath: "/tmp/example.txt")]))
         XCTAssertNotNil(pasteboard.readObjects(forClasses: [NSURL.self], options: nil))
-        try service.stage(ClipboardPayload.image(Data([1, 2, 3])))
+        XCTAssertThrowsError(try service.stage(ClipboardPayload.image(Data([1, 2, 3])))) { error in
+            XCTAssertEqual(error as? DirectPasteError, .stagingFailed)
+        }
+        let imageService = DirectPasteService(pasteboard: pasteboard) { target }
+        imageService.captureTarget()
+        try imageService.stage(ClipboardPayload.image(Data([1, 2, 3])))
         XCTAssertEqual(pasteboard.data(forType: .tiff), Data([1, 2, 3]))
+    }
+
+    func testSecondStageCannotReplacePendingPaste() throws {
+        let pasteboard = NSPasteboard(name: NSPasteboard.Name("DirectPasteServiceTests.overlap"))
+        pasteboard.clearContents()
+        pasteboard.setString("before", forType: .string)
+        let target = FakeTarget(processIdentifier: 42)
+        let service = DirectPasteService(pasteboard: pasteboard) { target }
+        service.captureTarget()
+        try service.stage(.text("first"))
+
+        XCTAssertThrowsError(try service.stage(.text("second"))) { error in
+            XCTAssertEqual(error as? DirectPasteError, .stagingFailed)
+        }
+        XCTAssertEqual(pasteboard.string(forType: .string), "first")
     }
 
     func testDeniedAccessibilityIsExplicitAndDoesNotPrompt() async throws {

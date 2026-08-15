@@ -1,6 +1,8 @@
 import XCTest
 @testable import Foundry
+import AppKit
 
+@MainActor
 final class SnippetExpansionServiceTests: XCTestCase {
     private let date = Date(timeIntervalSince1970: 100)
 
@@ -40,5 +42,53 @@ final class SnippetExpansionServiceTests: XCTestCase {
         XCTAssertEqual(value.receive(.delimiter("\t")), .ignored)
         var pinned = old; pinned.isPinned = true; value = engine([newer, pinned]); _ = value.receive(.character("x"))
         XCTAssertEqual(value.receive(.delimiter(" ")), .ignored)
+    }
+
+    func testDeniedConfiguredServiceStartsOnceWhenAccessibilityBecomesGranted() {
+        var trusted = false
+        var promptCount = 0
+        var startCount = 0
+        var retry: (() -> Void)?
+        let service = SnippetExpansionService(
+            directPaste: DirectPasteService(),
+            accessibilityTrusted: { trusted },
+            requestAccessibilityPrompt: { promptCount += 1 },
+            scheduleAccessibilityRetry: { callback in
+                retry = callback
+                return {}
+            },
+            startEventTap: {
+                startCount += 1
+                return true
+            }
+        )
+
+        service.configure(isEnabled: true, excludedBundleIdentifiers: [])
+        service.requestAccessibilityAccess()
+        trusted = true
+        retry?()
+        retry?()
+
+        XCTAssertEqual(promptCount, 1)
+        XCTAssertEqual(startCount, 1)
+        XCTAssertTrue(service.isRunning)
+    }
+
+    func testStoppingConfiguredServiceCancelsAccessibilityRetry() {
+        var cancelCount = 0
+        let service = SnippetExpansionService(
+            directPaste: DirectPasteService(),
+            accessibilityTrusted: { false },
+            requestAccessibilityPrompt: {},
+            scheduleAccessibilityRetry: { _ in
+                return { cancelCount += 1 }
+            }
+        )
+
+        service.configure(isEnabled: true, excludedBundleIdentifiers: [])
+        service.requestAccessibilityAccess()
+        service.stop()
+
+        XCTAssertEqual(cancelCount, 1)
     }
 }

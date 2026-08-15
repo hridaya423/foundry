@@ -27,8 +27,13 @@ if Bundle.main.bundleIdentifier == "com.hridya.foundry" {
 
 if Bundle.main.bundleURL.pathExtension != "app" {
     try? SMAppService.mainApp.unregister()
+    guard let sourceRoot = SourceRootLocator.locate() else {
+        fputs("Foundry source root is unavailable\n", stderr)
+        exit(EXIT_FAILURE)
+    }
     let build = Process()
     build.executableURL = URL(fileURLWithPath: "/bin/zsh")
+    build.currentDirectoryURL = sourceRoot
     build.arguments = ["-lc", "./scripts/build-app.sh"]
     build.environment = ProcessInfo.processInfo.environment.merging([
         "INSTALL_APP": "1",
@@ -37,10 +42,11 @@ if Bundle.main.bundleURL.pathExtension != "app" {
     do {
         try build.run()
         build.waitUntilExit()
+        exit(build.terminationStatus == 0 ? EXIT_SUCCESS : EXIT_FAILURE)
     } catch {
         fputs("Failed to run build-app.sh: \(error.localizedDescription)\n", stderr)
+        exit(EXIT_FAILURE)
     }
-    exit(EXIT_SUCCESS)
 }
 
 let app = NSApplication.shared

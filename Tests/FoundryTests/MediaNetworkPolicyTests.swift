@@ -3,6 +3,12 @@ import XCTest
 @testable import Foundry
 
 final class MediaNetworkPolicyTests: XCTestCase {
+    func testAcceptsPublicHostnameResolvedToPublicAddress() throws {
+        let policy = MediaNetworkPolicy(locator: StaticMediaNetworkLocator(addresses: ["142.250.117.136"]))
+
+        XCTAssertNoThrow(try policy.validate(URL(string: "https://www.youtube.com/watch?v=video")!))
+    }
+
     func testRejectsLocalNetworkAndNonHTTPURLs() throws {
         let policy = MediaNetworkPolicy(locator: StaticMediaNetworkLocator(addresses: ["127.0.0.1"]))
 
@@ -14,7 +20,7 @@ final class MediaNetworkPolicyTests: XCTestCase {
     }
 
     func testRejectsPrivateLinkLocalAndMulticastAddressesResolvedByLocator() throws {
-        for address in ["10.0.0.1", "169.254.1.2", "224.0.0.1", "192.168.1.10"] {
+        for address in ["10.0.0.1", "169.254.1.2", "224.0.0.1", "192.168.1.10", "::ffff:127.0.0.1", "::ffff:10.0.0.1"] {
             let policy = MediaNetworkPolicy(locator: StaticMediaNetworkLocator(addresses: [address]))
             XCTAssertThrowsError(try policy.validate(URL(string: "https://media.example/video.mp4")!)) { error in
                 XCTAssertEqual(error as? MediaNetworkPolicyFailure, .blockedDestination)
@@ -28,6 +34,18 @@ final class MediaNetworkPolicyTests: XCTestCase {
         XCTAssertThrowsError(try policy.validateRedirect(to: URL(string: "https://media.example/two")!, count: 1)) { error in
             XCTAssertEqual(error as? MediaNetworkPolicyFailure, .tooManyRedirects)
         }
+    }
+
+    func testRejectsHTTPSRedirectToHTTPButAllowsSameSecurityPublicRedirects() throws {
+        let policy = MediaNetworkPolicy(locator: StaticMediaNetworkLocator(addresses: ["93.184.216.34"]))
+        let https = URL(string: "https://media.example/video")!
+        let http = URL(string: "http://media.example/video")!
+
+        XCTAssertThrowsError(try policy.validateRedirect(from: https, to: http, count: 0)) { error in
+            XCTAssertEqual(error as? MediaNetworkPolicyFailure, .blockedDestination)
+        }
+        XCTAssertNoThrow(try policy.validateRedirect(from: https, to: URL(string: "https://cdn.example/video")!, count: 0))
+        XCTAssertNoThrow(try policy.validateRedirect(from: http, to: URL(string: "http://cdn.example/video")!, count: 0))
     }
 
     func testValidatesStatusSizeMimeAndSignature() throws {

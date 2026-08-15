@@ -149,7 +149,7 @@ private actor BEN2Runtime {
 
         let artifactStore = ArtifactStore()
         let staged = try artifactStore.stage(for: outputURL)
-        defer { try? FileManager.default.removeItem(at: staged.url) }
+        defer { artifactStore.discard(staged) }
 
         await report("Running BEN2...", status)
         do {

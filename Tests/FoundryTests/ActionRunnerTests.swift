@@ -2,6 +2,7 @@ import XCTest
 @testable import Foundry
 import FoundryDomain
 import FoundryServices
+import AppKit
 
 @MainActor
 final class ActionRunnerTests: XCTestCase {
@@ -218,6 +219,25 @@ final class ActionRunnerTests: XCTestCase {
         runner.cancel(cancellationID)
         let outcome = await first.value
         XCTAssertEqual(outcome, .cancelled)
+    }
+
+    func testOpenAppCancellationCompletesBeforeDelayedWorkspaceCallback() async throws {
+        var callback: ((NSRunningApplication?, Error?) -> Void)?
+        let runner = ActionRunner(
+            diagnostics: DiagnosticsService(),
+            openApplication: { _, _, completion in callback = completion }
+        )
+        let request = CommandExecutionRequest(
+            commandID: "test.open-app.cancel",
+            action: CommandAction(id: "test.open-app.cancel.perform", title: "Open", kind: .openApp(path: "/Applications/Missing.app", name: "Missing"))
+        )
+        let task = Task { await runner.execute(request) { _ in } }
+        while callback == nil { await Task.yield() }
+        task.cancel()
+
+        let outcome = await task.value
+        XCTAssertEqual(outcome, .cancelled)
+        callback?(nil, nil)
     }
 
     func testMediaExecutionsHaveIndependentCancellationOwnership() async throws {

@@ -1,9 +1,16 @@
 import Foundation
+import Darwin
 public struct LocatedExecutable: Equatable, Sendable { public let path: String; public init(path: String) { self.path = path } }
 public struct ExecutableLocator: Sendable {
     public typealias FileInfo = @Sendable (String) -> Bool
     private let fileInfo: FileInfo
-    public init(fileInfo: @escaping FileInfo = { path in FileManager.default.isExecutableFile(atPath: path) && (try? FileManager.default.attributesOfItem(atPath: path)[.type] as? FileAttributeType) == .typeRegular }) { self.fileInfo = fileInfo }
+    public init(fileInfo: @escaping FileInfo = { path in
+        var info = Darwin.stat()
+        let exists = path.withCString { Darwin.lstat($0, &info) == 0 }
+        let executable = path.withCString { Darwin.access($0, X_OK) == 0 }
+        let type = info.st_mode & S_IFMT
+        return exists && executable && (type == S_IFREG || type == S_IFLNK)
+    }) { self.fileInfo = fileInfo }
     public func locate(name: String, candidates: [String], environment: [String: String]) throws -> LocatedExecutable? { for path in candidates where fileInfo(path) { return LocatedExecutable(path: path) }; for directory in (environment["PATH"] ?? "").split(separator: ":", omittingEmptySubsequences: true) { let path = String(directory) + "/" + name; if fileInfo(path) { return LocatedExecutable(path: path) } }; return nil }
 }
 public struct VersionProbe: Sendable {

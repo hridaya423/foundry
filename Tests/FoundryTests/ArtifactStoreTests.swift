@@ -59,6 +59,37 @@ final class ArtifactStoreTests: XCTestCase {
         try ArtifactStore().commit(first)
     }
 
+    func testDiscardIsIdempotentAndReleasesDestinationReservation() throws {
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent("Foundry-Artifact-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let destination = folder.appendingPathComponent("output.txt")
+        let store = ArtifactStore()
+        let staged = try store.stage(for: destination)
+
+        store.discard(staged)
+        store.discard(staged)
+
+        XCTAssertFalse(FileManager.default.fileExists(atPath: staged.url.path))
+        XCTAssertNoThrow(try store.stage(for: destination))
+    }
+
+    func testStaleDiscardCannotReleaseAReplacementReservation() throws {
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent("Foundry-Artifact-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let destination = folder.appendingPathComponent("output.txt")
+        let store = ArtifactStore()
+        let stale = try store.stage(for: destination)
+        store.discard(stale)
+        let current = try store.stage(for: destination)
+
+        store.discard(stale)
+
+        XCTAssertThrowsError(try ArtifactStore().stage(for: destination)) { error in
+            XCTAssertEqual(error as? ArtifactStoreError, .destinationExists)
+        }
+        store.discard(current)
+    }
+
     private func temporaryDirectory() throws -> URL {
         let url = FileManager.default.temporaryDirectory.appendingPathComponent("foundry-artifact-").appendingPathComponent(UUID().uuidString)
         try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)

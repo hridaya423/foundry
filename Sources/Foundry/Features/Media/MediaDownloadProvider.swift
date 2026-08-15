@@ -20,11 +20,6 @@ final class MediaDownloadProvider: CommandProvider {
     let id = "foundry.media-download"
 
     var searchPolicy: CommandProviderSearchPolicy { CommandProviderSearchPolicy(tier: .deferred) }
-    private let metadataClient: any MediaMetadataClient
-
-    init(metadataClient: any MediaMetadataClient = URLSessionMediaMetadataClient()) {
-        self.metadataClient = metadataClient
-    }
 
     func isActive(for query: String) -> Bool {
         Self.mediaURLs(in: query).isEmpty == false
@@ -36,11 +31,10 @@ final class MediaDownloadProvider: CommandProvider {
         let isYouTube = Self.isYouTube(url)
         let isDirectFile = Self.isDirectMediaFile(url)
         let isPlaylist = Self.isPlaylist(url)
-        let metadata = isYouTube ? await metadataClient.youtubeMetadata(for: url) : nil
         let isBatch = urls.count > 1
         let title = isBatch ? "Download \(urls.count) Media Links" : (isPlaylist ? "Download Playlist" : "Download Media")
-        let detail = isBatch ? "add all links to the download queue" : (metadata?.title ?? (isPlaylist ? "all videos in this playlist" : url.lastPathComponent))
-        let service = isBatch ? "parallel downloads" : (isYouTube ? "YouTube · yt-dlp (explicit setup)" : (isDirectFile ? "Direct link · stays on this Mac" : "Cobalt · receives the source URL"))
+        let detail = isBatch ? "add all links to the download queue" : (isPlaylist ? "all videos in this playlist" : url.lastPathComponent)
+        let service = isBatch ? "parallel downloads" : (isYouTube ? "YouTube · yt-dlp (automatic setup)" : (isDirectFile ? "Direct link · stays on this Mac" : "Cobalt · receives the source URL"))
         let primaryKind: CommandActionKind = isBatch
             ? .downloadMediaBatch(urls: urls.map(\.absoluteString))
             : .downloadMedia(url: url.absoluteString)
@@ -49,7 +43,7 @@ final class MediaDownloadProvider: CommandProvider {
                 id: "media.download.\(url.absoluteString)",
                 title: title,
                 subtitle: "\(detail) · save via \(service) to \(MediaDownloadDestination.folder.lastPathComponent)",
-                icon: CommandIcon(fallback: "DL", systemName: "arrow.down.circle", thumbnailURL: metadata?.thumbnailURL),
+                icon: CommandIcon(fallback: "DL", systemName: "arrow.down.circle"),
                 route: .mediaDownload,
                 primaryAction: CommandAction(id: "media.download.perform", title: isBatch ? "Download All" : "Download", kind: primaryKind),
                 secondaryActions: [
@@ -89,18 +83,6 @@ final class MediaDownloadProvider: CommandProvider {
         directMediaExtensions.contains(url.pathExtension.lowercased())
     }
 
-    static func youtubeMetadata(using client: any MediaMetadataClient, for url: URL) async -> YouTubeMetadata? {
-        var components = URLComponents(string: "https://www.youtube.com/oembed")
-        components?.queryItems = [
-            URLQueryItem(name: "format", value: "json"),
-            URLQueryItem(name: "url", value: url.absoluteString)
-        ]
-        guard let metadataURL = components?.url,
-              let data = try? await client.data(from: metadataURL),
-              let response = try? JSONDecoder().decode(YouTubeOEmbedResponse.self, from: data) else { return nil }
-        return YouTubeMetadata(title: response.title, thumbnailURL: URL(string: response.thumbnailURL))
-    }
-
     private static let mediaHosts: Set<String> = [
         "youtube.com", "youtu.be",
         "instagram.com", "tiktok.com", "x.com", "twitter.com",
@@ -109,31 +91,4 @@ final class MediaDownloadProvider: CommandProvider {
     ]
 
     private static let directMediaExtensions: Set<String> = ["mp3", "m4a", "wav", "aac", "flac", "ogg", "mp4", "mov", "webm", "mkv"]
-}
-
-protocol MediaMetadataClient: Sendable {
-    func data(from url: URL) async throws -> Data
-    func youtubeMetadata(for url: URL) async -> YouTubeMetadata?
-}
-
-struct URLSessionMediaMetadataClient: MediaMetadataClient {
-    private let session: URLSession
-    init(session: URLSession = .shared) { self.session = session }
-    func data(from url: URL) async throws -> Data { let (data, _) = try await session.data(from: url); return data }
-    func youtubeMetadata(for url: URL) async -> YouTubeMetadata? { await MediaDownloadProvider.youtubeMetadata(using: self, for: url) }
-}
-
-struct YouTubeMetadata {
-    let title: String
-    let thumbnailURL: URL?
-}
-
-private struct YouTubeOEmbedResponse: Decodable {
-    let title: String
-    let thumbnailURL: String
-
-    enum CodingKeys: String, CodingKey {
-        case title
-        case thumbnailURL = "thumbnail_url"
-    }
 }
