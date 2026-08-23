@@ -194,7 +194,7 @@ private actor BEN2Runtime {
 
     private func verifiedPaths(root: URL) throws -> Paths? {
         guard let script = Bundle.module.url(forResource: "background_removal_worker", withExtension: "py"),
-              (try? BEN2Artifact.sha256(at: script)) == BEN2Artifact.workerSHA256 else { return nil }
+               (try? BEN2Artifact.sha256(at: script)) == BEN2Artifact.workerSHA256 else { return nil }
         let model = root.appendingPathComponent("models/\(BEN2Artifact.filename)")
         let python = root.appendingPathComponent("runtime/bin/python")
         guard isValidModelSync(at: model), Self.isRuntimeReady(python: python, manifest: root.appendingPathComponent("runtime/runtime-manifest.json")) else { return nil }

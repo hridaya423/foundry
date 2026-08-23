@@ -1,4 +1,5 @@
 import AppKit
+import ImageIO
 import SwiftUI
 
 struct ClipboardHistoryView: View {
@@ -182,6 +183,8 @@ private struct ClipboardCardButton: View {
 private struct ClipboardInlinePreview: View {
     let item: ClipboardHistoryItem
 
+    private static let imageCache = NSCache<NSString, NSImage>()
+
     var body: some View {
         switch item.payload {
         case let .text(value):
@@ -194,7 +197,7 @@ private struct ClipboardInlinePreview: View {
                 .background(Color.black.opacity(0.14))
                 .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
         case let .image(data):
-            if let image = NSImage(data: data) {
+            if let image = Self.cachedImage(data: data, key: item.signature) {
                 Image(nsImage: image)
                     .resizable()
                     .aspectRatio(contentMode: .fill)
@@ -224,5 +227,19 @@ private struct ClipboardInlinePreview: View {
             .background(Color.black.opacity(0.14))
             .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
         }
+    }
+
+    private static func cachedImage(data: Data, key: String) -> NSImage? {
+        let cacheKey = key as NSString
+        if let cached = imageCache.object(forKey: cacheKey) { return cached }
+        guard let source = CGImageSourceCreateWithData(data as CFData, nil),
+              let image = CGImageSourceCreateThumbnailAtIndex(source, 0, [
+                  kCGImageSourceCreateThumbnailFromImageAlways: true,
+                  kCGImageSourceThumbnailMaxPixelSize: 600,
+                  kCGImageSourceCreateThumbnailWithTransform: true
+              ] as CFDictionary) else { return nil }
+        let result = NSImage(cgImage: image, size: .zero)
+        imageCache.setObject(result, forKey: cacheKey)
+        return result
     }
 }

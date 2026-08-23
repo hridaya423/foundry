@@ -58,6 +58,30 @@ final class ClipboardHistoryTests: XCTestCase {
         XCTAssertTrue(emptyAfterLater)
     }
 
+    func testClipboardCapturesPersistOffMainActorInOrder() async throws {
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: url) }
+        let pasteboard = TestPasteboardClient()
+        let persistence = ClipboardHistoryPersistence(url: url)
+        let state = await MainActor.run {
+            ClipboardHistoryState(pasteboard: pasteboard, persistence: persistence)
+        }
+
+        for value in ["first", "second", "third"] {
+            pasteboard.snapshotValue = PasteboardSnapshot(types: [.string], payload: .text(value), sourceBundleIdentifier: "com.example")
+            pasteboard.changeCountValue += 1
+            await MainActor.run { state.captureIfChangedForTesting() }
+        }
+        await state.waitForPersistenceForTesting()
+
+        let saved = try persistence.load()
+        XCTAssertEqual(saved.count, 3)
+        XCTAssertEqual(saved.compactMap { payload in
+            if case let .text(value) = payload.payload { return value }
+            return nil
+        }, ["third", "second", "first"])
+    }
+
     func testMutationsPersist() throws {
         let url = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         let store = ClipboardHistoryPersistence(url: url)

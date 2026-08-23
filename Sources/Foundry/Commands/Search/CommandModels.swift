@@ -21,6 +21,10 @@ struct CommandResult: Identifiable, Hashable, Sendable {
     let icon: CommandIcon
     let searchAliases: [String]
     let searchKeywords: [String]
+    let normalizedSearchTitle: String
+    let normalizedSearchSubtitle: String?
+    let normalizedSearchAliases: [String]
+    let normalizedSearchKeywords: [String]
     let route: SearchRoute?
     let primaryAction: CommandAction
     let secondaryActions: [CommandAction]
@@ -42,6 +46,10 @@ struct CommandResult: Identifiable, Hashable, Sendable {
         self.icon = icon
         self.searchAliases = searchAliases
         self.searchKeywords = searchKeywords
+        self.normalizedSearchTitle = SearchScoring.normalize(title)
+        self.normalizedSearchSubtitle = subtitle.map(SearchScoring.normalize)
+        self.normalizedSearchAliases = searchAliases.map(SearchScoring.normalize)
+        self.normalizedSearchKeywords = searchKeywords.map(SearchScoring.normalize)
         self.route = route
         self.primaryAction = primaryAction
         self.secondaryActions = secondaryActions

@@ -92,6 +92,36 @@ final class UsageRankingStore: @unchecked Sendable {
         return globalBoost + queryBoost
     }
 
+    func usageBoosts(for resultIDs: [String], query: String?) -> [String: Double] {
+        let keys = queryKeys(for: query)
+        let now = Date()
+        return lock.withLock {
+            Dictionary(resultIDs.map { resultID in
+                let globalBoost = boost(
+                    for: usage.records[resultID],
+                    now: now,
+                    frequencyScale: 0.16,
+                    frequencyCap: 0.5,
+                    recencyCap: 0.35,
+                    recencyDecay: 0.05
+                )
+                let queryBoost = keys.compactMap { key, weight in
+                    usage.queryRecords[key]?[resultID].map {
+                        boost(
+                            for: $0,
+                            now: now,
+                            frequencyScale: 0.7,
+                            frequencyCap: 2.0,
+                            recencyCap: 1.2,
+                            recencyDecay: 0.05
+                        ) * weight
+                    }
+                }.max() ?? 0
+                return (resultID, globalBoost + queryBoost)
+            }, uniquingKeysWith: { _, last in last })
+        }
+    }
+
     func resetRanking(for resultID: String) {
         let snapshot: (StoredUsage, Int) = lock.withLock {
             usage.records.removeValue(forKey: resultID)
@@ -108,10 +138,21 @@ final class UsageRankingStore: @unchecked Sendable {
     }
 
     private func boost(for record: UsageRecord?, frequencyScale: Double, frequencyCap: Double, recencyCap: Double, recencyDecay: Double) -> Double {
+        boost(
+            for: record,
+            now: Date(),
+            frequencyScale: frequencyScale,
+            frequencyCap: frequencyCap,
+            recencyCap: recencyCap,
+            recencyDecay: recencyDecay
+        )
+    }
+
+    private func boost(for record: UsageRecord?, now: Date, frequencyScale: Double, frequencyCap: Double, recencyCap: Double, recencyDecay: Double) -> Double {
         guard let record else { return 0 }
 
         let frequencyBoost = min(log(Double(record.openCount) + 1) * frequencyScale, frequencyCap)
-        let hoursSinceOpen = max(Date().timeIntervalSince(record.lastOpenedAt) / 3600, 0)
+        let hoursSinceOpen = max(now.timeIntervalSince(record.lastOpenedAt) / 3600, 0)
         let recencyBoost = max(recencyCap - hoursSinceOpen * recencyDecay, 0)
         return frequencyBoost + recencyBoost
     }

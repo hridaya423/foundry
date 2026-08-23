@@ -89,6 +89,25 @@ final class MediaDownloadTests: XCTestCase {
         }
     }
 
+    func testConcurrentYouTubeDownloadsShareAutomaticYTDLPInstallation() async {
+        let destination = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: destination) }
+        let availability = ExecutableAvailability()
+        let runner = AutoInstallingProcessRunner(availability: availability, installDelay: .milliseconds(50))
+        let service = MediaDownloadService(dependencies: .init(
+            executableLocator: ExecutableLocator(fileInfo: availability.exists),
+            processRunner: runner,
+            destination: destination,
+            networkPolicy: MediaNetworkPolicy(locator: EmptyMediaNetworkLocator())
+        ))
+
+        async let first = service.download(urlString: "https://www.youtube.com/watch?v=first")
+        async let second = service.download(urlString: "https://www.youtube.com/watch?v=second")
+        _ = await (try? first, try? second)
+
+        XCTAssertEqual(runner.paths.filter { $0 == "/opt/homebrew/bin/brew" }.count, 1)
+    }
+
     func testCancellingCobaltDownloadCancelsTheUnderlyingRequest() async throws {
         let started = expectation(description: "Cobalt request started")
         let stopped = expectation(description: "Cobalt request stopped")
@@ -158,6 +177,31 @@ final class MediaDownloadTests: XCTestCase {
         XCTAssertEqual(progress?.bytesReceived, 1 * 1_048_576)
         XCTAssertEqual(progress?.speedBytesPerSecond ?? -1, 1 * 1_048_576, accuracy: 0.0001)
         XCTAssertEqual(progress?.estimatedTimeRemaining ?? -1, 3, accuracy: 0.0001)
+    }
+
+    func testYTDLPParserExtractsProgressFieldsWhenOutputOrderVaries() {
+        let parser = YTDLPProgressParser()
+
+        let progress = parser.parse("[download] ETA 00:03 at 1.00MiB/s 25.0% of 4.00MiB")
+
+        XCTAssertEqual(progress?.fractionCompleted ?? -1, 0.25, accuracy: 0.0001)
+        XCTAssertEqual(progress?.totalBytes, 4 * 1_048_576)
+        XCTAssertEqual(progress?.speedBytesPerSecond ?? -1, 1 * 1_048_576, accuracy: 0.0001)
+        XCTAssertEqual(progress?.estimatedTimeRemaining ?? -1, 3, accuracy: 0.0001)
+    }
+
+    func testYTDLPParserHandlesLongOutputWorkload() {
+        let line = "[download] 42.0% of ~ 10.0MiB at 2.0MiB/s ETA 00:03"
+        var parsed = 0
+        let parser = YTDLPProgressParser()
+
+        measure {
+            for _ in 0..<10_000 {
+                if parser.parse(line) != nil { parsed += 1 }
+            }
+        }
+
+        XCTAssertEqual(parsed, 100_000)
     }
 
     func testYTDLPParserUsesFilenameInsteadOfAbsoluteDestinationPath() {
@@ -342,11 +386,13 @@ private final class ExecutableAvailability: @unchecked Sendable {
 private final class AutoInstallingProcessRunner: ProcessRunning, @unchecked Sendable {
     private let lock = NSLock()
     private let availability: ExecutableAvailability
+    private let installDelay: Duration
     private var recordedPaths: [String] = []
     private var recordedArguments: [[String]] = []
 
-    init(availability: ExecutableAvailability) {
+    init(availability: ExecutableAvailability, installDelay: Duration = .zero) {
         self.availability = availability
+        self.installDelay = installDelay
     }
 
     var paths: [String] {
@@ -364,6 +410,7 @@ private final class AutoInstallingProcessRunner: ProcessRunning, @unchecked Send
     func run(path: String, arguments: [String], timeout _: TimeInterval, outputLimit _: Int, environment _: [String: String]?, currentDirectoryURL _: URL?, onOutput _: (@Sendable (ProcessOutputLine) -> Void)?) async throws -> ProcessResult {
         record(path, arguments: arguments)
         guard path == "/opt/homebrew/bin/brew" else { throw CancellationError() }
+        try await Task.sleep(for: installDelay)
         availability.installYTDLP()
         return try await ProcessRunner.run(path: "/usr/bin/true", arguments: [])
     }

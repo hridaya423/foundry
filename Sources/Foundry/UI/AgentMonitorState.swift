@@ -178,14 +178,15 @@ final class AgentMonitorState: ObservableObject {
                 guard Task.isCancelled == false else { return }
                 let key = card.key ?? AgentSessionKey(provider: card.provider, rawSessionID: card.id)
                 await self.sessionStore.updateTitle(title, for: key)
-                self.sessions = await self.sessionStore.snapshot()
+                let updatedSessions = await self.sessionStore.snapshot()
+                if self.sessions != updatedSessions { self.sessions = updatedSessions }
             }
         }
     }
 
     private func ingest(_ envelope: AgentEventEnvelope) async -> AgentEventAck {
         let update = await sessionStore.apply(envelope)
-        sessions = update.cards
+        if sessions != update.cards { sessions = update.cards }
         guard update.accepted else {
             return .rejected(requestID: envelope.requestID, error: update.error ?? "Agent event rejected")
         }

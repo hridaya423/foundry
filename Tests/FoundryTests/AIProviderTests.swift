@@ -124,6 +124,21 @@ final class AIProviderTests: XCTestCase {
         XCTAssertTrue(frame?.isDone == true)
     }
 
+    func testCodexResponsesDecoderHandlesLongStreamWorkload() {
+        let line = #"data: {"type":"response.output_text.delta","delta":"token"}"#
+        var decodedFrames = 0
+
+        measure {
+            var decoder = CodexResponsesStreamDecoder()
+            for _ in 0..<10_000 {
+                if decoder.decode(line: line) != nil { decodedFrames += 1 }
+            }
+            _ = decoder.finish()
+        }
+
+        XCTAssertEqual(decodedFrames, 100_000)
+    }
+
     func testOAuthCredentialRoundTripsAccountAndExpiry() throws {
         let credential = AICredential.oauth(AIOAuthCredential(accessToken: "access", refreshToken: "refresh", idToken: "id", accountID: "acct", expiresAt: Date(timeIntervalSince1970: 1234)))
         let data = try JSONEncoder().encode(credential)

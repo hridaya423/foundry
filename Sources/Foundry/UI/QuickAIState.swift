@@ -133,6 +133,8 @@ final class QuickAIState: ObservableObject {
         quickAIResponse = ""
         var didFail = false
         var response = ""
+        let clock = ContinuousClock()
+        var lastResponsePublication = clock.now
         let priorMessages = quickAIThreads.first(where: { $0.id == threadID })
             .map { Array($0.messages.filter { $0.role == .user || $0.role == .assistant }.suffix(10)) } ?? []
         let conversationContext = AIConversationContext.build(from: priorMessages)
@@ -160,7 +162,11 @@ final class QuickAIState: ObservableObject {
                 quickAIStatus = status
             case let .textDelta(delta):
                 response += delta
-                quickAIResponse = response
+                let now = clock.now
+                if lastResponsePublication.duration(to: now) >= .milliseconds(33) {
+                    quickAIResponse = response
+                    lastResponsePublication = now
+                }
             case let .toolCallStarted(name):
                 quickAIStatus = "Using \(name.replacingOccurrences(of: "_", with: " "))"
                 recordToolStarted(name, threadID: threadID)
@@ -186,6 +192,7 @@ final class QuickAIState: ObservableObject {
             return
         }
         guard isCurrentQuickAIRequest(requestID, threadID: threadID) else { return }
+        quickAIResponse = response
         quickAIStatus = didFail ? "Failed" : response.isEmpty ? "No response" : "Done"
         isQuickAILoading = false
         if let index = quickAIThreads.firstIndex(where: { $0.id == threadID }) {

@@ -539,9 +539,7 @@ struct CommandPanelView: View {
             .background(Color.clear)
             .onChange(of: state.selectionScrollToken) { _, _ in
                 guard let resultID = state.selectedResultID else { return }
-                withAnimation(reduceMotion ? nil : .easeOut(duration: 0.12)) {
-                    proxy.scrollTo(resultID, anchor: .center)
-                }
+                proxy.scrollTo(resultID, anchor: .center)
             }
         }
     }

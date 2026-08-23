@@ -15,18 +15,20 @@ final class BrowserProvider: CommandProvider, @unchecked Sendable {
     }
 
     private let homeDirectory: URL
-    private let liveTabsCache = BrowserLiveTabsCache()
+    private let liveTabsCache: BrowserLiveTabsCache
     private let recordsCache = BrowserRecordsCache()
+    private let recordsLoadLock = NSLock()
 
-    init(homeDirectory: URL = FileManager.default.homeDirectoryForCurrentUser) {
+    init(homeDirectory: URL = FileManager.default.homeDirectoryForCurrentUser, liveTabsCacheLifetime: TimeInterval = 10) {
         self.homeDirectory = homeDirectory
+        self.liveTabsCache = BrowserLiveTabsCache(lifetime: liveTabsCacheLifetime)
     }
 
     func search(_ request: CommandSearchRequest) async -> [CommandResult] {
         let browserRequest = BrowserSearchRequest(query: request.query)
         guard browserRequest.isBrowserIntent else { return [] }
 
-        let sources: [BrowserSource] = browserRequest.browser.map { [$0] } ?? BrowserSource.allCases
+        let sources: [BrowserSource] = browserRequest.browser.map { [$0] } ?? BrowserSource.allCases.filter { $0.isInstalled }
         var allRecords: [BrowserRecord] = []
         for source in sources {
             allRecords.append(contentsOf: records(for: source, kind: browserRequest.kind))
@@ -62,14 +64,33 @@ final class BrowserProvider: CommandProvider, @unchecked Sendable {
     }
 
     private func records(for source: BrowserSource, kind: BrowserRecordKind?) -> [BrowserRecord] {
+        if kind == .tab { return liveTabs(for: source) }
+        if kind == nil {
+            return liveTabs(for: source)
+                + records(for: source, kind: .history)
+                + records(for: source, kind: .bookmark)
+        }
+        let cacheKey = BrowserRecordsCache.Key(source: source, kind: kind)
+        if let cached = recordsCache.value(for: cacheKey) {
+            return cached
+        }
+        recordsLoadLock.lock()
+        defer { recordsLoadLock.unlock() }
+        if let cached = recordsCache.value(for: cacheKey) {
+            return cached
+        }
+        return loadRecords(for: source, kind: kind)
+    }
+
+    private func loadRecords(for source: BrowserSource, kind: BrowserRecordKind?) -> [BrowserRecord] {
         let cacheKey = BrowserRecordsCache.Key(source: source, kind: kind)
         if let cached = recordsCache.value(for: cacheKey) {
             return cached
         }
         var records: [BrowserRecord] = []
-        if kind == nil || kind == .tab { records += liveTabs(for: source) }
-        if kind == nil || kind == .history { records += history(for: source) }
-        if kind == nil || kind == .bookmark { records += bookmarks(for: source) }
+        if kind == .tab { records += liveTabs(for: source) }
+        if kind == .history { records += history(for: source) }
+        if kind == .bookmark { records += bookmarks(for: source) }
         recordsCache.store(records, for: cacheKey)
         return records
     }
@@ -438,7 +459,11 @@ private final class BrowserLiveTabsCache: @unchecked Sendable {
 
     private let lock = NSLock()
     private var entries: [BrowserSource: Entry] = [:]
-    private let lifetime: TimeInterval = 10.0
+    private let lifetime: TimeInterval
+
+    init(lifetime: TimeInterval) {
+        self.lifetime = lifetime
+    }
 
     func value(for source: BrowserSource) -> [BrowserRecord]? {
         lock.lock()

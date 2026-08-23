@@ -26,9 +26,10 @@ struct CodexResponsesStreamFrame: Equatable, Sendable {
 }
 
 struct CodexResponsesStreamDecoder: Sendable {
-    private(set) var text = ""
+    private var textParts: [String] = []
     private(set) var toolName: String?
-    private(set) var toolArguments = ""
+    private var toolArgumentParts: [String] = []
+    var text: String { textParts.joined() }
 
     mutating func decode(line: String) -> CodexResponsesStreamFrame? {
         let value = line.hasPrefix("data:") ? String(line.dropFirst(5)).trimmingCharacters(in: .whitespaces) : line.trimmingCharacters(in: .whitespaces)
@@ -39,7 +40,7 @@ struct CodexResponsesStreamDecoder: Sendable {
         switch type {
         case "response.output_text.delta":
             let delta = root["delta"] as? String ?? ""
-            text += delta
+            textParts.append(delta)
             return CodexResponsesStreamFrame(contentDelta: delta, toolCall: nil, isDone: false, failureMessage: nil)
         case "response.output_item.added":
             if let item = root["item"] as? [String: Any], item["type"] as? String == "function_call" {
@@ -47,10 +48,10 @@ struct CodexResponsesStreamDecoder: Sendable {
             }
             return nil
         case "response.function_call_arguments.delta":
-            toolArguments += root["delta"] as? String ?? ""
+            toolArgumentParts.append(root["delta"] as? String ?? "")
             return nil
         case "response.function_call_arguments.done":
-            if let arguments = root["arguments"] as? String { toolArguments = arguments }
+            if let arguments = root["arguments"] as? String { toolArgumentParts = [arguments] }
             return nil
         case "response.failed", "error":
             let response = root["response"] as? [String: Any]
@@ -63,7 +64,7 @@ struct CodexResponsesStreamDecoder: Sendable {
             return finish()
         default:
             if let choices = root["choices"] as? [[String: Any]], let delta = choices.first?["delta"] as? [String: Any], let content = delta["content"] as? String {
-                text += content
+                textParts.append(content)
                 return CodexResponsesStreamFrame(contentDelta: content, toolCall: nil, isDone: false, failureMessage: nil)
             }
             return nil
@@ -73,7 +74,7 @@ struct CodexResponsesStreamDecoder: Sendable {
     mutating func finish() -> CodexResponsesStreamFrame {
         let call: AgentToolCall?
         if let toolName {
-            let arguments = (try? JSONSerialization.jsonObject(with: Data(toolArguments.utf8)) as? [String: Any]) ?? [:]
+            let arguments = (try? JSONSerialization.jsonObject(with: Data(toolArgumentParts.joined().utf8)) as? [String: Any]) ?? [:]
             call = AgentToolCall.from(json: ["name": toolName, "arguments": arguments]) ?? AgentToolCall(name: toolName, arguments: [:])
         } else {
             call = nil

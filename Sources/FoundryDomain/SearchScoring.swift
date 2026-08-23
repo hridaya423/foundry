@@ -74,11 +74,14 @@ public struct SearchMatch: Equatable, Sendable {
 }
 
 public enum SearchScoring {
+    private static let alphanumerics = CharacterSet.alphanumerics
+    private static let searchLocale = Locale(identifier: "en_US_POSIX")
+
     public static func match(query: String, title: String, aliases: [String] = [], allowFuzzy: Bool = true) -> SearchMatch? {
         let normalizedQuery = normalize(query)
         guard normalizedQuery.isEmpty == false else { return nil }
-        return match(
-            normalizedQuery: normalizedQuery,
+        return matchNormalized(
+            query: normalizedQuery,
             title: title,
             subtitle: nil,
             keywords: [],
@@ -98,8 +101,8 @@ public enum SearchScoring {
     ) -> SearchMatch? {
         let normalizedQuery = normalize(query)
         guard normalizedQuery.isEmpty == false else { return nil }
-        return match(
-            normalizedQuery: normalizedQuery,
+        return matchNormalized(
+            query: normalizedQuery,
             title: title,
             subtitle: subtitle,
             keywords: keywords,
@@ -108,44 +111,93 @@ public enum SearchScoring {
         )
     }
 
+    public static func match(
+        normalizedQuery: String,
+        title: String,
+        subtitle: String?,
+        keywords: [String],
+        aliases: [String],
+        sensitivity: SearchSensitivity = .medium
+    ) -> SearchMatch? {
+        guard normalizedQuery.isEmpty == false else { return nil }
+        return matchNormalized(
+            query: normalizedQuery,
+            title: title,
+            subtitle: subtitle,
+            keywords: keywords,
+            aliases: aliases,
+            sensitivity: sensitivity
+        )
+    }
+
+    public static func matchPrepared(
+        normalizedQuery: String,
+        normalizedTitle: String,
+        normalizedSubtitle: String?,
+        normalizedKeywords: [String],
+        normalizedAliases: [String],
+        sensitivity: SearchSensitivity = .medium
+    ) -> SearchMatch? {
+        guard normalizedQuery.isEmpty == false else { return nil }
+        return matchNormalized(
+            query: normalizedQuery,
+            title: normalizedTitle,
+            subtitle: normalizedSubtitle,
+            keywords: normalizedKeywords,
+            aliases: normalizedAliases,
+            sensitivity: sensitivity,
+            valuesAreNormalized: true
+        )
+    }
+
     public static func normalize(_ value: String) -> String {
         let folded = value.folding(
             options: [.caseInsensitive, .diacriticInsensitive],
-            locale: Locale(identifier: "en_US_POSIX")
+            locale: searchLocale
         )
-        let normalized = folded.unicodeScalars.map { scalar in
-            CharacterSet.alphanumerics.contains(scalar) ? String(scalar).lowercased() : " "
-        }.joined()
+        let lowercased = folded.lowercased(with: searchLocale)
+        var normalized = String()
+        normalized.reserveCapacity(lowercased.utf8.count)
+        var needsSeparator = false
+        for scalar in lowercased.unicodeScalars {
+            guard alphanumerics.contains(scalar) else {
+                if normalized.isEmpty == false { needsSeparator = true }
+                continue
+            }
+            if needsSeparator { normalized.append(" ") }
+            normalized.unicodeScalars.append(scalar)
+            needsSeparator = false
+        }
         return normalized
-            .split(whereSeparator: { $0.isWhitespace })
-            .joined(separator: " ")
     }
 
-    private static func match(
-        normalizedQuery query: String,
+    private static func matchNormalized(
+        query: String,
         title: String,
         subtitle: String?,
         keywords: [String],
         aliases: [String],
         sensitivity: SearchSensitivity,
-        allowFuzzy: Bool = true
+        allowFuzzy: Bool = true,
+        valuesAreNormalized: Bool = false
     ) -> SearchMatch? {
-        let aliasMatches = aliases.compactMap { aliasMatch(query: query, alias: normalize($0)) }
-        let titleMatches = [textMatch(query: query, candidate: title, field: .title, sensitivity: sensitivity, allowFuzzy: allowFuzzy)].compactMap { $0 }
+        let queryTokens = query.split(separator: " ").map(String.init)
+        guard queryTokens.isEmpty == false else { return nil }
+        let aliasMatches = aliases.compactMap { aliasMatch(query: query, queryTokenCount: queryTokens.count, alias: valuesAreNormalized ? $0 : normalize($0)) }
+        let titleMatches = [textMatch(query: query, queryTokens: queryTokens, candidate: title, field: .title, sensitivity: sensitivity, allowFuzzy: allowFuzzy, isNormalized: valuesAreNormalized)].compactMap { $0 }
         let subtitleMatches = [subtitle].compactMap { value in
-            value.flatMap { textMatch(query: query, candidate: $0, field: .subtitle, sensitivity: sensitivity, allowFuzzy: allowFuzzy) }
+            value.flatMap { textMatch(query: query, queryTokens: queryTokens, candidate: $0, field: .subtitle, sensitivity: sensitivity, allowFuzzy: allowFuzzy, isNormalized: valuesAreNormalized) }
         }
         let keywordMatches = keywords.compactMap { keyword in
-            textMatch(query: query, candidate: keyword, field: .keyword, sensitivity: sensitivity, allowFuzzy: allowFuzzy)
+            textMatch(query: query, queryTokens: queryTokens, candidate: keyword, field: .keyword, sensitivity: sensitivity, allowFuzzy: allowFuzzy, isNormalized: valuesAreNormalized)
         }
 
         return (aliasMatches + titleMatches + subtitleMatches + keywordMatches)
             .max { isBetter($1, than: $0) }
     }
 
-    private static func aliasMatch(query: String, alias: String) -> SearchMatch? {
+    private static func aliasMatch(query: String, queryTokenCount: Int, alias: String) -> SearchMatch? {
         guard alias.isEmpty == false else { return nil }
-        let queryTokenCount = query.split(separator: " ").count
         if alias == query {
             return SearchMatch(
                 kind: .exact,
@@ -176,11 +228,10 @@ public enum SearchScoring {
         )
     }
 
-    private static func textMatch(query: String, candidate: String, field: SearchMatchField, sensitivity: SearchSensitivity, allowFuzzy: Bool) -> SearchMatch? {
-        let normalizedCandidate = normalize(candidate)
+    private static func textMatch(query: String, queryTokens: [String], candidate: String, field: SearchMatchField, sensitivity: SearchSensitivity, allowFuzzy: Bool, isNormalized: Bool = false) -> SearchMatch? {
+        let normalizedCandidate = isNormalized ? candidate : normalize(candidate)
         guard normalizedCandidate.isEmpty == false else { return nil }
 
-        let queryTokens = query.split(separator: " ").map(String.init)
         let candidateTokens = normalizedCandidate.split(separator: " ").map(String.init)
         guard queryTokens.isEmpty == false, candidateTokens.isEmpty == false else { return nil }
 
@@ -255,33 +306,42 @@ public enum SearchScoring {
         }
         guard queryTokens.allSatisfy({ $0.count >= minimumQueryLength || queryTokens.count > 1 }) else { return nil }
 
+        let queryCharacters = queryTokens.map(Array.init)
+        let candidateCharacters = candidateTokens.map(Array.init)
         var score = 0
         var editDistance = 0
         var exactTokenCount = 0
         var candidateIndex = 0
         let editLimit = sensitivity == .low || queryTokens.joined().count >= 6 ? 2 : 1
-        for token in queryTokens {
-            var bestMatch: (index: Int, alignment: FuzzyAlignment)?
+        for (tokenIndex, token) in queryTokens.enumerated() {
+            var bestMatch: (index: Int, alignment: FuzzyAlignment, distance: Int?)?
             for index in candidateTokens.indices where index >= candidateIndex {
                 let alignment: FuzzyAlignment?
-                if let fuzzyAlignment = fuzzyAlignment(pattern: token, candidate: candidateTokens[index]) {
+                let distance: Int?
+                if let fuzzyAlignment = fuzzyAlignment(pattern: queryCharacters[tokenIndex], candidate: candidateCharacters[index]) {
                     alignment = fuzzyAlignment
+                    distance = nil
                 } else {
-                    let distance = editDistanceBetween(token, candidateTokens[index])
-                    alignment = distance <= editLimit
-                        ? FuzzyAlignment(score: max(1, 64 - distance * 20 - abs(token.count - candidateTokens[index].count) * 2))
+                    let editDistance = editDistanceWithin(
+                        queryCharacters[tokenIndex],
+                        candidateCharacters[index],
+                        limit: editLimit
+                    )
+                    alignment = editDistance <= editLimit
+                        ? FuzzyAlignment(score: max(1, 64 - editDistance * 20 - abs(token.count - candidateTokens[index].count) * 2))
                         : nil
+                    distance = editDistance <= editLimit ? editDistance : nil
                 }
                 guard let alignment else { continue }
                 if bestMatch == nil || alignment.score > bestMatch!.alignment.score {
-                    bestMatch = (index, alignment)
+                    bestMatch = (index, alignment, distance)
                 }
             }
             guard let bestMatch else { return nil }
             candidateIndex = bestMatch.index + 1
             let alignment = bestMatch.alignment
             score += alignment.score
-            let tokenDistance = editDistanceBetween(token, candidateTokens[bestMatch.index])
+            let tokenDistance = bestMatch.distance ?? editDistanceBetween(queryCharacters[tokenIndex], candidateCharacters[bestMatch.index])
             editDistance += tokenDistance
             if candidateTokens[bestMatch.index] == token { exactTokenCount += 1 }
 
@@ -298,9 +358,7 @@ public enum SearchScoring {
         )
     }
 
-    private static func fuzzyAlignment(pattern: String, candidate: String) -> FuzzyAlignment? {
-        let patternCharacters = Array(pattern)
-        let candidateCharacters = Array(candidate)
+    private static func fuzzyAlignment(pattern patternCharacters: [Character], candidate candidateCharacters: [Character]) -> FuzzyAlignment? {
         guard patternCharacters.isEmpty == false, patternCharacters.count <= candidateCharacters.count else { return nil }
 
         let impossible = Int.min / 4
@@ -431,9 +489,7 @@ public enum SearchScoring {
         }
     }
 
-    private static func editDistanceBetween(_ lhs: String, _ rhs: String) -> Int {
-        let lhsCharacters = Array(lhs)
-        let rhsCharacters = Array(rhs)
+    private static func editDistanceBetween(_ lhsCharacters: [Character], _ rhsCharacters: [Character]) -> Int {
         guard lhsCharacters.isEmpty == false else { return rhsCharacters.count }
         guard rhsCharacters.isEmpty == false else { return lhsCharacters.count }
 
@@ -449,6 +505,27 @@ public enum SearchScoring {
             previous = current
         }
         return previous[rhsCharacters.count]
+    }
+
+    private static func editDistanceWithin(_ lhs: [Character], _ rhs: [Character], limit: Int) -> Int {
+        guard abs(lhs.count - rhs.count) <= limit else { return limit + 1 }
+        var previous = Array(0...rhs.count)
+        for (lhsIndex, lhsCharacter) in lhs.enumerated() {
+            var current = [lhsIndex + 1]
+            current.reserveCapacity(rhs.count + 1)
+            var rowMinimum = current[0]
+            for (rhsIndex, rhsCharacter) in rhs.enumerated() {
+                let insertion = current[rhsIndex] + 1
+                let deletion = previous[rhsIndex + 1] + 1
+                let substitution = previous[rhsIndex] + (lhsCharacter == rhsCharacter ? 0 : 1)
+                let value = min(insertion, deletion, substitution)
+                current.append(value)
+                rowMinimum = min(rowMinimum, value)
+            }
+            if rowMinimum > limit { return limit + 1 }
+            previous = current
+        }
+        return previous[rhs.count]
     }
 
     private static func compact(_ value: String) -> String {

@@ -12,6 +12,8 @@ final class SnippetState: ObservableObject {
     private let store: any SnippetStore
     private let contentLimit = 65_536
     private var persistTask: Task<Void, Never>?
+    private var visibleItemsCache: [StoredSnippet]?
+    private var visibleItemsCacheQuery = ""
 
     init(store: any SnippetStore = FileSnippetStore()) {
         self.store = store
@@ -19,13 +21,21 @@ final class SnippetState: ObservableObject {
 
     var visibleItems: [StoredSnippet] {
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        guard trimmed.isEmpty == false else { return items }
-        return items.filter {
+        if trimmed == visibleItemsCacheQuery, let visibleItemsCache { return visibleItemsCache }
+        let visibleItems: [StoredSnippet]
+        if trimmed.isEmpty {
+            visibleItems = items
+        } else {
+            visibleItems = items.filter {
             $0.title.lowercased().contains(trimmed)
                 || $0.content.lowercased().contains(trimmed)
                 || $0.keyword.lowercased().contains(trimmed)
                 || $0.tags.joined(separator: " ").lowercased().contains(trimmed)
+            }
         }
+        visibleItemsCacheQuery = trimmed
+        visibleItemsCache = visibleItems
+        return visibleItems
     }
 
     var selectedItem: StoredSnippet? {
@@ -44,6 +54,7 @@ final class SnippetState: ObservableObject {
 
     func load() {
         items = sorted(store.load())
+        invalidateVisibleItems()
         keepSelectionValid()
     }
 
@@ -67,6 +78,7 @@ final class SnippetState: ObservableObject {
         items[index].keyword = keyword.trimmingCharacters(in: .whitespacesAndNewlines)
         items[index].tags = tags.filter { $0.isEmpty == false }
         items[index].updatedAt = Date()
+        invalidateVisibleItems()
         schedulePersist()
     }
 
@@ -80,6 +92,7 @@ final class SnippetState: ObservableObject {
     func removeSelected() {
         guard let selectedID else { return }
         items.removeAll { $0.id == selectedID }
+        invalidateVisibleItems()
         keepSelectionValid()
         persist()
     }
@@ -104,6 +117,7 @@ final class SnippetState: ObservableObject {
 
     private func persist() {
         items = sorted(items)
+        invalidateVisibleItems()
         switch store.save(items) {
         case .success:
             persistenceError = nil
@@ -136,5 +150,9 @@ final class SnippetState: ObservableObject {
         let visible = visibleItems
         if let selectedID, visible.contains(where: { $0.id == selectedID }) { return }
         selectedID = visible.first?.id
+    }
+
+    private func invalidateVisibleItems() {
+        visibleItemsCache = nil
     }
 }

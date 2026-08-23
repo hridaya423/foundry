@@ -103,9 +103,17 @@ final class CalculatorProvider: CommandProvider {
             URLQueryItem(name: "base", value: request.base),
             URLQueryItem(name: "quotes", value: quotes.joined(separator: ","))
         ]
-        guard let url = components?.url,
-              let (data, _) = try? await URLSession.shared.data(from: url),
-              let rates = try? JSONDecoder().decode([FrankfurterRate].self, from: data) else { return [] }
+        guard let url = components?.url else { return [] }
+        let cacheKey = "\(request.base):\(quotes.sorted().joined(separator: ","))"
+        let rates: [FrankfurterRate]
+        if let cached = CurrencyRateCache.shared.value(for: cacheKey) {
+            rates = cached
+        } else {
+            guard let (data, _) = try? await URLSession.shared.data(from: url),
+                  let fetched = try? JSONDecoder().decode([FrankfurterRate].self, from: data) else { return [] }
+            CurrencyRateCache.shared.store(fetched, for: cacheKey)
+            rates = fetched
+        }
 
         let expression = currencyAmount(request.amount, code: request.base)
         let ratesByQuote = Dictionary(uniqueKeysWithValues: rates.map { ($0.quote, $0) })
@@ -603,6 +611,36 @@ private struct FrankfurterRate: Decodable {
     let base: String
     let quote: String
     let rate: Double
+}
+
+private final class CurrencyRateCache: @unchecked Sendable {
+    static let shared = CurrencyRateCache()
+
+    private struct Entry {
+        let createdAt: Date
+        let rates: [FrankfurterRate]
+    }
+
+    private let lock = NSLock()
+    private var entries: [String: Entry] = [:]
+    private let lifetime: TimeInterval = 5 * 60
+
+    func value(for key: String) -> [FrankfurterRate]? {
+        lock.lock()
+        defer { lock.unlock() }
+        guard let entry = entries[key] else { return nil }
+        guard Date().timeIntervalSince(entry.createdAt) < lifetime else {
+            entries[key] = nil
+            return nil
+        }
+        return entry.rates
+    }
+
+    func store(_ rates: [FrankfurterRate], for key: String) {
+        lock.lock()
+        entries[key] = Entry(createdAt: Date(), rates: rates)
+        lock.unlock()
+    }
 }
 
 private struct CalculatorParser {

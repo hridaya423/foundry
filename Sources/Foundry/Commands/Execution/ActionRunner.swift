@@ -200,27 +200,43 @@ final class ActionRunner: CommandExecuting {
             return outcome
 
         case let .downloadMediaBatch(urls):
-            var completed = 0
-            var failures: [String] = []
-            for url in urls {
-                let id = UUID()
-                mediaDownloadManager.start(id: id, sourceURL: url)
-                do {
-                    let result = try await mediaDownloadService.download(urlString: url, status: { emit(.status($0)) }, progress: {
-                        self.mediaDownloadManager.update(id: id, progress: $0)
-                        emit(.downloadProgress($0))
-                    })
-                    mediaDownloadManager.complete(id: id, message: result)
-                    completed += 1
-                } catch is CancellationError {
-                    mediaDownloadManager.cancel(id: id)
-                    return .cancelled
-                } catch {
-                    let message = error.localizedDescription
-                    mediaDownloadManager.fail(id: id, message: message)
-                    failures.append("\(URL(string: url)?.lastPathComponent ?? url): \(message)")
+            let concurrencyLimit = 3
+            var nextIndex = 0
+            var results: [MediaBatchResult] = []
+            await withTaskGroup(of: MediaBatchResult.self) { group in
+                for _ in 0..<min(concurrencyLimit, urls.count) {
+                    let index = nextIndex
+                    nextIndex += 1
+                    group.addTask {
+                        await self.downloadMediaBatchItem(urls[index], index: index, emit: emit)
+                    }
+                }
+
+                while let result = await group.next() {
+                    if result.status == .cancelled {
+                        group.cancelAll()
+                        results.append(result)
+                        break
+                    }
+                    results.append(result)
+                    if nextIndex < urls.count {
+                        let index = nextIndex
+                        nextIndex += 1
+                        group.addTask {
+                            await self.downloadMediaBatchItem(urls[index], index: index, emit: emit)
+                        }
+                    }
                 }
             }
+            if results.contains(where: { $0.status == .cancelled }) { return .cancelled }
+            let completed = results.filter { $0.status.isCompleted }.count
+            let failures = results
+                .sorted { $0.index < $1.index }
+                .compactMap { result -> String? in
+                    guard case let .failed(message) = result.status else { return nil }
+                    let url = urls[result.index]
+                    return "\(URL(string: url)?.lastPathComponent ?? url): \(message)"
+                }
             let message = failures.isEmpty
                 ? "Downloaded \(completed) of \(urls.count) media links"
                 : "Downloaded \(completed) of \(urls.count); failed: \(failures.joined(separator: "; "))"
@@ -503,6 +519,47 @@ final class ActionRunner: CommandExecuting {
         return (error as? ProcessRunnerError) == .cancelled
     }
 
+    private func downloadMediaBatchItem(
+        _ url: String,
+        index: Int,
+        emit: @escaping @MainActor @Sendable (CommandExecutionEvent) -> Void
+    ) async -> MediaBatchResult {
+        let id = UUID()
+        mediaDownloadManager.start(id: id, sourceURL: url)
+        do {
+            let result = try await mediaDownloadService.download(urlString: url, status: { emit(.status($0)) }, progress: {
+                self.mediaDownloadManager.update(id: id, progress: $0)
+                emit(.downloadProgress($0))
+            })
+            mediaDownloadManager.complete(id: id, message: result)
+            return MediaBatchResult(index: index, status: .completed)
+        } catch {
+            guard Self.isCancellation(error) else {
+                let message = error.localizedDescription
+                mediaDownloadManager.fail(id: id, message: message)
+                return MediaBatchResult(index: index, status: .failed(message))
+            }
+            mediaDownloadManager.cancel(id: id)
+            return MediaBatchResult(index: index, status: .cancelled)
+        }
+    }
+
+}
+
+private struct MediaBatchResult: Sendable {
+    enum Status: Sendable, Equatable {
+        case completed
+        case failed(String)
+        case cancelled
+
+        var isCompleted: Bool {
+            if case .completed = self { return true }
+            return false
+        }
+    }
+
+    let index: Int
+    let status: Status
 }
 
 enum KeepAwakeController {

@@ -110,6 +110,23 @@ final class BrowserProviderTests: XCTestCase {
         XCTAssertTrue(results.isEmpty)
     }
 
+    func testLiveTabsAreNotHeldByTheDurableRecordsCache() async throws {
+        let home = temporaryHome()
+        defer { try? FileManager.default.removeItem(at: home) }
+        let tabsURL = FirefoxNativeTabsStore.url(home: home)
+        try FileManager.default.createDirectory(at: tabsURL.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try Data(#"{"tabs":[{"title":"First tab","url":"https://example.com/first"}]}"#.utf8).write(to: tabsURL)
+        let provider = BrowserProvider(homeDirectory: home, liveTabsCacheLifetime: 0)
+
+        let first = await provider.results(matching: "firefox tabs")
+        XCTAssertEqual(first.first?.title, "First tab")
+
+        try Data(#"{"tabs":[{"title":"Second tab","url":"https://example.com/second"}]}"#.utf8).write(to: tabsURL)
+
+        let refreshed = await provider.results(matching: "firefox tabs")
+        XCTAssertEqual(refreshed.first?.title, "Second tab")
+    }
+
     private func temporaryHome() -> URL {
         FileManager.default.temporaryDirectory.appendingPathComponent("foundry-browser-tests-\(UUID().uuidString)")
     }

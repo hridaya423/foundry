@@ -23,7 +23,7 @@ final class AppSearchProvider: CommandProvider, @unchecked Sendable {
             let resultID = "app.\(app.identity)"
             let aliases = request.customAliases[resultID] ?? []
             guard SearchScoring.match(
-                query: normalizedQuery,
+                normalizedQuery: normalizedQuery,
                 title: app.name,
                 subtitle: nil,
                 keywords: app.normalizedSearchCandidates,

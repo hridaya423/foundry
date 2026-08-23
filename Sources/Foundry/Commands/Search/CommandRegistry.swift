@@ -97,11 +97,12 @@ final class CommandRegistry: @unchecked Sendable {
         }
         candidates.append(contentsOf: providerCandidates)
         let sensitivity = configService?.current.searchSensitivity ?? .medium
+        var existingIDs = Set(candidates.map { $0.result.id })
 
         for provider in supplementalProviders {
-            let existingIDs = Set(candidates.map { $0.result.id })
             candidates.append(contentsOf: provider.supplementalResults(matching: query, sensitivity: sensitivity).enumerated().compactMap { index, result in
-                existingIDs.contains(result.id) ? nil : RankCandidate(result: result, providerID: provider.id, sourceOrder: index)
+                guard existingIDs.insert(result.id).inserted else { return nil }
+                return RankCandidate(result: result, providerID: provider.id, sourceOrder: index)
             })
         }
 

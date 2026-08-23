@@ -77,6 +77,7 @@ final class MediaDownloadService: MediaDownloading, @unchecked Sendable {
     }
 
     private let dependencies: Dependencies
+    private let ytDLPInstallGate = YTDLPInstallGate()
 
     init(dependencies: Dependencies = Dependencies()) {
         self.dependencies = dependencies
@@ -224,11 +225,13 @@ final class MediaDownloadService: MediaDownloading, @unchecked Sendable {
     private func installYTDLPIfNeeded() async throws -> String {
         if let executable = try? existingYTDLP() { return executable }
         guard let brew = firstExistingPath(["/opt/homebrew/bin/brew", "/usr/local/bin/brew"]) else { throw MediaDownloadError.youtubeDependencyMissing }
-        try Task.checkCancellation()
-        let result = try await dependencies.processRunner.run(path: brew, arguments: ["install", "yt-dlp"], timeout: 30 * 60, outputLimit: 2 * 1024 * 1024, environment: nil, currentDirectoryURL: nil, onOutput: nil)
-        guard result.succeeded else { throw MediaDownloadError.message(result.stderr.isEmpty ? "Homebrew could not install yt-dlp" : result.stderr) }
-        try Task.checkCancellation()
-        return try existingYTDLP()
+        return try await ytDLPInstallGate.install {
+            try Task.checkCancellation()
+            let result = try await self.dependencies.processRunner.run(path: brew, arguments: ["install", "yt-dlp"], timeout: 30 * 60, outputLimit: 2 * 1024 * 1024, environment: nil, currentDirectoryURL: nil, onOutput: nil)
+            guard result.succeeded else { throw MediaDownloadError.message(result.stderr.isEmpty ? "Homebrew could not install yt-dlp" : result.stderr) }
+            try Task.checkCancellation()
+            return try self.existingYTDLP()
+        }
     }
 
     private func downloadWithCobalt(
@@ -309,6 +312,7 @@ final class MediaDownloadService: MediaDownloading, @unchecked Sendable {
         progress: (@MainActor @Sendable (MediaDownloadProgress) -> Void)?
     ) async throws {
         let parser = YTDLPProgressParser()
+        let progressThrottle = MediaProgressThrottle()
         let staging = try dependencies.artifactFileSystem.temporaryDirectory(prefix: "foundry-ytdlp")
         defer { try? dependencies.artifactFileSystem.removeItem(at: staging) }
         let result = try await dependencies.processRunner.run(
@@ -320,6 +324,7 @@ final class MediaDownloadService: MediaDownloading, @unchecked Sendable {
             currentDirectoryURL: nil,
             onOutput: { output in
                 guard let update = parser.parse(output.line) else { return }
+                guard progressThrottle.shouldReport(isTerminal: update.phase == .completed) else { return }
                 Task { @MainActor in progress?(update) }
             }
         )
@@ -739,6 +744,14 @@ private final class MediaDownloadDelegate: NSObject, URLSessionDownloadDelegate,
 }
 
 final class YTDLPProgressParser: @unchecked Sendable {
+    private static let itemRegex = try! NSRegularExpression(pattern: #"Downloading item\s+(\d+)\s+of\s+(\d+)"#, options: [.caseInsensitive])
+    private static let mergingRegex = try! NSRegularExpression(pattern: #"Merging formats into\s+[\"'](.+)[\"']"#, options: [.caseInsensitive])
+    private static let downloadedRegex = try! NSRegularExpression(pattern: #"\[download\]\s+(.+)\s+has already been downloaded"#, options: [.caseInsensitive])
+    private static let progressRegex = try! NSRegularExpression(pattern: #"(\d+(?:\.\d+)?)%(?:.*?of\s+(?:~\s*)?([0-9]+(?:\.[0-9]+)?\s*(?:B|KiB|MiB|GiB|TiB)))?(?:.*?at\s+([0-9]+(?:\.[0-9]+)?\s*(?:B|KiB|MiB|GiB|TiB))/s)?(?:.*?ETA\s+([0-9:]+))?"#, options: [.caseInsensitive])
+    private static let totalBytesRegex = try! NSRegularExpression(pattern: #"of\s+(?:~\s*)?([0-9]+(?:\.[0-9]+)?\s*(?:B|KiB|MiB|GiB|TiB))"#, options: [.caseInsensitive])
+    private static let speedRegex = try! NSRegularExpression(pattern: #"at\s+([0-9]+(?:\.[0-9]+)?\s*(?:B|KiB|MiB|GiB|TiB))/s"#, options: [.caseInsensitive])
+    private static let etaRegex = try! NSRegularExpression(pattern: #"ETA\s+([0-9:]+)"#, options: [.caseInsensitive])
+    private static let byteValueRegex = try! NSRegularExpression(pattern: #"^\s*([0-9]+(?:\.[0-9]+)?)\s*(B|KiB|MiB|GiB|TiB)\s*$"#, options: [.caseInsensitive])
     private let lock = NSLock()
     private var title = "YouTube media"
     private var currentItem: Int?
@@ -748,7 +761,7 @@ final class YTDLPProgressParser: @unchecked Sendable {
         lock.lock()
         defer { lock.unlock() }
 
-        if let itemMatch = Self.match(#"Downloading item\s+(\d+)\s+of\s+(\d+)"#, in: line) {
+        if let itemMatch = Self.match(Self.itemRegex, in: line) {
             currentItem = Int(itemMatch[0])
             totalItems = Int(itemMatch[1])
             return makeProgress(message: "Downloading item \(itemMatch[0]) of \(itemMatch[1])")
@@ -760,22 +773,26 @@ final class YTDLPProgressParser: @unchecked Sendable {
             return makeProgress(message: "Downloading \(title)")
         }
 
-        if let merged = Self.match(#"Merging formats into\s+[\"'](.+)[\"']"#, in: line)?.first {
+        if let merged = Self.match(Self.mergingRegex, in: line)?.first {
             title = Self.displayName(merged)
             return makeProgress(message: "Finishing \(title)")
         }
 
-        if let existing = Self.match(#"\[download\]\s+(.+)\s+has already been downloaded"#, in: line)?.first {
+        if let existing = Self.match(Self.downloadedRegex, in: line)?.first {
             title = Self.displayName(existing)
             return makeProgress(message: "Already downloaded")
         }
 
-        guard let percent = Self.match(#"(\d+(?:\.\d+)?)%"#, in: line).flatMap({ Double($0[0]) }) else { return nil }
-        let parsedTotalBytes = Self.match(#"of\s+(?:~\s*)?([0-9]+(?:\.[0-9]+)?\s*(?:B|KiB|MiB|GiB|TiB))"#, in: line).flatMap { Self.byteValue($0[0]) }
+        guard let progressMatch = Self.match(Self.progressRegex, in: line),
+              let percent = Double(progressMatch[0]) else { return nil }
+        let parsedTotalBytes = Self.byteValue(progressMatch[1])
+            ?? Self.match(Self.totalBytesRegex, in: line).flatMap { Self.byteValue($0[0]) }
         let totalBytes = parsedTotalBytes.map(Int64.init)
         let bytesReceived = parsedTotalBytes.map { Int64($0 * percent / 100) } ?? 0
-        let speed = Self.match(#"at\s+([0-9]+(?:\.[0-9]+)?\s*(?:B|KiB|MiB|GiB|TiB))/s"#, in: line).flatMap { Self.byteValue($0[0]) }
-        let eta = Self.match(#"ETA\s+([0-9:]+)"#, in: line).flatMap { Self.duration($0[0]) }
+        let speed = Self.byteValue(progressMatch[2])
+            ?? Self.match(Self.speedRegex, in: line).flatMap { Self.byteValue($0[0]) }
+        let eta = Self.duration(progressMatch[3])
+            ?? Self.match(Self.etaRegex, in: line).flatMap { Self.duration($0[0]) }
         return MediaDownloadProgress(
             phase: .downloading,
             title: title,
@@ -805,19 +822,16 @@ final class YTDLPProgressParser: @unchecked Sendable {
         )
     }
 
-    private static func match(_ pattern: String, in value: String) -> [String]? {
-        guard let regex = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]),
-              let match = regex.firstMatch(in: value, range: NSRange(value.startIndex..<value.endIndex, in: value)) else { return nil }
-        return (1..<match.numberOfRanges).compactMap { index in
-            guard let range = Range(match.range(at: index), in: value) else { return nil }
+    private static func match(_ regex: NSRegularExpression, in value: String) -> [String]? {
+        guard let match = regex.firstMatch(in: value, range: NSRange(value.startIndex..<value.endIndex, in: value)) else { return nil }
+        return (1..<match.numberOfRanges).map { index in
+            guard let range = Range(match.range(at: index), in: value) else { return "" }
             return String(value[range])
         }
     }
 
     private static func byteValue(_ value: String) -> Double? {
-        let pattern = #"^\s*([0-9]+(?:\.[0-9]+)?)\s*(B|KiB|MiB|GiB|TiB)\s*$"#
-        guard let regex = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]),
-              let match = regex.firstMatch(in: value, range: NSRange(value.startIndex..<value.endIndex, in: value)),
+        guard let match = byteValueRegex.firstMatch(in: value, range: NSRange(value.startIndex..<value.endIndex, in: value)),
               let numberRange = Range(match.range(at: 1), in: value),
               let unitRange = Range(match.range(at: 2), in: value),
               let number = Double(value[numberRange]) else { return nil }
@@ -845,6 +859,32 @@ final class YTDLPProgressParser: @unchecked Sendable {
     private static func displayName(_ value: String) -> String {
         let unquoted = value.trimmingCharacters(in: CharacterSet(charactersIn: "\"'"))
         return unquoted.hasPrefix("/") ? URL(fileURLWithPath: unquoted).lastPathComponent : unquoted
+    }
+}
+
+private final class MediaProgressThrottle: @unchecked Sendable {
+    private let lock = NSLock()
+    private var lastReportedAt = Date.distantPast
+
+    func shouldReport(isTerminal: Bool) -> Bool {
+        let now = Date()
+        lock.lock()
+        defer { lock.unlock() }
+        guard isTerminal || now.timeIntervalSince(lastReportedAt) >= 0.1 else { return false }
+        lastReportedAt = now
+        return true
+    }
+}
+
+private actor YTDLPInstallGate {
+    private var task: Task<String, Error>?
+
+    func install(_ operation: @escaping @Sendable () async throws -> String) async throws -> String {
+        if let task { return try await task.value }
+        let task = Task { try await operation() }
+        self.task = task
+        defer { self.task = nil }
+        return try await task.value
     }
 }
 

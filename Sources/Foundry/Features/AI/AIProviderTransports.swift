@@ -59,23 +59,24 @@ enum OpenAICompatibleTransport {
     }
 
     private static func decodeStream(bytes: URLSession.AsyncBytes) async throws -> AgentModelResponse {
-        var text = ""
+        var textParts: [String] = []
         var toolName: String?
-        var toolArguments = ""
+        var toolArgumentParts: [String] = []
         for try await line in bytes.lines {
             guard Task.isCancelled == false else { return .failure("Cancelled", .cancelled) }
             let value = line.hasPrefix("data:") ? String(line.dropFirst(5)).trimmingCharacters(in: .whitespaces) : line
             guard value.isEmpty == false, value != "[DONE]", let data = value.data(using: .utf8), let root = try JSONSerialization.jsonObject(with: data) as? [String: Any] else { continue }
             guard let choice = (root["choices"] as? [[String: Any]])?.first else { continue }
             let delta = choice["delta"] as? [String: Any] ?? [:]
-            if let content = delta["content"] as? String { text += content }
+            if let content = delta["content"] as? String { textParts.append(content) }
             if let calls = delta["tool_calls"] as? [[String: Any]], let call = calls.first, let function = call["function"] as? [String: Any] {
                 if let name = function["name"] as? String { toolName = name }
-                if let arguments = function["arguments"] as? String { toolArguments += arguments }
+                if let arguments = function["arguments"] as? String { toolArgumentParts.append(arguments) }
             }
         }
+        let text = textParts.joined()
         if let toolName {
-            let arguments = (try? JSONSerialization.jsonObject(with: Data(toolArguments.utf8)) as? [String: Any]) ?? [:]
+            let arguments = (try? JSONSerialization.jsonObject(with: Data(toolArgumentParts.joined().utf8)) as? [String: Any]) ?? [:]
             return .toolCall(AgentToolCall.from(json: ["name": toolName, "arguments": arguments]) ?? AgentToolCall(name: toolName, arguments: [:]), assistantText: text)
         }
         return .final(AgentProtocolDecoder.displayContent(from: text))
@@ -140,9 +141,9 @@ enum AnthropicTransport {
     }
 
     private static func decodeStream(bytes: URLSession.AsyncBytes) async throws -> AgentModelResponse {
-        var text = ""
+        var textParts: [String] = []
         var toolName: String?
-        var toolArguments = ""
+        var toolArgumentParts: [String] = []
         var event = ""
         for try await line in bytes.lines {
             guard Task.isCancelled == false else { return .failure("Cancelled", .cancelled) }
@@ -150,12 +151,13 @@ enum AnthropicTransport {
             guard line.hasPrefix("data:"), let data = String(line.dropFirst(5)).trimmingCharacters(in: .whitespaces).data(using: .utf8), let root = try JSONSerialization.jsonObject(with: data) as? [String: Any] else { continue }
             if event == "content_block_start", let content = root["content_block"] as? [String: Any], content["type"] as? String == "tool_use" { toolName = content["name"] as? String }
             if event == "content_block_delta", let delta = root["delta"] as? [String: Any] {
-                if let value = delta["text"] as? String { text += value }
-                if let value = delta["partial_json"] as? String { toolArguments += value }
+                if let value = delta["text"] as? String { textParts.append(value) }
+                if let value = delta["partial_json"] as? String { toolArgumentParts.append(value) }
             }
         }
+        let text = textParts.joined()
         if let toolName {
-            let arguments = (try? JSONSerialization.jsonObject(with: Data(toolArguments.utf8)) as? [String: Any]) ?? [:]
+            let arguments = (try? JSONSerialization.jsonObject(with: Data(toolArgumentParts.joined().utf8)) as? [String: Any]) ?? [:]
             return .toolCall(AgentToolCall.from(json: ["name": toolName, "arguments": arguments]) ?? AgentToolCall(name: toolName, arguments: [:]), assistantText: text)
         }
         return .final(AgentProtocolDecoder.displayContent(from: text))
@@ -229,17 +231,18 @@ enum GeminiTransport {
     }
 
     private static func decodeStream(bytes: URLSession.AsyncBytes) async throws -> AgentModelResponse {
-        var text = ""
+        var textParts: [String] = []
         var toolCall: AgentToolCall?
         for try await line in bytes.lines {
             guard Task.isCancelled == false else { return .failure("Cancelled", .cancelled) }
             let value = line.hasPrefix("data:") ? String(line.dropFirst(5)).trimmingCharacters(in: .whitespaces) : line
             guard let data = value.data(using: .utf8), let root = try JSONSerialization.jsonObject(with: data) as? [String: Any], let candidate = (root["candidates"] as? [[String: Any]])?.first, let content = candidate["content"] as? [String: Any], let parts = content["parts"] as? [[String: Any]] else { continue }
             for part in parts {
-                if let value = part["text"] as? String { text += value }
+                if let value = part["text"] as? String { textParts.append(value) }
                 if let call = part["functionCall"] as? [String: Any], let name = call["name"] as? String { toolCall = AgentToolCall.from(json: ["name": name, "arguments": call["args"] as? [String: Any] ?? [:]]) }
             }
         }
+        let text = textParts.joined()
         if let toolCall { return .toolCall(toolCall, assistantText: text) }
         return .final(AgentProtocolDecoder.displayContent(from: text))
     }

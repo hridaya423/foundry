@@ -20,7 +20,12 @@ final class CommandProviderScheduler: @unchecked Sendable {
         sensitivity: SearchSensitivity,
         timeout: Duration
     ) async -> ([RankCandidate], [ProviderSearchTiming]) {
-        await withTaskGroup(of: ProviderSearchResult.self, returning: ([RankCandidate], [ProviderSearchTiming]).self) { group in
+        let aliasKey = aliases
+            .sorted { $0.key < $1.key }
+            .map { "\($0.key)=\($0.value.joined(separator: ","))" }
+            .joined(separator: "|")
+
+        return await withTaskGroup(of: ProviderSearchResult.self, returning: ([RankCandidate], [ProviderSearchTiming]).self) { group in
             for provider in providers {
                 group.addTask { [diagnostics] in
                     let span = diagnostics.startSpan("search.provider.\(provider.id)")
@@ -32,6 +37,7 @@ final class CommandProviderScheduler: @unchecked Sendable {
                         query: query,
                         aliases: aliases,
                         sensitivity: sensitivity,
+                        aliasKey: aliasKey,
                         deadline: deadline
                     )
                     let elapsedMilliseconds = (Date().timeIntervalSinceReferenceDate - startedAt) * 1_000
@@ -80,12 +86,9 @@ final class CommandProviderScheduler: @unchecked Sendable {
         query: String,
         aliases: [String: [String]],
         sensitivity: SearchSensitivity,
+        aliasKey: String,
         deadline: ContinuousClock.Instant
     ) async -> ProviderOperationResult<[CommandResult]> {
-        let aliasKey = aliases
-            .sorted { $0.key < $1.key }
-            .map { "\($0.key)=\($0.value.joined(separator: ","))" }
-            .joined(separator: "|")
         let operationKey = "search:\(query)|\(sensitivity.rawValue)|\(aliasKey)"
         return await race(providerID: provider.id, operationKey: operationKey, {
             try await provider.search(CommandSearchRequest(

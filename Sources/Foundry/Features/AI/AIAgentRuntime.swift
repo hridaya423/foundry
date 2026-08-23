@@ -634,18 +634,19 @@ enum OllamaAgentClient {
         do {
             let (bytes, response) = try await AITransportSupport.session.bytes(for: request)
             guard (response as? HTTPURLResponse)?.statusCode == 200 else { return .failure("Ollama unavailable", .unavailable) }
-            var text = ""
+            var textParts: [String] = []
             var toolCall: AgentToolCall?
             var decoder = OllamaStreamDecoder()
             for try await line in bytes.lines {
                 guard Task.isCancelled == false else { return .failure("Cancelled", .cancelled) }
                 guard let frame = decoder.decode(line: line) else { continue }
                 if frame.contentDelta.isEmpty == false {
-                    text += frame.contentDelta
+                    textParts.append(frame.contentDelta)
                 }
                 if toolCall == nil { toolCall = frame.toolCall }
                 if frame.isDone { break }
             }
+            let text = textParts.joined()
             if let toolCall { return .toolCall(toolCall, assistantText: text) }
             return .final(AgentProtocolDecoder.displayContent(from: text))
         } catch is CancellationError {

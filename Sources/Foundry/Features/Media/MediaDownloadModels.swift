@@ -91,6 +91,7 @@ final class MediaDownloadManager: ObservableObject {
         cobalt: .ready(label: "Cobalt · sends URL to Cobalt"),
         youtube: .ready(label: "YouTube · yt-dlp automatic setup")
     )
+    private var itemIndices: [UUID: Int] = [:]
 
     var activeCount: Int {
         items.reduce(into: 0) { count, item in
@@ -122,10 +123,11 @@ final class MediaDownloadManager: ObservableObject {
         )
         items.removeAll { $0.id == id }
         items.insert(item, at: 0)
+        rebuildItemIndices()
     }
 
     func update(id: UUID, progress: MediaDownloadProgress) {
-        guard let index = items.firstIndex(where: { $0.id == id }) else { return }
+        guard let index = itemIndices[id] else { return }
         guard items[index].status == .active else { return }
         var displayProgress = progress
         if progress.title.hasPrefix("/") {
@@ -137,7 +139,7 @@ final class MediaDownloadManager: ObservableObject {
     }
 
     func complete(id: UUID, message: String) {
-        guard let index = items.firstIndex(where: { $0.id == id }) else { return }
+        guard let index = itemIndices[id] else { return }
         items[index].status = .completed
         items[index].progress.phase = .completed
         items[index].progress.message = message
@@ -146,7 +148,7 @@ final class MediaDownloadManager: ObservableObject {
     }
 
     func fail(id: UUID, message: String) {
-        guard let index = items.firstIndex(where: { $0.id == id }) else { return }
+        guard let index = itemIndices[id] else { return }
         items[index].status = .failed
         items[index].progress.phase = .failed
         items[index].progress.message = message
@@ -155,7 +157,7 @@ final class MediaDownloadManager: ObservableObject {
     }
 
     func cancel(id: UUID) {
-        guard let index = items.firstIndex(where: { $0.id == id }) else { return }
+        guard let index = itemIndices[id] else { return }
         items[index].status = .cancelled
         items[index].progress.phase = .cancelled
         items[index].progress.message = "Download cancelled"
@@ -165,9 +167,15 @@ final class MediaDownloadManager: ObservableObject {
 
     func clearFinished() {
         items.removeAll { $0.status != .active }
+        rebuildItemIndices()
     }
 
     func remove(id: UUID) {
         items.removeAll { $0.id == id && $0.status != .active }
+        rebuildItemIndices()
+    }
+
+    private func rebuildItemIndices() {
+        itemIndices = Dictionary(uniqueKeysWithValues: items.enumerated().map { ($0.element.id, $0.offset) })
     }
 }

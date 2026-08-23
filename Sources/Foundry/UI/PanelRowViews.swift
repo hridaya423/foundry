@@ -17,6 +17,10 @@ struct RowBackground: View {
     var body: some View {
         RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
             .fill(fill)
+            .overlay {
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .strokeBorder(isSelected ? FoundryTheme.selectionBorder : Color.clear, lineWidth: 1)
+            }
     }
 }
 
@@ -87,7 +91,6 @@ struct HomeResultRow: View {
         .padding(.horizontal, 12)
         .frame(height: 40)
         .background(RowBackground(isSelected: isSelected, isHovering: isHovering))
-        .animation(reduceMotion ? nil : .easeOut(duration: 0.12), value: isSelected)
         .animation(reduceMotion ? nil : .easeOut(duration: 0.12), value: isHovering)
         .onHover { hovering in
             isHovering = hovering
@@ -159,7 +162,6 @@ struct MediaResultRow: View {
         .padding(.vertical, isExpanded ? 20 : 0)
         .frame(height: isExpanded ? 260 : 76)
         .background(RowBackground(isSelected: isSelected, isHovering: isHovering))
-        .animation(reduceMotion ? nil : .easeOut(duration: 0.12), value: isSelected)
         .animation(reduceMotion ? nil : .easeOut(duration: 0.12), value: isHovering)
         .onHover { hovering in
             isHovering = hovering
@@ -250,7 +252,6 @@ struct ResultRow: View {
         .padding(.horizontal, 12)
         .frame(height: result.subtitle == nil ? 40 : 46)
         .background(RowBackground(isSelected: isSelected, isHovering: isHovering))
-        .animation(reduceMotion ? nil : .easeOut(duration: 0.12), value: isSelected)
         .animation(reduceMotion ? nil : .easeOut(duration: 0.12), value: isHovering)
         .onHover { hovering in
             isHovering = hovering

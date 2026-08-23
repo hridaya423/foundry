@@ -16,24 +16,29 @@ final class CommandRanker {
     }
 
     func ordered(_ candidates: [RankCandidate], query: String?) -> [CommandResult] {
-        candidates
+        let preferences = configService?.current.commandPreferences ?? [:]
+        let sensitivity = configService?.current.searchSensitivity ?? .medium
+        let normalizedQuery = query.map(SearchScoring.normalize)
+        let usageBoosts = usageRanking.usageBoosts(for: candidates.map { $0.result.id }, query: query)
+
+        return candidates
             .map { candidate in
-                let preference = configService?.current.commandPreferences[candidate.result.id]
-                let match = query.flatMap { query in
-                    SearchScoring.match(
-                        query: query,
-                        title: candidate.result.title,
-                        subtitle: candidate.result.subtitle,
-                        keywords: candidate.result.searchKeywords,
-                        aliases: candidate.result.searchAliases + (preference?.aliases ?? []),
-                        sensitivity: configService?.current.searchSensitivity ?? .medium
+                let preference = preferences[candidate.result.id]
+                let match = normalizedQuery.flatMap { normalizedQuery in
+                    SearchScoring.matchPrepared(
+                        normalizedQuery: normalizedQuery,
+                        normalizedTitle: candidate.result.normalizedSearchTitle,
+                        normalizedSubtitle: candidate.result.normalizedSearchSubtitle,
+                        normalizedKeywords: candidate.result.normalizedSearchKeywords,
+                        normalizedAliases: candidate.result.normalizedSearchAliases + (preference?.aliases ?? []).map(SearchScoring.normalize),
+                        sensitivity: sensitivity
                     )
                 }
                 return RankedResult(
                     candidate: candidate,
                     preference: preference,
                     match: match,
-                    usageBoost: query.flatMap { usageRanking.usageBoost(for: candidate.result.id, query: $0) } ?? 0
+                    usageBoost: usageBoosts[candidate.result.id] ?? 0
                 )
             }
             .sorted { lhs, rhs in
@@ -71,8 +76,9 @@ final class CommandRanker {
                 if lhs.candidate.providerID != rhs.candidate.providerID {
                     return lhs.candidate.providerID < rhs.candidate.providerID
                 }
-                if lhs.candidate.result.title.localizedCaseInsensitiveCompare(rhs.candidate.result.title) != .orderedSame {
-                    return lhs.candidate.result.title.localizedCaseInsensitiveCompare(rhs.candidate.result.title) == .orderedAscending
+                let titleComparison = lhs.candidate.result.title.localizedCaseInsensitiveCompare(rhs.candidate.result.title)
+                if titleComparison != .orderedSame {
+                    return titleComparison == .orderedAscending
                 }
                 if lhs.candidate.result.id != rhs.candidate.result.id {
                     return lhs.candidate.result.id < rhs.candidate.result.id
