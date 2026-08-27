@@ -115,7 +115,7 @@ final class CommandProviderScheduler: @unchecked Sendable {
             } catch {
                 return .failed(error.localizedDescription)
             }
-        }) else {
+        }, until: deadline) else {
             return .busy
         }
 
@@ -260,12 +260,18 @@ private actor ProviderExecutionGate {
 
     func task(
         for key: String,
-        work: @escaping @Sendable () async -> ProviderOperationResult<[CommandResult]>
-    ) -> Task<ProviderOperationResult<[CommandResult]>, Never>? {
+        work: @escaping @Sendable () async -> ProviderOperationResult<[CommandResult]>,
+        until deadline: ContinuousClock.Instant
+    ) async -> Task<ProviderOperationResult<[CommandResult]>, Never>? {
+        guard Task.isCancelled == false else { return nil }
         if let existing = inFlight[key] {
             return existing
         }
-        guard inFlight.isEmpty else { return nil }
+        if let existing = inFlight.values.first {
+            existing.cancel()
+            guard await waitForCompletion(of: existing, until: deadline), inFlight.isEmpty else { return nil }
+            guard Task.isCancelled == false else { return nil }
+        }
 
         let task = Task.detached { [self] in
             let result = await work()
@@ -274,6 +280,26 @@ private actor ProviderExecutionGate {
         }
         inFlight[key] = task
         return task
+    }
+
+    private func waitForCompletion(
+        of task: Task<ProviderOperationResult<[CommandResult]>, Never>,
+        until deadline: ContinuousClock.Instant
+    ) async -> Bool {
+        let race = FirstResultRace<Bool>()
+        let watcher = Task {
+            _ = await task.value
+            race.finish(true)
+        }
+        let timeout = Task {
+            let remaining = ContinuousClock().now.duration(to: deadline)
+            if remaining > .zero { try? await Task.sleep(for: remaining) }
+            race.finish(false)
+        }
+        let completed = await race.wait() ?? false
+        watcher.cancel()
+        timeout.cancel()
+        return completed
     }
 
     private func finish(key: String) {

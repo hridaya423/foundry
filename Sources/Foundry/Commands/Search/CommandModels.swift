@@ -140,29 +140,11 @@ extension CommandProvider {
 
     func fallbackResults(matching _: String, sensitivity _: SearchSensitivity) async throws -> [CommandResult] { [] }
 
-    func results(matching query: String, customAliases: [String: [String]]) async -> [CommandResult] {
-        (try? await search(CommandSearchRequest(query: query, customAliases: customAliases))) ?? []
-    }
-
     func results(matching query: String) async -> [CommandResult] {
         (try? await search(CommandSearchRequest(query: query))) ?? []
     }
 
-    func results(matching query: String, customAliases: [String: [String]], sensitivity: SearchSensitivity) async -> [CommandResult] {
-        (try? await search(CommandSearchRequest(query: query, customAliases: customAliases, sensitivity: sensitivity))) ?? []
-    }
-
-    func results(matching query: String, customAliases: [String: [String]], sensitivity: SearchSensitivity, deadline: ContinuousClock.Instant) async -> [CommandResult] {
-        guard ContinuousClock().now < deadline else { return [] }
-        return (try? await search(CommandSearchRequest(query: query, customAliases: customAliases, sensitivity: sensitivity, deadline: deadline))) ?? []
-    }
-
     func defaultResults() async throws -> [CommandResult] { [] }
-
-    func defaultResults(deadline: ContinuousClock.Instant) async -> [CommandResult] {
-        guard ContinuousClock().now < deadline else { return [] }
-        return (try? await defaultResults()) ?? []
-    }
 
     var descriptor: CommandProviderDescriptor {
         CommandProviderDescriptor(

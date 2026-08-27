@@ -22,12 +22,12 @@ final class AppSearchProvider: CommandProvider, @unchecked Sendable {
             guard Task.isCancelled == false else { return nil }
             let resultID = "app.\(app.identity)"
             let aliases = request.customAliases[resultID] ?? []
-            guard SearchScoring.match(
+            guard SearchScoring.matchPrepared(
                 normalizedQuery: normalizedQuery,
-                title: app.name,
-                subtitle: nil,
-                keywords: app.normalizedSearchCandidates,
-                aliases: aliases,
+                normalizedTitle: app.normalizedName,
+                normalizedSubtitle: nil,
+                normalizedKeywords: app.normalizedSearchCandidates,
+                normalizedAliases: aliases.map(SearchScoring.normalize),
                 sensitivity: request.sensitivity
             ) != nil else { return nil }
 
@@ -166,27 +166,21 @@ private final class InstalledAppCache: @unchecked Sendable {
 
     private func rootSignatures() -> [AppRootSignature] {
         roots.map { root in
-            let modificationDate = try? root.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate
-            let children = (try? FileManager.default.contentsOfDirectory(at: root, includingPropertiesForKeys: nil, options: [.skipsHiddenFiles])) ?? []
-            var hasher = Hasher()
-            for child in children {
-                hasher.combine(child.lastPathComponent)
-            }
-            return AppRootSignature(modificationDate: modificationDate ?? nil, childCount: children.count, childHash: hasher.finalize())
+            let attributes = try? FileManager.default.attributesOfItem(atPath: root.path)
+            return AppRootSignature(modificationDate: attributes?[.modificationDate] as? Date)
         }
     }
 }
 
 private struct AppRootSignature: Equatable {
     let modificationDate: Date?
-    let childCount: Int
-    let childHash: Int
 }
 
 private struct InstalledApp: Sendable {
     let name: String
     let bundleIdentifier: String
     let path: URL
+    let normalizedName: String
     let normalizedSearchCandidates: [String]
 
     var identity: String {
@@ -212,6 +206,7 @@ private struct InstalledApp: Sendable {
         self.name = resolvedName
         self.bundleIdentifier = bundle.bundleIdentifier ?? ""
         self.path = url
+        self.normalizedName = SearchScoring.normalize(resolvedName)
         self.normalizedSearchCandidates = [
             resolvedName,
             bundle.bundleIdentifier ?? "",

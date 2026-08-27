@@ -111,25 +111,6 @@ public enum SearchScoring {
         )
     }
 
-    public static func match(
-        normalizedQuery: String,
-        title: String,
-        subtitle: String?,
-        keywords: [String],
-        aliases: [String],
-        sensitivity: SearchSensitivity = .medium
-    ) -> SearchMatch? {
-        guard normalizedQuery.isEmpty == false else { return nil }
-        return matchNormalized(
-            query: normalizedQuery,
-            title: title,
-            subtitle: subtitle,
-            keywords: keywords,
-            aliases: aliases,
-            sensitivity: sensitivity
-        )
-    }
-
     public static func matchPrepared(
         normalizedQuery: String,
         normalizedTitle: String,

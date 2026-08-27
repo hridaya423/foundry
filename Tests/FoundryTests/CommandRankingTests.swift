@@ -75,6 +75,87 @@ final class CommandRankingTests: XCTestCase {
         XCTAssertEqual(maximumConcurrent, 1)
     }
 
+    func testTimedOutProviderIsCancelledSoLaterSearchesCanRecover() async throws {
+        let probe = InvocationProbe()
+        let registry = CommandRegistry(
+            providers: [RecoveringSlowProvider(probe: probe)],
+            usageRanking: UsageRankingStore(diagnostics: DiagnosticsService()),
+            diagnostics: DiagnosticsService()
+        )
+
+        _ = await registry.immediateResults(matching: "first")
+        try await Task.sleep(for: .milliseconds(20))
+        _ = await registry.immediateResults(matching: "second")
+
+        let count = await probe.count()
+        XCTAssertEqual(count, 2)
+    }
+
+    func testCancellationInsensitiveProviderDoesNotBlockNewSearch() async throws {
+        let probe = NonCooperativeSearchProbe()
+        let completion = CompletionProbe()
+        let registry = CommandRegistry(
+            providers: [NonCooperativeProvider(probe: probe)],
+            usageRanking: UsageRankingStore(diagnostics: DiagnosticsService()),
+            diagnostics: DiagnosticsService()
+        )
+
+        let first = Task { await registry.immediateResults(matching: "first") }
+        while await probe.hasEntered() == false { await Task.yield() }
+        _ = await first.value
+
+        let second = Task {
+            _ = await registry.immediateResults(matching: "second")
+            await completion.mark()
+        }
+        try await Task.sleep(for: .milliseconds(150))
+        let completedBeforeRelease = await completion.value()
+
+        await probe.release()
+        await second.value
+
+        XCTAssertTrue(completedBeforeRelease)
+    }
+
+    func testCancelledQueuedSearchDoesNotStartProviderWork() async throws {
+        let probe = NonCooperativeSearchProbe()
+        let scheduler = CommandProviderScheduler(
+            diagnostics: DiagnosticsService(),
+            providerHealth: ProviderHealthStore()
+        )
+        let provider = NonCooperativeProvider(probe: probe)
+
+        let first = Task {
+            await scheduler.search(
+                query: "first",
+                providers: [provider],
+                aliases: [:],
+                sensitivity: .medium,
+                timeout: .seconds(1)
+            )
+        }
+        while await probe.callCount() < 1 { await Task.yield() }
+
+        let second = Task {
+            await scheduler.search(
+                query: "second",
+                providers: [provider],
+                aliases: [:],
+                sensitivity: .medium,
+                timeout: .seconds(1)
+            )
+        }
+        try await Task.sleep(for: .milliseconds(10))
+        second.cancel()
+        await probe.release()
+
+        _ = await first.value
+        _ = await second.value
+
+        let callCount = await probe.callCount()
+        XCTAssertEqual(callCount, 1)
+    }
+
     func testFallbackEligibilityCanSuppressAProviderFallbackResult() async throws {
         let configURL = temporaryURL()
         defer { try? FileManager.default.removeItem(at: configURL) }
@@ -346,6 +427,28 @@ final class CommandRankingTests: XCTestCase {
         }
     }
 
+    private struct RecoveringSlowProvider: CommandProvider {
+        let id = "test.recovering-slow"
+        let probe: InvocationProbe
+
+        func search(_ request: CommandSearchRequest) async -> [CommandResult] {
+            await probe.record()
+            try? await Task.sleep(for: .seconds(5))
+            return []
+        }
+    }
+
+    private struct NonCooperativeProvider: CommandProvider {
+        let id = "test.non-cooperative"
+        let probe: NonCooperativeSearchProbe
+
+        func search(_ request: CommandSearchRequest) async -> [CommandResult] {
+            await probe.enter()
+            await probe.waitForRelease()
+            return []
+        }
+    }
+
     private struct FallbackProvider: CommandProvider {
         let id = "test.fallback-provider"
 
@@ -379,5 +482,41 @@ final class CommandRankingTests: XCTestCase {
         func maximumConcurrent() -> Int {
             maximum
         }
+    }
+
+    private actor InvocationProbe {
+        private var value = 0
+        func record() { value += 1 }
+        func count() -> Int { value }
+    }
+
+    private actor NonCooperativeSearchProbe {
+        private var calls = 0
+        private var released = false
+        private var continuation: CheckedContinuation<Void, Never>?
+
+        func enter() { calls += 1 }
+        func hasEntered() -> Bool { calls > 0 }
+        func callCount() -> Int { calls }
+
+        func waitForRelease() async {
+            if released { return }
+            await withCheckedContinuation { continuation in
+                self.continuation = continuation
+            }
+        }
+
+        func release() {
+            released = true
+            continuation?.resume()
+            continuation = nil
+        }
+    }
+
+    private actor CompletionProbe {
+        private var completed = false
+
+        func mark() { completed = true }
+        func value() -> Bool { completed }
     }
 }
