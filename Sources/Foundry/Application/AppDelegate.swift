@@ -6,6 +6,7 @@ import FoundryServices
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private var shellController: ShellController?
+    private var terminationPending = false
     private let launchAtLoginPromptKey = "foundry.launchAtLoginPromptShown"
     private let launchAtLoginConsentKey = "foundry.launchAtLoginConsent"
 
@@ -64,10 +65,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply { .terminateNow }
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        guard terminationPending == false else { return .terminateLater }
+        terminationPending = true
+        Task { @MainActor [weak self] in
+            await self?.shellController?.prepareForTermination()
+            sender.reply(toApplicationShouldTerminate: true)
+        }
+        return .terminateLater
+    }
 
     func applicationWillTerminate(_ notification: Notification) {
         shellController?.stop()
+        KeepAwakeController.stop()
     }
 
     private static func confirm(action: CommandActionDescriptor, source: CommandInvocationSource) -> Bool {

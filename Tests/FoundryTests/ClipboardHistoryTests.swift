@@ -13,6 +13,15 @@ final class ClipboardHistoryTests: XCTestCase {
         XCTAssertEqual(values[0].signature, ClipboardHistoryItem(payload: .text("hello")).signature)
     }
 
+    func testPersistedClipboardAgeIsNotAlwaysNow() {
+        let now = Date(timeIntervalSince1970: 10_000)
+        let recent = ClipboardHistoryItem(payload: .text("recent"), createdAt: now)
+        let old = ClipboardHistoryItem(payload: .text("old"), createdAt: now.addingTimeInterval(-7_200))
+
+        XCTAssertEqual(recent.timeLabel(relativeTo: now), "now")
+        XCTAssertNotEqual(old.timeLabel(relativeTo: now), "now")
+    }
+
     func testPersistenceIsAtomicAndCorruptArchiveIsPreserved() throws {
         let url = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         let store = ClipboardHistoryPersistence(url: url)
@@ -91,6 +100,37 @@ final class ClipboardHistoryTests: XCTestCase {
         try store.save([item])
         XCTAssertTrue(try store.load()[0].isPinned)
     }
+
+    func testPersistenceWriterCoalescesPendingSnapshots() async {
+        let persistence = BlockingClipboardPersistence()
+        let writer = ClipboardHistoryPersistenceWriter(persistence)
+        let first = ClipboardHistoryItem(payload: .text("first"))
+        let second = ClipboardHistoryItem(payload: .text("second"))
+        let third = ClipboardHistoryItem(payload: .text("third"))
+
+        await writer.schedule([first])
+        persistence.waitUntilSaving()
+        await writer.schedule([second])
+        await writer.schedule([third])
+        persistence.allowSave()
+        _ = await writer.flush()
+
+        XCTAssertEqual(persistence.savedSnapshots().map { $0.first?.payload }, [.text("first"), .text("third")])
+    }
+
+    @MainActor
+    func testClipboardShutdownFlushesLatestItems() async {
+        let persistence = RecordingClipboardPersistence()
+        let pasteboard = TestPasteboardClient()
+        let state = ClipboardHistoryState(pasteboard: pasteboard, persistence: persistence)
+        pasteboard.snapshotValue = PasteboardSnapshot(types: [.string], payload: .text("latest"), sourceBundleIdentifier: "com.example")
+        pasteboard.changeCountValue += 1
+        state.captureIfChangedForTesting()
+
+        await state.shutdown()
+
+        XCTAssertEqual(persistence.savedSnapshots().last?.first?.payload, .text("latest"))
+    }
 }
 
 private final class TestPasteboardClient: PasteboardClient, @unchecked Sendable {
@@ -99,4 +139,39 @@ private final class TestPasteboardClient: PasteboardClient, @unchecked Sendable 
     var changeCount: Int { changeCountValue }
     func snapshot() -> PasteboardSnapshot? { snapshotValue }
     func write(_ payload: ClipboardPayload) {}
+}
+
+private final class RecordingClipboardPersistence: @unchecked Sendable, ClipboardHistoryPersisting {
+    private let lock = NSLock()
+    private var snapshots: [[ClipboardHistoryItem]] = []
+
+    func load() throws -> [ClipboardHistoryItem] { [] }
+    func save(_ items: [ClipboardHistoryItem]) throws { lock.withLock { snapshots.append(items) } }
+    func savedSnapshots() -> [[ClipboardHistoryItem]] { lock.withLock { snapshots } }
+}
+
+private final class BlockingClipboardPersistence: @unchecked Sendable, ClipboardHistoryPersisting {
+    private let started = DispatchSemaphore(value: 0)
+    private let allowed = DispatchSemaphore(value: 0)
+    private let recording = RecordingClipboardPersistence()
+    private let lock = NSLock()
+    private var saveCount = 0
+
+    func load() throws -> [ClipboardHistoryItem] { [] }
+
+    func save(_ items: [ClipboardHistoryItem]) throws {
+        let shouldBlock = lock.withLock {
+            saveCount += 1
+            return saveCount == 1
+        }
+        if shouldBlock {
+            started.signal()
+            allowed.wait()
+        }
+        try recording.save(items)
+    }
+
+    func waitUntilSaving() { started.wait() }
+    func allowSave() { allowed.signal() }
+    func savedSnapshots() -> [[ClipboardHistoryItem]] { recording.savedSnapshots() }
 }

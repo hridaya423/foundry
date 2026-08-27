@@ -1,6 +1,24 @@
 import Foundation
 import FoundryServices
 
+protocol AIChatStoring: Sendable {
+    func load() -> [AIChatThread]
+    func loadAsync() async -> [AIChatThread]
+    func loadResult() -> AIChatLoadResult
+    func loadResultAsync() async -> AIChatLoadResult
+    func save(_ threads: [AIChatThread])
+}
+
+enum AIChatLoadResult: Sendable {
+    case loaded([AIChatThread])
+    case failed
+}
+
+extension AIChatStoring {
+    func loadResult() -> AIChatLoadResult { .loaded(load()) }
+    func loadResultAsync() async -> AIChatLoadResult { .loaded(await loadAsync()) }
+}
+
 struct AIChatThread: Identifiable, Codable, Hashable, Sendable {
     let id: UUID
     var title: String
@@ -57,11 +75,12 @@ enum AIConversationContext {
     }
 }
 
-final class AIChatStore: @unchecked Sendable {
+final class AIChatStore: @unchecked Sendable, AIChatStoring {
     private let url: URL
     private let encoder = JSONEncoder()
     private let decoder = JSONDecoder()
     private let diagnostics: DiagnosticsService?
+    private let saveQueue = DispatchQueue(label: "com.hridya.foundry.ai-chat-save", qos: .utility)
 
     init(url: URL? = nil, diagnostics: DiagnosticsService? = nil) {
         if let url {
@@ -75,29 +94,44 @@ final class AIChatStore: @unchecked Sendable {
     }
 
     func load() -> [AIChatThread] {
-        guard FileManager.default.fileExists(atPath: url.path) else { return [] }
+        guard case let .loaded(threads) = loadResult() else { return [] }
+        return threads
+    }
+
+    func loadResult() -> AIChatLoadResult {
+        guard FileManager.default.fileExists(atPath: url.path) else { return .loaded([]) }
         do {
             let data = try Data(contentsOf: url)
-            return try decoder.decode([AIChatThread].self, from: data).map { thread in
+            let threads = try decoder.decode([AIChatThread].self, from: data).map { thread in
                 var thread = thread
                 thread.messages = compacted(thread.messages)
                 return thread
             }
+            return .loaded(threads)
         } catch {
             diagnostics?.log("Failed to load AI chats: \(error.localizedDescription)")
-            return []
+            return .failed
         }
     }
 
     func loadAsync() async -> [AIChatThread] {
+        guard case let .loaded(threads) = await loadResultAsync() else { return [] }
+        return threads
+    }
+
+    func loadResultAsync() async -> AIChatLoadResult {
         let url = url
         let diagnostics = diagnostics
         return await Task.detached(priority: .utility) {
-            AIChatStore(url: url, diagnostics: diagnostics).load()
+            AIChatStore(url: url, diagnostics: diagnostics).loadResult()
         }.value
     }
 
     func save(_ threads: [AIChatThread]) {
+        saveQueue.sync { write(threads) }
+    }
+
+    private func write(_ threads: [AIChatThread]) {
         do {
             try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
             let data = try encoder.encode(threads)
@@ -106,14 +140,6 @@ final class AIChatStore: @unchecked Sendable {
         } catch {
             diagnostics?.log("Failed to save AI chats: \(error.localizedDescription)")
         }
-    }
-
-    func saveAsync(_ threads: [AIChatThread]) async {
-        let url = url
-        let diagnostics = diagnostics
-        await Task.detached(priority: .utility) {
-            AIChatStore(url: url, diagnostics: diagnostics).save(threads)
-        }.value
     }
 
     private func compacted(_ messages: [AIChatMessage]) -> [AIChatMessage] {
@@ -129,5 +155,23 @@ final class AIChatStore: @unchecked Sendable {
             result.append(message)
         }
         return result
+    }
+}
+
+final class AIChatPersistenceWriter: @unchecked Sendable {
+    private let store: any AIChatStoring
+    private let queue = DispatchQueue(label: "com.hridya.foundry.ai-chat-writer", qos: .utility)
+
+    init(store: any AIChatStoring) {
+        self.store = store
+    }
+
+    func schedule(_ threads: [AIChatThread]) {
+        let store = store
+        queue.async { store.save(threads) }
+    }
+
+    func flush() {
+        queue.sync {}
     }
 }

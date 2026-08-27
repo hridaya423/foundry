@@ -47,7 +47,14 @@ struct ClipboardHistoryItem: Identifiable, Codable, Hashable {
     var subtitle: String { switch payload { case .text(let v): return "\(v.count) chars"; case .files(let v): return v.first?.deletingLastPathComponent().path ?? "Files"; case .image(let v): return ByteCountFormatter.string(fromByteCount: Int64(v.count), countStyle: .file) } }
     var kindLabel: String { switch payload { case .text: "Text"; case .files: "Files"; case .image: "Image" } }
     var systemImage: String { switch payload { case .text: "doc.text"; case .files: "doc.on.doc"; case .image: "photo" } }
-    var timeLabel: String { "now" }
+    var timeLabel: String { timeLabel(relativeTo: Date()) }
+    func timeLabel(relativeTo now: Date) -> String {
+        let seconds = max(Int(now.timeIntervalSince(createdAt)), 0)
+        if seconds < 60 { return "now" }
+        if seconds < 3_600 { return "\(seconds / 60)m" }
+        if seconds < 86_400 { return "\(seconds / 3_600)h" }
+        return "\(seconds / 86_400)d"
+    }
 }
 
 struct ClipboardHistoryPolicy: Equatable {

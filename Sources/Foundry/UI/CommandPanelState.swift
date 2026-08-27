@@ -275,6 +275,11 @@ final class CommandPanelState: ObservableObject {
         fileShelf.shutdown()
     }
 
+    func prepareForTermination() async {
+        await clipboardHistory.shutdown()
+        shutdown()
+    }
+
     func openSettings() {
         beginFeatureMode(.settings, status: "settings")
     }

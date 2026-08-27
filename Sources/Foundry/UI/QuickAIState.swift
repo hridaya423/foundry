@@ -12,23 +12,26 @@ final class QuickAIState: ObservableObject {
     @Published var activeQuickAIThreadID: UUID?
 
     private let aiProvider: AIProvider
-    private let aiChatStore: AIChatStore
+    private let aiChatStore: any AIChatStoring
+    private let persistenceWriter: AIChatPersistenceWriter
     private var quickAITask: Task<Void, Never>?
     private var chatPersistenceTask: Task<Void, Never>?
+    private var initialLoadTask: Task<AIChatLoadResult, Never>?
+    private var initialLoadFinished = false
+    private var initialLoadFailed = false
     private var quickAIRequestID: UUID?
 
-    init(aiProvider: AIProvider, chatStore: AIChatStore = AIChatStore()) {
+    init(aiProvider: AIProvider, chatStore: any AIChatStoring = AIChatStore()) {
         self.aiProvider = aiProvider
         self.aiChatStore = chatStore
+        self.persistenceWriter = AIChatPersistenceWriter(store: chatStore)
         self.quickAIThreads = []
         self.activeQuickAIThreadID = nil
 
+        let loadTask = Task { await chatStore.loadResultAsync() }
+        initialLoadTask = loadTask
         Task { [weak self] in
-            guard let self else { return }
-            let threads = await self.aiChatStore.loadAsync()
-            guard threads.isEmpty == false, self.quickAIThreads.isEmpty else { return }
-            self.quickAIThreads = threads
-            self.activeQuickAIThreadID = threads.first?.id
+            await self?.finishInitialLoad()
         }
     }
 
@@ -110,19 +113,53 @@ final class QuickAIState: ObservableObject {
         quickAIRequestID = nil
         chatPersistenceTask?.cancel()
         chatPersistenceTask = nil
+        if initialLoadFinished == false {
+            applyInitialLoad(aiChatStore.loadResult())
+        }
+        guard initialLoadFailed == false else { return }
+        persistenceWriter.schedule(quickAIThreads)
+        persistenceWriter.flush()
     }
 
     private func persistAIThreads() {
         chatPersistenceTask?.cancel()
-        let threads = quickAIThreads
-        chatPersistenceTask = Task { [store = aiChatStore] in
+        let writer = persistenceWriter
+        chatPersistenceTask = Task { [weak self, writer] in
             do {
                 try await Task.sleep(for: .milliseconds(150))
-                guard Task.isCancelled == false else { return }
-                await store.saveAsync(threads)
             } catch {
                 return
             }
+            guard let self else { return }
+            await self.finishInitialLoad()
+            guard Task.isCancelled == false, self.initialLoadFailed == false else { return }
+            writer.schedule(self.quickAIThreads)
+        }
+    }
+
+    private func finishInitialLoad() async {
+        guard initialLoadFinished == false, let initialLoadTask else { return }
+        let loaded = await initialLoadTask.value
+        guard initialLoadFinished == false else { return }
+        applyInitialLoad(loaded)
+    }
+
+    private func applyInitialLoad(_ result: AIChatLoadResult) {
+        if case let .loaded(loaded) = result {
+            mergeInitialThreads(loaded)
+        } else {
+            initialLoadFailed = true
+        }
+        initialLoadFinished = true
+        self.initialLoadTask = nil
+    }
+
+    private func mergeInitialThreads(_ loaded: [AIChatThread]) {
+        let currentIDs = Set(quickAIThreads.map(\.id))
+        quickAIThreads += loaded.filter { currentIDs.contains($0.id) == false }
+        quickAIThreads.sort { $0.updatedAt > $1.updatedAt }
+        if activeQuickAIThreadID == nil {
+            activeQuickAIThreadID = quickAIThreads.first?.id
         }
     }
 

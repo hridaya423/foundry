@@ -98,6 +98,11 @@ final class ShellController {
         hotkeyController.unregister()
     }
 
+    func prepareForTermination() async {
+        await panelState.prepareForTermination()
+        stop()
+    }
+
     private func configureSnippetExpansion() {
         let settings = config.current.snippetExpansion
         snippetExpansion.configure(isEnabled: settings.isEnabled, excludedBundleIdentifiers: settings.excludedBundleIdentifiers)
