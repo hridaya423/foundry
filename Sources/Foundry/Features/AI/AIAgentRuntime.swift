@@ -8,8 +8,15 @@ import FoundationModels
 #endif
 
 struct AgentToolCall: Sendable, Equatable {
+    let id: String
     let name: String
     let arguments: [String: String]
+
+    init(id: String? = nil, name: String, arguments: [String: String]) {
+        self.id = id ?? "foundry-\(name)"
+        self.name = name
+        self.arguments = arguments
+    }
 
     static func from(json: Any) -> AgentToolCall? {
         guard let object = json as? [String: Any], let name = object["name"] as? String else { return nil }
@@ -20,7 +27,32 @@ struct AgentToolCall: Sendable, Equatable {
             else if let value = value as? NSNumber { arguments[key] = value.stringValue }
             else { arguments[key] = String(describing: value) }
         }
-        return AgentToolCall(name: name, arguments: arguments)
+        return AgentToolCall(id: object["id"] as? String, name: name, arguments: arguments)
+    }
+}
+
+enum AgentTranscript {
+    static func appendToolExchange(
+        call: AgentToolCall,
+        assistantText: String,
+        result: String,
+        to messages: inout [[String: Any]]
+    ) {
+        messages.append([
+            "role": "assistant",
+            "content": assistantText,
+            "tool_calls": [[
+                "id": call.id,
+                "type": "function",
+                "function": ["name": call.name, "arguments": call.arguments]
+            ]]
+        ])
+        messages.append([
+            "role": "tool",
+            "name": call.name,
+            "tool_call_id": call.id,
+            "content": result
+        ])
     }
 }
 
@@ -109,10 +141,7 @@ struct AgentRunner: @unchecked Sendable {
                 diagnostics.log("AI tool step \(step + 1): \(call.name)")
                 continuation.yield(.toolResult(name: call.name, result: result))
                 transcript += "\n\nTool \(call.name) returned:\n\(result)\nContinue the task. Use another tool only if needed; otherwise return the final answer."
-                var assistant: [String: Any] = ["role": "assistant", "content": assistantText]
-                assistant["tool_calls"] = [["type": "function", "function": ["name": call.name, "arguments": call.arguments]]]
-                messages.append(assistant)
-                messages.append(["role": "tool", "name": call.name, "content": result])
+                AgentTranscript.appendToolExchange(call: call, assistantText: assistantText, result: result, to: &messages)
             case let .failure(text, kind):
                 return AgentRunResult(text: text, failureMessage: text, failureKind: kind)
             }

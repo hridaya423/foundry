@@ -1,5 +1,6 @@
 import XCTest
 @testable import Foundry
+import FoundryServices
 
 final class AIProviderTests: XCTestCase {
     func testAIRequestsAreExplicitAndAppleFirst() {
@@ -117,10 +118,10 @@ final class AIProviderTests: XCTestCase {
     func testCodexResponsesDecoderNormalizesTextAndFunctionCalls() {
         var decoder = CodexResponsesStreamDecoder()
         XCTAssertEqual(decoder.decode(line: #"data: {"type":"response.output_text.delta","delta":"Hello"}"#)?.contentDelta, "Hello")
-        _ = decoder.decode(line: #"data: {"type":"response.output_item.added","item":{"type":"function_call","name":"system_context"}}"#)
+        _ = decoder.decode(line: #"data: {"type":"response.output_item.added","item":{"type":"function_call","call_id":"provider-call","name":"system_context"}}"#)
         _ = decoder.decode(line: #"data: {"type":"response.function_call_arguments.done","arguments":"{}"}"#)
         let frame = decoder.decode(line: #"data: {"type":"response.completed"}"#)
-        XCTAssertEqual(frame?.toolCall, AgentToolCall(name: "system_context", arguments: [:]))
+        XCTAssertEqual(frame?.toolCall, AgentToolCall(id: "provider-call", name: "system_context", arguments: [:]))
         XCTAssertTrue(frame?.isDone == true)
     }
 
@@ -157,6 +158,111 @@ final class AIProviderTests: XCTestCase {
 
     func testToolCallParserRejectsMissingName() {
         XCTAssertNil(AgentToolCall.from(json: ["arguments": [:]]))
+    }
+
+    func testToolTranscriptPreservesProviderCallIdentity() {
+        var messages: [[String: Any]] = []
+        let call = AgentToolCall(id: "call-provider-123", name: "web_search", arguments: ["query": "Swift"])
+
+        AgentTranscript.appendToolExchange(call: call, assistantText: "Searching", result: "Found it", to: &messages)
+
+        let assistantCall = (messages[0]["tool_calls"] as? [[String: Any]])?.first
+        XCTAssertEqual(assistantCall?["id"] as? String, "call-provider-123")
+        XCTAssertEqual(messages[1]["tool_call_id"] as? String, "call-provider-123")
+    }
+
+    func testOpenAICompatibleTranscriptEncodesToolArgumentsAsJSON() throws {
+        var messages: [[String: Any]] = []
+        AgentTranscript.appendToolExchange(
+            call: AgentToolCall(name: "web_search", arguments: ["query": "Swift"]),
+            assistantText: "Searching",
+            result: "Found it",
+            to: &messages
+        )
+
+        let encoded = OpenAICompatibleTransport.messages(from: messages)
+        let call = try XCTUnwrap((encoded[0]["tool_calls"] as? [[String: Any]])?.first)
+        let function = try XCTUnwrap(call["function"] as? [String: Any])
+        let arguments = try XCTUnwrap(function["arguments"] as? String)
+
+        XCTAssertEqual(
+            try JSONSerialization.jsonObject(with: Data(arguments.utf8)) as? [String: String],
+            ["query": "Swift"]
+        )
+    }
+
+    @MainActor
+    func testQuickAIMergesMutationsMadeBeforeInitialLoadCompletes() async throws {
+        let existing = AIChatThread(title: "Existing")
+        let store = DelayedAIChatStore(threads: [existing])
+        let configURL = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: configURL) }
+        let config = ConfigService(diagnostics: DiagnosticsService(), url: configURL)
+        let state = QuickAIState(aiProvider: AIProvider(config: config, diagnostics: DiagnosticsService()), chatStore: store)
+
+        state.startNewThread(selectedAIProfileID: nil)
+        store.finishLoading()
+        try await Task.sleep(for: .milliseconds(200))
+
+        let saved = store.savedThreads()
+        XCTAssertEqual(Set(saved.map(\.id)), Set([existing.id, state.quickAIThreads.first { $0.title == "New Chat" }!.id]))
+    }
+
+    @MainActor
+    func testQuickAIShutdownFlushesPendingSave() {
+        let store = DelayedAIChatStore(threads: [])
+        store.finishLoading()
+        let configURL = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: configURL) }
+        let config = ConfigService(diagnostics: DiagnosticsService(), url: configURL)
+        let state = QuickAIState(aiProvider: AIProvider(config: config, diagnostics: DiagnosticsService()), chatStore: store)
+
+        state.startNewThread(selectedAIProfileID: nil)
+        state.shutdown()
+
+        let saved = store.savedThreads()
+        XCTAssertEqual(saved.map(\.title), ["New Chat"])
+    }
+
+    @MainActor
+    func testQuickAIShutdownKeepsTheLatestStateWhenAnOlderSaveIsInFlight() async throws {
+        let store = BlockingAIChatStore()
+        let configURL = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: configURL) }
+        let config = ConfigService(diagnostics: DiagnosticsService(), url: configURL)
+        let state = QuickAIState(aiProvider: AIProvider(config: config, diagnostics: DiagnosticsService()), chatStore: store)
+
+        state.startNewThread(selectedAIProfileID: nil)
+        while store.saveStarted() == false {
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        state.startNewThread(selectedAIProfileID: nil)
+        let latest = state.quickAIThreads
+
+        DispatchQueue.global().asyncAfter(deadline: .now() + 0.05) { store.releaseSave() }
+        state.shutdown()
+        while store.savedSnapshots().count < 2 { try await Task.sleep(for: .milliseconds(10)) }
+
+        XCTAssertEqual(store.savedSnapshots().last, latest)
+    }
+
+    @MainActor
+    func testQuickAIShutdownDoesNotReplaceAnUnreadableArchive() throws {
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: url) }
+        let corrupt = Data("not json".utf8)
+        try corrupt.write(to: url)
+        let configURL = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: configURL) }
+        let config = ConfigService(diagnostics: DiagnosticsService(), url: configURL)
+        let state = QuickAIState(
+            aiProvider: AIProvider(config: config, diagnostics: DiagnosticsService()),
+            chatStore: AIChatStore(url: url)
+        )
+
+        state.shutdown()
+
+        XCTAssertEqual(try Data(contentsOf: url), corrupt)
     }
 
     func testOllamaStreamDecoderReadsContentAndDoneFrames() {
@@ -465,4 +571,79 @@ final class AIProviderTests: XCTestCase {
         XCTAssertLessThan(formatted.count, 1400)
     }
 
+}
+
+private final class DelayedAIChatStore: @unchecked Sendable, AIChatStoring {
+    private let threads: [AIChatThread]
+    private let lock = NSLock()
+    private var continuation: CheckedContinuation<Void, Never>?
+    private var canLoad = false
+    private var saved: [AIChatThread] = []
+
+    init(threads: [AIChatThread]) {
+        self.threads = threads
+    }
+
+    func load() -> [AIChatThread] { threads }
+
+    func loadAsync() async -> [AIChatThread] {
+        let shouldWait = lock.withLock { canLoad == false }
+        if shouldWait {
+            await withCheckedContinuation { continuation in
+                lock.withLock { self.continuation = continuation }
+            }
+        }
+        return threads
+    }
+
+    func save(_ threads: [AIChatThread]) {
+        lock.withLock { saved = threads }
+    }
+
+    func finishLoading() {
+        let continuation = lock.withLock {
+            canLoad = true
+            defer { self.continuation = nil }
+            return self.continuation
+        }
+        continuation?.resume()
+    }
+
+    func savedThreads() -> [AIChatThread] {
+        lock.withLock { saved }
+    }
+}
+
+private final class BlockingAIChatStore: @unchecked Sendable, AIChatStoring {
+    private let lock = NSLock()
+    private let saveGate = DispatchSemaphore(value: 0)
+    private var shouldBlockNextSave = true
+    private var hasStartedSave = false
+    private var snapshots: [[AIChatThread]] = []
+
+    func load() -> [AIChatThread] { [] }
+    func loadAsync() async -> [AIChatThread] { [] }
+
+    func save(_ threads: [AIChatThread]) {
+        let shouldBlock = lock.withLock {
+            hasStartedSave = true
+            guard shouldBlockNextSave else { return false }
+            shouldBlockNextSave = false
+            return true
+        }
+        if shouldBlock { saveGate.wait() }
+        lock.withLock { snapshots.append(threads) }
+    }
+
+    func saveStarted() -> Bool {
+        lock.withLock { hasStartedSave }
+    }
+
+    func releaseSave() {
+        saveGate.signal()
+    }
+
+    func savedSnapshots() -> [[AIChatThread]] {
+        lock.withLock { snapshots }
+    }
 }

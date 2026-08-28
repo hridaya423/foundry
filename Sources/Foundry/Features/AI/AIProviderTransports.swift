@@ -10,7 +10,7 @@ enum OpenAICompatibleTransport {
             request.httpMethod = "POST"
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")
             if let apiKey { request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization") }
-            var body: [String: Any] = ["model": profile.model, "stream": true, "messages": messages]
+            var body: [String: Any] = ["model": profile.model, "stream": true, "messages": Self.messages(from: messages)]
             if profile.capabilities.tools && tools.isEmpty == false { body["tools"] = AITransportSupport.toolDefinitions(tools) }
             request.httpBody = try JSONSerialization.data(withJSONObject: body)
             let (bytes, response) = try await AITransportSupport.session.bytes(for: request)
@@ -58,8 +58,29 @@ enum OpenAICompatibleTransport {
         }
     }
 
+    static func messages(from messages: [[String: Any]]) -> [[String: Any]] {
+        messages.map { message in
+            guard let calls = message["tool_calls"] as? [[String: Any]] else { return message }
+            var encodedMessage = message
+            encodedMessage["tool_calls"] = calls.map { call in
+                guard var function = call["function"] as? [String: Any],
+                      let arguments = function["arguments"],
+                      (arguments is String) == false,
+                      JSONSerialization.isValidJSONObject(arguments),
+                      let data = try? JSONSerialization.data(withJSONObject: arguments),
+                      let json = String(data: data, encoding: .utf8) else { return call }
+                var encodedCall = call
+                function["arguments"] = json
+                encodedCall["function"] = function
+                return encodedCall
+            }
+            return encodedMessage
+        }
+    }
+
     private static func decodeStream(bytes: URLSession.AsyncBytes) async throws -> AgentModelResponse {
         var textParts: [String] = []
+        var toolID: String?
         var toolName: String?
         var toolArgumentParts: [String] = []
         for try await line in bytes.lines {
@@ -71,13 +92,16 @@ enum OpenAICompatibleTransport {
             if let content = delta["content"] as? String { textParts.append(content) }
             if let calls = delta["tool_calls"] as? [[String: Any]], let call = calls.first, let function = call["function"] as? [String: Any] {
                 if let name = function["name"] as? String { toolName = name }
+                if let id = call["id"] as? String { toolID = id }
                 if let arguments = function["arguments"] as? String { toolArgumentParts.append(arguments) }
             }
         }
         let text = textParts.joined()
         if let toolName {
             let arguments = (try? JSONSerialization.jsonObject(with: Data(toolArgumentParts.joined().utf8)) as? [String: Any]) ?? [:]
-            return .toolCall(AgentToolCall.from(json: ["name": toolName, "arguments": arguments]) ?? AgentToolCall(name: toolName, arguments: [:]), assistantText: text)
+            var object: [String: Any] = ["name": toolName, "arguments": arguments]
+            object["id"] = toolID
+            return .toolCall(AgentToolCall.from(json: object) ?? AgentToolCall(id: toolID, name: toolName, arguments: [:]), assistantText: text)
         }
         return .final(AgentProtocolDecoder.displayContent(from: text))
     }
@@ -142,6 +166,7 @@ enum AnthropicTransport {
 
     private static func decodeStream(bytes: URLSession.AsyncBytes) async throws -> AgentModelResponse {
         var textParts: [String] = []
+        var toolID: String?
         var toolName: String?
         var toolArgumentParts: [String] = []
         var event = ""
@@ -149,7 +174,10 @@ enum AnthropicTransport {
             guard Task.isCancelled == false else { return .failure("Cancelled", .cancelled) }
             if line.hasPrefix("event:") { event = String(line.dropFirst(6)).trimmingCharacters(in: .whitespaces); continue }
             guard line.hasPrefix("data:"), let data = String(line.dropFirst(5)).trimmingCharacters(in: .whitespaces).data(using: .utf8), let root = try JSONSerialization.jsonObject(with: data) as? [String: Any] else { continue }
-            if event == "content_block_start", let content = root["content_block"] as? [String: Any], content["type"] as? String == "tool_use" { toolName = content["name"] as? String }
+            if event == "content_block_start", let content = root["content_block"] as? [String: Any], content["type"] as? String == "tool_use" {
+                toolID = content["id"] as? String
+                toolName = content["name"] as? String
+            }
             if event == "content_block_delta", let delta = root["delta"] as? [String: Any] {
                 if let value = delta["text"] as? String { textParts.append(value) }
                 if let value = delta["partial_json"] as? String { toolArgumentParts.append(value) }
@@ -158,7 +186,9 @@ enum AnthropicTransport {
         let text = textParts.joined()
         if let toolName {
             let arguments = (try? JSONSerialization.jsonObject(with: Data(toolArgumentParts.joined().utf8)) as? [String: Any]) ?? [:]
-            return .toolCall(AgentToolCall.from(json: ["name": toolName, "arguments": arguments]) ?? AgentToolCall(name: toolName, arguments: [:]), assistantText: text)
+            var object: [String: Any] = ["name": toolName, "arguments": arguments]
+            object["id"] = toolID
+            return .toolCall(AgentToolCall.from(json: object) ?? AgentToolCall(id: toolID, name: toolName, arguments: [:]), assistantText: text)
         }
         return .final(AgentProtocolDecoder.displayContent(from: text))
     }
@@ -171,12 +201,12 @@ enum AnthropicTransport {
                 if let text = message["content"] as? String, text.isEmpty == false { blocks.append(["type": "text", "text": text]) }
                 for call in calls {
                     guard let function = call["function"] as? [String: Any], let name = function["name"] as? String else { continue }
-                    blocks.append(["type": "tool_use", "id": "foundry-\(name)", "name": name, "input": function["arguments"] as? [String: Any] ?? [:]])
+                    blocks.append(["type": "tool_use", "id": call["id"] as? String ?? "foundry-\(name)", "name": name, "input": function["arguments"] as? [String: Any] ?? [:]])
                 }
                 return ["role": "assistant", "content": blocks]
             }
             if role == "tool", let name = message["name"] as? String, let content = message["content"] as? String {
-                return ["role": "user", "content": [["type": "tool_result", "tool_use_id": "foundry-\(name)", "content": content]]]
+                return ["role": "user", "content": [["type": "tool_result", "tool_use_id": message["tool_call_id"] as? String ?? "foundry-\(name)", "content": content]]]
             }
             return ["role": role, "content": message["content"] ?? ""]
         }

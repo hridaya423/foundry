@@ -27,6 +27,7 @@ struct CodexResponsesStreamFrame: Equatable, Sendable {
 
 struct CodexResponsesStreamDecoder: Sendable {
     private var textParts: [String] = []
+    private var toolID: String?
     private(set) var toolName: String?
     private var toolArgumentParts: [String] = []
     var text: String { textParts.joined() }
@@ -44,6 +45,7 @@ struct CodexResponsesStreamDecoder: Sendable {
             return CodexResponsesStreamFrame(contentDelta: delta, toolCall: nil, isDone: false, failureMessage: nil)
         case "response.output_item.added":
             if let item = root["item"] as? [String: Any], item["type"] as? String == "function_call" {
+                toolID = item["call_id"] as? String
                 toolName = item["name"] as? String
             }
             return nil
@@ -75,7 +77,7 @@ struct CodexResponsesStreamDecoder: Sendable {
         let call: AgentToolCall?
         if let toolName {
             let arguments = (try? JSONSerialization.jsonObject(with: Data(toolArgumentParts.joined().utf8)) as? [String: Any]) ?? [:]
-            call = AgentToolCall.from(json: ["name": toolName, "arguments": arguments]) ?? AgentToolCall(name: toolName, arguments: [:])
+            call = AgentToolCall(id: toolID, name: toolName, arguments: AgentToolCall.from(json: ["name": toolName, "arguments": arguments])?.arguments ?? [:])
         } else {
             call = nil
         }
@@ -167,11 +169,13 @@ enum OpenAICodexTransport {
                 for call in calls {
                     guard let function = call["function"] as? [String: Any], let name = function["name"] as? String else { continue }
                     let arguments = (try? JSONSerialization.data(withJSONObject: function["arguments"] as? [String: String] ?? [:])).flatMap { String(data: $0, encoding: .utf8) } ?? "{}"
-                    input.append(["type": "function_call", "call_id": "foundry-\(name)", "name": name, "arguments": arguments])
+                    let callID = call["id"] as? String ?? "foundry-\(name)"
+                    input.append(["type": "function_call", "call_id": callID, "name": name, "arguments": arguments])
                 }
                 if let content = message["content"] as? String, content.isEmpty == false { input.append(["role": role, "content": content]) }
             } else if role == "tool", let name = message["name"] as? String, let content = message["content"] as? String {
-                input.append(["type": "function_call_output", "call_id": "foundry-\(name)", "output": content])
+                let callID = message["tool_call_id"] as? String ?? "foundry-\(name)"
+                input.append(["type": "function_call_output", "call_id": callID, "output": content])
             } else if let content = message["content"] as? String {
                 input.append(["role": role, "content": content])
             }
