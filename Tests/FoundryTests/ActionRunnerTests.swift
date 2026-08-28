@@ -6,6 +6,40 @@ import AppKit
 
 @MainActor
 final class ActionRunnerTests: XCTestCase {
+    func testKeepAwakeOwnerStopsOnlyTheProcessItLaunched() throws {
+        let process = TestKeepAwakeProcess()
+        let owner = KeepAwakeProcessOwner()
+
+        XCTAssertTrue(try owner.toggle { process })
+        XCTAssertFalse(try owner.toggle { XCTFail("Should reuse the owned process"); return TestKeepAwakeProcess() })
+        XCTAssertEqual(process.stopCount, 1)
+    }
+
+    func testKeepAwakeOwnerPropagatesLaunchFailure() {
+        let owner = KeepAwakeProcessOwner()
+
+        XCTAssertThrowsError(try owner.toggle { throw NSError(domain: "test", code: 1) })
+        XCTAssertFalse(owner.isActive)
+    }
+
+    func testKeepAwakeOwnerStopsItsProcessDuringShutdown() throws {
+        let process = TestKeepAwakeProcess()
+        let owner = KeepAwakeProcessOwner()
+        _ = try owner.toggle { process }
+
+        owner.stop()
+
+        XCTAssertFalse(owner.isActive)
+        XCTAssertEqual(process.stopCount, 1)
+    }
+
+    func testKeepAwakeProcessEndsWithItsOwningApplication() {
+        XCTAssertEqual(
+            NativeKeepAwakeProcess.arguments(parentProcessID: 42),
+            ["-dimsu", "-w", "42"]
+        )
+    }
+
     func testExecutionReturnsTypedClipboardOutcomeAndFeedbackEvent() async {
         let runner = ActionRunner(diagnostics: DiagnosticsService())
         let request = CommandExecutionRequest(
@@ -313,5 +347,15 @@ final class ActionRunnerTests: XCTestCase {
         func apply(_ placement: WindowPlacement) async -> WindowOperationResult {
             .needsAccessibilityPermission
         }
+    }
+}
+
+private final class TestKeepAwakeProcess: KeepAwakeProcessHandle {
+    var isRunning = true
+    private(set) var stopCount = 0
+
+    func stop() {
+        stopCount += 1
+        isRunning = false
     }
 }

@@ -73,6 +73,25 @@ final class ProcessRunnerTests: XCTestCase {
         }
     }
 
+    func testAsyncRunnerHandlesCancellationBeforeWorkerLaunches() async {
+        let task = Task {
+            try await ProcessRunner.run(
+                path: "/bin/sh",
+                arguments: ["-c", "sleep 1"],
+                timeout: 5
+            )
+        }
+        task.cancel()
+
+        do {
+            _ = try await task.value
+            XCTFail("Cancelled process unexpectedly completed")
+        } catch ProcessRunnerError.cancelled {
+        } catch {
+            XCTFail("Unexpected cancellation error: \(error)")
+        }
+    }
+
     func testRunnerUsesEnvironmentAndCurrentDirectory() async throws {
         let directory = FileManager.default.temporaryDirectory
         let runner = SystemProcessRunner()

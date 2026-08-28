@@ -324,7 +324,7 @@ final class MediaDownloadService: MediaDownloading, @unchecked Sendable {
             currentDirectoryURL: nil,
             onOutput: { output in
                 guard let update = parser.parse(output.line) else { return }
-                guard progressThrottle.shouldReport(isTerminal: update.phase == .completed) else { return }
+                guard progressThrottle.shouldReport(update) else { return }
                 Task { @MainActor in progress?(update) }
             }
         )
@@ -862,15 +862,23 @@ final class YTDLPProgressParser: @unchecked Sendable {
     }
 }
 
-private final class MediaProgressThrottle: @unchecked Sendable {
+final class MediaProgressThrottle: @unchecked Sendable {
     private let lock = NSLock()
-    private var lastReportedAt = Date.distantPast
+    private let clock = ContinuousClock()
+    private var lastReportedAt: ContinuousClock.Instant?
 
-    func shouldReport(isTerminal: Bool) -> Bool {
-        let now = Date()
+    func shouldReport(_ progress: MediaDownloadProgress) -> Bool {
+        let now = clock.now
         lock.lock()
         defer { lock.unlock() }
-        guard isTerminal || now.timeIntervalSince(lastReportedAt) >= 0.1 else { return false }
+        let isSignificant = progress.phase != .downloading
+            || progress.message != "Downloading"
+            || progress.fractionCompleted == 1
+        if isSignificant == false,
+           let lastReportedAt,
+           lastReportedAt.duration(to: now) < .milliseconds(100) {
+            return false
+        }
         lastReportedAt = now
         return true
     }

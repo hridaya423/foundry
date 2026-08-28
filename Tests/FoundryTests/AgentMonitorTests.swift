@@ -1,7 +1,55 @@
 import XCTest
 @testable import Foundry
+import FoundryServices
 
 final class AgentMonitorTests: XCTestCase {
+    func testOpenCodeCatalogDoesNotMarkEverySessionRunningFromOneProcess() {
+        let unrelated = ProcessInfoRow(pid: "1", startedAt: Date(), args: "/usr/local/bin/opencode --session other-session")
+        XCTAssertEqual(AgentMonitorService.openCodeCatalogStatus(sessionID: "target-session", processes: [unrelated]), .recent)
+    }
+
+    func testWorkspaceDiffIncludesStagedAndUntrackedFiles() throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        XCTAssertTrue(runGit(["init"], in: directory))
+        try Data("staged".utf8).write(to: directory.appendingPathComponent("staged.txt"))
+        XCTAssertTrue(runGit(["add", "staged.txt"], in: directory))
+        try Data("untracked".utf8).write(to: directory.appendingPathComponent("untracked.txt"))
+
+        let summary = AgentMonitorService.workspaceDiffSummary(directory: directory.path)
+
+        XCTAssertTrue(summary?.contains("2 files") == true)
+        XCTAssertTrue(summary?.contains("+1") == true)
+    }
+
+    func testWorkspaceDiffLabelsUntrackedFilesSeparatelyFromLineChanges() throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        XCTAssertTrue(runGit(["init"], in: directory))
+        try Data("untracked\n".utf8).write(to: directory.appendingPathComponent("untracked.txt"))
+
+        let summary = AgentMonitorService.workspaceDiffSummary(directory: directory.path)
+
+        XCTAssertTrue(summary?.contains("1 untracked") == true)
+    }
+
+    func testWorkspaceDiffCountsFilesInsideUntrackedDirectories() throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let nested = directory.appendingPathComponent("docs")
+        try FileManager.default.createDirectory(at: nested, withIntermediateDirectories: true)
+        XCTAssertTrue(runGit(["init"], in: directory))
+        try Data("one\n".utf8).write(to: nested.appendingPathComponent("one.txt"))
+        try Data("two\n".utf8).write(to: nested.appendingPathComponent("two.txt"))
+
+        let summary = AgentMonitorService.workspaceDiffSummary(directory: directory.path)
+
+        XCTAssertTrue(summary?.contains("2 files") == true)
+        XCTAssertTrue(summary?.contains("2 untracked") == true)
+    }
+
     func testNativeProcessArgumentParsingUsesArgumentCount() {
         var argumentCount: Int32 = 2
         var buffer = [UInt8]()
@@ -271,5 +319,9 @@ final class AgentMonitorTests: XCTestCase {
         XCTAssertEqual(reconciled.first?.title, "Generated title")
         XCTAssertEqual(reconciled.first?.needsTitleGeneration, false)
         XCTAssertEqual(reconciled.first?.isGeneratedTitle, true)
+    }
+
+    private func runGit(_ arguments: [String], in directory: URL) -> Bool {
+        ProcessRunner.runSynchronously(path: "/usr/bin/git", arguments: ["-C", directory.path] + arguments)?.succeeded == true
     }
 }

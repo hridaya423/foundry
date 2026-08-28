@@ -17,7 +17,7 @@ final class BrowserProvider: CommandProvider, @unchecked Sendable {
     private let homeDirectory: URL
     private let liveTabsCache: BrowserLiveTabsCache
     private let recordsCache = BrowserRecordsCache()
-    private let recordsLoadLock = NSLock()
+    private let recordsLoadGate = BrowserRecordsLoadGate()
 
     init(homeDirectory: URL = FileManager.default.homeDirectoryForCurrentUser, liveTabsCacheLifetime: TimeInterval = 10) {
         self.homeDirectory = homeDirectory
@@ -74,12 +74,12 @@ final class BrowserProvider: CommandProvider, @unchecked Sendable {
         if let cached = recordsCache.value(for: cacheKey) {
             return cached
         }
-        recordsLoadLock.lock()
-        defer { recordsLoadLock.unlock() }
-        if let cached = recordsCache.value(for: cacheKey) {
-            return cached
+        return recordsLoadGate.withLock(for: cacheKey) {
+            if let cached = recordsCache.value(for: cacheKey) {
+                return cached
+            }
+            return loadRecords(for: source, kind: kind)
         }
-        return loadRecords(for: source, kind: kind)
     }
 
     private func loadRecords(for source: BrowserSource, kind: BrowserRecordKind?) -> [BrowserRecord] {
@@ -482,7 +482,23 @@ private final class BrowserLiveTabsCache: @unchecked Sendable {
     }
 }
 
-private final class BrowserRecordsCache: @unchecked Sendable {
+final class BrowserRecordsLoadGate: @unchecked Sendable {
+    private let lock = NSLock()
+    private var locks: [BrowserRecordsCache.Key: NSLock] = [:]
+
+    func withLock<T>(for key: BrowserRecordsCache.Key, _ body: () -> T) -> T {
+        lock.lock()
+        let keyLock = locks[key] ?? NSLock()
+        locks[key] = keyLock
+        lock.unlock()
+
+        keyLock.lock()
+        defer { keyLock.unlock() }
+        return body()
+    }
+}
+
+final class BrowserRecordsCache: @unchecked Sendable {
     struct Key: Hashable, Sendable {
         let source: BrowserSource
         let kind: BrowserRecordKind?
@@ -552,6 +568,11 @@ struct FirefoxSession: Sendable {
 
 enum FirefoxSessionParser {
     private static let header = Data([0x6d, 0x6f, 0x7a, 0x4c, 0x7a, 0x34, 0x30, 0x00])
+    private static let maximumDecodedSize = 32 * 1024 * 1024
+
+    static func isAllowedDecodedSize(_ size: Int) -> Bool {
+        size > 0 && size <= maximumDecodedSize
+    }
 
     static func parse(_ data: Data) -> FirefoxSession? {
         guard let json = decode(data),
@@ -577,7 +598,7 @@ enum FirefoxSessionParser {
         let size = data[sizeOffset..<(sizeOffset + 4)].enumerated().reduce(UInt32(0)) { result, item in
             result | UInt32(item.element) << UInt32(item.offset * 8)
         }
-        guard size > 0, size <= UInt32.max else { return nil }
+        guard isAllowedDecodedSize(Int(size)) else { return nil }
         let compressed = Array(data[(sizeOffset + 4)...])
         return decodeLZ4Block(compressed, outputSize: Int(size))
     }
@@ -594,9 +615,12 @@ enum FirefoxSessionParser {
             var literalLength = Int(token >> 4)
             if literalLength == 15 {
                 guard let length = readExtendedLength(input, index: &inputIndex) else { return nil }
-                literalLength += length
+                let (expandedLength, overflow) = literalLength.addingReportingOverflow(length)
+                guard overflow == false else { return nil }
+                literalLength = expandedLength
             }
-            guard inputIndex + literalLength <= input.count else { return nil }
+            guard literalLength <= outputSize - output.count,
+                  literalLength <= input.count - inputIndex else { return nil }
             output.append(contentsOf: input[inputIndex..<(inputIndex + literalLength)])
             inputIndex += literalLength
 
@@ -609,8 +633,11 @@ enum FirefoxSessionParser {
             var matchLength = Int(token & 0x0f) + 4
             if matchLength - 4 == 15 {
                 guard let length = readExtendedLength(input, index: &inputIndex) else { return nil }
-                matchLength += length
+                let (expandedLength, overflow) = matchLength.addingReportingOverflow(length)
+                guard overflow == false else { return nil }
+                matchLength = expandedLength
             }
+            guard matchLength <= outputSize - output.count else { return nil }
             let matchStart = output.count - offset
             for index in 0..<matchLength {
                 output.append(output[matchStart + index])
@@ -627,7 +654,9 @@ enum FirefoxSessionParser {
             guard index < input.count else { return nil }
             let value = Int(input[index])
             index += 1
-            length += value
+            let (nextLength, overflow) = length.addingReportingOverflow(value)
+            guard overflow == false else { return nil }
+            length = nextLength
             if value != 255 { return length }
         }
     }

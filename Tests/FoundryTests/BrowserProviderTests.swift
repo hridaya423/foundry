@@ -3,6 +3,42 @@ import XCTest
 @testable import Foundry
 
 final class BrowserProviderTests: XCTestCase {
+    func testRecordLoadsForDifferentCacheKeysDoNotBlockEachOther() {
+        let gate = BrowserRecordsLoadGate()
+        let firstEntered = DispatchSemaphore(value: 0)
+        let releaseFirst = DispatchSemaphore(value: 0)
+        let secondEntered = DispatchSemaphore(value: 0)
+        let firstKey = BrowserRecordsCache.Key(source: .firefox, kind: .history)
+        let secondKey = BrowserRecordsCache.Key(source: .safari, kind: .bookmark)
+
+        DispatchQueue.global().async {
+            gate.withLock(for: firstKey) {
+                firstEntered.signal()
+                releaseFirst.wait()
+            }
+        }
+        XCTAssertEqual(firstEntered.wait(timeout: .now() + 1), .success)
+
+        DispatchQueue.global().async {
+            _ = gate.withLock(for: secondKey) { secondEntered.signal() }
+        }
+        XCTAssertEqual(secondEntered.wait(timeout: .now() + 1), .success)
+        releaseFirst.signal()
+    }
+
+    func testFirefoxSessionDecoderRejectsUnreasonableOutputSizeBeforeAllocation() {
+        XCTAssertFalse(FirefoxSessionParser.isAllowedDecodedSize(64 * 1024 * 1024))
+        XCTAssertTrue(FirefoxSessionParser.isAllowedDecodedSize(8 * 1024 * 1024))
+    }
+
+    func testFirefoxSessionDecoderRejectsMatchExpansionBeyondDeclaredSize() {
+        var encoded = Data([0x6d, 0x6f, 0x7a, 0x4c, 0x7a, 0x34, 0x30, 0x00])
+        encoded.append(contentsOf: withUnsafeBytes(of: UInt32(1).littleEndian, Array.init))
+        encoded.append(contentsOf: [0x10, 0x78, 0x01, 0x00])
+
+        XCTAssertNil(FirefoxSessionParser.parse(encoded))
+    }
+
     func testChromeBookmarkParserWalksNestedFolders() {
         let object: [String: Any] = [
             "bookmark_bar": [

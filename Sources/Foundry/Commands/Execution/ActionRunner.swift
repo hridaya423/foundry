@@ -358,9 +358,14 @@ final class ActionRunner: CommandExecuting {
             }
 
         case .toggleKeepAwake:
-            let state = KeepAwakeController.toggle()
-            diagnostics.log(state ? "Keep Awake enabled" : "Keep Awake disabled")
-            return finish(.success(message: state ? "Keep Awake enabled" : "Keep Awake disabled"), feedback: .success(state ? "Keep Awake enabled" : "Keep Awake disabled"))
+            do {
+                let state = try KeepAwakeController.toggle()
+                diagnostics.log(state ? "Keep Awake enabled" : "Keep Awake disabled")
+                return finish(.success(message: state ? "Keep Awake enabled" : "Keep Awake disabled"), feedback: .success(state ? "Keep Awake enabled" : "Keep Awake disabled"))
+            } catch {
+                diagnostics.log("Could not update Keep Awake: \(error.localizedDescription)")
+                return finish(.failure(message: "Could not update Keep Awake", retryable: true), feedback: .failure("Could not update Keep Awake"))
+            }
 
         case let .terminatePort(port):
             let command = "lsof -ti tcp:\(port) | xargs -r kill"
@@ -499,16 +504,6 @@ final class ActionRunner: CommandExecuting {
         }
     }
 
-    nonisolated private static func sendPasteShortcut() {
-        guard let source = CGEventSource(stateID: .hidSystemState) else { return }
-        let down = CGEvent(keyboardEventSource: source, virtualKey: CGKeyCode(kVK_ANSI_V), keyDown: true)
-        let up = CGEvent(keyboardEventSource: source, virtualKey: CGKeyCode(kVK_ANSI_V), keyDown: false)
-        down?.flags = .maskCommand
-        up?.flags = .maskCommand
-        down?.post(tap: .cgAnnotatedSessionEventTap)
-        up?.post(tap: .cgAnnotatedSessionEventTap)
-    }
-
     nonisolated private static func snippetTitle(from content: String) -> String {
         let firstLine = content.split(separator: "\n").first?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         return firstLine.isEmpty ? "Clipboard Snippet" : String(firstLine.prefix(60))
@@ -562,32 +557,76 @@ private struct MediaBatchResult: Sendable {
     let status: Status
 }
 
-enum KeepAwakeController {
-    private static let marker = "foundry.keepawake"
-    private static let processSnapshotProvider = NativeProcessSnapshotProvider()
+protocol KeepAwakeProcessHandle: AnyObject {
+    var isRunning: Bool { get }
+    func stop()
+}
 
-    static func toggle() -> Bool {
-        if let pid = currentPID() {
-            kill(pid, SIGTERM)
-            return false
+final class KeepAwakeProcessOwner: @unchecked Sendable {
+    private let lock = NSLock()
+    private var process: (any KeepAwakeProcessHandle)?
+
+    var isActive: Bool {
+        lock.withLock { process?.isRunning == true }
+    }
+
+    func toggle(launch: () throws -> any KeepAwakeProcessHandle) throws -> Bool {
+        try lock.withLock {
+            if let process, process.isRunning {
+                process.stop()
+                self.process = nil
+                return false
+            }
+            process = nil
+            let launched = try launch()
+            process = launched
+            return true
         }
+    }
 
+    func stop() {
+        lock.withLock {
+            if process?.isRunning == true { process?.stop() }
+            process = nil
+        }
+    }
+}
+
+final class NativeKeepAwakeProcess: KeepAwakeProcessHandle {
+    private let process: Process
+
+    init() throws {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/usr/bin/caffeinate")
-        process.arguments = ["-dimsu"]
-        process.environment = ProcessInfo.processInfo.environment.merging(["FOUNDRY_KEEP_AWAKE": marker]) { _, new in new }
-        try? process.run()
-        return true
+        process.arguments = Self.arguments(parentProcessID: ProcessInfo.processInfo.processIdentifier)
+        try process.run()
+        self.process = process
+    }
+
+    static func arguments(parentProcessID: Int32) -> [String] {
+        ["-dimsu", "-w", String(parentProcessID)]
+    }
+
+    var isRunning: Bool { process.isRunning }
+
+    func stop() {
+        process.terminate()
+    }
+}
+
+enum KeepAwakeController {
+    private static let owner = KeepAwakeProcessOwner()
+
+    static func toggle() throws -> Bool {
+        try owner.toggle { try NativeKeepAwakeProcess() }
     }
 
     static func isActive() -> Bool {
-        currentPID() != nil
+        owner.isActive
     }
 
-    private static func currentPID() -> Int32? {
-        processSnapshotProvider.capture()
-            .first { $0.executableName == "caffeinate" && $0.args.contains("-dimsu") }
-            .flatMap { Int32($0.pid) }
+    static func stop() {
+        owner.stop()
     }
 }
 

@@ -5,6 +5,16 @@ import FoundryDomain
 import FoundryServices
 
 final class MediaDownloadTests: XCTestCase {
+    func testProgressThrottleAlwaysPublishesSignificantUpdates() {
+        let throttle = MediaProgressThrottle()
+        let ordinary = MediaDownloadProgress(phase: .downloading, title: "Video", message: "Downloading", bytesReceived: 1, totalBytes: 10, fractionCompletedOverride: nil, speedBytesPerSecond: nil, estimatedTimeRemaining: nil, currentItem: nil, totalItems: nil)
+        let significant = MediaDownloadProgress(phase: .downloading, title: "Video", message: "Finishing Video", bytesReceived: 10, totalBytes: 10, fractionCompletedOverride: nil, speedBytesPerSecond: nil, estimatedTimeRemaining: nil, currentItem: nil, totalItems: nil)
+
+        XCTAssertTrue(throttle.shouldReport(ordinary))
+        XCTAssertFalse(throttle.shouldReport(ordinary))
+        XCTAssertTrue(throttle.shouldReport(significant))
+    }
+
     func testYouTubeDownloadResultDoesNotWaitForOptionalMetadata() async {
         let provider = MediaDownloadProvider()
 

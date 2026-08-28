@@ -53,7 +53,6 @@ enum AgentMonitorService {
             uniqueRows.append(row)
         }
         .prefix(8)
-        let opencodeProcess = processes.first(where: { $0.executableName == "opencode" })
         return rows.compactMap { row in
             guard row.count >= 7 else { return nil }
             let updatedAt = date(milliseconds: row[6])
@@ -61,6 +60,9 @@ enum AgentMonitorService {
             let title = row[1].isEmpty ? "OpenCode Session" : row[1]
             let directory = row[2]
             let model = openCodeModelLabel(row[3])
+            let matchingProcess = processes.first { process in
+                process.executableName == "opencode" && process.args.split(separator: " ").contains(Substring(row[0]))
+            }
             return AgentSessionCard(
                 id: "opencode.\(row[0])",
                 provider: .opencode,
@@ -69,8 +71,8 @@ enum AgentMonitorService {
                 project: directory.lastPathComponent,
                 workingDirectory: directory.nilIfEmpty,
                 model: model,
-                status: opencodeProcess == nil ? .recent : .running,
-                startedAt: opencodeProcess?.startedAt,
+                status: openCodeCatalogStatus(sessionID: row[0], processes: processes),
+                startedAt: matchingProcess?.startedAt,
                 updatedAt: updatedAt,
                 openTarget: .terminal(command: "opencode", cwd: directory.isEmpty ? nil : directory),
                 key: AgentSessionKey(provider: .opencode, rawSessionID: row[0]),
@@ -78,6 +80,12 @@ enum AgentMonitorService {
                 capabilities: [.observe, .jumpTerminal]
             )
         }
+    }
+
+    static func openCodeCatalogStatus(sessionID: String, processes: [ProcessInfoRow]) -> AgentSessionStatus {
+        processes.contains { process in
+            process.executableName == "opencode" && process.args.split(separator: " ").contains(Substring(sessionID))
+        } ? .running : .recent
     }
 
     private static func claudeSessions(processes: [ProcessInfoRow], cache: inout AgentMonitorCache) -> [AgentSessionCard] {
@@ -275,16 +283,21 @@ enum AgentMonitorService {
         return enriched
     }
 
-    private static func workspaceDiffSummary(directory: String) -> String? {
-        let output = run("/usr/bin/git", ["-C", directory, "diff", "--shortstat"])
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-        guard output.isEmpty == false else { return nil }
-        let files = firstInteger(in: output, pattern: #"(\d+) files? changed"#) ?? 0
-        let additions = firstInteger(in: output, pattern: #"(\d+) insertions?\(\+\)"#) ?? 0
-        let removals = firstInteger(in: output, pattern: #"(\d+) deletions?\(-\)"#) ?? 0
-        guard files > 0 || additions > 0 || removals > 0 else { return nil }
+    static func workspaceDiffSummary(directory: String) -> String? {
+        let status = run("/usr/bin/git", ["-C", directory, "status", "--porcelain=v1", "--untracked-files=all"])
+        let statusLines = status.split(whereSeparator: \.isNewline)
+        let files = statusLines.count
+        guard files > 0 else { return nil }
+        let untrackedFiles = statusLines.count { $0.hasPrefix("?? ") }
+        let summaries = [
+            run("/usr/bin/git", ["-C", directory, "diff", "--shortstat"]),
+            run("/usr/bin/git", ["-C", directory, "diff", "--cached", "--shortstat"])
+        ]
+        let additions = summaries.reduce(0) { $0 + (firstInteger(in: $1, pattern: #"(\d+) insertions?\(\+\)"#) ?? 0) }
+        let removals = summaries.reduce(0) { $0 + (firstInteger(in: $1, pattern: #"(\d+) deletions?\(-\)"#) ?? 0) }
         let fileLabel = files == 1 ? "1 file" : "\(files) files"
-        return "Workspace diff · \(fileLabel) · +\(additions) −\(removals)"
+        let untrackedLabel = untrackedFiles == 0 ? "" : " · \(untrackedFiles) untracked"
+        return "Workspace diff · \(fileLabel) · +\(additions) −\(removals)\(untrackedLabel)"
     }
 
     private static func firstInteger(in value: String, pattern: String) -> Int? {

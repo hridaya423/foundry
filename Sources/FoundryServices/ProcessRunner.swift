@@ -217,11 +217,9 @@ private final class ManagedProcessControl: @unchecked Sendable {
     }
 
     func attach(_ process: Process) {
-        let terminate = lock.withLock { () -> Bool in
+        lock.withLock {
             self.process = process
-            return timedOut || cancelled
         }
-        if terminate { process.terminate() }
     }
 
     func configureProcessGroup() {
