@@ -118,6 +118,9 @@ final class ResourcePackagingTests: XCTestCase {
         XCTAssertTrue(workflow.contains("BUILD_NUMBER"))
         XCTAssertTrue(workflow.contains("gh release create"))
         XCTAssertTrue(workflow.contains("gh release delete"))
+        XCTAssertTrue(workflow.contains("gh release view \"$tag\" --repo \"$GITHUB_REPOSITORY\""))
+        XCTAssertTrue(workflow.contains("gh release delete \"$tag\" --repo \"$GITHUB_REPOSITORY\""))
+        XCTAssertEqual(workflow.components(separatedBy: "--repo \"$GITHUB_REPOSITORY\"").count - 1, 3)
         XCTAssertTrue(workflow.contains("contents: write"))
     }
 
