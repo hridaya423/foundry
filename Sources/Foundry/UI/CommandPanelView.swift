@@ -1144,6 +1144,8 @@ private struct LauncherSearchField: NSViewRepresentable {
         field.font = NSFont.systemFont(ofSize: 21, weight: .regular)
         field.textColor = .white
         field.placeholderString = placeholder
+        field.cell?.usesSingleLineMode = true
+        field.cell?.isScrollable = true
         field.delegate = context.coordinator
         field.onTab = onTab
         field.onReturn = onReturn
@@ -1155,6 +1157,7 @@ private struct LauncherSearchField: NSViewRepresentable {
             nsView.stringValue = text
         }
         nsView.placeholderString = placeholder
+        nsView.toolTip = text.isEmpty ? nil : text
         nsView.onTab = onTab
         nsView.onReturn = onReturn
         nsView.delegate = context.coordinator
@@ -1201,6 +1204,30 @@ private struct LauncherSearchField: NSViewRepresentable {
 private final class LauncherSearchTextField: NSTextField {
     var onTab: (() -> Void)?
     var onReturn: (() -> Void)?
+
+    override func layout() {
+        super.layout()
+        fitTextToWidth()
+    }
+
+    private func fitTextToWidth() {
+        let maximumPointSize: CGFloat = 21
+        let minimumPointSize: CGFloat = 12
+        guard bounds.width > 0, stringValue.isEmpty == false else {
+            if font?.pointSize != maximumPointSize {
+                font = NSFont.systemFont(ofSize: maximumPointSize, weight: .regular)
+            }
+            return
+        }
+
+        let baseFont = NSFont.systemFont(ofSize: maximumPointSize, weight: .regular)
+        let textWidth = (stringValue as NSString).size(withAttributes: [.font: baseFont]).width
+        let pointSize = textWidth > bounds.width
+            ? max(minimumPointSize, maximumPointSize * bounds.width / textWidth)
+            : maximumPointSize
+        guard abs((font?.pointSize ?? 0) - pointSize) > 0.1 else { return }
+        font = NSFont.systemFont(ofSize: pointSize, weight: .regular)
+    }
 
     override func performKeyEquivalent(with event: NSEvent) -> Bool {
         if event.keyCode == 48 {

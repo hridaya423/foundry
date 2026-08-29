@@ -101,14 +101,16 @@ final class CommandRankingTests: XCTestCase {
         )
 
         let first = Task { await registry.immediateResults(matching: "first") }
-        while await probe.hasEntered() == false { await Task.yield() }
+        await probe.waitUntilEntered()
         _ = await first.value
 
+        let secondCompleted = expectation(description: "second search completes while the first provider is blocked")
         let second = Task {
             _ = await registry.immediateResults(matching: "second")
             await completion.mark()
+            secondCompleted.fulfill()
         }
-        try await Task.sleep(for: .milliseconds(150))
+        await fulfillment(of: [secondCompleted], timeout: 1)
         let completedBeforeRelease = await completion.value()
 
         await probe.release()
@@ -134,7 +136,7 @@ final class CommandRankingTests: XCTestCase {
                 timeout: .seconds(1)
             )
         }
-        while await probe.callCount() < 1 { await Task.yield() }
+        await probe.waitUntilEntered()
 
         let second = Task {
             await scheduler.search(
@@ -249,6 +251,24 @@ final class CommandRankingTests: XCTestCase {
 
         let results = await registry.results(matching: "characters")
         XCTAssertEqual(results.first?.id, "test.emoji")
+    }
+
+    func testMediaURLSearchSuppressesUnrelatedResults() async {
+        let registry = CommandRegistry(
+            providers: [
+                TestProvider(results: [command(id: "test.noisy", title: "Kill Port 6")]),
+                MediaDownloadProvider()
+            ],
+            usageRanking: UsageRankingStore(diagnostics: DiagnosticsService()),
+            diagnostics: DiagnosticsService()
+        )
+        let query = "https://www.youtube.com/watch?v=video"
+
+        let immediateResults = await registry.immediateResults(matching: query)
+        let completeResults = await registry.results(matching: query)
+
+        XCTAssertTrue(immediateResults.isEmpty)
+        XCTAssertEqual(completeResults.map(\.route), [.mediaDownload])
     }
 
     func testExactTitleBeatsProviderKeyword() async {
@@ -494,9 +514,21 @@ final class CommandRankingTests: XCTestCase {
         private var calls = 0
         private var released = false
         private var continuation: CheckedContinuation<Void, Never>?
+        private var enteredContinuation: CheckedContinuation<Void, Never>?
 
-        func enter() { calls += 1 }
-        func hasEntered() -> Bool { calls > 0 }
+        func enter() {
+            calls += 1
+            enteredContinuation?.resume()
+            enteredContinuation = nil
+        }
+
+        func waitUntilEntered() async {
+            if calls > 0 { return }
+            await withCheckedContinuation { continuation in
+                enteredContinuation = continuation
+            }
+        }
+
         func callCount() -> Int { calls }
 
         func waitForRelease() async {

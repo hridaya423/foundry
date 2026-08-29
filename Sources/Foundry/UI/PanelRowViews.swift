@@ -131,7 +131,9 @@ struct MediaResultRow: View {
                     Text(subtitle)
                         .font(FoundryTheme.body(size: isExpanded ? 14 : 12, weight: .regular))
                         .foregroundStyle(FoundryTheme.mutedText)
-                        .lineLimit(isExpanded ? 3 : 2)
+                        .lineLimit(isExpanded ? nil : 2)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .textSelection(.enabled)
                 }
 
                 if isExpanded {

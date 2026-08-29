@@ -21,7 +21,8 @@ final class MediaDownloadTests: XCTestCase {
         let results = await provider.search(CommandSearchRequest(query: "https://www.youtube.com/watch?v=video"))
 
         XCTAssertEqual(results.first?.route, .mediaDownload)
-        XCTAssertEqual(results.first?.subtitle, "watch · save via YouTube · yt-dlp (automatic setup) to Downloads")
+        XCTAssertEqual(results.first?.subtitle, "https://www.youtube.com/watch?v=video\nwatch · save via YouTube · yt-dlp (automatic setup) to Downloads")
+        XCTAssertEqual(results.first?.icon.thumbnailURL, URL(string: "https://i.ytimg.com/vi/video/hqdefault.jpg"))
     }
 
     func testNonHTTPYouTubeURLDoesNotReachYTDLP() async {

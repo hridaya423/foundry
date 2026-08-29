@@ -284,14 +284,15 @@ enum AgentMonitorService {
     }
 
     static func workspaceDiffSummary(directory: String) -> String? {
-        let status = run("/usr/bin/git", ["-C", directory, "status", "--porcelain=v1", "--untracked-files=all"])
+        let gitTimeout: TimeInterval = 10
+        let status = run("/usr/bin/git", ["-C", directory, "status", "--porcelain=v1", "--untracked-files=all"], timeout: gitTimeout)
         let statusLines = status.split(whereSeparator: \.isNewline)
         let files = statusLines.count
         guard files > 0 else { return nil }
         let untrackedFiles = statusLines.count { $0.hasPrefix("?? ") }
         let summaries = [
-            run("/usr/bin/git", ["-C", directory, "diff", "--shortstat"]),
-            run("/usr/bin/git", ["-C", directory, "diff", "--cached", "--shortstat"])
+            run("/usr/bin/git", ["-C", directory, "diff", "--shortstat"], timeout: gitTimeout),
+            run("/usr/bin/git", ["-C", directory, "diff", "--cached", "--shortstat"], timeout: gitTimeout)
         ]
         let additions = summaries.reduce(0) { $0 + (firstInteger(in: $1, pattern: #"(\d+) insertions?\(\+\)"#) ?? 0) }
         let removals = summaries.reduce(0) { $0 + (firstInteger(in: $1, pattern: #"(\d+) deletions?\(-\)"#) ?? 0) }
@@ -525,8 +526,8 @@ enum AgentMonitorService {
         return AgentSourceStamp(modificationDate: modificationDate, size: size)
     }
 
-    private static func run(_ path: String, _ args: [String]) -> String {
-        guard let result = ProcessRunner.runSynchronously(path: path, arguments: args), result.succeeded else { return "" }
+    private static func run(_ path: String, _ args: [String], timeout: TimeInterval = 2) -> String {
+        guard let result = ProcessRunner.runSynchronously(path: path, arguments: args, timeout: timeout), result.succeeded else { return "" }
         return result.stdout
     }
 

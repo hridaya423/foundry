@@ -38,12 +38,13 @@ final class MediaDownloadProvider: CommandProvider {
         let primaryKind: CommandActionKind = isBatch
             ? .downloadMediaBatch(urls: urls.map(\.absoluteString))
             : .downloadMedia(url: url.absoluteString)
+        let thumbnailURL = isYouTube ? Self.youtubeThumbnailURL(for: url) : nil
         return [
             CommandResult(
                 id: "media.download.\(url.absoluteString)",
                 title: title,
-                subtitle: "\(detail) · save via \(service) to \(MediaDownloadDestination.folder.lastPathComponent)",
-                icon: CommandIcon(fallback: "DL", systemName: "arrow.down.circle"),
+                subtitle: "\(url.absoluteString)\n\(detail) · save via \(service) to \(MediaDownloadDestination.folder.lastPathComponent)",
+                icon: CommandIcon(fallback: "DL", systemName: "arrow.down.circle", thumbnailURL: thumbnailURL),
                 route: .mediaDownload,
                 primaryAction: CommandAction(id: "media.download.perform", title: isBatch ? "Download All" : "Download", kind: primaryKind),
                 secondaryActions: [
@@ -77,6 +78,27 @@ final class MediaDownloadProvider: CommandProvider {
         guard isYouTube(url), let components = URLComponents(url: url, resolvingAgainstBaseURL: false) else { return false }
         if url.path == "/playlist" { return true }
         return components.queryItems?.contains { $0.name == "list" && ($0.value?.isEmpty == false) } == true
+    }
+
+    private static func youtubeThumbnailURL(for url: URL) -> URL? {
+        let pathComponents = url.pathComponents.dropFirst()
+        let videoID: String?
+        if url.host?.lowercased() == "youtu.be" {
+            videoID = pathComponents.first
+        } else if let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
+                  let queryID = components.queryItems?.first(where: { $0.name == "v" })?.value {
+            videoID = queryID
+        } else if let markerIndex = pathComponents.firstIndex(where: { ["shorts", "embed", "live"].contains($0.lowercased()) }),
+                  pathComponents.index(after: markerIndex) < pathComponents.endIndex {
+            videoID = pathComponents[pathComponents.index(after: markerIndex)]
+        } else {
+            videoID = nil
+        }
+
+        guard let videoID,
+              videoID.isEmpty == false,
+              videoID.allSatisfy({ $0.isLetter || $0.isNumber || $0 == "-" || $0 == "_" }) else { return nil }
+        return URL(string: "https://i.ytimg.com/vi/\(videoID)/hqdefault.jpg")
     }
 
     static func isDirectMediaFile(_ url: URL) -> Bool {

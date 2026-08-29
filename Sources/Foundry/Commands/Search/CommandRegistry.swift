@@ -74,6 +74,8 @@ final class CommandRegistry: @unchecked Sendable {
             })
         }
 
+        candidates = mediaOnlyCandidates(candidates, isMediaQuery: isMediaQuery(query))
+
         return CommandSearchPhase(
             results: Array(ranker.ordered(ranker.deduplicated(candidates), query: query).prefix(Self.resultLimit(for: query))),
             completedProviderIDs: Set(timings.compactMap { timing in
@@ -107,7 +109,9 @@ final class CommandRegistry: @unchecked Sendable {
         }
 
         candidates = ranker.deduplicated(candidates.filter { isCommandEnabled($0.result) })
-        if candidates.isEmpty {
+        let mediaQuery = isMediaQuery(query)
+        candidates = mediaOnlyCandidates(candidates, isMediaQuery: mediaQuery)
+        if candidates.isEmpty && mediaQuery == false {
             for provider in activeProviders {
                 guard isFallbackEligible(for: provider) else { continue }
                 let fallbackResults = (try? await provider.fallbackResults(matching: query, sensitivity: sensitivity)) ?? []
@@ -118,7 +122,7 @@ final class CommandRegistry: @unchecked Sendable {
                 if eligibleResults.isEmpty == false { break }
             }
         }
-        if candidates.isEmpty {
+        if candidates.isEmpty && mediaQuery == false {
             let prompt = query.trimmingCharacters(in: .whitespacesAndNewlines)
             if prompt.isEmpty == false {
                 candidates.append(RankCandidate(result: CommandResult(
@@ -149,7 +153,9 @@ final class CommandRegistry: @unchecked Sendable {
                 RankCandidate(result: result, providerID: provider.id, sourceOrder: index)
             })
         }
-        if allCandidates.isEmpty {
+        let mediaQuery = isMediaQuery(query)
+        allCandidates = mediaOnlyCandidates(allCandidates, isMediaQuery: mediaQuery)
+        if allCandidates.isEmpty && mediaQuery == false {
             for provider in activeProviders {
                 guard isFallbackEligible(for: provider) else { continue }
                 let fallbackResults = (try? await provider.fallbackResults(matching: query, sensitivity: sensitivity)) ?? []
@@ -163,7 +169,7 @@ final class CommandRegistry: @unchecked Sendable {
 
         allCandidates = ranker.deduplicated(allCandidates.filter { isCommandEnabled($0.result) })
 
-        if allCandidates.isEmpty {
+        if allCandidates.isEmpty && mediaQuery == false {
             let prompt = query.trimmingCharacters(in: .whitespacesAndNewlines)
             if prompt.isEmpty == false {
                 allCandidates.append(RankCandidate(result: CommandResult(
@@ -339,6 +345,15 @@ final class CommandRegistry: @unchecked Sendable {
 
     private func isCommandEnabled(_ result: CommandResult) -> Bool {
         configService?.current.commandPreferences[result.id]?.isEnabled != false
+    }
+
+    private func isMediaQuery(_ query: String) -> Bool {
+        MediaDownloadProvider.mediaURLs(in: query).isEmpty == false
+    }
+
+    private func mediaOnlyCandidates(_ candidates: [RankCandidate], isMediaQuery: Bool) -> [RankCandidate] {
+        guard isMediaQuery else { return candidates }
+        return candidates.filter { $0.result.route == .mediaDownload }
     }
 
     private func isFallbackEligible(for provider: CommandProvider) -> Bool {

@@ -322,6 +322,6 @@ final class AgentMonitorTests: XCTestCase {
     }
 
     private func runGit(_ arguments: [String], in directory: URL) -> Bool {
-        ProcessRunner.runSynchronously(path: "/usr/bin/git", arguments: ["-C", directory.path] + arguments)?.succeeded == true
+        ProcessRunner.runSynchronously(path: "/usr/bin/git", arguments: ["-C", directory.path] + arguments, timeout: 10)?.succeeded == true
     }
 }
