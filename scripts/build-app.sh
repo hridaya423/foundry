@@ -9,6 +9,18 @@ INSTALL_DIR="/Applications/$APP_NAME.app"
 CONTENTS_DIR="$APP_DIR/Contents"
 MACOS_DIR="$CONTENTS_DIR/MacOS"
 RESOURCES_DIR="$CONTENTS_DIR/Resources"
+VERSION_FILE="$ROOT_DIR/VERSION"
+APP_VERSION="$(tr -d '[:space:]' < "$VERSION_FILE")"
+BUILD_NUMBER="${BUILD_NUMBER:-1}"
+
+if ! printf '%s\n' "$APP_VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+    echo "error: VERSION must contain a semantic version such as 1.0.0" >&2
+    exit 1
+fi
+if ! printf '%s\n' "$BUILD_NUMBER" | grep -Eq '^[1-9][0-9]*$'; then
+    echo "error: BUILD_NUMBER must be a positive integer" >&2
+    exit 1
+fi
 
 if [[ "${LAUNCH_APP:-0}" == "1" && "${INSTALL_APP:-0}" != "1" ]]; then
     echo "error: LAUNCH_APP=1 requires INSTALL_APP=1" >&2
@@ -109,9 +121,9 @@ cat > "$CONTENTS_DIR/Info.plist" <<EOF
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleShortVersionString</key>
-    <string>1.0</string>
+    <string>$APP_VERSION</string>
     <key>CFBundleVersion</key>
-    <string>1</string>
+    <string>$BUILD_NUMBER</string>
     <key>LSMinimumSystemVersion</key>
     <string>14.0</string>
     <key>LSUIElement</key>

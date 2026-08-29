@@ -5,12 +5,22 @@ ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 APP_DIR="$ROOT_DIR/build/Foundry.app"
 BUNDLE_DIR="$APP_DIR/Contents/Resources/Foundry_Foundry.bundle"
 INSTALL_DIR="/Applications/Foundry.app"
+EXPECTED_VERSION="$(tr -d '[:space:]' < "$ROOT_DIR/VERSION")"
+EXPECTED_BUILD_NUMBER="${BUILD_NUMBER:-1}"
 installed_mtime="$(stat -f '%m' "$INSTALL_DIR" 2>/dev/null || true)"
 
 rm -rf "$ROOT_DIR/build"
 (cd "$ROOT_DIR" && ./scripts/build-app.sh)
 
 plutil -lint "$APP_DIR/Contents/Info.plist"
+[[ "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$APP_DIR/Contents/Info.plist")" == "$EXPECTED_VERSION" ]] || {
+    echo "error: app version does not match VERSION" >&2
+    exit 1
+}
+[[ "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$APP_DIR/Contents/Info.plist")" == "$EXPECTED_BUILD_NUMBER" ]] || {
+    echo "error: app build number does not match BUILD_NUMBER" >&2
+    exit 1
+}
 [[ "$(/usr/libexec/PlistBuddy -c 'Print :NSCameraUsageDescription' "$APP_DIR/Contents/Info.plist")" == *camera* ]] || {
     echo "error: NSCameraUsageDescription is missing" >&2
     exit 1

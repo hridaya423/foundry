@@ -33,6 +33,15 @@ final class ResourcePackagingTests: XCTestCase {
         XCTAssertFalse(entitlements.contains("com.apple.security.app-sandbox"))
     }
 
+    func testBuildMetadataComesFromVersionFileAndBuildNumber() throws {
+        let script = try String(contentsOf: rootURL().appendingPathComponent("scripts/build-app.sh"), encoding: .utf8)
+
+        XCTAssertTrue(script.contains("VERSION_FILE"))
+        XCTAssertTrue(script.contains("BUILD_NUMBER"))
+        XCTAssertTrue(script.contains("<string>$APP_VERSION</string>"))
+        XCTAssertTrue(script.contains("<string>$BUILD_NUMBER</string>"))
+    }
+
     func testBuildScriptCanStageWithoutInstallingOrLaunching() throws {
         let buildScript = try String(contentsOf: rootURL().appendingPathComponent("scripts/build-app.sh"), encoding: .utf8)
 
@@ -57,6 +66,10 @@ final class ResourcePackagingTests: XCTestCase {
 
         XCTAssertTrue(verifier.contains("build/Foundry.app"))
         XCTAssertTrue(verifier.contains("codesign --verify"))
+        XCTAssertTrue(verifier.contains("CFBundleShortVersionString"))
+        XCTAssertTrue(verifier.contains("CFBundleVersion"))
+        XCTAssertTrue(verifier.contains("VERSION"))
+        XCTAssertTrue(verifier.contains("BUILD_NUMBER"))
         XCTAssertTrue(verifier.contains("NSCameraUsageDescription"))
         XCTAssertTrue(verifier.contains("FoundrySourceRoot"))
         XCTAssertTrue(verifier.contains("feynobg_worker.py"))
@@ -91,6 +104,21 @@ final class ResourcePackagingTests: XCTestCase {
         XCTAssertTrue(package.contains(".copy(\"Resources/BackgroundRemoval/background_removal_worker.py\")"))
         XCTAssertTrue(package.contains(".copy(\"Resources/emoji.tsv\")"))
         XCTAssertFalse(package.contains(".process(\"Resources\")"))
+    }
+
+    func testReleaseWorkflowBuildsAndPublishesVersionedArtifact() throws {
+        let workflow = try String(contentsOf: rootURL().appendingPathComponent(".github/workflows/release.yml"), encoding: .utf8)
+
+        XCTAssertTrue(workflow.contains("paths:"))
+        XCTAssertTrue(workflow.contains("- VERSION"))
+        XCTAssertFalse(workflow.contains("workflow_dispatch"))
+        XCTAssertTrue(workflow.contains("macos-26"))
+        XCTAssertTrue(workflow.contains("swift test"))
+        XCTAssertTrue(workflow.contains("./scripts/verify-packaging.sh"))
+        XCTAssertTrue(workflow.contains("BUILD_NUMBER"))
+        XCTAssertTrue(workflow.contains("gh release create"))
+        XCTAssertTrue(workflow.contains("gh release delete"))
+        XCTAssertTrue(workflow.contains("contents: write"))
     }
 
     func testBuildRejectsStaleAndExecutableResources() throws {
