@@ -1,0 +1,13 @@
+.memory-methodology { min-height: 100svh; padding: 64px max(6vw, calc((100vw - 800px) / 2)); color: var(--f-text); background: #0f0d0c; font-size: 17px; line-height: 1.65; }
+.memory-methodology h1 { font-size: clamp(38px, 5vw, 64px); line-height: 1.05; letter-spacing: -.04em; margin: 56px 0 20px; }
+.memory-methodology h2 { font-size: 26px; line-height: 1.2; margin: 44px 0 16px; }
+.memory-methodology p { margin-block: 18px; color: var(--f-muted); }
+.memory-methodology .methodology-status { color: var(--f-accent); }
+.memory-methodology a { text-decoration: underline; text-underline-offset: 5px; }
+.memory-methodology a:focus-visible { outline: 2px solid var(--f-accent); outline-offset: 5px; }
+.memory-methodology li { margin-block: 12px; }
+.methodology-table { overflow-x: auto; }
+.memory-methodology table { width: 100%; border-collapse: collapse; text-align: left; font-variant-numeric: tabular-nums; }
+.memory-methodology caption { text-align: left; margin-bottom: 12px; }
+.memory-methodology th, .memory-methodology td { padding: 12px 16px 12px 0; border-bottom: 1px solid #c6bbab33; white-space: nowrap; }
+@media (hover: hover) { .memory-methodology a:hover { color: var(--f-accent); } }
