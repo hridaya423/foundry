@@ -1,0 +1,429 @@
+body:has(.foundry-preview)::after {
+  display: none;
+}
+.foundry-preview {
+  --f-bg: #0f0d0c;
+  --f-offset: max(0px, calc((100svh - 56.28vw) / 2));
+  --f-offset: max(0px, calc((100svh - 56.28vw) / 2));
+  --f-text: #eee7dd;
+  --f-muted: #bdb4aa;
+  --f-accent: #fa6428;
+  --f-line: #484039;
+  font-family: var(--font-geist-sans), sans-serif;
+  color: var(--f-text);
+  background: var(--f-bg);
+  height: 220svh;
+}
+.foundry-stage {
+  position: sticky;
+  top: 0;
+  width: 100%;
+  height: 100svh;
+  min-height: 56.28vw;
+  overflow: hidden;
+  background: radial-gradient(ellipse at 65% 45%, #17130f 0%, #0f0d0c 70%);
+}
+.foundry-nav {
+  position: absolute;
+  top: 1.2vw;
+  left: 2.87%;
+  right: 2.87%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  z-index: 2;
+  font-size: clamp(16px, 1.32vw, 24px);
+  font-weight: 450;
+}
+.foundry-logo {
+  font-size: clamp(26px, 1.8vw, 32px);
+  font-weight: 600;
+  letter-spacing: -0.055em;
+  line-height: 1.2;
+}
+.foundry-links {
+  display: flex;
+  align-items: center;
+  gap: 2.6vw;
+}
+.foundry-links :is(a, button) {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+}
+.foundry-preview button,
+.foundry-preview a {
+  cursor: pointer;
+}
+.foundry-preview :is(button, a, input):focus-visible {
+  outline: 2px solid var(--f-accent);
+  outline-offset: 5px;
+}
+.foundry-wordmark {
+  position: absolute;
+  top: var(--f-offset);
+  left: 0;
+  width: 100%;
+  aspect-ratio: 1672/510;
+  background: url("/assets/foundry/tiled-wordmark.svg") center/100% 100%
+    no-repeat;
+  pointer-events: none;
+}
+.foundry-webgl {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  opacity: 0;
+}
+.foundry-stage[data-scene="ready"] .foundry-webgl {
+  opacity: 1;
+}
+.foundry-stage[data-scene="ready"] .foundry-wordmark {
+  opacity: 0;
+}
+.foundry-copy {
+  position: absolute;
+  top: calc(31.55vw + var(--f-offset));
+  left: 5.2%;
+  width: 40%;
+  z-index: 1;
+}
+.foundry-copy h1 {
+  font-size: 4.55vw;
+  font-weight: 400;
+  line-height: 1.03;
+  letter-spacing: -0.03em;
+  margin: 0;
+}
+.foundry-copy h1 span {
+  color: var(--f-accent);
+}
+.foundry-copy p {
+  font-size: clamp(16px, 1.51vw, 30px);
+  line-height: 1.35;
+  color: var(--f-muted);
+  margin: 0.6vw 0 1.85vw;
+  letter-spacing: -0.015em;
+}
+.foundry-cta {
+  background: var(--f-accent);
+  color: #0f0d0c;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.25vw;
+  padding: 0 2vw;
+  height: 4.05vw;
+  font-size: clamp(16px, 1.36vw, 28px);
+  font-weight: 500;
+  min-height: 48px;
+  border-radius: 11px;
+}
+.foundry-cta span {
+  font-size: 1.6em;
+  line-height: 1;
+}
+.foundry-palette {
+  position: absolute;
+  left: 57.78%;
+  top: calc(34.2vw + var(--f-offset));
+  width: 37.56%;
+  font-size: clamp(16px, 1.35vw, 28px);
+  letter-spacing: -0.015em;
+  z-index: 1;
+}
+.foundry-search,
+.foundry-row {
+  height: 4.25vw;
+  display: flex;
+  align-items: center;
+  gap: 1.45vw;
+  padding: 0 1.45vw;
+  background: linear-gradient(115deg, #24201c, #1d1916);
+  border: 1px solid var(--f-line);
+  border-radius: 6px;
+  box-shadow: inset 0 1px 0 #ffffff04;
+}
+.foundry-search {
+  margin-bottom: 4px;
+}
+.foundry-search input {
+  min-width: 0;
+  flex: 1;
+  background: none;
+  border: 0;
+  color: var(--f-text);
+  height: 100%;
+  font: inherit;
+  letter-spacing: inherit;
+  outline: none;
+}
+.foundry-search:focus-within {
+  outline: 2px solid var(--f-accent);
+  outline-offset: 2px;
+}
+.foundry-search input:focus-visible {
+  outline: none;
+}
+.foundry-search input::placeholder {
+  color: var(--f-muted);
+  opacity: 1;
+}
+.foundry-search-icon {
+  width: 1.2vw;
+  height: 1.2vw;
+  border: 1.7px solid currentColor;
+  border-radius: 50%;
+  position: relative;
+  flex-shrink: 0;
+}
+.foundry-search-icon::after {
+  content: "";
+  position: absolute;
+  width: 0.55vw;
+  height: 1.7px;
+  background: currentColor;
+  right: -0.4vw;
+  bottom: -0.2vw;
+  transform: rotate(48deg);
+}
+.foundry-results {
+  height: calc(12.75vw + 8px);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.foundry-row {
+  flex: none;
+  cursor: pointer;
+}
+.foundry-row[aria-selected="true"] {
+  background: var(--f-accent);
+  color: #0f0d0c;
+  border-color: #fd945f;
+}
+.foundry-command-icon {
+  width: 1.6vw;
+  flex-shrink: 0;
+}
+.foundry-command-icon svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.foundry-empty {
+  margin: 0;
+  padding: 24px;
+  color: var(--f-muted);
+}
+@media (hover: hover) {
+  .foundry-nav a:hover,
+  .foundry-nav button:hover {
+    color: var(--f-accent);
+  }
+  .foundry-cta:hover {
+    filter: brightness(1.08);
+  }
+  .foundry-row:not([aria-selected="true"]):hover {
+    background: #302a24;
+  }
+}
+.foundry-cta:active {
+  transform: scale(0.97);
+}
+@media (max-aspect-ratio: 1672/941) and (min-width: 900px) {
+  .foundry-stage {
+    min-height: 100svh;
+  }
+}
+@media (min-aspect-ratio: 1673/941) {
+  .foundry-preview {
+    height: calc(56.28vw + 120svh);
+  }
+  .foundry-stage {
+    top: calc(100svh - 56.28vw);
+    height: 56.28vw;
+  }
+}
+.foundry-preview:has([data-scene="fallback"]) {
+  height: auto;
+  min-height: 100svh;
+}
+.foundry-stage[data-scene="fallback"] {
+  position: relative;
+  top: 0;
+}
+@media (max-width: 899px) {
+  .foundry-preview {
+    --f-offset: 0px;
+    --f-offset: 0px;
+    height: auto;
+    min-height: 100svh;
+  }
+  .foundry-stage {
+    position: relative;
+    top: 0;
+    display: flex;
+    flex-direction: column;
+    min-height: 100svh;
+    height: auto;
+    padding: 22px 20px 36px;
+    overflow: hidden;
+  }
+  .foundry-nav {
+    position: relative;
+    inset: auto;
+    font-size: 14px;
+  }
+  .foundry-logo {
+    font-size: 28px;
+  }
+  .foundry-links {
+    gap: 20px;
+  }
+  .foundry-wordmark {
+    position: relative;
+    width: calc(100% + 40px);
+    margin: 0 -20px;
+    aspect-ratio: 1672/510;
+  }
+  .foundry-webgl {
+    display: none;
+  }
+  .foundry-stage[data-scene="ready"] .foundry-wordmark {
+    opacity: 1;
+  }
+  .foundry-copy {
+    position: relative;
+    inset: auto;
+    width: 100%;
+    margin: 24px 0 36px;
+  }
+  .foundry-copy h1 {
+    font-size: clamp(38px, 7.5vw, 66px);
+    line-height: 1.06;
+  }
+  .foundry-copy p {
+    font-size: 17px;
+    line-height: 1.45;
+    max-width: 430px;
+    margin: 20px 0 25px;
+  }
+  .foundry-desktop-break {
+    display: none;
+  }
+  .foundry-cta {
+    font-size: 16px;
+    height: 50px;
+    padding: 0 24px;
+    gap: 34px;
+    border-radius: 8px;
+  }
+  .foundry-palette {
+    position: relative;
+    inset: auto;
+    width: 100%;
+    font-size: 16px;
+  }
+  .foundry-search,
+  .foundry-row {
+    height: 62px;
+    padding: 0 18px;
+    gap: 16px;
+  }
+  .foundry-results {
+    height: 194px;
+  }
+  .foundry-command-icon {
+    width: 22px;
+  }
+  .foundry-search-icon {
+    width: 17px;
+    height: 17px;
+  }
+  .foundry-search-icon::after {
+    width: 7px;
+    right: -5px;
+    bottom: -3px;
+  }
+}
+@media (max-width: 370px) {
+  .foundry-stage {
+    padding-inline: 16px;
+  }
+  .foundry-links {
+    gap: 14px;
+  }
+  .foundry-logo {
+    font-size: 24px;
+  }
+  .foundry-wordmark {
+    width: calc(100% + 32px);
+    margin-inline: -16px;
+  }
+  .foundry-search,
+  .foundry-row {
+    padding: 0 12px;
+    gap: 12px;
+  }
+  .foundry-search input {
+    font-size: 16px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .foundry-preview {
+    height: auto;
+    min-height: 100svh;
+  }
+  .foundry-stage {
+    position: relative;
+    top: 0;
+  }
+  .foundry-webgl {
+    display: none;
+  }
+  .foundry-stage[data-scene="ready"] .foundry-wordmark {
+    opacity: 1;
+  }
+  .foundry-preview * {
+    scroll-behavior: auto !important;
+    transition: none !important;
+    animation: none !important;
+  }
+}
+.foundry-inspector {
+  position: fixed;
+  bottom: 12px;
+  left: 12px;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #0f0d0c;
+  color: #eee7dd;
+  border: 1px solid #484039;
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-size: 14px;
+}
+.foundry-inspector input {
+  width: 70px;
+  padding: 4px;
+  background: #302a24;
+  border-radius: 4px;
+}
+
+.foundry-copy h1 span {
+  display: inline-block;
+  width: 0.13em;
+  height: 0.13em;
+  margin-left: 0.03em;
+  border-radius: 50%;
+  background: currentColor;
+  overflow: hidden;
+  font-size: 1em;
+  line-height: 0;
+  vertical-align: baseline;
+}

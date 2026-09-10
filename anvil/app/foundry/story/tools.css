@@ -1,0 +1,71 @@
+.tools-section { position: relative; padding: 80px 5.2%; }
+.tools-heading h2 { font-size: clamp(38px, 4.1vw, 70px); font-weight: 400; line-height: 1.06; letter-spacing: -.045em; }
+.tools-heading h2 span { color: var(--f-accent); }
+.tools-nav { display: flex; flex-wrap: wrap; gap: 8px; margin: 32px 0; }
+.tools-nav button { text-align: left; padding: 12px 16px; min-height: 48px; font-size: clamp(17px, 1.8vw, 29px); color: var(--f-muted); border-radius: 5px; transition: color 150ms, background-color 150ms; }
+.tools-nav button[aria-selected="true"] { background: var(--f-accent); color: #211107; }
+.tools-section button:focus-visible { outline: 2px solid var(--f-accent); outline-offset: 4px; }
+.tool-example { position: relative; margin-top: 48px; }
+.tool-surface { padding: 24px 28px; background: #d6cdbd; color: #211d19; box-shadow: 0 3px 0 #b8663a; }
+.tool-surface > span { display: block; font-size: 12px; margin-bottom: 12px; color: #51483e; }
+.tool-surface p { white-space: pre-line; overflow-wrap: anywhere; font-size: clamp(24px, 3vw, 48px); letter-spacing: -.035em; line-height: 1.3; font-weight: 550; }
+.tool-result { margin-top: 32px; }
+.tool-action { margin-top: 32px; }
+.tool-action button { display: flex; align-items: center; gap: 18px; width: 100%; padding: 0 20px; min-height: 54px; border-radius: 8px; color: var(--f-text); box-shadow: inset 0 0 0 1px #c6bbab38; font-size: 16px; background: #1c1916; transition: background-color 150ms; }
+.tool-action button[aria-disabled="true"] { color: var(--f-muted); }
+.tool-action > p { margin-top: 14px; font-size: 14px; line-height: 1.5; color: var(--f-muted); max-width: 60ch; }
+.story-shell[data-scene="ready"] .tools-section { position: absolute; inset: 0; padding: 0; pointer-events: none; z-index: 6; }
+.story-shell[data-scene="ready"] .tools-heading { position: absolute; top: 14.6%; left: 5.2%; }
+.story-shell[data-scene="ready"] .tools-nav { position: absolute; flex-direction: column; margin: 0; top: 35%; left: 4%; width: 24%; gap: 3px; }
+.story-shell[data-scene="ready"] .tools-nav button { min-height: 6.9svh; padding-inline: 1.2vw; font-size: 1.7vw; }
+.story-shell[data-scene="ready"] .tool-example { position: absolute; inset: 0; margin: 0; }
+.story-shell[data-scene="ready"] .tool-action { position: absolute; margin: 0; left: 39%; right: 10%; top: 79%; }
+.story-shell[data-scene="ready"] .tool-surface { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.tools-section:not([inert]) :is(.tools-nav, .tool-action) { pointer-events: auto; }
+.story-shell:not([data-scene="ready"]) .tools-section { opacity: 1 !important; }
+.story-shell:not([data-scene="ready"]) .tool-action button { display: none; }
+@media (hover: hover) { .tools-nav button:not([aria-selected="true"]):hover, .tool-action button:not([aria-disabled="true"]):hover { color: var(--f-text); background: #30291f; } }
+@media (max-width: 899px) {
+  .tools-section { padding: 64px 6%; }
+  .tools-heading h2 { font-size: clamp(34px, 7vw, 62px); }
+  .story-shell[data-scene="ready"] .tools-heading { top: 6%; left: 6%; }
+  .story-shell[data-scene="ready"] .tools-nav { flex-direction: row; flex-wrap: nowrap; top: 22%; left: 6%; width: 88%; overflow-x: auto; scrollbar-width: none; gap: 8px; padding-bottom: 8px; }
+  .story-shell[data-scene="ready"] .tools-nav button, .tools-nav button { flex-shrink: 0; font-size: 15px; padding: 12px; min-height: 48px; }
+  .story-shell[data-scene="ready"] .tool-action { left: 6%; right: 6%; top: 80%; }
+  .tool-action > p { font-size: 12px; margin-top: 10px; }
+}
+
+.tool-choreography { display: none; }
+.story-shell[data-scene="ready"] .tool-choreography { display: block; position: absolute; inset: 0; }
+.tool-context, .tool-language, .tool-clock-label { position: absolute; top: 23%; left: 39%; right: 8%; text-align: center; color: var(--f-muted); font-size: 16px; }
+.tool-context { font-variant-numeric: tabular-nums; letter-spacing: .12em; }
+.tool-clock-label { top: 19%; }
+.tool-notes { position: absolute; top: 39%; left: 43%; width: 44%; height: 30%; perspective: 1000px; }
+.tool-paper { position: absolute; inset: 0; background: #d6cdbd; color: #29221b; padding: 24px 32px; border-radius: 8px; box-shadow: 0 2px 0 #9a8972, 0 16px 24px #0003; }
+.tool-paper h3 { font-size: clamp(23px, 2.5vw, 36px); font-weight: 500; letter-spacing: -.045em; line-height: 1.15; margin: 12px 0 18px; }
+.tool-paper p { font-size: clamp(16px, 1.7vw, 23px); line-height: 1.6; }
+.tool-paper-back { background: #8f8575; }
+.tool-paper-back h3 { font-size: 18px; }
+.tool-paper-back > span { display: block; width: 75%; height: 2px; margin: 22px 0; background: #514637; }
+.tool-paper-match { z-index: 2; }
+.tool-note-label { font-size: 12px; color: #63533f; }
+.tool-profiles { position: absolute; top: 24%; left: 39%; right: 8%; display: flex; justify-content: center; gap: 12px; }
+.tool-profiles span { padding: 13px 20px; border-radius: 5px; background: #62594d; color: #211d19; box-shadow: 0 3px 0 #3b3226; font-size: 15px; }
+.tool-delimiter { position: absolute; top: 66%; left: 39%; right: 8%; text-align: center; color: var(--f-muted); font-size: 15px; }
+.tool-delimiter kbd, .tool-action kbd { margin-left: 10px; padding: 4px 8px; border-radius: 4px; box-shadow: inset 0 0 0 1px #c6bbab38; font: inherit; font-size: 12px; }
+.tool-action kbd { margin-left: auto; }
+.tools-nav button:active, .tool-action button:not([aria-disabled="true"]):active { transform: scale(.97); }
+@media (max-width: 899px) {
+  .tool-context, .tool-language, .tool-clock-label { left: 6%; right: 6%; top: 34%; font-size: 13px; }
+  .tool-clock-label { top: 29%; }
+  .tool-notes { top: 44%; left: 11%; width: 78%; height: 27%; }
+  .tool-paper { padding: 18px 22px; }
+  .tool-paper h3 { font-size: 27px; margin: 10px 0 16px; }
+  .tool-paper p { font-size: 17px; }
+  .tool-paper-back h3 { font-size: 17px; }
+  .tool-profiles { top: 34%; left: 6%; right: 6%; gap: 8px; }
+  .tool-profiles span { padding: 10px 16px; font-size: 13px; }
+  .tool-delimiter { top: 69%; left: 6%; right: 6%; font-size: 13px; }
+}
+
+.tools-nav::-webkit-scrollbar { display: none; }
