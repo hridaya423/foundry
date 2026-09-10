@@ -90,7 +90,8 @@ final class ClipboardHistoryState: ObservableObject {
     func reset() { query = ""; selectedID = visibleItems.first?.id }
     func select(id: String) { selectedID = id }
     func moveSelection(offset: Int) { guard !visibleItems.isEmpty else { return }; let i = selectedID.flatMap { id in visibleItems.firstIndex { $0.id == id } } ?? 0; selectedID = visibleItems[min(max(i + offset, 0), visibleItems.count - 1)].id }
-    func copySelected() { if let item = selectedItem { pasteboard.write(item.payload); lastChangeCount = pasteboard.changeCount } }
+    func copySelected() { if let item = selectedItem { copy(item) } }
+    func copy(_ item: ClipboardHistoryItem) { pasteboard.write(item.payload); lastChangeCount = pasteboard.changeCount }
     func removeSelected() { guard let id = selectedItem?.id else { return }; items.removeAll { $0.id == id }; persist(); keepSelectionValid() }
     func clear() { items.removeAll(); persist(); selectedID = nil }
     func setPaused(_ paused: Bool) { isPaused = paused }

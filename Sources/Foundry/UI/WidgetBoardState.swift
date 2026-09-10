@@ -32,11 +32,8 @@ final class WidgetBoardState: ObservableObject {
         self.diagnostics = diagnostics
         let saved = configService.current.widgets
         var normalized = saved
-        if saved == .legacyDefault || saved == .legacyExpandedDefault || saved == .legacyDemo || (saved.weatherCity == "San Francisco" && saved.stockSymbol == "AAPL") {
+        if saved == .legacyDefault || saved == .legacyExpandedDefault || saved == .legacyDemo {
             normalized = .default
-        } else {
-            if normalized.weatherCity == "San Francisco" { normalized.weatherCity = "" }
-            if normalized.stockSymbol == "AAPL" { normalized.stockSymbol = "" }
         }
         normalized.enabled = Self.normalizedWidgets(from: normalized.enabled.filter { WidgetKind.allCases.contains($0) })
         if configService.current.showAgentShelf == false {

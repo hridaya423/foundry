@@ -39,6 +39,19 @@ final class LibraryPersistenceTests: XCTestCase {
         XCTAssertEqual(state.selectedItem?.keyword, "ex")
     }
 
+    @MainActor func testResetFlushesPendingSnippetEditsBeforeReloading() {
+        let store = InMemorySnippetStore()
+        let state = SnippetState(store: store)
+        state.load()
+        state.newSnippet()
+        state.updateSelected(title: "Example", content: "latest", keyword: "ex", tags: [])
+
+        state.reset()
+
+        XCTAssertEqual(state.items.first?.content, "latest")
+        XCTAssertEqual(store.snippets.first?.content, "latest")
+    }
+
     @MainActor func testReloadInvalidatesVisibleSnippetCache() {
         let store = InMemorySnippetStore()
         let state = SnippetState(store: store)

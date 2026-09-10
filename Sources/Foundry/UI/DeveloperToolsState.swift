@@ -98,6 +98,7 @@ final class DeveloperToolsState: ObservableObject {
         didSet { refreshTimestamp() }
     }
     @Published private(set) var timestampRows: [OutputRow] = []
+    @Published private(set) var timestampError: String?
 
     @Published var wordCountInput = "" {
         didSet { refreshWordCount() }
@@ -224,15 +225,15 @@ final class DeveloperToolsState: ObservableObject {
     }
 
     private func refreshBase64() {
-        let input = base64Input.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard input.isEmpty == false else {
+        let trimmed = base64Input.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.isEmpty == false else {
             base64Output = ""
             base64Error = nil
             return
         }
         let output = base64Operation == .encode
-            ? DeveloperToolsEngine.base64Encode(input)
-            : DeveloperToolsEngine.base64Decode(input)
+            ? DeveloperToolsEngine.base64Encode(base64Input)
+            : DeveloperToolsEngine.base64Decode(trimmed)
         guard let output else {
             base64Output = ""
             base64Error = "Enter valid Base64 text to decode."
@@ -267,9 +268,16 @@ final class DeveloperToolsState: ObservableObject {
 
     private func refreshTimestamp() {
         let input = timestampInput.trimmingCharacters(in: .whitespacesAndNewlines)
-        timestampRows = input.isEmpty ? [] : DeveloperToolsEngine.timestampConversions(for: input).map {
+        guard input.isEmpty == false else {
+            timestampRows = []
+            timestampError = nil
+            return
+        }
+        let conversions = DeveloperToolsEngine.timestampConversions(for: input)
+        timestampRows = conversions.map {
             OutputRow(label: $0.label, value: $0.value)
         }
+        timestampError = conversions.isEmpty ? "Enter Unix seconds, Unix milliseconds, \"now\", or an ISO 8601 date." : nil
     }
 
     private func refreshWordCount() {

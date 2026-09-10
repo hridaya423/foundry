@@ -437,6 +437,20 @@ final class CommandPanelState: ObservableObject {
         }
     }
 
+    @discardableResult
+    func directPasteSelectedSnippet() -> Bool {
+        guard let snippet = snippets.selectedItem else { return false }
+        let rendered = SnippetRenderer.render(snippet.content)
+        do {
+            try actionRunner.directPasteService.stage(.text(rendered.text), cursorOffset: rendered.cursorOffsetFromEnd, snippetID: snippet.id)
+            diagnosticsSummary = "Snippet ready to insert"
+            return true
+        } catch {
+            diagnosticsSummary = "Could not stage snippet: \(error.localizedDescription)"
+            return false
+        }
+    }
+
     private func updateClipboard(_ configuration: ClipboardConfig) {
         let previous = configService.current.clipboard
         do {
@@ -538,6 +552,18 @@ final class CommandPanelState: ObservableObject {
         Task { @MainActor [weak self] in
             guard let self else { return }
             _ = await execute(action, commandID: "media.download.retry")
+        }
+    }
+
+    func changeMediaDownloadFolder() {
+        let action = CommandAction(
+            id: "media.download.choose-folder.\(UUID().uuidString)",
+            title: "Change Download Folder",
+            kind: .chooseMediaDownloadFolder
+        )
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            _ = await execute(action, commandID: "media.download.choose-folder")
         }
     }
 

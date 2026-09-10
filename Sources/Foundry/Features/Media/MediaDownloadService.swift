@@ -23,7 +23,7 @@ extension MediaDownloading {
     func mediaCapabilities() -> MediaDownloadCapabilities {
         MediaDownloadCapabilities(
             direct: .ready(label: "Direct links · ready"),
-            cobalt: .ready(label: "Cobalt · sends URL to Cobalt"),
+            cobalt: .unavailable(label: "Cobalt · unavailable", reason: "The hosted API requires authorization; yt-dlp is used instead"),
             youtube: .ready(label: "YouTube · yt-dlp automatic setup")
         )
     }
@@ -42,9 +42,10 @@ final class MediaDownloadService: MediaDownloading, @unchecked Sendable {
     struct Dependencies: Sendable {
         let session: URLSession
         let cobaltEndpoint: URL
+        let cobaltAuthorization: String?
         let executableLocator: ExecutableLocator
         let processRunner: any ProcessRunning
-        let destination: URL
+        let destination: URL?
         let artifactFileSystem: any MediaArtifactFileSystem
         let networkPolicy: MediaNetworkPolicy
         let cobaltResponseMaxBytes: Int64
@@ -53,10 +54,11 @@ final class MediaDownloadService: MediaDownloading, @unchecked Sendable {
 
         init(
             session: URLSession = URLSession(configuration: .ephemeral),
-            cobaltEndpoint: URL = URL(string: "https://api.cobalt.tools/")!,
+            cobaltEndpoint: URL? = nil,
+            cobaltAuthorization: String? = nil,
             executableLocator: ExecutableLocator = ExecutableLocator(),
             processRunner: any ProcessRunning = SystemProcessRunner(),
-            destination: URL = MediaDownloadDestination.folder,
+            destination: URL? = nil,
             artifactFileSystem: any MediaArtifactFileSystem = FileManager.default,
             networkPolicy: MediaNetworkPolicy = MediaNetworkPolicy(),
             cobaltResponseMaxBytes: Int64 = 1_048_576,
@@ -65,6 +67,10 @@ final class MediaDownloadService: MediaDownloading, @unchecked Sendable {
         ) {
             self.session = session
             self.cobaltEndpoint = cobaltEndpoint
+                ?? ProcessInfo.processInfo.environment["FOUNDRY_COBALT_ENDPOINT"].flatMap(URL.init)
+                ?? URL(string: "https://api.cobalt.tools/")!
+            self.cobaltAuthorization = cobaltAuthorization
+                ?? ProcessInfo.processInfo.environment["FOUNDRY_COBALT_AUTHORIZATION"]
             self.executableLocator = executableLocator
             self.processRunner = processRunner
             self.destination = destination
@@ -84,7 +90,7 @@ final class MediaDownloadService: MediaDownloading, @unchecked Sendable {
     }
 
     var downloadFolder: URL {
-        dependencies.destination
+        dependencies.destination ?? MediaDownloadDestination.folder
     }
 
     func download(
@@ -103,27 +109,53 @@ final class MediaDownloadService: MediaDownloading, @unchecked Sendable {
         let initialTitle = url.lastPathComponent.isEmpty ? "Media download" : url.lastPathComponent
 
         do {
-            try dependencies.artifactFileSystem.createDirectory(at: downloadFolder)
+            let folder = downloadFolder
+            try dependencies.artifactFileSystem.createDirectory(at: folder)
             emit(.starting(title: initialTitle), progress)
+            let files: [URL]
+            let message: String
 
             if MediaDownloadProvider.isDirectMediaFile(url) {
                 try dependencies.networkPolicy.validate(url)
-                let file = try await downloadDirectFile(url, status: status, progress: progress)
-                return "Downloaded \(file.lastPathComponent)"
-            }
-
-            if isYouTube(url) {
+                let file = try await downloadDirectFile(url, downloadFolder: folder, status: status, progress: progress)
+                files = [file]
+                message = "Downloaded \(file.lastPathComponent)"
+            } else if isYouTube(url) {
                 report("Preparing yt-dlp", status)
                 let executable = try await installYTDLPIfNeeded()
-                let playlistLabel = isPlaylist(url) ? "playlist" : "media"
-                report("Downloading \(playlistLabel)", status)
-                try await runYTDLP(executable, url: url, progress: progress)
-                return "Downloaded YouTube media to \(downloadFolder.path)"
+                report(isPlaylist(url) ? "Downloading playlist" : "Downloading media", status)
+                files = try await runYTDLP(executable, url: url, downloadFolder: folder, progress: progress)
+                message = "Downloaded YouTube media to \(folder.path)"
+            } else {
+                try dependencies.networkPolicy.validate(url)
+                if cobaltIsConfigured {
+                    do {
+                        let file = try await downloadWithCobalt(url, downloadFolder: folder, status: status, progress: progress)
+                        files = [file]
+                        message = "Downloaded \(file.lastPathComponent)"
+                    } catch is CancellationError {
+                        throw CancellationError()
+                    } catch {
+                        report("Cobalt unavailable, trying yt-dlp", status)
+                        let executable = try await installYTDLPIfNeeded()
+                        report("Downloading media", status)
+                        files = try await runYTDLP(executable, url: url, downloadFolder: folder, progress: progress)
+                        message = "Downloaded media with yt-dlp"
+                    }
+                } else {
+                    report("Preparing yt-dlp", status)
+                    let executable = try await installYTDLPIfNeeded()
+                    report("Downloading media", status)
+                    files = try await runYTDLP(executable, url: url, downloadFolder: folder, progress: progress)
+                    message = "Downloaded media with yt-dlp"
+                }
             }
-
-            try dependencies.networkPolicy.validate(url)
-            let file = try await downloadWithCobalt(url, status: status, progress: progress)
-            return "Downloaded \(file.lastPathComponent)"
+            var completed = MediaDownloadProgress.starting(title: files.count == 1 ? files[0].lastPathComponent : "\(files.count) media files")
+            completed.phase = .completed
+            completed.message = message
+            completed.outputURLs = files
+            await MainActor.run { [completed] in progress?(completed) }
+            return message
         } catch {
             if Task.isCancelled {
                 emit(MediaDownloadProgress(
@@ -159,6 +191,7 @@ final class MediaDownloadService: MediaDownloading, @unchecked Sendable {
 
     private func downloadDirectFile(
         _ sourceURL: URL,
+        downloadFolder: URL,
         status: (@MainActor @Sendable (String) -> Void)?,
         progress: (@MainActor @Sendable (MediaDownloadProgress) -> Void)?
     ) async throws -> URL {
@@ -217,9 +250,18 @@ final class MediaDownloadService: MediaDownloading, @unchecked Sendable {
         }
         return MediaDownloadCapabilities(
             direct: .ready(label: "Direct links · ready"),
-            cobalt: .ready(label: "Cobalt · sends URL to Cobalt"),
+            cobalt: cobaltIsConfigured
+                ? .ready(label: "Cobalt · configured")
+                : .unavailable(label: "Cobalt · unavailable", reason: "The hosted API requires authorization; yt-dlp is used instead"),
             youtube: youtube
         )
+    }
+
+    private var cobaltIsConfigured: Bool {
+        if let authorization = dependencies.cobaltAuthorization?.trimmingCharacters(in: .whitespacesAndNewlines), authorization.isEmpty == false {
+            return true
+        }
+        return dependencies.cobaltEndpoint.host?.lowercased() != "api.cobalt.tools"
     }
 
     private func installYTDLPIfNeeded() async throws -> String {
@@ -236,6 +278,7 @@ final class MediaDownloadService: MediaDownloading, @unchecked Sendable {
 
     private func downloadWithCobalt(
         _ sourceURL: URL,
+        downloadFolder: URL,
         status: (@MainActor @Sendable (String) -> Void)?,
         progress: (@MainActor @Sendable (MediaDownloadProgress) -> Void)?
     ) async throws -> URL {
@@ -257,27 +300,17 @@ final class MediaDownloadService: MediaDownloading, @unchecked Sendable {
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        if let authorization = dependencies.cobaltAuthorization?.trimmingCharacters(in: .whitespacesAndNewlines), authorization.isEmpty == false {
+            request.setValue(authorization, forHTTPHeaderField: "Authorization")
+        }
         request.httpBody = try JSONSerialization.data(withJSONObject: ["url": sourceURL.absoluteString])
 
         let (data, cobaltResponse) = try await cobaltResponseData(request)
         if let cobaltResponse = cobaltResponse as? HTTPURLResponse, !(200..<300).contains(cobaltResponse.statusCode) {
             throw MediaNetworkPolicyFailure.invalidStatus(cobaltResponse.statusCode)
         }
-        guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
-            throw MediaDownloadError.cobaltResponseInvalid
-        }
-
-        if let error = json["error"] as? [String: Any], let code = error["code"] as? String {
-            throw MediaDownloadError.message("cobalt error: \(code)")
-        }
-
-        let downloadURLString = json["url"] as? String
-            ?? json["tunnel"] as? String
-            ?? (json["picker"] as? [[String: Any]])?.compactMap { $0["url"] as? String ?? $0["tunnel"] as? String }.first
-
-        guard let downloadURLString, let downloadURL = URL(string: downloadURLString) else {
-            throw MediaDownloadError.cobaltDidNotReturnFile
-        }
+        let response = try CobaltMediaResponse.parse(data: data)
+        let downloadURL = response.url
         try dependencies.networkPolicy.validate(downloadURL)
 
         report("Downloading media", status)
@@ -298,7 +331,7 @@ final class MediaDownloadService: MediaDownloading, @unchecked Sendable {
         defer {
             if shouldRemoveTemporary { try? dependencies.artifactFileSystem.removeItem(at: temporaryURL) }
         }
-        let fallbackName = fileResponse?.suggestedFilename ?? "media-\(Int(Date().timeIntervalSince1970))"
+        let fallbackName = fileResponse?.suggestedFilename ?? response.filename ?? "media-\(Int(Date().timeIntervalSince1970))"
         let destination = try dependencies.networkPolicy.reserveDestination(named: fallbackName, in: downloadFolder, fileSystem: dependencies.artifactFileSystem)
         defer { dependencies.networkPolicy.releaseDestination(destination) }
         try dependencies.artifactFileSystem.moveItem(at: temporaryURL, to: destination)
@@ -309,8 +342,9 @@ final class MediaDownloadService: MediaDownloading, @unchecked Sendable {
     private func runYTDLP(
         _ path: String,
         url: URL,
+        downloadFolder: URL,
         progress: (@MainActor @Sendable (MediaDownloadProgress) -> Void)?
-    ) async throws {
+    ) async throws -> [URL] {
         let parser = YTDLPProgressParser()
         let progressThrottle = MediaProgressThrottle()
         let staging = try dependencies.artifactFileSystem.temporaryDirectory(prefix: "foundry-ytdlp")
@@ -336,11 +370,14 @@ final class MediaDownloadService: MediaDownloading, @unchecked Sendable {
         for output in outputs {
             try dependencies.networkPolicy.validateStagedMedia(at: output, fileSystem: dependencies.artifactFileSystem)
         }
+        var files: [URL] = []
         for output in outputs {
             let destination = try dependencies.networkPolicy.reserveDestination(named: output.lastPathComponent, in: downloadFolder, fileSystem: dependencies.artifactFileSystem)
             defer { dependencies.networkPolicy.releaseDestination(destination) }
             try dependencies.artifactFileSystem.moveItem(at: output, to: destination)
+            files.append(destination)
         }
+        return files
     }
 
     private func downloadFile(
@@ -399,6 +436,40 @@ final class MediaDownloadService: MediaDownloading, @unchecked Sendable {
         paths.first { (try? dependencies.executableLocator.locate(name: URL(fileURLWithPath: $0).lastPathComponent, candidates: [$0], environment: [:])) != nil }
     }
 
+}
+
+struct CobaltMediaResponse: Equatable, Sendable {
+    let url: URL
+    let filename: String?
+
+    static func parse(data: Data) throws -> CobaltMediaResponse {
+        guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            throw MediaDownloadError.cobaltResponseInvalid
+        }
+
+        if let status = json["status"] as? String, status == "error" {
+            let code = (json["error"] as? [String: Any])?["code"] as? String ?? "unknown"
+            throw MediaDownloadError.message("cobalt error: \(code)")
+        }
+
+        let pickerURL = (json["picker"] as? [[String: Any]])?.compactMap { item in
+            item["url"] as? String ?? item["tunnel"] as? String
+        }.first
+        let tunnelURL = (json["tunnel"] as? [String])?.first
+        let urlString = json["url"] as? String
+            ?? json["tunnel"] as? String
+            ?? tunnelURL
+            ?? pickerURL
+        guard let urlString, let url = URL(string: urlString) else {
+            throw MediaDownloadError.cobaltDidNotReturnFile
+        }
+
+        let outputFilename = (json["output"] as? [String: Any])?["filename"] as? String
+        return CobaltMediaResponse(
+            url: url,
+            filename: json["filename"] as? String ?? outputFilename
+        )
+    }
 }
 
 private final class CobaltResponseDelegate: NSObject, URLSessionDataDelegate, URLSessionTaskDelegate, @unchecked Sendable {

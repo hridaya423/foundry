@@ -34,7 +34,7 @@ final class MediaDownloadProvider: CommandProvider {
         let isBatch = urls.count > 1
         let title = isBatch ? "Download \(urls.count) Media Links" : (isPlaylist ? "Download Playlist" : "Download Media")
         let detail = isBatch ? "add all links to the download queue" : (isPlaylist ? "all videos in this playlist" : url.lastPathComponent)
-        let service = isBatch ? "parallel downloads" : (isYouTube ? "YouTube · yt-dlp (automatic setup)" : (isDirectFile ? "Direct link · stays on this Mac" : "Cobalt · receives the source URL"))
+        let service = isBatch ? "parallel downloads" : (isYouTube ? "YouTube · yt-dlp (automatic setup)" : (isDirectFile ? "Direct link · stays on this Mac" : "supported media · yt-dlp"))
         let primaryKind: CommandActionKind = isBatch
             ? .downloadMediaBatch(urls: urls.map(\.absoluteString))
             : .downloadMedia(url: url.absoluteString)
@@ -67,6 +67,14 @@ final class MediaDownloadProvider: CommandProvider {
             guard isDirectMediaFile(url) || mediaHosts.contains(where: { host == $0 || host.hasSuffix("." + $0) }) else { return false }
             return seen.insert(url.absoluteString).inserted
         }
+    }
+
+    static func remainingInput(after value: String) -> String {
+        var remaining = value
+        for url in mediaURLs(in: value) {
+            remaining = remaining.replacingOccurrences(of: url.absoluteString, with: "")
+        }
+        return remaining.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     private static func isYouTube(_ url: URL) -> Bool {

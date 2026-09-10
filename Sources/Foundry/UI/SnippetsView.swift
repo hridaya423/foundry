@@ -3,6 +3,7 @@ import SwiftUI
 
 struct SnippetsView: View {
     @ObservedObject var state: SnippetState
+    let insert: () -> Bool
     @State private var isConfirmingDelete = false
 
     var body: some View {
@@ -33,8 +34,10 @@ struct SnippetsView: View {
             }
             .frame(height: 30)
 
-            if state.visibleItems.isEmpty {
+            if state.items.isEmpty {
                 sidebarEmptyState
+            } else if state.visibleItems.isEmpty {
+                noMatchesState
             } else {
                 ScrollView {
                     LazyVStack(spacing: 3) {
@@ -73,6 +76,35 @@ struct SnippetsView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
+    private var noMatchesState: some View {
+        VStack(spacing: 12) {
+            Spacer()
+            Image(systemName: "magnifyingglass")
+                .font(.system(size: 24, weight: .regular))
+                .foregroundStyle(FoundryTheme.faintText)
+            Text("No matching snippets")
+                .font(FoundryTheme.body(size: 13, weight: .medium))
+                .foregroundStyle(FoundryTheme.secondaryText)
+            Button("Clear search") { state.query = "" }
+                .buttonStyle(PressableButtonStyle())
+                .font(FoundryTheme.body(size: 12, weight: .semibold))
+                .foregroundStyle(FoundryTheme.primaryText)
+                .padding(.horizontal, 14)
+                .frame(height: 32)
+                .background(
+                    RoundedRectangle(cornerRadius: 9, style: .continuous)
+                        .fill(Color.primary.opacity(0.08))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 9, style: .continuous)
+                                .strokeBorder(Color.primary.opacity(0.10), lineWidth: 1)
+                        )
+                )
+                .pointerCursor()
+            Spacer()
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
     @ViewBuilder
     private var detail: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -97,7 +129,7 @@ struct SnippetsView: View {
                         action: state.togglePinnedSelected
                     )
                     SnippetIconButton(symbol: "doc.on.doc", help: "Copy to clipboard", action: state.copySelected)
-                    SnippetIconButton(symbol: "arrow.down.doc", help: "Insert snippet", action: state.copySelected)
+                    SnippetIconButton(symbol: "arrow.down.doc", help: "Insert snippet", action: { _ = insert() })
                     SnippetIconButton(symbol: "trash", help: "Delete snippet", destructive: true, action: { isConfirmingDelete = true })
                 }
                 .frame(height: 30)
@@ -153,10 +185,10 @@ struct SnippetsView: View {
             .frame(height: 32)
             .background(
                 RoundedRectangle(cornerRadius: 9, style: .continuous)
-                    .fill(Color.white.opacity(0.08))
+                    .fill(Color.primary.opacity(0.08))
                     .overlay(
                         RoundedRectangle(cornerRadius: 9, style: .continuous)
-                            .strokeBorder(Color.white.opacity(0.10), lineWidth: 1)
+                            .strokeBorder(Color.primary.opacity(0.10), lineWidth: 1)
                     )
             )
         }
@@ -177,11 +209,11 @@ struct SnippetsView: View {
 private struct SnippetPanelSurface: ViewModifier {
     func body(content: Content) -> some View {
         content
-            .background(Color.white.opacity(0.05))
+            .background(Color.primary.opacity(0.05))
             .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .strokeBorder(Color.white.opacity(0.07), lineWidth: 1)
+                    .strokeBorder(Color.primary.opacity(0.07), lineWidth: 1)
             )
     }
 }
@@ -211,7 +243,7 @@ private struct SnippetIconButton: View {
                 .frame(width: 30, height: 30)
                 .background(
                     RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .fill(Color.white.opacity(isHovering ? 0.09 : 0))
+                        .fill(Color.primary.opacity(isHovering ? 0.09 : 0))
                 )
         }
         .buttonStyle(.plain)
@@ -352,10 +384,10 @@ private struct SnippetEditor: View {
 
     private var fieldBackground: some View {
         RoundedRectangle(cornerRadius: 10, style: .continuous)
-            .fill(Color.white.opacity(0.06))
+            .fill(Color.primary.opacity(0.06))
             .overlay(
                 RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .strokeBorder(Color.white.opacity(0.07), lineWidth: 1)
+                    .strokeBorder(Color.primary.opacity(0.07), lineWidth: 1)
             )
     }
 

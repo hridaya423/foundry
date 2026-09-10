@@ -296,7 +296,7 @@ struct ShelfIconStack: View {
                     .resizable()
                     .aspectRatio(contentMode: .fit)
                     .frame(width: 34, height: 34)
-                    .background(Color.white.opacity(0.16))
+                    .background(Color.primary.opacity(0.16))
                     .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
                     .rotationEffect(.degrees(Double(index - 1) * 5))
                     .offset(x: CGFloat(index) * 13)

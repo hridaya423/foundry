@@ -225,6 +225,21 @@ final class AIProviderTests: XCTestCase {
     }
 
     @MainActor
+    func testQuickAISelectingThreadClearsLoadingState() {
+        let configURL = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: configURL) }
+        let config = ConfigService(diagnostics: DiagnosticsService(), url: configURL)
+        let state = QuickAIState(aiProvider: AIProvider(config: config, diagnostics: DiagnosticsService()))
+        let thread = AIChatThread(title: "Other chat")
+        state.isQuickAILoading = true
+
+        state.selectThread(thread)
+
+        XCTAssertFalse(state.isQuickAILoading)
+        XCTAssertEqual(state.activeQuickAIThreadID, thread.id)
+    }
+
+    @MainActor
     func testQuickAIShutdownKeepsTheLatestStateWhenAnOlderSaveIsInFlight() async throws {
         let store = BlockingAIChatStore()
         let configURL = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)

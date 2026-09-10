@@ -100,6 +100,7 @@ final class QuickAIState: ObservableObject {
         quickAITask?.cancel()
         quickAITask = nil
         quickAIRequestID = nil
+        isQuickAILoading = false
         activeQuickAIThreadID = thread.id
         quickAIQuery = ""
         quickAIResponse = thread.messages.last(where: { $0.role == .assistant })?.content ?? ""

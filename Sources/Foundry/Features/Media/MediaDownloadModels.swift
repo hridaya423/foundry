@@ -41,6 +41,7 @@ struct MediaDownloadProgress: Sendable, Equatable {
     var estimatedTimeRemaining: TimeInterval?
     var currentItem: Int?
     var totalItems: Int?
+    var outputURLs: [URL] = []
 
     var fractionCompleted: Double? {
         if let fractionCompletedOverride {
@@ -88,7 +89,7 @@ final class MediaDownloadManager: ObservableObject {
     @Published private(set) var items: [MediaDownloadItem] = []
     @Published private(set) var capabilities = MediaDownloadCapabilities(
         direct: .ready(label: "Direct links · ready"),
-        cobalt: .ready(label: "Cobalt · sends URL to Cobalt"),
+        cobalt: .unavailable(label: "Cobalt · unavailable", reason: "The hosted API requires authorization; yt-dlp is used instead"),
         youtube: .ready(label: "YouTube · yt-dlp automatic setup")
     )
     private var itemIndices: [UUID: Int] = [:]

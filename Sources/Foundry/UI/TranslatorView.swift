@@ -84,7 +84,7 @@ struct TranslatorView: View {
             .foregroundStyle(FoundryTheme.secondaryText)
             .padding(.horizontal, 10)
             .frame(height: 26)
-            .background(Color.white.opacity(0.07))
+            .background(Color.primary.opacity(0.07))
             .clipShape(Capsule())
         }
         .menuStyle(.borderlessButton)
@@ -109,7 +109,7 @@ struct TranslatorView: View {
             .foregroundStyle(FoundryTheme.secondaryText)
             .padding(.horizontal, 10)
             .frame(height: 26)
-            .background(Color.white.opacity(0.07))
+            .background(Color.primary.opacity(0.07))
             .clipShape(Capsule())
         }
         .menuStyle(.borderlessButton)
@@ -192,7 +192,7 @@ struct TranslatorPane<Accessory: View>: View {
                                 .font(.system(size: 12, weight: .semibold))
                                 .foregroundStyle(FoundryTheme.secondaryText)
                                 .frame(width: 26, height: 26)
-                                .background(Color.white.opacity(0.07))
+                                .background(Color.primary.opacity(0.07))
                                 .clipShape(Circle())
                         }
                         .buttonStyle(.plain)
@@ -235,11 +235,11 @@ struct TranslatorPane<Accessory: View>: View {
         }
         .padding(18)
         .frame(maxWidth: .infinity, minHeight: 265, maxHeight: .infinity, alignment: .topLeading)
-        .background(Color.white.opacity(0.055))
+        .background(Color.primary.opacity(0.055))
         .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .stroke(Color.white.opacity(0.07), lineWidth: 1)
+                .stroke(Color.primary.opacity(0.07), lineWidth: 1)
         )
     }
 }

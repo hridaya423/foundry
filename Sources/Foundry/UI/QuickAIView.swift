@@ -274,8 +274,8 @@ private final class QuickAITextView: NSScrollView {
         textViewContent.placeholderRef = { [weak self] in self?.placeholder ?? "" }
         textViewContent.submitAction = { [weak self] in self?.onSubmit?() }
         textViewContent.font = NSFont.systemFont(ofSize: 21, weight: .regular)
-        textViewContent.textColor = .white
-        textViewContent.insertionPointColor = .white
+        textViewContent.textColor = .labelColor
+        textViewContent.insertionPointColor = .controlAccentColor
         textViewContent.isAutomaticTextCompletionEnabled = false
     }
 
@@ -310,7 +310,7 @@ private final class QuickAITextViewContent: NSTextView {
         guard string.isEmpty, let placeholder = placeholderRef?(), placeholder.isEmpty == false else { return }
         let attrs: [NSAttributedString.Key: Any] = [
             .font: font ?? NSFont.systemFont(ofSize: 21),
-            .foregroundColor: NSColor.white.withAlphaComponent(0.34)
+            .foregroundColor: NSColor.labelColor.withAlphaComponent(0.34)
         ]
         placeholder.draw(in: NSRect(x: 4, y: 10, width: bounds.width - 8, height: 24), withAttributes: attrs)
     }

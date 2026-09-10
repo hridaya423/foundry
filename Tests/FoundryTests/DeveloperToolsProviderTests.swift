@@ -24,6 +24,26 @@ final class DeveloperToolsProviderTests: XCTestCase {
         XCTAssertEqual(DeveloperToolsEngine.base64Decode(encoded ?? ""), "hello world")
     }
 
+    @MainActor
+    func testBase64ToolPreservesWhitespaceWhenEncoding() {
+        let state = DeveloperToolsState()
+        state.base64Input = " a\n"
+
+        XCTAssertEqual(state.base64Output, "IGEK")
+        state.base64Operation = .decode
+        state.base64Input = "IGEK"
+        XCTAssertEqual(state.base64Output, " a\n")
+    }
+
+    @MainActor
+    func testTimestampToolExplainsInvalidInput() {
+        let state = DeveloperToolsState()
+        state.timestampInput = "not a timestamp"
+
+        XCTAssertTrue(state.timestampRows.isEmpty)
+        XCTAssertNotNil(state.timestampError)
+    }
+
     func testFormatJSONPrettyPrintsAndSortsKeys() {
         let formatted = DeveloperToolsEngine.formatJSON("{\"b\":2,\"a\":1}")
         XCTAssertEqual(formatted, "{\n  \"a\" : 1,\n  \"b\" : 2\n}")

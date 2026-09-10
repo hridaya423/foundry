@@ -12,28 +12,28 @@ enum FoundryMaterialRole {
         case .shell:
             Color.black.opacity(0.18)
         case .control:
-            Color.white.opacity(0.07)
+            Color.primary.opacity(0.07)
         case .prominentControl:
             FoundryTheme.accent
         case .floatingOverlay:
             Color.black.opacity(0.42)
         case .contentSurface:
-            Color.white.opacity(0.045)
+            Color.primary.opacity(0.045)
         }
     }
 
     var fallbackStroke: Color {
         switch self {
         case .shell:
-            Color.white.opacity(0.16)
+            Color.primary.opacity(0.16)
         case .control:
-            Color.white.opacity(0.08)
+            Color.primary.opacity(0.08)
         case .prominentControl:
             Color.clear
         case .floatingOverlay:
-            Color.white.opacity(0.10)
+            Color.primary.opacity(0.10)
         case .contentSurface:
-            Color.white.opacity(0.07)
+            Color.primary.opacity(0.07)
         }
     }
 }
@@ -161,11 +161,11 @@ struct FoundrySurface<Content: View>: View {
     var body: some View {
         content
             .padding(padding)
-            .background(emphasized ? Color.white.opacity(0.075) : Color.white.opacity(0.045))
+            .background(emphasized ? Color.primary.opacity(0.075) : Color.primary.opacity(0.045))
             .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
             .overlay {
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .stroke(emphasized ? Color.white.opacity(0.13) : Color.white.opacity(0.07), lineWidth: 1)
+                    .stroke(emphasized ? Color.primary.opacity(0.13) : Color.primary.opacity(0.07), lineWidth: 1)
             }
     }
 }
@@ -230,7 +230,7 @@ struct FoundryStatusBanner: View {
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 8)
-        .background(Color.white.opacity(0.045), in: RoundedRectangle(cornerRadius: FoundryTheme.Radius.control, style: .continuous))
+        .background(Color.primary.opacity(0.045), in: RoundedRectangle(cornerRadius: FoundryTheme.Radius.control, style: .continuous))
         .overlay {
             RoundedRectangle(cornerRadius: FoundryTheme.Radius.control, style: .continuous)
                 .stroke(tint.opacity(0.16), lineWidth: 1)
@@ -252,7 +252,7 @@ struct FoundryEmptyState: View {
                 .font(.system(size: 28, weight: .regular))
                 .foregroundStyle(FoundryTheme.secondaryText)
                 .frame(width: 58, height: 58)
-                .background(Color.white.opacity(0.065))
+                .background(Color.primary.opacity(0.065))
                 .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
 
             Text(title)
@@ -272,7 +272,7 @@ struct FoundryEmptyState: View {
                     .foregroundStyle(FoundryTheme.primaryText)
                     .padding(.horizontal, 13)
                     .frame(height: FoundryTheme.Control.compact)
-                    .background(Color.white.opacity(0.08))
+                    .background(Color.primary.opacity(0.08))
                     .clipShape(RoundedRectangle(cornerRadius: FoundryTheme.Radius.control, style: .continuous))
                     .buttonStyle(PressableButtonStyle())
                     .pointerCursor()

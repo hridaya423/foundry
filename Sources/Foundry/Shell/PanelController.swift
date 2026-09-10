@@ -100,6 +100,12 @@ final class PanelController: NSObject, NSWindowDelegate {
         panel.onCommandV = { [weak self] in
             self?.state.pasteFromClipboard() ?? false
         }
+        panel.onEscape = { [weak self] in
+            guard let self else { return }
+            if self.state.handleEscape() == false {
+                self.hide()
+            }
+        }
         panel.onAskAI = { [weak self] in
             guard let self, self.state.mode == .search else { return }
             self.state.openQuickAI(initialPrompt: self.state.query)
@@ -153,6 +159,7 @@ final class FoundryPanel: NSPanel {
     var onCommandK: (() -> Void)?
     var onCommandComma: (() -> Void)?
     var onCommandV: (() -> Bool)?
+    var onEscape: (() -> Void)?
     var onAskAI: (() -> Void)?
     var onMouseMoved: (() -> Void)?
     var onKeyDown: (() -> Void)?
@@ -181,6 +188,11 @@ final class FoundryPanel: NSPanel {
     }
 
     override func keyDown(with event: NSEvent) {
+        if event.keyCode == 53 {
+            onEscape?()
+            return
+        }
+
         if handleShortcut(event) {
             return
         }

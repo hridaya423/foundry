@@ -130,6 +130,8 @@ final class MediaDownloadTests: XCTestCase {
         configuration.protocolClasses = [DelayedMediaURLProtocol.self]
         let service = MediaDownloadService(dependencies: .init(
             session: URLSession(configuration: configuration),
+            cobaltEndpoint: URL(string: "https://cobalt.example/"),
+            cobaltAuthorization: nil,
             networkPolicy: MediaNetworkPolicy(locator: StaticPublicMediaNetworkLocator()),
             cobaltTimeout: 60
         ))
@@ -234,6 +236,12 @@ final class MediaDownloadTests: XCTestCase {
         XCTAssertEqual(urls.map(\.lastPathComponent), ["one.mp4", "two.mp3"])
     }
 
+    func testMediaURLParserPreservesRejectedBatchInput() {
+        let remaining = MediaDownloadProvider.remainingInput(after: "https://example.com/one.mp4 not-a-link")
+
+        XCTAssertEqual(remaining, "not-a-link")
+    }
+
     func testMediaCapabilitiesReportInstalledYTDLPAsReady() {
         let service = MediaDownloadService(dependencies: .init(
             executableLocator: ExecutableLocator(fileInfo: { $0 == "/opt/homebrew/bin/yt-dlp" })
@@ -248,6 +256,39 @@ final class MediaDownloadTests: XCTestCase {
         ))
 
         XCTAssertEqual(service.mediaCapabilities().youtube, .ready(label: "YouTube · yt-dlp installs automatically"))
+    }
+
+    func testMediaCapabilitiesReportHostedCobaltAsUnavailableWithoutAuthorization() {
+        let service = MediaDownloadService(dependencies: .init(
+            cobaltEndpoint: URL(string: "https://api.cobalt.tools/"),
+            cobaltAuthorization: nil,
+            executableLocator: ExecutableLocator(fileInfo: { $0 == "/opt/homebrew/bin/yt-dlp" })
+        ))
+
+        XCTAssertEqual(
+            service.mediaCapabilities().cobalt,
+            .unavailable(label: "Cobalt · unavailable", reason: "The hosted API requires authorization; yt-dlp is used instead")
+        )
+    }
+
+    func testCobaltResponseParsesCurrentTunnelAndFilenameShape() throws {
+        let response = try CobaltMediaResponse.parse(data: Data(#"{"status":"tunnel","url":"https://cdn.example/video.mp4","filename":"video.mp4"}"#.utf8))
+
+        XCTAssertEqual(response.url, URL(string: "https://cdn.example/video.mp4"))
+        XCTAssertEqual(response.filename, "video.mp4")
+    }
+
+    func testCobaltResponseParsesLocalProcessingTunnelArray() throws {
+        let response = try CobaltMediaResponse.parse(data: Data(#"{"status":"local-processing","tunnel":["https://cdn.example/video.mp4"],"output":{"filename":"video.mp4"}}"#.utf8))
+
+        XCTAssertEqual(response.url, URL(string: "https://cdn.example/video.mp4"))
+        XCTAssertEqual(response.filename, "video.mp4")
+    }
+
+    func testCobaltResponseSurfacesStructuredErrors() {
+        XCTAssertThrowsError(try CobaltMediaResponse.parse(data: Data(#"{"status":"error","error":{"code":"error.api.auth.jwt.missing"}}"#.utf8))) { error in
+            XCTAssertEqual(error as? MediaDownloadError, .message("cobalt error: error.api.auth.jwt.missing"))
+        }
     }
 
     @MainActor
@@ -279,6 +320,23 @@ final class MediaDownloadTests: XCTestCase {
     }
 
     @MainActor
+    func testDownloadManagerPreservesSavedFilesAfterCompletion() {
+        let manager = MediaDownloadManager()
+        let id = UUID()
+        let savedFile = URL(fileURLWithPath: "/tmp/video.mp4")
+        manager.start(id: id, sourceURL: "https://example.com/video.mp4")
+        var completed = MediaDownloadProgress.starting(title: "video.mp4")
+        completed.phase = .completed
+        completed.outputURLs = [savedFile]
+        manager.update(id: id, progress: completed)
+        manager.complete(id: id, message: "Downloaded video.mp4")
+        manager.update(id: id, progress: .starting(title: "stale progress"))
+
+        XCTAssertEqual(manager.items.first?.progress.outputURLs, [savedFile])
+        XCTAssertEqual(manager.items.first?.progress.title, "video.mp4")
+    }
+
+    @MainActor
     func testActionRunnerPublishesStructuredProgressToTheManager() async {
         let manager = MediaDownloadManager()
         let runner = ActionRunner(
@@ -302,6 +360,7 @@ final class MediaDownloadTests: XCTestCase {
         }
         XCTAssertEqual(manager.items.first?.status, .completed)
         XCTAssertEqual(manager.items.first?.progress.fractionCompleted, 1)
+        XCTAssertEqual(manager.items.first?.progress.outputURLs, [URL(fileURLWithPath: "/tmp/video.mp4")])
     }
 
     @MainActor
@@ -461,7 +520,8 @@ private actor ProgressMediaDownloadService: MediaDownloading {
                 speedBytesPerSecond: 25,
                 estimatedTimeRemaining: 0,
                 currentItem: nil,
-                totalItems: nil
+                totalItems: nil,
+                outputURLs: [URL(fileURLWithPath: "/tmp/video.mp4")]
             ))
         }
         return "Downloaded video.mp4"

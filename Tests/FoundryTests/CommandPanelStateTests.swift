@@ -39,6 +39,36 @@ final class CommandPanelStateTests: XCTestCase {
         state.shutdown()
     }
 
+    func testEscapeReturnsFromAFeatureMode() {
+        let diagnostics = DiagnosticsService()
+        let config = ConfigService(
+            diagnostics: diagnostics,
+            url: FileManager.default.temporaryDirectory.appendingPathComponent("foundry-panel-escape-\(UUID().uuidString).json")
+        )
+        let registry = CommandRegistry(
+            providers: [],
+            usageRanking: UsageRankingStore(diagnostics: diagnostics),
+            diagnostics: diagnostics,
+            configService: config
+        )
+        let state = CommandPanelState(
+            registry: registry,
+            actionRunner: ActionRunner(diagnostics: diagnostics),
+            diagnostics: diagnostics,
+            config: config
+        )
+
+        state.openSettings()
+
+        XCTAssertTrue(state.handleEscape())
+        if case .search = state.mode {
+            XCTAssertTrue(true)
+        } else {
+            XCTFail("Escape should return to Home from Settings")
+        }
+        state.shutdown()
+    }
+
     func testDroppedFilesStayOnHomeAndReportTheBatch() {
         let diagnostics = DiagnosticsService()
         let config = ConfigService(

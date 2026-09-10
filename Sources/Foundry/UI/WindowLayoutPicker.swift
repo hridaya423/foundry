@@ -69,11 +69,11 @@ private struct CompactLayoutButton: View {
             }
             .padding(.horizontal, 8)
             .frame(height: 40)
-            .background(isHovering ? Color.white.opacity(0.07) : Color.white.opacity(0.035))
+            .background(isHovering ? Color.primary.opacity(0.07) : Color.primary.opacity(0.035))
             .clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
             .overlay {
                 RoundedRectangle(cornerRadius: 9, style: .continuous)
-                    .strokeBorder(Color.white.opacity(isHovering ? 0.16 : 0.065), lineWidth: 1)
+                    .strokeBorder(Color.primary.opacity(isHovering ? 0.16 : 0.065), lineWidth: 1)
             }
         }
         .buttonStyle(PressableButtonStyle())
@@ -115,7 +115,7 @@ struct WindowLayoutManager: View {
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
 
                     Rectangle()
-                        .fill(Color.white.opacity(0.075))
+                        .fill(Color.primary.opacity(0.075))
                         .frame(width: 1)
                         .padding(.vertical, 14)
 
@@ -160,7 +160,7 @@ struct WindowLayoutManager: View {
         .frame(height: 50)
         .overlay(alignment: .bottom) {
             Rectangle()
-                .fill(Color.white.opacity(0.075))
+                .fill(Color.primary.opacity(0.075))
                 .frame(height: 1)
         }
     }
@@ -369,7 +369,7 @@ private struct FamilyTab: View {
                 .foregroundStyle(isSelected ? FoundryTheme.primaryText : FoundryTheme.secondaryText)
                 .padding(.horizontal, 10)
                 .frame(height: 26)
-                .background(isSelected ? Color.white.opacity(0.10) : (isHovering ? Color.white.opacity(0.05) : Color.clear))
+                .background(isSelected ? Color.primary.opacity(0.10) : (isHovering ? Color.primary.opacity(0.05) : Color.clear))
                 .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
         }
         .buttonStyle(.plain)
@@ -478,14 +478,14 @@ private struct SpatialLayoutButton: View {
 
     private var tileBackground: Color {
         if isSelected { return FoundryTheme.accentTint.opacity(0.085) }
-        if isHovering && hoverHighlightsArmed { return Color.white.opacity(0.06) }
-        return Color.white.opacity(0.028)
+        if isHovering && hoverHighlightsArmed { return Color.primary.opacity(0.06) }
+        return Color.primary.opacity(0.028)
     }
 
     private var tileBorder: Color {
         if isSelected { return FoundryTheme.accentTint.opacity(0.66) }
-        if isHovering && hoverHighlightsArmed { return Color.white.opacity(0.15) }
-        return Color.white.opacity(0.065)
+        if isHovering && hoverHighlightsArmed { return Color.primary.opacity(0.15) }
+        return Color.primary.opacity(0.065)
     }
 }
 
@@ -561,7 +561,7 @@ private struct UtilityActionButton: View {
 
     private var controlBackground: Color {
         if isSelected { return FoundryTheme.accentTint.opacity(0.09) }
-        if isHovering && hoverHighlightsArmed { return Color.white.opacity(0.06) }
+        if isHovering && hoverHighlightsArmed { return Color.primary.opacity(0.06) }
         return Color.clear
     }
 }
@@ -590,7 +590,7 @@ private struct UtilityIconButton: View {
                 .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
                 .overlay {
                     RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .strokeBorder(Color.white.opacity(isHovering ? 0.12 : 0.055), lineWidth: 1)
+                        .strokeBorder(Color.primary.opacity(isHovering ? 0.12 : 0.055), lineWidth: 1)
                 }
         }
         .buttonStyle(PressableButtonStyle())
@@ -607,8 +607,8 @@ private struct UtilityIconButton: View {
 
     private var controlBackground: Color {
         if isSelected { return FoundryTheme.accentTint.opacity(0.09) }
-        if isHovering && hoverHighlightsArmed { return Color.white.opacity(0.06) }
-        return Color.white.opacity(0.025)
+        if isHovering && hoverHighlightsArmed { return Color.primary.opacity(0.06) }
+        return Color.primary.opacity(0.025)
     }
 }
 
@@ -627,15 +627,15 @@ private struct LayoutDiagram: View {
                     .fill(Color.black.opacity(0.10))
                     .overlay {
                         RoundedRectangle(cornerRadius: 6, style: .continuous)
-                            .stroke(Color.white.opacity(isSelected ? 0.22 : 0.14), lineWidth: 1)
+                            .stroke(Color.primary.opacity(isSelected ? 0.22 : 0.14), lineWidth: 1)
                     }
 
                 ForEach(Array((placement?.previewWindows(in: content) ?? []).enumerated()), id: \.offset) { _, window in
                     RoundedRectangle(cornerRadius: 3, style: .continuous)
-                        .fill(window.isActive ? Color(red: 0.38, green: 0.51, blue: 0.72).opacity(0.88) : Color.white.opacity(0.24))
+                        .fill(window.isActive ? Color(red: 0.38, green: 0.51, blue: 0.72).opacity(0.88) : Color.primary.opacity(0.24))
                         .overlay {
                             RoundedRectangle(cornerRadius: 3, style: .continuous)
-                                .stroke(Color.white.opacity(window.isActive ? 0.14 : 0.10), lineWidth: 1)
+                                .stroke(Color.primary.opacity(window.isActive ? 0.14 : 0.10), lineWidth: 1)
                         }
                         .frame(width: window.frame.width, height: window.frame.height)
                         .position(x: window.frame.midX, y: window.frame.midY)

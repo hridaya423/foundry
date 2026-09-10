@@ -122,7 +122,7 @@ final class ShellController {
         diagnostics.endSpan(span)
     }
 
-    private func showPanel() {
+    func showPanel() {
         panelState.resetForOpen()
         panelController.show()
         NSApp.activate(ignoringOtherApps: true)
