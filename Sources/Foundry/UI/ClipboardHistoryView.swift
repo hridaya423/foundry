@@ -21,6 +21,24 @@ struct ClipboardHistoryView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
+            HStack {
+                if state.items.isEmpty == false {
+                    FoundrySectionHeader(
+                        title: "Clipboard",
+                        count: "\(state.visibleItems.count) item\(state.visibleItems.count == 1 ? "" : "s")",
+                        actionTitle: "Clear",
+                        action: { isConfirmingClear = true }
+                    )
+                } else {
+                    Text("Clipboard")
+                        .font(FoundryTheme.body(size: 13, weight: .semibold))
+                        .foregroundStyle(FoundryTheme.secondaryText)
+                }
+                Spacer()
+                Button(state.isPaused ? "Resume" : "Pause") { pause(!state.isPaused) }
+            }
+            .padding(.horizontal, 4)
+
             if state.items.isEmpty {
                 FoundryEmptyState(
                     symbol: "doc.on.clipboard",
@@ -34,18 +52,6 @@ struct ClipboardHistoryView: View {
                     message: "Try a shorter search or clear the search field."
                 )
             } else {
-                HStack {
-                    FoundrySectionHeader(
-                    title: "Clipboard",
-                    count: "\(state.visibleItems.count) item\(state.visibleItems.count == 1 ? "" : "s")",
-                    actionTitle: "Clear",
-                    action: { isConfirmingClear = true }
-                )
-                    .padding(.horizontal, 4)
-                    Spacer()
-                    Button(state.isPaused ? "Resume" : "Pause") { pause(!state.isPaused) }
-                }
-
                 ScrollViewReader { proxy in
                     ScrollView {
                         LazyVGrid(columns: columns, alignment: .leading, spacing: 10) {
@@ -53,7 +59,7 @@ struct ClipboardHistoryView: View {
                                 ClipboardHistoryCard(
                                     item: item,
                                     isSelected: state.selectedID == item.id,
-                                    copy: { state.copySelected() },
+                                    copy: { state.copy(item) },
                                      remove: { state.select(id: item.id); state.removeSelected() },
                                      paste: { state.select(id: item.id); _ = directPaste() },
                                     addToShelf: { state.select(id: item.id); state.addSelectedFiles(to: fileShelf) }
@@ -104,7 +110,7 @@ private struct ClipboardHistoryCard: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 12) {
                 RoundedRectangle(cornerRadius: 9, style: .continuous)
-                    .fill(Color.white.opacity(0.075))
+                    .fill(Color.primary.opacity(0.075))
                     .overlay(
                         Image(systemName: item.systemImage)
                             .font(.system(size: 15, weight: .medium))
@@ -170,7 +176,7 @@ private struct ClipboardCardButton: View {
                 .font(.system(size: 11, weight: .bold))
                 .foregroundStyle(FoundryTheme.mutedText)
                 .frame(width: 24, height: 24)
-                .background(Color.white.opacity(0.06))
+                .background(Color.primary.opacity(0.06))
                 .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
         }
         .buttonStyle(PressableButtonStyle())

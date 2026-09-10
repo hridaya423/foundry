@@ -38,7 +38,7 @@ struct HomeAccessoryStrip: View {
         .background {
             if compactBackground {
                 RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .fill(Color.white.opacity(0.032))
+                    .fill(Color.primary.opacity(0.032))
             }
         }
         .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
@@ -56,7 +56,7 @@ struct HomeAccessoryStrip: View {
 
     private var compactDivider: some View {
         Rectangle()
-            .fill(Color.white.opacity(0.09))
+            .fill(Color.primary.opacity(0.09))
             .frame(width: 1, height: 28)
             .accessibilityHidden(true)
     }
@@ -137,7 +137,7 @@ private struct CompactFileShelfWidget: View {
                     if shelf.files.count > 3 {
                         Text("+\(shelf.files.count - 3)")
                             .font(FoundryTheme.mono(size: 9, weight: .bold))
-                            .foregroundStyle(FoundryTheme.primaryText)
+                            .foregroundStyle(FoundryTheme.textOnDarkSurface)
                             .padding(.horizontal, 4)
                             .frame(height: 16)
                             .background(Color.black.opacity(0.55))
@@ -283,7 +283,7 @@ private struct AgentWidgetRow: View {
                         .foregroundStyle(FoundryTheme.secondaryText)
                         .padding(.horizontal, 5)
                         .padding(.vertical, 2)
-                        .background(Color.white.opacity(0.08))
+                        .background(Color.primary.opacity(0.08))
                         .clipShape(Capsule())
                         .fixedSize()
                 }
@@ -351,7 +351,7 @@ private struct AgentProviderBadge: View {
     var body: some View {
         AgentProviderIcon(provider: provider, size: 23)
             .frame(width: 23, height: 23)
-            .background(Color.white.opacity(0.055))
+            .background(Color.primary.opacity(0.055))
             .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
     }
 }
@@ -437,9 +437,9 @@ private struct SystemWidget: View {
 
             GeometryReader { geometry in
                 ZStack(alignment: .leading) {
-                    Capsule().fill(Color.white.opacity(0.08))
+                    Capsule().fill(Color.primary.opacity(0.08))
                     Capsule()
-                        .fill(Color.white.opacity(0.55))
+                        .fill(Color.primary.opacity(0.55))
                         .frame(width: max(4, geometry.size.width * min(max(value / 100, 0), 1)))
                 }
             }
@@ -549,7 +549,7 @@ private struct CompactDateWidget: View {
                     .font(.system(size: 14, weight: .semibold))
                     .foregroundStyle(FoundryTheme.secondaryText)
                     .frame(width: 23, height: 23)
-                    .background(Color.white.opacity(0.09))
+                    .background(Color.primary.opacity(0.09))
                     .clipShape(RoundedRectangle(cornerRadius: WidgetChrome.glyphRadius, style: .continuous))
 
                 VStack(alignment: .leading, spacing: 1) {
@@ -581,7 +581,7 @@ private struct ClockWidget: View {
                     .font(.system(size: 14, weight: .semibold))
                     .foregroundStyle(FoundryTheme.secondaryText)
                     .frame(width: 23, height: 23)
-                    .background(Color.white.opacity(0.08))
+                    .background(Color.primary.opacity(0.08))
                     .clipShape(RoundedRectangle(cornerRadius: WidgetChrome.glyphRadius, style: .continuous))
 
                 VStack(alignment: .leading, spacing: 1) {

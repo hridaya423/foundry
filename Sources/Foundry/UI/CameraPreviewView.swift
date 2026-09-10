@@ -9,7 +9,7 @@ struct CameraPreviewView: View {
         VStack(alignment: .leading, spacing: 14) {
             ZStack {
                 RoundedRectangle(cornerRadius: 20, style: .continuous)
-                    .fill(Color.white.opacity(0.05))
+                    .fill(Color.primary.opacity(0.05))
 
                 if state.status == .starting || state.status == .active {
                     CameraPreviewSurface(session: state.session)
@@ -48,7 +48,7 @@ struct CameraPreviewView: View {
             }
             .overlay(
                 RoundedRectangle(cornerRadius: 20, style: .continuous)
-                    .stroke(Color.white.opacity(0.07), lineWidth: 1)
+                    .stroke(Color.primary.opacity(0.07), lineWidth: 1)
             )
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .accessibilityLabel("Live camera preview")

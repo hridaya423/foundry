@@ -60,6 +60,10 @@ final class FileConversionState: ObservableObject {
     }
 
     func reset() {
+        if let operationID {
+            _ = operations.update(id: operationID, phase: .cancelled, progress: progress, failure: OperationFailure(message: "Conversion cancelled", retryable: true))
+        }
+        conversionGeneration = UUID()
         sourceURLs = []
         outputFolderURL = nil
         availableTargets = []
@@ -70,7 +74,7 @@ final class FileConversionState: ObservableObject {
         outputURL = nil
         dependencySetup = nil
         capabilities = [:]
-        phase = .assessing; progress = nil; failure = nil; itemOutcomes = []; operationID = nil; lastRequest = nil; conversionGeneration = UUID()
+        phase = .assessing; progress = nil; failure = nil; itemOutcomes = []; operationID = nil; lastRequest = nil
         conversionTask?.cancel()
         conversionTask = nil
     }
@@ -140,15 +144,29 @@ final class FileConversionState: ObservableObject {
     func installToolAndConvert() async {
         guard let setup = dependencySetup, isCurrentSetup(setup) else { return }
         let id = beginProvisioning()
+        let generation = conversionGeneration
+        let sources = sourceURLs
+        let folder = outputFolderURL
         dependencySetup = nil
         do {
             try await provision(setup.plan, setup.plan.fingerprint)
+            guard Task.isCancelled == false,
+                  conversionGeneration == generation,
+                  sourceURLs == sources,
+                  sources.isEmpty == false else { return }
             guard case .ready = await assess(setup.target) else { throw FileConversionError.unavailable("The installed converter is not ready yet") }
-            startConversion(sourceURLs: sourceURLs, target: setup.target, operationID: id)
+            guard Task.isCancelled == false,
+                  conversionGeneration == generation,
+                  sourceURLs == sources else { return }
+            startConversion(sourceURLs: sources, target: setup.target, operationID: id, requestedOutputFolder: folder)
         } catch is CancellationError {
+            guard conversionGeneration == generation else { return }
             phase = .cancelled; status = "Tool installation cancelled"
             operations.update(id: id, phase: .cancelled, progress: progress, failure: OperationFailure(message: "Tool installation cancelled", retryable: true))
-        } catch { failProvisioning(operationID: id, error: error) }
+        } catch {
+            guard conversionGeneration == generation else { return }
+            failProvisioning(operationID: id, error: error)
+        }
     }
 
     func installTool() async {
@@ -184,8 +202,9 @@ final class FileConversionState: ObservableObject {
         cancelRemaining(sourceURLs, operationID: operationID)
     }
 
-    private func startConversion(sourceURLs: [URL], target: FileConversionTarget, operationID existingID: UUID? = nil, preservingCompleted: [FileConversionItemOutcome] = []) {
-        let outputFolderURL = outputFolderURL ?? sourceURLs[0].deletingLastPathComponent()
+    private func startConversion(sourceURLs: [URL], target: FileConversionTarget, operationID existingID: UUID? = nil, preservingCompleted: [FileConversionItemOutcome] = [], requestedOutputFolder: URL? = nil) {
+        guard sourceURLs.isEmpty == false else { return }
+        let outputFolderURL = requestedOutputFolder ?? self.outputFolderURL ?? sourceURLs[0].deletingLastPathComponent()
         let total = sourceURLs.count
         lastRequest = (sourceURLs, target, outputFolderURL)
         if existingID == nil {

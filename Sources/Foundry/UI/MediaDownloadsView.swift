@@ -6,6 +6,7 @@ struct MediaDownloadsView: View {
     let start: (String) -> Int
     let cancel: (UUID) -> Void
     let retry: (MediaDownloadItem) -> Void
+    let changeDestination: () -> Void
 
     @State private var links = ""
     @State private var validationMessage: String?
@@ -39,7 +40,7 @@ struct MediaDownloadsView: View {
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundStyle(composerFocused ? FoundryTheme.accentTint : FoundryTheme.mutedText)
                     .frame(width: 30, height: 30)
-                    .background(Color.white.opacity(0.055))
+                    .background(Color.primary.opacity(0.055))
                     .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
 
                 TextField("Paste one or more media links", text: $links, axis: .vertical)
@@ -64,15 +65,15 @@ struct MediaDownloadsView: View {
 
                 Button(action: submit) {
                     HStack(spacing: 6) {
-                        Text("Add")
+                        Text("Download")
                         Image(systemName: "arrow.down")
                             .font(.system(size: 10, weight: .bold))
                     }
                     .font(FoundryTheme.body(size: 12, weight: .semibold))
-                    .foregroundStyle(Color.black.opacity(0.82))
+                    .foregroundStyle(FoundryTheme.prominentControlText.opacity(0.82))
                     .padding(.horizontal, 13)
                     .frame(height: 32)
-                    .background(Color.white.opacity(links.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? 0.34 : 0.92))
+                    .background(FoundryTheme.prominentControlFill.opacity(links.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? 0.34 : 0.92))
                     .clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
                 }
                 .buttonStyle(PressableButtonStyle())
@@ -85,7 +86,7 @@ struct MediaDownloadsView: View {
             .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .stroke(composerFocused ? FoundryTheme.accentTint.opacity(0.48) : Color.white.opacity(0.09), lineWidth: 1)
+                    .stroke(composerFocused ? FoundryTheme.accentTint.opacity(0.48) : Color.primary.opacity(0.09), lineWidth: 1)
             )
 
             if let validationMessage {
@@ -98,7 +99,7 @@ struct MediaDownloadsView: View {
                 HStack(spacing: 5) {
                     Text("YouTube, playlists, social video, or direct media")
                     Text("·")
-                    Text("↵ to add")
+                    Text("↵ to download")
                         .font(FoundryTheme.mono(size: 10, weight: .medium))
                     Spacer()
                     if manager.activeCount > 0 {
@@ -107,27 +108,46 @@ struct MediaDownloadsView: View {
                             .contentTransition(.numericText())
                     }
                 }
-                .font(FoundryTheme.body(size: 10, weight: .regular))
+                .font(FoundryTheme.body(size: 11, weight: .regular))
                 .foregroundStyle(FoundryTheme.faintText)
                 .padding(.horizontal, 4)
             }
 
-            VStack(alignment: .leading, spacing: 3) {
-                Text(manager.capabilities.direct.label)
-                Text(manager.capabilities.cobalt.label)
-                Text(manager.capabilities.youtube.label)
+            HStack {
+                Button {
+                    NSWorkspace.shared.open(MediaDownloadDestination.folder)
+                } label: {
+                    Label(MediaDownloadDestination.folder.lastPathComponent, systemImage: "folder")
+                }
+                .help(MediaDownloadDestination.folder.path)
+                .buttonStyle(FoundryQuietButtonStyle())
+
+                Button("Change", action: changeDestination)
+                    .buttonStyle(FoundryQuietButtonStyle())
+
+                Spacer()
+
+                Menu {
+                    capabilityMenuItem(manager.capabilities.direct)
+                    capabilityMenuItem(manager.capabilities.cobalt)
+                    capabilityMenuItem(manager.capabilities.youtube)
+                } label: {
+                    Label("Supported links", systemImage: "info.circle")
+                }
+                .menuStyle(.borderlessButton)
+                .fixedSize()
             }
-            .font(FoundryTheme.mono(size: 9, weight: .regular))
-            .foregroundStyle(FoundryTheme.faintText)
+            .font(FoundryTheme.body(size: 11, weight: .medium))
+            .foregroundStyle(FoundryTheme.secondaryText)
             .padding(.horizontal, 4)
         }
         .padding(.horizontal, 20)
         .padding(.top, 12)
         .padding(.bottom, 10)
-        .background(Color.white.opacity(0.035))
+        .background(Color.primary.opacity(0.035))
         .overlay(alignment: .bottom) {
             Rectangle()
-                .fill(Color.white.opacity(0.07))
+                .fill(Color.primary.opacity(0.07))
                 .frame(height: 1)
         }
     }
@@ -151,9 +171,8 @@ struct MediaDownloadsView: View {
     private func downloadSection(title: String, items: [MediaDownloadItem], canClear: Bool = false) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
-                Text(title.uppercased())
+                Text(title)
                     .font(FoundryTheme.body(size: 10, weight: .semibold))
-                    .tracking(0.7)
                     .foregroundStyle(FoundryTheme.faintText)
 
                 Text("\(items.count)")
@@ -163,17 +182,7 @@ struct MediaDownloadsView: View {
                 Spacer()
 
                 if canClear {
-                    Button {
-                        NSWorkspace.shared.open(MediaDownloadDestination.folder)
-                    } label: {
-                        Label("Open Folder", systemImage: "folder")
-                    }
-                    .font(FoundryTheme.body(size: 11, weight: .medium))
-                    .foregroundStyle(FoundryTheme.mutedText)
-                    .buttonStyle(FoundryQuietButtonStyle())
-                    .pointerCursor()
-
-                    Button("Clear Completed") { manager.clearFinished() }
+                    Button("Clear history") { manager.clearFinished() }
                         .font(FoundryTheme.body(size: 11, weight: .medium))
                         .foregroundStyle(FoundryTheme.mutedText)
                         .buttonStyle(FoundryQuietButtonStyle())
@@ -190,17 +199,17 @@ struct MediaDownloadsView: View {
                     }
                     if index < items.count - 1 {
                         Rectangle()
-                            .fill(Color.white.opacity(0.065))
+                            .fill(Color.primary.opacity(0.065))
                             .frame(height: 1)
                             .padding(.leading, 48)
                     }
                 }
             }
-            .background(Color.white.opacity(0.052))
+            .background(Color.primary.opacity(0.052))
             .clipShape(RoundedRectangle(cornerRadius: 15, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: 15, style: .continuous)
-                    .stroke(Color.white.opacity(0.075), lineWidth: 1)
+                    .stroke(Color.primary.opacity(0.075), lineWidth: 1)
             )
         }
     }
@@ -208,8 +217,8 @@ struct MediaDownloadsView: View {
     private var emptyState: some View {
         FoundryEmptyState(
             symbol: "arrow.down",
-            title: "Your download queue is empty",
-            message: "Direct media, YouTube, playlists, and supported social links appear here.",
+            title: "Download a video or audio file",
+            message: "Paste a link above. Follow its progress here, then open the saved file in Finder.",
             actionTitle: "Open download folder",
             action: { NSWorkspace.shared.open(MediaDownloadDestination.folder) }
         )
@@ -218,11 +227,11 @@ struct MediaDownloadsView: View {
     private func submit() {
         let count = start(links)
         guard count > 0 else {
-            validationMessage = "No supported media links found."
+            validationMessage = "Paste a full video or audio URL, starting with https://."
             return
         }
-        links = ""
-        validationMessage = nil
+        links = MediaDownloadProvider.remainingInput(after: links)
+        validationMessage = links.isEmpty ? nil : "Some entries were skipped. Review the remaining text and try again."
         composerFocused = true
     }
 
@@ -234,6 +243,14 @@ struct MediaDownloadsView: View {
         links = pasted
         composerFocused = true
     }
+
+    @ViewBuilder
+    private func capabilityMenuItem(_ capability: MediaDownloadCapability) -> some View {
+        Text(capability.label)
+        if case let .unavailable(_, reason) = capability {
+            Text(reason)
+        }
+    }
 }
 
 private struct MediaDownloadRow: View {
@@ -242,6 +259,7 @@ private struct MediaDownloadRow: View {
     let retry: (MediaDownloadItem) -> Void
     let remove: () -> Void
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var fileError: String?
 
     var body: some View {
         HStack(spacing: 12) {
@@ -265,10 +283,11 @@ private struct MediaDownloadRow: View {
             VStack(alignment: .leading, spacing: 7) {
                 HStack(spacing: 8) {
                     Text(item.progress.title)
-                        .font(FoundryTheme.body(size: 12, weight: .semibold))
+                        .font(FoundryTheme.body(size: 13, weight: .semibold))
                         .foregroundStyle(FoundryTheme.primaryText)
                         .lineLimit(1)
                         .truncationMode(.middle)
+                        .help(item.progress.title)
 
                     if let current = item.progress.currentItem, let total = item.progress.totalItems {
                         Text("\(current) of \(total)")
@@ -276,7 +295,7 @@ private struct MediaDownloadRow: View {
                             .foregroundStyle(FoundryTheme.secondaryText)
                             .padding(.horizontal, 6)
                             .frame(height: 18)
-                            .background(Color.white.opacity(0.07))
+                            .background(Color.primary.opacity(0.07))
                             .clipShape(Capsule())
                     }
 
@@ -290,7 +309,7 @@ private struct MediaDownloadRow: View {
 
                 if item.status == .active, let fraction = item.progress.fractionCompleted {
                     ZStack(alignment: .leading) {
-                        Capsule().fill(Color.white.opacity(0.08))
+                        Capsule().fill(Color.primary.opacity(0.08))
                         Capsule()
                             .fill(FoundryTheme.accentTint)
                             .scaleEffect(x: max(fraction, 0.01), y: 1, anchor: .leading)
@@ -303,11 +322,12 @@ private struct MediaDownloadRow: View {
                 }
 
                 HStack(spacing: 5) {
-                    Text(detailText)
-                        .font(FoundryTheme.mono(size: 9.5, weight: .regular))
+                    Text(fileError ?? detailText)
+                        .font(FoundryTheme.body(size: 11, weight: .regular))
                         .foregroundStyle(FoundryTheme.mutedText)
-                        .lineLimit(1)
-                        .truncationMode(.middle)
+                        .lineLimit(item.status == .failed ? 3 : 1)
+                        .textSelection(.enabled)
+                        .help(fileError ?? detailText)
 
                     Spacer(minLength: 6)
 
@@ -321,7 +341,22 @@ private struct MediaDownloadRow: View {
 
     @ViewBuilder
     private var actionButton: some View {
-        if item.status == .active {
+        if item.status == .completed, item.progress.outputURLs.isEmpty == false {
+            Button(item.progress.outputURLs.count == 1 ? "Open" : "Show in Finder") {
+                let files = item.progress.outputURLs.filter { FileManager.default.fileExists(atPath: $0.path) }
+                guard files.isEmpty == false else {
+                    fileError = "The saved files have been moved or deleted."
+                    return
+                }
+                if files.count == 1, let file = files.first {
+                    NSWorkspace.shared.open(file)
+                } else {
+                    NSWorkspace.shared.activateFileViewerSelecting(files)
+                }
+            }
+            .buttonStyle(FoundryQuietButtonStyle())
+            .foregroundStyle(FoundryTheme.secondaryText)
+        } else if item.status == .active {
             Button("Cancel") { cancel(item.id) }
                 .buttonStyle(FoundryQuietButtonStyle())
                 .foregroundStyle(FoundryTheme.secondaryText)
@@ -340,6 +375,7 @@ private struct MediaDownloadRow: View {
             .buttonStyle(FoundryQuietButtonStyle())
             .foregroundStyle(FoundryTheme.mutedText)
             .help("Remove from list")
+            .accessibilityLabel("Remove \(item.progress.title) from history")
         }
     }
 
@@ -379,7 +415,7 @@ private struct MediaDownloadRow: View {
     private var detailText: String {
         let progress = item.progress
         if item.status == .completed {
-            return "\(sourceHost)  ·  Saved to \(MediaDownloadDestination.folder.lastPathComponent)"
+            return "\(sourceHost)  ·  Saved to \(progress.outputURLs.first?.deletingLastPathComponent().lastPathComponent ?? "download folder")"
         }
         if item.status == .cancelled { return "\(sourceHost)  ·  Download cancelled" }
         if item.status == .failed { return progress.message }

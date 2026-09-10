@@ -73,8 +73,8 @@ private struct EmojiCell: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var fill: Color {
-        if isSelected { return Color.white.opacity(0.16) }
-        if isHovering { return Color.white.opacity(0.08) }
+        if isSelected { return Color.primary.opacity(0.16) }
+        if isHovering { return Color.primary.opacity(0.08) }
         return Color.clear
     }
 
@@ -86,7 +86,7 @@ private struct EmojiCell: View {
             .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .stroke(isSelected ? Color.white.opacity(0.18) : Color.clear, lineWidth: 1)
+                    .stroke(isSelected ? Color.primary.opacity(0.18) : Color.clear, lineWidth: 1)
             )
             .scaleEffect(isHovering && isSelected == false ? 1.08 : 1)
             .animation(reduceMotion ? nil : .easeOut(duration: 0.12), value: isHovering)

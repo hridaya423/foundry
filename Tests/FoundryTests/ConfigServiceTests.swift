@@ -312,6 +312,18 @@ final class ConfigServiceTests: XCTestCase {
     }
 
     @MainActor
+    func testWidgetBoardPreservesUserValuesThatMatchCommonExamples() throws {
+        let url = temporaryDirectory.appendingPathComponent("config.json")
+        let service = ConfigService(diagnostics: DiagnosticsService(), url: url)
+        let widgets = WidgetBoardConfig(enabled: [.weather, .stock], weatherCity: "San Francisco", stockSymbol: "AAPL")
+        try service.updateWidgets(widgets)
+
+        let board = WidgetBoardState(configService: service)
+
+        XCTAssertEqual(board.config, widgets)
+    }
+
+    @MainActor
     func testWidgetBoardRejectsASecondAddAtTheFourWidgetLimit() {
         let service = ConfigService(
             diagnostics: DiagnosticsService(),

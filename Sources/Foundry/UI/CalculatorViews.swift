@@ -43,7 +43,7 @@ struct CalculatorResultCard: View {
 
             VStack(spacing: 0) {
                 Rectangle()
-                    .fill(Color.white.opacity(0.08))
+                    .fill(Color.primary.opacity(0.08))
                     .frame(width: 1)
 
                 Text(separator)
@@ -52,18 +52,18 @@ struct CalculatorResultCard: View {
                     .frame(width: 72, height: 54)
 
                 Rectangle()
-                    .fill(Color.white.opacity(0.08))
+                    .fill(Color.primary.opacity(0.08))
                     .frame(width: 1)
             }
 
             CalculatorValuePane(value: result.title, alternatives: alternatives, executeAlternative: executeAlternative)
         }
         .frame(height: 112)
-        .background(Color.white.opacity(0.05))
+        .background(Color.primary.opacity(0.05))
         .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .stroke(Color.white.opacity(0.07), lineWidth: 1)
+                .stroke(Color.primary.opacity(0.07), lineWidth: 1)
         )
     }
 }
@@ -110,7 +110,7 @@ struct CalculatorValuePane: View {
                     .foregroundStyle(FoundryTheme.secondaryText)
                     .padding(.horizontal, 10)
                     .frame(height: 26)
-                    .background(Color.white.opacity(0.07))
+                    .background(Color.primary.opacity(0.07))
                     .clipShape(Capsule())
                 }
                 .menuStyle(.borderlessButton)

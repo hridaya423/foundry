@@ -148,7 +148,7 @@ struct CommandPanelView: View {
             FoundrySmoothedRectangle(cornerRadius: 28, smoothing: 0.75)
                 .strokeBorder(
                     LinearGradient(
-                        colors: [Color.white.opacity(0.20), Color.white.opacity(0.08), Color.white.opacity(0.03)],
+                        colors: [Color.primary.opacity(0.20), Color.primary.opacity(0.08), Color.primary.opacity(0.03)],
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
                     ),
@@ -189,7 +189,11 @@ struct CommandPanelView: View {
                     return staged
                 }, pause: state.setClipboardPaused)
             } else if state.mode == .snippets {
-                SnippetsView(state: state.snippets)
+                SnippetsView(state: state.snippets, insert: {
+                    guard state.directPasteSelectedSnippet() else { return false }
+                    dismiss()
+                    return true
+                })
             } else if state.mode == .translator {
                 TranslatorView(state: state.translator)
             } else if state.mode == .developerTools {
@@ -199,7 +203,8 @@ struct CommandPanelView: View {
                     manager: state.mediaDownloads,
                     start: state.startMediaDownloads,
                     cancel: state.cancelDownload,
-                    retry: state.retryDownload
+                    retry: state.retryDownload,
+                    changeDestination: state.changeMediaDownloadFolder
                 )
             } else if state.isShowingActions {
                 actionsSurface
@@ -228,7 +233,7 @@ struct CommandPanelView: View {
         )
         .padding(.horizontal, 10)
         .frame(height: 54)
-        .background(Color.white.opacity(0.032))
+        .background(Color.primary.opacity(0.032))
         .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
         .padding(.horizontal, 16)
         .padding(.bottom, 4)
@@ -254,10 +259,10 @@ struct CommandPanelView: View {
 
     private var dropOverlay: some View {
         FoundrySmoothedRectangle(cornerRadius: 28, smoothing: 0.75)
-            .fill(isDropTargeted ? Color.white.opacity(0.10) : Color.clear)
+            .fill(isDropTargeted ? Color.primary.opacity(0.10) : Color.clear)
             .overlay(
             FoundrySmoothedRectangle(cornerRadius: 28, smoothing: 0.75)
-                    .strokeBorder(isDropTargeted ? Color.white.opacity(0.45) : Color.clear, style: StrokeStyle(lineWidth: 1.5, dash: [8, 7]))
+                    .strokeBorder(isDropTargeted ? Color.primary.opacity(0.45) : Color.clear, style: StrokeStyle(lineWidth: 1.5, dash: [8, 7]))
             )
             .overlay {
                 if isDropTargeted {
@@ -459,7 +464,7 @@ struct CommandPanelView: View {
         .overlay(alignment: .bottom) {
             if nativeGlassEnabled == false {
                 LinearGradient(
-                    colors: [Color.white.opacity(0.09), Color.white.opacity(0.02), Color.clear],
+                    colors: [Color.primary.opacity(0.09), Color.primary.opacity(0.02), Color.clear],
                     startPoint: .top,
                     endPoint: .bottom
                 )
@@ -799,7 +804,7 @@ struct CommandPanelView: View {
             } else {
                 ZStack {
                     RoundedRectangle(cornerRadius: 18, style: .continuous)
-                        .fill(Color.white.opacity(0.075))
+                        .fill(Color.primary.opacity(0.075))
                         .frame(width: 68, height: 68)
 
                     Image(systemName: hasQuery ? "magnifyingglass" : "command")
@@ -1037,7 +1042,7 @@ private struct ActionRow: View {
     var body: some View {
         HStack(spacing: 12) {
             RoundedRectangle(cornerRadius: 7, style: .continuous)
-                .fill(Color.white.opacity(0.07))
+                .fill(Color.primary.opacity(0.07))
                 .overlay(
                     Image(systemName: iconName)
                         .font(.system(size: 13, weight: .medium))
@@ -1142,7 +1147,7 @@ private struct LauncherSearchField: NSViewRepresentable {
         field.drawsBackground = false
         field.focusRingType = .none
         field.font = NSFont.systemFont(ofSize: 21, weight: .regular)
-        field.textColor = .white
+        field.textColor = .labelColor
         field.placeholderString = placeholder
         field.cell?.usesSingleLineMode = true
         field.cell?.isScrollable = true

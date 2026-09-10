@@ -123,7 +123,7 @@ struct MediaResultRow: View {
                         .foregroundStyle(FoundryTheme.secondaryText)
                         .padding(.horizontal, 7)
                         .frame(height: 18)
-                        .background(Color.white.opacity(0.08))
+                        .background(Color.primary.opacity(0.08))
                         .clipShape(Capsule())
                 }
 
@@ -179,7 +179,7 @@ struct MediaThumbnail: View {
     var body: some View {
         ZStack {
             RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .fill(Color.white.opacity(0.075))
+                .fill(Color.primary.opacity(0.075))
 
             if let url = icon.thumbnailURL {
                 AsyncImage(url: url) { phase in
@@ -275,7 +275,7 @@ struct AppIcon: View {
                     .aspectRatio(contentMode: .fit)
             } else if let systemName = icon.systemName {
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .fill(Color.white.opacity(0.075))
+                    .fill(Color.primary.opacity(0.075))
                     .overlay(
                         Image(systemName: systemName)
                             .font(.system(size: size * 0.47, weight: .medium))
@@ -283,7 +283,7 @@ struct AppIcon: View {
                     )
             } else {
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .fill(Color.white.opacity(0.075))
+                    .fill(Color.primary.opacity(0.075))
                     .overlay(
                         Text(icon.fallback)
                             .font(FoundryTheme.body(size: size * 0.32, weight: .semibold))

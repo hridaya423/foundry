@@ -90,7 +90,7 @@ struct FileConversionView: View {
                             .tracking(0.5)
                             .padding(.horizontal, 8)
                             .frame(height: 22)
-                            .background(Color.white.opacity(0.08))
+                            .background(Color.primary.opacity(0.08))
                             .clipShape(Capsule())
                     }
                 }
@@ -155,9 +155,9 @@ struct FileConversionView: View {
         }
         .padding(18)
         .frame(maxWidth: .infinity, minHeight: 220, maxHeight: .infinity, alignment: .topLeading)
-        .background(Color.white.opacity(0.055))
+        .background(Color.primary.opacity(0.055))
         .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(Color.white.opacity(0.07), lineWidth: 1))
+        .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(Color.primary.opacity(0.07), lineWidth: 1))
     }
 
     private var canConvert: Bool {
@@ -290,9 +290,9 @@ struct FileConversionView: View {
         }
         .padding(18)
         .frame(maxWidth: .infinity, minHeight: 220, maxHeight: .infinity, alignment: .topLeading)
-        .background(Color.white.opacity(0.055))
+        .background(Color.primary.opacity(0.055))
         .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(Color.white.opacity(0.07), lineWidth: 1))
+        .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(Color.primary.opacity(0.07), lineWidth: 1))
     }
 
     private var groupedTargets: [FileConversionTarget.Category: [FileConversionTarget]] {
@@ -335,10 +335,10 @@ struct FileConversionView: View {
         return shape
             .fill(.ultraThinMaterial)
             .overlay {
-                shape.fill(Color.white.opacity(0.10))
+                shape.fill(Color.primary.opacity(0.10))
             }
             .overlay {
-                shape.strokeBorder(Color.white.opacity(0.16), lineWidth: 1)
+                shape.strokeBorder(Color.primary.opacity(0.16), lineWidth: 1)
             }
             .compositingGroup()
             .shadow(color: Color.black.opacity(0.28), radius: 12, y: 6)
@@ -354,10 +354,10 @@ struct FileConversionView: View {
 
     private var fieldBackground: some View {
         RoundedRectangle(cornerRadius: 11, style: .continuous)
-            .fill(Color.white.opacity(0.06))
+            .fill(Color.primary.opacity(0.06))
             .overlay(
                 RoundedRectangle(cornerRadius: 11, style: .continuous)
-                    .stroke(Color.white.opacity(0.08), lineWidth: 1)
+                    .stroke(Color.primary.opacity(0.08), lineWidth: 1)
             )
     }
 

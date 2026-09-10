@@ -57,6 +57,35 @@ final class FileConversionTests: XCTestCase {
         XCTAssertEqual(approved, fingerprint)
     }
 
+    func testResetDuringProvisioningDoesNotStartConversionWithClearedSources() async {
+        let gate = ConversionGate()
+        let recorder = FileConversionRecorder()
+        let state = FileConversionState(
+            assess: { _ in .setupRequired(testSetupPlan) },
+            provision: { _, _ in
+                await recorder.recordProvision()
+                await gate.wait()
+            },
+            convert: { _, _, _ in
+                await recorder.recordConversion()
+                return .success(URL(fileURLWithPath: "/tmp/unexpected-output"))
+            }
+        )
+        state.setSource(url: URL(fileURLWithPath: "/tmp/movie.mov"))
+        await state.refreshCapabilities()
+        state.convert()
+        let provisioning = Task { await state.installToolAndConvert() }
+
+        while state.phase != .provisioning { await Task.yield() }
+        state.reset()
+        await gate.release()
+        await provisioning.value
+
+        XCTAssertTrue(state.sourceURLs.isEmpty)
+        let conversions = await recorder.conversions()
+        XCTAssertEqual(conversions, 0)
+    }
+
     func testMultipleSourcesUseOnlyCommonConversionTargets() {
         let folder = FileManager.default.temporaryDirectory.appendingPathComponent("Foundry-Conversion-\(UUID().uuidString)")
         let first = folder.appendingPathComponent("first.png")

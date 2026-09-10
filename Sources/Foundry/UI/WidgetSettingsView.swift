@@ -11,7 +11,7 @@ struct WidgetSettingsView: View {
         HStack(spacing: 0) {
             settingsRail
             Rectangle()
-                .fill(Color.white.opacity(0.06))
+                .fill(Color.primary.opacity(0.06))
                 .frame(width: 1)
             detailPane
         }
@@ -43,7 +43,7 @@ struct WidgetSettingsView: View {
                     .frame(height: 34)
                     .background(
                         RoundedRectangle(cornerRadius: 9, style: .continuous)
-                            .fill(Color.white.opacity(category == item ? 0.07 : 0))
+                            .fill(Color.primary.opacity(category == item ? 0.07 : 0))
                     )
                 }
                 .buttonStyle(.plain)
@@ -506,7 +506,7 @@ private struct AgentIntegrationRow: View {
                     .foregroundStyle(FoundryTheme.primaryText)
                     .padding(.horizontal, 9)
                     .padding(.vertical, 6)
-                    .background(Color.white.opacity(0.08))
+                    .background(Color.primary.opacity(0.08))
                     .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
                     .pointerCursor()
             }
@@ -576,7 +576,7 @@ private struct AISettingsSection: View {
                             }
                             .padding(.horizontal, 12)
                             .padding(.vertical, 10)
-                            .background(Color.white.opacity(state.selectedAIProfileID == profile.id ? 0.07 : 0))
+                            .background(Color.primary.opacity(state.selectedAIProfileID == profile.id ? 0.07 : 0))
                             .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
                         }
                         .buttonStyle(.plain)
@@ -827,11 +827,11 @@ private struct SettingsGroup<Content: View>: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0, content: content)
             .padding(.horizontal, 2)
-            .background(Color.white.opacity(0.035))
+            .background(Color.primary.opacity(0.035))
             .clipShape(RoundedRectangle(cornerRadius: 11, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: 11, style: .continuous)
-                    .stroke(Color.white.opacity(0.045), lineWidth: 1)
+                    .stroke(Color.primary.opacity(0.045), lineWidth: 1)
             )
     }
 }
@@ -864,7 +864,7 @@ private struct SettingsSectionLabel: View {
 private struct SettingsDivider: View {
     var body: some View {
         Rectangle()
-            .fill(Color.white.opacity(0.07))
+            .fill(Color.primary.opacity(0.07))
             .frame(height: 1)
             .padding(.horizontal, 12)
     }
@@ -928,7 +928,7 @@ private struct SettingsNotice: View {
                     .foregroundStyle(FoundryTheme.primaryText)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 5)
-                    .background(Color.white.opacity(0.08))
+                    .background(Color.primary.opacity(0.08))
                     .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
                     .pointerCursor()
             }
@@ -1055,14 +1055,14 @@ private final class ShortcutRecorderView: NSView {
     override var acceptsFirstResponder: Bool { true }
 
     override func draw(_ dirtyRect: NSRect) {
-        let background = isRecording ? NSColor.white.withAlphaComponent(0.14) : NSColor.white.withAlphaComponent(0.08)
+        let background = isRecording ? NSColor.labelColor.withAlphaComponent(0.14) : NSColor.labelColor.withAlphaComponent(0.08)
         background.setFill()
         NSBezierPath(roundedRect: bounds, xRadius: 8, yRadius: 8).fill()
 
         let text = isRecording ? "Press shortcut…" : (placeholder ?? hotkey.displayName)
         let attributes: [NSAttributedString.Key: Any] = [
             .font: NSFont.systemFont(ofSize: 13, weight: .semibold),
-            .foregroundColor: NSColor.white.withAlphaComponent(isRecording ? 0.7 : 0.95)
+            .foregroundColor: NSColor.labelColor.withAlphaComponent(isRecording ? 0.7 : 0.95)
         ]
         let size = text.size(withAttributes: attributes)
         text.draw(at: NSPoint(x: (bounds.width - size.width) / 2, y: (bounds.height - size.height) / 2), withAttributes: attributes)
@@ -1202,7 +1202,7 @@ private struct SettingsIconButton: View {
                 .font(.system(size: 12, weight: .semibold))
                 .foregroundStyle(tint)
                 .frame(width: 28, height: 28)
-                .background(Color.white.opacity(0.07))
+                .background(Color.primary.opacity(0.07))
                 .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
         }
         .buttonStyle(.plain)

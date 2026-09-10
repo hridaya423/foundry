@@ -53,7 +53,7 @@ struct DeveloperToolsView: View {
                 .padding(.horizontal, 8)
                 .frame(height: 28)
                 .frame(maxWidth: .infinity)
-                .background(Color.white.opacity(state.selectedTool == tool ? 0.10 : 0.045))
+                .background(Color.primary.opacity(state.selectedTool == tool ? 0.10 : 0.045))
                 .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
         }
         .buttonStyle(.plain)
@@ -167,7 +167,11 @@ struct DeveloperToolsView: View {
         VStack(alignment: .leading, spacing: 10) {
             sectionHeader(title: "Unix Timestamp", subtitle: "Convert Unix seconds, milliseconds, or ISO 8601 dates.")
             DeveloperInputField(title: "Input", placeholder: "1712345678", text: $state.timestampInput)
-            resultGrid(state.timestampRows)
+            if let error = state.timestampError {
+                DeveloperErrorText(message: error)
+            } else {
+                resultGrid(state.timestampRows)
+            }
         }
         .padding(14)
         .modifier(DeveloperPanelSurface())
@@ -220,7 +224,7 @@ struct DeveloperToolsView: View {
                 }
                 .padding(.horizontal, 10)
                 .frame(height: 52)
-                .background(Color.white.opacity(0.035))
+                .background(Color.primary.opacity(0.035))
                 .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
             }
         }
@@ -232,7 +236,7 @@ struct DeveloperToolsView: View {
                 .font(.system(size: 10, weight: .semibold))
                 .foregroundStyle(FoundryTheme.secondaryText)
                 .frame(width: 28, height: 26)
-                .background(Color.white.opacity(0.07))
+                .background(Color.primary.opacity(0.07))
                 .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
         }
         .buttonStyle(.plain)
@@ -256,7 +260,7 @@ struct DeveloperToolsView: View {
                         .font(.system(size: 10, weight: .semibold))
                         .foregroundStyle(FoundryTheme.secondaryText)
                         .frame(width: 28, height: 26)
-                        .background(Color.white.opacity(0.07))
+                        .background(Color.primary.opacity(0.07))
                         .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
                 }
                 .buttonStyle(.plain)
@@ -273,7 +277,7 @@ struct DeveloperToolsView: View {
             }
             .padding(10)
             .frame(height: 112)
-            .background(Color.white.opacity(0.045))
+            .background(Color.primary.opacity(0.045))
             .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
         }
     }
@@ -282,11 +286,11 @@ struct DeveloperToolsView: View {
 private struct DeveloperPanelSurface: ViewModifier {
     func body(content: Content) -> some View {
         content
-            .background(Color.white.opacity(0.05))
+            .background(Color.primary.opacity(0.05))
             .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .strokeBorder(Color.white.opacity(0.07), lineWidth: 1)
+                    .strokeBorder(Color.primary.opacity(0.07), lineWidth: 1)
             )
     }
 }
@@ -303,7 +307,7 @@ private struct DeveloperChip: View {
                 .foregroundStyle(isSelected ? FoundryTheme.primaryText : FoundryTheme.secondaryText)
                 .padding(.horizontal, 9)
                 .frame(height: 26)
-                .background(isSelected ? Color.white.opacity(0.10) : Color.white.opacity(0.04))
+                .background(isSelected ? Color.primary.opacity(0.10) : Color.primary.opacity(0.04))
                 .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
         }
         .buttonStyle(.plain)
@@ -332,10 +336,10 @@ private struct DeveloperInputField: View {
                 .frame(height: 40)
                 .background(
                     RoundedRectangle(cornerRadius: 10, style: .continuous)
-                        .fill(Color.white.opacity(0.06))
+                        .fill(Color.primary.opacity(0.06))
                         .overlay(
                             RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                .strokeBorder(Color.white.opacity(0.07), lineWidth: 1)
+                                .strokeBorder(Color.primary.opacity(0.07), lineWidth: 1)
                         )
                 )
         }
@@ -362,10 +366,10 @@ private struct DeveloperTextEditor: View {
                 .frame(height: 88)
                 .background(
                     RoundedRectangle(cornerRadius: 10, style: .continuous)
-                        .fill(Color.white.opacity(0.06))
+                        .fill(Color.primary.opacity(0.06))
                         .overlay(
                             RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                .strokeBorder(Color.white.opacity(0.07), lineWidth: 1)
+                                .strokeBorder(Color.primary.opacity(0.07), lineWidth: 1)
                         )
                 )
                 .overlay(alignment: .topLeading) {

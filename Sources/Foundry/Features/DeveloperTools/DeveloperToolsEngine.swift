@@ -88,7 +88,7 @@ enum DeveloperToolsEngine {
             return conversions(for: Date())
         }
 
-        if let numeric = Double(trimmed.replacingOccurrences(of: ",", with: "")) {
+        if let numeric = Double(trimmed.replacingOccurrences(of: ",", with: "")), numeric.isFinite {
             let date = trimmed.count >= 13 ? Date(timeIntervalSince1970: numeric / 1000) : Date(timeIntervalSince1970: numeric)
             return conversions(for: date)
         }

@@ -42,7 +42,7 @@ struct AgentShelfView: View {
                         .font(.system(size: 12, weight: .semibold))
                         .foregroundStyle(FoundryTheme.secondaryText)
                         .frame(width: 28, height: 28)
-                        .background(Color.white.opacity(0.06))
+                        .background(Color.primary.opacity(0.06))
                         .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
                 }
                 .buttonStyle(.plain)
@@ -52,7 +52,7 @@ struct AgentShelfView: View {
             .padding(.vertical, 12)
 
             Rectangle()
-                .fill(Color.white.opacity(0.07))
+                .fill(Color.primary.opacity(0.07))
                 .frame(height: 1)
 
             providerTabsView
@@ -128,11 +128,11 @@ struct AgentShelfView: View {
             .foregroundStyle(selectedProvider == provider ? FoundryTheme.primaryText : FoundryTheme.mutedText)
             .padding(.horizontal, 10)
             .frame(height: 28)
-            .background(selectedProvider == provider ? Color.white.opacity(0.11) : Color.white.opacity(0.045))
+            .background(selectedProvider == provider ? Color.primary.opacity(0.11) : Color.primary.opacity(0.045))
             .clipShape(Capsule())
             .overlay(
                 Capsule()
-                    .stroke(selectedProvider == provider ? Color.white.opacity(0.12) : Color.white.opacity(0.05), lineWidth: 1)
+                    .stroke(selectedProvider == provider ? Color.primary.opacity(0.12) : Color.primary.opacity(0.05), lineWidth: 1)
             )
         }
         .buttonStyle(.plain)
@@ -153,17 +153,17 @@ struct AgentShelfView: View {
                     }
                     if index < sessions.count - 1 {
                         Rectangle()
-                            .fill(Color.white.opacity(0.055))
+                            .fill(Color.primary.opacity(0.055))
                             .frame(height: 1)
                             .padding(.leading, 48)
                     }
                 }
             }
-            .background(Color.white.opacity(0.035))
+            .background(Color.primary.opacity(0.035))
             .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .stroke(Color.white.opacity(0.05), lineWidth: 1)
+                    .stroke(Color.primary.opacity(0.05), lineWidth: 1)
             )
         }
     }

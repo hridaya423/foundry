@@ -59,9 +59,16 @@ final class SnippetState: ObservableObject {
     }
 
     func reset() {
-        persistTask?.cancel()
+        flushPendingPersistence()
         query = ""
         load()
+    }
+
+    func flushPendingPersistence() {
+        guard persistTask != nil else { return }
+        persistTask?.cancel()
+        persistTask = nil
+        persist()
     }
 
     func newSnippet() {
