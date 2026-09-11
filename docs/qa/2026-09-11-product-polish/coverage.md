@@ -74,3 +74,14 @@ Natural-language time queries from root search. Provider: `TimeConversionProvide
 | Notes unavailable vs empty | `AppleNotesProvider` now returns an unavailable row ("Couldn't search Apple Notes", Automation permission hint, Open Notes + Open Automation Settings actions) when osascript fails, instead of silent empty | 3 new tests passed |
 | Browser tabs | Degrades to history/bookmarks on tab-fetch failure; not conflated with empty since records still render | Source-verified, unchanged |
 | Widget staleness | `WeatherSnapshot`/`StockSnapshot` carry `fetchedAt`; stale (>15m) widgets show "Updated HH:mm" instead of condition caption; a11y value includes the update time | Compiles; visual pass unverified |
+
+## Package 7 (final sweep)
+
+| Item | Change | Status |
+| --- | --- | --- |
+| Emoji picker | Whitespace-only query no longer shows a "Results" header over the full catalog; an empty Pinned section no longer renders a false "No matching emoji" | Compiles; visual pass unverified |
+| Window/system/app-search suites | `WindowLayoutEngineTests` (24), `WindowManagementProviderTests` (7), `WindowManagerTests` (19), `AppSearchProviderTests`, `SystemCommandProviderTests` | Passed |
+| Full suite | `swift test` | **488 passed, 0 failures** |
+| Build + packaging | `build-app.sh` + `verify-packaging.sh` | Passed; app launches without crash (PID confirmed) |
+| `git diff --check` | — | Clean |
+| Daily-use live sequence | open → search → clipboard → snippet → download → convert → dev tool → AI → settings | **Unverified** — no screen-recording or accessibility permission this session; app launches but panel could not be driven or captured |

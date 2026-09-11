@@ -8,15 +8,19 @@ struct EmojiPickerView: View {
 
     private let columns = Array(repeating: GridItem(.fixed(44), spacing: 10), count: 12)
 
+    private var hasNoQuery: Bool {
+        state.query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
     var body: some View {
         ScrollViewReader { proxy in
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
-                    if state.query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    if hasNoQuery, state.pinned.isEmpty == false {
                         emojiSection(title: "Pinned", items: state.pinned)
                     }
 
-                    emojiSection(title: state.query.isEmpty ? "All" : "Results", items: state.visibleEmoji)
+                    emojiSection(title: hasNoQuery ? "All" : "Results", items: state.visibleEmoji)
                 }
                 .padding(.horizontal, 20)
                 .padding(.vertical, 16)
