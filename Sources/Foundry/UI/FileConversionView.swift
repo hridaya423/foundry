@@ -43,12 +43,42 @@ struct FileConversionView: View {
         .padding(.horizontal, 20)
         .padding(.vertical, 18)
         .sheet(item: dependencySetupBinding) { setup in
-            VStack(alignment: .leading, spacing: 14) {
-                Text("Setup required for \(setup.target.title)").font(.headline)
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Setup required for \(setup.target.title)")
+                    .font(FoundryTheme.body(size: 15, weight: .semibold))
+                    .foregroundStyle(FoundryTheme.primaryText)
+
+                if let toolName = FileConversionService.missingDependencyName(for: setup.target) {
+                    Text("\(toolName) isn't installed. Foundry can install it with Homebrew, then convert your file.")
+                        .font(FoundryTheme.body(size: 13, weight: .regular))
+                        .foregroundStyle(FoundryTheme.secondaryText)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
                 Text(setup.plan.disclosure)
-                Text("Command: \(setup.plan.commands.map { $0.executable + " " + $0.arguments.joined(separator: " ") }.joined(separator: "\n"))")
-                    .font(.system(.body, design: .monospaced))
-                Text("Scope: \(setup.plan.mutationScope)\nCleanup: \(setup.plan.cleanupOwnership)")
+                    .font(FoundryTheme.body(size: 12, weight: .regular))
+                    .foregroundStyle(FoundryTheme.mutedText)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                DisclosureGroup("Command details") {
+                    VStack(alignment: .leading, spacing: 6) {
+                        ForEach(Array(setup.plan.commands.enumerated()), id: \.offset) { _, command in
+                            Text("\(command.executable) \(command.arguments.joined(separator: " "))")
+                                .font(.system(size: 12, design: .monospaced))
+                                .foregroundStyle(FoundryTheme.secondaryText)
+                                .textSelection(.enabled)
+                        }
+                        Text("Scope: \(setup.plan.mutationScope)")
+                        Text("Cleanup: \(setup.plan.cleanupOwnership)")
+                    }
+                    .font(FoundryTheme.body(size: 12, weight: .regular))
+                    .foregroundStyle(FoundryTheme.mutedText)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.top, 4)
+                }
+                .font(FoundryTheme.body(size: 12, weight: .medium))
+                .foregroundStyle(FoundryTheme.secondaryText)
+
                 HStack {
                     Button("Install Tool") { Task { await state.installTool() } }
                     Button("Install and Convert") { Task { await state.installToolAndConvert() } }

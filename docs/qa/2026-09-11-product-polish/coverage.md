@@ -54,3 +54,13 @@ Natural-language time queries from root search. Provider: `TimeConversionProvide
 | Currency conversion | Live Frankfurter fetch; cache exists (5-min TTL) | **Unverified** (network-dependent; intentionally untested hermetically) |
 | Translation races | `finish` guards on `activeRequest.id` + cancellation; `testStaleResponseCannotReplaceNewerRequest` exists | Passed |
 | Copy feedback | Root-search copies already toast via `ActionFeedback`. Added: translator copy button shows accent checkmark 1.2s (`didCopy`); dev-tools copy buttons show checkmark via `lastCopiedValue` | Compiles; visual pass unverified |
+
+## Package 5 (files, conversion, image tools)
+
+| Item | Change | Status |
+| --- | --- | --- |
+| Shelf add/dedup/selection | Existing `BackgroundRemovalTests` cover batch add, duplicates, rejected URLs, toggle/range selection, multi-file processing, cancel, source preservation | Passed (15 tests) |
+| Conversion targets/cancel/retry | Existing `FileConversionTests` cover common-target gating, provisioning fingerprint, cancel vs late completion, retry aggregation | Passed (12 tests) |
+| Artifact safety | `ArtifactStoreTests` — staging, collision no-overwrite, reservation lifecycle | Passed (6 tests) |
+| Dependency setup copy | Sheet reworked: readable tool-name sentence + disclosure as primary copy; commands/scope/cleanup moved into a "Command details" disclosure group | Compiles; visual pass unverified |
+| Live drag/drop + chooser | — | **Unverified** (no desktop automation) |
