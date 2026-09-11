@@ -19,7 +19,7 @@ const anton = Anton({
 });
 
 export const metadata: Metadata = {
-  title: "Foundry — The app you never open.",
+  title: "Foundry · The app you never open.",
   description:
     "Launch apps, find what you copied, transform files, run commands. One native launcher.",
 };
