@@ -4,6 +4,7 @@ import { useRef, useState, type KeyboardEvent } from "react";
 import Link from "next/link";
 
 const commands = ["Clipboard History", "Window Management", "AI Chat"];
+const downloadUrl = "https://github.com/hridaya423/foundry/releases/download/v1.0.0/Foundry-1.0.0-build-3.zip";
 
 function CommandIcon({ index }: { index: number }) {
   return (
@@ -32,7 +33,7 @@ function CommandIcon({ index }: { index: number }) {
   );
 }
 
-export default function FoundryHeroContent({ onExplore, illustration = false }: { onExplore?: () => void; illustration?: boolean }) {
+export default function FoundryHeroContent({ illustration = false }: { illustration?: boolean }) {
   const search = useRef<HTMLInputElement>(null);
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState(1);
@@ -43,18 +44,6 @@ export default function FoundryHeroContent({ onExplore, illustration = false }: 
     );
   const active =
     filtered.find((command) => command.index === selected) ?? filtered[0];
-  function explore() {
-    if (onExplore) {
-      onExplore();
-      return;
-    }
-    const input = search.current;
-    if (!input) return;
-    const box = input.getBoundingClientRect();
-    input.focus({ preventScroll: true });
-    if (box.bottom > window.innerHeight || box.top < 0)
-      input.scrollIntoView({ block: "center" });
-  }
   function onKeyDown(event: KeyboardEvent<HTMLInputElement>) {
     if (event.key === "Escape") {
       setQuery("");
@@ -85,25 +74,22 @@ export default function FoundryHeroContent({ onExplore, illustration = false }: 
             foundry
           </Link>
           <div className="foundry-links">
-            <button onClick={explore}>Explore</button>
-            <a href="https://github.com/hridaya423/foundry">GitHub</a>
+            <a href={downloadUrl}>Download</a>
+            <a href="https://github.com/hridaya423/foundry" aria-label="Foundry on GitHub"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z" /></svg></a>
           </div>
         </nav>
         <div className="foundry-wordmark" role="img" aria-label="Foundry" />
         <section className="foundry-copy" aria-labelledby="foundry-heading">
           <h1 id="foundry-heading">
-            Less switching<span>.</span>
+            The app you never open<span>.</span>
             <br />
-            More doing<span>.</span>
+            Opens everything<span>.</span>
           </h1>
           <p>
-            Apps, clipboard, AI and everyday
-            <br className="foundry-desktop-break" /> tools in one native
-            launcher.
+            Launch apps, find what you copied, transform files,
+            <br className="foundry-desktop-break" /> run commands. One native launcher.
           </p>
-          <button className="foundry-cta" onClick={explore}>
-            Explore Foundry <span aria-hidden="true">⟶</span>
-          </button>
+          <a className="foundry-cta" href={downloadUrl}>Download</a>
         </section>
         <section className="foundry-palette" aria-label={illustration ? "Foundry launcher" : "Try Foundry commands"} data-illustration={illustration || undefined}>
           <div className="foundry-search">

@@ -12,7 +12,7 @@ export default function MemoryStory({ progress, animated }: { progress: MotionVa
   const opacity = useTransform(progress, (value) => phase(value, memoryStart + 0.08, memoryStart + 0.18) * (1 - phase(value, downloadStart, downloadStart + .04)));
   return (
     <motion.section className="memory-section" aria-labelledby="memory-heading" inert={animated && !active} style={{ opacity }}>
-      <h2 id="memory-heading"><span className="memory-percent">68.9<span>%</span></span><span className="memory-takeaway">lower warmed memory.</span></h2>
+      <h2 id="memory-heading"><span className="memory-percent">68.9<span>%</span></span><span className="memory-takeaway">lower warmed memory use.</span></h2>
       <div className="memory-comparison">
         <div className="memory-product" data-product="0">
           <p className="memory-display"><span className="memory-value">{memoryValues[0]}</span><span className="memory-unit">MB</span></p>

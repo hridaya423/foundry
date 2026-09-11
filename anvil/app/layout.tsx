@@ -19,9 +19,9 @@ const anton = Anton({
 });
 
 export const metadata: Metadata = {
-  title: "Anvil — The operating layer Apple forgot to build",
+  title: "Foundry — The app you never open.",
   description:
-    "Anvil is an open-source, developer-first command center for macOS. Command palette, AI assistance, automation, window management, clipboard history — one surface.",
+    "Launch apps, find what you copied, transform files, run commands. One native launcher.",
 };
 
 export default function RootLayout({

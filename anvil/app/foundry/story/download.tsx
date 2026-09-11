@@ -15,7 +15,7 @@ export default function DownloadStory({ progress, animated }: { progress: Motion
     <div className="download-still-arrow" aria-hidden="true">{arrowCells.map(([x, y]) => <span key={`${x}:${y}`} style={{ gridColumn: x + 3, gridRow: y + 4 }} />)}</div>
     <div className="download-action">
       <a className="foundry-cta" href="https://github.com/hridaya423/foundry/releases/download/v1.0.0/Foundry-1.0.0-build-3.zip">Download Foundry</a>
-      <p>For Mac. macOS 14 or later.</p>
+      <p>v1.0 · macOS 14+ · Open source</p>
     </div>
     <footer className="download-footer">
       <Link className="download-wordmark" href="/" aria-label="Foundry, back to top">foundry</Link>
