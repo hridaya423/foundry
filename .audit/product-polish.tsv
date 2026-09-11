@@ -1,0 +1,13 @@
+ts	phase	decision	why	evidence	result
+2026-09-05T14:05:00Z	appearance	removed the new shared glass treatment from the work	user preferred the original glass	Sources/Foundry/UI/FoundryTheme.swift	original glass restored
+2026-09-05T14:10:00Z	downloads	kept real saved file URLs through download completion	completed downloads need actions that point to real files	Tests/FoundryTests/MediaDownloadTests.swift	21 download tests passed
+2026-09-05T14:14:00Z	clipboard	made card actions use their own item and hid text until reveal	copying the wrong card and showing raw history were both confirmed problems	Tests/FoundryTests/ClipboardHistoryTests.swift	11 clipboard tests passed and live view checked
+2026-09-05T14:17:00Z	tools	preserved Base64 whitespace and explained bad timestamps	encoding changed user input and invalid dates failed silently	Tests/FoundryTests/DeveloperToolsProviderTests.swift	11 developer tool tests passed
+2026-09-05T14:22:00Z	verification	ran focused and full test suites plus packaging checks	confirm behavior before reporting it	build/Foundry.app	443 tests and packaging verification passed
+2026-09-05T14:45:00Z	live-qa	marked remaining visual workflows unverified	the computer-use service stopped exposing Foundry after restart	docs/qa/2026-09-05-product-polish/coverage.md	open blocker recorded
+2026-09-05T14:46:00Z	launcher	added a reopen path for the launcher panel	clicking the app again should bring the panel back	Sources/Foundry/Application/AppDelegate.swift	focused launch test passed
+2026-09-05T14:47:00Z	snippets	wired Insert to staged direct paste	Insert previously copied text instead of preparing it for insertion	Sources/Foundry/UI/SnippetsView.swift	DirectPasteServiceTests passed
+2026-09-05T14:48:00Z	handoff	corrected the earlier completion claim	the plan still has live visual and configured integration gaps	docs/qa/2026-09-05-product-polish/coverage.md	full pass remains incomplete
+2026-09-05T14:50:00Z	clipboard	restored visible previews and normal text capture	user preferred the original clipboard behavior	Sources/Foundry/UI/ClipboardHistoryView.swift	reverted by request
+2026-09-11T18:55:00Z	timezone	added natural-language time conversion to root search	supports now in sf, 12pm est, multi-target, dates, DST-aware abbreviations	Sources/Foundry/Features/Time, CommandRegistry.swift, Tests/FoundryTests/TimeConversionTests.swift	20 focused tests passed
+2026-09-11T18:56:00Z	timezone	verified full suite, build, and packaging	forced and full test runs plus staged-app verification all green	docs/qa/2026-09-11-product-polish/coverage.md	472 tests passed; live UI pass unverified

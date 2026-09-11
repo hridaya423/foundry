@@ -6,6 +6,7 @@ Foundry is a native macOS launcher and command palette. It requires macOS 14 or 
 
 - Launcher for apps and commands
 - Calculator with unit conversions
+- Time zone lookups and conversions (`now in sf`, `12pm est`)
 - Currency exchange via Frankfurter
 - Translator with live language switching
 - Camera preview inside the launcher

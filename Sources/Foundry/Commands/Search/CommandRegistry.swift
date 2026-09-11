@@ -33,6 +33,7 @@ final class CommandRegistry: @unchecked Sendable {
             providers: [
                 AppSearchProvider(diagnostics: diagnostics),
                 CalculatorProvider(),
+                TimeConversionProvider(),
                 DeveloperToolsProvider(),
                 MacUtilitiesProvider(),
                 TranslationProvider(),
