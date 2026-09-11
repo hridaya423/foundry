@@ -95,3 +95,16 @@ Swept providers, UI state, and process-based integrations for the same defect cl
 | Firefox connector install | Approved installs that failed (dir write, manifest, zip, open Firefox) only logged. Now shows an alert naming the failure and the retry path | Compiles; visual pass unverified |
 | WebSearch / BrowserProvider / coordinator | Empty-on-failure feeds honest copy ("couldn't verify with live sources"); browser degrades to history/bookmarks; coordinator is generation-guarded | Source-verified, no change needed |
 | Result rows / ActionRunner / snippet paste | Truncation, hover, a11y, and failure feedback all honest | Source-verified |
+
+## Phase 0 exit gate assessment
+
+| Gate item | Status |
+| --- | --- |
+| `swift test` passes | **Met** — 491 tests, 0 failures |
+| Packaging verification passes | **Met** — `verify-packaging.sh` passed on the staged release build |
+| Search, clipboard, AI, downloads survive manual core sweep | **Blocked** — no Accessibility/screen-capture permission; panel could not be driven |
+| Performance and memory baselines recorded | **Partially met** — `docs/benchmarks/2026-08-29-…` records bundle size + `footprint`; `PerformanceRegressionTests` cover deterministic workloads; wall-clock panel timing is diagnostic-only |
+| Stabilization diff merged | **Met** — all slices committed through `66dd1e1` |
+| Clean install/upgrade preserves user data | **Unverified** — needs an install/upgrade pass over `~/.config/foundry` + `~/.local/share/foundry` |
+
+**Gate: not met.** Phase 1 (file search, searchable ⌘K, cached records) is planned in the roadmap but implementation waits on the manual sweep and install/upgrade checks — both need either a human pass or a session with desktop automation permission.
