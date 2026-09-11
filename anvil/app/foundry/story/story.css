@@ -25,7 +25,7 @@ html:has(.story-shell) { scroll-behavior: auto; }
 .shelf-still p { grid-column: 2; color: var(--f-muted); }
 .story-shell[data-still-step="2"] .shelf-still-image [data-subject="false"] { visibility: hidden; }
 .story-shell[data-still-step="0"] .shelf-still-image, .story-shell[data-still-step="0"] .shelf-still p { visibility: hidden; }
-.story-shell:not([data-scene="ready"]) .story-hero { transform: none !important; }
+.story-shell:not([data-scene="ready"]) .story-hero { position: relative; transform: none !important; }
 .story-shell:not([data-scene="ready"]) :is(.story-shelf, .shelf-heading, .shelf-actions, .clipboard-section) { opacity: 1 !important; transform: none !important; }
 .story-shell[data-scene="ready"] .story-track { height: 2418.4svh; }
 .story-shell[data-scene="ready"] .story-stage { position: sticky; top: 0; height: 100svh; min-height: 500px; overflow: hidden; background: radial-gradient(ellipse at 65% 45%, #17130f, #0f0d0c 70%); }

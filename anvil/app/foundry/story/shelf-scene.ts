@@ -153,7 +153,7 @@ export function createShelfScene(canvas: HTMLCanvasElement, tiles: Tile[]) {
       plane.scale.set(next.width * 1.5, next.height * 1.5, 1);
       plane.position.set(next.width / 2, -next.height / 2, -12);
     },
-    render(progress: number, clipboardFocus: number, mediaPortrait: number, toolSelection: number, toolReveal: number, toolTransition: number) {
+    render(progress: number, clipboardFocus: number, mediaPortrait: number, toolSelection: number, toolReveal: number, toolTransition: number, toolPrevious: number) {
       const intro = introProgress(progress);
       const scale = layout.wordmark.width / 1672;
       const lift = heroLift(progress, layout.height);
@@ -167,7 +167,7 @@ export function createShelfScene(canvas: HTMLCanvasElement, tiles: Tile[]) {
         writeMediaTilePose(pose, ribbonIndices[sourceIndex], Math.min(progress, 1.9), layout, mediaPortrait);
         if (!original) pose.sx = pose.sy = 0;
         const toolIndex = original ? toolsIndices[index] : index;
-        writeToolsTilePose(pose, toolIndex, Math.min(progress, memoryStart), layout, toolSelection, toolReveal, toolPoints[toolSelection], toolSelection > 0 ? toolPoints[toolSelection - 1] : toolPoints[toolSelection], toolTransition);
+        writeToolsTilePose(pose, toolIndex, Math.min(progress, memoryStart), layout, toolSelection, toolReveal, toolPoints[toolSelection], toolPoints[toolPrevious], toolTransition);
         writeMemoryTilePose(pose, index, Math.min(progress, downloadStart), layout, memoryPoints);
         writeDownloadTilePose(pose, index, progress, layout, closingPoints);
         object.position.set(pose.x, -pose.y, pose.z);

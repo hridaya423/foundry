@@ -10,8 +10,8 @@ import "./foundry/story/download.css";
 import { storyEnd } from "./foundry/story/download-motion";
 
 export const metadata: Metadata = {
-  title: "Foundry — Less switching. More doing.",
-  description: "Convert images, find what you copied and keep videos with Foundry.",
+  title: "Foundry — The app you never open.",
+  description: "Launch apps, find what you copied, transform files, run commands. One native launcher.",
 };
 
 export default async function Home({ searchParams }: {

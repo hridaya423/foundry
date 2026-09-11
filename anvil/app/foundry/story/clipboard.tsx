@@ -6,6 +6,30 @@ import { motion, useMotionValue, useMotionValueEvent, useTransform, type MotionV
 import { clipboardCardPose, clipboardFocus, clipboardItems, searchClipboard, type ClipboardItem as ClipboardEntry } from "./clipboard-motion";
 import { phase } from "./shelf-motion";
 
+function AppGlyph({ app }: { app: string }) {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+      {app === "Safari" ? (
+        <><circle cx="12" cy="12" r="8.5" /><path d="m15.5 8.5-2 5-5 2 2-5Z" /></>
+      ) : app === "Messages" ? (
+        <path d="M20.5 11.5a8.5 8.5 0 0 1-8.5 8.5c-1.5 0-2.9-.36-4.13-1L3.5 20l1.15-3.9A8.5 8.5 0 1 1 20.5 11.5Z" />
+      ) : app === "Photos" ? (
+        <><ellipse cx="12" cy="6.5" rx="2.3" ry="3.5" /><ellipse cx="12" cy="17.5" rx="2.3" ry="3.5" /><ellipse cx="6.5" cy="12" rx="3.5" ry="2.3" /><ellipse cx="17.5" cy="12" rx="3.5" ry="2.3" /></>
+      ) : app === "Figma" ? (
+        <g fill="currentColor" stroke="none">
+          <path d="M9.25 2.5h3.5v5h-3.5a2.5 2.5 0 1 1 0-5Z" /><path d="M12.75 2.5h1.75a2.5 2.5 0 1 1 0 5h-1.75Z" /><path d="M9.25 7.5h3.5v5h-3.5a2.5 2.5 0 1 1 0-5Z" /><circle cx="14" cy="10" r="2.5" /><path d="M9.25 12.5h3.5V17a2.5 2.5 0 1 1-5 0v-2a2.5 2.5 0 0 1 1.5-2.5Z" />
+        </g>
+      ) : (
+        <path d="M6 3.5h8.5L19 8v12.5H6Z M14.5 3.5V8H19 M9 12h6 M9 15.5h4" />
+      )}
+    </svg>
+  );
+}
+
+function CardMeta({ item, overlay }: { item: ClipboardEntry; overlay?: boolean }) {
+  return <span className={overlay ? "clipboard-card-meta clipboard-card-meta-overlay" : "clipboard-card-meta"}><AppGlyph app={item.app} /><span>{item.app}</span><time>{item.time}</time></span>;
+}
+
 function ClipboardCard({ item, focus, width, height, selected, onSelect }: {
   item: ClipboardEntry;
   focus: MotionValue<number>;
@@ -35,14 +59,28 @@ function ClipboardCard({ item, focus, width, height, selected, onSelect }: {
       onClick={(event) => { if (imageFailed) setImageFailed(false); onSelect(event.detail === 0); }}
     >
       {item.kind === "image" && !imageFailed ? (
-        <Image src={item.value} alt="Sunset over a rugged coast, an illustrative clipboard image" fill sizes="(max-width: 899px) 72vw, 330px" onError={() => setImageFailed(true)} />
+        <>
+          <Image src={item.value} alt="Sunset over a rugged coast, an illustrative clipboard image" fill sizes="(max-width: 899px) 72vw, 330px" onError={() => setImageFailed(true)} />
+          <CardMeta item={item} overlay />
+        </>
       ) : (
         <>
-          <span className="clipboard-card-kind">{item.kind === "image" ? "Image unavailable" : item.kind}</span>
-          {item.kind === "color" && <span className="clipboard-swatch" style={{ background: item.value }} />}
-          <span className="clipboard-card-title">{item.title}</span>
-          {imageFailed && <span className="clipboard-card-domain">Retry image</span>}
-          {item.kind === "link" && <span className="clipboard-card-domain">youtube.com</span>}
+          <div className="clipboard-card-body">
+            {imageFailed ? (
+              <p className="clipboard-card-text">Image unavailable — select to retry.</p>
+            ) : item.kind === "text" ? (
+              <p className="clipboard-card-text">{item.value}</p>
+            ) : item.kind === "link" ? (
+              <>
+                <span className="clipboard-card-favicon" aria-hidden="true"><i style={{ maskImage: "url(/assets/foundry/story/media/youtube.svg)" }} /></span>
+                <p className="clipboard-card-linktitle">{item.title}</p>
+                <span className="clipboard-card-domain">youtube.com</span>
+              </>
+            ) : (
+              <span className="clipboard-card-swatch" style={{ background: item.value }}><code>{item.value}</code></span>
+            )}
+          </div>
+          <CardMeta item={item} />
         </>
       )}
     </motion.button>

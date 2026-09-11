@@ -5,7 +5,7 @@ import type { MotionValue } from "motion/react";
 import type { Tile } from "../tile-motion";
 import type { Rect, ShelfLayout } from "./shelf-motion";
 
-export default function ShelfCanvas({ progress, clipboardFocus, mediaPortrait, toolSelection, toolReveal, toolTransition, onModeChange }: { progress: MotionValue<number>; clipboardFocus: MotionValue<number>; mediaPortrait: MotionValue<number>; toolSelection: MotionValue<number>; toolReveal: MotionValue<number>; toolTransition: MotionValue<number>; onModeChange: (animated: boolean) => void }) {
+export default function ShelfCanvas({ progress, clipboardFocus, mediaPortrait, toolSelection, toolReveal, toolTransition, toolPrevious, onModeChange }: { progress: MotionValue<number>; clipboardFocus: MotionValue<number>; mediaPortrait: MotionValue<number>; toolSelection: MotionValue<number>; toolReveal: MotionValue<number>; toolTransition: MotionValue<number>; toolPrevious: MotionValue<number>; onModeChange: (animated: boolean) => void }) {
   const ref = useRef<HTMLCanvasElement>(null);
   useEffect(() => {
     const canvas = ref.current;
@@ -44,7 +44,7 @@ export default function ShelfCanvas({ progress, clipboardFocus, mediaPortrait, t
     }
     function draw() {
       frame = 0;
-      if (scene && visible && !document.hidden && !reduced.matches && !compact.matches) scene.render(progress.get(), clipboardFocus.get(), mediaPortrait.get(), toolSelection.get(), toolReveal.get(), toolTransition.get());
+      if (scene && visible && !document.hidden && !reduced.matches && !compact.matches) scene.render(progress.get(), clipboardFocus.get(), mediaPortrait.get(), toolSelection.get(), toolReveal.get(), toolTransition.get(), toolPrevious.get());
     }
     function schedule() {
       if (!frame && !disposed) frame = requestAnimationFrame(draw);
@@ -91,6 +91,7 @@ export default function ShelfCanvas({ progress, clipboardFocus, mediaPortrait, t
     const unsubscribeFocus = clipboardFocus.on("change", schedule);
     const unsubscribeTool = toolSelection.on("change", schedule);
     const unsubscribeTransition = toolTransition.on("change", schedule);
+    const unsubscribePrevious = toolPrevious.on("change", schedule);
     const unsubscribeReveal = toolReveal.on("change", schedule);
     const unsubscribePortrait = mediaPortrait.on("change", schedule);
     reduced.addEventListener("change", initialize);
@@ -109,11 +110,12 @@ export default function ShelfCanvas({ progress, clipboardFocus, mediaPortrait, t
       unsubscribeTool();
       unsubscribeReveal();
       unsubscribeTransition();
+      unsubscribePrevious();
       reduced.removeEventListener("change", initialize);
       compact.removeEventListener("change", initialize);
       document.removeEventListener("visibilitychange", schedule);
       canvas.removeEventListener("webglcontextlost", lost);
     };
-  }, [progress, clipboardFocus, mediaPortrait, toolSelection, toolReveal, toolTransition, onModeChange]);
+  }, [progress, clipboardFocus, mediaPortrait, toolSelection, toolReveal, toolTransition, toolPrevious, onModeChange]);
   return <canvas ref={ref} className="shelf-canvas" aria-hidden="true" />;
 }

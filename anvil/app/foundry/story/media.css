@@ -15,7 +15,6 @@
 .media-poster img { object-fit: cover; }
 .media-platform { position: absolute; left: 18px; top: 18px; width: 27px; height: 27px; color: #f4ece2; filter: drop-shadow(0 1px 5px #0008); }
 .media-card[data-selected="true"]:not([data-portrait="true"]) .media-platform { display: none; }
-.media-sample { position: absolute; bottom: 16px; left: 14px; font-size: 12px; line-height: 1.3; color: #fff; text-shadow: 0 1px 6px #000; background: #0008; border-radius: 4px; padding: 5px 7px; }
 .media-card video { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; object-fit: cover; background: #090807; }
 .media-detail { position: absolute; top: calc(43% + min(14.0625vw, 23.0625svh) + 14px); left: 50%; transform: translateX(-50%); width: min(50vw, 82svh); z-index: 5; }
 .media-detail h3 { font-size: clamp(22px, 1.85vw, 32px); font-weight: 400; letter-spacing: -.03em; line-height: 1.2; }
@@ -47,11 +46,9 @@
   .media-card { top: 44%; width: 88vw; border-radius: 10px; }
   .media-card[data-portrait="true"] { width: min(45vw, 20svh); }
   .media-platform { width: 22px; height: 22px; top: 12px; left: 12px; }
-  .media-sample { left: 8px; bottom: 10px; padding: 4px 5px; font-size: 11px; }
   .media-detail { top: 65%; left: 6%; width: 76%; transform: none; }
   .media-detail h3 { font-size: 21px; }
   .media-detail p { font-size: 12px; margin-top: 8px; }
-  .media-crop-credit { display: none; }
   .media-output { left: 90%; top: 64%; font-size: 11px; }
   .media-actions { left: 6%; width: 88%; bottom: 3%; transform: none; }
   .media-command { min-height: 48px; padding: 0 14px; gap: 10px; font-size: 14px; flex-basis: 100%; }

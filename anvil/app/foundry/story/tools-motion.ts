@@ -11,10 +11,10 @@ export function toolBeat(progress: number) {
   return { selected, reveal: phase(position - selected, .22, .68), transition: phase(position - selected, 0, .045 / toolBeatLength) };
 }
 export const toolExamples = [
-  { id: "calculator", name: "Calculator", source: "Expression", input: "24 × 18", result: String(24 * 18), resultLabel: "Result", action: "Calculate", detail: "Do the calculation where you start the command." },
-  { id: "translation", name: "Translation", source: "English", input: "Hello, world.", result: "Bonjour, le monde.", resultLabel: "French", action: "Translate to French", detail: "A prepared English-to-French example." },
+  { id: "calculator", name: "Calculator", source: "Expression", input: "24 × 18", result: String(24 * 18), resultLabel: "Result", action: "Calculate", detail: "Calculate without leaving the launcher." },
+  { id: "translation", name: "Translation", source: "English", input: "Hello, world.", result: "Bonjour, le monde.", resultLabel: "French", action: "Translate to French", detail: "A prepared translation from English to French." },
   { id: "notes", name: "Apple Notes", source: "Search Apple Notes", input: "Weekend ideas", result: "Weekend ideas\nVisit the bookshop.\nTake the long way home.", resultLabel: "Sample note preview", action: "Find the note", detail: "Search a note’s title and content, then open it in Apple Notes." },
-  { id: "snippets", name: "Snippets", source: "Saved keyword", input: ";thanks", result: "Thanks for your time.\nI’ll send the details\ntomorrow.", resultLabel: "Saved text", action: "Expand with Space", detail: "A sample saved keyword expands when you type a delimiter." },
+  { id: "snippets", name: "Snippets", source: "Saved keyword", input: ";thanks", result: "Thanks for your time.\nI’ll send the details\ntomorrow.", resultLabel: "Saved text", action: "Expand with Space", detail: "Type a saved keyword, then Space, to expand it." },
   { id: "ai", name: "AI profiles", source: "Draft", input: "I will send you the\nfirst draft tomorrow.", result: "I’ll send the draft\ntomorrow.", resultLabel: "Writing profile · sample response", action: "Use Writing profile", detail: "Choose a configured provider and model. This response is a prepared example." },
   { id: "developer", name: "Developer tools", source: "Unix timestamp", input: "1704067200", result: "2024-01-01\n00:00 UTC", resultLabel: "Date & time", action: "Convert timestamp", detail: "Turn a Unix timestamp into a readable date." },
 ] as const;

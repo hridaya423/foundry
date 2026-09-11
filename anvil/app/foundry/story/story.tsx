@@ -26,6 +26,7 @@ export default function ShelfStory({ inspect, initialProgress }: { inspect: bool
   const clipboardSelection = useSpring(clipboardFocus(initialProgress), { stiffness: 100, damping: 20, mass: 1 });
   const toolTransition = useMotionValue(toolBeat(initialProgress).transition);
   const toolSelection = useMotionValue(toolBeat(initialProgress).selected);
+  const toolPrevious = useMotionValue(Math.max(0, toolBeat(initialProgress).selected - 1));
   const toolReveal = useSpring(toolBeat(initialProgress).reveal, { stiffness: 500, damping: 30 });
   const mediaPortrait = useSpring(0, { stiffness: 500, damping: 30 });
   const [animated, setAnimated] = useState(false);
@@ -68,13 +69,13 @@ export default function ShelfStory({ inspect, initialProgress }: { inspect: bool
       <div ref={track} className="story-track">
         <div className="story-stage">
           <motion.div className="foundry-stage story-hero" style={{ transform: heroTransform, "--story-copy-opacity": copyOpacity } as MotionStyle} inert={animated && zone !== "hero"}>
-            <FoundryHeroContent illustration onExplore={() => goTo(0.595, true)} />
+            <FoundryHeroContent illustration />
           </motion.div>
-          <ShelfCanvas progress={progress} clipboardFocus={clipboardSelection} mediaPortrait={mediaPortrait} toolSelection={toolSelection} toolReveal={toolReveal} toolTransition={toolTransition} onModeChange={setAnimated} />
+          <ShelfCanvas progress={progress} clipboardFocus={clipboardSelection} mediaPortrait={mediaPortrait} toolSelection={toolSelection} toolReveal={toolReveal} toolTransition={toolTransition} toolPrevious={toolPrevious} onModeChange={setAnimated} />
           <motion.section style={{ opacity: shelfOpacity, transform: shelfTransform }} className="story-shelf" id="file-shelf" aria-labelledby="shelf-heading" inert={animated && zone !== "shelf"}>
             <motion.header className="shelf-heading" style={{ opacity: headingOpacity, transform: headingTransform }}>
-              <h2 id="shelf-heading">A little file.<br />A lot of possibilities<span>.</span></h2>
-              <p>Convert images. Remove backgrounds.</p>
+              <h2 id="shelf-heading">Convert files<br />without opening another app<span>.</span></h2>
+              <p>Change formats. Remove backgrounds.</p>
             </motion.header>
             <div className="shelf-file-anchor" role="img" aria-label="Original HEIC file">
               <motion.span className="shelf-file-label" style={{ opacity: fileOpacity }}>HEIC</motion.span>
@@ -103,7 +104,7 @@ export default function ShelfStory({ inspect, initialProgress }: { inspect: bool
           </motion.section>
           <ClipboardStory progress={progress} focus={clipboardSelection} animated={animated} />
           <MediaStory progress={progress} portrait={mediaPortrait} animated={animated} />
-          <ToolsStory progress={progress} animated={animated} selection={toolSelection} reveal={toolReveal} transition={toolTransition} />
+          <ToolsStory progress={progress} animated={animated} selection={toolSelection} reveal={toolReveal} transition={toolTransition} previous={toolPrevious} />
           <MemoryStory progress={progress} animated={animated} />
           <DownloadStory progress={progress} animated={animated} />
         </div>

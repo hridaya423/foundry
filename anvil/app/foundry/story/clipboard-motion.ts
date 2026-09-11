@@ -2,17 +2,17 @@ import { phase, type ShelfLayout, type ShelfPose } from "./shelf-motion";
 
 export const clipboardEnd = 1.45;
 export const clipboardItems = [
-  { id: "meeting", kind: "text", title: "Meet at 10", value: "Meet at 10. Bring the first draft.", time: "10:14" },
-  { id: "coast", kind: "image", title: "Coast.jpg", value: "/assets/foundry/story/coast.jpg", time: "10:16" },
-  { id: "orange", kind: "color", title: "#FA6428", value: "#FA6428", time: "10:18" },
-  { id: "neural-network", kind: "link", title: "But what is a neural network?", value: "https://www.youtube.com/watch?v=aircAruvnKk", time: "10:21" },
-  { id: "draft", kind: "text", title: "Build something great.", value: "Build something great. Keep the details simple.", time: "10:24" },
+  { id: "meeting", kind: "text", title: "Meet at 10", value: "Meet at 10. Bring the first draft.", time: "10:14", app: "Messages" },
+  { id: "coast", kind: "image", title: "Coast.jpg", value: "/assets/foundry/story/coast.jpg", time: "10:16", app: "Photos" },
+  { id: "orange", kind: "color", title: "#FA6428", value: "#FA6428", time: "10:18", app: "Figma" },
+  { id: "neural-network", kind: "link", title: "But what is a neural network?", value: "https://www.youtube.com/watch?v=aircAruvnKk", time: "10:21", app: "Safari" },
+  { id: "draft", kind: "text", title: "Build something great.", value: "Build something great. Keep the details simple.", time: "10:24", app: "Notes" },
 ] as const;
 export type ClipboardItem = (typeof clipboardItems)[number];
 
 export function searchClipboard(query: string) {
   const needle = query.trim().toLowerCase();
-  return clipboardItems.filter((item) => `${item.title} ${item.value} ${item.kind}`.toLowerCase().includes(needle));
+  return clipboardItems.filter((item) => `${item.title} ${item.value} ${item.kind} ${item.app}`.toLowerCase().includes(needle));
 }
 
 export function clipboardFocus(progress: number) {

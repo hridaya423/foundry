@@ -30,7 +30,6 @@ function MediaCard({ item, slot, selected, animated, instant, active }: {
         <Image src={`/assets/foundry/story/media/${item.poster}`} alt={item.portrait ? `${item.creator}, a cropped film excerpt` : "The neural network diagram from 3Blue1Brown’s video"} fill sizes="(max-width: 899px) 88vw, 50vw" />
         {item.video && selected && active && animated && !failed && <video src={`/assets/foundry/story/media/${item.video}`} poster={`/assets/foundry/story/media/${item.poster}`} autoPlay loop playsInline muted preload="none" onError={() => setFailed(true)} aria-label={`${item.creator}, silent cropped excerpt`} />}
         <span className="media-platform" aria-hidden="true" style={{ maskImage: `url(/assets/foundry/story/media/${item.id}.svg)` }} />
-        {item.portrait && <span className="media-sample">Sample {item.id === "instagram" ? "reel" : "post"}</span>}
       </div>
     </motion.figure>
   );
@@ -85,14 +84,14 @@ export default function MediaStory({ progress, portrait, animated }: { progress:
       </div>
       <div className="media-detail">
         <h3>{item.title}</h3>
-        <p><a href={item.source} target="_blank" rel="noreferrer">{item.creator}</a>{item.portrait && <span className="media-crop-credit"> · Cropped excerpt</span>}</p>
+        <p><a href={item.source} target="_blank" rel="noreferrer">{item.creator}</a></p>
       </div>
       <motion.div className="media-output" style={{ opacity: fileOpacity }} aria-label={`Example output: ${item.filename}`}>
         <span className="media-still-file" aria-hidden="true"><i /><b>MP4</b></span>
       </motion.div>
       <div className="media-actions">
         <div className="media-command"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m10 13 4-4m-6 7-1 1a4 4 0 0 1-6-6l4-4a4 4 0 0 1 6 0m2 1 1-1a4 4 0 0 1 6 6l-4 4a4 4 0 0 1-6 0" /></svg><span>Paste a link in Foundry</span><span className="media-format">MP4</span></div>
-        <p>In Foundry: paste a supported video link, then save it to your Mac.</p>
+        <p>Paste a supported video link to save it to your Mac.</p>
       </div>
     </motion.section>
   );

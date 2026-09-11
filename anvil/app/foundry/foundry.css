@@ -51,6 +51,11 @@ body:has(.foundry-preview)::after {
   display: inline-flex;
   align-items: center;
 }
+.foundry-links svg {
+  display: block;
+  width: 1.35em;
+  height: 1.35em;
+}
 .foundry-preview button,
 .foundry-preview a {
   cursor: pointer;
@@ -91,11 +96,12 @@ body:has(.foundry-preview)::after {
   z-index: 1;
 }
 .foundry-copy h1 {
-  font-size: 4.55vw;
+  font-size: 4.15vw;
   font-weight: 400;
   line-height: 1.03;
   letter-spacing: -0.03em;
   margin: 0;
+  white-space: nowrap;
 }
 .foundry-copy h1 span {
   color: var(--f-accent);
@@ -110,9 +116,9 @@ body:has(.foundry-preview)::after {
 .foundry-cta {
   background: var(--f-accent);
   color: #0f0d0c;
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: center;
   gap: 1.25vw;
   padding: 0 2vw;
   height: 4.05vw;
@@ -120,10 +126,6 @@ body:has(.foundry-preview)::after {
   font-weight: 500;
   min-height: 48px;
   border-radius: 11px;
-}
-.foundry-cta span {
-  font-size: 1.6em;
-  line-height: 1;
 }
 .foundry-palette {
   position: absolute;
@@ -302,7 +304,7 @@ body:has(.foundry-preview)::after {
     margin: 24px 0 36px;
   }
   .foundry-copy h1 {
-    font-size: clamp(38px, 7.5vw, 66px);
+    font-size: clamp(24px, 7.2vw, 56px);
     line-height: 1.06;
   }
   .foundry-copy p {
