@@ -294,6 +294,15 @@ struct CommandPanelView: View {
         }
     }
 
+    private var headerUsesFixedTitle: Bool {
+        switch state.mode {
+        case .settings, .fileConversion, .camera, .fileShelf, .translator, .developerTools, .mediaDownloads:
+            return true
+        case .search, .quickAI, .emojiPicker, .clipboardHistory, .snippets, .agents:
+            return false
+        }
+    }
+
     private var header: some View {
         HStack(spacing: 12) {
             if state.mode != .search {
@@ -391,7 +400,13 @@ struct CommandPanelView: View {
                 Text("Downloads")
                     .font(FoundryTheme.body(size: 21, weight: .regular))
                     .foregroundStyle(FoundryTheme.primaryText)
-            } else {
+            }
+
+            if headerUsesFixedTitle {
+                Spacer(minLength: 0)
+            }
+
+            if state.mode == .search || state.mode == .agents {
                 LauncherSearchField(
                     text: $state.query,
                     placeholder: "Search for apps and commands...",

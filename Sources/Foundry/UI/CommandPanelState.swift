@@ -676,6 +676,7 @@ final class CommandPanelState: ObservableObject {
     @discardableResult
     func executeSelectedResult() async -> Bool {
         guard isActionInProgress == false else { return false }
+        guard mode == .search else { return false }
         guard let selectedResult else {
             if let request = AIProvider.request(from: query) {
                 openQuickAI(initialPrompt: request.prompt)
@@ -784,6 +785,7 @@ final class CommandPanelState: ObservableObject {
     }
 
     func toggleActions() {
+        guard mode == .search else { return }
         guard selectedResult != nil else {
             diagnostics.log("No selected result for actions")
             return

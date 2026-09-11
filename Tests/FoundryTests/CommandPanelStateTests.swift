@@ -262,6 +262,78 @@ final class CommandPanelStateTests: XCTestCase {
         return CommandPanelState(registry: registry, actionRunner: actionRunner ?? ActionRunner(diagnostics: diagnostics), diagnostics: diagnostics, config: config, clipboardHistory: clipboard)
     }
 
+    func testCommandKDoesNotArmActionsOutsideSearchMode() {
+        let diagnostics = DiagnosticsService()
+        let config = ConfigService(
+            diagnostics: diagnostics,
+            url: FileManager.default.temporaryDirectory.appendingPathComponent("foundry-panel-actions-\(UUID().uuidString).json")
+        )
+        let registry = CommandRegistry(
+            providers: [],
+            usageRanking: UsageRankingStore(diagnostics: diagnostics),
+            diagnostics: diagnostics,
+            configService: config
+        )
+        let state = CommandPanelState(
+            registry: registry,
+            actionRunner: ActionRunner(diagnostics: diagnostics),
+            diagnostics: diagnostics,
+            config: config
+        )
+        // executeCommand-style leftovers: results populated while in a feature mode
+        state.results = [CommandResult(
+            id: "test.stale",
+            title: "Stale",
+            subtitle: nil,
+            icon: CommandIcon(fallback: "S"),
+            primaryAction: CommandAction(id: "test.stale.perform", title: "Run", kind: .log("stale")),
+            secondaryActions: []
+        )]
+        state.selectedResultID = "test.stale"
+        state.mode = .settings
+
+        state.toggleActions()
+
+        XCTAssertFalse(state.isShowingActions)
+        state.shutdown()
+    }
+
+    func testExecuteSelectedResultDoesNothingOutsideSearchMode() async {
+        let diagnostics = DiagnosticsService()
+        let config = ConfigService(
+            diagnostics: diagnostics,
+            url: FileManager.default.temporaryDirectory.appendingPathComponent("foundry-panel-execute-\(UUID().uuidString).json")
+        )
+        let registry = CommandRegistry(
+            providers: [],
+            usageRanking: UsageRankingStore(diagnostics: diagnostics),
+            diagnostics: diagnostics,
+            configService: config
+        )
+        let state = CommandPanelState(
+            registry: registry,
+            actionRunner: ActionRunner(diagnostics: diagnostics),
+            diagnostics: diagnostics,
+            config: config
+        )
+        state.results = [CommandResult(
+            id: "test.stale",
+            title: "Stale",
+            subtitle: nil,
+            icon: CommandIcon(fallback: "S"),
+            primaryAction: CommandAction(id: "test.stale.perform", title: "Run", kind: .log("stale")),
+            secondaryActions: []
+        )]
+        state.selectedResultID = "test.stale"
+        state.mode = .settings
+
+        let shouldDismiss = await state.executeSelectedResult()
+
+        XCTAssertFalse(shouldDismiss)
+        XCTAssertFalse(state.isActionInProgress)
+        state.shutdown()
+    }
+
     private func temporaryURL() -> URL {
         FileManager.default.temporaryDirectory.appendingPathComponent("foundry-panel-\(UUID().uuidString).json")
     }

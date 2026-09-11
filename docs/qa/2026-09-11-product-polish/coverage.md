@@ -34,3 +34,13 @@ Natural-language time queries from root search. Provider: `TimeConversionProvide
 
 - Uncurated IANA city lookups fall back to `GMT±N` abbreviations — honest, if less friendly.
 - Source zone defaults to `TimeZone.current` (system timezone) at runtime; tests inject zones.
+
+## Package 1 remainder (shared navigation)
+
+| Item | Change | Status |
+| --- | --- | --- |
+| P13 header alignment | Fixed-title header branches now pin to the leading edge next to Back (`headerUsesFixedTitle` + trailing spacer); search/field modes unchanged | Code fixed; **visual pass unverified** (no screen recording permission) |
+| ⌘K outside search | `toggleActions` now requires `.search` mode — previously it could arm an invisible action list over a feature surface after `executeCommand`-style stale results | `testCommandKDoesNotArmActionsOutsideSearchMode` passed |
+| Return outside search | `executeSelectedResult` now requires `.search` mode — stale results could execute in `.agents` | `testExecuteSelectedResultDoesNothingOutsideSearchMode` passed |
+| Keyboard matrix (Enter/Escape/Tab/arrows/⌘K/⌘,) | Source-verified paths: Escape → `handleEscape` → `backToSearch`; arrows → `moveSelection` per-mode; Tab/Return → `LauncherSearchField`; ⌘K/⌘,/⌘V/⌘Q → `FoundryPanel.handleShortcut` | Source-verified; live pass unverified |
+| Icon hit areas/accessibility | `FoundryIconButton` uses 30pt frames with accessibility labels and tooltips | Source-verified |
