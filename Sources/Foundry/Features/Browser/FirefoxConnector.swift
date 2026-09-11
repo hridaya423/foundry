@@ -59,6 +59,11 @@ final class FirefoxConnectorInstaller {
             diagnostics.log("Opened Firefox connector for approval")
         } catch {
             diagnostics.log("Could not prepare Firefox connector: \(error.localizedDescription)")
+            let failure = NSAlert()
+            failure.messageText = "Could not set up the Firefox connector"
+            failure.informativeText = "\(error.localizedDescription). Firefox tabs stay searchable through your other browsers; you can retry from Settings."
+            failure.addButton(withTitle: "OK")
+            failure.runModal()
         }
     }
 

@@ -85,3 +85,13 @@ Natural-language time queries from root search. Provider: `TimeConversionProvide
 | Build + packaging | `build-app.sh` + `verify-packaging.sh` | Passed; app launches without crash (PID confirmed) |
 | `git diff --check` | — | Clean |
 | Daily-use live sequence | open → search → clipboard → snippet → download → convert → dev tool → AI → settings | **Unverified** — no screen-recording or accessibility permission this session; app launches but panel could not be driven or captured |
+## Fresh full-surface audit (C6)
+
+Swept providers, UI state, and process-based integrations for the same defect classes found earlier (silent failure → empty state, stale data presented as current, invisible armed state).
+
+| Surface | Finding | Status |
+| --- | --- | --- |
+| AI Settings model refresh | `models()` returned `[]` on network/HTTP/decode failure — a failed Refresh was indistinguishable from "endpoint has no models." Now returns `AIModelListResult` (`.loaded`/`.failed`); failures set `aiProfileStatus` ("Could not load models. …"), empty success says "This endpoint reported no models." Injectable fetcher for tests | 3 new tests passed |
+| Firefox connector install | Approved installs that failed (dir write, manifest, zip, open Firefox) only logged. Now shows an alert naming the failure and the retry path | Compiles; visual pass unverified |
+| WebSearch / BrowserProvider / coordinator | Empty-on-failure feeds honest copy ("couldn't verify with live sources"); browser degrades to history/bookmarks; coordinator is generation-guarded | Source-verified, no change needed |
+| Result rows / ActionRunner / snippet paste | Truncation, hover, a11y, and failure feedback all honest | Source-verified |

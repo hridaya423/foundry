@@ -40,21 +40,22 @@ enum OpenAICompatibleTransport {
         }
     }
 
-    static func models(profile: AIProviderProfile, credentials: AICredentialStore) async -> [AIModel] {
-        guard let url = AITransportSupport.endpoint(profile, path: "models") else { return [] }
+    static func models(profile: AIProviderProfile, credentials: AICredentialStore) async -> AIModelListResult {
+        guard let url = AITransportSupport.endpoint(profile, path: "models") else { return .failed("Enter a valid endpoint.") }
         do {
             let apiKey = try AITransportSupport.apiKey(profile, store: credentials)
-            if profile.authentication == .apiKey, apiKey == nil { return [] }
+            if profile.authentication == .apiKey, apiKey == nil { return .failed("Add an API key before listing models.") }
             var request = URLRequest(url: url)
             if let apiKey { request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization") }
             let (data, response) = try await AITransportSupport.requestData(request, timeout: profile.requestOptions.timeoutSeconds)
-            guard AITransportSupport.classify(response) == nil, let object = try JSONSerialization.jsonObject(with: data) as? [String: Any], let rows = object["data"] as? [[String: Any]] else { return [] }
-            return rows.compactMap { row in
+            if let error = AITransportSupport.classify(response) { return .failed(error.message) }
+            guard let object = try JSONSerialization.jsonObject(with: data) as? [String: Any], let rows = object["data"] as? [[String: Any]] else { return .failed("Provider returned invalid model data.") }
+            return .loaded(rows.compactMap { row in
                 guard let id = row["id"] as? String, id.isEmpty == false else { return nil }
                 return AIModel(id: id, displayName: id)
-            }.sorted { $0.id < $1.id }
+            }.sorted { $0.id < $1.id })
         } catch {
-            return []
+            return .failed(AITransportSupport.failureMessage(error))
         }
     }
 
@@ -120,18 +121,19 @@ enum OllamaTransport {
         }
     }
 
-    static func models(profile: AIProviderProfile) async -> [AIModel] {
-        guard let endpoint = profile.endpoint, let url = URL(string: endpoint)?.appendingPathComponent("api/tags") else { return [] }
+    static func models(profile: AIProviderProfile) async -> AIModelListResult {
+        guard let endpoint = profile.endpoint, let url = URL(string: endpoint)?.appendingPathComponent("api/tags") else { return .failed("Enter a valid Ollama endpoint.") }
         do {
             let request = URLRequest(url: url)
             let (data, response) = try await AITransportSupport.requestData(request, timeout: profile.requestOptions.timeoutSeconds)
-            guard AITransportSupport.classify(response) == nil, let object = try JSONSerialization.jsonObject(with: data) as? [String: Any], let rows = object["models"] as? [[String: Any]] else { return [] }
-            return rows.compactMap { row in
+            if let error = AITransportSupport.classify(response) { return .failed(error.message) }
+            guard let object = try JSONSerialization.jsonObject(with: data) as? [String: Any], let rows = object["models"] as? [[String: Any]] else { return .failed("Ollama returned invalid model data.") }
+            return .loaded(rows.compactMap { row in
                 guard let name = row["name"] as? String, name.isEmpty == false else { return nil }
                 return AIModel(id: name, displayName: name)
-            }.sorted { $0.id < $1.id }
+            }.sorted { $0.id < $1.id })
         } catch {
-            return []
+            return .failed(AITransportSupport.failureMessage(error))
         }
     }
 }
