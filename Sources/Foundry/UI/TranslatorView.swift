@@ -20,7 +20,7 @@ struct TranslatorView: View {
                     .font(.system(size: 22, weight: .semibold))
                     .foregroundStyle(FoundryTheme.secondaryText)
 
-                TranslatorPane(placeholder: "Translation", text: Binding(get: { state.result }, set: { _ in }), isEditable: false, copy: state.copyResult) {
+                TranslatorPane(placeholder: "Translation", text: Binding(get: { state.result }, set: { _ in }), isEditable: false, copy: state.copyResult, didCopy: state.didCopy) {
                     languageMenu
                 }
             }
@@ -166,13 +166,15 @@ struct TranslatorPane<Accessory: View>: View {
     @Binding var text: String
     let isEditable: Bool
     var copy: (() -> Void)? = nil
+    var didCopy = false
     @ViewBuilder var accessory: () -> Accessory
 
-    init(placeholder: String, text: Binding<String>, isEditable: Bool, copy: (() -> Void)? = nil, @ViewBuilder accessory: @escaping () -> Accessory = { EmptyView() }) {
+    init(placeholder: String, text: Binding<String>, isEditable: Bool, copy: (() -> Void)? = nil, didCopy: Bool = false, @ViewBuilder accessory: @escaping () -> Accessory = { EmptyView() }) {
         self.placeholder = placeholder
         self._text = text
         self.isEditable = isEditable
         self.copy = copy
+        self.didCopy = didCopy
         self.accessory = accessory
     }
 
@@ -188,12 +190,13 @@ struct TranslatorPane<Accessory: View>: View {
                     accessory()
                     if text.isEmpty == false, let copy {
                         Button(action: copy) {
-                            Image(systemName: "doc.on.doc")
+                            Image(systemName: didCopy ? "checkmark" : "doc.on.doc")
                                 .font(.system(size: 12, weight: .semibold))
-                                .foregroundStyle(FoundryTheme.secondaryText)
+                                .foregroundStyle(didCopy ? FoundryTheme.accentTint : FoundryTheme.secondaryText)
                                 .frame(width: 26, height: 26)
                                 .background(Color.primary.opacity(0.07))
                                 .clipShape(Circle())
+                                .contentTransition(.symbolEffect(.replace))
                         }
                         .buttonStyle(.plain)
                         .pointerCursor()

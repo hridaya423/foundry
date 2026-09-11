@@ -44,3 +44,13 @@ Natural-language time queries from root search. Provider: `TimeConversionProvide
 | Return outside search | `executeSelectedResult` now requires `.search` mode — stale results could execute in `.agents` | `testExecuteSelectedResultDoesNothingOutsideSearchMode` passed |
 | Keyboard matrix (Enter/Escape/Tab/arrows/⌘K/⌘,) | Source-verified paths: Escape → `handleEscape` → `backToSearch`; arrows → `moveSelection` per-mode; Tab/Return → `LauncherSearchField`; ⌘K/⌘,/⌘V/⌘Q → `FoundryPanel.handleShortcut` | Source-verified; live pass unverified |
 | Icon hit areas/accessibility | `FoundryIconButton` uses 30pt frames with accessibility labels and tooltips | Source-verified |
+
+## Package 4 remainder (dev tools, calculator, translation)
+
+| Item | Change | Status |
+| --- | --- | --- |
+| Base64 whitespace preservation | Already fixed pre-session; `testBase64ToolPreservesWhitespaceWhenEncoding` present | Passed |
+| Calculator | New `CalculatorTests` — precedence, parens, implicit multiply, `%` postfix vs modulo, power/factorial/functions, `=`/`calc` prefixes, scientific notation, equation solving, unit conversions, copy action, malformed/non-finite/div-zero → no results | 11 tests passed; live pass unverified |
+| Currency conversion | Live Frankfurter fetch; cache exists (5-min TTL) | **Unverified** (network-dependent; intentionally untested hermetically) |
+| Translation races | `finish` guards on `activeRequest.id` + cancellation; `testStaleResponseCannotReplaceNewerRequest` exists | Passed |
+| Copy feedback | Root-search copies already toast via `ActionFeedback`. Added: translator copy button shows accent checkmark 1.2s (`didCopy`); dev-tools copy buttons show checkmark via `lastCopiedValue` | Compiles; visual pass unverified |

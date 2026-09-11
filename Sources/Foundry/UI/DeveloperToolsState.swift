@@ -104,6 +104,9 @@ final class DeveloperToolsState: ObservableObject {
         didSet { refreshWordCount() }
     }
     @Published private(set) var wordCountRows: [OutputRow] = []
+    @Published private(set) var lastCopiedValue: String?
+
+    private var copyFeedbackTask: Task<Void, Never>?
 
     init() {
         refreshBase()
@@ -140,6 +143,13 @@ final class DeveloperToolsState: ObservableObject {
     func copy(_ value: String) {
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(value, forType: .string)
+        lastCopiedValue = value
+        copyFeedbackTask?.cancel()
+        copyFeedbackTask = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(1.2))
+            guard Task.isCancelled == false else { return }
+            self?.lastCopiedValue = nil
+        }
     }
 
     private func refreshBase() {

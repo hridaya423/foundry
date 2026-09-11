@@ -13,11 +13,13 @@ final class TranslatorState: ObservableObject {
     @Published private(set) var activeRequest: TranslationRequest?
     @Published private(set) var requestVersion = 0
     @Published var needsAppleTranslationFallback = false
+    @Published private(set) var didCopy = false
 
     private let availability: TranslationAvailability
     private let translator: TranslationProvider.Translator
     private let debounce: Duration
     private var task: Task<Void, Never>?
+    private var copyFeedbackTask: Task<Void, Never>?
     private var resetting = false
 
     init(availability: TranslationAvailability = .current, debounce: Duration = .milliseconds(450), translator: @escaping TranslationProvider.Translator = { await AppleTranslator.translate($0) }) {
@@ -40,6 +42,8 @@ final class TranslatorState: ObservableObject {
         activeRequest = nil
         requestVersion = 0
         needsAppleTranslationFallback = false
+        copyFeedbackTask?.cancel()
+        didCopy = false
         resetting = false
     }
 
@@ -77,6 +81,13 @@ final class TranslatorState: ObservableObject {
         guard result.isEmpty == false else { return }
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(result, forType: .string)
+        didCopy = true
+        copyFeedbackTask?.cancel()
+        copyFeedbackTask = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(1.2))
+            guard Task.isCancelled == false else { return }
+            self?.didCopy = false
+        }
     }
 
     func languageCode(for name: String) -> String? { TranslationLanguage.parse(name)?.identifier }
@@ -84,6 +95,7 @@ final class TranslatorState: ObservableObject {
     private func scheduleTranslation() {
         guard !resetting else { return }
         task?.cancel()
+        didCopy = false
         guard let request = makeRequest() else {
             result = ""; translationError = nil; isTranslating = false; activeRequest = nil
             return

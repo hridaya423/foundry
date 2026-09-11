@@ -231,13 +231,15 @@ struct DeveloperToolsView: View {
     }
 
     private func compactCopyButton(value: String) -> some View {
-        Button(action: { state.copy(value) }) {
-            Image(systemName: "doc.on.doc")
+        let copied = state.lastCopiedValue == value
+        return Button(action: { state.copy(value) }) {
+            Image(systemName: copied ? "checkmark" : "doc.on.doc")
                 .font(.system(size: 10, weight: .semibold))
-                .foregroundStyle(FoundryTheme.secondaryText)
+                .foregroundStyle(copied ? FoundryTheme.accentTint : FoundryTheme.secondaryText)
                 .frame(width: 28, height: 26)
                 .background(Color.primary.opacity(0.07))
                 .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
+                .contentTransition(.symbolEffect(.replace))
         }
         .buttonStyle(.plain)
         .pointerCursor()
@@ -256,12 +258,14 @@ struct DeveloperToolsView: View {
                 Button {
                     state.copy(value)
                 } label: {
-                    Image(systemName: "doc.on.doc")
+                    let copied = state.lastCopiedValue == value
+                    Image(systemName: copied ? "checkmark" : "doc.on.doc")
                         .font(.system(size: 10, weight: .semibold))
-                        .foregroundStyle(FoundryTheme.secondaryText)
+                        .foregroundStyle(copied ? FoundryTheme.accentTint : FoundryTheme.secondaryText)
                         .frame(width: 28, height: 26)
                         .background(Color.primary.opacity(0.07))
                         .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
+                        .contentTransition(.symbolEffect(.replace))
                 }
                 .buttonStyle(.plain)
                 .pointerCursor()
