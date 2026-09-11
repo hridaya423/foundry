@@ -470,7 +470,7 @@ private struct WeatherWidget: View {
                     Text("\(Int(snapshot.temperature.rounded()))°")
                         .font(FoundryTheme.display(size: 16, weight: .semibold))
                         .foregroundStyle(FoundryTheme.primaryText)
-                    Text(snapshot.condition)
+                    Text(snapshot.isStale ? "Updated \(snapshot.fetchedTimeLabel)" : snapshot.condition)
                         .font(FoundryTheme.body(size: 10, weight: .regular))
                         .foregroundStyle(FoundryTheme.mutedText)
                         .lineLimit(1)
@@ -490,7 +490,7 @@ private struct WeatherWidget: View {
         .frame(maxHeight: .infinity)
         .accessibilityElement(children: .combine)
         .accessibilityLabel("Weather")
-        .accessibilityValue(snapshot.map { "\(Int($0.temperature.rounded())) degrees, \($0.condition)" } ?? (city.isEmpty ? "Not configured" : city))
+        .accessibilityValue(snapshot.map { "\(Int($0.temperature.rounded())) degrees, \($0.isStale ? "updated \($0.fetchedTimeLabel)" : $0.condition)" } ?? (city.isEmpty ? "Not configured" : city))
     }
 }
 
@@ -516,7 +516,7 @@ private struct StockWidget: View {
                     .font(FoundryTheme.body(size: 12, weight: .semibold))
                     .foregroundStyle(FoundryTheme.primaryText)
                 if let snapshot {
-                    Text("\(String(format: "%.2f", snapshot.price)) \(snapshot.currency)")
+                    Text("\(String(format: "%.2f", snapshot.price)) \(snapshot.currency)\(snapshot.isStale ? " · \(snapshot.fetchedTimeLabel)" : "")")
                         .font(FoundryTheme.body(size: 10, weight: .regular))
                         .foregroundStyle(FoundryTheme.mutedText)
                 } else {
@@ -537,7 +537,7 @@ private struct StockWidget: View {
         .frame(maxHeight: .infinity)
         .accessibilityElement(children: .combine)
         .accessibilityLabel("Stock")
-        .accessibilityValue(snapshot.map { "\($0.symbol), \(String(format: "%.2f", $0.price)), \(String(format: "%+.1f", $0.changePercent)) percent" } ?? (symbol.isEmpty ? "Not configured" : symbol))
+        .accessibilityValue(snapshot.map { "\($0.symbol), \(String(format: "%.2f", $0.price)), \(String(format: "%+.1f", $0.changePercent)) percent\($0.isStale ? ", updated \($0.fetchedTimeLabel)" : "")" } ?? (symbol.isEmpty ? "Not configured" : symbol))
     }
 }
 

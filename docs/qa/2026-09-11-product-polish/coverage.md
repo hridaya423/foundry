@@ -64,3 +64,13 @@ Natural-language time queries from root search. Provider: `TimeConversionProvide
 | Artifact safety | `ArtifactStoreTests` — staging, collision no-overwrite, reservation lifecycle | Passed (6 tests) |
 | Dependency setup copy | Sheet reworked: readable tool-name sentence + disclosure as primary copy; commands/scope/cleanup moved into a "Command details" disclosure group | Compiles; visual pass unverified |
 | Live drag/drop + chooser | — | **Unverified** (no desktop automation) |
+
+## Package 6 (AI, agents, integrations, Settings)
+
+| Item | Change | Status |
+| --- | --- | --- |
+| AI/agents/browser/camera/settings suites | `AIProviderTests`, `AIChatStoreTests`, `AgentMonitorTests`, `AgentIntegrationTests`, `BrowserProviderTests`, `CameraPreviewTests`, `ConfigServiceTests` | 131 tests passed; live integrations unverified |
+| QuickAI failed prompts | Preserved in `quickAILastFailedPrompt` with retry; stale streams guarded by requestID | Source-verified |
+| Notes unavailable vs empty | `AppleNotesProvider` now returns an unavailable row ("Couldn't search Apple Notes", Automation permission hint, Open Notes + Open Automation Settings actions) when osascript fails, instead of silent empty | 3 new tests passed |
+| Browser tabs | Degrades to history/bookmarks on tab-fetch failure; not conflated with empty since records still render | Source-verified, unchanged |
+| Widget staleness | `WeatherSnapshot`/`StockSnapshot` carry `fetchedAt`; stale (>15m) widgets show "Updated HH:mm" instead of condition caption; a11y value includes the update time | Compiles; visual pass unverified |

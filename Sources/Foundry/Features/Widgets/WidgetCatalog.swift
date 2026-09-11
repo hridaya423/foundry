@@ -221,6 +221,15 @@ struct WeatherSnapshot: Sendable, Equatable {
     let condition: String
     let symbol: String
     let isDay: Bool
+    var fetchedAt: Date = .now
+
+    var isStale: Bool {
+        Date().timeIntervalSince(fetchedAt) > 15 * 60
+    }
+
+    var fetchedTimeLabel: String {
+        fetchedAt.formatted(.dateTime.hour().minute())
+    }
 }
 
 struct StockSnapshot: Sendable, Equatable {
@@ -228,4 +237,13 @@ struct StockSnapshot: Sendable, Equatable {
     let price: Double
     let changePercent: Double
     let currency: String
+    var fetchedAt: Date = .now
+
+    var isStale: Bool {
+        Date().timeIntervalSince(fetchedAt) > 15 * 60
+    }
+
+    var fetchedTimeLabel: String {
+        fetchedAt.formatted(.dateTime.hour().minute())
+    }
 }

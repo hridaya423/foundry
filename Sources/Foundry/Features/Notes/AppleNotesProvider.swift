@@ -3,7 +3,18 @@ import FoundryDomain
 import FoundryServices
 
 final class AppleNotesProvider: CommandProvider {
+    enum Lookup: Sendable {
+        case results([AppleNoteResult])
+        case failed
+    }
+
     let id = "foundry.apple-notes"
+
+    private let lookup: @Sendable (String) -> Lookup
+
+    init(lookup: @escaping @Sendable (String) -> Lookup = { AppleNotesProvider.searchNotes($0) }) {
+        self.lookup = lookup
+    }
 
     var searchPolicy: CommandProviderSearchPolicy { CommandProviderSearchPolicy(tier: .deferred) }
 
@@ -16,7 +27,11 @@ final class AppleNotesProvider: CommandProvider {
         let search = normalizedSearch(from: request.query)
         guard search.count >= 2 else { return [] }
 
-        return searchNotes(search).prefix(8).map { note in
+        switch lookup(search) {
+        case .failed:
+            return [unavailableResult]
+        case let .results(notes):
+            return notes.prefix(8).map { note in
             CommandResult(
                 id: "apple-note.\(note.id)",
                 title: note.title,
@@ -28,6 +43,7 @@ final class AppleNotesProvider: CommandProvider {
                     CommandAction(id: "apple-note.copy.\(note.id)", title: "Copy Preview", kind: .copyToClipboard(note.preview))
                 ]
             )
+            }
         }
     }
 
@@ -53,7 +69,20 @@ final class AppleNotesProvider: CommandProvider {
         return ""
     }
 
-    private func searchNotes(_ query: String) -> [AppleNoteResult] {
+    private var unavailableResult: CommandResult {
+        CommandResult(
+            id: "apple-note.unavailable",
+            title: "Couldn't search Apple Notes",
+            subtitle: "Foundry needs Automation permission to read your notes",
+            icon: CommandIcon(fallback: "AN", systemName: "note.text"),
+            primaryAction: CommandAction(id: "apple-note.open-app", title: "Open Notes", kind: .runProcess(path: "/usr/bin/open", arguments: ["-a", "Notes"])),
+            secondaryActions: [
+                CommandAction(id: "apple-note.privacy", title: "Open Automation Settings", kind: .openURL("x-apple.systempreferences:com.apple.preference.security?Privacy_Automation"))
+            ]
+        )
+    }
+
+    private static func searchNotes(_ query: String) -> Lookup {
         guard let result = ProcessRunner.runSynchronously(
             path: "/usr/bin/osascript",
             arguments: searchScriptArguments(query: query),
@@ -61,11 +90,11 @@ final class AppleNotesProvider: CommandProvider {
             outputLimit: 4 * 1024 * 1024
         ), result.succeeded,
         let data = result.stdout.data(using: .utf8),
-              let notes = try? JSONDecoder().decode([AppleNoteResult].self, from: data) else { return [] }
-        return notes
+              let notes = try? JSONDecoder().decode([AppleNoteResult].self, from: data) else { return .failed }
+        return .results(notes)
     }
 
-    private func searchScriptArguments(query: String) -> [String] {
+    private static func searchScriptArguments(query: String) -> [String] {
         [
             "-l", "JavaScript",
             "-e", "function run(argv) { const q = String(argv[0] || '').toLowerCase(); const Notes = Application('Notes'); const strip = s => String(s || '').replace(/<[^>]*>/g, ' ').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/\\s+/g, ' ').trim(); return JSON.stringify(Notes.notes().map(n => ({ id: n.id(), title: n.name(), preview: strip(n.body()).slice(0, 180) })).filter(n => n.title.toLowerCase().includes(q) || n.preview.toLowerCase().includes(q)).slice(0, 8)); }",
@@ -82,7 +111,7 @@ final class AppleNotesProvider: CommandProvider {
     }
 }
 
-private struct AppleNoteResult: Decodable {
+struct AppleNoteResult: Decodable, Sendable {
     let id: String
     let title: String
     let preview: String
