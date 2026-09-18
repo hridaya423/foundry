@@ -5,13 +5,10 @@ import UniformTypeIdentifiers
 import Vision
 import FoundryServices
 
-enum BEN2ComponentState: Equatable, Sendable { case missing, ready, invalid, unavailable(String) }
-enum BEN2ProvisioningState: Equatable, Sendable { case available, unavailable(String) }
+enum BEN2ComponentState: Equatable, Sendable { case missing, ready, invalid }
 struct BEN2Assessment: Equatable, Sendable {
-    let visionState: BEN2ComponentState
     let modelState: BEN2ComponentState
     let runtimeState: BEN2ComponentState
-    let provisioningState: BEN2ProvisioningState
     let setupPlan: SetupPlan?
 }
 
@@ -306,13 +303,5 @@ private final class RequestCancellation: @unchecked Sendable {
 
     func clear() {
         lock.withLock { request = nil }
-    }
-}
-
-private extension NSLock {
-    func withLock<T>(_ body: () throws -> T) rethrows -> T {
-        lock()
-        defer { unlock() }
-        return try body()
     }
 }

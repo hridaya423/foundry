@@ -32,7 +32,6 @@ struct AgentSessionCapabilities: OptionSet, Codable, Equatable, Hashable, Sendab
     static let approve = Self(rawValue: 1 << 2)
     static let questions = Self(rawValue: 1 << 3)
     static let reply = Self(rawValue: 1 << 4)
-    static let stop = Self(rawValue: 1 << 5)
     static let jumpApplication = Self(rawValue: 1 << 6)
     static let jumpTerminal = Self(rawValue: 1 << 7)
     static let jumpTask = Self(rawValue: 1 << 8)
@@ -59,36 +58,25 @@ enum AgentAttentionReason: String, Codable, Hashable, Sendable {
     case disconnected
 }
 
-struct AgentTerminalLocator: Codable, Equatable, Hashable, Sendable {
-    let tty: String?
-    let processID: Int32?
-    let applicationBundleID: String?
-    let terminalName: String?
-    let remoteHost: String?
-}
-
 struct AgentSessionMetadata: Codable, Equatable, Sendable {
     let title: String?
     let workingDirectory: String?
     let project: String?
     let model: String?
     let terminalCommand: String?
-    let terminalLocator: AgentTerminalLocator?
 
     init(
         title: String? = nil,
         workingDirectory: String? = nil,
         project: String? = nil,
         model: String? = nil,
-        terminalCommand: String? = nil,
-        terminalLocator: AgentTerminalLocator? = nil
+        terminalCommand: String? = nil
     ) {
         self.title = title
         self.workingDirectory = workingDirectory
         self.project = project
         self.model = model
         self.terminalCommand = terminalCommand
-        self.terminalLocator = terminalLocator
     }
 
     init(from decoder: Decoder) throws {
@@ -98,7 +86,6 @@ struct AgentSessionMetadata: Codable, Equatable, Sendable {
         project = try container.decodeIfPresent(String.self, forKey: .project)
         model = try container.decodeIfPresent(String.self, forKey: .model)
         terminalCommand = try container.decodeIfPresent(String.self, forKey: .terminalCommand)
-        terminalLocator = try container.decodeIfPresent(AgentTerminalLocator.self, forKey: .terminalLocator)
     }
 }
 
@@ -338,7 +325,6 @@ actor AgentSessionStore {
             card.origin = envelope.origin
             card.capabilities = envelope.capabilities
             if let parentSessionID = envelope.parentSessionID { card.parentSessionID = parentSessionID }
-            if let terminalLocator = envelope.metadata?.terminalLocator { card.terminalLocator = terminalLocator }
         }
         if sourceCanReplace {
             card = apply(envelope.event, to: card, metadata: envelope.metadata, eventDate: envelope.timestamp ?? Date())
@@ -397,9 +383,7 @@ actor AgentSessionStore {
             key: key,
             origin: envelope.origin,
             capabilities: envelope.capabilities,
-            parentSessionID: envelope.parentSessionID,
-            attentionReason: nil,
-            terminalLocator: envelope.metadata?.terminalLocator
+            parentSessionID: envelope.parentSessionID
         )
     }
 
@@ -418,22 +402,18 @@ actor AgentSessionStore {
         case .userPrompt:
             next.status = .working
             next.updatedAt = eventDate
-            next.attentionReason = nil
         case .assistantMessage:
             next.status = .reviewReady
             next.updatedAt = eventDate
         case .toolActivity:
             next.status = .working
             next.updatedAt = eventDate
-            next.attentionReason = nil
-        case let .attention(reason, _):
+        case .attention:
             next.status = .needsInput
             next.updatedAt = eventDate
-            next.attentionReason = reason
         case let .completion(success):
             next.status = success ? .completed : .failed
             next.updatedAt = eventDate
-            next.attentionReason = success ? nil : .failure
         case let .metadata(eventMetadata):
             next = applyMetadata(eventMetadata, to: next)
             next.updatedAt = eventDate
@@ -450,7 +430,6 @@ actor AgentSessionStore {
         card.project = boundedOptional(metadata.project ?? card.project, limit: 160)
         card.workingDirectory = boundedOptional(metadata.workingDirectory ?? card.workingDirectory, limit: 4_096)
         card.model = boundedOptional(metadata.model ?? card.model, limit: 160)
-        if let terminalLocator = metadata.terminalLocator { card.terminalLocator = terminalLocator }
         return card
     }
 

@@ -121,8 +121,7 @@ enum AgentHookBridge {
             title: pathComponent(cwd),
             workingDirectory: cwd,
             project: pathComponent(cwd),
-            model: string(object, keys: ["model"]),
-            terminalLocator: terminalLocator(environment: environment)
+            model: string(object, keys: ["model"])
         )
         let event: AgentEvent
         switch hookEvent.lowercased() {
@@ -216,8 +215,7 @@ enum AgentHookBridge {
             workingDirectory: cwd,
             project: pathComponent(cwd),
             model: string(object, keys: ["model", "model_name"]),
-            terminalCommand: command,
-            terminalLocator: terminalLocator(environment: environment)
+            terminalCommand: command
         )
     }
 
@@ -228,21 +226,7 @@ enum AgentHookBridge {
             workingDirectory: cwd,
             project: pathComponent(cwd),
             model: nestedString(properties, paths: [["model"], ["info", "model"]]),
-            terminalCommand: nil,
-            terminalLocator: terminalLocator(environment: environment)
-        )
-    }
-
-    private static func terminalLocator(environment: [String: String]) -> AgentTerminalLocator? {
-        let tty = environment["TTY"] ?? environment["SSH_TTY"]
-        let terminalName = environment["TERM_PROGRAM"]
-        guard tty != nil || terminalName != nil || environment["SSH_CONNECTION"] != nil else { return nil }
-        return AgentTerminalLocator(
-            tty: tty,
-            processID: nil,
-            applicationBundleID: nil,
-            terminalName: terminalName,
-            remoteHost: environment["SSH_CONNECTION"]?.split(separator: " ").last.map(String.init)
+            terminalCommand: nil
         )
     }
 

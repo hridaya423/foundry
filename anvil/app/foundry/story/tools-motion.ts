@@ -1,9 +1,8 @@
 import { tileText } from "./tile-glyphs";
 import { bezier, phase, type ShelfLayout, type ShelfPose } from "./shelf-motion";
 
-export const toolsStart = 2.14;
-export const storyEnd = 3.46;
-export const toolBeatLength = .22;
+const toolsStart = 2.14;
+const toolBeatLength = .22;
 
 export function toolBeat(progress: number) {
   const position = Math.max(0, (progress - toolsStart) / toolBeatLength);

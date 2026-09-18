@@ -39,7 +39,7 @@ export const bezier = (a: number, b: number, c: number, d: number, t: number) =>
   return s * s * s * a + 3 * s * s * t * b + 3 * s * t * t * c + t * t * t * d;
 };
 
-export function orangeCell(column: number, row: number): ShelfCell {
+function orangeCell(column: number, row: number): ShelfCell {
   const x = column - 7.5;
   const y = row - 8;
   const fruit = (x / 5.2) ** 2 + (y / 4.5) ** 2 < 1;
@@ -56,7 +56,7 @@ export function orangeCell(column: number, row: number): ShelfCell {
   };
 }
 
-export function createShelfCells(): ShelfCell[] {
+function createShelfCells(): ShelfCell[] {
   const cells: ShelfCell[] = [];
   for (let row = 6; row >= 0; row--) {
     for (let column = 0; column < 6; column++) {

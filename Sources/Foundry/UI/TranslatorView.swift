@@ -1,13 +1,13 @@
 import Foundation
 import SwiftUI
-import FoundryDomain
 
 #if canImport(Translation)
 import Translation
 #endif
 
 struct TranslatorView: View {
-    @ObservedObject var state: TranslatorState
+    @Bindable var state: TranslatorState
+    var insert: (() -> Bool)? = nil
 
     var body: some View {
         VStack(spacing: 14) {
@@ -16,9 +16,17 @@ struct TranslatorView: View {
                     sourceLanguageMenu
                 })
 
-                Image(systemName: "arrow.right")
-                    .font(.system(size: 22, weight: .semibold))
-                    .foregroundStyle(FoundryTheme.secondaryText)
+                Button(action: state.swapLanguages) {
+                    Image(systemName: "arrow.left.arrow.right")
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundStyle(FoundryTheme.secondaryText)
+                        .frame(width: 32, height: 32)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .pointerCursor()
+                .help("Swap languages (⌘S)")
+                .accessibilityLabel("Swap languages")
 
                 TranslatorPane(placeholder: "Translation", text: Binding(get: { state.result }, set: { _ in }), isEditable: false, copy: state.copyResult) {
                     languageMenu
@@ -51,6 +59,13 @@ struct TranslatorView: View {
                 }
 
                 Spacer()
+
+                if state.result.isEmpty == false, let insert {
+                    FoundryActionButton(title: "Insert", systemName: "text.insert") {
+                        _ = insert()
+                    }
+                    .help("Paste the translation into the previous app, replacing any selection")
+                }
             }
         }
         .padding(.horizontal, 20)
@@ -121,7 +136,7 @@ struct TranslatorView: View {
 #if canImport(Translation)
 @available(macOS 15.0, *)
 struct AppleTranslationTask: View {
-    @ObservedObject var state: TranslatorState
+    @Bindable var state: TranslatorState
     let requestVersion: Int
 
     @State private var configuration: TranslationSession.Configuration?

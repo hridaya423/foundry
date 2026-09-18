@@ -3,23 +3,25 @@ import Foundation
 import ImageIO
 import UniformTypeIdentifiers
 import FoundryServices
+import Observation
 
 @MainActor
-final class FileConversionState: ObservableObject {
-    @Published var sourceURLs: [URL] = []
-    @Published var outputFolderURL: URL?
-    @Published var availableTargets: [FileConversionTarget] = []
-    @Published var selectedTargetID: String?
-    @Published var status = ""
-    @Published var isConverting = false
-    @Published var outputURLs: [URL] = []
-    @Published var outputURL: URL?
-    @Published var dependencySetup: DependencySetup? = nil
-    @Published private(set) var phase: OperationPhase = .assessing
-    @Published private(set) var progress: OperationProgress?
-    @Published private(set) var failure: OperationFailure?
-    @Published private(set) var itemOutcomes: [FileConversionItemOutcome] = []
-    @Published private(set) var capabilities: [String: FileConversionCapability] = [:]
+@Observable
+final class FileConversionState {
+    var sourceURLs: [URL] = []
+    var outputFolderURL: URL?
+    var availableTargets: [FileConversionTarget] = []
+    var selectedTargetID: String?
+    var status = ""
+    var isConverting = false
+    var outputURLs: [URL] = []
+    var outputURL: URL?
+    var dependencySetup: DependencySetup? = nil
+    private(set) var phase: OperationPhase = .assessing
+    private(set) var progress: OperationProgress?
+    private(set) var failure: OperationFailure?
+    private(set) var itemOutcomes: [FileConversionItemOutcome] = []
+    private(set) var capabilities: [String: FileConversionCapability] = [:]
 
     private var conversionTask: Task<Void, Never>?
     private let assess: @Sendable (FileConversionTarget) async -> CapabilityState
@@ -61,7 +63,7 @@ final class FileConversionState: ObservableObject {
 
     func reset() {
         if let operationID {
-            _ = operations.update(id: operationID, phase: .cancelled, progress: progress, failure: OperationFailure(message: "Conversion cancelled", retryable: true))
+            _ = operations.update(id: operationID, phase: .cancelled, progress: progress, failure: OperationFailure(message: "Conversion cancelled"))
         }
         conversionGeneration = UUID()
         sourceURLs = []
@@ -162,7 +164,7 @@ final class FileConversionState: ObservableObject {
         } catch is CancellationError {
             guard conversionGeneration == generation else { return }
             phase = .cancelled; status = "Tool installation cancelled"
-            operations.update(id: id, phase: .cancelled, progress: progress, failure: OperationFailure(message: "Tool installation cancelled", retryable: true))
+            operations.update(id: id, phase: .cancelled, progress: progress, failure: OperationFailure(message: "Tool installation cancelled"))
         } catch {
             guard conversionGeneration == generation else { return }
             failProvisioning(operationID: id, error: error)
@@ -180,7 +182,7 @@ final class FileConversionState: ObservableObject {
             operations.update(id: id, phase: .completed, progress: progress)
         } catch is CancellationError {
             phase = .cancelled; status = "Tool installation cancelled"
-            operations.update(id: id, phase: .cancelled, progress: progress, failure: OperationFailure(message: "Tool installation cancelled", retryable: true))
+            operations.update(id: id, phase: .cancelled, progress: progress, failure: OperationFailure(message: "Tool installation cancelled"))
         } catch { failProvisioning(operationID: id, error: error) }
     }
 
@@ -227,8 +229,8 @@ final class FileConversionState: ObservableObject {
         outputURLs = itemOutcomes.compactMap(\.outputURL)
         outputURL = outputURLs.last
         status = total == 1
-            ? (FileConversionService.preflightStatus(for: target) ?? "Converting to \(target.title)…")
-            : "Preparing \(total) files..."
+            ? "Converting to \(target.title)…"
+            : "Preparing \(total) files…"
 
         conversionTask = Task { [weak self] in
             let workSources = sourceURLs.filter { url in
@@ -241,7 +243,7 @@ final class FileConversionState: ObservableObject {
                 await MainActor.run { [weak self] in
                     guard let self else { return }
                     let prefix = total == 1 ? "" : "\(index + 1) of \(total): "
-                    self.status = prefix + (FileConversionService.preflightStatus(for: target) ?? "Converting to \(target.title)…")
+                    self.status = prefix + "Converting to \(target.title)…"
                 }
 
                 let result = await self?.convertOperation(sourceURL, target, outputFolderURL) ?? .failure(FileConversionError.cancelled)
@@ -254,7 +256,7 @@ final class FileConversionState: ObservableObject {
                         await MainActor.run { self?.cancelRemaining(sourceURLs, generation: generation, operationID: operationID) }
                         return
                     }
-                    await MainActor.run { self?.setOutcome(sourceURL, state: .failed, outputURL: nil, failure: OperationFailure(message: error.localizedDescription, retryable: true)) }
+                    await MainActor.run { self?.setOutcome(sourceURL, state: .failed, outputURL: nil, failure: OperationFailure(message: error.localizedDescription)) }
                 }
                 await MainActor.run { [weak self] in
                     let completed = completedBeforeStart + index + 1
@@ -275,7 +277,7 @@ final class FileConversionState: ObservableObject {
                 self.outputURLs = outputs
                 self.outputURL = outputs.last
                 self.phase = failures.isEmpty ? .completed : .failed
-                self.failure = failures.isEmpty ? nil : OperationFailure(message: failures.joined(separator: "\n"), retryable: true)
+                self.failure = failures.isEmpty ? nil : OperationFailure(message: failures.joined(separator: "\n"))
                 if let operationID = self.operationID {
                     if failures.isEmpty {
                         _ = self.operations.update(id: operationID, phase: .completed, progress: self.progress)
@@ -333,7 +335,7 @@ final class FileConversionState: ObservableObject {
         if let generation, self.conversionGeneration != generation { return }
         if let operationID, self.operationID != operationID { return }
         for url in urls where itemOutcomes.first(where: { $0.sourceURL == url })?.state != .completed {
-            setOutcome(url, state: .cancelled, outputURL: nil, failure: OperationFailure(message: "Cancelled", retryable: true))
+            setOutcome(url, state: .cancelled, outputURL: nil, failure: OperationFailure(message: "Cancelled"))
         }
         let completed = itemOutcomes.filter { $0.state == .completed }.count
         outputURLs = itemOutcomes.compactMap(\.outputURL)
@@ -341,7 +343,7 @@ final class FileConversionState: ObservableObject {
         progress = .items(completed: completed, total: itemOutcomes.count)
         status = "Conversion cancelled after creating \(completed) of \(itemOutcomes.count) files"
         phase = .cancelled; isConverting = false
-        if let operationID { operations.update(id: operationID, phase: .cancelled, progress: progress, failure: OperationFailure(message: "Conversion cancelled", retryable: true)) }
+        if let operationID { operations.update(id: operationID, phase: .cancelled, progress: progress, failure: OperationFailure(message: "Conversion cancelled")) }
     }
 
     private func isCurrentSetup(_ setup: DependencySetup) -> Bool {
@@ -358,7 +360,7 @@ final class FileConversionState: ObservableObject {
     }
 
     private func failProvisioning(operationID: UUID, error: Error) {
-        let typed = OperationFailure(message: error.localizedDescription, retryable: true)
+        let typed = OperationFailure(message: error.localizedDescription)
         failure = typed; phase = .failed; status = "Tool installation failed: \(typed.message)"
         operations.update(id: operationID, phase: .failed, progress: progress, failure: typed)
     }
@@ -654,10 +656,6 @@ enum FileConversionService {
             if let path = firstExecutable(paths) { return path }
         }
         throw FileConversionError.unavailable("Required converter is not ready")
-    }
-
-    static func preflightStatus(for target: FileConversionTarget) -> String? {
-        nil
     }
 
     private static func sofficeFormat(_ ext: String) -> String {

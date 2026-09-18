@@ -1,15 +1,10 @@
 import Foundation
 import FoundryDomain
-import FoundryServices
 
 final class BuiltInCommandProvider: CommandProvider {
     let id = "foundry.builtin"
 
-    private let diagnostics: DiagnosticsService
-
-    init(config: ConfigService, diagnostics: DiagnosticsService) {
-        self.diagnostics = diagnostics
-    }
+    init() {}
 
     func search(_ request: CommandSearchRequest) async -> [CommandResult] {
         commands().compactMap { command in
@@ -61,8 +56,7 @@ final class BuiltInCommandProvider: CommandProvider {
                 aliases: ["emoji", "emojis", "symbols", "characters", "reaction", "smiley", "unicode"],
                 systemIcon: "face.smiling",
                 fallback: "EM",
-                primaryAction: CommandAction(id: "foundry.emoji-picker.open", title: "Open", kind: .openEmojiPicker),
-                secondaryActions: []
+                primaryAction: CommandAction(id: "foundry.emoji-picker.open", title: "Open", kind: .openEmojiPicker)
             ),
             BuiltInCommand(
                 id: "foundry.downloads",
@@ -71,8 +65,7 @@ final class BuiltInCommandProvider: CommandProvider {
                 aliases: ["download", "downloads", "media downloads", "download queue", "media queue", "download manager"],
                 systemIcon: "arrow.down.circle",
                 fallback: "DL",
-                primaryAction: CommandAction(id: "foundry.downloads.open", title: "Open", kind: .openMediaDownloads),
-                secondaryActions: []
+                primaryAction: CommandAction(id: "foundry.downloads.open", title: "Open", kind: .openMediaDownloads)
             ),
             BuiltInCommand(
                 id: "foundry.file-shelf",
@@ -81,8 +74,7 @@ final class BuiltInCommandProvider: CommandProvider {
                 aliases: ["shelf", "files", "drop", "drag", "temporary files"],
                 systemIcon: "tray.full",
                 fallback: "FS",
-                primaryAction: CommandAction(id: "foundry.file-shelf.open", title: "Open", kind: .openFileShelf),
-                secondaryActions: []
+                primaryAction: CommandAction(id: "foundry.file-shelf.open", title: "Open", kind: .openFileShelf)
             ),
             BuiltInCommand(
                 id: "foundry.file-convert",
@@ -91,8 +83,7 @@ final class BuiltInCommandProvider: CommandProvider {
                 aliases: ["convert", "converter", "file convert", "transcode", "reformat"],
                 systemIcon: "arrow.triangle.2.circlepath",
                 fallback: "CV",
-                primaryAction: CommandAction(id: "foundry.file-convert.open", title: "Open", kind: .openFileConverter()),
-                secondaryActions: []
+                primaryAction: CommandAction(id: "foundry.file-convert.open", title: "Open", kind: .openFileConverter())
             ),
             BuiltInCommand(
                 id: "foundry.clipboard-history",
@@ -101,8 +92,7 @@ final class BuiltInCommandProvider: CommandProvider {
                 aliases: ["clipboard", "copyboard", "copy history", "pasteboard", "paste history", "history"],
                 systemIcon: "doc.on.clipboard",
                 fallback: "CB",
-                primaryAction: CommandAction(id: "foundry.clipboard-history.open", title: "Open", kind: .openClipboardHistory),
-                secondaryActions: []
+                primaryAction: CommandAction(id: "foundry.clipboard-history.open", title: "Open", kind: .openClipboardHistory)
             ),
             BuiltInCommand(
                 id: "foundry.snippets",
@@ -111,8 +101,7 @@ final class BuiltInCommandProvider: CommandProvider {
                 aliases: ["snippets", "snippet", "search snippets", "code snippets", "templates"],
                 systemIcon: "curlybraces",
                 fallback: "SN",
-                primaryAction: CommandAction(id: "foundry.snippets.open", title: "Open", kind: .openSnippets),
-                secondaryActions: []
+                primaryAction: CommandAction(id: "foundry.snippets.open", title: "Open", kind: .openSnippets)
             ),
             BuiltInCommand(
                 id: "foundry.snippets.create-from-clipboard",
@@ -121,8 +110,7 @@ final class BuiltInCommandProvider: CommandProvider {
                 aliases: ["new snippet", "create snippet", "clipboard snippet", "save snippet"],
                 systemIcon: "plus.rectangle.on.rectangle",
                 fallback: "SN",
-                primaryAction: CommandAction(id: "foundry.snippets.create-from-clipboard.perform", title: "Create", kind: .createSnippetFromClipboard),
-                secondaryActions: []
+                primaryAction: CommandAction(id: "foundry.snippets.create-from-clipboard.perform", title: "Create", kind: .createSnippetFromClipboard)
             ),
             BuiltInCommand(
                 id: "foundry.snippets.import",
@@ -131,28 +119,25 @@ final class BuiltInCommandProvider: CommandProvider {
                 aliases: ["import snippets", "raycast snippets", "snippets json"],
                 systemIcon: "square.and.arrow.down",
                 fallback: "SN",
-                primaryAction: CommandAction(id: "foundry.snippets.import.perform", title: "Import", kind: .importSnippets),
-                secondaryActions: []
+                primaryAction: CommandAction(id: "foundry.snippets.import.perform", title: "Import", kind: .importSnippets)
             ),
             BuiltInCommand(
                 id: "foundry.translate",
                 title: "Translate",
-                 subtitle: "Translate text with Apple Translation; Apple Intelligence is an alternative",
+                 subtitle: "Translate text between languages",
                 aliases: ["translate", "translator", "translation", "language"],
                 systemIcon: "globe",
                 fallback: "TR",
-                primaryAction: CommandAction(id: "foundry.translate.open", title: "Open", kind: .openTranslator()),
-                secondaryActions: []
+                primaryAction: CommandAction(id: "foundry.translate.open", title: "Open", kind: .openTranslator())
             ),
             BuiltInCommand(
                 id: "foundry.ai",
                 title: "Ask AI",
-                subtitle: "Apple Foundation Models first, with optional Ollama tools",
+                subtitle: "Ask a question or draft text with your AI model",
                 aliases: ["ask ai", "ai", "plan", "draft"],
                 systemIcon: "sparkles",
                 fallback: "AI",
-                primaryAction: CommandAction(id: "foundry.ai.open", title: "Open", kind: .openQuickAI(prompt: "")),
-                secondaryActions: []
+                primaryAction: CommandAction(id: "foundry.ai.open", title: "Open", kind: .openQuickAI(prompt: ""))
             ),
             BuiltInCommand(
                 id: "foundry.developer-tools",
@@ -161,8 +146,7 @@ final class BuiltInCommandProvider: CommandProvider {
                 aliases: ["developer tools", "base convert", "bitwise", "radix", "binary", "hex"],
                 systemIcon: "hammer",
                 fallback: "DT",
-                primaryAction: CommandAction(id: "foundry.developer-tools.open", title: "Open", kind: .openDeveloperTools()),
-                secondaryActions: []
+                primaryAction: CommandAction(id: "foundry.developer-tools.open", title: "Open", kind: .openDeveloperTools())
             ),
             BuiltInCommand(
                 id: "foundry.settings",
@@ -171,18 +155,25 @@ final class BuiltInCommandProvider: CommandProvider {
                 aliases: ["foundry config", "config", "preferences"],
                 systemIcon: "slider.horizontal.3",
                 fallback: "ST",
-                primaryAction: CommandAction(id: "foundry.settings.open", title: "Open", kind: .openSettings),
-                secondaryActions: []
+                primaryAction: CommandAction(id: "foundry.settings.open", title: "Open", kind: .openSettings)
+            ),
+            BuiltInCommand(
+                id: "foundry.welcome",
+                title: "Welcome to Foundry",
+                subtitle: "Replay the setup guide",
+                aliases: ["welcome", "onboarding", "setup", "guide", "getting started", "tutorial"],
+                systemIcon: "sparkles.rectangle.stack",
+                fallback: "WG",
+                primaryAction: CommandAction(id: "foundry.welcome.open", title: "Open", kind: .openWelcomeGuide)
             ),
             BuiltInCommand(
                 id: "foundry.quit",
                 title: "Quit Foundry",
-                subtitle: "Stop the local prototype process.",
+                subtitle: "Quit Foundry and stop background features.",
                 aliases: ["exit", "close foundry"],
                 systemIcon: "power",
                 fallback: "QT",
-                primaryAction: CommandAction(id: "foundry.quit.perform", title: "Quit", kind: .quit),
-                secondaryActions: []
+                primaryAction: CommandAction(id: "foundry.quit.perform", title: "Quit", kind: .quit)
             )
         ]
     }
@@ -196,5 +187,4 @@ private struct BuiltInCommand {
     let systemIcon: String
     let fallback: String
     let primaryAction: CommandAction
-    let secondaryActions: [CommandAction]
 }

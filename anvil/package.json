@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "tiles": "node scripts/build-foundry-tiles.mjs"
   },
   "dependencies": {
     "motion": "^12.40.0",

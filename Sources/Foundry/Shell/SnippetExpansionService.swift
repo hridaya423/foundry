@@ -40,13 +40,12 @@ final class SnippetExpansionService: @unchecked Sendable {
     }
 
     var isRunning: Bool { eventTap != nil || testEventTapRunning }
-    var isAccessibilityTrusted: Bool { accessibilityTrusted() }
 
     func configure(isEnabled: Bool, excludedBundleIdentifiers: [String]) {
         lastError = nil
         onStatusChanged?(nil)
         engine = SnippetExpansionEngine(
-            snippets: snippetStore.load(),
+            snippets: snippetStore.load().filter { SnippetRenderer.argumentNames(in: $0.content).isEmpty },
             excludedBundleIdentifiers: excludedBundleIdentifiers,
             render: { SnippetRenderer.render($0.content).text }
         )
@@ -93,7 +92,6 @@ final class SnippetExpansionService: @unchecked Sendable {
         _ = engine.receive(.reset)
     }
 
-    func resetForApplicationChange() { _ = engine.receive(.reset) }
     func handleApplicationActivation(bundleIdentifier: String?) { _ = engine.receive(.appChanged(bundleIdentifier: bundleIdentifier)) }
     func recoverFromWake() { _ = engine.receive(.reset); start() }
 
@@ -125,7 +123,7 @@ final class SnippetExpansionService: @unchecked Sendable {
         }
         guard type == .keyDown, isConfigured else { return Unmanaged.passUnretained(event) }
         guard let nsEvent = NSEvent(cgEvent: event) else { _ = engine.receive(.nonText); return Unmanaged.passUnretained(event) }
-        if isSecureTextFieldFocused() { _ = engine.receive(.secureInputChanged(true)); return Unmanaged.passUnretained(event) }
+        if IsSecureEventInputEnabled() { _ = engine.receive(.secureInputChanged(true)); return Unmanaged.passUnretained(event) }
         _ = engine.receive(.secureInputChanged(false))
         let flags = nsEvent.modifierFlags.intersection(.deviceIndependentFlagsMask)
         if flags.contains(.command) || flags.contains(.control) || flags.contains(.option) {
@@ -143,7 +141,7 @@ final class SnippetExpansionService: @unchecked Sendable {
         Task { @MainActor in
             directPaste.captureTarget()
             do {
-                try directPaste.stage(.text(rendered.text + expansion.delimiter), cursorOffset: rendered.cursorOffsetFromEnd, snippetID: nil)
+                try directPaste.stage(.text(rendered.text + expansion.delimiter), cursorOffset: rendered.cursorOffsetFromEnd)
                 for _ in 0..<expansion.deleteCount { Self.sendBackspace() }
                 try await directPaste.completePendingPaste()
             } catch {
@@ -152,20 +150,6 @@ final class SnippetExpansionService: @unchecked Sendable {
             }
         }
         return nil
-    }
-
-    private func isSecureTextFieldFocused() -> Bool {
-        guard let app = NSWorkspace.shared.frontmostApplication else { return true }
-        let element = AXUIElementCreateApplication(app.processIdentifier)
-        var focused: CFTypeRef?
-        guard AXUIElementCopyAttributeValue(element, kAXFocusedUIElementAttribute as CFString, &focused) == .success,
-              let focused else { return true }
-        var role: CFTypeRef?
-        guard CFGetTypeID(focused) == AXUIElementGetTypeID() else { return true }
-        let focusedElement = unsafeDowncast(focused, to: AXUIElement.self)
-        guard AXUIElementCopyAttributeValue(focusedElement, kAXRoleAttribute as CFString, &role) == .success,
-              let role = role as? String else { return true }
-        return role == "AXSecureTextField"
     }
 
     private static func message(for error: Error) -> String {

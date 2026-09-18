@@ -5,7 +5,7 @@ import FoundryDomain
 struct RowBackground: View {
     let isSelected: Bool
     let isHovering: Bool
-    var cornerRadius: CGFloat = 9
+    var cornerRadius: CGFloat = FoundryTheme.Radius.row
     @Environment(\.foundryHoverHighlightsArmed) private var hoverHighlightsArmed
 
     private var fill: Color {
@@ -41,8 +41,9 @@ struct HomeSectionHeader: View {
 
     var body: some View {
         HStack {
-            Text(title)
-                .font(FoundryTheme.body(size: 13, weight: .semibold))
+            Text(title.uppercased())
+                .font(FoundryTheme.sectionHeaderFont)
+                .tracking(0.4)
                 .foregroundStyle(FoundryTheme.primaryText.opacity(0.72))
             Spacer()
             if let action {
@@ -70,32 +71,77 @@ struct HomeResultRow: View {
     let label: String
 
     @State private var isHovering = false
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         HStack(spacing: 12) {
             AppIcon(icon: result.icon, size: 26, cornerRadius: 6)
+                .scaleEffect(isSelected ? 1.04 : 1)
 
             Text(result.title)
-                .font(FoundryTheme.body(size: 14, weight: .medium))
+                .font(FoundryTheme.rowTitleFont)
                 .foregroundStyle(FoundryTheme.primaryText)
                 .lineLimit(1)
 
             Spacer()
 
             Text(label)
-                .font(FoundryTheme.body(size: 12, weight: .regular))
+                .font(FoundryTheme.secondaryFont)
                 .foregroundStyle(FoundryTheme.faintText)
                 .lineLimit(1)
         }
-        .padding(.horizontal, 12)
+        .padding(.horizontal, FoundryTheme.Spacing.sm)
         .frame(height: 40)
         .background(RowBackground(isSelected: isSelected, isHovering: isHovering))
-        .animation(reduceMotion ? nil : .easeOut(duration: 0.12), value: isHovering)
         .onHover { hovering in
             isHovering = hovering
             if hovering { NSCursor.pointingHand.set() } else { NSCursor.arrow.set() }
         }
+    }
+}
+
+struct FavoritesRow: View {
+    let results: [CommandResult]
+    let onSelect: (CommandResult) -> Void
+
+    var body: some View {
+        HStack(spacing: 4) {
+            ForEach(results.prefix(8), id: \.id) { result in
+                FavoriteTile(result: result) {
+                    onSelect(result)
+                }
+            }
+        }
+        .padding(.horizontal, 2)
+    }
+}
+
+private struct FavoriteTile: View {
+    let result: CommandResult
+    let action: () -> Void
+
+    @State private var isHovering = false
+
+    var body: some View {
+        Button(action: action) {
+            VStack(spacing: 5) {
+                AppIcon(icon: result.icon, size: 30, cornerRadius: 8)
+                Text(result.title)
+                    .font(FoundryTheme.body(size: 10, weight: .medium))
+                    .foregroundStyle(FoundryTheme.secondaryText)
+                    .lineLimit(1)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 8)
+            .background(isHovering ? FoundryTheme.hover : Color.clear)
+            .clipShape(RoundedRectangle(cornerRadius: FoundryTheme.Radius.row, style: .continuous))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .onHover { isHovering = $0 }
+        .pointerCursor()
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(result.title)
+        .accessibilityAddTraits(.isButton)
     }
 }
 
@@ -105,7 +151,6 @@ struct MediaResultRow: View {
     var isExpanded = false
 
     @State private var isHovering = false
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         HStack(alignment: isExpanded ? .top : .center, spacing: 16) {
@@ -164,7 +209,6 @@ struct MediaResultRow: View {
         .padding(.vertical, isExpanded ? 20 : 0)
         .frame(height: isExpanded ? 260 : 76)
         .background(RowBackground(isSelected: isSelected, isHovering: isHovering))
-        .animation(reduceMotion ? nil : .easeOut(duration: 0.12), value: isHovering)
         .onHover { hovering in
             isHovering = hovering
             if hovering { NSCursor.pointingHand.set() } else { NSCursor.arrow.set() }
@@ -226,39 +270,91 @@ struct MediaThumbnail: View {
 struct ResultRow: View {
     let result: CommandResult
     let isSelected: Bool
-    let index: Int
+    var alias: String? = nil
+    var hotkey: String? = nil
+    var isRunning = false
+    var kindLabel: String? = nil
+    var compact = false
 
     @State private var isHovering = false
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
+        if let dragProvider {
+            row.onDrag(dragProvider)
+        } else {
+            row
+        }
+    }
+
+    private var row: some View {
         HStack(spacing: 12) {
             AppIcon(icon: result.icon, size: 28, cornerRadius: 7)
+                .scaleEffect(isSelected ? 1.04 : 1)
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(result.title)
-                    .font(FoundryTheme.body(size: 14, weight: .medium))
+                    .font(FoundryTheme.rowTitleFont)
                     .foregroundStyle(FoundryTheme.primaryText)
                     .lineLimit(1)
 
-                if let subtitle = result.subtitle {
+                if let subtitle = result.subtitle, ResultSection.of(result) != .commands {
                     Text(subtitle)
-                        .font(FoundryTheme.body(size: 12, weight: .regular))
+                        .font(FoundryTheme.secondaryFont)
                         .foregroundStyle(FoundryTheme.mutedText)
                         .lineLimit(1)
                 }
             }
 
             Spacer()
+
+            HStack(spacing: 6) {
+                if let alias {
+                    ResultBadge(text: alias)
+                }
+                if let hotkey {
+                    ResultBadge(text: hotkey)
+                }
+                if isRunning {
+                    Circle()
+                        .fill(FoundryTheme.success)
+                        .frame(width: 6, height: 6)
+                        .accessibilityLabel("Running")
+                }
+                if let kindLabel {
+                    Text(kindLabel)
+                        .font(FoundryTheme.secondaryFont)
+                        .foregroundStyle(FoundryTheme.faintText)
+                        .lineLimit(1)
+                }
+            }
         }
-        .padding(.horizontal, 12)
-        .frame(height: result.subtitle == nil ? 40 : 46)
+        .padding(.horizontal, FoundryTheme.Spacing.sm)
+        .frame(height: compact ? 38 : 44)
         .background(RowBackground(isSelected: isSelected, isHovering: isHovering))
-        .animation(reduceMotion ? nil : .easeOut(duration: 0.12), value: isHovering)
         .onHover { hovering in
             isHovering = hovering
             if hovering { NSCursor.pointingHand.set() } else { NSCursor.arrow.set() }
         }
+    }
+
+    private var dragProvider: (() -> NSItemProvider)? {
+        guard result.id.hasPrefix("file.") else { return nil }
+        let path = String(result.id.dropFirst(5))
+        return { NSItemProvider(object: NSURL(fileURLWithPath: path)) }
+    }
+}
+
+private struct ResultBadge: View {
+    let text: String
+
+    var body: some View {
+        Text(text)
+            .font(FoundryTheme.metaFont)
+            .foregroundStyle(FoundryTheme.mutedText)
+            .lineLimit(1)
+            .padding(.horizontal, 6)
+            .frame(height: 20)
+            .background(Color.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: 5, style: .continuous))
     }
 }
 
@@ -269,52 +365,78 @@ struct AppIcon: View {
 
     var body: some View {
         Group {
-            if let image = nsImage {
-                Image(nsImage: image)
-                    .resizable()
-                    .aspectRatio(contentMode: .fit)
-            } else if let systemName = icon.systemName {
-                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .fill(Color.primary.opacity(0.075))
-                    .overlay(
-                        Image(systemName: systemName)
-                            .font(.system(size: size * 0.47, weight: .medium))
-                            .foregroundStyle(FoundryTheme.secondaryText)
-                    )
+            if let filePath = icon.filePath {
+                FileIcon(path: filePath) { fallback }
+            } else if let remoteIconURL = icon.remoteIconURL {
+                RemoteIcon(url: remoteIconURL) { fallback }
             } else {
-                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .fill(Color.primary.opacity(0.075))
-                    .overlay(
-                        Text(icon.fallback)
-                            .font(FoundryTheme.body(size: size * 0.32, weight: .semibold))
-                            .foregroundStyle(FoundryTheme.secondaryText)
-                    )
+                fallback
             }
         }
         .frame(width: size, height: size)
     }
 
-    private var nsImage: NSImage? {
-        guard let filePath = icon.filePath else { return nil }
-        return IconCache.shared.icon(forFile: filePath)
+    @ViewBuilder private var fallback: some View {
+        if let systemName = icon.systemName {
+            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                .fill(Color.primary.opacity(0.075))
+                .overlay(
+                    Image(systemName: systemName)
+                        .font(.system(size: size * 0.47, weight: .medium))
+                        .foregroundStyle(FoundryTheme.secondaryText)
+                )
+        } else {
+            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                .fill(Color.primary.opacity(0.075))
+                .overlay(
+                    Text(icon.fallback)
+                        .font(FoundryTheme.body(size: size * 0.32, weight: .semibold))
+                        .foregroundStyle(FoundryTheme.secondaryText)
+                )
+        }
     }
 }
 
-@MainActor
-final class IconCache {
-    static let shared = IconCache()
+struct FileIcon<Placeholder: View>: View {
+    let path: String
+    @ViewBuilder var placeholder: () -> Placeholder
 
-    private let cache = NSCache<NSString, NSImage>()
+    @State private var image: NSImage?
 
-    func icon(forFile path: String) -> NSImage {
-        let key = path as NSString
-        if let cached = cache.object(forKey: key) {
-            return cached
+    var body: some View {
+        Group {
+            if let image {
+                Image(nsImage: image)
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+            } else {
+                placeholder()
+            }
         }
+        .task(id: path) {
+            image = await CommandIconRepository.shared.image(for: path)
+        }
+    }
+}
 
-        let image = NSWorkspace.shared.icon(forFile: path)
-        image.size = NSSize(width: 34, height: 34)
-        cache.setObject(image, forKey: key)
-        return image
+struct RemoteIcon<Placeholder: View>: View {
+    let url: URL
+    @ViewBuilder var placeholder: () -> Placeholder
+
+    @State private var image: NSImage?
+
+    var body: some View {
+        Group {
+            if let image {
+                Image(nsImage: image)
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+            } else {
+                placeholder()
+            }
+        }
+        .task(id: url) {
+            image = await CommandIconRepository.shared.image(forRemoteURL: url)
+        }
     }
 }

@@ -4,13 +4,11 @@ import FoundryServices
 
 final class CommandProviderScheduler: @unchecked Sendable {
     private let diagnostics: DiagnosticsService
-    private let providerHealth: ProviderHealthStore
     private let gateLock = NSLock()
     private var providerGates: [String: ProviderExecutionGate] = [:]
 
-    init(diagnostics: DiagnosticsService, providerHealth: ProviderHealthStore) {
+    init(diagnostics: DiagnosticsService) {
         self.diagnostics = diagnostics
-        self.providerHealth = providerHealth
     }
 
     func search(
@@ -31,7 +29,7 @@ final class CommandProviderScheduler: @unchecked Sendable {
                     let span = diagnostics.startSpan("search.provider.\(provider.id)")
                     defer { diagnostics.endSpan(span) }
                     let startedAt = Date().timeIntervalSinceReferenceDate
-                    let deadline = ContinuousClock().now.advanced(by: timeout)
+                    let deadline = ContinuousClock().now.advanced(by: provider.searchTimeout ?? timeout)
                     let outcome = await self.results(
                         from: provider,
                         query: query,
@@ -41,7 +39,6 @@ final class CommandProviderScheduler: @unchecked Sendable {
                         deadline: deadline
                     )
                     let elapsedMilliseconds = (Date().timeIntervalSinceReferenceDate - startedAt) * 1_000
-                    await self.record(outcome.status, providerID: provider.id, elapsedMilliseconds: elapsedMilliseconds, resultCount: outcome.value?.count ?? 0)
                     return ProviderSearchResult(
                         providerID: provider.id,
                         results: outcome.value ?? [],
@@ -72,13 +69,9 @@ final class CommandProviderScheduler: @unchecked Sendable {
     }
 
     func defaults(for provider: CommandProvider, deadline: ContinuousClock.Instant) async -> ProviderOperationResult<[CommandResult]> {
-        let startedAt = Date().timeIntervalSinceReferenceDate
-        let outcome = await race(providerID: provider.id, operationKey: "defaults", {
+        await race(providerID: provider.id, operationKey: "defaults", {
             try await provider.defaultResults()
         }, until: deadline)
-        let elapsedMilliseconds = (Date().timeIntervalSinceReferenceDate - startedAt) * 1_000
-        await record(outcome.status, providerID: provider.id, elapsedMilliseconds: elapsedMilliseconds, resultCount: outcome.value?.count ?? 0)
-        return outcome
     }
 
     private func results(
@@ -94,8 +87,7 @@ final class CommandProviderScheduler: @unchecked Sendable {
             try await provider.search(CommandSearchRequest(
                 query: query,
                 customAliases: aliases,
-                sensitivity: sensitivity,
-                deadline: deadline
+                sensitivity: sensitivity
             ))
         }, until: deadline)
     }
@@ -148,33 +140,6 @@ final class CommandProviderScheduler: @unchecked Sendable {
             let gate = ProviderExecutionGate()
             providerGates[providerID] = gate
             return gate
-        }
-    }
-
-    private func record(
-        _ status: ProviderCallStatus,
-        providerID: String,
-        elapsedMilliseconds: Double,
-        resultCount: Int
-    ) async {
-        switch status {
-        case .success:
-            await providerHealth.recordRequest(
-                providerID: providerID,
-                elapsedMilliseconds: elapsedMilliseconds,
-                resultCount: resultCount
-            )
-        case let .failed(message):
-            await providerHealth.recordFailure(providerID: providerID, message: message)
-        case .timedOut:
-            await providerHealth.recordTimeout(
-                providerID: providerID,
-                message: "Provider timed out after \(String(format: "%.0f", elapsedMilliseconds))ms"
-            )
-        case .cancelled:
-            await providerHealth.recordCancellation(providerID: providerID)
-        case .busy:
-            break
         }
     }
 }
@@ -304,13 +269,5 @@ private actor ProviderExecutionGate {
 
     private func finish(key: String) {
         inFlight.removeValue(forKey: key)
-    }
-}
-
-private extension NSLock {
-    func withLock<T>(_ body: () -> T) -> T {
-        lock()
-        defer { unlock() }
-        return body()
     }
 }

@@ -20,7 +20,7 @@ final class SnippetExpansionServiceTests: XCTestCase {
     func testBackspaceAndExactDelimiterExpandOnceAndDeleteKeywordOnly() {
         var value = engine(); ["b", "r", "x"].forEach { _ = value.receive(.character($0)) }; _ = value.receive(.backspace); _ = value.receive(.character("b"))
         guard case let .expanded(expansion) = value.receive(.delimiter(" ")) else { return XCTFail("Expected expansion") }
-        XCTAssertEqual(expansion, .init(keyword: "brb", renderedContent: "HELLO", delimiter: " ", deleteCount: 3))
+        XCTAssertEqual(expansion, .init(renderedContent: "HELLO", delimiter: " ", deleteCount: 3))
         XCTAssertEqual(value.buffer, "")
         XCTAssertEqual(value.receive(.delimiter(" ")), .ignored)
     }
@@ -32,7 +32,7 @@ final class SnippetExpansionServiceTests: XCTestCase {
         _ = value.receive(.appChanged(bundleIdentifier: "com.other")); _ = value.receive(.secureInputChanged(true)); _ = value.receive(.character("g")); _ = value.receive(.character("o"))
         XCTAssertEqual(value.receive(.delimiter(" ")), .ignored)
         _ = value.receive(.secureInputChanged(false)); _ = value.receive(.character("g")); _ = value.receive(.character("o"))
-        XCTAssertEqual(value.receive(.delimiter(" ")), .expanded(.init(keyword: "go", renderedContent: "x", delimiter: " ", deleteCount: 2)))
+        XCTAssertEqual(value.receive(.delimiter(" ")), .expanded(.init(renderedContent: "x", delimiter: " ", deleteCount: 2)))
     }
 
     func testDuplicateKeywordsDisableExpansionWhilePrecedenceRemainsDeterministic() {

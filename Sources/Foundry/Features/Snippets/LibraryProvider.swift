@@ -39,7 +39,8 @@ final class LibraryProvider: CommandProvider {
                     primaryAction: CommandAction(id: "snippet.insert.\(snippet.id)", title: "Insert Snippet", kind: .pasteSnippet(id: snippet.id)),
                     secondaryActions: [
                         CommandAction(id: "snippet.copy.\(snippet.id)", title: "Copy Snippet", kind: .copySnippet(id: snippet.id)),
-                        CommandAction(id: "snippet.open.\(snippet.id)", title: "Open Snippets", kind: .openSnippets)
+                        CommandAction(id: "snippet.open.\(snippet.id)", title: "Open Snippets", kind: .openSnippets),
+                        CommandAction(id: "snippet.delete.\(snippet.id)", title: "Delete Snippet", kind: .deleteSnippet(id: snippet.id))
                     ]
                 )
             }
@@ -79,12 +80,4 @@ private final class StoredSnippetCache: @unchecked Sendable {
 private struct StoredSnippetFileSignature: Equatable {
     let modificationDate: Date?
     let fileSize: Int?
-}
-
-private extension NSLock {
-    func withLock<T>(_ body: () -> T) -> T {
-        lock()
-        defer { unlock() }
-        return body()
-    }
 }

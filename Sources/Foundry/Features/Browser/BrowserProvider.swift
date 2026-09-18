@@ -40,7 +40,7 @@ final class BrowserProvider: CommandProvider, @unchecked Sendable {
     }
 
     func defaultResults() async -> [CommandResult] {
-        return BrowserSource.allCases.map(browserLaunchResult)
+        return BrowserSource.allCases.filter(\.isInstalled).map(browserLaunchResult)
     }
 
     func cachedResults(matching query: String, sensitivity: SearchSensitivity = .medium) -> [CommandResult] {

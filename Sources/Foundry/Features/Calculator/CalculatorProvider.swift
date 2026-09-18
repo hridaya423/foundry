@@ -5,6 +5,11 @@ final class CalculatorProvider: CommandProvider {
     let id = "foundry.calculator"
 
     func search(_ request: CommandSearchRequest) async -> [CommandResult] {
+        let trimmed = request.query.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed == "calc" || trimmed == "=" || trimmed.lowercased() == "calc history" {
+            return Self.historyResults()
+        }
+
         let currencyConversions = await Self.convertCurrency(request.query)
         if currencyConversions.isEmpty == false {
             return Self.conversionResults(currencyConversions)
@@ -77,12 +82,28 @@ final class CalculatorProvider: CommandProvider {
         return CalculatorEvaluation(expression: expression, result: result, copyValue: result)
     }
 
+    private static func historyResults() -> [CommandResult] {
+        CalculatorHistoryStore.shared.entries.enumerated().map { index, entry in
+            CommandResult(
+                id: "calculator.history.\(index).\(entry.expression)",
+                title: entry.result,
+                subtitle: entry.expression,
+                icon: CommandIcon(fallback: "=", systemName: "clock"),
+                route: .calculator,
+                primaryAction: CommandAction(id: "calculator.history.\(index).copy", title: "Copy Result", kind: .copyToClipboard(entry.result)),
+                secondaryActions: [
+                    CommandAction(id: "calculator.history.\(index).copy-expression", title: "Copy Expression", kind: .copyToClipboard(entry.expression))
+                ]
+            )
+        }
+    }
+
     private static func conversionResults(_ conversions: [CalculatorEvaluation]) -> [CommandResult] {
         conversions.enumerated().map { index, conversion in
             CommandResult(
                 id: "calculator.convert.\(conversion.expression).\(index)",
                 title: conversion.result,
-                subtitle: conversion.expression,
+                subtitle: conversion.subtitle,
                 icon: CommandIcon(fallback: "⇄", systemName: "arrow.left.arrow.right"),
                 route: .calculator,
                 primaryAction: CommandAction(id: "calculator.convert.\(index).copy", title: "Copy Result", kind: .copyToClipboard(conversion.copyValue)),
@@ -119,23 +140,23 @@ final class CalculatorProvider: CommandProvider {
         let ratesByQuote = Dictionary(uniqueKeysWithValues: rates.map { ($0.quote, $0) })
         return quotes.compactMap { ratesByQuote[$0] }.map { rate in
             let result = currencyAmount(request.amount * rate.rate, code: rate.quote)
-            return CalculatorEvaluation(expression: expression, result: result, copyValue: result)
+            return CalculatorEvaluation(expression: expression, result: result, copyValue: result, note: rate.date.map { "Rate from \($0)" })
         }
     }
+
+    private static let symbolCurrencyRegex = try! NSRegularExpression(pattern: #"^([$€£¥₹])\s*([-+]?\d+(?:[\.,]\d+)?)(?:\s*(?:to|in)\s*([a-z]{3}|[$€£¥₹]))?$"#)
+    private static let wordCurrencyRegex = try! NSRegularExpression(pattern: #"^([-+]?\d+(?:[\.,]\d+)?)\s*([a-z]{3}|dollars?|bucks?|usd|euros?|eur|pounds?|gbp|yen|jpy|rupees?|inr|cad|aud|chf|cny)(?:\s*(?:to|in)\s*([a-z]{3}|[$€£¥₹]|dollars?|usd|euros?|eur|pounds?|gbp|yen|jpy|rupees?|inr|cad|aud|chf|cny))?$"#)
 
     private static func currencyRequest(from query: String) -> CurrencyRequest? {
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        let symbolPattern = #"^([$€£¥₹])\s*([-+]?\d+(?:[\.,]\d+)?)(?:\s*(?:to|in)\s*([a-z]{3}|[$€£¥₹]))?$"#
-        if let request = parseCurrency(trimmed, pattern: symbolPattern, amountIndex: 2, baseIndex: 1, quoteIndex: 3) {
+        if let request = parseCurrency(trimmed, regex: symbolCurrencyRegex, amountIndex: 2, baseIndex: 1, quoteIndex: 3) {
             return request
         }
-
-        let wordPattern = #"^([-+]?\d+(?:[\.,]\d+)?)\s*([a-z]{3}|dollars?|bucks?|usd|euros?|eur|pounds?|gbp|yen|jpy|rupees?|inr|cad|aud|chf|cny)(?:\s*(?:to|in)\s*([a-z]{3}|[$€£¥₹]|dollars?|usd|euros?|eur|pounds?|gbp|yen|jpy|rupees?|inr|cad|aud|chf|cny))?$"#
-        return parseCurrency(trimmed, pattern: wordPattern, amountIndex: 1, baseIndex: 2, quoteIndex: 3)
+        return parseCurrency(trimmed, regex: wordCurrencyRegex, amountIndex: 1, baseIndex: 2, quoteIndex: 3)
     }
 
-    private static func parseCurrency(_ value: String, pattern: String, amountIndex: Int, baseIndex: Int, quoteIndex: Int) -> CurrencyRequest? {
-        guard let match = try? NSRegularExpression(pattern: pattern)
+    private static func parseCurrency(_ value: String, regex: NSRegularExpression, amountIndex: Int, baseIndex: Int, quoteIndex: Int) -> CurrencyRequest? {
+        guard let match = regex
             .firstMatch(in: value, range: NSRange(value.startIndex..<value.endIndex, in: value)),
             let amountRange = Range(match.range(at: amountIndex), in: value),
             let baseRange = Range(match.range(at: baseIndex), in: value),
@@ -154,10 +175,12 @@ final class CalculatorProvider: CommandProvider {
         return CurrencyRequest(amount: amount, base: base, quote: quote)
     }
 
+    private static let convertRegex = try! NSRegularExpression(pattern: #"^([-+]?\d+(?:[\.,]\d+)?)\s*([a-z0-9/ ]+)$"#)
+
     private static func convert(_ query: String) -> [CalculatorEvaluation] {
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
             .replacingOccurrences(of: "°", with: "")
-        guard let match = try? NSRegularExpression(pattern: #"^([-+]?\d+(?:[\.,]\d+)?)\s*([a-z0-9/ ]+)$"#)
+        guard let match = convertRegex
             .firstMatch(in: trimmed, range: NSRange(trimmed.startIndex..<trimmed.endIndex, in: trimmed)),
             let valueRange = Range(match.range(at: 1), in: trimmed),
             let unitRange = Range(match.range(at: 2), in: trimmed) else { return [] }
@@ -599,6 +622,9 @@ private struct CalculatorEvaluation {
     let expression: String
     let result: String
     let copyValue: String
+    var note: String? = nil
+
+    var subtitle: String { [expression, note].compactMap { $0 }.joined(separator: " · ") }
 }
 
 private struct CurrencyRequest {
@@ -608,9 +634,45 @@ private struct CurrencyRequest {
 }
 
 private struct FrankfurterRate: Decodable {
-    let base: String
     let quote: String
     let rate: Double
+    let date: String?
+}
+
+final class CalculatorHistoryStore: @unchecked Sendable {
+    static let shared = CalculatorHistoryStore()
+
+    struct Entry: Equatable {
+        let expression: String
+        let result: String
+    }
+
+    private let key = "foundry.calculator.history"
+    private let defaults: UserDefaults
+    private let lock = NSLock()
+    private let limit = 10
+
+    init(defaults: UserDefaults = .standard) { self.defaults = defaults }
+
+    var entries: [Entry] {
+        lock.lock()
+        defer { lock.unlock() }
+        guard let raw = defaults.array(forKey: key) as? [[String]] else { return [] }
+        return raw.compactMap { pair in
+            guard pair.count == 2 else { return nil }
+            return Entry(expression: pair[0], result: pair[1])
+        }
+    }
+
+    func record(expression: String, result: String) {
+        guard result.isEmpty == false else { return }
+        lock.lock()
+        let entry = [expression, result]
+        var raw = (defaults.array(forKey: key) as? [[String]] ?? []).filter { $0 != entry }
+        raw.insert(entry, at: 0)
+        defaults.set(Array(raw.prefix(limit)), forKey: key)
+        lock.unlock()
+    }
 }
 
 private final class CurrencyRateCache: @unchecked Sendable {
@@ -646,7 +708,6 @@ private final class CurrencyRateCache: @unchecked Sendable {
 private struct CalculatorParser {
     enum ParseError: Error {
         case expectedNumber
-        case expectedIdentifier
         case expectedClosingParenthesis
         case expectedFunctionArguments
         case unknownIdentifier(String)
@@ -866,7 +927,7 @@ private struct CalculatorParser {
         case "abs": return try unary(name, arguments, abs)
         case "sign", "signum": return try unary(name, arguments) { $0.sign == .minus ? -1 : ($0 == 0 ? 0 : 1) }
         case "ln": return try unary(name, arguments, log)
-        case "log": return try arguments.count == 1 ? log10(arguments[0]) : binary(name, arguments) { log($1) / log($0) }
+        case "log": return try arguments.count == 1 ? log10(arguments[0]) : binary(name, arguments) { log($0) / log($1) }
         case "log2": return try unary(name, arguments, log2)
         case "log10": return try unary(name, arguments, log10)
         case "exp": return try unary(name, arguments, exp)
@@ -877,15 +938,15 @@ private struct CalculatorParser {
         case "deg": return try unary(name, arguments) { $0 * 180 / Double.pi }
         case "rad": return try unary(name, arguments) { $0 * Double.pi / 180 }
         case "pow": return try binary(name, arguments, pow)
-        case "root": return try binary(name, arguments) { pow($1, 1 / $0) }
+        case "root": return try binary(name, arguments) { pow($0, 1 / $1) }
         case "hypot": return try binary(name, arguments, hypot)
         case "mod": return try binary(name, arguments) { $0.truncatingRemainder(dividingBy: $1) }
         case "clamp": return try ternary(name, arguments) { min(max($0, $1), $2) }
         case "atan2": return try binary(name, arguments, atan2)
-        case "min": return try many(name, arguments, min)
-        case "max": return try many(name, arguments, max)
+        case "min": return try many(arguments, min)
+        case "max": return try many(arguments, max)
         case "sum": return arguments.reduce(0, +)
-        case "avg", "mean": return try average(name, arguments)
+        case "avg", "mean": return try average(arguments)
         default: throw ParseError.unknownIdentifier(name)
         }
     }
@@ -905,12 +966,12 @@ private struct CalculatorParser {
         return function(arguments[0], arguments[1], arguments[2])
     }
 
-    private func many(_ name: String, _ arguments: [Double], _ function: (Double, Double) -> Double) throws -> Double {
+    private func many(_ arguments: [Double], _ function: (Double, Double) -> Double) throws -> Double {
         guard let first = arguments.first else { throw ParseError.expectedFunctionArguments }
         return arguments.dropFirst().reduce(first, function)
     }
 
-    private func average(_ name: String, _ arguments: [Double]) throws -> Double {
+    private func average(_ arguments: [Double]) throws -> Double {
         guard arguments.isEmpty == false else { throw ParseError.expectedFunctionArguments }
         return arguments.reduce(0, +) / Double(arguments.count)
     }

@@ -1,5 +1,5 @@
 import AppKit
-import ApplicationServices
+@preconcurrency import ApplicationServices
 import Foundation
 import FoundryDomain
 
@@ -13,7 +13,6 @@ enum WindowOperationResult: Equatable, Sendable {
 
 @MainActor
 protocol WindowManaging: Sendable {
-    func isTrusted() -> Bool
     func apply(_ placement: WindowPlacement) async -> WindowOperationResult
 }
 

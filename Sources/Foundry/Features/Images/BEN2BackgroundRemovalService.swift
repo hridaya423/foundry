@@ -5,8 +5,8 @@ import UniformTypeIdentifiers
 import FoundryServices
 
 struct BEN2BackgroundRemovalService: BackgroundRemoving, Sendable {
-    static func assess(root: URL? = nil, executablePaths: [String: String] = [:]) -> BEN2Assessment {
-        BEN2Runtime.assess(root: root, executablePaths: executablePaths)
+    static func assess(root: URL? = nil) -> BEN2Assessment {
+        BEN2Runtime.assess(root: root)
     }
 
     static func removeData(root: URL? = nil) throws {
@@ -45,10 +45,9 @@ struct BEN2BackgroundRemovalService: BackgroundRemoving, Sendable {
 private actor BEN2Runtime {
     static let shared = BEN2Runtime()
 
-    private var preparedPaths: Paths?
     private var setupTask: Task<Void, Error>?
 
-    nonisolated static func assess(root: URL?, executablePaths: [String: String]) -> BEN2Assessment {
+    nonisolated static func assess(root: URL?) -> BEN2Assessment {
         let root = root ?? BEN2Artifact.defaultRoot
         let fm = FileManager.default
         let model = root.appendingPathComponent("models/\(BEN2Artifact.filename)")
@@ -60,7 +59,6 @@ private actor BEN2Runtime {
         let runtimeState: BEN2ComponentState = fm.fileExists(atPath: runtimeManifest.path)
             ? (BEN2Runtime.isRuntimeReady(python: runtime.appendingPathComponent("bin/python"), manifest: runtimeManifest) ? .ready : .invalid)
             : .missing
-        let uv = executablePaths["uv"] ?? ["/opt/homebrew/bin/uv", "/usr/local/bin/uv", fm.homeDirectoryForCurrentUser.appendingPathComponent(".local/bin/uv").path].first(where: fm.isExecutableFile(atPath:))
         let plan = SetupPlan(
             commands: [],
             artifacts: [Artifact(origin: BEN2Artifact.downloadURL.absoluteString + " (Apache-2.0; PramaLLC/BEN2)", destination: model.path, downloadBytes: BEN2Artifact.byteSize, installBytes: BEN2Artifact.byteSize, integrityExpectation: "sha256:\(BEN2Artifact.sha256)")],
@@ -70,8 +68,7 @@ private actor BEN2Runtime {
             cleanupOwnership: "Foundry; Remove BEN2 Data deletes model and runtime",
             disclosure: "Pinned BEN2 model is 223 MB from Hugging Face (PramaLLC/BEN2), licensed Apache-2.0, SHA-256 verified, installed at Application Support/Foundry/BackgroundRemoval. Setup creates a Python 3.13 runtime with hash-pinned onnxruntime==1.24.2, numpy==2.5.1, and Pillow==11.3.0; estimated installed size is about 384 MB. uv is required for provisioning."
         )
-        let visionState: BEN2ComponentState = { if #available(macOS 14.0, *) { return .ready }; return .unavailable("BEN2 requires macOS 14 or newer Vision support.") }()
-        return BEN2Assessment(visionState: visionState, modelState: modelState, runtimeState: runtimeState, provisioningState: uv == nil ? .unavailable("uv is not installed") : .available, setupPlan: plan)
+                return BEN2Assessment(modelState: modelState, runtimeState: runtimeState, setupPlan: plan)
     }
 
     nonisolated static func removeData(root: URL?) throws {
@@ -105,16 +102,16 @@ private actor BEN2Runtime {
 
     private func performSetup(root: URL, status: (@MainActor @Sendable (String) -> Void)?) async throws {
         guard let uv = firstExecutable(["/opt/homebrew/bin/uv", "/usr/local/bin/uv", FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".local/bin/uv").path]) else { throw BackgroundRemovalError.modelUnavailable("BEN2 needs uv to install its local runtime. Install uv with Homebrew, then try again.") }
-        guard let script = Bundle.module.url(forResource: "background_removal_worker", withExtension: "py") else { throw BackgroundRemovalError.modelSetupFailed("The bundled background-removal worker script is missing.") }
+        guard Bundle.module.url(forResource: "background_removal_worker", withExtension: "py") != nil else { throw BackgroundRemovalError.modelSetupFailed("The bundled background-removal worker script is missing.") }
         let staging = root.deletingLastPathComponent().appendingPathComponent(".foundry-ben2-staging-\(UUID().uuidString)")
         let stagedModel = staging.appendingPathComponent("models/\(BEN2Artifact.filename)")
         let stagedRuntime = staging.appendingPathComponent("runtime")
         defer { try? FileManager.default.removeItem(at: staging) }
         try FileManager.default.createDirectory(at: stagedModel.deletingLastPathComponent(), withIntermediateDirectories: true)
         try FileManager.default.createDirectory(at: stagedRuntime.deletingLastPathComponent(), withIntermediateDirectories: true)
-        await report("Downloading BEN2 (about 223 MB)...", status)
+        await report("Downloading BEN2 (about 223 MB)…", status)
         try await downloadModel(to: stagedModel)
-        await report("Installing Python 3.13 runtime...", status)
+        await report("Installing Python 3.13 runtime…", status)
         try await run(uv: uv, arguments: ["venv", "--python", "3.13", stagedRuntime.path])
         let python = stagedRuntime.appendingPathComponent("bin/python")
         try await run(uv: uv, arguments: ["pip", "install", "--require-hashes", "--python", python.path,
@@ -126,7 +123,6 @@ private actor BEN2Runtime {
         try Task.checkCancellation()
         try promote(staging: staging, destination: root)
         try Task.checkCancellation()
-        preparedPaths = Paths(python: root.appendingPathComponent("runtime/bin/python"), model: root.appendingPathComponent("models/\(BEN2Artifact.filename)"), script: script)
     }
 
     func removeBackground(
@@ -151,7 +147,7 @@ private actor BEN2Runtime {
         let staged = try artifactStore.stage(for: outputURL)
         defer { artifactStore.discard(staged) }
 
-        await report("Running BEN2...", status)
+        await report("Removing background…", status)
         do {
             let result = try await ProcessRunner.run(
                 path: paths.python.path,

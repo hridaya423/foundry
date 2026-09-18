@@ -1,7 +1,6 @@
 import { clipboardRibbonPoint } from "./clipboard-motion";
 import { phase, type ShelfLayout, type ShelfPose } from "./shelf-motion";
 
-export const mediaEnd = 1.9;
 export const mediaItems = [
   { id: "instagram", label: "Instagram", title: "Developers, developers, developers.", creator: "History Photographed", source: "https://www.instagram.com/reel/DVuZVQiFPU4/?hl=en", poster: "history-photographed.jpg", video: "history-photographed.mp4", portrait: true, filename: "Developers.mp4" },
   { id: "youtube", label: "YouTube", title: "But what is a neural network?", creator: "3Blue1Brown", source: "https://www.youtube.com/watch?v=aircAruvnKk", poster: "neural-network.jpg", video: null, portrait: false, filename: "Neural networks.mp4" },

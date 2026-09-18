@@ -157,8 +157,7 @@ final class AgentMonitorTests: XCTestCase {
                 workingDirectory: "/tmp/foundry",
                 project: "Foundry",
                 model: "gpt-test",
-                terminalCommand: "opencode",
-                terminalLocator: nil
+                terminalCommand: "opencode"
             ),
             event: .sessionStart(metadata: nil)
         )
@@ -256,8 +255,7 @@ final class AgentMonitorTests: XCTestCase {
                 workingDirectory: nil,
                 project: nil,
                 model: nil,
-                terminalCommand: nil,
-                terminalLocator: nil
+                terminalCommand: nil
             ))
         )
         _ = await store.apply(event)

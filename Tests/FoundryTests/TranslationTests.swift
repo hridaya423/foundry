@@ -36,6 +36,26 @@ final class TranslationTests: XCTestCase {
     }
 
     @MainActor
+    func testSwapFeedsTranslationBackAsSourceAndTranslatesOnce() async throws {
+        var requests: [TranslationRequest] = []
+        let state = TranslatorState(availability: .translationFramework, debounce: .zero, translator: { request in
+            await MainActor.run { requests.append(request) }
+            return .success(request.target.identifier == "es" ? "hola" : "hello")
+        })
+        state.sourceText = "hello"
+        for _ in 0..<50 where state.result.isEmpty { try await Task.sleep(for: .milliseconds(10)) }
+        XCTAssertEqual(state.result, "hola")
+
+        state.swapLanguages()
+        XCTAssertEqual(state.sourceLanguage, "Spanish")
+        XCTAssertEqual(state.targetLanguage, "English")
+        XCTAssertEqual(state.sourceText, "hola")
+        for _ in 0..<50 where state.result != "hello" { try await Task.sleep(for: .milliseconds(10)) }
+        XCTAssertEqual(state.result, "hello")
+        XCTAssertEqual(requests.count, 2)
+    }
+
+    @MainActor
     func testStaleResponseCannotReplaceNewerRequest() async throws {
         let first = XCTestExpectation(description: "first request")
         let state = TranslatorState(availability: .translationFramework, debounce: .zero, translator: { request in
@@ -103,11 +123,6 @@ final class TranslationTests: XCTestCase {
         XCTAssertEqual(request.text, "hello to the world")
         XCTAssertEqual(request.target.identifier, "es")
         XCTAssertNil(TranslationProvider.request(from: "translate hello to klingon"))
-    }
-
-    func testTypedFailuresHaveDistinctCases() {
-        let failures: [TranslationFailure] = [.unavailable, .unsupportedPair(source: "en", target: "xx"), .asset, .offline, .cancelled, .backend("boom")]
-        XCTAssertEqual(Set(failures), Set(failures))
     }
 
     func testProviderFailureDoesNotBecomeCopyableTranslationText() async {

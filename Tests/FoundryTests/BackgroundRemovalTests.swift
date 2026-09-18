@@ -10,7 +10,7 @@ final class BackgroundRemovalTests: XCTestCase {
     func testBEN2AssessmentIsReadOnlyAndDisclosesSetup() throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent("Foundry-BEN2-" + UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: root) }
-        let assessment = BEN2BackgroundRemovalService.assess(root: root, executablePaths: [:])
+        let assessment = BEN2BackgroundRemovalService.assess(root: root)
         XCTAssertFalse(FileManager.default.fileExists(atPath: root.path))
         XCTAssertEqual(assessment.modelState, .missing)
         XCTAssertEqual(assessment.runtimeState, .missing)
@@ -23,7 +23,7 @@ final class BackgroundRemovalTests: XCTestCase {
     func testChoosingBEN2DoesNotProvisionIt() throws {
         let state = FileShelfState()
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
-        let assessment = BEN2BackgroundRemovalService.assess(root: root, executablePaths: [:])
+        let assessment = BEN2BackgroundRemovalService.assess(root: root)
         XCTAssertEqual(assessment.modelState, .missing)
         XCTAssertFalse(state.isSettingUpBEN2)
     }
@@ -37,7 +37,7 @@ final class BackgroundRemovalTests: XCTestCase {
             .write(to: runtime.appendingPathComponent("runtime-manifest.json"))
         FileManager.default.createFile(atPath: runtime.appendingPathComponent("bin/python").path, contents: Data())
 
-        XCTAssertEqual(BEN2BackgroundRemovalService.assess(root: root, executablePaths: [:]).runtimeState, .invalid)
+        XCTAssertEqual(BEN2BackgroundRemovalService.assess(root: root).runtimeState, .invalid)
     }
 
     func testBundledWorkerRequiresIdentityAndValidatesStillImageLimits() throws {

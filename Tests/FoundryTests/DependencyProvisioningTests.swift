@@ -15,13 +15,6 @@ final class DependencyProvisioningTests: XCTestCase {
         XCTAssertEqual(try ExecutableLocator().locate(name: "tool", candidates: [symlink.path], environment: [:])?.path, symlink.path)
     }
 
-    func testCapabilityStatesAreEquatable() {
-        XCTAssertEqual(CapabilityState.ready, .ready)
-        XCTAssertEqual(CapabilityState.setupRequired(SetupPlan(commands: [], artifacts: [], mutationScope: "none", cleanupOwnership: "none", disclosure: "none")), CapabilityState.setupRequired(SetupPlan(commands: [], artifacts: [], mutationScope: "none", cleanupOwnership: "none", disclosure: "none")))
-        XCTAssertEqual(CapabilityState.unavailable("x"), .unavailable("x"))
-        XCTAssertEqual(CapabilityState.degraded("x"), .degraded("x"))
-    }
-
     func testDiscoveryUsesInjectedCandidatesAndPathWithoutMutation() throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         let executable = root.appendingPathComponent("tool")

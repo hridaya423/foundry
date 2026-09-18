@@ -41,7 +41,7 @@ final class ActionRunnerTests: XCTestCase {
     }
 
     func testExecutionReturnsTypedClipboardOutcomeAndFeedbackEvent() async {
-        let runner = ActionRunner(diagnostics: DiagnosticsService())
+        let runner = ActionRunner(diagnostics: DiagnosticsService(), pasteboard: NSPasteboard(name: NSPasteboard.Name("ActionRunnerTests")))
         let request = CommandExecutionRequest(
             commandID: "test.copy",
             action: CommandAction(id: "test.copy.perform", title: "Copy", kind: .copyToClipboard("value"))
@@ -54,9 +54,11 @@ final class ActionRunnerTests: XCTestCase {
 
         XCTAssertEqual(outcome, .copied(content: "value"))
         XCTAssertTrue(events.contains { event in
-            if case .feedback(.success("Copied to clipboard")) = event { return true }
+            if case .feedback(.success("Copied value")) = event { return true }
             return false
         })
+        XCTAssertEqual(ActionRunner.copiedMessage(for: String(repeating: "x", count: 40)), "Copied to clipboard")
+        XCTAssertEqual(ActionRunner.copiedMessage(for: "a\nb"), "Copied to clipboard")
     }
 
     func testCopySnippetRendersAtExecutionUsingInjectedContext() async {
@@ -64,6 +66,7 @@ final class ActionRunnerTests: XCTestCase {
         let runner = ActionRunner(
             diagnostics: DiagnosticsService(),
             snippetStore: store,
+            pasteboard: NSPasteboard(name: NSPasteboard.Name("ActionRunnerTests.snippet")),
             snippetContext: { SnippetRenderContext(now: Date(timeIntervalSince1970: 0), locale: Locale(identifier: "en_US_POSIX"), calendar: Calendar(identifier: .gregorian), clipboard: "later") }
         )
         let action = CommandAction(id: "copy", title: "Copy", kind: .copySnippet(id: "one"))
@@ -294,12 +297,13 @@ final class ActionRunnerTests: XCTestCase {
         )
 
         let first = Task { await runner.execute(firstRequest) { _ in } }
-        try await Task.sleep(for: .milliseconds(20))
+        await waitUntil { await media.activeCount() == 1 }
         let second = Task { await runner.execute(secondRequest) { _ in } }
-        try await Task.sleep(for: .milliseconds(20))
+        await waitUntil { await media.activeCount() == 2 }
         runner.cancel(secondID)
 
         let secondOutcome = await second.value
+        await media.release("https://example.com/first")
         let firstOutcome = await first.value
         let maxConcurrent = await media.maxConcurrentValue()
 
@@ -309,7 +313,6 @@ final class ActionRunnerTests: XCTestCase {
     }
 
     private actor FakeMediaDownloadService: MediaDownloading {
-        nonisolated let downloadFolder = URL(fileURLWithPath: "/tmp")
         private var active = 0
         private var maxConcurrent = 0
 
@@ -323,9 +326,16 @@ final class ActionRunnerTests: XCTestCase {
                 active -= 1
             }
 
-            try await Task.sleep(for: .milliseconds(100))
+            while released.contains(urlString) == false {
+                try await Task.sleep(for: .milliseconds(5))
+            }
             return "Downloaded \(URL(string: urlString)?.lastPathComponent ?? "media")"
         }
+
+        private var released: Set<String> = []
+
+        func activeCount() -> Int { active }
+        func release(_ urlString: String) { released.insert(urlString) }
 
         func maxConcurrentValue() -> Int {
             maxConcurrent
@@ -342,7 +352,6 @@ final class ActionRunnerTests: XCTestCase {
 
     @MainActor
     private final class PermissionWindowManager: WindowManaging {
-        func isTrusted() -> Bool { false }
 
         func apply(_ placement: WindowPlacement) async -> WindowOperationResult {
             .needsAccessibilityPermission

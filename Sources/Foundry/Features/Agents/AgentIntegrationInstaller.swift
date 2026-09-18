@@ -1,7 +1,6 @@
 import Foundation
 
 struct AgentIntegrationStatus: Equatable, Sendable {
-    let provider: AgentBridgeProvider
     let path: URL
     let installed: Bool
     let detail: String?
@@ -62,10 +61,10 @@ struct AgentIntegrationInstaller: Sendable {
         switch provider {
         case .claude:
             guard FileManager.default.fileExists(atPath: claudeSettingsURL.path) else {
-                return AgentIntegrationStatus(provider: provider, path: claudeSettingsURL, installed: false, detail: nil)
+                return AgentIntegrationStatus(path: claudeSettingsURL, installed: false, detail: nil)
             }
             guard let root = try? loadJSON(at: claudeSettingsURL), let hooks = root["hooks"] as? [String: Any] else {
-                return AgentIntegrationStatus(provider: provider, path: claudeSettingsURL, installed: false, detail: "Settings file could not be inspected")
+                return AgentIntegrationStatus(path: claudeSettingsURL, installed: false, detail: "Settings file could not be inspected")
             }
             let installed = Self.claudeHookEvents.allSatisfy { event in
                 guard let groups = hooks[event] as? [Any] else { return false }
@@ -75,25 +74,25 @@ struct AgentIntegrationInstaller: Sendable {
                         guard let handler = handler as? [String: Any],
                               handler["type"] as? String == "command",
                               handler["args"] as? [String] == [Self.claudeHookArgument, AgentBridgeProvider.claude.rawValue] else { return false }
-                        return handler["command"] as? String == executableURL.path  
+                        return handler["command"] as? String == executableURL.path
                     }
                 }
             }
-            return AgentIntegrationStatus(provider: provider, path: claudeSettingsURL, installed: installed, detail: nil)
+            return AgentIntegrationStatus(path: claudeSettingsURL, installed: installed, detail: nil)
         case .opencode:
             guard let data = try? Data(contentsOf: openCodePluginURL), let content = String(data: data, encoding: .utf8) else {
-                return AgentIntegrationStatus(provider: provider, path: openCodePluginURL, installed: false, detail: nil)
+                return AgentIntegrationStatus(path: openCodePluginURL, installed: false, detail: nil)
             }
             let installed = Self.isManagedOpenCodePlugin(content)
-            return AgentIntegrationStatus(provider: provider, path: openCodePluginURL, installed: installed, detail: installed ? nil : "An unrelated plugin occupies this path")
+            return AgentIntegrationStatus(path: openCodePluginURL, installed: installed, detail: installed ? nil : "An unrelated plugin occupies this path")
         case .codex:
             let scriptInstalled = (try? String(contentsOf: codexScriptURL, encoding: .utf8))?.contains(Self.managedCodexScriptMarker) == true
             let hookInstalled = (try? loadJSON(at: codexHooksURL)).map(codexHooksContainManaged) == true
             let featureEnabled = (try? String(contentsOf: codexConfigURL, encoding: .utf8)).map(Self.codexHooksFeatureEnabled) == true
-            return AgentIntegrationStatus(provider: provider, path: codexHooksURL, installed: scriptInstalled && hookInstalled && featureEnabled, detail: nil)
+            return AgentIntegrationStatus(path: codexHooksURL, installed: scriptInstalled && hookInstalled && featureEnabled, detail: nil)
         case .cursor:
             let installed = (try? loadJSON(at: cursorHooksURL)).map(cursorHooksContainManaged) == true
-            return AgentIntegrationStatus(provider: provider, path: cursorHooksURL, installed: installed, detail: nil)
+            return AgentIntegrationStatus(path: cursorHooksURL, installed: installed, detail: nil)
         }
     }
 
@@ -157,7 +156,7 @@ struct AgentIntegrationInstaller: Sendable {
         } else {
             throw AgentIntegrationInstallError.invalidSettingsStructure(cursorHooksURL)
         }
-        let command = "\(Self.shellQuote(executableURL.path)) --agent-bridge cursor || printf '%s' '{\"continue\":true}'"
+        let command = "\(executableURL.path.shellQuoted) --agent-bridge cursor || printf '%s' '{\"continue\":true}'"
         for event in Self.cursorHookEvents {
             guard hooks[event] == nil || hooks[event] is [[String: Any]] else {
                 throw AgentIntegrationInstallError.invalidSettingsStructure(cursorHooksURL)
@@ -303,7 +302,7 @@ struct AgentIntegrationInstaller: Sendable {
         return Self.cursorHookEvents.allSatisfy { event in
             (hooks[event] as? [[String: Any]])?.contains { handler in
                 guard isManagedCursorHandler(handler) else { return false }
-                return (handler["command"] as? String)?.contains(Self.shellQuote(executableURL.path)) == true
+                return (handler["command"] as? String)?.contains(executableURL.path.shellQuoted) == true
             } == true
         }
     }
@@ -359,10 +358,6 @@ struct AgentIntegrationInstaller: Sendable {
         return false
     }
 
-    private static func shellQuote(_ value: String) -> String {
-        "'\(value.replacingOccurrences(of: "'", with: "'\\''"))'"
-    }
-
     private static let claudeHookEvents = [
         "SessionStart",
         "SessionEnd",
@@ -391,7 +386,7 @@ struct AgentIntegrationInstaller: Sendable {
         """
         #!/bin/sh
         foundry_codex_bridge="\(Self.managedCodexScriptMarker)"
-        response="$(\(Self.shellQuote(executableURL.path)) --agent-bridge codex)"
+        response="$(\(executableURL.path.shellQuoted) --agent-bridge codex)"
         if [ $? -ne 0 ] || [ -z "$response" ]; then response='{"continue":true}'; fi
         printf '%s' "$response"
         """

@@ -14,6 +14,8 @@ enum CommandRoute: Codable, Equatable, Sendable {
     case settings
     case home
     case mediaDownloads
+    case welcomeGuide
+    case query(String)
 }
 
 struct CommandExecutionRequest: Sendable {
@@ -39,13 +41,6 @@ struct CommandExecutionRequest: Sendable {
     }
 }
 
-extension CommandExecutionRequest {
-    var pasteRequest: (value: String, cursorOffset: Int, snippetID: String?)? {
-        guard case let .pasteText(value, cursorOffset, snippetID) = action.kind else { return nil }
-        return (value, cursorOffset, snippetID)
-    }
-}
-
 enum CommandExecutionEvent: Sendable {
     case status(String)
     case downloadProgress(MediaDownloadProgress)
@@ -63,11 +58,12 @@ enum CommandOutcome: Codable, Equatable, Sendable {
     case copied(content: String)
     case pasted(content: String)
     case fileResults([URL])
+    case addToFileShelf(urls: [URL])
     case followUp(actionIDs: [String])
 
     var shouldDismissPanel: Bool {
         switch self {
-        case .open, .stayOpen, .refreshResults, .cancelled, .denied:
+        case .open, .stayOpen, .refreshResults, .cancelled, .denied, .addToFileShelf:
             false
         case .failure(_, let retryable):
             !retryable
@@ -82,20 +78,10 @@ enum CommandOutcome: Codable, Equatable, Sendable {
 extension CommandOutcome {
     var isSuccessful: Bool {
         switch self {
-        case .success, .copied, .pasted, .fileResults:
+        case .success, .copied, .pasted, .fileResults, .addToFileShelf:
             true
         default:
             false
         }
     }
-}
-
-@MainActor
-protocol CommandExecuting {
-    func execute(
-        _ request: CommandExecutionRequest,
-        emit: @escaping @MainActor @Sendable (CommandExecutionEvent) -> Void
-    ) async -> CommandOutcome
-
-    func cancel(_ cancellationID: UUID)
 }

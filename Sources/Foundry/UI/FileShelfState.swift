@@ -1,6 +1,7 @@
 import AppKit
 import Foundation
 import FoundryServices
+import Observation
 
 enum BackgroundRemovalEngine: String, CaseIterable, Identifiable, Sendable {
     case vision
@@ -29,20 +30,21 @@ struct FileShelfAddResult: Equatable, Sendable {
 }
 
 @MainActor
-final class FileShelfState: ObservableObject {
-    @Published private(set) var files: [ShelfFile] = []
-    @Published var selectedID: String?
-    @Published private(set) var selectedIDs: Set<String> = []
-    @Published private(set) var backgroundRemovalFileID: String?
-    @Published private(set) var backgroundRemovalStatus = ""
-    @Published private(set) var backgroundRemovalError: String?
-    @Published private(set) var backgroundRemovalNeedsDestination = false
-    @Published private(set) var backgroundRemovalEngine: BackgroundRemovalEngine?
-    @Published private(set) var backgroundRemovalPhase: OperationPhase = .assessing
-    @Published private(set) var backgroundRemovalProgress: OperationProgress?
-    @Published private(set) var backgroundRemovalFailure: OperationFailure?
-    @Published private(set) var ben2Assessment: BEN2Assessment
-    @Published private(set) var isSettingUpBEN2 = false
+@Observable
+final class FileShelfState {
+    private(set) var files: [ShelfFile] = []
+    var selectedID: String?
+    private(set) var selectedIDs: Set<String> = []
+    private(set) var backgroundRemovalFileID: String?
+    private(set) var backgroundRemovalStatus = ""
+    private(set) var backgroundRemovalError: String?
+    private(set) var backgroundRemovalNeedsDestination = false
+    private(set) var backgroundRemovalEngine: BackgroundRemovalEngine?
+    private(set) var backgroundRemovalPhase: OperationPhase = .assessing
+    private(set) var backgroundRemovalProgress: OperationProgress?
+    private(set) var backgroundRemovalFailure: OperationFailure?
+    private(set) var ben2Assessment: BEN2Assessment
+    private(set) var isSettingUpBEN2 = false
 
     private let backgroundRemovalServices: [BackgroundRemovalEngine: any BackgroundRemoving]
     private var backgroundRemovalTask: Task<Void, Never>?
@@ -97,13 +99,9 @@ final class FileShelfState: ObservableObject {
         return selectedFiles.contains { canTryExperimentalBackgroundRemoval(for: $0) }
     }
 
-    var summary: String {
-        files.isEmpty ? "Drop files here" : "\(files.count) file\(files.count == 1 ? "" : "s") waiting"
-    }
-
     var compactSummary: String {
         if isRemovingBackground {
-            return backgroundRemovalStatus.isEmpty ? "Processing..." : backgroundRemovalStatus
+            return backgroundRemovalStatus.isEmpty ? "Processing…" : backgroundRemovalStatus
         }
         guard let newest = files.last else { return "Drop files here" }
         if files.count == 1 { return newest.name }
@@ -235,19 +233,6 @@ final class FileShelfState: ObservableObject {
         select(id: files[nextIndex].id)
     }
 
-    func revealSelected() {
-        let urls = selectedFiles.map(\.url)
-        guard urls.isEmpty == false else { return }
-        NSWorkspace.shared.activateFileViewerSelecting(urls)
-    }
-
-    func copySelectedPath() {
-        let paths = selectedFiles.map(\.url.path)
-        guard paths.isEmpty == false else { return }
-        NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(paths.joined(separator: "\n"), forType: .string)
-    }
-
     func supportsBackgroundRemoval(for file: ShelfFile) -> Bool {
         supportsBackgroundRemoval(for: file, using: .vision)
     }
@@ -362,7 +347,7 @@ final class FileShelfState: ObservableObject {
         backgroundRemovalError = nil
         backgroundRemovalStatus = "Background removal cancelled"
         backgroundRemovalPhase = .cancelled
-        backgroundRemovalFailure = OperationFailure(message: "Background removal cancelled", retryable: true)
+        backgroundRemovalFailure = OperationFailure(message: "Background removal cancelled")
     }
 
     private func startBackgroundRemoval(
@@ -380,8 +365,8 @@ final class FileShelfState: ObservableObject {
         backgroundRemovalFileID = files.first?.id
         backgroundRemovalEngine = engine
         backgroundRemovalStatus = total == 1
-            ? (engine == .vision ? "Removing background..." : "Preparing \(engine.title)...")
-            : "Preparing \(total) files with \(engine.title)..."
+            ? (engine == .vision ? "Removing background…" : "Preparing \(engine.title)…")
+            : "Preparing \(total) files with \(engine.title)…"
         backgroundRemovalError = nil
         backgroundRemovalPhase = .processing
         backgroundRemovalProgress = .items(completed: 0, total: total)
@@ -443,7 +428,7 @@ final class FileShelfState: ObservableObject {
                     failed: failureMessages.count
                 )
                 self.backgroundRemovalError = failureMessages.joined(separator: "\n")
-                self.backgroundRemovalFailure = OperationFailure(message: failureMessages.joined(separator: "\n"), retryable: true)
+                self.backgroundRemovalFailure = OperationFailure(message: failureMessages.joined(separator: "\n"))
                 self.selectGeneratedOutputs(outputURLs)
             }
         }

@@ -52,17 +52,26 @@ struct FoundryGlassSurface<Content: View, SurfaceShape: Shape>: View {
     }
 
     var body: some View {
+        #if compiler(>=6.2)
         if #available(macOS 26.0, *), reduceTransparency == false {
             nativeSurface
         } else {
-            content
-                .background(role.fallbackFill, in: shape)
-                .overlay {
-                    shape.stroke(role.fallbackStroke, lineWidth: 1)
-                }
+            fallbackSurface
         }
+        #else
+        fallbackSurface
+        #endif
     }
 
+    private var fallbackSurface: some View {
+        content
+            .background(role.fallbackFill, in: shape)
+            .overlay {
+                shape.stroke(role.fallbackStroke, lineWidth: 1)
+            }
+    }
+
+    #if compiler(>=6.2)
     @available(macOS 26.0, *)
     @ViewBuilder
     private var nativeSurface: some View {
@@ -73,6 +82,7 @@ struct FoundryGlassSurface<Content: View, SurfaceShape: Shape>: View {
             content.glassEffect(.regular.tint(FoundryTheme.accentTint), in: shape)
         }
     }
+    #endif
 }
 
 struct FoundryIconButton: View {
@@ -145,31 +155,6 @@ struct PressableButtonStyle: ButtonStyle {
     }
 }
 
-struct FoundrySurface<Content: View>: View {
-    let content: Content
-    var padding: CGFloat = FoundryTheme.Spacing.lg
-    var cornerRadius: CGFloat = FoundryTheme.Radius.card
-    var emphasized = false
-
-    init(padding: CGFloat = FoundryTheme.Spacing.lg, cornerRadius: CGFloat = FoundryTheme.Radius.card, emphasized: Bool = false, @ViewBuilder content: () -> Content) {
-        self.content = content()
-        self.padding = padding
-        self.cornerRadius = cornerRadius
-        self.emphasized = emphasized
-    }
-
-    var body: some View {
-        content
-            .padding(padding)
-            .background(emphasized ? Color.primary.opacity(0.075) : Color.primary.opacity(0.045))
-            .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
-            .overlay {
-                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .stroke(emphasized ? Color.primary.opacity(0.13) : Color.primary.opacity(0.07), lineWidth: 1)
-            }
-    }
-}
-
 struct FoundrySectionHeader: View {
     let title: String
     var count: String?
@@ -179,13 +164,13 @@ struct FoundrySectionHeader: View {
     var body: some View {
         HStack(spacing: 7) {
             Text(title.uppercased())
-                .font(FoundryTheme.body(size: 10, weight: .bold))
+                .font(FoundryTheme.sectionHeaderFont)
                 .foregroundStyle(FoundryTheme.faintText)
-                .tracking(0.7)
+                .tracking(0.4)
 
             if let count {
                 Text(count)
-                    .font(FoundryTheme.mono(size: 10, weight: .medium))
+                    .font(FoundryTheme.mono(size: 11, weight: .medium))
                     .foregroundStyle(FoundryTheme.faintText)
             }
 
@@ -280,5 +265,15 @@ struct FoundryEmptyState: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .accessibilityElement(children: .combine)
+    }
+}
+
+extension View {
+    func rowActivation(isSelected: Bool, perform action: @escaping () -> Void) -> some View {
+        contentShape(Rectangle())
+            .onTapGesture(perform: action)
+            .accessibilityElement(children: .combine)
+            .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
+            .accessibilityAction { action() }
     }
 }

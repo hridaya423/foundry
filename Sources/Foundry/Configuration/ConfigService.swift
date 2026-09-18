@@ -2,13 +2,21 @@ import Foundation
 import FoundryDomain
 import FoundryServices
 
+enum WindowMode: String, Codable, CaseIterable, Equatable {
+    case standard
+    case compact
+}
+
 struct FoundryConfig: Codable, Equatable {
-    static let currentSchemaVersion = 6
+    static let currentSchemaVersion = 8
 
     var schemaVersion = FoundryConfig.currentSchemaVersion
-    var hotkey: FoundryHotkey = .commandSpace
+    var hotkey: FoundryHotkey = .optionSpace
     var themeIntensity: Double = 0.72
     var showAgentShelf: Bool = true
+    var showMenuBarIcon: Bool = true
+    var popToRootAfterSeconds: Double = 90
+    var windowMode: WindowMode = .standard
     var widgets: WidgetBoardConfig = .default
     var ai: AIConfig = .default
     var searchSensitivity: SearchSensitivity = .medium
@@ -17,11 +25,14 @@ struct FoundryConfig: Codable, Equatable {
     var clipboard: ClipboardConfig = .default
     var snippetExpansion: SnippetExpansionConfig = .default
 
-    init(hotkey: FoundryHotkey = .commandSpace, themeIntensity: Double = 0.72, showAgentShelf: Bool = true, widgets: WidgetBoardConfig = .default, ai: AIConfig = .default, searchSensitivity: SearchSensitivity = .medium, commandPreferences: [String: CommandPreference] = [:], providerEnabled: [String: Bool] = [:], clipboard: ClipboardConfig = .default, snippetExpansion: SnippetExpansionConfig = .default) {
+    init(hotkey: FoundryHotkey = .optionSpace, themeIntensity: Double = 0.72, showAgentShelf: Bool = true, showMenuBarIcon: Bool = true, popToRootAfterSeconds: Double = 90, windowMode: WindowMode = .standard, widgets: WidgetBoardConfig = .default, ai: AIConfig = .default, searchSensitivity: SearchSensitivity = .medium, commandPreferences: [String: CommandPreference] = [:], providerEnabled: [String: Bool] = [:], clipboard: ClipboardConfig = .default, snippetExpansion: SnippetExpansionConfig = .default) {
         schemaVersion = Self.currentSchemaVersion
         self.hotkey = hotkey
         self.themeIntensity = themeIntensity
         self.showAgentShelf = showAgentShelf
+        self.showMenuBarIcon = showMenuBarIcon
+        self.popToRootAfterSeconds = popToRootAfterSeconds
+        self.windowMode = windowMode
         self.widgets = widgets
         self.ai = ai
         self.searchSensitivity = searchSensitivity
@@ -43,35 +54,49 @@ struct FoundryConfig: Codable, Equatable {
            savedHotkey.keyCode == FoundryHotkey.commandSpace.keyCode,
            savedHotkey.modifiers == FoundryHotkey.commandSpace.modifiers {
             hotkey = .commandSpace
-        } else if savedHotkey == .optionSpace {
-            hotkey = .commandSpace
         } else {
-            hotkey = savedHotkey ?? .commandSpace
+            hotkey = savedHotkey ?? (savedSchemaVersion < 7 ? .commandSpace : .optionSpace)
         }
         themeIntensity = try container.decodeIfPresent(Double.self, forKey: .themeIntensity) ?? 0.72
         showAgentShelf = try container.decodeIfPresent(Bool.self, forKey: .showAgentShelf) ?? true
+        showMenuBarIcon = try container.decodeIfPresent(Bool.self, forKey: .showMenuBarIcon) ?? true
+        popToRootAfterSeconds = try container.decodeIfPresent(Double.self, forKey: .popToRootAfterSeconds) ?? 90
+        windowMode = try container.decodeIfPresent(WindowMode.self, forKey: .windowMode) ?? .standard
         widgets = try container.decodeIfPresent(WidgetBoardConfig.self, forKey: .widgets) ?? .default
         ai = try container.decodeIfPresent(AIConfig.self, forKey: .ai) ?? .default
         searchSensitivity = try container.decodeIfPresent(SearchSensitivity.self, forKey: .searchSensitivity) ?? .medium
         commandPreferences = try container.decodeIfPresent([String: CommandPreference].self, forKey: .commandPreferences) ?? [:]
         providerEnabled = try container.decodeIfPresent([String: Bool].self, forKey: .providerEnabled) ?? [:]
-        clipboard = (try container.decodeIfPresent(ClipboardConfig.self, forKey: .clipboard) ?? .default).normalized
+        var savedClipboard = (try container.decodeIfPresent(ClipboardConfig.self, forKey: .clipboard) ?? .default).normalized
+        if savedSchemaVersion < 8,
+           savedClipboard.maxItems == ClipboardConfig.legacyDefaultMaxItems,
+           savedClipboard.maxBytes == ClipboardConfig.legacyDefaultMaxBytes {
+            savedClipboard.maxItems = ClipboardConfig.defaultMaxItems
+            savedClipboard.maxBytes = ClipboardConfig.defaultMaxBytes
+        }
+        clipboard = savedClipboard
         snippetExpansion = (try container.decodeIfPresent(SnippetExpansionConfig.self, forKey: .snippetExpansion) ?? .default).normalized
     }
 }
 
 struct ClipboardConfig: Codable, Equatable {
-    static let defaultMaxItems = 40
-    static let defaultMaxBytes = 16 * 1024 * 1024
+    static let legacyDefaultMaxItems = 40
+    static let legacyDefaultMaxBytes = 16 * 1024 * 1024
+    static let defaultMaxItems = 1_000
+    static let defaultMaxBytes = 1_024 * 1_024 * 1_024
     static let minimumMaxItems = 1
-    static let maximumMaxItems = 40
+    static let maximumMaxItems = 10_000
     static let minimumMaxBytes = 1 * 1024 * 1024
-    static let maximumMaxBytes = 16 * 1024 * 1024
+    static let maximumMaxBytes = 4 * 1_024 * 1_024 * 1_024
+    static let defaultMaxAgeDays = 90
+    static let minimumMaxAgeDays = 1
+    static let maximumMaxAgeDays = 3_650
 
     var isEnabled = true
     var isPaused = false
     var maxItems = defaultMaxItems
     var maxBytes = defaultMaxBytes
+    var maxAgeDays = defaultMaxAgeDays
     var excludedBundleIdentifiers: [String] = []
 
     static let `default` = ClipboardConfig()
@@ -80,6 +105,7 @@ struct ClipboardConfig: Codable, Equatable {
         var value = self
         value.maxItems = min(max(maxItems, Self.minimumMaxItems), Self.maximumMaxItems)
         value.maxBytes = min(max(maxBytes, Self.minimumMaxBytes), Self.maximumMaxBytes)
+        value.maxAgeDays = min(max(maxAgeDays, Self.minimumMaxAgeDays), Self.maximumMaxAgeDays)
         value.excludedBundleIdentifiers = Self.normalizeBundleIdentifiers(excludedBundleIdentifiers)
         return value
     }
@@ -92,6 +118,7 @@ struct ClipboardConfig: Codable, Equatable {
         isPaused = try container.decodeIfPresent(Bool.self, forKey: .isPaused) ?? false
         maxItems = try container.decodeIfPresent(Int.self, forKey: .maxItems) ?? Self.defaultMaxItems
         maxBytes = try container.decodeIfPresent(Int.self, forKey: .maxBytes) ?? Self.defaultMaxBytes
+        maxAgeDays = try container.decodeIfPresent(Int.self, forKey: .maxAgeDays) ?? Self.defaultMaxAgeDays
         excludedBundleIdentifiers = try container.decodeIfPresent([String].self, forKey: .excludedBundleIdentifiers) ?? []
         self = normalized
     }
@@ -246,10 +273,13 @@ final class ConfigService: @unchecked Sendable {
         lock.withLock { loadError }
     }
 
+    private(set) var existedAtLaunch = false
+
     init(diagnostics: DiagnosticsService, url: URL = ConfigService.configURL) {
         self.diagnostics = diagnostics
         self.url = url
         if FileManager.default.fileExists(atPath: url.path) {
+            existedAtLaunch = true
             do {
                 let data = try Data(contentsOf: url)
                 self.storedCurrent = try FoundryConfigMigration.migrate(data)
@@ -283,12 +313,24 @@ final class ConfigService: @unchecked Sendable {
         try update { $0.showAgentShelf = isVisible }
     }
 
+    func updateMenuBarIconVisibility(_ isVisible: Bool) throws {
+        try update { $0.showMenuBarIcon = isVisible }
+    }
+
     func updateHotkey(_ hotkey: FoundryHotkey) throws {
         try update { $0.hotkey = hotkey }
     }
 
     func updateThemeIntensity(_ intensity: Double) throws {
         try update { $0.themeIntensity = intensity }
+    }
+
+    func updatePopToRootAfter(_ seconds: Double) throws {
+        try update { $0.popToRootAfterSeconds = seconds }
+    }
+
+    func updateWindowMode(_ mode: WindowMode) throws {
+        try update { $0.windowMode = mode }
     }
 
     func updateAIConfig(_ ai: AIConfig) throws {
@@ -361,15 +403,6 @@ final class ConfigService: @unchecked Sendable {
 
     func updateSnippetExpansionConfig(_ snippetExpansion: SnippetExpansionConfig) throws {
         try update { $0.snippetExpansion = snippetExpansion.normalized }
-    }
-
-    func save() throws {
-        lock.lock()
-        defer { lock.unlock() }
-        if let loadError {
-            throw ConfigServiceError.readOnly(loadError)
-        }
-        try writeLocked(storedCurrent)
     }
 
     func resetToDefaults() throws {
@@ -445,13 +478,5 @@ enum FoundryConfigMigration {
             return 1
         }
         return version
-    }
-}
-
-private extension NSLock {
-    func withLock<T>(_ body: () throws -> T) rethrows -> T {
-        lock()
-        defer { unlock() }
-        return try body()
     }
 }

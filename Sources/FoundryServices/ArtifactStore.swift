@@ -66,10 +66,3 @@ public final class ArtifactStore: @unchecked Sendable {
 private final class Reservations: @unchecked Sendable {
     var destinations: [String: UUID] = [:]
 }
-
-private extension NSLock {
-    func withLock<T>(_ body: () throws -> T) rethrows -> T {
-        lock(); defer { unlock() }
-        return try body()
-    }
-}

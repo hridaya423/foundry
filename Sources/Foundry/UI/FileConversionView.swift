@@ -3,7 +3,7 @@ import Foundation
 import SwiftUI
 
 struct FileConversionView: View {
-    @ObservedObject var state: FileConversionState
+    var state: FileConversionState
 
     var body: some View {
         HStack(spacing: 14) {
@@ -44,15 +44,22 @@ struct FileConversionView: View {
         .padding(.vertical, 18)
         .sheet(item: dependencySetupBinding) { setup in
             VStack(alignment: .leading, spacing: 14) {
-                Text("Setup required for \(setup.target.title)").font(.headline)
+                Text("Converting to \(setup.target.title) needs an extra tool").font(.headline)
                 Text(setup.plan.disclosure)
-                Text("Command: \(setup.plan.commands.map { $0.executable + " " + $0.arguments.joined(separator: " ") }.joined(separator: "\n"))")
+                    .foregroundStyle(.secondary)
+                Text(setup.plan.commands.map { ([$0.executable] + $0.arguments).joined(separator: " ") }.joined(separator: "\n"))
                     .font(.system(.body, design: .monospaced))
-                Text("Scope: \(setup.plan.mutationScope)\nCleanup: \(setup.plan.cleanupOwnership)")
+                    .textSelection(.enabled)
+                Text("\(setup.plan.mutationScope). \(setup.plan.cleanupOwnership).")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
                 HStack {
-                    Button("Install Tool") { Task { await state.installTool() } }
-                    Button("Install and Convert") { Task { await state.installToolAndConvert() } }
                     Button("Cancel", role: .cancel) { state.cancelDependencySetup() }
+                        .keyboardShortcut(.cancelAction)
+                    Spacer()
+                    Button("Install Only") { Task { await state.installTool() } }
+                    Button("Install and Convert") { Task { await state.installToolAndConvert() } }
+                        .keyboardShortcut(.defaultAction)
                 }
             }.padding(22).frame(width: 460)
         }
@@ -66,9 +73,7 @@ struct FileConversionView: View {
         VStack(alignment: .leading, spacing: 12) {
             if state.sourceURLs.count == 1, let sourceURL = state.sourceURL {
                 HStack(alignment: .top, spacing: 12) {
-                    Image(nsImage: IconCache.shared.icon(forFile: sourceURL.path))
-                        .resizable()
-                        .aspectRatio(contentMode: .fit)
+                    FileIcon(path: sourceURL.path) { Color.clear }
                         .frame(width: 42, height: 42)
 
                     VStack(alignment: .leading, spacing: 4) {
@@ -114,9 +119,7 @@ struct FileConversionView: View {
 
                     ForEach(Array(state.sourceURLs.prefix(4)), id: \.self) { sourceURL in
                         HStack(spacing: 8) {
-                            Image(nsImage: IconCache.shared.icon(forFile: sourceURL.path))
-                                .resizable()
-                                .aspectRatio(contentMode: .fit)
+                            FileIcon(path: sourceURL.path) { Color.clear }
                                 .frame(width: 22, height: 22)
                             Text(sourceURL.lastPathComponent)
                                 .font(FoundryTheme.body(size: 12, weight: .medium))

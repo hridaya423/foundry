@@ -105,19 +105,10 @@ final class BrowserProviderTests: XCTestCase {
         XCTAssertEqual(session.tabs.first?.url, "https://example.com/current")
     }
 
-    func testProviderHasBrowserLaunchDefaults() async {
+    func testBrowserLaunchDefaultsOnlyIncludeInstalledBrowsers() async {
         let results = await BrowserProvider(homeDirectory: temporaryHome()).defaultResults()
-        XCTAssertEqual(results.count, BrowserSource.allCases.count)
-        XCTAssertEqual(results.map(\.id), BrowserSource.allCases.map { "foundry.browser.\($0.rawValue)" })
-    }
-
-    func testBrowserCatalogIncludesMajorBrowserFamilies() {
-        XCTAssertTrue(BrowserSource.allCases.contains(.firefox))
-        XCTAssertTrue(BrowserSource.allCases.contains(.arc))
-        XCTAssertTrue(BrowserSource.allCases.contains(.dia))
-        XCTAssertTrue(BrowserSource.allCases.contains(.helium))
-        XCTAssertTrue(BrowserSource.allCases.contains(.brave))
-        XCTAssertTrue(BrowserSource.allCases.contains(.edge))
+        XCTAssertTrue(results.contains { $0.id == "foundry.browser.safari" })
+        XCTAssertEqual(results.count, BrowserSource.allCases.filter(\.isInstalled).count)
     }
 
     func testBrowserCategoryQueriesCanListAllItems() {

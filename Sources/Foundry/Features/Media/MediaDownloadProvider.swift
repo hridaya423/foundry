@@ -26,13 +26,14 @@ final class MediaDownloadProvider: CommandProvider {
     }
 
     func search(_ request: CommandSearchRequest) async -> [CommandResult] {
-        let urls = Self.mediaURLs(in: request.query)
+        let (urls, duplicates) = Self.mediaURLsWithStats(in: request.query)
         guard let url = urls.first else { return [] }
         let isYouTube = Self.isYouTube(url)
         let isDirectFile = Self.isDirectMediaFile(url)
         let isPlaylist = Self.isPlaylist(url)
         let isBatch = urls.count > 1
-        let title = isBatch ? "Download \(urls.count) Media Links" : (isPlaylist ? "Download Playlist" : "Download Media")
+        let dedupeNote = duplicates > 0 ? " (\(duplicates) duplicate\(duplicates == 1 ? "" : "s") skipped)" : ""
+        let title = isBatch ? "Download \(urls.count) Media Links\(dedupeNote)" : (isPlaylist ? "Download Playlist" : "Download Media")
         let detail = isBatch ? "add all links to the download queue" : (isPlaylist ? "all videos in this playlist" : url.lastPathComponent)
         let service = isBatch ? "parallel downloads" : (isYouTube ? "YouTube · yt-dlp (automatic setup)" : (isDirectFile ? "Direct link · stays on this Mac" : "supported media · yt-dlp"))
         let primaryKind: CommandActionKind = isBatch
@@ -57,16 +58,26 @@ final class MediaDownloadProvider: CommandProvider {
         ]
     }
 
+    private static let linkDetector = try? NSDataDetector(types: NSTextCheckingResult.CheckingType.link.rawValue)
+
     static func mediaURLs(in value: String) -> [URL] {
+        mediaURLsWithStats(in: value).urls
+    }
+
+    static func mediaURLsWithStats(in value: String) -> (urls: [URL], duplicates: Int) {
         let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard let detector = try? NSDataDetector(types: NSTextCheckingResult.CheckingType.link.rawValue) else { return [] }
+        guard let detector = linkDetector else { return ([], 0) }
         let range = NSRange(trimmed.startIndex..<trimmed.endIndex, in: trimmed)
         var seen = Set<String>()
-        return detector.matches(in: trimmed, range: range).compactMap(\.url).filter { url in
+        var duplicates = 0
+        let urls = detector.matches(in: trimmed, range: range).compactMap(\.url).filter { url in
             guard let scheme = url.scheme?.lowercased(), ["http", "https"].contains(scheme), let host = url.host?.lowercased() else { return false }
             guard isDirectMediaFile(url) || mediaHosts.contains(where: { host == $0 || host.hasSuffix("." + $0) }) else { return false }
-            return seen.insert(url.absoluteString).inserted
+            if seen.insert(url.absoluteString).inserted { return true }
+            duplicates += 1
+            return false
         }
+        return (urls, duplicates)
     }
 
     static func remainingInput(after value: String) -> String {

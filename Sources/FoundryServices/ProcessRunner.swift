@@ -290,7 +290,8 @@ private final class ProcessOutputLineBuffer: @unchecked Sendable {
     private let stream: ProcessOutputLine.Stream
     private let limit: Int
     private let handler: (@Sendable (ProcessOutputLine) -> Void)?
-    private var pending = ""
+    private var pending = Data()
+    private var finished = false
 
     init(stream: ProcessOutputLine.Stream, limit: Int, handler: (@Sendable (ProcessOutputLine) -> Void)?) {
         self.stream = stream
@@ -299,40 +300,40 @@ private final class ProcessOutputLineBuffer: @unchecked Sendable {
     }
 
     func append(_ data: Data) {
-        let text = String(decoding: data, as: UTF8.self)
         lock.withLock {
-            pending.append(text)
-            if pending.utf8.count > limit {
-                pending = String(decoding: Data(pending.utf8).suffix(limit), as: UTF8.self)
+            pending.append(data)
+            if pending.count > limit {
+                pending = pending.suffix(limit)
             }
             emitCompleteLines()
+            if finished { emitRemainder() }
         }
     }
 
     func finish() {
         lock.withLock {
-            if pending.isEmpty == false {
-                handler?(ProcessOutputLine(stream: stream, line: pending))
-                pending = ""
-            }
+            finished = true
+            emitRemainder()
         }
     }
 
     private func emitCompleteLines() {
-        while let newline = pending.firstIndex(of: "\n") {
-            let line = String(pending[..<newline]).trimmingCharacters(in: CharacterSet(charactersIn: "\r"))
+        while let newline = pending.firstIndex(of: UInt8(ascii: "\n")) {
+            emitLine(pending[..<newline])
             pending.removeSubrange(...newline)
-            if line.isEmpty == false {
-                handler?(ProcessOutputLine(stream: stream, line: line))
-            }
         }
     }
-}
 
-private extension NSLock {
-    func withLock<T>(_ body: () throws -> T) rethrows -> T {
-        lock()
-        defer { unlock() }
-        return try body()
+    private func emitRemainder() {
+        guard pending.isEmpty == false else { return }
+        emitLine(pending)
+        pending.removeAll()
+    }
+
+    private func emitLine(_ data: Data.SubSequence) {
+        var line = data
+        if line.last == UInt8(ascii: "\r") { line = line.dropLast() }
+        guard line.isEmpty == false else { return }
+        handler?(ProcessOutputLine(stream: stream, line: String(decoding: line, as: UTF8.self)))
     }
 }

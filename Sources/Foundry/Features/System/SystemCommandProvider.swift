@@ -1,14 +1,17 @@
 import Foundation
 import FoundryDomain
-import FoundryServices
 
 final class SystemCommandProvider: CommandProvider, @unchecked Sendable {
     let id = "foundry.system"
 
     private let commands: [SystemCommand]
 
-    init(diagnostics: DiagnosticsService) {
+    init() {
+        #if DEBUG
         self.commands = Self.systemCommands(includeRebuild: SourceRootLocator.locate() != nil)
+        #else
+        self.commands = Self.systemCommands(includeRebuild: false)
+        #endif
     }
 
     func search(_ request: CommandSearchRequest) async -> [CommandResult] {
@@ -224,7 +227,7 @@ final class SystemCommandProvider: CommandProvider, @unchecked Sendable {
             settingsCommand(
                 id: "system.settings",
                 title: "Open System Settings",
-                subtitle: "Open macOS System Settings",
+                subtitle: "Open macOS System Settings or jump to any pane",
                 aliases: ["preferences", "prefs", "settings"],
                 systemIcon: "gearshape.fill",
                 fallback: "SE",

@@ -1,13 +1,16 @@
 import AppKit
 import Foundation
 import FoundryServices
+import Observation
 
 @MainActor
-final class AgentMonitorState: ObservableObject {
-    @Published private(set) var sessions: [AgentSessionCard] = []
-    @Published private(set) var socketListening = false
-    @Published private(set) var integrationStatuses: [AgentBridgeProvider: AgentIntegrationStatus] = [:]
-    @Published private(set) var integrationError: String?
+@Observable
+final class AgentMonitorState {
+    private(set) var sessions: [AgentSessionCard] = []
+    private(set) var socketListening = false
+    private(set) var hasLoaded = false
+    private(set) var integrationStatuses: [AgentBridgeProvider: AgentIntegrationStatus] = [:]
+    private(set) var integrationError: String?
 
     private let sessionStore = AgentSessionStore()
     private let titleService = AgentTitleService()
@@ -42,24 +45,6 @@ final class AgentMonitorState: ObservableObject {
     var hiddenCount: Int {
         let active = sessions.filter { $0.status.isActive }
         return max(0, active.count - min(active.count, 1))
-    }
-
-    var needsInputCount: Int {
-        sessions.filter { $0.status == .needsInput }.count
-    }
-
-    var liveCount: Int {
-        sessions.filter { $0.status.isLive }.count
-    }
-
-    var reviewCount: Int {
-        sessions.filter { $0.status == .reviewReady }.count
-    }
-
-    var summary: String {
-        guard sessions.isEmpty == false else { return "No agents running" }
-        if liveCount > 0 { return "\(liveCount) live · \(sessions.count) tracked" }
-        return "\(sessions.count) recent agent\(sessions.count == 1 ? "" : "s")"
     }
 
     func start() {
@@ -152,6 +137,7 @@ final class AgentMonitorState: ObservableObject {
                   self.lifecycleGeneration == generation else { return }
             let merged = await self.sessionStore.reconcileObserved(found)
             self.sessions = merged
+            self.hasLoaded = true
             self.requestMissingTitles(for: merged)
             self.isRefreshing = false
             self.refreshTask = nil
@@ -245,8 +231,6 @@ struct AgentSessionCard: Identifiable, Hashable, Sendable {
     var origin: AgentSessionOrigin
     var capabilities: AgentSessionCapabilities
     var parentSessionID: String?
-    var attentionReason: AgentAttentionReason?
-    var terminalLocator: AgentTerminalLocator?
     var needsTitleGeneration: Bool
     var isGeneratedTitle: Bool
 
@@ -266,8 +250,6 @@ struct AgentSessionCard: Identifiable, Hashable, Sendable {
         origin: AgentSessionOrigin = .processFallback,
         capabilities: AgentSessionCapabilities = [.observe],
         parentSessionID: String? = nil,
-        attentionReason: AgentAttentionReason? = nil,
-        terminalLocator: AgentTerminalLocator? = nil,
         needsTitleGeneration: Bool = false,
         isGeneratedTitle: Bool = false
     ) {
@@ -286,8 +268,6 @@ struct AgentSessionCard: Identifiable, Hashable, Sendable {
         self.origin = origin
         self.capabilities = capabilities
         self.parentSessionID = parentSessionID
-        self.attentionReason = attentionReason
-        self.terminalLocator = terminalLocator
         self.needsTitleGeneration = needsTitleGeneration
         self.isGeneratedTitle = isGeneratedTitle
     }
@@ -343,10 +323,6 @@ enum AgentSessionStatus: String, Codable, Hashable, Sendable {
         self == .working || self == .needsInput || self == .running || self == .reviewReady || self == .planning
     }
 
-    var isLive: Bool {
-        self == .working || self == .running
-    }
-
     var sortPriority: Int {
         switch self {
         case .needsInput: 0
@@ -367,10 +343,6 @@ enum AgentOpenTarget: Hashable, Sendable {
 }
 
 private extension String {
-    var shellQuoted: String {
-        "'" + replacingOccurrences(of: "'", with: "'\\''") + "'"
-    }
-
     var appleScriptQuoted: String {
         "\"" + replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of: "\"", with: "\\\"") + "\""
     }

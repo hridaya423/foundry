@@ -3,7 +3,6 @@ import Security
 import FoundryServices
 
 protocol MediaDownloading: Sendable {
-    var downloadFolder: URL { get }
 
     func mediaCapabilities() -> MediaDownloadCapabilities
 
@@ -27,7 +26,6 @@ extension MediaDownloading {
             youtube: .ready(label: "YouTube · yt-dlp automatic setup")
         )
     }
-
 
     func download(
         urlString: String,
@@ -984,7 +982,7 @@ enum MediaDownloadError: LocalizedError, Equatable {
 
     var errorDescription: String? {
         switch self {
-        case .invalidURL: "Invalid media URL"
+        case .invalidURL: "That isn't a link Foundry can download"
         case .youtubeDependencyMissing: "yt-dlp is missing and Homebrew was not found"
         case .cobaltResponseInvalid: "Cobalt returned an invalid response"
         case .cobaltDidNotReturnFile: "Cobalt did not return a downloadable file"

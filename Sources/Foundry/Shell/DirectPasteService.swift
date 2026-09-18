@@ -56,7 +56,6 @@ final class DirectPasteService {
 
     struct PendingPaste: Equatable {
         let cursorOffset: Int
-        let snippetID: String?
     }
 
     init(
@@ -84,7 +83,7 @@ final class DirectPasteService {
 
     var hasPendingPaste: Bool { pending != nil }
 
-    func stage(_ payload: ClipboardPayload, cursorOffset: Int = 0, snippetID: String? = nil) throws {
+    func stage(_ payload: ClipboardPayload, cursorOffset: Int = 0) throws {
         guard target != nil else { throw DirectPasteError.missingTarget }
         guard pending == nil else { throw DirectPasteError.stagingFailed }
         previousItems = pasteboard.pasteboardItems?.map { item in
@@ -103,7 +102,7 @@ final class DirectPasteService {
         case .image(let data): pasteboard.setData(data, forType: .tiff)
         }
         stagedChangeCount = pasteboard.changeCount
-        pending = PendingPaste(cursorOffset: max(0, cursorOffset), snippetID: snippetID)
+        pending = PendingPaste(cursorOffset: max(0, cursorOffset))
         record(.staged)
     }
 

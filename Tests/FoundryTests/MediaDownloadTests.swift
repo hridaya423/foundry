@@ -494,7 +494,6 @@ private final class AutoInstallingProcessRunner: ProcessRunning, @unchecked Send
 }
 
 private actor ProgressMediaDownloadService: MediaDownloading {
-    nonisolated let downloadFolder = URL(fileURLWithPath: "/tmp")
 
     func download(
         urlString: String,
@@ -529,7 +528,6 @@ private actor ProgressMediaDownloadService: MediaDownloading {
 }
 
 private actor RecordingMediaDownloadService: MediaDownloading {
-    nonisolated let downloadFolder = URL(fileURLWithPath: "/tmp")
     private var recordedURLs: [String] = []
 
     func download(

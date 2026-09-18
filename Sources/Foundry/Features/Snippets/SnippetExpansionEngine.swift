@@ -15,7 +15,6 @@ struct SnippetExpansionEngine {
     }
 
     struct Expansion: Equatable {
-        let keyword: String
         let renderedContent: String
         let delimiter: String
         let deleteCount: Int
@@ -89,7 +88,7 @@ struct SnippetExpansionEngine {
     private mutating func expand(using delimiter: String) -> Output {
         defer { buffer = "" }
         guard !isExcluded, !ambiguousKeywords.contains(buffer), let snippet = snippets[buffer] else { return .ignored }
-        return .expanded(Expansion(keyword: buffer, renderedContent: render(snippet), delimiter: delimiter, deleteCount: buffer.count))
+        return .expanded(Expansion(renderedContent: render(snippet), delimiter: delimiter, deleteCount: buffer.count))
     }
 
     private var isExcluded: Bool {

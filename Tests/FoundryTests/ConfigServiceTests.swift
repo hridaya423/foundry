@@ -13,6 +13,64 @@ final class ConfigServiceTests: XCTestCase {
         try FileManager.default.createDirectory(at: temporaryDirectory, withIntermediateDirectories: true)
     }
 
+    func testSavedOptionSpaceHotkeySurvivesSchema7Migration() throws {
+        let hotkeyJSON = String(decoding: try JSONEncoder().encode(FoundryHotkey.optionSpace), as: UTF8.self)
+        let data = Data("{\"schemaVersion\":6,\"hotkey\":\(hotkeyJSON)}".utf8)
+
+        let config = try FoundryConfigMigration.migrate(data)
+
+        XCTAssertEqual(config.hotkey, .optionSpace)
+        XCTAssertEqual(config.schemaVersion, FoundryConfig.currentSchemaVersion)
+    }
+
+    func testPreV7ConfigWithoutHotkeyKeepsCommandSpaceDefault() throws {
+        for version in [1, 6] {
+            let data = Data("{\"schemaVersion\":\(version)}".utf8)
+            let config = try FoundryConfigMigration.migrate(data)
+            XCTAssertEqual(config.hotkey, .commandSpace)
+        }
+    }
+
+    func testFreshConfigDefaultsToOptionSpaceAndMenuBarIcon() {
+        let config = FoundryConfig()
+        XCTAssertEqual(config.hotkey, .optionSpace)
+        XCTAssertTrue(config.showMenuBarIcon)
+    }
+
+    func testV6ConfigDefaultsMenuBarIconOnAndRoundTripsAtSchema7() throws {
+        let data = Data(#"{"schemaVersion":6,"showMenuBarIcon":false}"#.utf8)
+        let hidden = try FoundryConfigMigration.migrate(data)
+        XCTAssertFalse(hidden.showMenuBarIcon)
+
+        let missing = try FoundryConfigMigration.migrate(Data(#"{"schemaVersion":6}"#.utf8))
+        XCTAssertTrue(missing.showMenuBarIcon)
+        XCTAssertEqual(missing.schemaVersion, FoundryConfig.currentSchemaVersion)
+
+        let encoded = try JSONEncoder().encode(missing)
+        XCTAssertEqual(FoundryConfigMigration.sourceVersion(in: encoded), FoundryConfig.currentSchemaVersion)
+        let roundTripped = try FoundryConfigMigration.migrate(encoded)
+        XCTAssertTrue(roundTripped.showMenuBarIcon)
+    }
+
+    func testV6ConfigDefaultsPopToRootAndWindowMode() throws {
+        let migrated = try FoundryConfigMigration.migrate(Data(#"{"schemaVersion":6}"#.utf8))
+        XCTAssertEqual(migrated.popToRootAfterSeconds, 90)
+        XCTAssertEqual(migrated.windowMode, .standard)
+
+        let compact = try FoundryConfigMigration.migrate(Data(#"{"schemaVersion":7,"windowMode":"compact","popToRootAfterSeconds":30}"#.utf8))
+        XCTAssertEqual(compact.windowMode, .compact)
+        XCTAssertEqual(compact.popToRootAfterSeconds, 30)
+
+        let roundTripped = try JSONDecoder().decode(FoundryConfig.self, from: JSONEncoder().encode(compact))
+        XCTAssertEqual(roundTripped.windowMode, .compact)
+        XCTAssertEqual(roundTripped.popToRootAfterSeconds, 30)
+
+        var never = compact
+        never.popToRootAfterSeconds = .greatestFiniteMagnitude
+        let neverRoundTripped = try JSONDecoder().decode(FoundryConfig.self, from: JSONEncoder().encode(never))
+        XCTAssertEqual(neverRoundTripped.popToRootAfterSeconds, .greatestFiniteMagnitude)
+    }
+
     func testSchemaVersionsOneThroughFiveUsePrivacySafeFeatureDefaults() throws {
         for version in 1...5 {
             let data = Data(#"{"schemaVersion":"#.utf8) + Data(String(version).utf8) + Data(#"}"#.utf8)
@@ -41,6 +99,17 @@ final class ConfigServiceTests: XCTestCase {
 
         XCTAssertEqual(decoded.clipboard, clipboard)
         XCTAssertEqual(decoded.snippetExpansion, snippets)
+    }
+
+    func testSchema8UpgradesLegacyClipboardDefaultsButKeepsCustomValues() throws {
+        let legacy = try FoundryConfigMigration.migrate(Data(#"{"schemaVersion":7,"clipboard":{"maxItems":40,"maxBytes":16777216}}"#.utf8))
+        XCTAssertEqual(legacy.clipboard.maxItems, ClipboardConfig.defaultMaxItems)
+        XCTAssertEqual(legacy.clipboard.maxBytes, ClipboardConfig.defaultMaxBytes)
+        XCTAssertEqual(legacy.clipboard.maxAgeDays, ClipboardConfig.defaultMaxAgeDays)
+
+        let custom = try FoundryConfigMigration.migrate(Data(#"{"schemaVersion":7,"clipboard":{"maxItems":12,"maxBytes":16777216}}"#.utf8))
+        XCTAssertEqual(custom.clipboard.maxItems, 12)
+        XCTAssertEqual(custom.clipboard.maxBytes, 16 * 1024 * 1024)
     }
 
     func testFeatureConfigBoundsAndExcludedBundleIdentifiersAreNormalized() throws {
@@ -86,6 +155,18 @@ final class ConfigServiceTests: XCTestCase {
         XCTAssertEqual(loaded.current.schemaVersion, FoundryConfig.currentSchemaVersion)
     }
 
+    func testWidgetBoardConfigDropsUnknownKindsFromLegacyConfigs() throws {
+        let url = temporaryDirectory.appendingPathComponent("config.json")
+        let data = Data(#"{"widgets":{"enabled":["clock","activeApp","osVersion","weather"],"weatherCity":"Paris","stockSymbol":"AAPL"}}"#.utf8)
+        try data.write(to: url)
+
+        let service = ConfigService(diagnostics: DiagnosticsService(), url: url)
+
+        XCTAssertEqual(service.current.widgets.enabled, [.clock, .weather])
+        XCTAssertEqual(service.current.widgets.weatherCity, "Paris")
+        XCTAssertEqual(service.current.widgets.stockSymbol, "AAPL")
+    }
+
     func testLegacyConfigMigratesToCurrentSchemaWithoutDroppingExistingFields() throws {
         let data = Data(#"{"hotkey":{"keyCode":0,"modifiers":256,"displayName":"⌘A"},"themeIntensity":0.4,"showAgentShelf":false}"#.utf8)
 
@@ -129,13 +210,14 @@ final class ConfigServiceTests: XCTestCase {
         let url = temporaryDirectory.appendingPathComponent("config.json")
         let service = ConfigService(diagnostics: DiagnosticsService(), url: url)
 
-        await withTaskGroup(of: Void.self) { group in
+        try await withThrowingTaskGroup(of: Void.self) { group in
             for index in 0..<20 {
                 group.addTask {
-                    try? service.updateThemeIntensity(Double(index) / 20)
+                    try service.updateThemeIntensity(Double(index) / 20)
                     _ = service.current
                 }
             }
+            try await group.waitForAll()
         }
 
         let saved = try Data(contentsOf: url)
@@ -262,10 +344,7 @@ final class ConfigServiceTests: XCTestCase {
     }
 
     func testBuiltInProviderDoesNotExposeHomeAsACommand() async {
-        let provider = BuiltInCommandProvider(
-            config: ConfigService(diagnostics: DiagnosticsService(), url: temporaryDirectory.appendingPathComponent("config.json")),
-            diagnostics: DiagnosticsService()
-        )
+        let provider = BuiltInCommandProvider()
         let results = await provider.results(matching: "dashboard")
 
         XCTAssertFalse(results.contains { $0.id == "foundry.dashboard" })

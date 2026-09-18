@@ -21,8 +21,6 @@ final class CommandContractsTests: XCTestCase {
         XCTAssertEqual(decoded, descriptor)
         XCTAssertEqual(decoded.id, "foundry.dashboard")
         XCTAssertEqual(decoded.sourceID, "foundry.builtin")
-        XCTAssertTrue(decoded.capabilities.contains(.search))
-        XCTAssertEqual(decoded.executionPolicy, .readOnly)
     }
 
     func testCommandOutcomeRoundTripsTypedResult() throws {
@@ -120,45 +118,6 @@ final class CommandContractsTests: XCTestCase {
 
         XCTAssertTrue(action.descriptor.isDestructive)
         XCTAssertEqual(action.descriptor.confirmation, .destructive)
-        XCTAssertEqual(action.kind.executionPolicy, .destructive)
-    }
-
-    func testProviderHealthTracksLatencyPercentilesAndFailures() async {
-        let store = ProviderHealthStore()
-
-        await store.recordRequest(providerID: "test", elapsedMilliseconds: 10, resultCount: 1)
-        await store.recordRequest(providerID: "test", elapsedMilliseconds: 30, resultCount: 0)
-        await store.recordFailure(providerID: "test", message: "Unavailable")
-        await store.setPermissionState(.granted, for: "test")
-
-        let snapshot = await store.snapshot(for: "test")
-
-        XCTAssertEqual(snapshot.requestCount, 3)
-        XCTAssertEqual(snapshot.successCount, 2)
-        XCTAssertEqual(snapshot.failureCount, 1)
-        XCTAssertEqual(snapshot.emptyResponseCount, 1)
-        XCTAssertEqual(snapshot.latencyP50Milliseconds, 20)
-        XCTAssertEqual(snapshot.latencyP95Milliseconds, 29)
-        XCTAssertEqual(snapshot.lastFailure, "Unavailable")
-        XCTAssertEqual(snapshot.permissionState, .granted)
-    }
-
-    func testProviderDescriptorIncludesHealthSnapshot() async {
-        let provider = TestCommandProvider()
-        let health = ProviderHealthStore()
-        let registry = CommandRegistry(
-            providers: [provider],
-            usageRanking: UsageRankingStore(diagnostics: DiagnosticsService()),
-            diagnostics: DiagnosticsService(),
-            providerHealth: health
-        )
-
-        _ = await registry.results(matching: "test")
-        let descriptor = await registry.providerDescriptors().first
-
-        XCTAssertEqual(descriptor?.id, "test.provider")
-        XCTAssertEqual(descriptor?.health?.requestCount, 1)
-        XCTAssertEqual(descriptor?.health?.successCount, 1)
     }
 
     func testRegistryFiltersDisabledCommandPreferences() async throws {
@@ -177,7 +136,7 @@ final class CommandContractsTests: XCTestCase {
             configService: config
         )
 
-        let results = await registry.results(matching: "")
+        let results = await registry.fullResults(matching: "")
         XCTAssertTrue(results.isEmpty)
     }
 
@@ -189,7 +148,7 @@ final class CommandContractsTests: XCTestCase {
             diagnostics: DiagnosticsService()
         )
 
-        let results = await registry.results(matching: "inactive")
+        let results = await registry.fullResults(matching: "inactive")
 
         XCTAssertFalse(results.contains { $0.id == "conditional.command" })
         let callCount = await provider.counter.value
@@ -206,18 +165,6 @@ final class CommandContractsTests: XCTestCase {
         let results = await registry.immediateResults(matching: "cached")
 
         XCTAssertEqual(results.map(\.id), ["supplemental.cached"])
-    }
-
-    func testProviderDescriptorCarriesSearchPolicy() async {
-        let registry = CommandRegistry(
-            providers: [DeferredProvider()],
-            usageRanking: UsageRankingStore(diagnostics: DiagnosticsService()),
-            diagnostics: DiagnosticsService()
-        )
-
-        let descriptor = await registry.providerDescriptors().first
-
-        XCTAssertEqual(descriptor?.searchPolicy.tier, .deferred)
     }
 
     func testCommandCatalogSurfacesProviderFailures() async {
@@ -315,13 +262,6 @@ final class CommandContractsTests: XCTestCase {
                 secondaryActions: []
             )]
         }
-    }
-
-    private struct DeferredProvider: CommandProvider {
-        let id = "deferred.provider"
-        var searchPolicy: CommandProviderSearchPolicy { CommandProviderSearchPolicy(tier: .deferred) }
-
-        func search(_ request: CommandSearchRequest) async -> [CommandResult] { [] }
     }
 
     private struct SupplementalProvider: CommandProvider {

@@ -89,7 +89,7 @@ final class DeveloperToolsProvider: CommandProvider {
     }
 
     private func uuidResults(query: String) -> [CommandResult] {
-        guard let payload = payload(in: query, prefixes: ["uuid", "guid"]) else { return [] }
+        guard let payload = SearchScoring.payload(in: query, prefixes: ["uuid", "guid"]) else { return [] }
         let count = min(max(Int(payload.trimmingCharacters(in: .whitespacesAndNewlines)) ?? 1, 1), 20)
         let values = (0..<count).map { _ in UUID().uuidString }
         return values.enumerated().map { index, value in
@@ -108,7 +108,7 @@ final class DeveloperToolsProvider: CommandProvider {
         let encodePrefixes = ["base64 encode", "b64 encode", "encode base64"]
         let decodePrefixes = ["base64 decode", "b64 decode", "decode base64"]
 
-        if let payload = payload(in: query, prefixes: encodePrefixes), payload.isEmpty == false,
+        if let payload = SearchScoring.payload(in: query, prefixes: encodePrefixes), payload.isEmpty == false,
            let encoded = DeveloperToolsEngine.base64Encode(payload) {
             return [
                 makeResult(
@@ -123,7 +123,7 @@ final class DeveloperToolsProvider: CommandProvider {
             ]
         }
 
-        if let payload = payload(in: query, prefixes: decodePrefixes), payload.isEmpty == false,
+        if let payload = SearchScoring.payload(in: query, prefixes: decodePrefixes), payload.isEmpty == false,
            let decoded = DeveloperToolsEngine.base64Decode(payload) {
             return [
                 makeResult(
@@ -138,7 +138,7 @@ final class DeveloperToolsProvider: CommandProvider {
             ]
         }
 
-        guard let payload = payload(in: query, prefixes: ["base64", "b64"]), payload.isEmpty == false else { return [] }
+        guard let payload = SearchScoring.payload(in: query, prefixes: ["base64", "b64"]), payload.isEmpty == false else { return [] }
         var results: [CommandResult] = []
         if let encoded = DeveloperToolsEngine.base64Encode(payload) {
             results.append(makeResult(id: "dev.base64.any.encode.\(encoded.hashValue)", title: encoded, subtitle: "Encoded", icon: "lock.doc", fallback: "64", primary: .copyToClipboard(encoded)))
@@ -150,7 +150,7 @@ final class DeveloperToolsProvider: CommandProvider {
     }
 
     private func jsonResults(query: String) -> [CommandResult] {
-        guard let payload = payload(in: query, prefixes: ["json", "format json", "pretty json"]), payload.isEmpty == false,
+        guard let payload = SearchScoring.payload(in: query, prefixes: ["json", "format json", "pretty json"]), payload.isEmpty == false,
               let formatted = DeveloperToolsEngine.formatJSON(payload) else { return [] }
         return [
             makeResult(
@@ -166,7 +166,7 @@ final class DeveloperToolsProvider: CommandProvider {
     }
 
     private func caseResults(query: String) -> [CommandResult] {
-        guard let payload = payload(in: query, prefixes: ["case", "change case", "convert case"]), payload.isEmpty == false else { return [] }
+        guard let payload = SearchScoring.payload(in: query, prefixes: ["case", "change case", "convert case"]), payload.isEmpty == false else { return [] }
         return DeveloperToolsEngine.caseVariants(for: payload).enumerated().map { index, variant in
             makeResult(
                 id: "dev.case.\(variant.style).\(variant.value.hashValue)",
@@ -181,7 +181,7 @@ final class DeveloperToolsProvider: CommandProvider {
     }
 
     private func unixTimestampResults(query: String) -> [CommandResult] {
-        guard let payload = payload(in: query, prefixes: ["unix", "timestamp"]), payload.isEmpty == false else { return [] }
+        guard let payload = SearchScoring.payload(in: query, prefixes: ["unix", "timestamp"]), payload.isEmpty == false else { return [] }
         return DeveloperToolsEngine.timestampConversions(for: payload).enumerated().map { index, conversion in
             makeResult(
                 id: "dev.timestamp.\(index).\(conversion.value.hashValue)",
@@ -196,7 +196,7 @@ final class DeveloperToolsProvider: CommandProvider {
 
     private func bitwiseResults(query: String) -> [CommandResult] {
         let candidate: String?
-        if let payload = payload(in: query, prefixes: ["bit", "bits", "bitwise"]), payload.isEmpty == false {
+        if let payload = SearchScoring.payload(in: query, prefixes: ["bit", "bits", "bitwise"]), payload.isEmpty == false {
             candidate = payload
         } else if DeveloperToolsEngine.looksLikeBitwiseExpression(query) {
             candidate = query
@@ -214,23 +214,27 @@ final class DeveloperToolsProvider: CommandProvider {
         case let .not(value, width):
             let mask = width >= 64 ? UInt64.max : (1 << width) - 1
             let output = (~value) & mask
-            return [bitwiseResult(title: "~\(value)", subtitle: "NOT over \(width)-bit mask", value: output, expression: "~\(value)")]
+            return [
+                bitwiseResult(title: String(output), subtitle: "~\(value) over \(width)-bit mask", expression: String(output)),
+                bitwiseResult(title: String(output, radix: 2), subtitle: "Binary", expression: String(output)),
+                bitwiseResult(title: String(output, radix: 16).uppercased(), subtitle: "Hex", expression: String(output))
+            ]
         case let .shiftLeft(value, amount):
-            return [bitwiseResult(title: "\(value) << \(amount)", subtitle: "Shift left", value: value << amount, expression: "\(value) << \(amount)")]
+            return [bitwiseResult(title: "\(value) << \(amount)", subtitle: "Shift left", expression: "\(value) << \(amount)")]
         case let .shiftRight(value, amount):
-            return [bitwiseResult(title: "\(value) >> \(amount)", subtitle: "Shift right", value: value >> amount, expression: "\(value) >> \(amount)")]
+            return [bitwiseResult(title: "\(value) >> \(amount)", subtitle: "Shift right", expression: "\(value) >> \(amount)")]
         }
     }
 
     private func bitwiseOutputs(lhs: UInt64, rhs: UInt64, label: String, value: UInt64) -> [CommandResult] {
         [
-            bitwiseResult(title: String(value), subtitle: "\(lhs) \(label) \(rhs)", value: value, expression: "\(lhs) \(label) \(rhs)"),
-            bitwiseResult(title: String(value, radix: 2), subtitle: "Binary", value: value, expression: String(value)),
-            bitwiseResult(title: String(value, radix: 16).uppercased(), subtitle: "Hex", value: value, expression: String(value))
+            bitwiseResult(title: String(value), subtitle: "\(lhs) \(label) \(rhs)", expression: "\(lhs) \(label) \(rhs)"),
+            bitwiseResult(title: String(value, radix: 2), subtitle: "Binary", expression: String(value)),
+            bitwiseResult(title: String(value, radix: 16).uppercased(), subtitle: "Hex", expression: String(value))
         ]
     }
 
-    private func bitwiseResult(title: String, subtitle: String, value: UInt64, expression: String) -> CommandResult {
+    private func bitwiseResult(title: String, subtitle: String, expression: String) -> CommandResult {
         makeResult(
             id: "dev.bitwise.\(expression.hashValue).\(subtitle)",
             title: title,
@@ -243,7 +247,7 @@ final class DeveloperToolsProvider: CommandProvider {
 
     private func baseConversionResults(query: String) -> [CommandResult] {
         let candidate: String?
-        if let payload = payload(in: query, prefixes: ["base", "radix", "convert base", "base convert"]), payload.isEmpty == false {
+        if let payload = SearchScoring.payload(in: query, prefixes: ["base", "radix", "convert base", "base convert"]), payload.isEmpty == false {
             candidate = payload
         } else if DeveloperToolsEngine.looksLikeRadixValue(query) {
             candidate = query
@@ -264,7 +268,7 @@ final class DeveloperToolsProvider: CommandProvider {
     }
 
     private func wordCountResults(query: String) -> [CommandResult] {
-        guard let payload = payload(in: query, prefixes: ["word count", "count words", "wc"]), payload.isEmpty == false else { return [] }
+        guard let payload = SearchScoring.payload(in: query, prefixes: ["word count", "count words", "wc"]), payload.isEmpty == false else { return [] }
         let stats = DeveloperToolsEngine.wordCount(payload)
         let title = "\(stats.words) words"
         let subtitle = "\(stats.characters) chars · \(stats.lines) lines · \(stats.paragraphs) paragraphs"
@@ -285,7 +289,7 @@ final class DeveloperToolsProvider: CommandProvider {
     }
 
     private func loremResults(query: String, sensitivity: SearchSensitivity) -> [CommandResult] {
-        guard let payload = payload(in: query, prefixes: ["lorem", "ipsum"]), payload.isEmpty == false || SearchScoring.match(query: query, title: "Lorem Ipsum", subtitle: nil, keywords: [], aliases: ["lorem", "ipsum"], sensitivity: sensitivity) != nil else { return [] }
+        guard let payload = SearchScoring.payload(in: query, prefixes: ["lorem", "ipsum"]), payload.isEmpty == false || SearchScoring.match(query: query, title: "Lorem Ipsum", subtitle: nil, keywords: [], aliases: ["lorem", "ipsum"], sensitivity: sensitivity) != nil else { return [] }
         let count = min(max(Int(payload.trimmingCharacters(in: .whitespacesAndNewlines)) ?? 24, 1), 200)
         let text = DeveloperToolsEngine.lorem(words: count)
         return [
@@ -302,7 +306,7 @@ final class DeveloperToolsProvider: CommandProvider {
     }
 
     private func randomDataResults(query: String, sensitivity: SearchSensitivity) -> [CommandResult] {
-        guard let payload = payload(in: query, prefixes: ["random", "faker"]), payload.isEmpty == false || SearchScoring.match(query: query, title: "Random Data", subtitle: nil, keywords: [], aliases: ["random", "faker"], sensitivity: sensitivity) != nil else { return [] }
+        guard let payload = SearchScoring.payload(in: query, prefixes: ["random", "faker"]), payload.isEmpty == false || SearchScoring.match(query: query, title: "Random Data", subtitle: nil, keywords: [], aliases: ["random", "faker"], sensitivity: sensitivity) != nil else { return [] }
         let kind = payload.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         let items = DeveloperToolsEngine.randomItems(matching: kind)
         return items.enumerated().map { index, item in
@@ -316,18 +320,6 @@ final class DeveloperToolsProvider: CommandProvider {
                 secondary: [CommandAction(id: "dev.random.\(item.label).paste", title: "Paste", kind: .pasteText(item.value))]
             )
         }
-    }
-
-    private func payload(in query: String, prefixes: [String]) -> String? {
-        let normalizedQuery = SearchScoring.normalize(query)
-        for prefix in prefixes.map(SearchScoring.normalize) {
-            if normalizedQuery == prefix { return "" }
-            if normalizedQuery.hasPrefix(prefix + " ") {
-                let index = query.index(query.startIndex, offsetBy: prefix.count)
-                return query[index...].trimmingCharacters(in: .whitespacesAndNewlines)
-            }
-        }
-        return nil
     }
 
     private func makeResult(

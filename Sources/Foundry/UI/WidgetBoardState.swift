@@ -1,16 +1,20 @@
 import Foundation
 import SwiftUI
 import FoundryServices
+import Observation
 
 @MainActor
-final class WidgetBoardState: ObservableObject {
-    @Published private(set) var config: WidgetBoardConfig
-    @Published private(set) var metrics = SystemMetrics.placeholder
-    @Published private(set) var weather: WeatherSnapshot?
-    @Published private(set) var stock: StockSnapshot?
-    @Published private(set) var downloads = DownloadsSnapshot.empty
-    @Published private(set) var isWeatherLoading = false
-    @Published private(set) var isStockLoading = false
+@Observable
+final class WidgetBoardState {
+    private(set) var config: WidgetBoardConfig
+    private(set) var metrics = SystemMetrics.placeholder
+    private(set) var weather: WeatherSnapshot?
+    private(set) var stock: StockSnapshot?
+    private(set) var downloads = DownloadsSnapshot.empty
+    private(set) var isWeatherLoading = false
+    private(set) var isStockLoading = false
+    private(set) var isWeatherStale = false
+    private(set) var isStockStale = false
 
     private let configService: ConfigService
     private let diagnostics: DiagnosticsService
@@ -35,7 +39,7 @@ final class WidgetBoardState: ObservableObject {
         if saved == .legacyDefault || saved == .legacyExpandedDefault || saved == .legacyDemo {
             normalized = .default
         }
-        normalized.enabled = Self.normalizedWidgets(from: normalized.enabled.filter { WidgetKind.allCases.contains($0) })
+        normalized.enabled = Self.normalizedWidgets(from: normalized.enabled)
         if configService.current.showAgentShelf == false {
             normalized.enabled.removeAll { $0 == .agents }
         }
@@ -46,13 +50,8 @@ final class WidgetBoardState: ObservableObject {
         }
     }
 
-    var enabled: [WidgetKind] {
-        config.enabled
-    }
-
     var homeWidgets: [WidgetKind] {
         config.enabled.filter { kind in
-            guard WidgetKind.allCases.contains(kind) else { return false }
             switch kind {
             case .weather:
                 return config.weatherCity.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
@@ -304,6 +303,7 @@ final class WidgetBoardState: ObservableObject {
             guard let self else { return }
             guard self.weatherRequestID == requestID, self.config.weatherCity == city else { return }
             if let snapshot { self.weather = snapshot }
+            self.isWeatherStale = snapshot == nil && self.weather != nil
             self.isWeatherLoading = false
         }
     }
@@ -320,6 +320,7 @@ final class WidgetBoardState: ObservableObject {
             guard let self else { return }
             guard self.stockRequestID == requestID, self.config.stockSymbol == symbol else { return }
             if let snapshot { self.stock = snapshot }
+            self.isStockStale = snapshot == nil && self.stock != nil
             self.isStockLoading = false
         }
     }
@@ -383,24 +384,12 @@ extension SystemMetrics {
         ByteCountFormatter.string(fromByteCount: Int64(memoryUsed), countStyle: .decimal)
     }
 
-    var memoryTotalDisplay: String {
-        ByteCountFormatter.string(fromByteCount: Int64(memoryTotal), countStyle: .decimal)
-    }
-
     var loadAverageDisplay: String {
         String(format: "%.2f", loadAverage1m)
     }
 
     var localIPAddressDisplay: String {
         localIPAddress ?? "Offline"
-    }
-
-    var bootDateDisplay: String {
-        Self.bootDateFormatter.string(from: Date(timeIntervalSinceNow: -uptimeSeconds))
-    }
-
-    var bootClockDisplay: String {
-        Self.bootClockFormatter.string(from: Date(timeIntervalSinceNow: -uptimeSeconds))
     }
 
     var uptimeDisplay: String {
@@ -432,16 +421,4 @@ extension SystemMetrics {
         @unknown default: return FoundryTheme.secondaryText
         }
     }
-
-    private static let bootDateFormatter: DateFormatter = {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "MMM d"
-        return formatter
-    }()
-
-    private static let bootClockFormatter: DateFormatter = {
-        let formatter = DateFormatter()
-        formatter.timeStyle = .short
-        return formatter
-    }()
 }

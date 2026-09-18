@@ -5,7 +5,6 @@ struct CommandSettingsRowModel: Identifiable, Equatable, Sendable {
     let id: String
     let title: String
     let subtitle: String
-    let sourceLabel: String
     let icon: CommandIcon
     let searchText: String
     let preference: CommandPreference
@@ -14,7 +13,6 @@ struct CommandSettingsRowModel: Identifiable, Equatable, Sendable {
         id = descriptor.id
         title = descriptor.title
         subtitle = descriptor.subtitle ?? Self.sourceLabel(for: descriptor.sourceID)
-        sourceLabel = Self.sourceLabel(for: descriptor.sourceID)
         icon = descriptor.icon
         self.preference = preference
         searchText = [
@@ -40,12 +38,18 @@ struct CommandSettingsRowModel: Identifiable, Equatable, Sendable {
 }
 
 enum CommandSettingsCatalog {
+    static let systemSettingsID = "system.settings"
+
+    static func isSystemSettingsPane(_ id: String) -> Bool {
+        id.hasPrefix(systemSettingsID + ".")
+    }
+
     static func build(
         descriptors: [CommandDescriptor],
         preferences: [String: CommandPreference],
         query: String
     ) -> (rows: [CommandSettingsRowModel], visibleRows: [CommandSettingsRowModel]) {
-        let rows = descriptors.map { descriptor in
+        let rows = descriptors.filter { isSystemSettingsPane($0.id) == false }.map { descriptor in
             CommandSettingsRowModel(
                 descriptor: descriptor,
                 preference: preferences[descriptor.id] ?? CommandPreference()

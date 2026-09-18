@@ -3,16 +3,6 @@ import FoundryServices
 
 enum AgentMonitorService {
     private static let recentSessionWindow: TimeInterval = 24 * 60 * 60
-    private static let defaultProcessSnapshotProvider = NativeProcessSnapshotProvider()
-
-    static func collect() -> [AgentSessionCard] {
-        var cache = AgentMonitorCache()
-        return collect(using: &cache)
-    }
-
-    static func collect(using cache: inout AgentMonitorCache) -> [AgentSessionCard] {
-        collect(using: &cache, processProvider: defaultProcessSnapshotProvider)
-    }
 
     static func collect(using cache: inout AgentMonitorCache, processProvider: any ProcessSnapshotProviding) -> [AgentSessionCard] {
         let processes = processProvider.capture()
@@ -428,55 +418,12 @@ enum AgentMonitorService {
         }
     }
 
-    private static func claudeSessionsFromJSON(_ text: String) -> [AgentSessionCard] {
-        guard let data = text.data(using: .utf8),
-              let items = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] else { return [] }
-        return items.compactMap { item in
-            let id = (item["id"] as? String) ?? (item["sessionId"] as? String) ?? UUID().uuidString
-            let cwd = item["cwd"] as? String
-            let state = (item["state"] as? String) ?? (item["status"] as? String)
-            let name = (item["name"] as? String)?.nilIfEmpty ?? cwd?.lastPathComponent ?? "Claude Session"
-            let waitingFor = item["waitingFor"] as? String
-            let status = claudeStatus(state: state, waitingFor: waitingFor)
-            let startedAt = date(any: item["startedAt"])
-            let subtitle = [waitingFor, state, cwd?.lastPathComponent].compactMap { $0?.nilIfEmpty }.joined(separator: " · ")
-            return AgentSessionCard(id: "claude.\(id)", provider: .claude, title: name, subtitle: subtitle, project: cwd?.lastPathComponent, workingDirectory: cwd, model: nil, status: status, startedAt: startedAt, updatedAt: startedAt, openTarget: .terminal(command: "claude attach \(id.shellQuoted)", cwd: cwd), capabilities: [.observe, .jumpTerminal])
-        }
-    }
-
-    private static func claudeStatus(state: String?, waitingFor: String?) -> AgentSessionStatus {
-        if waitingFor?.isEmpty == false { return .needsInput }
-        switch state?.lowercased() {
-        case "working": return .working
-        case "blocked": return .needsInput
-        case "done": return .completed
-        case "failed": return .failed
-        case "stopped": return .idle
-        default: return .running
-        }
-    }
-
     private static func openCodeModelLabel(_ json: String) -> String? {
         guard let data = json.data(using: .utf8),
               let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return json.nilIfEmpty }
         let id = object["id"] as? String
         let variant = object["variant"] as? String
         return [id, variant == "none" ? nil : variant].compactMap { $0?.nilIfEmpty }.joined(separator: " ").nilIfEmpty
-    }
-
-    private static func cursorStats(_ composer: [String: Any]) -> String? {
-        let files = int(composer["filesChangedCount"])
-        let added = int(composer["totalLinesAdded"])
-        let removed = int(composer["totalLinesRemoved"])
-        if let files, files > 0 { return "\(files) files · +\(added ?? 0) -\(removed ?? 0)" }
-        return nil
-    }
-
-    private static func cursorModel(_ composer: [String: Any]) -> String? {
-        for key in ["model", "modelName", "selectedModel", "forceMode"] {
-            if let value = composer[key] as? String, let label = value.nilIfEmpty { return label }
-        }
-        return nil
     }
 
     private static func cursorWorkspaces(root: String) -> [String: String] {
@@ -535,26 +482,13 @@ enum AgentMonitorService {
         FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(path).path
     }
 
-    private static func firstExisting(_ paths: [String]) -> String? {
-        paths.first { FileManager.default.fileExists(atPath: $0) }
+    private static func date(milliseconds value: Double) -> Date? {
+        Date(timeIntervalSince1970: value / 1000)
     }
 
     private static func date(milliseconds value: String) -> Date? {
         guard let number = Double(value), number > 0 else { return nil }
         return Date(timeIntervalSince1970: number / 1000)
-    }
-
-    private static func date(milliseconds value: Any?) -> Date? {
-        if let number = value as? Double { return Date(timeIntervalSince1970: number / 1000) }
-        if let number = value as? Int { return Date(timeIntervalSince1970: Double(number) / 1000) }
-        if let string = value as? String { return date(milliseconds: string) }
-        return nil
-    }
-
-    private static func date(any value: Any?) -> Date? {
-        if let date = date(milliseconds: value), date.timeIntervalSince1970 > 1_000_000_000 { return date }
-        if let string = value as? String { return ISO8601DateFormatter().date(from: string) }
-        return nil
     }
 
     private static func isRecent(_ date: Date?, within seconds: TimeInterval, now: Date = Date()) -> Bool {
@@ -577,11 +511,6 @@ enum AgentMonitorService {
         return "/" + suffix.replacingOccurrences(of: "-", with: "/").trimmingCharacters(in: CharacterSet(charactersIn: "/"))
     }
 
-    private static func int(_ value: Any?) -> Int? {
-        if let int = value as? Int { return int }
-        if let double = value as? Double { return Int(double) }
-        return nil
-    }
 }
 
 private struct ClaudeHistoryEntry: Decodable {
@@ -695,13 +624,5 @@ private extension String {
     var lastPathComponent: String? {
         guard isEmpty == false else { return nil }
         return URL(fileURLWithPath: self).lastPathComponent.nilIfEmpty
-    }
-
-    var shellQuoted: String {
-        "'" + replacingOccurrences(of: "'", with: "'\\''") + "'"
-    }
-
-    var sqlEscaped: String {
-        replacingOccurrences(of: "'", with: "''")
     }
 }

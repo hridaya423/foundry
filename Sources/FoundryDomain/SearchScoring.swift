@@ -66,8 +66,6 @@ public struct SearchMatch: Equatable, Sendable {
     public let tier: SearchMatchTier
     public let matchedTokenCount: Int
     public let exactTokenCount: Int
-    public let queryTokenCount: Int
-    public let queryLength: Int
     public let candidateLength: Int
     public let editDistance: Int?
     public let fuzzyScore: Int?
@@ -77,9 +75,25 @@ public enum SearchScoring {
     private static let alphanumerics = CharacterSet.alphanumerics
     private static let searchLocale = Locale(identifier: "en_US_POSIX")
 
+    public struct PreparedQuery: Sendable {
+        public let normalized: String
+        let tokens: [String]
+        let tokenCharacters: [[Character]]
+
+        public init(query: String) {
+            self.init(normalized: SearchScoring.normalize(query))
+        }
+
+        public init(normalized: String) {
+            self.normalized = normalized
+            tokens = normalized.split(separator: " ").map(String.init)
+            tokenCharacters = tokens.map(Array.init)
+        }
+    }
+
     public static func match(query: String, title: String, aliases: [String] = [], allowFuzzy: Bool = true) -> SearchMatch? {
-        let normalizedQuery = normalize(query)
-        guard normalizedQuery.isEmpty == false else { return nil }
+        let normalizedQuery = PreparedQuery(query: query)
+        guard normalizedQuery.normalized.isEmpty == false else { return nil }
         return matchNormalized(
             query: normalizedQuery,
             title: title,
@@ -99,8 +113,8 @@ public enum SearchScoring {
         aliases: [String],
         sensitivity: SearchSensitivity = .medium
     ) -> SearchMatch? {
-        let normalizedQuery = normalize(query)
-        guard normalizedQuery.isEmpty == false else { return nil }
+        let normalizedQuery = PreparedQuery(query: query)
+        guard normalizedQuery.normalized.isEmpty == false else { return nil }
         return matchNormalized(
             query: normalizedQuery,
             title: title,
@@ -119,9 +133,27 @@ public enum SearchScoring {
         normalizedAliases: [String],
         sensitivity: SearchSensitivity = .medium
     ) -> SearchMatch? {
-        guard normalizedQuery.isEmpty == false else { return nil }
+        matchPrepared(
+            query: PreparedQuery(normalized: normalizedQuery),
+            normalizedTitle: normalizedTitle,
+            normalizedSubtitle: normalizedSubtitle,
+            normalizedKeywords: normalizedKeywords,
+            normalizedAliases: normalizedAliases,
+            sensitivity: sensitivity
+        )
+    }
+
+    public static func matchPrepared(
+        query: PreparedQuery,
+        normalizedTitle: String,
+        normalizedSubtitle: String?,
+        normalizedKeywords: [String],
+        normalizedAliases: [String],
+        sensitivity: SearchSensitivity = .medium
+    ) -> SearchMatch? {
+        guard query.normalized.isEmpty == false else { return nil }
         return matchNormalized(
-            query: normalizedQuery,
+            query: query,
             title: normalizedTitle,
             subtitle: normalizedSubtitle,
             keywords: normalizedKeywords,
@@ -152,8 +184,33 @@ public enum SearchScoring {
         return normalized
     }
 
+    public static func payload(in query: String, prefixes: [String]) -> String? {
+        let normalizedQuery = normalize(query)
+        for prefix in prefixes {
+            let normalizedPrefix = normalize(prefix)
+            if normalizedQuery == normalizedPrefix { return "" }
+            guard normalizedQuery.hasPrefix(normalizedPrefix + " ") else { continue }
+            let foldedQuery = query.folding(options: [.diacriticInsensitive], locale: searchLocale)
+            var emitted = 0
+            var needsSeparator = false
+            var payloadStart = foldedQuery.endIndex
+            let scalars = foldedQuery.unicodeScalars
+            for index in scalars.indices {
+                guard alphanumerics.contains(scalars[index]) else {
+                    if emitted > 0 { needsSeparator = true }
+                    continue
+                }
+                if emitted == normalizedPrefix.count { payloadStart = index; break }
+                if needsSeparator { emitted += 1; needsSeparator = false }
+                emitted += 1
+            }
+            return String(foldedQuery[payloadStart...]).trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+        return nil
+    }
+
     private static func matchNormalized(
-        query: String,
+        query: PreparedQuery,
         title: String,
         subtitle: String?,
         keywords: [String],
@@ -162,15 +219,15 @@ public enum SearchScoring {
         allowFuzzy: Bool = true,
         valuesAreNormalized: Bool = false
     ) -> SearchMatch? {
-        let queryTokens = query.split(separator: " ").map(String.init)
+        let queryTokens = query.tokens
         guard queryTokens.isEmpty == false else { return nil }
-        let aliasMatches = aliases.compactMap { aliasMatch(query: query, queryTokenCount: queryTokens.count, alias: valuesAreNormalized ? $0 : normalize($0)) }
-        let titleMatches = [textMatch(query: query, queryTokens: queryTokens, candidate: title, field: .title, sensitivity: sensitivity, allowFuzzy: allowFuzzy, isNormalized: valuesAreNormalized)].compactMap { $0 }
+        let aliasMatches = aliases.compactMap { aliasMatch(query: query.normalized, queryTokenCount: queryTokens.count, alias: valuesAreNormalized ? $0 : normalize($0)) }
+        let titleMatches = [textMatch(query: query, candidate: title, field: .title, sensitivity: sensitivity, allowFuzzy: allowFuzzy, isNormalized: valuesAreNormalized)].compactMap { $0 }
         let subtitleMatches = [subtitle].compactMap { value in
-            value.flatMap { textMatch(query: query, queryTokens: queryTokens, candidate: $0, field: .subtitle, sensitivity: sensitivity, allowFuzzy: allowFuzzy, isNormalized: valuesAreNormalized) }
+            value.flatMap { textMatch(query: query, candidate: $0, field: .subtitle, sensitivity: sensitivity, allowFuzzy: allowFuzzy, isNormalized: valuesAreNormalized) }
         }
         let keywordMatches = keywords.compactMap { keyword in
-            textMatch(query: query, queryTokens: queryTokens, candidate: keyword, field: .keyword, sensitivity: sensitivity, allowFuzzy: allowFuzzy, isNormalized: valuesAreNormalized)
+            textMatch(query: query, candidate: keyword, field: .keyword, sensitivity: sensitivity, allowFuzzy: allowFuzzy, isNormalized: valuesAreNormalized)
         }
 
         return (aliasMatches + titleMatches + subtitleMatches + keywordMatches)
@@ -185,10 +242,7 @@ public enum SearchScoring {
                 field: .alias,
                 tier: .aliasExact,
                 matchedTokenCount: queryTokenCount,
-                exactTokenCount: queryTokenCount,
-                queryTokenCount: queryTokenCount,
-                queryLength: query.count,
-                candidateLength: alias.count,
+                exactTokenCount: queryTokenCount,                candidateLength: alias.count,
                 editDistance: 0,
                 fuzzyScore: nil
             )
@@ -200,26 +254,25 @@ public enum SearchScoring {
             field: .alias,
             tier: .aliasPrefix,
             matchedTokenCount: queryTokenCount,
-            exactTokenCount: queryTokenCount,
-            queryTokenCount: queryTokenCount,
-            queryLength: query.count,
-            candidateLength: alias.count,
+            exactTokenCount: queryTokenCount,            candidateLength: alias.count,
             editDistance: nil,
             fuzzyScore: nil
         )
     }
 
-    private static func textMatch(query: String, queryTokens: [String], candidate: String, field: SearchMatchField, sensitivity: SearchSensitivity, allowFuzzy: Bool, isNormalized: Bool = false) -> SearchMatch? {
+    private static func textMatch(query: PreparedQuery, candidate: String, field: SearchMatchField, sensitivity: SearchSensitivity, allowFuzzy: Bool, isNormalized: Bool = false) -> SearchMatch? {
         let normalizedCandidate = isNormalized ? candidate : normalize(candidate)
         guard normalizedCandidate.isEmpty == false else { return nil }
+        let queryString = query.normalized
+        let queryTokens = query.tokens
 
         let candidateTokens = normalizedCandidate.split(separator: " ").map(String.init)
         guard queryTokens.isEmpty == false, candidateTokens.isEmpty == false else { return nil }
 
         let details: MatchDetails
-        if normalizedCandidate == query {
+        if normalizedCandidate == queryString {
             details = MatchDetails(kind: .exact, matchedTokenCount: queryTokens.count, exactTokenCount: queryTokens.count, editDistance: 0, fuzzyScore: nil)
-        } else if normalizedCandidate.hasPrefix(query + " ") || normalizedCandidate.hasPrefix(query) {
+        } else if normalizedCandidate.hasPrefix(queryString + " ") || normalizedCandidate.hasPrefix(queryString) {
             details = MatchDetails(kind: .phrasePrefix, matchedTokenCount: queryTokens.count, exactTokenCount: queryTokens.count, editDistance: nil, fuzzyScore: nil)
         } else if let tokenDetails = tokenMatchDetails(queryTokens: queryTokens, candidateTokens: candidateTokens) {
             details = tokenDetails
@@ -227,13 +280,13 @@ public enum SearchScoring {
             details = compactTokenDetails
         } else {
             let acronym = candidateTokens.compactMap(\.first).map(String.init).joined()
-            if queryTokens.count == 1, acronym.hasPrefix(query), query.count >= 2 {
+            if queryTokens.count == 1, acronym.hasPrefix(queryString), queryString.count >= 2 {
                 details = MatchDetails(kind: .acronym, matchedTokenCount: queryTokens.count, exactTokenCount: 0, editDistance: nil, fuzzyScore: nil)
-            } else if query.count >= 2, normalizedCandidate.contains(query) {
+            } else if queryString.count >= 2, normalizedCandidate.contains(queryString) {
                 details = MatchDetails(kind: .contains, matchedTokenCount: queryTokens.count, exactTokenCount: 0, editDistance: nil, fuzzyScore: nil)
             } else {
                 guard allowFuzzy,
-                      let fuzzy = fuzzyDetails(queryTokens: queryTokens, candidateTokens: candidateTokens, sensitivity: sensitivity) else {
+                      let fuzzy = fuzzyDetails(queryTokens: queryTokens, queryTokenCharacters: query.tokenCharacters, candidateTokens: candidateTokens, sensitivity: sensitivity) else {
                     return nil
                 }
                 details = fuzzy
@@ -245,10 +298,7 @@ public enum SearchScoring {
             field: field,
             tier: tier(for: field, kind: details.kind),
             matchedTokenCount: details.matchedTokenCount,
-            exactTokenCount: details.exactTokenCount,
-            queryTokenCount: queryTokens.count,
-            queryLength: query.count,
-            candidateLength: normalizedCandidate.count,
+            exactTokenCount: details.exactTokenCount,            candidateLength: normalizedCandidate.count,
             editDistance: details.editDistance,
             fuzzyScore: details.fuzzyScore
         )
@@ -271,7 +321,7 @@ public enum SearchScoring {
         }
     }
 
-    private static func fuzzyDetails(queryTokens: [String], candidateTokens: [String], sensitivity: SearchSensitivity) -> MatchDetails? {
+    private static func fuzzyDetails(queryTokens: [String], queryTokenCharacters: [[Character]], candidateTokens: [String], sensitivity: SearchSensitivity) -> MatchDetails? {
         let minimumQueryLength: Int
         let densityThreshold: Double
         switch sensitivity {
@@ -287,7 +337,7 @@ public enum SearchScoring {
         }
         guard queryTokens.allSatisfy({ $0.count >= minimumQueryLength || queryTokens.count > 1 }) else { return nil }
 
-        let queryCharacters = queryTokens.map(Array.init)
+        let queryCharacters = queryTokenCharacters
         let candidateCharacters = candidateTokens.map(Array.init)
         var score = 0
         var editDistance = 0
@@ -507,19 +557,6 @@ public enum SearchScoring {
             previous = current
         }
         return previous[rhs.count]
-    }
-
-    private static func compact(_ value: String) -> String {
-        value.replacingOccurrences(of: " ", with: "")
-    }
-
-    private static func isSubsequence(_ needle: String, of haystack: String) -> Bool {
-        var remaining = needle[...]
-        for character in haystack where remaining.first == character {
-            remaining.removeFirst()
-            if remaining.isEmpty { return true }
-        }
-        return remaining.isEmpty
     }
 
     private struct MatchDetails {

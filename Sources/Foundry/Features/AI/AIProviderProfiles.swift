@@ -44,7 +44,6 @@ struct AIProviderCapabilities: Codable, Equatable, Hashable, Sendable {
     var modelDiscovery: Bool
 
     static let full = AIProviderCapabilities(streaming: true, tools: true, vision: true, structuredOutput: true, modelDiscovery: true)
-    static let textOnly = AIProviderCapabilities(streaming: true, tools: false, vision: false, structuredOutput: false, modelDiscovery: false)
 }
 
 struct AIRequestOptions: Codable, Equatable, Hashable, Sendable {
@@ -332,10 +331,7 @@ enum AIEndpointPolicy {
     static func isLoopbackOrPrivate(_ value: String) -> Bool {
         guard let normalized = normalized(value), let host = URL(string: normalized)?.host?.lowercased() else { return false }
         if host == "localhost" || host.hasSuffix(".localhost") || host == "::1" { return true }
-        let octets = host.split(separator: ".").compactMap { Int($0) }
-        if octets.count == 4 {
-            if octets[0] == 127 || octets[0] == 10 || (octets[0] == 192 && octets[1] == 168) || (octets[0] == 172 && (16...31).contains(octets[1])) { return true }
-        }
+        if let address = IPv4Address(host) { return address.isPublic == false }
         return false
     }
 

@@ -1,5 +1,19 @@
 import Foundation
 
+enum WidgetCategory: String, CaseIterable, Sendable {
+    case workspace
+    case system
+    case web
+
+    var title: String {
+        switch self {
+        case .workspace: return "Workspace"
+        case .system: return "System"
+        case .web: return "Web"
+        }
+    }
+}
+
 enum WidgetKind: String, Codable, CaseIterable, Sendable, Identifiable {
     case agents
     case calendar
@@ -19,33 +33,19 @@ enum WidgetKind: String, Codable, CaseIterable, Sendable, Identifiable {
     case network
     case clipboard
     case downloads
-    case activeApp
-    case device
-    case osVersion
-    case user
-    case timeZone
-    case display
-    case boot
-    case host
-    case cores
-
-    static let allCases: [WidgetKind] = [
-        .agents,
-        .calendar,
-        .system,
-        .battery,
-        .date,
-        .disk,
-        .uptime,
-        .clock,
-        .cpu,
-        .memory,
-        .diskUsage,
-        .weather,
-        .stock
-    ]
 
     var id: String { rawValue }
+
+    var category: WidgetCategory {
+        switch self {
+        case .agents, .calendar, .date, .clock, .uptime, .clipboard, .downloads:
+            return .workspace
+        case .system, .cpu, .memory, .loadAverage, .thermal, .disk, .diskUsage, .battery, .network:
+            return .system
+        case .weather, .stock:
+            return .web
+        }
+    }
 
     var title: String {
         switch self {
@@ -67,15 +67,6 @@ enum WidgetKind: String, Codable, CaseIterable, Sendable, Identifiable {
         case .network: return "Network"
         case .clipboard: return "Clipboard"
         case .downloads: return "Downloads"
-        case .activeApp: return "Active App"
-        case .device: return "Device"
-        case .osVersion: return "macOS"
-        case .user: return "User"
-        case .timeZone: return "Time Zone"
-        case .display: return "Display"
-        case .boot: return "Boot"
-        case .host: return "Host"
-        case .cores: return "Cores"
         }
     }
 
@@ -99,15 +90,6 @@ enum WidgetKind: String, Codable, CaseIterable, Sendable, Identifiable {
         case .network: return "Primary local IP address"
         case .clipboard: return "Current clipboard text size"
         case .downloads: return "Recent files in Downloads"
-        case .activeApp: return "Frontmost application"
-        case .device: return "Mac device name"
-        case .osVersion: return "Installed macOS version"
-        case .user: return "Current signed-in user"
-        case .timeZone: return "Current time zone"
-        case .display: return "Main display resolution"
-        case .boot: return "Approximate last boot time"
-        case .host: return "Host name"
-        case .cores: return "Active processor count"
         }
     }
 
@@ -131,33 +113,7 @@ enum WidgetKind: String, Codable, CaseIterable, Sendable, Identifiable {
         case .network: return "network"
         case .clipboard: return "doc.on.clipboard"
         case .downloads: return "arrow.down.circle"
-        case .activeApp: return "macwindow"
-        case .device: return "desktopcomputer"
-        case .osVersion: return "apple.logo"
-        case .user: return "person.crop.circle"
-        case .timeZone: return "globe"
-        case .display: return "display"
-        case .boot: return "power"
-        case .host: return "bonjour"
-        case .cores: return "cpu.fill"
         }
-    }
-
-    var span: Int {
-        switch self {
-        case .agents, .calendar, .system, .weather, .stock, .activeApp, .display:
-            2
-        default:
-            1
-        }
-    }
-
-    var heightUnits: Int {
-        self == .calendar ? 3 : 1
-    }
-
-    var needsNetwork: Bool {
-        self == .weather || self == .stock
     }
 
     var conflicts: Set<WidgetKind> {
@@ -182,6 +138,20 @@ struct WidgetBoardConfig: Codable, Equatable {
     var enabled: [WidgetKind]
     var weatherCity: String
     var stockSymbol: String
+
+    init(enabled: [WidgetKind], weatherCity: String, stockSymbol: String) {
+        self.enabled = enabled
+        self.weatherCity = weatherCity
+        self.stockSymbol = stockSymbol
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        let raw = try container.decodeIfPresent([String].self, forKey: .enabled) ?? []
+        enabled = raw.compactMap(WidgetKind.init(rawValue:))
+        weatherCity = try container.decodeIfPresent(String.self, forKey: .weatherCity) ?? ""
+        stockSymbol = try container.decodeIfPresent(String.self, forKey: .stockSymbol) ?? ""
+    }
 
     static let `default` = WidgetBoardConfig(
         enabled: [.agents, .calendar, .system, .battery],
@@ -211,16 +181,14 @@ struct WidgetBoardConfig: Codable, Equatable {
         guard enabled.count < Self.maxEnabled else { return [] }
         return WidgetKind.allCases.filter { kind in
             enabled.contains(kind) == false && enabled.contains { $0.conflicts.contains(kind) } == false
-        } 
+        }
     }
 }
 
 struct WeatherSnapshot: Sendable, Equatable {
-    let city: String
     let temperature: Double
     let condition: String
     let symbol: String
-    let isDay: Bool
 }
 
 struct StockSnapshot: Sendable, Equatable {

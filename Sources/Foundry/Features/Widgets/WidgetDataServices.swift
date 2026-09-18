@@ -20,13 +20,9 @@ final class WeatherService: Sendable {
         }
 
         let descriptor = WeatherDescriptor.forCode(forecast.current.weatherCode, isDay: forecast.current.isDay == 1)
-        return WeatherSnapshot(
-            city: place.name,
-            temperature: forecast.current.temperature,
+        return WeatherSnapshot(temperature: forecast.current.temperature,
             condition: descriptor.text,
-            symbol: descriptor.symbol,
-            isDay: forecast.current.isDay == 1
-        )
+            symbol: descriptor.symbol)
     }
 
     private func fetchJSON<T: Decodable>(_ type: T.Type, from url: URL) async throws -> T {
@@ -39,7 +35,6 @@ final class WeatherService: Sendable {
 
 private struct GeocodingResponse: Decodable {
     struct Place: Decodable {
-        let name: String
         let latitude: Double
         let longitude: Double
     }

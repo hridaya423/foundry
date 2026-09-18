@@ -1,27 +1,30 @@
 import Foundation
 import SwiftUI
 import FoundryServices
+import Observation
 
 @MainActor
-final class AISettingsState: ObservableObject {
-    @Published var isOllamaEnabled: Bool
-    @Published var ollamaHost: String
-    @Published var ollamaModel: String
-    @Published var ollamaHostError: String?
-    @Published var ollamaModelError: String?
-    @Published var aiProfiles: [AIProviderProfile]
-    @Published var defaultAIProfileID: UUID?
-    @Published var fallbackAIProfileIDs: [UUID]
-    @Published var selectedAIProfileID: UUID?
-    @Published var aiCredentialInput = ""
-    @Published var aiProfileStatus: String?
-    @Published var aiProfileTestingID: UUID?
-    @Published var aiAvailableModels: [AIModel] = []
-    @Published var aiModelsLoading = false
-    @Published var codexLoginState: CodexLoginState
-    @Published var codexDeviceAuthorization: OpenAIDeviceAuthorization?
-    @Published var acceptedCodexPrivateBackendWarning: Bool
-    @Published var settingsPersistenceError: String?
+@Observable
+final class AISettingsState {
+    var isOllamaEnabled: Bool
+    var ollamaHost: String
+    var ollamaModel: String
+    var ollamaHostError: String?
+    var ollamaModelError: String?
+    var aiProfiles: [AIProviderProfile]
+    var defaultAIProfileID: UUID?
+    var fallbackAIProfileIDs: [UUID]
+    var selectedAIProfileID: UUID?
+    var aiCredentialInput = ""
+    var aiProfileStatus: String? { didSet { aiProfileStatusIsError = false } }
+    private(set) var aiProfileStatusIsError = false
+    var aiProfileTestingID: UUID?
+    var aiAvailableModels: [AIModel] = []
+    var aiModelsLoading = false
+    var codexLoginState: CodexLoginState
+    var codexDeviceAuthorization: OpenAIDeviceAuthorization?
+    var acceptedCodexPrivateBackendWarning: Bool
+    var settingsPersistenceError: String?
 
     private let configService: ConfigService
     private let diagnostics: DiagnosticsService
@@ -59,61 +62,6 @@ final class AISettingsState: ObservableObject {
     var selectedAIProfile: AIProviderProfile? {
         guard let selectedAIProfileID else { return nil }
         return aiProfiles.first { $0.id == selectedAIProfileID }
-    }
-
-    func setOllamaEnabled(_ isEnabled: Bool) {
-        let previous = isOllamaEnabled
-        isOllamaEnabled = isEnabled
-        var ai = configService.current.ai
-        ai.isOllamaEnabled = isEnabled
-        do {
-            try configService.updateAIConfig(ai)
-            settingsPersistenceError = nil
-        } catch {
-            isOllamaEnabled = previous
-            showSettingsPersistenceError(error)
-        }
-    }
-
-    func setOllamaHost(_ host: String) {
-        let previous = ollamaHost
-        ollamaHost = host
-        guard let value = Self.validatedOllamaHost(host) else {
-            ollamaHostError = "Enter an absolute http or https URL."
-            return
-        }
-        ollamaHostError = nil
-        var ai = configService.current.ai
-        ai.ollamaHost = value
-        do {
-            try configService.updateAIConfig(ai)
-            ollamaHost = value
-            settingsPersistenceError = nil
-        } catch {
-            ollamaHost = previous
-            showSettingsPersistenceError(error)
-        }
-    }
-
-    func setOllamaModel(_ model: String) {
-        let previous = ollamaModel
-        ollamaModel = model
-        let value = model.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard value.isEmpty == false else {
-            ollamaModelError = "Enter an Ollama model name."
-            return
-        }
-        ollamaModelError = nil
-        var ai = configService.current.ai
-        ai.ollamaModel = value
-        do {
-            try configService.updateAIConfig(ai)
-            ollamaModel = value
-            settingsPersistenceError = nil
-        } catch {
-            ollamaModel = previous
-            showSettingsPersistenceError(error)
-        }
     }
 
     func selectAIProfile(_ id: UUID) {
@@ -180,6 +128,7 @@ final class AISettingsState: ObservableObject {
     func setAIProfileEndpoint(_ endpoint: String, id: UUID) {
         guard let value = AIEndpointPolicy.normalized(endpoint) else {
             aiProfileStatus = "Enter an absolute HTTP or HTTPS endpoint without embedded credentials."
+            aiProfileStatusIsError = true
             return
         }
         updateAIProfile(id: id) { profile in
@@ -196,6 +145,7 @@ final class AISettingsState: ObservableObject {
         let value = model.trimmingCharacters(in: .whitespacesAndNewlines)
         guard value.isEmpty == false else {
             aiProfileStatus = "Enter a model name."
+            aiProfileStatusIsError = true
             return
         }
         updateAIProfile(id: id) { profile in
@@ -245,6 +195,7 @@ final class AISettingsState: ObservableObject {
             aiCredentialInput = ""
         } catch {
             aiProfileStatus = "Could not update the Keychain credential."
+            aiProfileStatusIsError = true
             diagnostics.log("AI credential update failed: \(error.localizedDescription)")
         }
     }
@@ -284,6 +235,7 @@ final class AISettingsState: ObservableObject {
                 guard Task.isCancelled == false else { return }
                 self?.codexLoginState = .failed(error.localizedDescription)
                 self?.aiProfileStatus = error.localizedDescription
+                self?.aiProfileStatusIsError = true
             }
         }
     }
@@ -296,7 +248,7 @@ final class AISettingsState: ObservableObject {
         codexOAuthTask?.cancel()
         persistCodexLoginMethod(.device)
         codexLoginState = .starting
-        aiProfileStatus = "Requesting a device code..."
+        aiProfileStatus = "Requesting a device code…"
         codexOAuthTask = Task { [weak self] in
             do {
                 let authorization = try await self?.codexOAuthService.requestDeviceAuthorization()
@@ -308,6 +260,7 @@ final class AISettingsState: ObservableObject {
                 guard Task.isCancelled == false else { return }
                 self?.codexLoginState = .failed(error.localizedDescription)
                 self?.aiProfileStatus = error.localizedDescription
+                self?.aiProfileStatusIsError = true
             }
         }
     }
@@ -315,7 +268,7 @@ final class AISettingsState: ObservableObject {
     func completeCodexDeviceLogin() {
         guard let authorization = codexDeviceAuthorization, let profile = selectedAIProfile, profile.kind == .openAISubscription else { return }
         codexLoginState = .exchangingCode
-        aiProfileStatus = "Waiting for ChatGPT device approval..."
+        aiProfileStatus = "Waiting for ChatGPT device approval…"
         codexOAuthTask?.cancel()
         codexOAuthTask = Task { [weak self] in
             do {
@@ -329,6 +282,7 @@ final class AISettingsState: ObservableObject {
                 guard Task.isCancelled == false else { return }
                 self?.codexLoginState = .failed(error.localizedDescription)
                 self?.aiProfileStatus = error.localizedDescription
+                self?.aiProfileStatusIsError = true
             }
         }
     }
@@ -352,6 +306,7 @@ final class AISettingsState: ObservableObject {
                 self?.updateAIProfile(id: profile.id) { $0.enabled = false }
             } catch {
                 self?.aiProfileStatus = "Could not remove the ChatGPT credential."
+                self?.aiProfileStatusIsError = true
             }
         }
     }
@@ -375,7 +330,7 @@ final class AISettingsState: ObservableObject {
         guard let profile = selectedAIProfile else { return }
         aiProfileTestTask?.cancel()
         aiProfileTestingID = profile.id
-        aiProfileStatus = "Testing connection..."
+        aiProfileStatus = "Testing connection…"
         aiProfileTestTask = Task { [weak self] in
             let result = await AITransportRouter.test(profile: profile)
             guard Task.isCancelled == false else { return }
@@ -383,6 +338,7 @@ final class AISettingsState: ObservableObject {
                 guard let self else { return }
                 self.aiProfileTestingID = nil
                 self.aiProfileStatus = result.message
+                self.aiProfileStatusIsError = result.isFailure
             }
         }
     }

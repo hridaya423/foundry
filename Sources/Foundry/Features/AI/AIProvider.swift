@@ -67,21 +67,6 @@ final class AIProvider: @unchecked Sendable, CommandProvider {
         }
     }
 
-    func run(prompt: String, backend: AIBackend? = nil) async -> String {
-        var response = ""
-        for await event in stream(prompt: prompt, backend: backend) {
-            switch event {
-            case let .textDelta(delta):
-                response += delta
-            case let .failed(message) where response.isEmpty:
-                response = message
-            default:
-                break
-            }
-        }
-        return response
-    }
-
     static func request(from query: String) -> AIRequest? {
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard trimmed.isEmpty == false else { return nil }

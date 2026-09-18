@@ -3,59 +3,26 @@ import Darwin
 
 protocol MediaArtifactFileSystem: Sendable {
     func createDirectory(at url: URL) throws
-    func reserveFile(at url: URL) throws
-    func createFile(at url: URL) throws
-    func append(_ data: Data, to url: URL) throws
     func fileExists(at url: URL) -> Bool
     func readData(at url: URL) throws -> Data
     func moveItem(at source: URL, to destination: URL) throws
     func removeItem(at url: URL) throws
-    func temporaryFile(prefix: String) throws -> URL
     func temporaryDirectory(prefix: String) throws -> URL
     func fileSize(at url: URL) throws -> Int64
     func regularFiles(in directory: URL) throws -> [URL]
 }
 
-private extension NSLock {
-    func withLock<T>(_ body: () throws -> T) rethrows -> T {
-        lock()
-        defer { unlock() }
-        return try body()
-    }
-}
+#if !compiler(>=6.2)
+extension FileManager: @retroactive @unchecked Sendable {}
+#endif
 
 extension FileManager: MediaArtifactFileSystem {
     func createDirectory(at url: URL) throws {
         try createDirectory(at: url, withIntermediateDirectories: true)
     }
 
-    func reserveFile(at url: URL) throws {
-        let descriptor = open(url.path, O_WRONLY | O_CREAT | O_EXCL, S_IRUSR | S_IWUSR)
-        guard descriptor >= 0 else {
-            if errno == EEXIST { throw CocoaError(.fileWriteFileExists) }
-            throw MediaNetworkPolicyFailure.destinationUnavailable
-        }
-        close(descriptor)
-    }
-
-    func createFile(at url: URL) throws {
-        guard createFile(atPath: url.path, contents: nil) else { throw MediaNetworkPolicyFailure.destinationUnavailable }
-    }
-
-    func append(_ data: Data, to url: URL) throws {
-        let handle = try FileHandle(forWritingTo: url)
-        try handle.seekToEnd()
-        try handle.write(contentsOf: data)
-        try handle.close()
-    }
     func fileExists(at url: URL) -> Bool { fileExists(atPath: url.path) }
-
     func readData(at url: URL) throws -> Data { try Data(contentsOf: url) }
-    func temporaryFile(prefix: String) throws -> URL {
-        let url = temporaryDirectory.appendingPathComponent("\(prefix)-\(UUID().uuidString)")
-        try reserveFile(at: url)
-        return url
-    }
     func temporaryDirectory(prefix: String) throws -> URL {
         let url = temporaryDirectory.appendingPathComponent("\(prefix)-\(UUID().uuidString)", isDirectory: true)
         try createDirectory(at: url)
@@ -155,16 +122,16 @@ struct MediaNetworkPolicy: Sendable {
         try validate(url)
     }
 
-    func validate(response: HTTPURLResponse, prefix: Data, receivedBytes: Int64, expectedExtension: String? = nil) throws {
+    func validate(response: HTTPURLResponse, prefix: Data, receivedBytes: Int64) throws {
         guard (200..<300).contains(response.statusCode) else { throw MediaNetworkPolicyFailure.invalidStatus(response.statusCode) }
         if let length = response.value(forHTTPHeaderField: "Content-Length"), let length = Int64(length), length > maxBytes { throw MediaNetworkPolicyFailure.responseTooLarge }
         guard receivedBytes <= maxBytes else { throw MediaNetworkPolicyFailure.responseTooLarge }
         guard let mime = response.mimeType?.lowercased(), isMediaMIME(mime) else { throw MediaNetworkPolicyFailure.mimeMismatch }
-        guard hasMediaSignature(prefix, extensionName: expectedExtension ?? response.url?.pathExtension) else { throw MediaNetworkPolicyFailure.invalidSignature }
+        guard hasMediaSignature(prefix) else { throw MediaNetworkPolicyFailure.invalidSignature }
     }
 
-    func validate(response: HTTPURLResponse, body: Data, expectedExtension: String? = nil) throws {
-        try validate(response: response, prefix: body.prefix(4096), receivedBytes: Int64(body.count), expectedExtension: expectedExtension)
+    func validate(response: HTTPURLResponse, body: Data) throws {
+        try validate(response: response, prefix: body.prefix(4096), receivedBytes: Int64(body.count))
         if let length = response.value(forHTTPHeaderField: "Content-Length"), let length = Int64(length), length > Int64(body.count) { throw MediaNetworkPolicyFailure.truncatedBody }
     }
 
@@ -172,9 +139,9 @@ struct MediaNetworkPolicy: Sendable {
         let size = try fileSystem.fileSize(at: url)
         guard size > 0, size <= maxBytes else { throw MediaNetworkPolicyFailure.responseTooLarge }
         let extensionName = url.pathExtension.lowercased()
-        guard Self.mediaMIMEs[extensionName] != nil else { throw MediaNetworkPolicyFailure.mimeMismatch }
+        guard Self.mediaExtensions.contains(extensionName) else { throw MediaNetworkPolicyFailure.mimeMismatch }
         let data = try fileSystem.readData(at: url)
-        guard hasMediaSignature(data.prefix(4096), extensionName: extensionName),
+        guard hasMediaSignature(data.prefix(4096)),
               signatureMatchesExtension(data, extensionName: extensionName) else {
             throw MediaNetworkPolicyFailure.invalidSignature
         }
@@ -214,16 +181,13 @@ struct MediaNetworkPolicy: Sendable {
         var v4 = in_addr()
         if value.withCString({ inet_pton(AF_INET, $0, &v4) }) == 1 {
             let hostOrder = UInt32(bigEndian: v4.s_addr)
-            let first = UInt8((hostOrder >> 24) & 255), second = UInt8((hostOrder >> 16) & 255)
-            return hostOrder == 0 || first == 10 || first == 127 || (first == 169 && second == 254) || (first == 172 && (16...31).contains(second)) || (first == 192 && second == 168) || (first >= 224) || (first == 100 && (64...127).contains(second))
+            return IPv4Address(UInt8((hostOrder >> 24) & 255), UInt8((hostOrder >> 16) & 255), UInt8((hostOrder >> 8) & 255), UInt8(hostOrder & 255)).isPublic == false
         }
         var v6 = in6_addr()
         if value.withCString({ inet_pton(AF_INET6, $0, &v6) }) == 1 {
             let bytes = withUnsafeBytes(of: v6) { Array($0) }
             if bytes.prefix(10).allSatisfy({ $0 == 0 }) && bytes[10] == 255 && bytes[11] == 255 {
-                let hostOrder = UInt32(bytes[12]) << 24 | UInt32(bytes[13]) << 16 | UInt32(bytes[14]) << 8 | UInt32(bytes[15])
-                let first = UInt8((hostOrder >> 24) & 255), second = UInt8((hostOrder >> 16) & 255)
-                return hostOrder == 0 || first == 10 || first == 127 || (first == 169 && second == 254) || (first == 172 && (16...31).contains(second)) || (first == 192 && second == 168) || (first >= 224) || (first == 100 && (64...127).contains(second))
+                return IPv4Address(bytes[12], bytes[13], bytes[14], bytes[15]).isPublic == false
             }
             return bytes.allSatisfy { $0 == 0 } || (bytes.dropLast().allSatisfy { $0 == 0 } && bytes.last == 1) || (bytes[0] & 0xfe) == 0xfc || (bytes[0] == 0xfe && (bytes[1] & 0xc0) == 0x80) || (bytes[0] & 0xff) == 0xff
         }
@@ -234,12 +198,9 @@ struct MediaNetworkPolicy: Sendable {
         mime.hasPrefix("video/") || mime.hasPrefix("audio/") || mime == "application/ogg" || mime == "application/octet-stream"
     }
 
-    private static let mediaMIMEs: [String: Set<String>] = [
-        "mp4": ["video/mp4"], "m4v": ["video/mp4"], "mov": ["video/quicktime"],
-        "webm": ["video/webm"], "mkv": ["video/x-matroska"], "avi": ["video/x-msvideo"],
-        "mp3": ["audio/mpeg"], "m4a": ["audio/mp4"], "aac": ["audio/aac"],
-        "wav": ["audio/wav", "audio/x-wav"], "flac": ["audio/flac"], "ogg": ["audio/ogg", "application/ogg"],
-        "opus": ["audio/opus"]
+    private static let mediaExtensions: Set<String> = [
+        "mp4", "m4v", "mov", "webm", "mkv", "avi",
+        "mp3", "m4a", "aac", "wav", "flac", "ogg", "opus"
     ]
 
     private func signatureMatchesExtension(_ data: Data, extensionName: String) -> Bool {
@@ -259,7 +220,7 @@ struct MediaNetworkPolicy: Sendable {
         }
     }
 
-    private func hasMediaSignature(_ data: Data, extensionName: String?) -> Bool {
+    private func hasMediaSignature(_ data: Data) -> Bool {
         let bytes = [UInt8](data)
         guard bytes.count >= 4 else { return false }
         if bytes.starts(with: [0x1A, 0x45, 0xDF, 0xA3]) || bytes.starts(with: [0x4F, 0x67, 0x67, 0x53]) || bytes.starts(with: [0x66, 0x4C, 0x61, 0x43]) || bytes.starts(with: [0x49, 0x44, 0x33]) { return true }

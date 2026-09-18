@@ -2,7 +2,7 @@ import AppKit
 import SwiftUI
 
 struct FileShelfView: View {
-    @ObservedObject var state: FileShelfState
+    var state: FileShelfState
     let convertSelected: ([ShelfFile]) -> Void
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var isConfirmingClear = false
@@ -113,6 +113,8 @@ struct FileShelfView: View {
                                         state.select(id: file.id)
                                     }
                                 }
+                                .accessibilityAddTraits(.isButton)
+                                .accessibilityAction { state.toggleSelection(id: file.id) }
                                 .onDrag { NSItemProvider(object: file.url as NSURL) }
                             }
                         }
@@ -213,9 +215,7 @@ struct FileShelfRow: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            Image(nsImage: IconCache.shared.icon(forFile: file.url.path))
-                .resizable()
-                .aspectRatio(contentMode: .fit)
+            FileIcon(path: file.url.path) { Color.clear }
                 .frame(width: 30, height: 30)
 
             VStack(alignment: .leading, spacing: 2) {
@@ -292,9 +292,7 @@ struct ShelfIconStack: View {
     var body: some View {
         ZStack {
             ForEach(Array(files.enumerated()), id: \.element.id) { index, file in
-                Image(nsImage: IconCache.shared.icon(forFile: file.url.path))
-                    .resizable()
-                    .aspectRatio(contentMode: .fit)
+                FileIcon(path: file.url.path) { Color.clear }
                     .frame(width: 34, height: 34)
                     .background(Color.primary.opacity(0.16))
                     .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))

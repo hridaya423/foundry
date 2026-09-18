@@ -21,7 +21,7 @@ public struct SetupPlan: Equatable, Sendable {
     }
 }
 
-public enum CapabilityRequirementError: Error, Equatable { case malformedMinimumVersion(String) }
+enum CapabilityRequirementError: Error, Equatable { case malformedMinimumVersion(String) }
 public struct CapabilityRequirement: Equatable, Sendable {
     public let executableName: String; public let explicitPaths: [String]; public let pathDirectories: [String]; public let versionArguments: [String]; public let minimumVersion: String?
     public init(executableName: String, explicitPaths: [String] = [], pathDirectories: [String] = [], versionArguments: [String] = [], minimumVersion: String? = nil) throws {

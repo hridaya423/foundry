@@ -104,4 +104,26 @@ final class SearchScoringTests: XCTestCase {
         XCTAssertNotNil(SearchScoring.match(query: "kbrd", title: "Keyboard Settings"))
         XCTAssertNil(SearchScoring.match(query: "xyz", title: "A Very Long Unrelated Command Name"))
     }
+
+    func testPayloadReturnsRawRemainderAfterPrefix() {
+        XCTAssertEqual(SearchScoring.payload(in: "base64 SGVsbG8=", prefixes: ["base64", "b64"]), "SGVsbG8=")
+        XCTAssertEqual(SearchScoring.payload(in: "KILL Finder", prefixes: ["kill"]), "Finder")
+        XCTAssertEqual(SearchScoring.payload(in: "kill process Safari", prefixes: ["kill process"]), "Safari")
+    }
+
+    func testPayloadIgnoresPunctuationBetweenPrefixAndValue() {
+        XCTAssertEqual(SearchScoring.payload(in: "base64!!x", prefixes: ["base64"]), "x")
+        XCTAssertEqual(SearchScoring.payload(in: "port: 3000", prefixes: ["port"]), "3000")
+        XCTAssertEqual(SearchScoring.payload(in: "kill,process Finder", prefixes: ["kill process"]), "Finder")
+    }
+
+    func testPayloadHandlesDiacriticsInPrefixRegion() {
+        XCTAssertEqual(SearchScoring.payload(in: "kíll finder", prefixes: ["kill"]), "finder")
+    }
+
+    func testPayloadReturnsEmptyForBarePrefixAndNilForNonMatch() {
+        XCTAssertEqual(SearchScoring.payload(in: "kill", prefixes: ["kill"]), "")
+        XCTAssertNil(SearchScoring.payload(in: "kil now", prefixes: ["kill"]))
+        XCTAssertNil(SearchScoring.payload(in: "port", prefixes: ["base64"]))
+    }
 }

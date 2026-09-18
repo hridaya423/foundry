@@ -8,18 +8,6 @@ final class WindowManagementProvider: CommandProvider {
         CommandProviderSearchPolicy(tier: .immediate, includesSupplementalResults: false)
     }
 
-    var descriptor: CommandProviderDescriptor {
-        CommandProviderDescriptor(
-            id: id,
-            version: "1",
-            availability: .available,
-            requiredPermissions: ["accessibility"],
-            supportedContexts: ["search", "home"],
-            searchPolicy: searchPolicy,
-            health: nil
-        )
-    }
-
     func search(_ request: CommandSearchRequest) async throws -> [CommandResult] {
         let layoutOverviewQuery = WindowLayoutQuery.isOverview(request.query)
         return commands().compactMap { command in

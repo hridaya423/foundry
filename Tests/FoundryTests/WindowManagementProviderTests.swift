@@ -15,6 +15,14 @@ final class WindowManagementProviderTests: XCTestCase {
         }
     }
 
+    func testEveryPlacementUsesARealSymbolAndAUniqueTitle() {
+        let metadata = WindowPlacement.allCases.map(WindowPlacementMetadata.init)
+        for item in metadata {
+            XCTAssertNotNil(NSImage(systemSymbolName: item.icon, accessibilityDescription: nil), "Unknown SF Symbol \(item.icon) for \(item.title)")
+        }
+        XCTAssertEqual(Set(metadata.map(\.title)).count, metadata.count)
+    }
+
     func testRegistryKeepsTheFullCatalogForAnOverviewQuery() async {
         let diagnostics = DiagnosticsService()
         let registry = CommandRegistry(
@@ -67,24 +75,4 @@ final class WindowManagementProviderTests: XCTestCase {
         }
     }
 
-    func testEveryPlacementProvidesMetadata() {
-        for placement in WindowPlacement.allCases {
-            let metadata = WindowPlacementMetadata(placement)
-            XCTAssertFalse(metadata.title.isEmpty)
-            XCTAssertFalse(metadata.subtitle.isEmpty)
-            XCTAssertFalse(metadata.successMessage.isEmpty)
-            XCTAssertFalse(metadata.icon.isEmpty)
-        }
-    }
-
-    func testWindowActionsAreFireAndForgetForHotkeys() {
-        for placement in WindowPlacement.allCases {
-            guard case .tileWindow(let mapped) = CommandActionKind.tileWindow(placement) else {
-                XCTFail("Unreachable")
-                return
-            }
-            XCTAssertEqual(mapped, placement)
-            XCTAssertTrue(CommandActionKind.tileWindow(placement).shouldHidePanelForHotkey)
-        }
-    }
 }

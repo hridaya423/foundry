@@ -1,18 +1,20 @@
 import AppKit
 import Combine
 import Foundation
+import Observation
 
 @MainActor
-final class TranslatorState: ObservableObject {
-    @Published var sourceText = "" { didSet { scheduleTranslation() } }
-    @Published var sourceLanguage = "English" { didSet { scheduleTranslation() } }
-    @Published var targetLanguage = "Spanish" { didSet { scheduleTranslation() } }
-    @Published private(set) var result = ""
-    @Published private(set) var translationError: String?
-    @Published private(set) var isTranslating = false
-    @Published private(set) var activeRequest: TranslationRequest?
-    @Published private(set) var requestVersion = 0
-    @Published var needsAppleTranslationFallback = false
+@Observable
+final class TranslatorState {
+    var sourceText = "" { didSet { scheduleTranslation() } }
+    var sourceLanguage = "English" { didSet { scheduleTranslation() } }
+    var targetLanguage = "Spanish" { didSet { scheduleTranslation() } }
+    private(set) var result = ""
+    private(set) var translationError: String?
+    private(set) var isTranslating = false
+    private(set) var activeRequest: TranslationRequest?
+    private(set) var requestVersion = 0
+    var needsAppleTranslationFallback = false
 
     private let availability: TranslationAvailability
     private let translator: TranslationProvider.Translator
@@ -43,8 +45,6 @@ final class TranslatorState: ObservableObject {
         resetting = false
     }
 
-    func translate() { scheduleTranslation() }
-
     func finish(_ outcome: TranslationOutcome, for request: TranslationRequest) {
         guard activeRequest?.id == request.id else { return }
         guard !Task.isCancelled else { return }
@@ -71,6 +71,14 @@ final class TranslatorState: ObservableObject {
             guard !Task.isCancelled else { return }
             await MainActor.run { self?.finish(outcome, for: request) }
         }
+    }
+
+    func swapLanguages() {
+        resetting = true
+        (sourceLanguage, targetLanguage) = (targetLanguage, sourceLanguage)
+        if result.isEmpty == false { sourceText = result }
+        resetting = false
+        scheduleTranslation()
     }
 
     func copyResult() {

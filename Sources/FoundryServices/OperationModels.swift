@@ -3,8 +3,7 @@ public enum OperationPhase: Equatable, Sendable { case assessing, awaitingConsen
 public enum OperationProgress: Equatable, Sendable { case bytes(completed: Int64, total: Int64?), artifactBytes(artifact: String, completed: Int64, total: Int64?), items(completed: Int, total: Int?), indeterminate }
 public struct OperationFailure: Equatable, Sendable {
     public let message: String
-    public let retryable: Bool
-    public init(message: String, retryable: Bool = false) { self.message = message; self.retryable = retryable }
+    public init(message: String) { self.message = message }
 }
 public struct OperationRequestToken: Equatable, Sendable { public let value: String; public init(_ value: String) { self.value = value } }
 public struct RetryDescriptor: Equatable, Sendable { public let request: OperationRequestToken; public let originalRequest: OperationRequestToken; public let currentAttempt: Int; public let maxAttempts: Int; public let delayNanoseconds: UInt64; public init(request: OperationRequestToken = OperationRequestToken(""), originalRequest: OperationRequestToken? = nil, currentAttempt: Int = 1, maxAttempts: Int, delayNanoseconds: UInt64 = 0) { self.request = request; self.originalRequest = originalRequest ?? request; self.currentAttempt = currentAttempt; self.maxAttempts = maxAttempts; self.delayNanoseconds = delayNanoseconds } }

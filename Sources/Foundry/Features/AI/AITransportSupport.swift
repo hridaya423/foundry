@@ -1,15 +1,15 @@
 import Foundation
 
 struct AIConnectionTestResult: Equatable, Sendable {
-    let isSuccess: Bool
     let message: String
+    var isFailure = false
 
     static func success(_ message: String) -> AIConnectionTestResult {
-        AIConnectionTestResult(isSuccess: true, message: message)
+        AIConnectionTestResult(message: message)
     }
 
     static func failure(_ message: String) -> AIConnectionTestResult {
-        AIConnectionTestResult(isSuccess: false, message: message)
+        AIConnectionTestResult(message: message, isFailure: true)
     }
 }
 
@@ -41,13 +41,13 @@ enum AITransportError: Error, Equatable, Sendable {
     var message: String {
         switch self {
         case let .configuration(message): return message
-        case .authentication: return "Authentication failed. Check the provider credential."
-        case .rateLimited: return "The provider is temporarily rate limited. Try again shortly."
-        case .quotaExhausted: return "The provider quota is exhausted. Check billing or choose another profile."
-        case .unavailable: return "The provider endpoint is unavailable."
-        case .timeout: return "The provider request timed out."
-        case .invalidResponse: return "The provider returned an invalid response."
-        case .unsupported: return "This provider does not support the requested capability."
+        case .authentication: return "The AI provider rejected the sign-in. Check the API key or account in Settings › AI."
+        case .rateLimited: return "The AI provider is rate limiting requests. Try again in a minute."
+        case .quotaExhausted: return "This AI account is out of quota. Check billing, or pick another model in Settings › AI."
+        case .unavailable: return "Couldn't reach the AI provider. Check your connection or the endpoint in Settings › AI."
+        case .timeout: return "The AI provider took too long to answer. Try again."
+        case .invalidResponse: return "The AI provider sent a reply Foundry couldn't read. Try again or pick another model."
+        case .unsupported: return "This model can't do that. Pick another model in Settings › AI."
         case let .transient(message): return message
         }
     }
@@ -98,16 +98,6 @@ enum AITransportSupport {
         case 500...599: return .unavailable
         default: return .transient("Provider returned HTTP \(response.statusCode).")
         }
-    }
-
-    static func readableError(_ data: Data, fallback: AITransportError) -> AITransportError {
-        guard let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return fallback }
-        let candidates = ["message", "error", "detail"]
-        for key in candidates {
-            if let value = object[key] as? String, value.isEmpty == false { return .transient(String(value.prefix(300))) }
-            if let value = object[key] as? [String: Any], let message = value["message"] as? String, message.isEmpty == false { return .transient(String(message.prefix(300))) }
-        }
-        return fallback
     }
 
     static func makeFailure(_ error: Error) -> AgentModelResponse {

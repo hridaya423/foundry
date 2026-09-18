@@ -2,10 +2,9 @@ import { tileText } from "./tile-glyphs";
 import { phase, type ShelfLayout, type ShelfPose } from "./shelf-motion";
 
 export const memoryStart = 3.46;
-export const storyEnd = 3.86;
-export const memoryValues = ["163.4", "526.1"] as const;
-const headline = tileText("68.9%");
-const foundry = tileText("163.4 MB");
+export const memoryValues = ["115.2", "620.2"] as const;
+const headline = tileText("81%");
+const foundry = tileText("115.2 MB");
 export const memoryCarryCount = headline.points.length + foundry.points.length;
 
 export function memoryTargets(width: number, height: number) {

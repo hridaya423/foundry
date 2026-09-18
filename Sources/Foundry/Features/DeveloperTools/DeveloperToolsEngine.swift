@@ -93,12 +93,12 @@ enum DeveloperToolsEngine {
             return conversions(for: date)
         }
 
-        for formatter in dateFormatters() {
+        for formatter in timestampInputFormatters {
             if let date = formatter.date(from: trimmed) {
                 return [
                     TimestampConversion(label: "Unix seconds", value: String(Int(date.timeIntervalSince1970.rounded()))),
                     TimestampConversion(label: "Unix milliseconds", value: String(Int((date.timeIntervalSince1970 * 1000).rounded()))),
-                    TimestampConversion(label: "ISO 8601", value: isoFormatter().string(from: date))
+                    TimestampConversion(label: "ISO 8601", value: iso8601Formatter.string(from: date))
                 ]
             }
         }
@@ -252,16 +252,18 @@ enum DeveloperToolsEngine {
 
     private static func conversions(for date: Date) -> [TimestampConversion] {
         [
-            TimestampConversion(label: "ISO 8601", value: isoFormatter().string(from: date)),
+            TimestampConversion(label: "ISO 8601", value: iso8601Formatter.string(from: date)),
             TimestampConversion(label: "Unix seconds", value: String(Int(date.timeIntervalSince1970.rounded()))),
             TimestampConversion(label: "Unix milliseconds", value: String(Int((date.timeIntervalSince1970 * 1000).rounded()))),
-            TimestampConversion(label: "Local", value: localFormatter().string(from: date))
+            TimestampConversion(label: "Local", value: localDateFormatter.string(from: date))
         ]
     }
 
+    private static let camelBoundaryRegex = try! NSRegularExpression(pattern: "([a-z0-9])([A-Z])")
+
     private static func splitWords(in value: String) -> [String] {
-        value
-            .replacingOccurrences(of: "([a-z0-9])([A-Z])", with: "$1 $2", options: .regularExpression)
+        camelBoundaryRegex
+            .stringByReplacingMatches(in: value, range: NSRange(value.startIndex..<value.endIndex, in: value), withTemplate: "$1 $2")
             .components(separatedBy: CharacterSet.alphanumerics.inverted)
             .filter { $0.isEmpty == false }
     }
@@ -284,33 +286,30 @@ enum DeveloperToolsEngine {
         "exercitation", "ullamco", "laboris", "nisi", "ut", "aliquip", "ex", "ea", "commodo", "consequat"
     ]
 
-    private static func isoFormatter() -> ISO8601DateFormatter {
+    nonisolated(unsafe) private static let iso8601Formatter: ISO8601DateFormatter = {
         let formatter = ISO8601DateFormatter()
         formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
         return formatter
-    }
+    }()
 
-    private static func localFormatter() -> DateFormatter {
+    private static let localDateFormatter: DateFormatter = {
         let formatter = DateFormatter()
         formatter.dateStyle = .medium
         formatter.timeStyle = .medium
         return formatter
-    }
+    }()
 
-    private static func dateFormatters() -> [DateFormatter] {
-        let patterns = [
-            "yyyy-MM-dd HH:mm:ss",
-            "yyyy-MM-dd HH:mm",
-            "yyyy-MM-dd",
-            "yyyy/MM/dd HH:mm:ss",
-            "yyyy/MM/dd HH:mm",
-            "yyyy/MM/dd"
-        ]
-        return patterns.map { pattern in
-            let formatter = DateFormatter()
-            formatter.locale = Locale(identifier: "en_US_POSIX")
-            formatter.dateFormat = pattern
-            return formatter
-        }
+    private static let timestampInputFormatters: [DateFormatter] = [
+        "yyyy-MM-dd HH:mm:ss",
+        "yyyy-MM-dd HH:mm",
+        "yyyy-MM-dd",
+        "yyyy/MM/dd HH:mm:ss",
+        "yyyy/MM/dd HH:mm",
+        "yyyy/MM/dd"
+    ].map { pattern in
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.dateFormat = pattern
+        return formatter
     }
 }

@@ -30,8 +30,7 @@ enum AITransportRouter {
                 host: profile.endpoint ?? "http://127.0.0.1:11434",
                 model: profile.model,
                 messages: messages,
-                tools: tools,
-                continuation: continuation
+                tools: tools
             )
         case .openAI, .openAICompatible:
             return await OpenAICompatibleTransport.respond(profile: profile, messages: messages, tools: tools, credentials: credentials)

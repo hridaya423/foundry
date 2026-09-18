@@ -28,11 +28,10 @@ struct TranslationRequest: Identifiable, Hashable, Sendable {
         guard text.isEmpty == false else { return nil }
         self.id = id; self.source = source; self.target = target; self.text = text
     }
-    init?(text: String, language: String) { self.init(text: text, source: "en", target: language) }
 }
 
 enum TranslationFailure: Error, Equatable, Hashable, Sendable { case unavailable, unsupportedPair(source: String, target: String), asset, offline, cancelled, backend(String)
-    var message: String { switch self { case .unavailable: "Translation is unavailable on this Mac."; case let .unsupportedPair(s, t): "Translation from \(s) to \(t) is not supported."; case .asset: "Translation assets are unavailable."; case .offline: "Translation is offline."; case .cancelled: "Translation was cancelled."; case let .backend(m): "Translation failed: \(m)" } }
+    var message: String { switch self { case .unavailable: "Translation needs macOS 15 or later."; case let .unsupportedPair(s, t): "Translation from \(s) to \(t) is not supported."; case .asset: "Download this language in System Settings › General › Language & Region › Translation Languages."; case .offline: "Connect to the internet to download this language pair."; case .cancelled: "Translation was cancelled."; case let .backend(m): "Translation failed: \(m)" } }
 }
 enum TranslationOutcome: Sendable { case success(String), sessionRequired, failure(TranslationFailure) }
 

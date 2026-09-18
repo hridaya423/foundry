@@ -1,6 +1,5 @@
 import Foundation
 import SwiftUI
-import FoundryDomain
 
 struct CalculatorResultCard: View {
     let result: CommandResult
@@ -153,7 +152,7 @@ struct CalculatorUseWithHeader: View {
 
     var body: some View {
         HStack(spacing: 10) {
-            Text("Use \"\(trimmedQuery)\" with...")
+            Text("Use \"\(trimmedQuery)\" with…")
                 .font(FoundryTheme.body(size: 13, weight: .semibold))
                 .foregroundStyle(FoundryTheme.secondaryText)
 

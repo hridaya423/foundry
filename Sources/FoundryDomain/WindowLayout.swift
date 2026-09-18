@@ -5,7 +5,10 @@ public enum WindowPlacement: String, Codable, Hashable, Sendable, CaseIterable {
     case leftHalf, rightHalf, topHalf, bottomHalf
     case topLeft, topRight, bottomLeft, bottomRight
     case leftThird, centerThird, rightThird
-    case maximize, center
+    case leftTwoThirds, centerTwoThirds, rightTwoThirds
+    case firstFourth, secondFourth, thirdFourth, lastFourth
+    case firstThreeFourths, lastThreeFourths
+    case maximize, almostMaximize, maximizeHeight, center, centerHalf
     case increaseSize, decreaseSize
     case nudgeLeft, nudgeRight, nudgeUp, nudgeDown
     case nextDisplay, previousDisplay
@@ -26,45 +29,25 @@ public enum WindowLayoutGroup: String, CaseIterable, Hashable, Sendable {
     case halves
     case quarters
     case thirds
+    case fourths
     case window
     case displays
 
-    public var title: String {
-        switch self {
-        case .common: "Common layouts"
-        case .halves: "More halves"
-        case .quarters: "Quarters"
-        case .thirds: "Thirds"
-        case .window: "Window controls"
-        case .displays: "Displays"
-        }
-    }
-
-    public var subtitle: String {
-        switch self {
-        case .common: "The fastest ways to arrange the frontmost window"
-        case .halves: "Stack windows vertically when a side-by-side split is not enough"
-        case .quarters: "Keep four windows visible at once"
-        case .thirds: "Give one window a focused column"
-        case .window: "Fine-tune size and position without losing your place"
-        case .displays: "Move the frontmost window between connected screens"
-        }
-    }
-
     public var placements: [WindowPlacement] {
         switch self {
-        case .common: [.leftHalf, .rightHalf, .maximize, .restore]
+        case .common: [.leftHalf, .rightHalf, .maximize, .restore, .almostMaximize]
         case .halves: [.topHalf, .bottomHalf]
         case .quarters: [.topLeft, .topRight, .bottomLeft, .bottomRight]
-        case .thirds: [.leftThird, .centerThird, .rightThird]
-        case .window: [.center, .increaseSize, .decreaseSize, .nudgeLeft, .nudgeRight, .nudgeUp, .nudgeDown]
+        case .thirds: [.leftThird, .centerThird, .rightThird, .leftTwoThirds, .centerTwoThirds, .rightTwoThirds]
+        case .fourths: [.firstFourth, .secondFourth, .thirdFourth, .lastFourth, .firstThreeFourths, .lastThreeFourths]
+        case .window: [.center, .increaseSize, .decreaseSize, .nudgeLeft, .nudgeRight, .nudgeUp, .nudgeDown, .maximizeHeight, .centerHalf]
         case .displays: [.nextDisplay, .previousDisplay]
         }
     }
 }
 
 public enum WindowLayoutQuery {
-    public static let overviewResultLimit = 32
+    public static let overviewResultLimit = 40
     public static let overviewKeywords = ["tile", "window", "windows", "layout", "layouts", "snap"]
 
     public static func isOverview(_ query: String) -> Bool {
@@ -121,8 +104,16 @@ public enum WindowLayoutEngine {
         case .rightThird:
             let width = usable.width / 3
             return CGRect(x: usable.maxX - width, y: usable.minY, width: width, height: usable.height)
+        case .leftTwoThirds, .centerTwoThirds, .rightTwoThirds, .firstFourth, .secondFourth, .thirdFourth, .lastFourth, .firstThreeFourths, .lastThreeFourths, .centerHalf:
+            guard let (start, fraction) = placement.columnSpan else { return nil }
+            return CGRect(x: usable.minX + usable.width * start, y: usable.minY, width: usable.width * fraction, height: usable.height)
         case .maximize:
             return usable
+        case .almostMaximize:
+            return usable.insetBy(dx: usable.width * 0.05, dy: usable.height * 0.05)
+        case .maximizeHeight:
+            let width = min(currentFrame.width, usable.width)
+            return CGRect(x: clamped(currentFrame.minX, in: usable.minX...(usable.maxX - width)), y: usable.minY, width: width, height: usable.height)
         case .center:
             var size = currentFrame.size
             size.width = min(size.width, usable.width)
@@ -159,6 +150,55 @@ public enum WindowLayoutEngine {
 
     private static func clamped(_ value: CGFloat, in range: ClosedRange<CGFloat>) -> CGFloat {
         min(max(value, range.lowerBound), range.upperBound)
+    }
+}
+
+extension WindowPlacement {
+    public var suggestedHotkey: CommandHotkey? {
+        let controlOption: UInt32 = 2048 | 4096
+        let chord: (UInt32, UInt32, String)? = switch self {
+        case .leftHalf: (123, controlOption, "⌃⌥←")
+        case .rightHalf: (124, controlOption, "⌃⌥→")
+        case .topHalf: (126, controlOption, "⌃⌥↑")
+        case .bottomHalf: (125, controlOption, "⌃⌥↓")
+        case .topLeft: (32, controlOption, "⌃⌥U")
+        case .topRight: (34, controlOption, "⌃⌥I")
+        case .bottomLeft: (38, controlOption, "⌃⌥J")
+        case .bottomRight: (40, controlOption, "⌃⌥K")
+        case .leftThird: (2, controlOption, "⌃⌥D")
+        case .centerThird: (3, controlOption, "⌃⌥F")
+        case .rightThird: (5, controlOption, "⌃⌥G")
+        case .leftTwoThirds: (14, controlOption, "⌃⌥E")
+        case .rightTwoThirds: (17, controlOption, "⌃⌥T")
+        case .maximize: (36, controlOption, "⌃⌥↩")
+        case .almostMaximize: (36, controlOption | 512, "⌃⌥⇧↩")
+        case .maximizeHeight: (126, controlOption | 512, "⌃⌥⇧↑")
+        case .center: (8, controlOption, "⌃⌥C")
+        case .centerHalf: (8, controlOption | 512, "⌃⌥⇧C")
+        case .increaseSize: (24, controlOption, "⌃⌥=")
+        case .decreaseSize: (27, controlOption, "⌃⌥-")
+        case .nextDisplay: (124, controlOption | 256, "⌃⌥⌘→")
+        case .previousDisplay: (123, controlOption | 256, "⌃⌥⌘←")
+        case .restore: (51, controlOption, "⌃⌥⌫")
+        default: nil
+        }
+        return chord.map { CommandHotkey(keyCode: $0.0, modifiers: $0.1, displayName: $0.2) }
+    }
+
+    public var columnSpan: (start: CGFloat, fraction: CGFloat)? {
+        switch self {
+        case .leftTwoThirds: (0, 2.0 / 3)
+        case .centerTwoThirds: (1.0 / 6, 2.0 / 3)
+        case .rightTwoThirds: (1.0 / 3, 2.0 / 3)
+        case .firstFourth: (0, 0.25)
+        case .secondFourth: (0.25, 0.25)
+        case .thirdFourth: (0.5, 0.25)
+        case .lastFourth: (0.75, 0.25)
+        case .firstThreeFourths: (0, 0.75)
+        case .lastThreeFourths: (0.25, 0.75)
+        case .centerHalf: (0.25, 0.5)
+        default: nil
+        }
     }
 }
 

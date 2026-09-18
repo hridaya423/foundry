@@ -1,6 +1,5 @@
 import AppKit
 import Foundation
-import FoundryDomain
 import FoundryServices
 
 #if canImport(FoundationModels)
@@ -97,7 +96,7 @@ struct AgentRunner: @unchecked Sendable {
         let fallbackProfiles = config.current.ai.fallbackProfileIDs.compactMap { id in
             config.current.ai.profiles.first { $0.id == id && $0.enabled && $0.id != profile.id }
         }
-        if AIFallbackPolicy.shouldFallback(failureKind: result.failureKind, profile: profile, hasFallback: fallbackProfiles.isEmpty == false) {
+        if AIFallbackPolicy.shouldFallback(failureKind: result.failureKind, hasFallback: fallbackProfiles.isEmpty == false) {
             for fallbackProfile in fallbackProfiles {
                 continuation.yield(.status("\(profile.name) unavailable · switching to \(fallbackProfile.name)"))
                 let fallback = await runLoop(prompt: prompt, context: context, profile: fallbackProfile, sessionID: sessionID, continuation: continuation)
@@ -114,7 +113,7 @@ struct AgentRunner: @unchecked Sendable {
     private func runLoop(prompt: String, context: String?, profile: AIProviderProfile, sessionID: String?, continuation: AsyncStream<AIStreamEvent>.Continuation) async -> AgentRunResult {
         if profile.enabled == false {
             let message = "\(profile.name) is disabled. Enable it in Foundry Settings to use this provider."
-            return AgentRunResult(text: message, failureMessage: message, failureKind: .configuration)
+            return AgentRunResult(failureMessage: message, failureKind: .configuration)
         }
         var transcript = context.map { "Conversation context:\n\($0)\n\nCurrent user request:\n\(prompt)" } ?? prompt
         var messages: [[String: Any]] = [
@@ -124,7 +123,7 @@ struct AgentRunner: @unchecked Sendable {
         let tools = AgentTools.catalog
 
         for step in 0..<6 {
-            guard Task.isCancelled == false else { return AgentRunResult(text: "", failureKind: .cancelled) }
+            guard Task.isCancelled == false else { return AgentRunResult(failureKind: .cancelled) }
             continuation.yield(.status(step == 0 ? "Thinking" : "Working through step \(step + 1)"))
 
             let response: AgentModelResponse
@@ -134,7 +133,7 @@ struct AgentRunner: @unchecked Sendable {
             case let .final(text):
                 continuation.yield(.textDelta(text))
                 continuation.yield(.completed)
-                return AgentRunResult(text: text)
+                return AgentRunResult()
             case let .toolCall(call, assistantText):
                 continuation.yield(.toolCallStarted(name: call.name))
                 let result = await AgentTools.execute(call)
@@ -143,24 +142,22 @@ struct AgentRunner: @unchecked Sendable {
                 transcript += "\n\nTool \(call.name) returned:\n\(result)\nContinue the task. Use another tool only if needed; otherwise return the final answer."
                 AgentTranscript.appendToolExchange(call: call, assistantText: assistantText, result: result, to: &messages)
             case let .failure(text, kind):
-                return AgentRunResult(text: text, failureMessage: text, failureKind: kind)
+                return AgentRunResult(failureMessage: text, failureKind: kind)
             }
         }
 
         let message = "I stopped after reaching the maximum of 6 tool steps."
         continuation.yield(.textDelta(message))
         continuation.yield(.completed)
-        return AgentRunResult(text: message)
+        return AgentRunResult()
     }
 }
 
 private struct AgentRunResult: Sendable {
-    let text: String
     let failureMessage: String?
     let failureKind: AgentFailureKind?
 
-    init(text: String, failureMessage: String? = nil, failureKind: AgentFailureKind? = nil) {
-        self.text = text
+    init(failureMessage: String? = nil, failureKind: AgentFailureKind? = nil) {
         self.failureMessage = failureMessage
         self.failureKind = failureKind
     }
@@ -184,7 +181,7 @@ enum AIFallbackPolicy {
         failureKind == .unavailable && backend == .appleFoundationModels && ollamaEnabled && isCancelled == false
     }
 
-    static func shouldFallback(failureKind: AgentFailureKind?, profile: AIProviderProfile, hasFallback: Bool) -> Bool {
+    static func shouldFallback(failureKind: AgentFailureKind?, hasFallback: Bool) -> Bool {
         guard hasFallback else { return false }
         return failureKind == .unavailable || failureKind == .rateLimited
     }
@@ -200,11 +197,6 @@ struct AgentProtocolDecoder {
     static func finalContent(from text: String) -> String? {
         guard let object = protocolObject(from: text), object["type"] as? String == "final", let content = object["content"] else { return nil }
         return readable(content)
-    }
-
-    static func toolCall(from text: String) -> AgentToolCall? {
-        guard let object = protocolObject(from: text), object["type"] as? String == "tool_call" else { return nil }
-        return AgentToolCall.from(json: object)
     }
 
     static func displayContent(from text: String) -> String {
@@ -647,8 +639,8 @@ enum AppleAgentClient {
 }
 
 enum OllamaAgentClient {
-    static func respond(host: String, model: String, messages: [[String: Any]], tools: [AgentTool], continuation: AsyncStream<AIStreamEvent>.Continuation) async -> AgentModelResponse {
-        guard let url = URL(string: host)?.appendingPathComponent("api/chat") else { return .failure("Invalid Ollama host", .configuration) }
+    static func respond(host: String, model: String, messages: [[String: Any]], tools: [AgentTool]) async -> AgentModelResponse {
+        guard let url = URL(string: host)?.appendingPathComponent("api/chat") else { return .failure("The Ollama host URL isn't valid. Fix it in Settings › AI.", .configuration) }
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.timeoutInterval = 60

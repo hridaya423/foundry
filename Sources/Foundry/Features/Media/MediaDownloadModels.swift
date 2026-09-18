@@ -1,6 +1,7 @@
 import Combine
 import Foundation
 import FoundryServices
+import Observation
 
 enum MediaDownloadPhase: String, Sendable, Equatable {
     case preparing
@@ -77,17 +78,16 @@ enum MediaDownloadStatus: String, Sendable, Equatable {
 struct MediaDownloadItem: Identifiable, Sendable, Equatable {
     let id: UUID
     let sourceURL: String
-    let startedAt: Date
     var status: MediaDownloadStatus
     var progress: MediaDownloadProgress
-    var resultMessage: String?
     var failure: OperationFailure?
 }
 
 @MainActor
-final class MediaDownloadManager: ObservableObject {
-    @Published private(set) var items: [MediaDownloadItem] = []
-    @Published private(set) var capabilities = MediaDownloadCapabilities(
+@Observable
+final class MediaDownloadManager {
+    private(set) var items: [MediaDownloadItem] = []
+    private(set) var capabilities = MediaDownloadCapabilities(
         direct: .ready(label: "Direct links · ready"),
         cobalt: .unavailable(label: "Cobalt · unavailable", reason: "The hosted API requires authorization; yt-dlp is used instead"),
         youtube: .ready(label: "YouTube · yt-dlp automatic setup")
@@ -99,8 +99,6 @@ final class MediaDownloadManager: ObservableObject {
             if item.status == .active { count += 1 }
         }
     }
-
-    var hasItems: Bool { items.isEmpty == false }
 
     func setCapabilities(_ capabilities: MediaDownloadCapabilities) {
         self.capabilities = capabilities
@@ -116,10 +114,8 @@ final class MediaDownloadManager: ObservableObject {
         let item = MediaDownloadItem(
             id: id,
             sourceURL: sourceURL,
-            startedAt: Date(),
             status: .active,
             progress: .starting(title: title),
-            resultMessage: nil,
             failure: nil
         )
         items.removeAll { $0.id == id }
@@ -135,7 +131,6 @@ final class MediaDownloadManager: ObservableObject {
             displayProgress.title = URL(fileURLWithPath: progress.title).lastPathComponent
         }
         items[index].progress = displayProgress
-        items[index].resultMessage = nil
         items[index].failure = nil
     }
 
@@ -144,7 +139,6 @@ final class MediaDownloadManager: ObservableObject {
         items[index].status = .completed
         items[index].progress.phase = .completed
         items[index].progress.message = message
-        items[index].resultMessage = message
         items[index].failure = nil
     }
 
@@ -153,8 +147,7 @@ final class MediaDownloadManager: ObservableObject {
         items[index].status = .failed
         items[index].progress.phase = .failed
         items[index].progress.message = message
-        items[index].resultMessage = message
-        items[index].failure = OperationFailure(message: message, retryable: true)
+        items[index].failure = OperationFailure(message: message)
     }
 
     func cancel(id: UUID) {
@@ -162,8 +155,7 @@ final class MediaDownloadManager: ObservableObject {
         items[index].status = .cancelled
         items[index].progress.phase = .cancelled
         items[index].progress.message = "Download cancelled"
-        items[index].resultMessage = "Download cancelled"
-        items[index].failure = OperationFailure(message: "Download cancelled", retryable: true)
+        items[index].failure = OperationFailure(message: "Download cancelled")
     }
 
     func clearFinished() {

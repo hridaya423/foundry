@@ -160,26 +160,6 @@ enum WebSearchURLPolicy {
     }
 }
 
-private struct IPv4Address {
-    let octets: [Int]
-
-    init?(_ value: String) {
-        let parts = value.split(separator: ".")
-        let octets = parts.compactMap { Int($0) }
-        guard parts.count == 4, octets.count == 4, octets.allSatisfy({ (0...255).contains($0) }) else { return nil }
-        self.octets = octets
-    }
-
-    var isPublic: Bool {
-        switch (octets[0], octets[1]) {
-        case (0, _), (10, _), (127, _), (169, 254), (192, 168), (172, 16...31), (100, 64...127):
-            return false
-        default:
-            return true
-        }
-    }
-}
-
 enum WebSearchQuerySet {
     static func validated(_ candidates: [String], maxCount: Int) -> [String] {
         var seen = Set<String>()

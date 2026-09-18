@@ -21,6 +21,8 @@ final class MacUtilitiesProvider: CommandProvider {
         results.append(contentsOf: keepAwakeResults(query: trimmed, sensitivity: request.sensitivity))
         results.append(contentsOf: killProcessResults(query: trimmed))
         results.append(contentsOf: quitAppResults(query: trimmed))
+        results.append(contentsOf: runningAppResults(query: trimmed))
+        results.append(contentsOf: quitAllResults(query: trimmed, sensitivity: request.sensitivity))
         results.append(contentsOf: portResults(query: trimmed))
         results.append(contentsOf: audioDeviceResults(query: trimmed, sensitivity: request.sensitivity))
 
@@ -42,7 +44,7 @@ final class MacUtilitiesProvider: CommandProvider {
     }
 
     private func killProcessResults(query: String) -> [CommandResult] {
-        guard let needle = payload(in: query, prefixes: ["kill", "terminate", "kill process", "stop process"]), needle.isEmpty == false else { return [] }
+        guard let needle = SearchScoring.payload(in: query, prefixes: ["kill", "terminate", "kill process", "stop process"]), needle.isEmpty == false else { return [] }
         let normalizedNeedle = SearchScoring.normalize(needle)
         let snapshot = processSnapshotProvider.capture()
         return snapshot
@@ -66,7 +68,7 @@ final class MacUtilitiesProvider: CommandProvider {
     }
 
     private func quitAppResults(query: String) -> [CommandResult] {
-        guard let needle = payload(in: query, prefixes: ["quit", "close app", "quit app", "quit application"]), needle.isEmpty == false else { return [] }
+        guard let needle = SearchScoring.payload(in: query, prefixes: ["quit", "close app", "quit app", "quit application"]), needle.isEmpty == false else { return [] }
         return NSWorkspace.shared.runningApplications
             .filter { app in
                 guard let name = app.localizedName, app.activationPolicy != .prohibited else { return false }
@@ -87,10 +89,39 @@ final class MacUtilitiesProvider: CommandProvider {
             }
     }
 
+    private func runningAppResults(query: String) -> [CommandResult] {
+        guard let needle = SearchScoring.payload(in: query, prefixes: ["running", "running apps", "open apps"]) else { return [] }
+        let normalizedNeedle = SearchScoring.normalize(needle)
+        return NSWorkspace.shared.runningApplications
+            .filter { app in
+                guard app.activationPolicy == .regular, let name = app.localizedName else { return false }
+                return normalizedNeedle.isEmpty || SearchScoring.normalize(name).contains(normalizedNeedle)
+            }
+            .prefix(20)
+            .map { app in
+                let name = app.localizedName ?? "Application"
+                let bundleID = app.bundleIdentifier ?? ""
+                let path = app.bundleURL?.path ?? ""
+                return CommandResult(
+                    id: "mac.running.\(app.processIdentifier)",
+                    title: name,
+                    subtitle: "Running",
+                    icon: path.isEmpty ? CommandIcon(fallback: "AP", systemName: "app") : CommandIcon(fallback: "AP", filePath: path),
+                    route: .macUtility,
+                    primaryAction: CommandAction(id: "mac.running.\(app.processIdentifier).open", title: "Switch To", kind: .openApp(path: path, name: name)),
+                    secondaryActions: AppSearchProvider.actions(identity: bundleID, name: name, path: path, bundleID: bundleID, isRunning: true)
+                )
+            }
+    }
+
+    private func quitAllResults(query: String, sensitivity: SearchSensitivity) -> [CommandResult] {
+        guard SearchScoring.match(query: query, title: "Quit All Apps", subtitle: nil, keywords: [], aliases: ["close all apps", "quit everything"], sensitivity: sensitivity) != nil else { return [] }
+        return [makeResult(id: "mac.quit-all", title: "Quit All Apps", subtitle: "Quit every open app except Finder and Foundry", icon: "xmark.rectangle.portrait", fallback: "QA", route: .macUtility, primary: .quitAllApplications)]
+    }
+
     private func portResults(query: String) -> [CommandResult] {
-        let needle = payload(in: query, prefixes: ["port", "kill port", "stop port"])
-        let candidateSource = needle?.isEmpty == false ? needle! : query
-        guard let candidate = candidateSource.split(whereSeparator: { !$0.isNumber }).first,
+        guard let needle = SearchScoring.payload(in: query, prefixes: ["port", "kill port", "stop port"]),
+              let candidate = needle.split(whereSeparator: { !$0.isNumber }).first,
               let port = Int(candidate), (1...65535).contains(port) else { return [] }
         let usage = PortUtility.lookup(port: port)
         return [
@@ -130,25 +161,25 @@ final class MacUtilitiesProvider: CommandProvider {
         }
     }
 
-    private func payload(in query: String, prefixes: [String]) -> String? {
-        let normalizedQuery = SearchScoring.normalize(query)
-        for prefix in prefixes.map(SearchScoring.normalize) {
-            if normalizedQuery == prefix { return "" }
-            if normalizedQuery.hasPrefix(prefix + " ") {
-                let index = query.index(query.startIndex, offsetBy: prefix.count)
-                return query[index...].trimmingCharacters(in: .whitespacesAndNewlines)
-            }
-        }
-        return nil
-    }
-
     private func makeResult(id: String, title: String, subtitle: String, icon: String, fallback: String, route: SearchRoute? = nil, primary: CommandActionKind) -> CommandResult {
         CommandResult(id: id, title: title, subtitle: subtitle, icon: CommandIcon(fallback: fallback, systemName: icon), route: route, primaryAction: CommandAction(id: id + ".primary", title: "Run", kind: primary), secondaryActions: [])
     }
 }
 
 private enum PortUtility {
+    private static let lock = NSLock()
+    nonisolated(unsafe) private static var cache: [Int: (result: String?, at: Date)] = [:]
+
     static func lookup(port: Int) -> String? {
+        if let cached = lock.withLock({ cache[port] }), Date().timeIntervalSince(cached.at) < 0.5 {
+            return cached.result
+        }
+        let result = runLookup(port: port)
+        lock.withLock { cache[port] = (result, Date()) }
+        return result
+    }
+
+    private static func runLookup(port: Int) -> String? {
         guard let result = ProcessRunner.runSynchronously(
             path: "/usr/sbin/lsof",
             arguments: ["-nP", "-iTCP:\(port)", "-sTCP:LISTEN"],

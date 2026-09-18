@@ -37,10 +37,6 @@ struct CursorComposerAdapter: Sendable {
         self.queryRunner = queryRunner
     }
 
-    func discover() -> [CursorComposerSnapshot] {
-        discoverResult().snapshots
-    }
-
     func discoverResult() -> CursorComposerDiscoveryResult {
         guard let databaseURL, FileManager.default.fileExists(atPath: databaseURL.path),
               let output = queryRunner(Self.query, databaseURL.path) else {

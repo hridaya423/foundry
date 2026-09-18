@@ -16,7 +16,6 @@ enum CodexLoginState: Equatable, Sendable {
     case waitingForDeviceApproval
     case exchangingCode
     case connected
-    case refreshing
     case failed(String)
     case cancelled
 }
@@ -518,13 +517,6 @@ actor OpenAICodexOAuthService {
     func cancelCurrentLogin() {
         callbackServer?.stop()
         callbackServer = nil
-    }
-
-    func hasCredential(profileID: UUID) -> Bool {
-        do {
-            guard let credential = try store.credential(for: profileID), case let .oauth(value) = credential else { return false }
-            return value.isUsable
-        } catch { return false }
     }
 
 }

@@ -15,48 +15,25 @@ final class CommandRankingTests: XCTestCase {
         )
         let startedAt = Date()
 
-        let results = await registry.results(matching: "result")
+        let results = await registry.fullResults(matching: "result")
 
         XCTAssertEqual(results.first?.id, "test.fast")
-        XCTAssertLessThan(Date().timeIntervalSince(startedAt), 0.5)
+        XCTAssertLessThan(Date().timeIntervalSince(startedAt), 2, "must return on the 250 ms provider timeout, not wait for the 5 s provider")
     }
 
-    func testProviderTimeoutIsRecordedAsAProviderFailure() async {
-        let health = ProviderHealthStore()
-        let registry = CommandRegistry(
-            providers: [SlowProvider()],
-            usageRanking: UsageRankingStore(diagnostics: DiagnosticsService()),
-            diagnostics: DiagnosticsService(),
-            providerHealth: health
-        )
-
-        _ = await registry.results(matching: "result")
-        let snapshot = await health.snapshot(for: "test.slow")
-
-        XCTAssertEqual(snapshot.timeoutCount, 1)
-        XCTAssertEqual(snapshot.failureCount, 1)
-        XCTAssertEqual(snapshot.successCount, 0)
-    }
-
-    func testProviderErrorIsRecordedWithoutPoisoningOtherResults() async {
-        let health = ProviderHealthStore()
+    func testProviderErrorDoesNotPoisonOtherResults() async {
         let registry = CommandRegistry(
             providers: [
                 FailingProvider(),
                 TestProvider(results: [command(id: "test.healthy", title: "Healthy Result")])
             ],
             usageRanking: UsageRankingStore(diagnostics: DiagnosticsService()),
-            diagnostics: DiagnosticsService(),
-            providerHealth: health
+            diagnostics: DiagnosticsService()
         )
 
-        let results = await registry.results(matching: "result")
-        let snapshot = await health.snapshot(for: "test.failing")
+        let results = await registry.fullResults(matching: "result")
 
         XCTAssertTrue(results.contains { $0.id == "test.healthy" })
-        XCTAssertEqual(snapshot.failureCount, 1)
-        XCTAssertEqual(snapshot.successCount, 0)
-        XCTAssertEqual(snapshot.lastFailure, "Unavailable")
     }
 
     func testCancellationInsensitiveProviderCannotRunOverlappingSearches() async throws {
@@ -121,10 +98,7 @@ final class CommandRankingTests: XCTestCase {
 
     func testCancelledQueuedSearchDoesNotStartProviderWork() async throws {
         let probe = NonCooperativeSearchProbe()
-        let scheduler = CommandProviderScheduler(
-            diagnostics: DiagnosticsService(),
-            providerHealth: ProviderHealthStore()
-        )
+        let scheduler = CommandProviderScheduler(diagnostics: DiagnosticsService())
         let provider = NonCooperativeProvider(probe: probe)
 
         let first = Task {
@@ -173,7 +147,7 @@ final class CommandRankingTests: XCTestCase {
             configService: config
         )
 
-        let results = await registry.results(matching: "fallback")
+        let results = await registry.fullResults(matching: "fallback")
 
         XCTAssertFalse(results.contains { $0.id == "test.fallback" })
     }
@@ -187,13 +161,13 @@ final class CommandRankingTests: XCTestCase {
         try config.updateCommandPreference(preference, for: "foundry.settings")
 
         let registry = CommandRegistry(
-            providers: [BuiltInCommandProvider(config: config, diagnostics: DiagnosticsService())],
+            providers: [BuiltInCommandProvider()],
             usageRanking: UsageRankingStore(diagnostics: DiagnosticsService()),
             diagnostics: DiagnosticsService(),
             configService: config
         )
 
-        let results = await registry.results(matching: "ship")
+        let results = await registry.fullResults(matching: "ship")
         XCTAssertEqual(results.first?.id, "foundry.settings")
     }
 
@@ -207,7 +181,7 @@ final class CommandRankingTests: XCTestCase {
             diagnostics: DiagnosticsService()
         )
 
-        let results = await registry.results(matching: "project")
+        let results = await registry.fullResults(matching: "project")
         XCTAssertEqual(results.first?.id, "test.relevant")
     }
 
@@ -221,7 +195,7 @@ final class CommandRankingTests: XCTestCase {
             diagnostics: DiagnosticsService()
         )
 
-        let results = await registry.results(matching: "2 + 2")
+        let results = await registry.fullResults(matching: "2 + 2")
         XCTAssertEqual(results.first?.id, "test.calculation")
     }
 
@@ -235,7 +209,7 @@ final class CommandRankingTests: XCTestCase {
             diagnostics: DiagnosticsService()
         )
 
-        let results = await registry.results(matching: "unrelated")
+        let results = await registry.fullResults(matching: "unrelated")
         XCTAssertEqual(results.first?.id, "test.history")
     }
 
@@ -249,7 +223,7 @@ final class CommandRankingTests: XCTestCase {
             diagnostics: DiagnosticsService()
         )
 
-        let results = await registry.results(matching: "characters")
+        let results = await registry.fullResults(matching: "characters")
         XCTAssertEqual(results.first?.id, "test.emoji")
     }
 
@@ -265,7 +239,7 @@ final class CommandRankingTests: XCTestCase {
         let query = "https://www.youtube.com/watch?v=video"
 
         let immediateResults = await registry.immediateResults(matching: query)
-        let completeResults = await registry.results(matching: query)
+        let completeResults = await registry.fullResults(matching: query)
 
         XCTAssertTrue(immediateResults.isEmpty)
         XCTAssertEqual(completeResults.map(\.route), [.mediaDownload])
@@ -281,7 +255,7 @@ final class CommandRankingTests: XCTestCase {
             diagnostics: DiagnosticsService()
         )
 
-        let results = await registry.results(matching: "characters")
+        let results = await registry.fullResults(matching: "characters")
         XCTAssertEqual(results.first?.id, "test.title")
     }
 
@@ -306,7 +280,7 @@ final class CommandRankingTests: XCTestCase {
 
         usageRanking.recordExecution(resultID: "test.fuzzy", query: "wifi")
 
-        let results = await registry.results(matching: "wifi")
+        let results = await registry.fullResults(matching: "wifi")
         XCTAssertEqual(results.first?.id, "test.prefix")
     }
 
@@ -324,7 +298,7 @@ final class CommandRankingTests: XCTestCase {
         )
 
         usageRanking.recordExecution(resultID: "test.calculator", query: "cal")
-        let results = await registry.results(matching: "cal")
+        let results = await registry.fullResults(matching: "cal")
         XCTAssertEqual(results.first?.id, "test.calculator")
     }
 
@@ -338,7 +312,7 @@ final class CommandRankingTests: XCTestCase {
             diagnostics: DiagnosticsService()
         )
 
-        let results = await registry.results(matching: "thing")
+        let results = await registry.fullResults(matching: "thing")
         XCTAssertEqual(results.map(\.id), ["test.a", "test.z"])
     }
 

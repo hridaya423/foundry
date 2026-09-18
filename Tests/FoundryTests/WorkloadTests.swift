@@ -3,7 +3,7 @@ import XCTest
 import FoundryDomain
 import FoundryServices
 
-final class PerformanceRegressionTests: XCTestCase {
+final class WorkloadTests: XCTestCase {
     func testSearchScoringHandlesARepresentativeCatalog() {
         let catalog = (0..<2_000).map { index in
             (title: "Developer Command \(index)", subtitle: "Foundry utility", keywords: ["command", "developer"])
@@ -36,18 +36,25 @@ final class PerformanceRegressionTests: XCTestCase {
         XCTAssertLessThanOrEqual(retained.count, policy.maxItems)
     }
 
-    func testHomePollingWorkload() async throws {
+    func testHomePollingProducesAMemorySample() async throws {
         let configURL = FileManager.default.temporaryDirectory.appendingPathComponent("foundry-home-profile-\(UUID().uuidString).json")
         defer { try? FileManager.default.removeItem(at: configURL) }
         let config = ConfigService(diagnostics: DiagnosticsService(), url: configURL)
         let board = await MainActor.run { WidgetBoardState(configService: config) }
 
         await MainActor.run { board.start() }
-        try await Task.sleep(for: .seconds(6))
-        await MainActor.run { board.stop() }
+        defer { Task { @MainActor in board.stop() } }
 
-        let memoryTotal = await MainActor.run { board.metrics.memoryTotal }
-        XCTAssertGreaterThan(memoryTotal, 0)
+        var sampled = false
+        for _ in 0..<40 {
+            if await MainActor.run(body: { board.metrics.memoryUsed > 0 }) {
+                sampled = true
+                break
+            }
+            try await Task.sleep(for: .milliseconds(50))
+        }
+
+        XCTAssertTrue(sampled, "Widget board never produced a memory sample")
     }
 
     func testCommandRegistrySearchWorkload() async throws {
@@ -60,7 +67,7 @@ final class PerformanceRegressionTests: XCTestCase {
 
         var resultCount = 0
         for query in queries {
-            resultCount += await registry.results(matching: query).count
+            resultCount += await registry.fullResults(matching: query).count
         }
 
         XCTAssertGreaterThan(resultCount, 0)

@@ -1,6 +1,5 @@
 import { phase, type ShelfLayout, type ShelfPose } from "./shelf-motion";
 
-export const clipboardEnd = 1.45;
 export const clipboardItems = [
   { id: "meeting", kind: "text", title: "Meet at 10", value: "Meet at 10. Bring the first draft.", time: "10:14", app: "Messages" },
   { id: "coast", kind: "image", title: "Coast.jpg", value: "/assets/foundry/story/coast.jpg", time: "10:16", app: "Photos" },
