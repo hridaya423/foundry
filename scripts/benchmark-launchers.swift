@@ -37,7 +37,7 @@ struct LauncherResult: Codable {
     let keyCode: UInt16
     let modifierFlags: UInt64
     let bundleKilobytes: Int
-    let panelLatencyMilliseconds: Summary
+    let panelLatencyMilliseconds: Summary?
     let warmedFootprintMegabytes: Summary
     let idleRSSMegabytes: Summary
     let panelSamples: [PanelSample]
@@ -46,7 +46,9 @@ struct LauncherResult: Codable {
 
 struct PanelSample: Codable {
     let capturedAt: String
+    let postedAt: String
     let milliseconds: Double
+    let axMilliseconds: Double
 }
 
 struct ProcessSnapshot: Codable {
@@ -116,7 +118,7 @@ let configuredLaunchers = [
     Launcher(
         name: "Foundry",
         bundleIdentifier: "com.hridya.foundry",
-        bundleURL: URL(fileURLWithPath: "/Applications/Foundry.app"),
+        bundleURL: URL(fileURLWithPath: value(after: "--bundle", in: arguments) ?? "/Applications/Foundry.app"),
         shortcut: foundryShortcut(),
         includesDetachedWebKit: false
     ),
@@ -126,17 +128,26 @@ let configuredLaunchers = [
         bundleURL: URL(fileURLWithPath: "/Applications/Raycast.app"),
         shortcut: raycastShortcut(),
         includesDetachedWebKit: true
+    ),
+    Launcher(
+        name: "Tinycast",
+        bundleIdentifier: "com.tinycast.app",
+        bundleURL: URL(fileURLWithPath: "/Applications/Tinycast.app"),
+        shortcut: tinycastShortcut(),
+        includesDetachedWebKit: false
     )
 ]
-let launchers = arguments.contains("--reverse") ? Array(configuredLaunchers.reversed()) : configuredLaunchers
+let onlyLaunchers = value(after: "--only", in: arguments)?.split(separator: ",").map { String($0) }
+let selectedLaunchers = configuredLaunchers.filter { onlyLaunchers?.contains($0.name) ?? true }
+let launchers = arguments.contains("--reverse") ? Array(selectedLaunchers.reversed()) : selectedLaunchers
 
-guard measuredRuns > 0,
+guard measuredRuns >= 0,
       warmupRuns >= 0,
       memorySampleCount > 0,
       startupWaitSeconds >= 0,
       postPanelSettleSeconds >= 0,
       memorySampleIntervalSeconds > 0 else {
-    fatalError("Runs and memory samples must be positive, and timing values must not be negative")
+    fatalError("Memory samples must be positive; runs (0 = memory only, no key events) and timing values must not be negative")
 }
 
 for launcher in launchers where FileManager.default.fileExists(atPath: launcher.bundleURL.path) == false {
@@ -144,7 +155,7 @@ for launcher in launchers where FileManager.default.fileExists(atPath: launcher.
 }
 
 if isolateLaunchers {
-    for launcher in configuredLaunchers where NSRunningApplication.runningApplications(withBundleIdentifier: launcher.bundleIdentifier).isEmpty == false {
+    for launcher in launchers where NSRunningApplication.runningApplications(withBundleIdentifier: launcher.bundleIdentifier).isEmpty == false {
         fatalError("Stop \(launcher.name) before using --isolate")
     }
 }
@@ -159,14 +170,16 @@ let results = launchers.map { launcher in
     let baselineProcessIDs = Set(processSnapshots().map(\.pid))
     ensureRunning(launcher)
     Thread.sleep(forTimeInterval: startupWaitSeconds)
-    ensureHidden(launcher)
+    if measuredRuns > 0 { ensureHidden(launcher) }
 
-    for _ in 0..<warmupRuns {
+    for _ in 0..<(measuredRuns == 0 ? 0 : warmupRuns) {
         _ = measurePanel(launcher)
     }
 
-    let panelSamples = (0..<measuredRuns).map { _ in
-        PanelSample(capturedAt: timestamp(), milliseconds: measurePanel(launcher))
+    let panelSamples = (0..<measuredRuns).map { _ -> PanelSample in
+        let captured = timestamp()
+        let ms = measurePanel(launcher)
+        return PanelSample(capturedAt: captured, postedAt: lastPostedAt, milliseconds: ms, axMilliseconds: lastAXMilliseconds)
     }
     Thread.sleep(forTimeInterval: postPanelSettleSeconds)
     let memoryReadings = (0..<memorySampleCount).map { _ -> MemorySample in
@@ -191,7 +204,7 @@ let results = launchers.map { launcher in
         keyCode: launcher.shortcut.keyCode,
         modifierFlags: launcher.shortcut.flags.rawValue,
         bundleKilobytes: bundleKilobytes(launcher.bundleURL),
-        panelLatencyMilliseconds: summary(panelSamples.map(\.milliseconds)),
+        panelLatencyMilliseconds: panelSamples.isEmpty ? nil : summary(panelSamples.map(\.milliseconds)),
         warmedFootprintMegabytes: summary(memoryReadings.map(\.footprintMegabytes)),
         idleRSSMegabytes: summary(memoryReadings.map(\.rssMegabytes)),
         panelSamples: panelSamples,
@@ -253,6 +266,9 @@ func value(after flag: String, in arguments: [String]) -> String? {
 
 func ensureRunning(_ launcher: Launcher) {
     if NSRunningApplication.runningApplications(withBundleIdentifier: launcher.bundleIdentifier).isEmpty == false { return }
+    // A reopen of an already running launcher shows its panel, so also check the process table.
+    let executablePrefix = launcher.bundleURL.path + "/Contents/MacOS/"
+    if processSnapshots().contains(where: { $0.command.hasPrefix(executablePrefix) }) { return }
     let configuration = NSWorkspace.OpenConfiguration()
     configuration.activates = false
     let semaphore = DispatchSemaphore(value: 0)
@@ -305,16 +321,23 @@ func measurePanel(_ launcher: Launcher) -> Double {
     Thread.sleep(forTimeInterval: 0.2)
 
     let start = ContinuousClock.now
+    lastPostedAt = timestamp()
     postKey(code: launcher.shortcut.keyCode, flags: launcher.shortcut.flags)
-    guard wait(until: { windowIsVisible(owner: launcher.name) }, timeout: 2) else {
+    guard wait(until: { axWindowIsVisible(launcher: launcher) || windowIsVisible(owner: launcher.name) }, timeout: 2) else {
         fatalError("\(launcher.name) did not show a window")
     }
+    lastAXMilliseconds = durationMilliseconds(start.duration(to: .now))
+    _ = wait(until: { windowIsVisible(owner: launcher.name) }, timeout: 2)
     let milliseconds = durationMilliseconds(start.duration(to: .now))
 
     Thread.sleep(forTimeInterval: 0.3)
     hide(launcher)
     return milliseconds
 }
+
+var lastAXMilliseconds: Double = 0
+
+var lastPostedAt = ""
 
 func ensureHidden(_ launcher: Launcher) {
     guard windowIsVisible(owner: launcher.name) else { return }
@@ -344,10 +367,28 @@ func windowIsVisible(owner: String) -> Bool {
     let options: CGWindowListOption = [.optionOnScreenOnly, .excludeDesktopElements]
     let windows = CGWindowListCopyWindowInfo(options, kCGNullWindowID) as? [[String: Any]] ?? []
     return windows.contains { window in
-        window[kCGWindowOwnerName as String] as? String == owner
+        let bounds = window[kCGWindowBounds as String] as? [String: CGFloat] ?? [:]
+        return window[kCGWindowOwnerName as String] as? String == owner
             && (window[kCGWindowAlpha as String] as? Double ?? 1) > 0
             && (window[kCGWindowLayer as String] as? Int ?? 0) >= 0
+            && (bounds["Width"] ?? 0) >= 400
     }
+}
+
+func axWindowIsVisible(launcher: Launcher) -> Bool {
+    guard let app = NSRunningApplication.runningApplications(withBundleIdentifier: launcher.bundleIdentifier).first else { return false }
+    let element = AXUIElementCreateApplication(app.processIdentifier)
+    var value: CFTypeRef?
+    guard AXUIElementCopyAttributeValue(element, kAXWindowsAttribute as CFString, &value) == .success,
+          let windows = value as? [AXUIElement] else { return false }
+    for window in windows {
+        var sizeValue: CFTypeRef?
+        AXUIElementCopyAttributeValue(window, kAXSizeAttribute as CFString, &sizeValue)
+        var size = CGSize.zero
+        if let sizeValue { AXValueGetValue(sizeValue as! AXValue, .cgSize, &size) }
+        if size.width >= 400 { return true }
+    }
+    return false
 }
 
 func wait(until condition: () -> Bool, timeout: TimeInterval) -> Bool {
@@ -539,7 +580,9 @@ func durationMilliseconds(_ duration: Duration) -> Double {
 }
 
 func timestamp() -> String {
-    ISO8601DateFormatter().string(from: Date())
+    let formatter = ISO8601DateFormatter()
+    formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+    return formatter.string(from: Date())
 }
 
 func environmentSnapshot() -> EnvironmentSnapshot {
@@ -558,7 +601,8 @@ func powerSource() -> String {
 }
 
 func foundryShortcut() -> Shortcut {
-    let fallback = Shortcut(keyCode: CGKeyCode(kVK_Space), flags: .maskCommand, displayName: "Command-Space")
+    // Fallback matches FoundryHotkey.optionSpace — the app default since config schema 7.
+    let fallback = Shortcut(keyCode: CGKeyCode(kVK_Space), flags: .maskAlternate, displayName: "Option-Space")
     let url = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".config/foundry/config.json")
     guard let data = try? Data(contentsOf: url),
           let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
@@ -570,6 +614,25 @@ func foundryShortcut() -> Shortcut {
         keyCode: CGKeyCode(keyCode.uint16Value),
         flags: eventFlags(carbonModifiers: modifiers.uint32Value),
         displayName: displayName
+    )
+}
+
+func tinycastShortcut() -> Shortcut {
+    // defaults key: {"combo":{"_0":{"carbonKeyCode":49,"carbonModifiers":6144}}}
+    let value = shell("/usr/bin/defaults", ["read", "com.tinycast.app", "hotkey.togglePalette"])
+        .trimmingCharacters(in: .whitespacesAndNewlines)
+    guard let data = value.data(using: .utf8),
+          let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+          let combo = root["combo"] as? [String: Any],
+          let inner = combo["_0"] as? [String: Any],
+          let keyCode = inner["carbonKeyCode"] as? NSNumber,
+          let modifiers = inner["carbonModifiers"] as? NSNumber else {
+        fatalError("Could not read Tinycast global hotkey: \(value)")
+    }
+    return Shortcut(
+        keyCode: CGKeyCode(keyCode.uint16Value),
+        flags: eventFlags(carbonModifiers: modifiers.uint32Value),
+        displayName: "carbon-\(modifiers.uint32Value)-\(keyCode.uint16Value)"
     )
 }
 

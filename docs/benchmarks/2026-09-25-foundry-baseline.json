@@ -1,0 +1,343 @@
+{
+  "capturedAt" : "2026-09-25T20:42:47Z",
+  "hardware" : "Apple M4 Pro",
+  "isolatedLaunchers" : false,
+  "launchers" : [
+    {
+      "build" : "1",
+      "bundleIdentifier" : "com.hridya.foundry",
+      "bundleKilobytes" : 14052,
+      "hotkey" : "⌘ Space",
+      "idleRSSMegabytes" : {
+        "maximum" : 73.828125,
+        "mean" : 73.115625,
+        "minimum" : 72.890625,
+        "p50" : 73,
+        "p95" : 73.828125
+      },
+      "keyCode" : 49,
+      "memorySamples" : [
+        {
+          "capturedAt" : "2026-09-25T20:42:24Z",
+          "footprintMegabytes" : 50.95408630371094,
+          "processes" : [
+            {
+              "command" : "\/Applications\/Foundry.app\/Contents\/MacOS\/Foundry",
+              "elapsedSeconds" : 182988,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 1046,
+              "rssKilobytes" : 75600
+            }
+          ],
+          "rssMegabytes" : 73.828125
+        },
+        {
+          "capturedAt" : "2026-09-25T20:42:26Z",
+          "footprintMegabytes" : 50.36033630371094,
+          "processes" : [
+            {
+              "command" : "\/Applications\/Foundry.app\/Contents\/MacOS\/Foundry",
+              "elapsedSeconds" : 182991,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 1046,
+              "rssKilobytes" : 75152
+            }
+          ],
+          "rssMegabytes" : 73.390625
+        },
+        {
+          "capturedAt" : "2026-09-25T20:42:29Z",
+          "footprintMegabytes" : 50.21971130371094,
+          "processes" : [
+            {
+              "command" : "\/Applications\/Foundry.app\/Contents\/MacOS\/Foundry",
+              "elapsedSeconds" : 182993,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 1046,
+              "rssKilobytes" : 74832
+            }
+          ],
+          "rssMegabytes" : 73.078125
+        },
+        {
+          "capturedAt" : "2026-09-25T20:42:31Z",
+          "footprintMegabytes" : 50.21971130371094,
+          "processes" : [
+            {
+              "command" : "\/Applications\/Foundry.app\/Contents\/MacOS\/Foundry",
+              "elapsedSeconds" : 182995,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 1046,
+              "rssKilobytes" : 74832
+            }
+          ],
+          "rssMegabytes" : 73.078125
+        },
+        {
+          "capturedAt" : "2026-09-25T20:42:34Z",
+          "footprintMegabytes" : 50.17283630371094,
+          "processes" : [
+            {
+              "command" : "\/Applications\/Foundry.app\/Contents\/MacOS\/Foundry",
+              "elapsedSeconds" : 182998,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 1046,
+              "rssKilobytes" : 74752
+            }
+          ],
+          "rssMegabytes" : 73
+        },
+        {
+          "capturedAt" : "2026-09-25T20:42:36Z",
+          "footprintMegabytes" : 50.17283630371094,
+          "processes" : [
+            {
+              "command" : "\/Applications\/Foundry.app\/Contents\/MacOS\/Foundry",
+              "elapsedSeconds" : 183000,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 1046,
+              "rssKilobytes" : 74752
+            }
+          ],
+          "rssMegabytes" : 73
+        },
+        {
+          "capturedAt" : "2026-09-25T20:42:38Z",
+          "footprintMegabytes" : 50.17283630371094,
+          "processes" : [
+            {
+              "command" : "\/Applications\/Foundry.app\/Contents\/MacOS\/Foundry",
+              "elapsedSeconds" : 183003,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 1046,
+              "rssKilobytes" : 74752
+            }
+          ],
+          "rssMegabytes" : 73
+        },
+        {
+          "capturedAt" : "2026-09-25T20:42:40Z",
+          "footprintMegabytes" : 50.17283630371094,
+          "processes" : [
+            {
+              "command" : "\/Applications\/Foundry.app\/Contents\/MacOS\/Foundry",
+              "elapsedSeconds" : 183005,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 1046,
+              "rssKilobytes" : 74752
+            }
+          ],
+          "rssMegabytes" : 73
+        },
+        {
+          "capturedAt" : "2026-09-25T20:42:43Z",
+          "footprintMegabytes" : 50.17283630371094,
+          "processes" : [
+            {
+              "command" : "\/Applications\/Foundry.app\/Contents\/MacOS\/Foundry",
+              "elapsedSeconds" : 183007,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 1046,
+              "rssKilobytes" : 74640
+            }
+          ],
+          "rssMegabytes" : 72.890625
+        },
+        {
+          "capturedAt" : "2026-09-25T20:42:45Z",
+          "footprintMegabytes" : 50.17283630371094,
+          "processes" : [
+            {
+              "command" : "\/Applications\/Foundry.app\/Contents\/MacOS\/Foundry",
+              "elapsedSeconds" : 183009,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 1046,
+              "rssKilobytes" : 74640
+            }
+          ],
+          "rssMegabytes" : 72.890625
+        }
+      ],
+      "modifierFlags" : 1048576,
+      "name" : "Foundry",
+      "panelLatencyMilliseconds" : {
+        "maximum" : 123.8445,
+        "mean" : 62.376374866666666,
+        "minimum" : 36.638458,
+        "p50" : 52.205875,
+        "p95" : 116.550125
+      },
+      "panelSamples" : [
+        {
+          "capturedAt" : "2026-09-25T20:42:03Z",
+          "milliseconds" : 73.405292
+        },
+        {
+          "capturedAt" : "2026-09-25T20:42:03Z",
+          "milliseconds" : 48.645958
+        },
+        {
+          "capturedAt" : "2026-09-25T20:42:04Z",
+          "milliseconds" : 99.4175
+        },
+        {
+          "capturedAt" : "2026-09-25T20:42:05Z",
+          "milliseconds" : 46.72475
+        },
+        {
+          "capturedAt" : "2026-09-25T20:42:05Z",
+          "milliseconds" : 41.236542
+        },
+        {
+          "capturedAt" : "2026-09-25T20:42:06Z",
+          "milliseconds" : 116.550125
+        },
+        {
+          "capturedAt" : "2026-09-25T20:42:06Z",
+          "milliseconds" : 40.867916
+        },
+        {
+          "capturedAt" : "2026-09-25T20:42:07Z",
+          "milliseconds" : 75.264167
+        },
+        {
+          "capturedAt" : "2026-09-25T20:42:08Z",
+          "milliseconds" : 47.449333
+        },
+        {
+          "capturedAt" : "2026-09-25T20:42:08Z",
+          "milliseconds" : 50.93425
+        },
+        {
+          "capturedAt" : "2026-09-25T20:42:09Z",
+          "milliseconds" : 106.224666
+        },
+        {
+          "capturedAt" : "2026-09-25T20:42:09Z",
+          "milliseconds" : 40.011083
+        },
+        {
+          "capturedAt" : "2026-09-25T20:42:10Z",
+          "milliseconds" : 64.020083
+        },
+        {
+          "capturedAt" : "2026-09-25T20:42:11Z",
+          "milliseconds" : 62.35475
+        },
+        {
+          "capturedAt" : "2026-09-25T20:42:11Z",
+          "milliseconds" : 123.8445
+        },
+        {
+          "capturedAt" : "2026-09-25T20:42:12Z",
+          "milliseconds" : 61.44975
+        },
+        {
+          "capturedAt" : "2026-09-25T20:42:12Z",
+          "milliseconds" : 61.817083
+        },
+        {
+          "capturedAt" : "2026-09-25T20:42:13Z",
+          "milliseconds" : 75.179666
+        },
+        {
+          "capturedAt" : "2026-09-25T20:42:14Z",
+          "milliseconds" : 39.85075
+        },
+        {
+          "capturedAt" : "2026-09-25T20:42:14Z",
+          "milliseconds" : 52.205875
+        },
+        {
+          "capturedAt" : "2026-09-25T20:42:15Z",
+          "milliseconds" : 38.937958
+        },
+        {
+          "capturedAt" : "2026-09-25T20:42:15Z",
+          "milliseconds" : 65.843375
+        },
+        {
+          "capturedAt" : "2026-09-25T20:42:16Z",
+          "milliseconds" : 50.452125
+        },
+        {
+          "capturedAt" : "2026-09-25T20:42:17Z",
+          "milliseconds" : 55.640583
+        },
+        {
+          "capturedAt" : "2026-09-25T20:42:17Z",
+          "milliseconds" : 43.220667
+        },
+        {
+          "capturedAt" : "2026-09-25T20:42:18Z",
+          "milliseconds" : 45.919417
+        },
+        {
+          "capturedAt" : "2026-09-25T20:42:18Z",
+          "milliseconds" : 47.175917
+        },
+        {
+          "capturedAt" : "2026-09-25T20:42:19Z",
+          "milliseconds" : 36.638458
+        },
+        {
+          "capturedAt" : "2026-09-25T20:42:19Z",
+          "milliseconds" : 104.374416
+        },
+        {
+          "capturedAt" : "2026-09-25T20:42:20Z",
+          "milliseconds" : 55.634291
+        }
+      ],
+      "version" : "1.0.0",
+      "warmedFootprintMegabytes" : {
+        "maximum" : 50.95408630371094,
+        "mean" : 50.27908630371094,
+        "minimum" : 50.17283630371094,
+        "p50" : 50.17283630371094,
+        "p95" : 50.95408630371094
+      }
+    }
+  ],
+  "logicalCPUCount" : 14,
+  "macOS" : "27.0",
+  "macOSBuild" : "26A428",
+  "machineIdentifier" : "Mac16,7",
+  "measuredRuns" : 30,
+  "memoryMetric" : "Summary Footprint from macOS footprint for selected process IDs",
+  "memorySampleCount" : 10,
+  "memorySampleIntervalSeconds" : 1,
+  "panelMetric" : "Elapsed time from CGEvent post to the first matching on-screen CGWindow entry",
+  "panelPollMicroseconds" : 500,
+  "panelTimeoutSeconds" : 2,
+  "physicalMemoryBytes" : 51539607552,
+  "postPanelSettleSeconds" : 2,
+  "processMinimumAgeSeconds" : 5,
+  "processSelection" : "Bundle processes, their descendants, and Raycast's newly spawned WebKit XPC processes",
+  "processStabilitySeconds" : 0.1,
+  "startedAt" : "2026-09-25T20:41:57Z",
+  "startupWaitSeconds" : 1,
+  "systemAtEnd" : {
+    "powerDetails" : "Now drawing from 'AC Power'\n -InternalBattery-0 (id=23330915)\t80%; AC attached; not charging present: true",
+    "powerSettings" : "System-wide power settings:\n SleepDisabled\t\t0\nCurrently in use:\n standby              1\n Sleep On Power Button 1\n hibernatefile        \/var\/vm\/sleepimage\n powernap             1\n networkoversleep     0\n disksleep            10\n sleep                0 (sleep prevented by powerd)\n hibernatemode        3\n ttyskeepawake        1\n displaysleep         5\n tcpkeepalive         1\n powermode            1\n womp                 0",
+    "powerSource" : "AC Power",
+    "thermalDetails" : "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded"
+  },
+  "systemAtStart" : {
+    "powerDetails" : "Now drawing from 'AC Power'\n -InternalBattery-0 (id=23330915)\t80%; AC attached; not charging present: true",
+    "powerSettings" : "System-wide power settings:\n SleepDisabled\t\t0\nCurrently in use:\n standby              1\n Sleep On Power Button 1\n hibernatefile        \/var\/vm\/sleepimage\n powernap             1\n networkoversleep     0\n disksleep            10\n sleep                0 (sleep prevented by powerd, runningboardd)\n hibernatemode        3\n ttyskeepawake        1\n displaysleep         5\n tcpkeepalive         1\n powermode            1\n womp                 0",
+    "powerSource" : "AC Power",
+    "thermalDetails" : "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded"
+  },
+  "warmupRuns" : 5
+}
