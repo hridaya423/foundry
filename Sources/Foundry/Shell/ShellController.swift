@@ -5,12 +5,13 @@ import FoundryServices
 @MainActor
 final class ShellController {
     private let registry: CommandRegistry
-    private let actionRunner: ActionRunner
     private let config: ConfigService
     private let diagnostics: DiagnosticsService
     private let hotkeyController: HotkeyController
     private let panelController: PanelController
     private let panelState: CommandPanelState
+    private let statusItemController: StatusItemController
+    private let onboardingController: OnboardingWindowController
     private let clipboardHistory: ClipboardHistoryState
     private let snippetExpansion: SnippetExpansionService
     private var hasStarted = false
@@ -26,7 +27,6 @@ final class ShellController {
         clipboardHistory: ClipboardHistoryState? = nil
     ) {
         self.registry = registry
-        self.actionRunner = actionRunner
         self.config = config
         self.diagnostics = diagnostics
         self.hotkeyController = HotkeyController()
@@ -43,6 +43,21 @@ final class ShellController {
             clipboardHistory: sharedClipboardHistory
         )
         self.panelController = PanelController(state: panelState, diagnostics: diagnostics, directPasteService: actionRunner.directPasteService)
+        let permissionHealth = PermissionHealthState()
+        let onboardingState = OnboardingState(panel: panelState, permissions: permissionHealth)
+        let onboardingController = OnboardingWindowController(state: onboardingState)
+        self.onboardingController = onboardingController
+        let statusItemController = StatusItemController(state: panelState)
+        self.statusItemController = statusItemController
+        statusItemController.onTogglePanel = { [weak self] in
+            self?.togglePanel()
+        }
+        statusItemController.onOpenPanel = { [weak self] in
+            self?.showPanel()
+        }
+        self.panelState.onMenuBarIconVisibilityChanged = { [weak statusItemController] visible in
+            statusItemController?.setVisible(visible)
+        }
         self.snippetExpansion.onStatusChanged = { [weak panelState] message in
             Task { @MainActor in panelState?.setSnippetExpansionError(message) }
         }
@@ -50,9 +65,32 @@ final class ShellController {
             guard let self else { return }
             try self.hotkeyController.register(hotkey: hotkey)
             self.diagnostics.log("Registered global hotkey: \(hotkey.displayName)")
+            self.panelState.setLauncherHotkeyFailed(false)
         }
         self.panelState.onCommandPreferencesChanged = { [weak self] in
             self?.registerCommandHotkeys()
+        }
+        self.panelState.onCompactCollapseChanged = { [weak panelController] collapsed in
+            panelController?.setCompactCollapsed(collapsed)
+        }
+        self.panelState.onOpenSettings = { [weak self] in
+            self?.showPanel()
+        }
+        self.panelState.onOpenWelcomeGuide = { [weak panelController, weak onboardingController, weak onboardingState] in
+            if panelController?.isVisible == true { panelController?.hide() }
+            onboardingState?.restart()
+            onboardingController?.show()
+        }
+        self.panelState.onSnippetExpansionChanged = { [weak self] in self?.configureSnippetExpansion() }
+        self.panelState.onRequestSnippetAccessibility = { [weak self] in self?.snippetExpansion.requestAccessibilityAccess() }
+        self.panelState.onOpenSnippetPrivacySettings = { [weak self] in self?.snippetExpansion.openAccessibilitySettings() }
+        statusItemController.onWelcomeGuide = { [weak onboardingController, weak onboardingState] in
+            onboardingState?.restart()
+            onboardingController?.show()
+        }
+        onboardingState.onFinish = { [weak self, weak onboardingController, weak onboardingState] in
+            onboardingController?.close()
+            if onboardingState?.step == .done { self?.showPanel() }
         }
     }
 
@@ -72,19 +110,29 @@ final class ShellController {
             self?.snippetExpansion.recoverFromWake()
         })
         hotkeyController.onPressed = { [weak self] in
-            Task { @MainActor in
+            MainActor.assumeIsolated {
+                self?.diagnostics.log("hotkey.received")
                 self?.togglePanel()
             }
         }
+
+        statusItemController.setVisible(panelState.showMenuBarIcon)
+        let showsOnboarding = OnboardingState.shouldShowAutomatically(configExistedAtLaunch: config.existedAtLaunch)
 
         do {
             try hotkeyController.register(hotkey: config.current.hotkey)
             diagnostics.log("Registered global hotkey: \(config.current.hotkey.displayName)")
         } catch {
             diagnostics.log("Failed to register hotkey: \(error.localizedDescription)")
+            panelState.setLauncherHotkeyFailed(true)
+            if showsOnboarding == false { showPanel() }
         }
         registerCommandHotkeys()
+        panelController.prewarm()
 
+        if showsOnboarding {
+            onboardingController.show()
+        }
     }
 
     func stop() {
@@ -108,10 +156,6 @@ final class ShellController {
         snippetExpansion.configure(isEnabled: settings.isEnabled, excludedBundleIdentifiers: settings.excludedBundleIdentifiers)
     }
 
-    func reconfigureSnippetExpansion() { configureSnippetExpansion() }
-    func requestSnippetAccessibility() { snippetExpansion.requestAccessibilityAccess() }
-    func openSnippetPrivacySettings() { snippetExpansion.openAccessibilitySettings() }
-
     private func togglePanel() {
         let span = diagnostics.startSpan("shell.toggle")
         if panelController.isVisible {
@@ -123,9 +167,13 @@ final class ShellController {
     }
 
     func showPanel() {
+        let span = diagnostics.startSpan("panel.hotkeyToFront")
+        NSApp.activate(ignoringOtherApps: true)
         panelState.resetForOpen()
         panelController.show()
-        NSApp.activate(ignoringOtherApps: true)
+        DispatchQueue.main.async { [diagnostics] in
+            diagnostics.endSpan(span)
+        }
     }
     private func runCommandHotkey(commandID: String) async {
         guard let result = await registry.commandResult(for: commandID) else {

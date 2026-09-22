@@ -7,11 +7,12 @@ import FoundryServices
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private var shellController: ShellController?
     private var terminationPending = false
-    private let launchAtLoginPromptKey = "foundry.launchAtLoginPromptShown"
     private let launchAtLoginConsentKey = "foundry.launchAtLoginConsent"
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        NSApp.mainMenu = MainMenu.make()
         let diagnostics = DiagnosticsService()
+        let launchSpan = diagnostics.startSpan("app.launch.ready")
         let config = ConfigService(diagnostics: diagnostics)
         let snippetStore = FileSnippetStore()
         let usageRanking = UsageRankingStore(diagnostics: diagnostics)
@@ -46,22 +47,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         )
 
         self.shellController = shellController
-        NotificationCenter.default.addObserver(forName: .foundryRequestSnippetAccessibility, object: nil, queue: .main) { [weak shellController] _ in
-            Task { @MainActor in shellController?.requestSnippetAccessibility() }
-        }
-        NotificationCenter.default.addObserver(forName: .foundryOpenSnippetPrivacy, object: nil, queue: .main) { [weak shellController] _ in
-            Task { @MainActor in shellController?.openSnippetPrivacySettings() }
-        }
-        NotificationCenter.default.addObserver(forName: .foundrySnippetExpansionChanged, object: nil, queue: .main) { [weak shellController] _ in
-            Task { @MainActor in shellController?.reconfigureSnippetExpansion() }
-        }
         shellController.start()
+        diagnostics.endSpan(launchSpan)
 
         Task { @MainActor [weak self] in
             await Task.yield()
             guard let self else { return }
             self.configureLoginItem(diagnostics: diagnostics)
-            FirefoxConnectorInstaller(diagnostics: diagnostics).configureMainBrowser()
         }
     }
 
@@ -104,45 +96,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             return
         }
         let loginItem = SMAppService.mainApp
-        if loginItem.status == .enabled {
-            UserDefaults.standard.set(true, forKey: launchAtLoginPromptKey)
-            UserDefaults.standard.set(true, forKey: launchAtLoginConsentKey)
-            return
-        }
-
-        if UserDefaults.standard.object(forKey: launchAtLoginConsentKey) == nil,
-           UserDefaults.standard.bool(forKey: launchAtLoginPromptKey) {
-            UserDefaults.standard.set(false, forKey: launchAtLoginPromptKey)
-        }
-
-        if UserDefaults.standard.bool(forKey: launchAtLoginConsentKey) {
-            do {
-                try loginItem.register()
-                diagnostics.log("Re-registered Foundry as a login item")
-            } catch {
-                diagnostics.log("Could not restore Foundry login item: \(error.localizedDescription)")
-            }
-            return
-        }
-
-        guard UserDefaults.standard.bool(forKey: launchAtLoginPromptKey) == false else { return }
-
-        let alert = NSAlert()
-        alert.messageText = "Launch Foundry at login?"
-        alert.informativeText = "Foundry can start automatically when you sign in, so its launcher and shortcuts are ready immediately. You can change this later in System Settings."
-        alert.addButton(withTitle: "Launch at Login")
-        alert.addButton(withTitle: "Not Now")
-        guard alert.runModal() == .alertFirstButtonReturn else { return }
-
-        UserDefaults.standard.set(true, forKey: launchAtLoginPromptKey)
-
+        guard UserDefaults.standard.bool(forKey: launchAtLoginConsentKey),
+              loginItem.status != .enabled else { return }
         do {
             try loginItem.register()
-            UserDefaults.standard.set(true, forKey: launchAtLoginConsentKey)
-            diagnostics.log("Registered Foundry as a login item")
+            diagnostics.log("Re-registered Foundry as a login item")
         } catch {
-            UserDefaults.standard.set(false, forKey: launchAtLoginPromptKey)
-            diagnostics.log("Could not register Foundry as a login item: \(error.localizedDescription)")
+            diagnostics.log("Could not restore Foundry login item: \(error.localizedDescription)")
         }
     }
 }

@@ -6,7 +6,9 @@ struct WindowLayoutPicker: View {
     let onSelect: (CommandResult) -> Void
     let onMore: () -> Void
 
-    private let columns = Array(repeating: GridItem(.flexible(), spacing: 6), count: 3)
+    private var columns: [GridItem] {
+        Array(repeating: GridItem(.flexible(), spacing: 6), count: max(results.count, 1))
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -69,11 +71,11 @@ private struct CompactLayoutButton: View {
             }
             .padding(.horizontal, 8)
             .frame(height: 40)
-            .background(isHovering ? Color.primary.opacity(0.07) : Color.primary.opacity(0.035))
+            .background(isHovering ? Color.primary.opacity(0.08) : Color.primary.opacity(0.04))
             .clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
             .overlay {
                 RoundedRectangle(cornerRadius: 9, style: .continuous)
-                    .strokeBorder(Color.primary.opacity(isHovering ? 0.16 : 0.065), lineWidth: 1)
+                    .strokeBorder(Color.primary.opacity(isHovering ? 0.16 : 0.08), lineWidth: 0.5)
             }
         }
         .buttonStyle(PressableButtonStyle())
@@ -179,7 +181,6 @@ struct WindowLayoutManager: View {
 
             SpatialLayoutGrid(
                 results: family.placements.compactMap { resultByPlacement[$0] },
-                family: family,
                 selectedResultID: selectedResultID,
                 onSelect: onSelect,
                 onHover: onHover
@@ -337,12 +338,14 @@ private enum SpatialLayoutFamily: String, CaseIterable, Hashable {
     case halves
     case quarters
     case thirds
+    case fourths
 
     var title: String {
         switch self {
         case .halves: return "Halves"
         case .quarters: return "Quarters"
         case .thirds: return "Thirds"
+        case .fourths: return "Fourths"
         }
     }
 
@@ -350,7 +353,8 @@ private enum SpatialLayoutFamily: String, CaseIterable, Hashable {
         switch self {
         case .halves: return [.leftHalf, .rightHalf, .topHalf, .bottomHalf]
         case .quarters: return [.topLeft, .topRight, .bottomLeft, .bottomRight]
-        case .thirds: return [.leftThird, .centerThird, .rightThird]
+        case .thirds: return [.leftThird, .centerThird, .rightThird, .leftTwoThirds, .centerTwoThirds, .rightTwoThirds]
+        case .fourths: return [.firstFourth, .secondFourth, .thirdFourth, .lastFourth, .firstThreeFourths, .lastThreeFourths]
         }
     }
 }
@@ -381,35 +385,37 @@ private struct FamilyTab: View {
 
 private struct SpatialLayoutGrid: View {
     let results: [CommandResult]
-    let family: SpatialLayoutFamily
     let selectedResultID: String?
     let onSelect: (CommandResult) -> Void
     let onHover: (CommandResult) -> Void
 
     private var columns: [GridItem] {
-        Array(repeating: GridItem(.flexible(), spacing: 7), count: family == .thirds ? 1 : 2)
+        Array(repeating: GridItem(.flexible(), spacing: 7), count: 2)
     }
 
     var body: some View {
-        LazyVGrid(columns: columns, spacing: 7) {
-            ForEach(results, id: \.id) { result in
-                SpatialLayoutButton(
-                    result: result,
-                    isSelected: selectedResultID == result.id,
-                    isWide: family == .thirds,
-                    onSelect: { onSelect(result) },
-                    onHover: { onHover(result) }
-                )
+        GeometryReader { proxy in
+            let rows = max((results.count + columns.count - 1) / columns.count, 1)
+            let rowHeight = max((proxy.size.height - 7 * CGFloat(rows - 1)) / CGFloat(rows), 88)
+            LazyVGrid(columns: columns, spacing: 7) {
+                ForEach(results, id: \.id) { result in
+                    SpatialLayoutButton(
+                        result: result,
+                        isSelected: selectedResultID == result.id,
+                        height: rowHeight,
+                        onSelect: { onSelect(result) },
+                        onHover: { onHover(result) }
+                    )
+                }
             }
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
     }
 }
 
 private struct SpatialLayoutButton: View {
     let result: CommandResult
     let isSelected: Bool
-    let isWide: Bool
+    let height: CGFloat
     let onSelect: () -> Void
     let onHover: () -> Void
 
@@ -422,28 +428,19 @@ private struct SpatialLayoutButton: View {
 
     var body: some View {
         Button(action: onSelect) {
-            Group {
-                if isWide {
-                    HStack(spacing: 12) {
-                        LayoutDiagram(placement: placement, isSelected: isSelected)
-                            .frame(width: 116, height: 58)
-                        titleRow
-                    }
-                } else {
-                    VStack(spacing: 7) {
-                        LayoutDiagram(placement: placement, isSelected: isSelected)
-                            .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        titleRow
-                    }
-                }
+            VStack(spacing: 7) {
+                LayoutDiagram(placement: placement, isSelected: isSelected)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                titleRow
             }
-            .padding(9)
-            .frame(maxWidth: .infinity, minHeight: isWide ? 78 : 104, maxHeight: isWide ? 82 : 124)
+            .padding(10)
+            .frame(maxWidth: .infinity)
+            .frame(height: height)
             .background(tileBackground)
             .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
             .overlay {
                 RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .strokeBorder(tileBorder, lineWidth: isSelected ? 1.25 : 1)
+                    .strokeBorder(tileBorder, lineWidth: isSelected ? 1 : 0.5)
             }
         }
         .buttonStyle(PressableButtonStyle())
@@ -477,15 +474,15 @@ private struct SpatialLayoutButton: View {
     }
 
     private var tileBackground: Color {
-        if isSelected { return FoundryTheme.accentTint.opacity(0.085) }
+        if isSelected { return FoundryTheme.accentTint.opacity(0.13) }
         if isHovering && hoverHighlightsArmed { return Color.primary.opacity(0.06) }
-        return Color.primary.opacity(0.028)
+        return Color.primary.opacity(0.03)
     }
 
     private var tileBorder: Color {
-        if isSelected { return FoundryTheme.accentTint.opacity(0.66) }
-        if isHovering && hoverHighlightsArmed { return Color.primary.opacity(0.15) }
-        return Color.primary.opacity(0.065)
+        if isSelected { return FoundryTheme.accentTint.opacity(0.75) }
+        if isHovering && hoverHighlightsArmed { return Color.primary.opacity(0.16) }
+        return Color.primary.opacity(0.07)
     }
 }
 
@@ -590,7 +587,7 @@ private struct UtilityIconButton: View {
                 .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
                 .overlay {
                     RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .strokeBorder(Color.primary.opacity(isHovering ? 0.12 : 0.055), lineWidth: 1)
+                        .strokeBorder(Color.primary.opacity(isHovering ? 0.12 : 0.05), lineWidth: 0.5)
                 }
         }
         .buttonStyle(PressableButtonStyle())
@@ -623,20 +620,16 @@ private struct LayoutDiagram: View {
             let content = bounds.insetBy(dx: inset, dy: inset)
 
             ZStack {
-                RoundedRectangle(cornerRadius: 6, style: .continuous)
-                    .fill(Color.black.opacity(0.10))
+                RoundedRectangle(cornerRadius: 5, style: .continuous)
+                    .fill(Color.primary.opacity(0.05))
                     .overlay {
-                        RoundedRectangle(cornerRadius: 6, style: .continuous)
-                            .stroke(Color.primary.opacity(isSelected ? 0.22 : 0.14), lineWidth: 1)
+                        RoundedRectangle(cornerRadius: 5, style: .continuous)
+                            .stroke(Color.primary.opacity(isSelected ? 0.26 : 0.15), lineWidth: 1)
                     }
 
                 ForEach(Array((placement?.previewWindows(in: content) ?? []).enumerated()), id: \.offset) { _, window in
-                    RoundedRectangle(cornerRadius: 3, style: .continuous)
-                        .fill(window.isActive ? Color(red: 0.38, green: 0.51, blue: 0.72).opacity(0.88) : Color.primary.opacity(0.24))
-                        .overlay {
-                            RoundedRectangle(cornerRadius: 3, style: .continuous)
-                                .stroke(Color.primary.opacity(window.isActive ? 0.14 : 0.10), lineWidth: 1)
-                        }
+                    RoundedRectangle(cornerRadius: 2.5, style: .continuous)
+                        .fill(window.isActive ? FoundryTheme.accentTint.opacity(isSelected ? 0.95 : 0.6) : Color.primary.opacity(0.13))
                         .frame(width: window.frame.width, height: window.frame.height)
                         .position(x: window.frame.midX, y: window.frame.midY)
                 }
@@ -671,6 +664,18 @@ private extension FoundryDomain.WindowPlacement {
         case .leftThird: return "Left third"
         case .centerThird: return "Center third"
         case .rightThird: return "Right third"
+        case .leftTwoThirds: return "Left ⅔"
+        case .centerTwoThirds: return "Center ⅔"
+        case .rightTwoThirds: return "Right ⅔"
+        case .firstFourth: return "First fourth"
+        case .secondFourth: return "Second fourth"
+        case .thirdFourth: return "Third fourth"
+        case .lastFourth: return "Last fourth"
+        case .firstThreeFourths: return "Left ¾"
+        case .lastThreeFourths: return "Right ¾"
+        case .almostMaximize: return "Almost max"
+        case .maximizeHeight: return "Full height"
+        case .centerHalf: return "Center half"
         case .maximize: return "Maximize"
         case .center: return "Center"
         case .increaseSize: return "Grow"
@@ -746,8 +751,19 @@ private extension FoundryDomain.WindowPlacement {
             return frames.enumerated().map { index, frame in
                 LayoutPreviewWindow(frame: frame, isActive: index == activeIndex)
             }
+        case .leftTwoThirds, .centerTwoThirds, .rightTwoThirds, .firstFourth, .secondFourth, .thirdFourth, .lastFourth, .firstThreeFourths, .lastThreeFourths, .centerHalf:
+            guard let (start, fraction) = columnSpan else { return [] }
+            let active = CGRect(x: frame.minX + frame.width * start, y: frame.minY, width: frame.width * fraction, height: frame.height)
+            let leading = CGRect(x: frame.minX, y: frame.minY, width: active.minX - frame.minX - gap, height: frame.height)
+            let trailing = CGRect(x: active.maxX + gap, y: frame.minY, width: frame.maxX - active.maxX - gap, height: frame.height)
+            return [leading, trailing].filter { $0.width > gap }.map { LayoutPreviewWindow(frame: $0, isActive: false) }
+                + [LayoutPreviewWindow(frame: active, isActive: true)]
         case .maximize:
             return [LayoutPreviewWindow(frame: frame, isActive: true)]
+        case .almostMaximize:
+            return [LayoutPreviewWindow(frame: frame.insetBy(dx: frame.width * 0.06, dy: frame.height * 0.06), isActive: true)]
+        case .maximizeHeight:
+            return [LayoutPreviewWindow(frame: frame.insetBy(dx: frame.width * 0.3, dy: 0), isActive: true)]
         case .center:
             return [LayoutPreviewWindow(frame: frame.insetBy(dx: frame.width * 0.22, dy: frame.height * 0.20), isActive: true)]
         case .restore:

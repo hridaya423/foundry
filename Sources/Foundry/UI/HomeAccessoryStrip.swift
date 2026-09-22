@@ -2,9 +2,9 @@ import AppKit
 import SwiftUI
 
 struct HomeAccessoryStrip: View {
-    @ObservedObject var board: WidgetBoardState
-    @ObservedObject var agents: AgentMonitorState
-    @ObservedObject var fileShelf: FileShelfState
+    var board: WidgetBoardState
+    var agents: AgentMonitorState
+    var fileShelf: FileShelfState
     var onAgentOpen: (() -> Void)? = nil
     var onShelfOpen: (() -> Void)? = nil
     var compactMaximum = 4
@@ -81,47 +81,29 @@ struct HomeAccessoryStrip: View {
         case .thermal:
             StatWidget(symbol: "fanblades", title: "Thermal", value: board.metrics.thermalDisplay, caption: "pressure", tint: board.metrics.thermalTint)
         case .weather:
-            WeatherWidget(snapshot: board.weather, city: board.config.weatherCity, isLoading: board.isWeatherLoading)
+            WeatherWidget(snapshot: board.weather, city: board.config.weatherCity, isLoading: board.isWeatherLoading, isStale: board.isWeatherStale)
         case .stock:
-            StockWidget(snapshot: board.stock, symbol: board.config.stockSymbol, isLoading: board.isStockLoading)
+            StockWidget(snapshot: board.stock, symbol: board.config.stockSymbol, isLoading: board.isStockLoading, isStale: board.isStockStale)
         case .cpu:
             StatWidget(symbol: "cpu", title: "CPU", value: board.metrics.cpuDisplay, caption: "current")
         case .memory:
-            StatWidget(symbol: "memorychip", title: "Memory", value: board.metrics.memoryDisplay, caption: board.metrics.memoryUsedDisplay)
+            StatWidget(symbol: "memorychip", title: "Memory", value: board.metrics.memoryDisplay, caption: "\(board.metrics.memoryUsedDisplay) used")
         case .loadAverage:
             StatWidget(symbol: "waveform.path.ecg", title: "Unix Load", value: board.metrics.loadAverageDisplay, caption: "1 min avg")
         case .diskUsage:
-            StatWidget(symbol: "chart.pie", title: "Disk Used", value: board.metrics.diskUsedDisplay, caption: "boot volume")
+            StatWidget(symbol: "chart.pie", title: "Disk", value: board.metrics.diskUsedDisplay, caption: "used · \(board.metrics.diskDisplay) free")
         case .network:
             StatWidget(symbol: "network", title: "Network", value: board.metrics.localIPAddressDisplay, caption: "local IP")
         case .clipboard:
             DynamicStatWidget(symbol: "doc.on.clipboard", title: "Clipboard", caption: WidgetSystemInfo.clipboardCaption) { WidgetSystemInfo.clipboardValue }
         case .downloads:
             StatWidget(symbol: "arrow.down.circle", title: "Downloads", value: "\(board.downloads.count) files", caption: board.downloads.newestName ?? "Downloads")
-        case .activeApp:
-            DynamicStatWidget(symbol: "macwindow", title: "Active App", caption: "frontmost") { WidgetSystemInfo.activeAppName }
-        case .device:
-            StatWidget(symbol: "desktopcomputer", title: "Device", value: WidgetSystemInfo.deviceName, caption: "Mac")
-        case .osVersion:
-            StatWidget(symbol: "apple.logo", title: "macOS", value: WidgetSystemInfo.osVersion, caption: "system")
-        case .user:
-            StatWidget(symbol: "person.crop.circle", title: "User", value: WidgetSystemInfo.userName, caption: "account")
-        case .timeZone:
-            DynamicStatWidget(symbol: "globe", title: "Time Zone", caption: WidgetSystemInfo.timeZoneCaption) { WidgetSystemInfo.timeZoneValue }
-        case .display:
-            DynamicStatWidget(symbol: "display", title: "Display", caption: WidgetSystemInfo.displayCaption) { WidgetSystemInfo.displayValue }
-        case .boot:
-            StatWidget(symbol: "power", title: "Boot", value: board.metrics.bootDateDisplay, caption: board.metrics.bootClockDisplay)
-        case .host:
-            StatWidget(symbol: "bonjour", title: "Host", value: WidgetSystemInfo.hostName, caption: "network")
-        case .cores:
-            StatWidget(symbol: "cpu.fill", title: "Cores", value: "\(ProcessInfo.processInfo.processorCount)", caption: "processors")
         }
     }
 }
 
 private struct CompactFileShelfWidget: View {
-    @ObservedObject var shelf: FileShelfState
+    var shelf: FileShelfState
     let open: (() -> Void)?
 
     var body: some View {
@@ -230,7 +212,7 @@ private struct DynamicStatWidget: View {
 }
 
 private struct AgentWidget: View {
-    @ObservedObject var agents: AgentMonitorState
+    var agents: AgentMonitorState
     var onOpen: (() -> Void)?
 
     var body: some View {
@@ -357,48 +339,6 @@ private struct AgentProviderBadge: View {
 }
 
 private enum WidgetSystemInfo {
-    static var activeAppName: String {
-        NSWorkspace.shared.frontmostApplication?.localizedName ?? "None"
-    }
-
-    static var deviceName: String {
-        Host.current().localizedName ?? ProcessInfo.processInfo.hostName
-    }
-
-    static var hostName: String {
-        ProcessInfo.processInfo.hostName
-    }
-
-    static var osVersion: String {
-        let version = ProcessInfo.processInfo.operatingSystemVersion
-        if version.patchVersion > 0 { return "\(version.majorVersion).\(version.minorVersion).\(version.patchVersion)" }
-        return "\(version.majorVersion).\(version.minorVersion)"
-    }
-
-    static var userName: String {
-        let fullName = NSFullUserName()
-        return fullName.isEmpty ? NSUserName() : fullName
-    }
-
-    static var timeZoneValue: String {
-        TimeZone.current.abbreviation() ?? "GMT"
-    }
-
-    static var timeZoneCaption: String {
-        TimeZone.current.identifier
-    }
-
-    static var displayValue: String {
-        guard let screen = NSScreen.main else { return "—" }
-        let scale = screen.backingScaleFactor
-        return "\(Int(screen.frame.width * scale))×\(Int(screen.frame.height * scale))"
-    }
-
-    static var displayCaption: String {
-        guard let screen = NSScreen.main else { return "main" }
-        return "\(String(format: "%.0fx", screen.backingScaleFactor)) main"
-    }
-
     static var clipboardValue: String {
         guard let text = NSPasteboard.general.string(forType: .string), text.isEmpty == false else { return "Empty" }
         return "\(text.count) chars"
@@ -457,6 +397,7 @@ private struct WeatherWidget: View {
     let snapshot: WeatherSnapshot?
     let city: String
     let isLoading: Bool
+    let isStale: Bool
 
     var body: some View {
         HStack(spacing: 8) {
@@ -470,7 +411,7 @@ private struct WeatherWidget: View {
                     Text("\(Int(snapshot.temperature.rounded()))°")
                         .font(FoundryTheme.display(size: 16, weight: .semibold))
                         .foregroundStyle(FoundryTheme.primaryText)
-                    Text(snapshot.condition)
+                    Text(isStale ? "Offline · last known" : snapshot.condition)
                         .font(FoundryTheme.body(size: 10, weight: .regular))
                         .foregroundStyle(FoundryTheme.mutedText)
                         .lineLimit(1)
@@ -498,6 +439,7 @@ private struct StockWidget: View {
     let snapshot: StockSnapshot?
     let symbol: String
     let isLoading: Bool
+    let isStale: Bool
 
     private var changeColor: Color {
         guard let snapshot else { return FoundryTheme.mutedText }
@@ -516,7 +458,7 @@ private struct StockWidget: View {
                     .font(FoundryTheme.body(size: 12, weight: .semibold))
                     .foregroundStyle(FoundryTheme.primaryText)
                 if let snapshot {
-                    Text("\(String(format: "%.2f", snapshot.price)) \(snapshot.currency)")
+                    Text("\(String(format: "%.2f", snapshot.price)) \(isStale ? "· offline" : snapshot.currency)")
                         .font(FoundryTheme.body(size: 10, weight: .regular))
                         .foregroundStyle(FoundryTheme.mutedText)
                 } else {

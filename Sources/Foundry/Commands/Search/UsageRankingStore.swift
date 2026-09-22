@@ -122,6 +122,10 @@ final class UsageRankingStore: @unchecked Sendable {
         }
     }
 
+    func hasUsage(for resultID: String) -> Bool {
+        lock.withLock { usage.records[resultID] != nil }
+    }
+
     func resetRanking(for resultID: String) {
         let snapshot: (StoredUsage, Int) = lock.withLock {
             usage.records.removeValue(forKey: resultID)

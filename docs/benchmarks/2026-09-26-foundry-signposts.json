@@ -1,0 +1,32 @@
+{
+  "build": "staged build/Foundry.app (1.0.0 + P1 slice, release)",
+  "machine": "Apple M4 Pro, macOS 27.0, AC power",
+  "driver": "scripts/drive-signposts.swift 30",
+  "unit": "ms",
+  "spans": {
+    "panel.show": {
+      "n": 36,
+      "p50": 19.54,
+      "p95": 29.24,
+      "max": 209.09
+    },
+    "shell.toggle": {
+      "n": 60,
+      "p50": 5.73,
+      "p95": 11.53,
+      "max": 148.35
+    },
+    "search.immediate": {
+      "n": 23,
+      "p50": 51.89,
+      "p95": 68.51,
+      "max": 85.15
+    },
+    "search.complete": {
+      "n": 21,
+      "p50": 62.15,
+      "p95": 86.78,
+      "max": 88.49
+    }
+  }
+}

@@ -1,6 +1,7 @@
 import Foundation
 import Darwin
 
+#if DEBUG
 enum SourceRootLocator {
     static let registrationKey = "foundry.sourceRoot"
 
@@ -44,3 +45,4 @@ enum SourceRootLocator {
         return fileChecks.isValid(root) ? root : nil
     }
 }
+#endif

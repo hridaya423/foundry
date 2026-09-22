@@ -2,7 +2,7 @@ import Foundation
 import os
 
 public final class DiagnosticsService: @unchecked Sendable {
-    public struct Span {
+    public struct Span: Sendable {
         let name: String
         let start: ContinuousClock.Instant
         let signpostID: OSSignpostID
@@ -28,5 +28,9 @@ public final class DiagnosticsService: @unchecked Sendable {
         let duration = span.start.duration(to: clock.now)
         os_signpost(.end, log: signpostLog, name: "FoundrySpan", signpostID: span.signpostID, "%{public}s", span.name)
         logger.debug("\(span.name, privacy: .public) completed in \(String(describing: duration), privacy: .public)")
+    }
+
+    public func discardSpan(_ span: Span) {
+        os_signpost(.end, log: signpostLog, name: "FoundrySpan", signpostID: span.signpostID, "%{public}s", span.name)
     }
 }

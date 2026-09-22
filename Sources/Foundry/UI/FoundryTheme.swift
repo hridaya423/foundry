@@ -22,16 +22,9 @@ enum FoundryMaterialPolicy {
 }
 
 enum FoundryTheme {
-    static let background = Color.clear
-    static let surface = Color.clear
-    static let surfaceElevated = Color.primary.opacity(0.075)
-    static let panel = Color.black.opacity(0.10)
     static let selection = Color.primary.opacity(0.10)
     static let selectionBorder = Color.primary.opacity(0.16)
-    static let hover = Color.primary.opacity(0.055)
-    static let keycap = Color.primary.opacity(0.10)
-    static let keycapBorder = Color.primary.opacity(0.10)
-    static let border = Color.primary.opacity(0.20)
+    static let hover = Color.primary.opacity(0.05)
     static let accent = Color.primary.opacity(0.92)
     static let prominentControlFill = Color.primary.opacity(0.92)
     static let prominentControlText = Color(nsColor: .controlBackgroundColor)
@@ -44,30 +37,28 @@ enum FoundryTheme {
     static let secondaryText = Color.primary.opacity(0.74)
     static let mutedText = Color.primary.opacity(0.56)
     static let faintText = Color.primary.opacity(0.44)
-    static let glassHighlight = Color.primary.opacity(0.42)
-    static let glassShadow = Color.black.opacity(0.36)
 
     enum Spacing {
-        static let xxs: CGFloat = 4
         static let xs: CGFloat = 8
         static let sm: CGFloat = 12
         static let md: CGFloat = 16
-        static let lg: CGFloat = 20
-        static let xl: CGFloat = 24
-        static let xxl: CGFloat = 32
     }
 
     enum Radius {
-        static let control: CGFloat = 10
-        static let card: CGFloat = 16
-        static let panel: CGFloat = 28
+        static let control: CGFloat = 8
+        static let row: CGFloat = 10
+        static let panel: CGFloat = 26
     }
 
     enum Control {
         static let compact: CGFloat = 30
-        static let regular: CGFloat = 36
-        static let large: CGFloat = 42
     }
+
+    static let searchFont = Font.system(size: 20, weight: .regular)
+    static let rowTitleFont = Font.system(size: 13.5, weight: .medium)
+    static let secondaryFont = Font.system(size: 12, weight: .regular)
+    static let metaFont = Font.system(size: 11, weight: .medium)
+    static let sectionHeaderFont = Font.system(size: 11, weight: .semibold)
 
     static func display(size: CGFloat, weight: Font.Weight) -> Font {
         .system(size: size, weight: weight, design: .default)

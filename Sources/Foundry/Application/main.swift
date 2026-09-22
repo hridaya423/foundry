@@ -25,6 +25,7 @@ if Bundle.main.bundleIdentifier == "com.hridya.foundry" {
     }
 }
 
+#if DEBUG
 if Bundle.main.bundleURL.pathExtension != "app" {
     try? SMAppService.mainApp.unregister()
     guard let sourceRoot = SourceRootLocator.locate() else {
@@ -48,6 +49,7 @@ if Bundle.main.bundleURL.pathExtension != "app" {
         exit(EXIT_FAILURE)
     }
 }
+#endif
 
 let app = NSApplication.shared
 let delegate = AppDelegate()

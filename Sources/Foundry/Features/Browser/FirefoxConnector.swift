@@ -11,39 +11,7 @@ final class FirefoxConnectorInstaller {
         self.diagnostics = diagnostics
     }
 
-    func configureMainBrowser() {
-        let installed = BrowserSource.allCases.filter { $0.isInstalled }
-        guard installed.isEmpty == false else { return }
-
-        if let saved = UserDefaults.standard.string(forKey: "foundry.mainBrowser"),
-           let browser = BrowserSource(rawValue: saved),
-           installed.contains(browser) {
-            if browser == .firefox { requestFirefoxConnector() }
-            return
-        }
-
-        let popup = NSPopUpButton(frame: NSRect(x: 0, y: 0, width: 260, height: 26), pullsDown: false)
-        popup.addItems(withTitles: installed.map(\.displayName))
-        if let target = URL(string: "https://example.com"),
-           let defaultName = NSWorkspace.shared.urlForApplication(toOpen: target)?.lastPathComponent,
-           let defaultIndex = installed.firstIndex(where: { "\($0.applicationName).app" == defaultName }) {
-            popup.selectItem(at: defaultIndex)
-        }
-
-        let alert = NSAlert()
-        alert.messageText = "What is your main browser?"
-        alert.informativeText = "Foundry will use this choice for browser-specific setup. Other installed browsers remain searchable without connector setup."
-        alert.accessoryView = popup
-        alert.addButton(withTitle: "Continue")
-        alert.addButton(withTitle: "Not Now")
-
-        guard alert.runModal() == .alertFirstButtonReturn,
-              let selected = installed[safe: popup.indexOfSelectedItem] else { return }
-        UserDefaults.standard.set(selected.rawValue, forKey: "foundry.mainBrowser")
-        if selected == .firefox { requestFirefoxConnector() }
-    }
-
-    private func requestFirefoxConnector() {
+    func requestFirefoxConnector() {
         guard UserDefaults.standard.bool(forKey: "foundry.firefox.connector.promptShown") == false else { return }
 
         let alert = NSAlert()
@@ -101,12 +69,6 @@ final class FirefoxConnectorInstaller {
         openFirefox.arguments = ["-a", "Firefox", "about:debugging#/runtime/this-firefox"]
         try openFirefox.run()
         NSWorkspace.shared.activateFileViewerSelecting([xpi])
-    }
-}
-
-private extension Array {
-    subscript(safe index: Int) -> Element? {
-        indices.contains(index) ? self[index] : nil
     }
 }
 

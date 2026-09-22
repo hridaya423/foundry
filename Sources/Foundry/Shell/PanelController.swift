@@ -5,14 +5,20 @@ import FoundryServices
 @MainActor
 final class PanelController: NSObject, NSWindowDelegate {
     private static let rootSize = NSSize(width: 750, height: 495)
+    private static let compactHeight: CGFloat = 68
 
     private let state: CommandPanelState
     private let diagnostics: DiagnosticsService
     private let directPasteService: DirectPasteService
+    private let quickLook = QuickLookPanelController()
+    private let toast = TransientNoticeController()
     private var panel: FoundryPanel?
 
+    private var hideGate = PanelHideGate()
+    private var isSuspended = false
+
     var isVisible: Bool {
-        panel?.isVisible == true
+        panel?.isVisible == true && isSuspended == false
     }
 
     init(state: CommandPanelState, diagnostics: DiagnosticsService, directPasteService: DirectPasteService = .shared) {
@@ -22,26 +28,74 @@ final class PanelController: NSObject, NSWindowDelegate {
         super.init()
     }
 
+    func prewarm() {
+        if panel == nil {
+            panel = makePanel()
+        }
+    }
+
+    func setCompactCollapsed(_ collapsed: Bool) {
+        guard let panel else { return }
+        let height = collapsed ? Self.compactHeight : Self.rootSize.height
+        var frame = panel.frame
+        guard frame.height != height else { return }
+        frame.origin.y += frame.height - height
+        frame.size.height = height
+        panel.setFrame(frame, display: true, animate: true)
+    }
+
     func show() {
+        hideGate.cancelPendingHide()
+        toast.dismiss()
         directPasteService.captureTarget()
         let span = diagnostics.startSpan("panel.show")
         let panel = panel ?? makePanel()
         self.panel = panel
+        isSuspended = false
 
+        state.presentationToken = UUID()
         state.hoverHighlightsArmed = false
         panel.setFrame(frame(for: panel), display: false)
+        panel.ignoresMouseEvents = false
+        panel.inputEnabled = true
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = 0
+            panel.animator().alphaValue = 1
+        }
+        panel.contentView?.layoutSubtreeIfNeeded()
+        panel.displayIfNeeded()
         panel.makeKeyAndOrderFront(nil)
         panel.orderFrontRegardless()
-        DispatchQueue.main.async { [weak panel] in
+        CATransaction.flush()
+        DispatchQueue.main.async { [weak panel, diagnostics] in
+            diagnostics.endSpan(span)
             guard let panel, panel.isVisible, panel.isKeyWindow == false else { return }
             panel.makeKeyAndOrderFront(nil)
         }
-        diagnostics.endSpan(span)
     }
 
     func hide() {
+        quickLook.close()
         state.panelWillClose()
-        panel?.orderOut(nil)
+        guard let panel else { return }
+        let generation = hideGate.beginHide()
+        NSAnimationContext.runAnimationGroup({ context in
+            context.duration = 0.09
+            context.timingFunction = CAMediaTimingFunction(name: .easeIn)
+            panel.animator().alphaValue = 0
+        }, completionHandler: { [weak self, weak panel] in
+            MainActor.assumeIsolated {
+                guard let self, let panel, self.hideGate.allowsCompletion(for: generation) else { return }
+                panel.ignoresMouseEvents = true
+                panel.alphaValue = 0
+                panel.inputEnabled = false
+                self.isSuspended = true
+                self.completePendingPaste()
+            }
+        })
+    }
+
+    private func completePendingPaste() {
         guard directPasteService.hasPendingPaste else { return }
         Task { @MainActor [directPasteService] in
             do {
@@ -82,17 +136,22 @@ final class PanelController: NSObject, NSWindowDelegate {
 
         panel.delegate = self
         panel.isFloatingPanel = true
-        panel.level = .floating
-        panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .transient]
+        panel.level = .statusBar
+        panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         panel.isReleasedWhenClosed = false
         panel.acceptsMouseMovedEvents = true
         panel.backgroundColor = .clear
         panel.isOpaque = false
-        panel.hasShadow = false
+        panel.hasShadow = true
         panel.titleVisibility = .hidden
         panel.titlebarAppearsTransparent = true
         panel.onCommandK = { [weak self] in
             self?.state.toggleActions()
+        }
+        panel.onActionShortcut = { [weak self] shortcut in
+            guard let self else { return false }
+            let dismiss: @MainActor () -> Void = { [weak self] in self?.hide() }
+            return self.state.performActionShortcut(shortcut, dismiss: dismiss) || self.state.performModeShortcut(shortcut, dismiss: dismiss)
         }
         panel.onCommandComma = { [weak self] in
             self?.state.openSettings()
@@ -106,15 +165,18 @@ final class PanelController: NSObject, NSWindowDelegate {
                 self.hide()
             }
         }
-        panel.onAskAI = { [weak self] in
-            guard let self, self.state.mode == .search else { return }
-            self.state.openQuickAI(initialPrompt: self.state.query)
-        }
         panel.onMouseMoved = { [weak self] in
             self?.state.hoverHighlightsArmed = true
         }
         panel.onKeyDown = { [weak self] in
             self?.state.hoverHighlightsArmed = false
+        }
+
+        state.onQuickLook = { [weak self] url in
+            self?.quickLook.toggle(url, relativeTo: self?.panel)
+        }
+        state.onTransientNotice = { [weak self] feedback in
+            self?.toast.show(feedback, relativeTo: self?.panel)
         }
 
         let rootView = CommandPanelView(state: state) { [weak self] in
@@ -140,11 +202,29 @@ final class PanelController: NSObject, NSWindowDelegate {
         guard let visibleFrame = screen?.visibleFrame else { return panel.frame }
         let topOffsetPixels: CGFloat = 280
         let topInset = topOffsetPixels / max(screen?.backingScaleFactor ?? 1, 1)
+        let height = state.compactCollapsed ? Self.compactHeight : Self.rootSize.height
         let origin = CGPoint(
             x: visibleFrame.midX - Self.rootSize.width / 2,
-            y: max(visibleFrame.minY, visibleFrame.maxY - Self.rootSize.height - topInset)
+            y: max(visibleFrame.minY, visibleFrame.maxY - height - topInset)
         )
-        return NSRect(origin: origin, size: Self.rootSize)
+        return NSRect(origin: origin, size: NSSize(width: Self.rootSize.width, height: height))
+    }
+}
+
+struct PanelHideGate {
+    private(set) var generation = 0
+
+    mutating func beginHide() -> Int {
+        generation += 1
+        return generation
+    }
+
+    mutating func cancelPendingHide() {
+        generation += 1
+    }
+
+    func allowsCompletion(for generation: Int) -> Bool {
+        generation == self.generation
     }
 }
 
@@ -158,13 +238,14 @@ enum PanelDismissalPolicy {
 final class FoundryPanel: NSPanel {
     var onCommandK: (() -> Void)?
     var onCommandComma: (() -> Void)?
+    var onActionShortcut: ((ActionShortcut) -> Bool)?
     var onCommandV: (() -> Bool)?
     var onEscape: (() -> Void)?
-    var onAskAI: (() -> Void)?
     var onMouseMoved: (() -> Void)?
     var onKeyDown: (() -> Void)?
+    var inputEnabled = true
 
-    override var canBecomeKey: Bool { true }
+    override var canBecomeKey: Bool { inputEnabled }
     override var canBecomeMain: Bool { false }
 
     override func sendEvent(_ event: NSEvent) {
@@ -202,6 +283,10 @@ final class FoundryPanel: NSPanel {
 
     private func handleShortcut(_ event: NSEvent) -> Bool {
         let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+        if flags.contains(.command), let key = event.charactersIgnoringModifiers?.lowercased(), key.isEmpty == false {
+            let modifiers = Set(zip([NSEvent.ModifierFlags.control, .option, .shift, .command], ActionShortcut.Modifier.allCases).compactMap { flags.contains($0) ? $1 : nil })
+            if onActionShortcut?(ActionShortcut(key: key, modifiers: modifiers)) == true { return true }
+        }
         guard flags == .command else { return false }
         switch event.charactersIgnoringModifiers?.lowercased() {
         case "k":
