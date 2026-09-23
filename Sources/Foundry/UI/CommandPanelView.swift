@@ -4,24 +4,26 @@ import UniformTypeIdentifiers
 import FoundryDomain
 
 struct CommandPanelView: View {
-    @ObservedObject var state: CommandPanelState
+    @Bindable var state: CommandPanelState
     let dismiss: () -> Void
 
-    @ObservedObject private var fileShelf: FileShelfState
-    @ObservedObject private var agents: AgentMonitorState
-    @ObservedObject private var widgetBoard: WidgetBoardState
+    private var fileShelf: FileShelfState
+    private var agents: AgentMonitorState
+    private var widgetBoard: WidgetBoardState
 
     @FocusState private var inputFocused: Bool
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @Environment(\.colorScheme) private var colorScheme
     @State private var isDropTargeted = false
+    @State private var presented = false
 
     init(state: CommandPanelState, dismiss: @escaping () -> Void) {
         self.state = state
         self.dismiss = dismiss
-        _fileShelf = ObservedObject(wrappedValue: state.fileShelf)
-        _agents = ObservedObject(wrappedValue: state.agents)
-        _widgetBoard = ObservedObject(wrappedValue: state.widgetBoard)
+        self.fileShelf = state.fileShelf
+        self.agents = state.agents
+        self.widgetBoard = state.widgetBoard
     }
 
     private var selectedCalculatorResult: CommandResult? {
@@ -49,23 +51,34 @@ struct CommandPanelView: View {
     }
 
     var body: some View {
+        let surface = self.surface
         let base = VStack(spacing: 0) {
-            header
+            FeatureHeader(
+                showBack: state.mode != .search,
+                onBack: state.showHome,
+                showsHairline: nativeGlassEnabled == false,
+                content: { surface.header },
+                trailing: { surface.headerTrailing }
+            )
 
-            if shouldShowHomeAccessory {
-                homeAccessoryStrip
-                    .transition(reduceMotion ? .opacity : .opacity.combined(with: .move(edge: .top)))
+            if state.compactCollapsed == false {
+                if shouldShowHomeAccessory {
+                    homeAccessoryStrip
+                        .transition(reduceMotion ? .opacity : .opacity.combined(with: .move(edge: .top)))
+                }
+
+                surface.content
+                    .id(surface.id)
+                    .transition(.opacity)
+
+                panelFooter
             }
-
-            contentSurface
-
-            footer
         }
 
         let decorated = base
             .background(FoundryBackdrop(intensity: state.themeIntensity, isOpaque: reduceTransparency))
             .overlay(shellChrome)
-            .clipShape(FoundrySmoothedRectangle(cornerRadius: 28, smoothing: 0.75))
+            .clipShape(FoundrySmoothedRectangle(cornerRadius: FoundryTheme.Radius.panel, smoothing: 0.75))
             .frame(maxWidth: .infinity, maxHeight: .infinity)
 
         let highlighted = decorated
@@ -88,16 +101,38 @@ struct CommandPanelView: View {
         }
 
         let animated = feedbackWrapped
-            .animation(reduceMotion ? nil : Animation.easeOut(duration: 0.14), value: state.mode)
+            .overlay(alignment: .bottomTrailing) {
+                if state.isShowingActions {
+                    FoundryGlassSurface(role: .floatingOverlay, shape: RoundedRectangle(cornerRadius: 16, style: .continuous)) {
+                        actionsSurface
+                            .frame(width: 340)
+                            .frame(maxHeight: 320)
+                    }
+                    .shadow(color: .black.opacity(0.35), radius: 24, y: 10)
+                    .padding(.trailing, 12)
+                    .padding(.bottom, 46)
+                    .transition(reduceMotion ? .opacity : .opacity.combined(with: .scale(scale: 0.96, anchor: .bottomTrailing)))
+                }
+            }
+            .animation(reduceMotion ? nil : Animation.easeOut(duration: 0.14), value: state.isShowingActions)
+            .animation(reduceMotion ? nil : Animation.easeInOut(duration: 0.12), value: state.mode)
             .animation(reduceMotion ? nil : Animation.easeOut(duration: 0.14), value: fileShelf.files.count)
             .animation(reduceMotion ? nil : Animation.easeOut(duration: 0.14), value: agents.sessions.count)
 
         return animated
+            .scaleEffect(reduceMotion || presented ? 1 : 0.97)
+            .opacity(presented ? 1 : 0)
             .onChange(of: state.mode) { _, _ in
                 inputFocused = true
             }
             .onChange(of: state.focusToken) { _, _ in
                 inputFocused = true
+            }
+            .onChange(of: state.presentationToken) { _, _ in
+                replayPresentation()
+            }
+            .onChange(of: state.compactCollapsed) { _, collapsed in
+                state.onCompactCollapseChanged?(collapsed)
             }
             .onDrop(of: [UTType.fileURL], isTargeted: $isDropTargeted, perform: handleFileDrop)
             .onDeleteCommand {
@@ -110,27 +145,18 @@ struct CommandPanelView: View {
             }
             .onAppear {
                 inputFocused = true
+                replayPresentation()
             }
             .onMoveCommand { direction in
                 switch direction {
                 case .down:
-                    if state.mode == .clipboardHistory {
-                        state.clipboardHistory.moveSelection(offset: 3)
-                    } else {
-                        state.moveSelectionDown()
-                    }
+                    state.moveSelectionDown()
                 case .up:
-                    if state.mode == .clipboardHistory {
-                        state.clipboardHistory.moveSelection(offset: -3)
-                    } else {
-                        state.moveSelectionUp()
-                    }
+                    state.moveSelectionUp()
                 case .left:
                     if state.mode == .emojiPicker { state.emojiPicker.moveLeft() }
-                    if state.mode == .clipboardHistory { state.clipboardHistory.moveSelection(offset: -1) }
                 case .right:
                     if state.mode == .emojiPicker { state.emojiPicker.moveRight() }
-                    if state.mode == .clipboardHistory { state.clipboardHistory.moveSelection(offset: 1) }
                 default:
                     break
                 }
@@ -142,82 +168,335 @@ struct CommandPanelView: View {
             }
     }
 
-    @ViewBuilder
     private var shellChrome: some View {
-        if nativeGlassEnabled == false {
-            FoundrySmoothedRectangle(cornerRadius: 28, smoothing: 0.75)
-                .strokeBorder(
-                    LinearGradient(
-                        colors: [Color.primary.opacity(0.20), Color.primary.opacity(0.08), Color.primary.opacity(0.03)],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    ),
-                    lineWidth: 1
+        ZStack {
+            if nativeGlassEnabled == false {
+                FoundrySmoothedRectangle(cornerRadius: FoundryTheme.Radius.panel, smoothing: 0.75)
+                    .strokeBorder(
+                        LinearGradient(
+                            colors: [Color.primary.opacity(0.20), Color.primary.opacity(0.08), Color.primary.opacity(0.03)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        ),
+                        lineWidth: 1
+                    )
+            }
+            FoundrySmoothedRectangle(cornerRadius: FoundryTheme.Radius.panel, smoothing: 0.75)
+                .strokeBorder(innerHighlight, lineWidth: 0.5)
+        }
+        .allowsHitTesting(false)
+    }
+
+    private var innerHighlight: Color {
+        colorScheme == .dark ? Color.white.opacity(0.12) : Color.black.opacity(0.06)
+    }
+
+    private func replayPresentation() {
+        presented = false
+        DispatchQueue.main.async {
+            withAnimation(.spring(response: 0.22, dampingFraction: 0.9)) {
+                presented = true
+            }
+        }
+    }
+
+    private var surface: FeatureSurface {
+        switch state.mode {
+        case .agents:
+            FeatureSurface(
+                id: "agents",
+                header: { FeatureTitle(symbol: "sparkles.rectangle.stack", title: "Agents") },
+                content: { AgentShelfView(agents: state.agents, dismiss: dismiss) },
+                footerActions: [.init(label: "Open", keys: "Click", emphasized: true), .home]
+            )
+        case .quickAI:
+            FeatureSurface(
+                id: "quickAI",
+                header: {
+                    QuickAIHeaderControlsView(quickAI: state.quickAI, inputFocused: $inputFocused) {
+                        state.openQuickAI()
+                    }
+                },
+                content: { QuickAISurfaceView(quickAI: state.quickAI, onOpenAISettings: state.openSettings) },
+                footerActions: state.quickAI.isQuickAILoading
+                    ? [.init(label: "Stop", keys: "⌘.", emphasized: true), .init(label: "New Chat", keys: "⌘N"), .home]
+                    : [.init(label: "Send", keys: "↵", emphasized: true), .init(label: "New Chat", keys: "⌘N"), .home]
+            )
+        case .emojiPicker:
+            FeatureSurface(
+                id: "emoji",
+                header: {
+                    featureSearchField("Search emoji and symbols…", text: emojiQueryBinding) {
+                        if state.emojiPicker.copySelectedEmoji() { dismiss() }
+                    }
+                },
+                content: {
+                    EmojiPickerView(state: state.emojiPicker) {
+                        if state.emojiPicker.copySelectedEmoji() { dismiss() }
+                    }
+                },
+                footerActions: [
+                    .init(label: "Copy", keys: "↵"),
+                    .init(label: "Tone \(state.emojiPicker.skinTone.isEmpty ? "·" : state.emojiPicker.skinTone)", keys: "⌘T"),
+                    .home
+                ]
+            )
+        case .fileConversion:
+            FeatureSurface(
+                id: "fileConversion",
+                header: {
+                    FeatureTitle(symbol: "arrow.triangle.2.circlepath",
+                                 title: state.fileConversion.sourceURLs.count > 1 ? "Convert Files" : "Convert File")
+                },
+                content: { FileConversionView(state: state.fileConversion) },
+                footerActions: [.init(label: "Convert", keys: "↵", emphasized: true), .home]
+            )
+        case .camera:
+            FeatureSurface(
+                id: "camera",
+                header: { FeatureTitle(symbol: "camera", title: "Camera") },
+                content: { CameraPreviewView(state: state.camera) },
+                footerActions: [.home]
+            )
+        case .fileShelf:
+            FeatureSurface(
+                id: "shelf",
+                header: { FeatureTitle(symbol: "tray.full", title: "File Shelf") },
+                content: {
+                    FileShelfView(state: state.fileShelf) { selectedFiles in
+                        guard selectedFiles.isEmpty == false else { return }
+                        state.fileConversion.setSources(urls: selectedFiles.map(\.url))
+                        state.mode = .fileConversion
+                    }
+                },
+                footerActions: [.init(label: "Remove", keys: "⌫"), .home]
+            )
+        case .clipboardHistory:
+            FeatureSurface(
+                id: "clipboard",
+                header: {
+                    featureSearchField("Search clipboard history…", text: clipboardQueryBinding) {
+                        state.pasteOrCopySelectedClipboardItem()
+                        dismiss()
+                    }
+                },
+                content: {
+                    ClipboardHistoryView(state: state.clipboardHistory, fileShelf: state.fileShelf, directPaste: {
+                        let staged = state.directPasteSelectedClipboardItem()
+                        if staged { dismiss() }
+                        return staged
+                    }, pause: state.setClipboardPaused)
+                },
+                footerActions: [.init(label: "Paste", keys: "↵", emphasized: true), .init(label: "Copy", keys: "⌘↵"), .init(label: "Pin", keys: "⌘P"), .home]
+            )
+        case .snippets:
+            FeatureSurface(
+                id: "snippets",
+                header: {
+                    HStack(spacing: 12) {
+                        Image(systemName: "magnifyingglass")
+                            .font(.system(size: 16, weight: .medium))
+                            .foregroundStyle(FoundryTheme.mutedText)
+                        featureSearchField("Search snippets…", text: snippetsQueryBinding) {
+                            if state.insertOrCopySelectedSnippet() { dismiss() }
+                        }
+                    }
+                },
+                content: {
+                    ZStack {
+                        SnippetsView(state: state.snippets, insert: {
+                            guard state.insertOrCopySelectedSnippet() else { return false }
+                            dismiss()
+                            return true
+                        })
+                        if let names = state.pendingSnippetArguments {
+                            SnippetArgumentPrompt(
+                                names: names,
+                                onCancel: state.cancelSnippetArguments,
+                                onSubmit: { values in
+                                    if state.submitSnippetArguments(values) { dismiss() }
+                                }
+                            )
+                        }
+                    }
+                },
+                footerActions: [.init(label: "Insert", keys: "↵", emphasized: true), .init(label: "Copy", keys: "⌘↵"), .home]
+            )
+        case .translator:
+            FeatureSurface(
+                id: "translator",
+                header: { FeatureTitle(symbol: "globe", title: "Translate") },
+                content: {
+                    TranslatorView(state: state.translator, insert: {
+                        guard state.insertTranslation() else { return false }
+                        dismiss()
+                        return true
+                    })
+                },
+                footerActions: [.home]
+            )
+        case .developerTools:
+            FeatureSurface(
+                id: "developerTools",
+                header: { FeatureTitle(symbol: "hammer", title: state.developerTools.selectedTool.rawValue) },
+                content: { DeveloperToolsView(state: state.developerTools) },
+                footerActions: [.init(label: "Copy Value", keys: "Click"), .home]
+            )
+        case .mediaDownloads:
+            FeatureSurface(
+                id: "mediaDownloads",
+                header: { FeatureTitle(symbol: "arrow.down.circle", title: "Downloads") },
+                content: {
+                    MediaDownloadsView(
+                        manager: state.mediaDownloads,
+                        start: state.startMediaDownloads,
+                        cancel: state.cancelDownload,
+                        retry: state.retryDownload,
+                        changeDestination: state.changeMediaDownloadFolder
+                    )
+                },
+                footerActions: [.home]
+            )
+        case .settings:
+            FeatureSurface(
+                id: "settings",
+                header: { FeatureTitle(symbol: "gearshape", title: "Settings") },
+                content: { SettingsView(state: state) },
+                footerActions: [.home]
+            )
+        case .search:
+            FeatureSurface(
+                id: searchContentID,
+                header: { searchField },
+                headerTrailing: { searchHeaderControls },
+                content: { searchContent },
+                footerActions: searchFooterActions
+            )
+        }
+    }
+
+    private func featureSearchField(_ placeholder: String, text: Binding<String>, onSubmit: @escaping () -> Void = {}) -> some View {
+        TextField(placeholder, text: text)
+            .textFieldStyle(.plain)
+            .font(FoundryTheme.searchFont)
+            .foregroundStyle(FoundryTheme.primaryText)
+            .focused($inputFocused)
+            .onSubmit(onSubmit)
+    }
+
+    private var searchField: some View {
+        LauncherSearchField(
+            text: state.isShowingActions ? $state.actionFilter : $state.query,
+            placeholder: state.isShowingActions ? "Search actions…" : "Search for apps and commands…",
+            onTab: {
+                guard state.isShowingActions == false else { return }
+                state.openQuickAI(initialPrompt: state.query)
+            },
+            onReturn: {
+                executeSelectedResult()
+            }
+        )
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .focused($inputFocused)
+    }
+
+    private var searchHeaderControls: some View {
+        HStack(spacing: 6) {
+            if state.query.isEmpty == false {
+                FoundryIconButton(
+                    systemName: "xmark.circle.fill",
+                    accessibilityLabel: "Clear search",
+                    tint: FoundryTheme.faintText
+                ) {
+                    state.query = ""
+                    inputFocused = true
+                }
+                .transition(reduceMotion ? .opacity : .opacity.combined(with: .scale(scale: 0.7)))
+            }
+
+            Button {
+                state.openQuickAI(initialPrompt: state.query)
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: "sparkles")
+                        .font(.system(size: 11, weight: .semibold))
+                    Text("Ask AI")
+                        .font(FoundryTheme.body(size: 12, weight: .semibold))
+                    Text("Tab")
+                        .font(.system(size: 11, weight: .medium, design: .rounded))
+                        .foregroundStyle(FoundryTheme.faintText)
+                }
+                .foregroundStyle(FoundryTheme.secondaryText)
+                .frame(height: 30)
+                .padding(.horizontal, 8)
+            }
+            .buttonStyle(FoundryQuietButtonStyle())
+            .pointerCursor()
+            .accessibilityLabel("Ask AI")
+            .help("Ask AI with Tab")
+
+            if state.isActionInProgress {
+                FoundryIconButton(
+                    systemName: "xmark.circle.fill",
+                    accessibilityLabel: "Cancel current action",
+                    tint: FoundryTheme.faintText,
+                    action: state.cancelCurrentAction
                 )
+                .help("Cancel current action")
+            }
+        }
+        .zIndex(1)
+        .padding(.leading, 6)
+        .transition(reduceMotion ? .opacity : .opacity.combined(with: .move(edge: .trailing)))
+    }
+
+    private var searchContentID: String {
+        if state.isShowingActions { return "actions" }
+        if state.results.isEmpty { return "empty" }
+        return "results"
+    }
+
+    @ViewBuilder
+    private var searchContent: some View {
+        if isWindowLayoutQuery {
+            windowLayoutSurface
+        } else if state.results.isEmpty {
+            searchEmptyState
+        } else if FileSearchProvider.fileQuery(state.query) != nil, let id = state.selectedResult?.id, id.hasPrefix("file.") {
+            SplitPreviewLayout {
+                resultsSurface
+            } preview: {
+                FilePreview(path: String(id.dropFirst("file.".count)))
+            }
+        } else {
+            resultsSurface
         }
     }
 
     @ViewBuilder
-    private var contentSurface: some View {
-        Group {
-            if state.mode == .agents {
-                AgentShelfView(agents: state.agents, dismiss: dismiss)
-            } else if state.mode == .settings {
-                WidgetSettingsView(state: state)
-            } else if state.mode == .quickAI {
-                QuickAISurfaceView(quickAI: state.quickAI)
-            } else if state.mode == .emojiPicker {
-                EmojiPickerView(state: state.emojiPicker) {
-                    if state.emojiPicker.copySelectedEmoji() {
-                        dismiss()
-                    }
-                }
-            } else if state.mode == .fileConversion {
-                FileConversionView(state: state.fileConversion)
-            } else if state.mode == .camera {
-                CameraPreviewView(state: state.camera)
-            } else if state.mode == .fileShelf {
-                FileShelfView(state: state.fileShelf) { selectedFiles in
-                    guard selectedFiles.isEmpty == false else { return }
-                    state.fileConversion.setSources(urls: selectedFiles.map(\.url))
-                    state.mode = .fileConversion
-                }
-            } else if state.mode == .clipboardHistory {
-                ClipboardHistoryView(state: state.clipboardHistory, fileShelf: state.fileShelf, directPaste: {
-                    let staged = state.directPasteSelectedClipboardItem()
-                    if staged { dismiss() }
-                    return staged
-                }, pause: state.setClipboardPaused)
-            } else if state.mode == .snippets {
-                SnippetsView(state: state.snippets, insert: {
-                    guard state.directPasteSelectedSnippet() else { return false }
-                    dismiss()
-                    return true
-                })
-            } else if state.mode == .translator {
-                TranslatorView(state: state.translator)
-            } else if state.mode == .developerTools {
-                DeveloperToolsView(state: state.developerTools)
-            } else if state.mode == .mediaDownloads {
-                MediaDownloadsView(
-                    manager: state.mediaDownloads,
-                    start: state.startMediaDownloads,
-                    cancel: state.cancelDownload,
-                    retry: state.retryDownload,
-                    changeDestination: state.changeMediaDownloadFolder
-                )
-            } else if state.isShowingActions {
-                actionsSurface
-            } else if isWindowLayoutQuery {
-                windowLayoutSurface
-            } else if state.results.isEmpty {
-                emptyState
+    private var searchEmptyState: some View {
+        let hasQuery = trimmedQuery.isEmpty == false
+        if let fileQuery = FileSearchProvider.fileQuery(state.query) {
+            if fileQuery.count < 2 {
+                EmptyState(title: "Search Files", message: "Type a file name to search your home folder.", symbol: "doc.text.magnifyingglass")
+            } else if state.isSearchLoading {
+                EmptyState(title: "Searching files", message: "Looking through your home folder with Spotlight.", isLoading: true)
             } else {
-                resultsSurface
+                EmptyState(title: "No files found", message: "No file names contain \u{201C}\(fileQuery)\u{201D}.", symbol: "doc.text.magnifyingglass")
             }
+        } else if state.isHomeLoading && hasQuery == false {
+            EmptyState(title: "Loading Home", message: "Preparing your recent apps and commands.", isLoading: true)
+        } else if state.isSearchLoading {
+            EmptyState(title: "Searching", message: "Looking through apps, commands, and files.", isLoading: true)
+        } else {
+            EmptyState(
+                title: hasQuery ? "No results" : "Start typing",
+                message: hasQuery
+                    ? "Nothing matches \u{201C}\(trimmedQuery)\u{201D}."
+                    : "Find apps, commands, emoji, system tools, and shelf actions.",
+                symbol: hasQuery ? "magnifyingglass" : "command"
+            )
         }
-        .id(contentID)
-        .transition(reduceMotion ? .opacity : .opacity.combined(with: .scale(scale: 0.985, anchor: .center)))
     }
 
     private var homeAccessoryStrip: some View {
@@ -226,7 +505,7 @@ struct CommandPanelView: View {
             agents: agents,
             fileShelf: fileShelf,
             onAgentOpen: state.openAgents,
-            onShelfOpen: state.showFileShelf,
+            onShelfOpen: state.openFileShelf,
             compactMaximum: 4,
             compactBackground: false,
             compactHeight: 44
@@ -239,29 +518,11 @@ struct CommandPanelView: View {
         .padding(.bottom, 4)
     }
 
-    private var contentID: String {
-        if state.mode == .settings { return "settings" }
-        if state.mode == .agents { return "agents" }
-        if state.mode == .quickAI { return "quickAI" }
-        if state.mode == .emojiPicker { return "emoji" }
-        if state.mode == .fileConversion { return "fileConversion" }
-        if state.mode == .camera { return "camera" }
-        if state.mode == .fileShelf { return "shelf" }
-        if state.mode == .clipboardHistory { return "clipboard" }
-        if state.mode == .snippets { return "snippets" }
-        if state.mode == .translator { return "translator" }
-         if state.mode == .developerTools { return "developerTools" }
-        if state.mode == .mediaDownloads { return "mediaDownloads" }
-        if state.isShowingActions { return "actions" }
-        if state.results.isEmpty { return "empty" }
-        return "results"
-    }
-
     private var dropOverlay: some View {
-        FoundrySmoothedRectangle(cornerRadius: 28, smoothing: 0.75)
+        FoundrySmoothedRectangle(cornerRadius: FoundryTheme.Radius.panel, smoothing: 0.75)
             .fill(isDropTargeted ? Color.primary.opacity(0.10) : Color.clear)
             .overlay(
-            FoundrySmoothedRectangle(cornerRadius: 28, smoothing: 0.75)
+            FoundrySmoothedRectangle(cornerRadius: FoundryTheme.Radius.panel, smoothing: 0.75)
                     .strokeBorder(isDropTargeted ? Color.primary.opacity(0.45) : Color.clear, style: StrokeStyle(lineWidth: 1.5, dash: [8, 7]))
             )
             .overlay {
@@ -294,185 +555,6 @@ struct CommandPanelView: View {
         }
     }
 
-    private var header: some View {
-        HStack(spacing: 12) {
-            if state.mode != .search {
-                FoundryIconButton(
-                    systemName: "chevron.left",
-                    accessibilityLabel: "Back to Home",
-                    action: state.backToSearch
-                )
-            }
-
-            if state.mode == .quickAI {
-                QuickAIHeaderControlsView(quickAI: state.quickAI, inputFocused: $inputFocused) {
-                    state.openQuickAI(initialPrompt: state.query)
-                }
-              } else if state.mode == .settings {
-                  Text("Settings")
-                      .font(FoundryTheme.body(size: 18, weight: .semibold))
-                      .foregroundStyle(FoundryTheme.primaryText)
-              } else if state.mode == .emojiPicker {
-                TextField("Search emoji and symbols...", text: emojiQueryBinding)
-                    .textFieldStyle(.plain)
-                    .font(FoundryTheme.body(size: 21, weight: .regular))
-                    .foregroundStyle(FoundryTheme.primaryText)
-                    .focused($inputFocused)
-                    .onSubmit {
-                        if state.emojiPicker.copySelectedEmoji() {
-                            dismiss()
-                        }
-                    }
-            } else if state.mode == .fileConversion {
-                Image(systemName: "arrow.triangle.2.circlepath")
-                    .font(.system(size: 16, weight: .regular))
-                    .foregroundStyle(FoundryTheme.mutedText)
-
-                Text(state.fileConversion.sourceURLs.count > 1 ? "Convert Files" : "Convert File")
-                    .font(FoundryTheme.body(size: 21, weight: .regular))
-                    .foregroundStyle(FoundryTheme.primaryText)
-            } else if state.mode == .camera {
-                Image(systemName: "camera")
-                    .font(.system(size: 16, weight: .regular))
-                    .foregroundStyle(FoundryTheme.mutedText)
-
-                Text("Camera")
-                    .font(FoundryTheme.body(size: 21, weight: .regular))
-                    .foregroundStyle(FoundryTheme.primaryText)
-            } else if state.mode == .fileShelf {
-                Image(systemName: "tray.full")
-                    .font(.system(size: 16, weight: .regular))
-                    .foregroundStyle(FoundryTheme.mutedText)
-
-                Text("File Shelf")
-                    .font(FoundryTheme.body(size: 21, weight: .regular))
-                    .foregroundStyle(FoundryTheme.primaryText)
-            } else if state.mode == .clipboardHistory {
-                TextField("Search clipboard history...", text: clipboardQueryBinding)
-                    .textFieldStyle(.plain)
-                    .font(FoundryTheme.body(size: 21, weight: .regular))
-                    .foregroundStyle(FoundryTheme.primaryText)
-                    .focused($inputFocused)
-                    .onSubmit {
-                        state.clipboardHistory.copySelected()
-                        dismiss()
-                    }
-            } else if state.mode == .snippets {
-                Image(systemName: "magnifyingglass")
-                    .font(.system(size: 16, weight: .medium))
-                    .foregroundStyle(FoundryTheme.mutedText)
-
-                TextField("Search snippets...", text: snippetsQueryBinding)
-                    .textFieldStyle(.plain)
-                    .font(FoundryTheme.body(size: 21, weight: .regular))
-                    .foregroundStyle(FoundryTheme.primaryText)
-                    .focused($inputFocused)
-            } else if state.mode == .translator {
-                Image(systemName: "globe")
-                    .font(.system(size: 16, weight: .regular))
-                    .foregroundStyle(FoundryTheme.mutedText)
-
-                Text("Translate")
-                    .font(FoundryTheme.body(size: 21, weight: .regular))
-                    .foregroundStyle(FoundryTheme.primaryText)
-             } else if state.mode == .developerTools {
-                 Image(systemName: "hammer")
-                     .font(.system(size: 16, weight: .regular))
-                     .foregroundStyle(FoundryTheme.mutedText)
-
-                 Text(state.developerTools.selectedTool.rawValue)
-                     .font(FoundryTheme.body(size: 21, weight: .regular))
-                     .foregroundStyle(FoundryTheme.primaryText)
-            } else if state.mode == .mediaDownloads {
-                Image(systemName: "arrow.down.circle")
-                    .font(.system(size: 16, weight: .regular))
-                    .foregroundStyle(FoundryTheme.mutedText)
-
-                Text("Downloads")
-                    .font(FoundryTheme.body(size: 21, weight: .regular))
-                    .foregroundStyle(FoundryTheme.primaryText)
-            } else {
-                LauncherSearchField(
-                    text: $state.query,
-                    placeholder: "Search for apps and commands...",
-                    onTab: {
-                        state.openQuickAI(initialPrompt: state.query)
-                    },
-                    onReturn: {
-                        executeSelectedResult()
-                    }
-                )
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .focused($inputFocused)
-
-                if state.mode == .search {
-                    HStack(spacing: 6) {
-                        if state.query.isEmpty == false {
-                            FoundryIconButton(
-                                systemName: "xmark.circle.fill",
-                                accessibilityLabel: "Clear search",
-                                tint: FoundryTheme.faintText
-                            ) {
-                                state.query = ""
-                                inputFocused = true
-                            }
-                         .transition(reduceMotion ? .opacity : .opacity.combined(with: .scale(scale: 0.7)))
-                        }
-
-                        Button {
-                            state.openQuickAI(initialPrompt: state.query)
-                        } label: {
-                            HStack(spacing: 6) {
-                                Image(systemName: "sparkles")
-                                    .font(.system(size: 11, weight: .semibold))
-                                Text("Ask AI")
-                                    .font(FoundryTheme.body(size: 12, weight: .semibold))
-                                Text("Tab")
-                                    .font(.system(size: 11, weight: .medium, design: .rounded))
-                                    .foregroundStyle(FoundryTheme.faintText)
-                            }
-                            .foregroundStyle(FoundryTheme.secondaryText)
-                            .frame(height: 30)
-                            .padding(.horizontal, 8)
-                        }
-                        .buttonStyle(FoundryQuietButtonStyle())
-                        .pointerCursor()
-                        .accessibilityLabel("Ask AI")
-                        .help("Ask AI with Tab")
-
-                    }
-                    .zIndex(1)
-                    .padding(.leading, 6)
-                         .transition(reduceMotion ? .opacity : .opacity.combined(with: .move(edge: .trailing)))
-                }
-
-                if state.isActionInProgress {
-                    FoundryIconButton(
-                        systemName: "xmark.circle.fill",
-                        accessibilityLabel: "Cancel current action",
-                        tint: FoundryTheme.faintText,
-                        action: state.cancelCurrentAction
-                    )
-                    .help("Cancel current action")
-                }
-            }
-        }
-        .animation(reduceMotion ? nil : .easeOut(duration: 0.12), value: state.query.isEmpty)
-        .padding(.horizontal, 22)
-        .frame(height: state.mode == .settings ? 52 : 60)
-        .background(Color.clear)
-        .overlay(alignment: .bottom) {
-            if nativeGlassEnabled == false {
-                LinearGradient(
-                    colors: [Color.primary.opacity(0.09), Color.primary.opacity(0.02), Color.clear],
-                    startPoint: .top,
-                    endPoint: .bottom
-                )
-                .frame(height: 4)
-            }
-        }
-    }
-
     private var resultsSurface: some View {
         ScrollViewReader { proxy in
             ScrollView {
@@ -491,16 +573,20 @@ struct CommandPanelView: View {
                                 .padding(.bottom, 4)
                             ForEach(calculatorFallbackResults, id: \.id) { result in
                                 HomeResultRow(result: result, isSelected: false, label: resultKindLabel(for: result))
-                                    .contentShape(Rectangle())
-                                    .onTapGesture { execute(result) }
+                                    .rowActivation(isSelected: false) { execute(result) }
                             }
                         }
                     }
 
                     if isHome {
-                        if windowLayoutResults.isEmpty == false {
+                        if state.favoriteResults.isEmpty == false {
+                            FavoritesRow(results: state.favoriteResults, onSelect: execute)
+                                .padding(.bottom, 14)
+                        }
+
+                        if shouldShowLayoutRow {
                             WindowLayoutPicker(
-                                results: windowLayoutResults,
+                                results: homeLayoutResults,
                                 onSelect: execute,
                                 onMore: {
                                     state.query = "window"
@@ -511,12 +597,11 @@ struct CommandPanelView: View {
                         }
 
                         if suggestionResults.isEmpty == false {
-                            HomeSectionHeader(title: "Suggestions")
+                            HomeSectionHeader(title: "Recent")
                             ForEach(Array(suggestionResults.prefix(5)), id: \.id) { result in
                                 HomeResultRow(result: result, isSelected: state.selectedResultID == result.id, label: resultKindLabel(for: result))
                                     .id(result.id)
-                                    .contentShape(Rectangle())
-                                    .onTapGesture { execute(result) }
+                                    .rowActivation(isSelected: state.selectedResultID == result.id) { execute(result) }
                             }
                         }
 
@@ -526,14 +611,20 @@ struct CommandPanelView: View {
                             ForEach(Array(commandResults.prefix(5)), id: \.id) { result in
                                 HomeResultRow(result: result, isSelected: state.selectedResultID == result.id, label: resultKindLabel(for: result))
                                     .id(result.id)
-                                    .contentShape(Rectangle())
-                                    .onTapGesture { execute(result) }
+                                    .rowActivation(isSelected: state.selectedResultID == result.id) { execute(result) }
                             }
                         }
 
                     } else {
-                        ForEach(Array(displayedResults.enumerated()), id: \.element.id) { index, result in
-                            resultRow(result, index: index)
+                        let sections = ResultSection.group(displayedResults)
+                        ForEach(sections, id: \.section) { group in
+                            if sections.count > 1 {
+                                HomeSectionHeader(title: group.section.rawValue)
+                                    .padding(.top, group.section == sections.first?.section ? 0 : 6)
+                            }
+                            ForEach(group.results, id: \.id) { result in
+                                resultRow(result, showKind: sections.count > 1)
+                            }
                         }
                     }
                 }
@@ -618,7 +709,9 @@ struct CommandPanelView: View {
 
     private var suggestionResults: [CommandResult] {
         displayedResults.filter { result in
-            if case .openApp = result.primaryAction.kind { return true }
+            if case .openApp = result.primaryAction.kind {
+                return state.isSuggestibleApp(result)
+            }
             return false
         }
     }
@@ -628,6 +721,21 @@ struct CommandPanelView: View {
             if case .openApp = result.primaryAction.kind { return false }
             return isPrimaryWindowLayout(result) == false
         }
+    }
+
+    private var homeLayoutResults: [CommandResult] {
+        let order: [FoundryDomain.WindowPlacement] = [.leftHalf, .rightHalf, .maximize, .center]
+        return order.compactMap { placement in
+            displayedResults.first { result in
+                guard case let .tileWindow(resultPlacement) = result.primaryAction.kind else { return false }
+                return resultPlacement == placement
+            }
+        }
+    }
+
+    private var shouldShowLayoutRow: Bool {
+        homeLayoutResults.count > 1
+            && homeLayoutResults.contains { state.hasUsage(for: $0.id) }
     }
 
     private var windowLayoutResults: [CommandResult] {
@@ -653,17 +761,24 @@ struct CommandPanelView: View {
     }
 
     @ViewBuilder
-    private func resultRow(_ result: CommandResult, index: Int) -> some View {
+    private func resultRow(_ result: CommandResult, showKind: Bool = false) -> some View {
         if isMediaDownload(result) {
             MediaResultRow(result: result, isSelected: state.selectedResultID == result.id, isExpanded: shouldExpandMediaResult)
                 .id(result.id)
-                .contentShape(Rectangle())
-                .onTapGesture { execute(result) }
+                .rowActivation(isSelected: state.selectedResultID == result.id) { execute(result) }
         } else {
-            ResultRow(result: result, isSelected: state.selectedResultID == result.id, index: index)
+            let preference = state.commandPreferences[result.id]
+            ResultRow(
+                result: result,
+                isSelected: state.selectedResultID == result.id,
+                alias: preference?.aliases.first,
+                hotkey: preference?.globalHotkey?.displayName,
+                isRunning: HomeSuggestionRules.appBundleIdentifier(resultID: result.id).map(state.runningAppBundleIDs.contains) ?? false,
+                kindLabel: showKind ? resultKindLabel(for: result) : nil,
+                compact: state.windowMode == .compact
+            )
                 .id(result.id)
-                .contentShape(Rectangle())
-                .onTapGesture { execute(result) }
+                .rowActivation(isSelected: state.selectedResultID == result.id) { execute(result) }
         }
     }
 
@@ -686,12 +801,16 @@ struct CommandPanelView: View {
             "AI"
         case .openApp:
             "Application"
-        case .openEmojiPicker, .openFileShelf, .openClipboardHistory, .openSnippets, .openFileConverter, .openCamera, .openTranslator, .openDeveloperTools, .openConfigFolder, .openSettings, .openHome, .openMediaDownloads, .quit:
+        case .openEmojiPicker, .openFileShelf, .openClipboardHistory, .openSnippets, .openFileConverter, .openCamera, .openTranslator, .openDeveloperTools, .openConfigFolder, .openSettings, .openCommandSettings, .openWelcomeGuide, .openHome, .openMediaDownloads, .quit:
             "Command"
-        case .revealInFinder:
-            "Finder"
-        case .copyToClipboard, .copySnippet:
+        case .openFileWithApp:
+            "Application"
+        case .copyToClipboard, .copySnippet, .copyFile:
             "Copy"
+        case .deleteSnippet, .deleteQuicklink:
+            "Delete"
+        case .addToFileShelf:
+            "File Shelf"
         case .pasteText, .pasteSnippet:
             "Insert"
         case .createSnippetFromClipboard, .importSnippets:
@@ -700,13 +819,15 @@ struct CommandPanelView: View {
             "Download"
         case .chooseMediaDownloadFolder:
             "Folder"
-        case .openURL:
-            "URL"
-        case .terminateProcess, .quitApplication, .terminatePort, .toggleKeepAwake, .setAudioDevice, .rebuildApp:
+        case .openURL, .openURLWithApp:
+            result.id.hasPrefix("quicklink.") ? "Quicklink" : "URL"
+        case .fillQuery:
+            "Quicklink"
+        case .terminateProcess, .quitApplication, .forceQuitApplication, .hideApplication, .quitAllApplications, .terminatePort, .toggleKeepAwake, .setAudioDevice, .rebuildApp:
             "Utility"
-        case .resetRanking:
+        case .resetRanking, .toggleFavorite:
             "Command"
-        case .runProcess:
+        case .runProcess, .runScript:
             "Script"
         case .tileWindow:
             "Window"
@@ -715,14 +836,26 @@ struct CommandPanelView: View {
         }
     }
 
+    private var searchFooterActions: [FooterActionSpec] {
+        if state.isShowingActions {
+            return [.init(label: state.selectedAction?.title ?? "Run", keys: "↵", emphasized: true), .init(label: "Back", keys: "esc")]
+        }
+        let primary = FooterActionSpec(
+            label: isWindowLayoutQuery ? "Apply" : (selectedCalculatorResult == nil ? "Open" : "Copy Answer"),
+            keys: "↵",
+            emphasized: true
+        )
+        return [primary, .actions]
+    }
+
     private var actionsSurface: some View {
         VStack(spacing: 0) {
             HStack(spacing: 8) {
                 Text("Actions")
-                    .font(FoundryTheme.body(size: 11, weight: .semibold))
+                    .font(FoundryTheme.sectionHeaderFont)
                     .foregroundStyle(FoundryTheme.faintText)
                     .textCase(.uppercase)
-                    .tracking(0.5)
+                    .tracking(0.4)
 
                 if let selectedResult = state.selectedResult {
                     Text(selectedResult.title)
@@ -740,14 +873,21 @@ struct CommandPanelView: View {
             ScrollViewReader { proxy in
                 ScrollView {
                     LazyVStack(spacing: 2) {
-                        ForEach(state.selectedActions, id: \.id) { action in
+                        if state.visibleActions.isEmpty {
+                            Text("No actions match \u{201C}\(state.actionFilter)\u{201D}")
+                                .font(FoundryTheme.body(size: 12, weight: .regular))
+                                .foregroundStyle(FoundryTheme.mutedText)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 24)
+                        }
+                        ForEach(state.visibleActions, id: \.id) { action in
                             ActionRow(
                                 action: action,
+                                shortcut: action.id == state.selectedActions.first?.id ? "↵" : state.actionShortcuts[action.id]?.display,
                                 isSelected: state.selectedActionID == action.id
                             )
                             .id(action.id)
-                            .contentShape(Rectangle())
-                            .onTapGesture {
+                            .rowActivation(isSelected: state.selectedActionID == action.id) {
                                 state.select(actionID: action.id)
                                 executeSelectedResult()
                             }
@@ -760,9 +900,7 @@ struct CommandPanelView: View {
                 .background(Color.clear)
                 .onChange(of: state.selectedActionID) { _, actionID in
                     guard let actionID else { return }
-                    withAnimation(reduceMotion ? nil : .easeOut(duration: 0.12)) {
-                        proxy.scrollTo(actionID, anchor: .center)
-                    }
+                    proxy.scrollTo(actionID, anchor: .center)
                 }
             }
         }
@@ -772,168 +910,28 @@ struct CommandPanelView: View {
         state.query.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
-    private var emptyState: some View {
-        let hasQuery = trimmedQuery.isEmpty == false
-        return VStack(spacing: 14) {
-            Spacer()
-
-            if state.isHomeLoading && hasQuery == false {
-                ProgressView()
-                    .controlSize(.small)
-                    .tint(FoundryTheme.secondaryText)
-
-                Text("Loading Home")
-                    .font(FoundryTheme.body(size: 15, weight: .medium))
-                    .foregroundStyle(FoundryTheme.primaryText)
-
-                Text("Preparing your recent apps and commands.")
-                    .font(FoundryTheme.body(size: 13, weight: .regular))
-                    .foregroundStyle(FoundryTheme.secondaryText)
-            } else if state.isSearchLoading {
-                ProgressView()
-                    .controlSize(.small)
-                    .tint(FoundryTheme.secondaryText)
-
-                Text("Searching")
-                    .font(FoundryTheme.body(size: 15, weight: .medium))
-                    .foregroundStyle(FoundryTheme.primaryText)
-
-                Text("Checking apps, commands, and connected tools.")
-                    .font(FoundryTheme.body(size: 13, weight: .regular))
-                    .foregroundStyle(FoundryTheme.secondaryText)
-            } else {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 18, style: .continuous)
-                        .fill(Color.primary.opacity(0.075))
-                        .frame(width: 68, height: 68)
-
-                    Image(systemName: hasQuery ? "magnifyingglass" : "command")
-                        .font(.system(size: 28, weight: .regular))
-                        .foregroundStyle(FoundryTheme.secondaryText)
-                }
-
-                Text(hasQuery ? "No results" : "Start typing")
-                    .font(FoundryTheme.body(size: 17, weight: .medium))
-                    .foregroundStyle(FoundryTheme.primaryText)
-
-                Text(hasQuery
-                    ? "Nothing matches \u{201C}\(trimmedQuery)\u{201D}."
-                    : "Find apps, commands, emoji, system tools, and shelf actions.")
-                    .font(FoundryTheme.body(size: 13, weight: .regular))
-                    .foregroundStyle(FoundryTheme.secondaryText)
-                    .lineLimit(1)
-                    .truncationMode(.middle)
-                    .padding(.horizontal, 40)
-            }
-
-            Spacer()
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color.clear)
-    }
-
-    private var footer: some View {
-        HStack(spacing: 0) {
-            if state.mode == .quickAI {
-                HStack(spacing: 8) {
-                    Image(systemName: "sparkles")
-                        .font(.system(size: 11, weight: .semibold))
-                    Text("Quick AI")
-                        .font(FoundryTheme.body(size: 12, weight: .semibold))
-                }
-                .foregroundStyle(FoundryTheme.secondaryText)
-                .padding(.horizontal, 8)
-            } else if state.mode != .settings {
-                settingsButton
-            }
-
-            if state.mode == .search, state.isSearchLoading {
-                Text("Searching...")
-                    .font(FoundryTheme.body(size: 11, weight: .medium))
-                    .foregroundStyle(FoundryTheme.mutedText)
-                    .padding(.horizontal, 12)
-            } else if isWindowLayoutQuery {
-                Text("\(windowLayoutResults.count) layouts")
-                    .font(FoundryTheme.body(size: 11, weight: .medium))
-                    .foregroundStyle(FoundryTheme.faintText)
-                    .padding(.horizontal, 12)
-            } else if state.mode == .search, state.diagnosticsSummary.contains("result") {
-                Text(state.diagnosticsSummary)
-                    .font(FoundryTheme.body(size: 11, weight: .medium))
-                    .foregroundStyle(FoundryTheme.faintText)
-                    .lineLimit(1)
-                    .truncationMode(.middle)
-                    .padding(.horizontal, 12)
-            }
-
-            Spacer(minLength: 8)
-
-            HStack(spacing: 10) {
-                footerActions
-            }
-        }
-        .padding(.horizontal, 16)
-        .frame(height: state.mode == .settings ? 32 : 38)
-    }
-
-    private var settingsButton: some View {
-        Button {
-            state.openSettings()
-        } label: {
-            Image(systemName: "ellipsis")
-                .font(.system(size: 14, weight: .semibold))
-                .foregroundStyle(FoundryTheme.secondaryText)
-                .frame(width: 30, height: 30)
-        }
-        .buttonStyle(FoundryQuietButtonStyle())
-        .pointerCursor()
-        .accessibilityLabel("Open Settings (⌘,)")
-        .help("Open Settings (⌘,)")
-    }
-
     @ViewBuilder
-    private var footerActions: some View {
-        switch state.mode {
-        case .quickAI:
-            FooterAction(label: "Submit", keys: "↵", emphasized: true)
-            FooterAction(label: "Home", keys: "esc")
-        case .settings:
-            FooterAction(label: "Home", keys: "esc")
-        case .agents:
-            FooterAction(label: "Open", keys: "Click", emphasized: true)
-            FooterAction(label: "Home", keys: "esc")
-        case .emojiPicker:
-            FooterAction(label: "Copy", keys: "↵")
-            FooterAction(label: "Home", keys: "esc")
-        case .fileConversion:
-            FooterAction(label: "Convert", keys: "↵", emphasized: true)
-            FooterAction(label: "Home", keys: "esc")
-        case .camera:
-            FooterAction(label: "Home", keys: "esc")
-        case .fileShelf:
-            FooterAction(label: "Remove", keys: "⌫")
-            FooterAction(label: "Home", keys: "esc")
-        case .clipboardHistory:
-            FooterAction(label: "Copy", keys: "↵", emphasized: true)
-            FooterAction(label: "Remove", keys: "⌫")
-            FooterAction(label: "Home", keys: "esc")
-        case .snippets:
-            FooterAction(label: "Copy", keys: "Click", emphasized: true)
-            FooterAction(label: "Home", keys: "esc")
-        case .translator:
-            FooterAction(label: "Home", keys: "esc")
-        case .developerTools:
-            FooterAction(label: "Copy Value", keys: "Click")
-            FooterAction(label: "Home", keys: "esc")
-        case .mediaDownloads:
-            FooterAction(label: "Home", keys: "esc")
-        case .search:
-            FooterAction(
-                label: isWindowLayoutQuery ? "Apply" : (selectedCalculatorResult == nil ? "Open" : "Copy Answer"),
-                keys: "↵",
-                emphasized: true
+    private var panelFooter: some View {
+        let actions = surface.footerActions
+        if state.mode == .search, state.isSearchLoading {
+            PanelFooter(actions: actions, openSettings: state.openSettings, openWelcomeGuide: state.openWelcomeGuide) {
+                Text("Searching…")
+                    .font(FoundryTheme.metaFont)
+                    .foregroundStyle(FoundryTheme.mutedText)
+            }
+        } else if isWindowLayoutQuery {
+            PanelFooter(actions: actions, openSettings: state.openSettings, openWelcomeGuide: state.openWelcomeGuide) {
+                Text("\(windowLayoutResults.count) layouts")
+                    .font(FoundryTheme.metaFont.monospacedDigit())
+                    .foregroundStyle(FoundryTheme.faintText)
+            }
+        } else {
+            PanelFooter(
+                actions: actions,
+                showsQuickAIChip: state.mode == .quickAI,
+                openSettings: state.openSettings,
+                openWelcomeGuide: state.openWelcomeGuide
             )
-            FooterAction(label: "Actions", keys: "⌘K")
         }
     }
 
@@ -988,7 +986,6 @@ struct CommandPanelView: View {
 
 }
 
-
 struct FoundrySmoothedRectangle: InsettableShape {
     var cornerRadius: CGFloat
     var smoothing: CGFloat = 0.75
@@ -1034,10 +1031,10 @@ struct FoundrySmoothedRectangle: InsettableShape {
 
 private struct ActionRow: View {
     let action: CommandAction
+    let shortcut: String?
     let isSelected: Bool
 
     @State private var isHovering = false
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         HStack(spacing: 12) {
@@ -1049,18 +1046,22 @@ private struct ActionRow: View {
                         .foregroundStyle(FoundryTheme.secondaryText)
                 )
                 .frame(width: 28, height: 28)
+                .scaleEffect(isSelected ? 1.04 : 1)
 
             Text(action.title)
-                .font(FoundryTheme.body(size: 14, weight: .medium))
+                .font(FoundryTheme.rowTitleFont)
                 .foregroundStyle(FoundryTheme.primaryText)
 
             Spacer()
+
+            if let shortcut {
+                KeycapHint(text: shortcut)
+                    .accessibilityLabel("Shortcut \(shortcut)")
+            }
         }
-        .padding(.horizontal, 12)
+        .padding(.horizontal, FoundryTheme.Spacing.sm)
         .frame(height: 40)
         .background(RowBackground(isSelected: isSelected, isHovering: isHovering))
-        .animation(reduceMotion ? nil : .easeOut(duration: 0.12), value: isSelected)
-        .animation(reduceMotion ? nil : .easeOut(duration: 0.12), value: isHovering)
         .onHover { hovering in
             isHovering = hovering
             if hovering { NSCursor.pointingHand.set() } else { NSCursor.arrow.set() }
@@ -1071,18 +1072,28 @@ private struct ActionRow: View {
         switch action.kind {
         case .openQuickAI:
             "sparkles"
-        case .openApp, .openURL, .openConfigFolder:
+        case .openApp, .openURL, .openURLWithApp, .openConfigFolder:
             "arrow.up.right.square"
-        case .openSettings:
+        case .openSettings, .openCommandSettings:
             "slider.horizontal.3"
+        case .openFileWithApp:
+            "arrow.up.right.square"
+        case .openWelcomeGuide:
+            "sparkles.rectangle.stack"
+        case .fillQuery:
+            "text.cursor"
+        case .runScript:
+            "terminal"
         case .openHome:
             "house"
         case .openMediaDownloads:
             "arrow.down.circle"
-        case .revealInFinder:
-            "folder"
-        case .copyToClipboard, .copySnippet:
+        case .copyToClipboard, .copySnippet, .copyFile:
             "doc.on.doc"
+        case .deleteSnippet, .deleteQuicklink:
+            "trash"
+        case .addToFileShelf:
+            "tray.and.arrow.down"
         case .pasteText, .pasteSnippet:
             "text.insert"
         case .createSnippetFromClipboard:
@@ -1111,8 +1122,12 @@ private struct ActionRow: View {
             "hammer"
         case .terminateProcess:
             "xmark.circle"
-        case .quitApplication:
+        case .quitApplication, .quitAllApplications:
             "app.badge.xmark"
+        case .forceQuitApplication:
+            "exclamationmark.octagon"
+        case .hideApplication:
+            "eye.slash"
         case .toggleKeepAwake:
             "cup.and.saucer.fill"
         case .terminatePort:
@@ -1121,6 +1136,8 @@ private struct ActionRow: View {
             "speaker.wave.2.fill"
         case .resetRanking:
             "arrow.counterclockwise"
+        case .toggleFavorite:
+            "star"
         case .rebuildApp:
             "hammer.fill"
         case .runProcess:
@@ -1146,7 +1163,7 @@ private struct LauncherSearchField: NSViewRepresentable {
         field.isBordered = false
         field.drawsBackground = false
         field.focusRingType = .none
-        field.font = NSFont.systemFont(ofSize: 21, weight: .regular)
+        field.font = NSFont.systemFont(ofSize: LauncherSearchTextField.maximumPointSize, weight: .regular)
         field.textColor = .labelColor
         field.placeholderString = placeholder
         field.cell?.usesSingleLineMode = true
@@ -1166,6 +1183,7 @@ private struct LauncherSearchField: NSViewRepresentable {
         nsView.onTab = onTab
         nsView.onReturn = onReturn
         nsView.delegate = context.coordinator
+        context.coordinator.text = $text
         context.coordinator.onTab = onTab
         context.coordinator.onReturn = onReturn
     }
@@ -1205,8 +1223,9 @@ private struct LauncherSearchField: NSViewRepresentable {
     }
 }
 
-
 private final class LauncherSearchTextField: NSTextField {
+    static let maximumPointSize: CGFloat = 20
+
     var onTab: (() -> Void)?
     var onReturn: (() -> Void)?
 
@@ -1216,7 +1235,7 @@ private final class LauncherSearchTextField: NSTextField {
     }
 
     private func fitTextToWidth() {
-        let maximumPointSize: CGFloat = 21
+        let maximumPointSize = LauncherSearchTextField.maximumPointSize
         let minimumPointSize: CGFloat = 12
         guard bounds.width > 0, stringValue.isEmpty == false else {
             if font?.pointSize != maximumPointSize {
@@ -1250,33 +1269,6 @@ private final class LauncherSearchTextField: NSTextField {
             onReturn?()
         default:
             super.keyDown(with: event)
-        }
-    }
-}
-
-private struct KeycapHint: View {
-    let text: String
-
-    var body: some View {
-        Text(text)
-            .font(.system(size: 11, weight: .medium, design: .rounded))
-            .foregroundStyle(FoundryTheme.faintText)
-            .padding(.horizontal, 2)
-    }
-}
-
-private struct FooterAction: View {
-    let label: String
-    let keys: String
-    var emphasized: Bool = false
-
-    var body: some View {
-        HStack(spacing: 6) {
-            Text(label)
-                .font(FoundryTheme.body(size: 11, weight: emphasized ? .semibold : .medium))
-                .foregroundStyle(emphasized ? FoundryTheme.secondaryText : FoundryTheme.mutedText)
-
-            KeycapHint(text: keys)
         }
     }
 }

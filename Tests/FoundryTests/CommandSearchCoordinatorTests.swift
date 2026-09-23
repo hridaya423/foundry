@@ -26,7 +26,8 @@ final class CommandSearchCoordinatorTests: XCTestCase {
             onComplete: { results in completedQueries.append(contentsOf: results.map(\.title)) }
         )
 
-        try await Task.sleep(for: .milliseconds(150))
+        await waitUntil { completedQueries.isEmpty == false }
+        try await Task.sleep(for: .milliseconds(100))
         coordinator.cancel()
 
         XCTAssertEqual(immediateQueries, ["second"])

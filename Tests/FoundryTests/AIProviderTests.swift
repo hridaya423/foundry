@@ -84,11 +84,10 @@ final class AIProviderTests: XCTestCase {
     }
 
     func testGenericFallbackPolicyRetriesAvailabilityAndRateLimitsOnly() {
-        let profile = AIProviderProfile.appleDefault
-        XCTAssertTrue(AIFallbackPolicy.shouldFallback(failureKind: .unavailable, profile: profile, hasFallback: true))
-        XCTAssertTrue(AIFallbackPolicy.shouldFallback(failureKind: .rateLimited, profile: profile, hasFallback: true))
-        XCTAssertFalse(AIFallbackPolicy.shouldFallback(failureKind: .configuration, profile: profile, hasFallback: true))
-        XCTAssertFalse(AIFallbackPolicy.shouldFallback(failureKind: .unavailable, profile: profile, hasFallback: false))
+        XCTAssertTrue(AIFallbackPolicy.shouldFallback(failureKind: .unavailable, hasFallback: true))
+        XCTAssertTrue(AIFallbackPolicy.shouldFallback(failureKind: .rateLimited, hasFallback: true))
+        XCTAssertFalse(AIFallbackPolicy.shouldFallback(failureKind: .configuration, hasFallback: true))
+        XCTAssertFalse(AIFallbackPolicy.shouldFallback(failureKind: .unavailable, hasFallback: false))
     }
 
     func testCodexPKCEAndAuthorizationURLContainRequiredSecurityParameters() throws {
@@ -202,7 +201,7 @@ final class AIProviderTests: XCTestCase {
 
         state.startNewThread(selectedAIProfileID: nil)
         store.finishLoading()
-        try await Task.sleep(for: .milliseconds(200))
+        await waitUntil { store.savedThreads().count >= 2 }
 
         let saved = store.savedThreads()
         XCTAssertEqual(Set(saved.map(\.id)), Set([existing.id, state.quickAIThreads.first { $0.title == "New Chat" }!.id]))
@@ -222,6 +221,26 @@ final class AIProviderTests: XCTestCase {
 
         let saved = store.savedThreads()
         XCTAssertEqual(saved.map(\.title), ["New Chat"])
+    }
+
+    @MainActor
+    func testStoppingKeepsThePartialAnswerAndOnlyOffersRetryWhenNothingArrived() {
+        let configURL = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: configURL) }
+        let config = ConfigService(diagnostics: DiagnosticsService(), url: configURL)
+        let state = QuickAIState(aiProvider: AIProvider(config: config, diagnostics: DiagnosticsService()), chatStore: AIChatStore(url: configURL.appendingPathExtension("chats")))
+        state.startNewThread(selectedAIProfileID: nil)
+        let threadID = try! XCTUnwrap(state.activeQuickAIThreadID)
+        state.isQuickAILoading = true
+
+        state.finishCancelled(prompt: "question", partial: "half an answer", threadID: threadID)
+        XCTAssertFalse(state.isQuickAILoading)
+        XCTAssertEqual(state.activeThread?.messages.last?.content, "half an answer")
+        XCTAssertNil(state.quickAILastFailedPrompt)
+
+        state.finishCancelled(prompt: "second", partial: "", threadID: threadID)
+        XCTAssertEqual(state.activeThread?.messages.count, 1)
+        XCTAssertEqual(state.quickAILastFailedPrompt, "second")
     }
 
     @MainActor
@@ -369,8 +388,7 @@ final class AIProviderTests: XCTestCase {
             .fileConversion,
             .camera,
             .translator,
-            .developerTools,
-            .settings
+            .developerTools
         ]
 
         for mode in modes {
@@ -586,6 +604,15 @@ final class AIProviderTests: XCTestCase {
         XCTAssertLessThan(formatted.count, 1400)
     }
 
+    func testToolEventRoundTripsAndDecodesLegacyMessages() {
+        let running = AIChatMessage.tool(.init(name: "search", result: nil))
+        XCTAssertEqual(running.toolEvent, .init(name: "search", result: nil))
+        XCTAssertTrue(running.toolEvent?.isRunning == true)
+        let legacy = AIChatMessage(role: .tool, content: "complete:search\nline 1\nline 2")
+        XCTAssertEqual(legacy.toolEvent, .init(name: "search", result: "line 1\nline 2"))
+        XCTAssertEqual(legacy.toolEvent?.encoded, legacy.content)
+        XCTAssertNil(AIChatMessage(role: .assistant, content: "running:x").toolEvent)
+    }
 }
 
 private final class DelayedAIChatStore: @unchecked Sendable, AIChatStoring {
