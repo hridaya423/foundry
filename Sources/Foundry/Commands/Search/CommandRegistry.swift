@@ -6,18 +6,16 @@ final class CommandRegistry: @unchecked Sendable {
     private let providers: [CommandProvider]
     private let usageRanking: UsageRankingStore
     private let diagnostics: DiagnosticsService
-    private let providerHealth: ProviderHealthStore
     private let providerScheduler: CommandProviderScheduler
     private let ranker: CommandRanker
     private let configService: ConfigService?
     private let catalogCache: CommandCatalogCache
 
-    init(providers: [CommandProvider], usageRanking: UsageRankingStore, diagnostics: DiagnosticsService, providerHealth: ProviderHealthStore = ProviderHealthStore(), configService: ConfigService? = nil) {
+    init(providers: [CommandProvider], usageRanking: UsageRankingStore, diagnostics: DiagnosticsService, configService: ConfigService? = nil) {
         self.providers = providers
         self.usageRanking = usageRanking
         self.diagnostics = diagnostics
-        self.providerHealth = providerHealth
-        self.providerScheduler = CommandProviderScheduler(diagnostics: diagnostics, providerHealth: providerHealth)
+        self.providerScheduler = CommandProviderScheduler(diagnostics: diagnostics)
         self.ranker = CommandRanker(usageRanking: usageRanking, configService: configService)
         self.configService = configService
         self.catalogCache = CommandCatalogCache(scheduler: providerScheduler)
@@ -40,20 +38,20 @@ final class CommandRegistry: @unchecked Sendable {
                 AppleNotesProvider(),
                 BrowserProvider(),
                 LibraryProvider(store: snippetStore),
+                QuicklinkProvider(),
+                ShortcutsProvider(),
+                ScriptCommandProvider(),
+                FileSearchProvider(),
                 MediaDownloadProvider(),
                 CameraCommandProvider(),
-                SystemCommandProvider(diagnostics: diagnostics),
+                SystemCommandProvider(),
                 WindowManagementProvider(),
-                BuiltInCommandProvider(config: config, diagnostics: diagnostics)
+                BuiltInCommandProvider()
             ],
             usageRanking: usageRanking ?? UsageRankingStore(diagnostics: diagnostics),
             diagnostics: diagnostics,
             configService: config
         )
-    }
-
-    func results(matching query: String) async -> [CommandResult] {
-        await results(matching: query, customAliases: customAliases)
     }
 
     func immediateResults(matching query: String) async -> [CommandResult] {
@@ -74,7 +72,7 @@ final class CommandRegistry: @unchecked Sendable {
             })
         }
 
-        candidates = mediaOnlyCandidates(candidates, isMediaQuery: isMediaQuery(query))
+        candidates = scopedCandidates(candidates, query: query)
 
         return CommandSearchPhase(
             results: Array(ranker.ordered(ranker.deduplicated(candidates), query: query).prefix(Self.resultLimit(for: query))),
@@ -93,7 +91,9 @@ final class CommandRegistry: @unchecked Sendable {
         let providers = activeProviders.filter { provider in
             provider.searchPolicy.tier == .deferred || completedProviderIDs.contains(provider.id) == false
         }
+        let collectSpan = diagnostics.startSpan("search.phase2.collect")
         let (providerCandidates, timings) = await collectCandidates(query: query, providers: providers, aliases: customAliases, timeout: .milliseconds(250))
+        diagnostics.endSpan(collectSpan)
         var candidates = initialResults.enumerated().map { index, result in
             RankCandidate(result: result, providerID: "foundry.immediate", sourceOrder: index)
         }
@@ -108,86 +108,43 @@ final class CommandRegistry: @unchecked Sendable {
             })
         }
 
+        let rankSpan = diagnostics.startSpan("search.phase2.rank")
         candidates = ranker.deduplicated(candidates.filter { isCommandEnabled($0.result) })
-        let mediaQuery = isMediaQuery(query)
-        candidates = mediaOnlyCandidates(candidates, isMediaQuery: mediaQuery)
-        if candidates.isEmpty && mediaQuery == false {
-            for provider in activeProviders {
-                guard isFallbackEligible(for: provider) else { continue }
-                let fallbackResults = (try? await provider.fallbackResults(matching: query, sensitivity: sensitivity)) ?? []
-                let eligibleResults = fallbackResults.filter { isFallbackEligible(for: $0) && isCommandEnabled($0) }
-                candidates.append(contentsOf: eligibleResults.enumerated().map { index, result in
-                    RankCandidate(result: result, providerID: provider.id, sourceOrder: index)
-                })
-                if eligibleResults.isEmpty == false { break }
-            }
-        }
-        if candidates.isEmpty && mediaQuery == false {
-            let prompt = query.trimmingCharacters(in: .whitespacesAndNewlines)
-            if prompt.isEmpty == false {
-                candidates.append(RankCandidate(result: CommandResult(
-                    id: "foundry.quick.\(AIRequestIdentifier.make(prompt: prompt, backend: .appleFoundationModels))",
-                    title: "Ask AI about \(prompt)",
-                    subtitle: "Open the research assistant",
-                    icon: CommandIcon(fallback: "AI", systemName: "sparkles"),
-                    primaryAction: CommandAction(id: "ai.quick", title: "Ask AI", kind: .openQuickAI(prompt: prompt)),
-                    secondaryActions: []
-                ), providerID: "foundry.ai", sourceOrder: 0))
-            }
-        }
-
+        let isScopedQuery = isMediaQuery(query) || FileSearchProvider.fileQuery(query) != nil
+        candidates = scopedCandidates(candidates, query: query)
         logSearchTimings(timings)
-        return Array(ranker.ordered(candidates, query: query).prefix(Self.resultLimit(for: query)))
+        if candidates.isEmpty && isScopedQuery == false {
+            let fallback = await fallbackResults(for: query, sensitivity: sensitivity)
+            diagnostics.endSpan(rankSpan)
+            return fallback
+        }
+        let ordered = Array(ranker.ordered(candidates, query: query).prefix(Self.resultLimit(for: query)))
+        diagnostics.endSpan(rankSpan)
+        return ordered
     }
 
-    func results(matching query: String, customAliases: [String: [String]]) async -> [CommandResult] {
-        let activeProviders = enabledProviders.filter { $0.isActive(for: query) }
-        let (providerCandidates, timings) = await collectCandidates(query: query, providers: activeProviders, aliases: customAliases, timeout: .milliseconds(250))
-        var allCandidates = providerCandidates
-
-        guard Task.isCancelled == false else { return [] }
-
-        let sensitivity = configService?.current.searchSensitivity ?? .medium
-        for provider in supplementalProviders {
-            allCandidates.append(contentsOf: provider.supplementalResults(matching: query, sensitivity: sensitivity).enumerated().map { index, result in
-                RankCandidate(result: result, providerID: provider.id, sourceOrder: index)
-            })
+    private func fallbackResults(for query: String, sensitivity: SearchSensitivity) async -> [CommandResult] {
+        let prompt = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard prompt.isEmpty == false else { return [] }
+        let trailingProviderIDs: Set<String> = ["foundry.quicklinks", "foundry.files"]
+        var leading: [CommandResult] = []
+        var trailing: [CommandResult] = []
+        for provider in enabledProviders {
+            let results = ((try? await provider.fallbackResults(matching: query, sensitivity: sensitivity)) ?? [])
+                .filter { isFallbackEligible(for: $0) && isCommandEnabled($0) }
+            if trailingProviderIDs.contains(provider.id) { trailing += results } else { leading += results }
         }
-        let mediaQuery = isMediaQuery(query)
-        allCandidates = mediaOnlyCandidates(allCandidates, isMediaQuery: mediaQuery)
-        if allCandidates.isEmpty && mediaQuery == false {
-            for provider in activeProviders {
-                guard isFallbackEligible(for: provider) else { continue }
-                let fallbackResults = (try? await provider.fallbackResults(matching: query, sensitivity: sensitivity)) ?? []
-                let eligibleResults = fallbackResults.filter { isFallbackEligible(for: $0) }
-                allCandidates.append(contentsOf: eligibleResults.enumerated().map { index, result in
-                    RankCandidate(result: result, providerID: provider.id, sourceOrder: index)
-                })
-                if eligibleResults.isEmpty == false { break }
-            }
-        }
-
-        allCandidates = ranker.deduplicated(allCandidates.filter { isCommandEnabled($0.result) })
-
-        if allCandidates.isEmpty && mediaQuery == false {
-            let prompt = query.trimmingCharacters(in: .whitespacesAndNewlines)
-            if prompt.isEmpty == false {
-                allCandidates.append(RankCandidate(result: CommandResult(
-                    id: "foundry.quick.\(AIRequestIdentifier.make(prompt: prompt, backend: .appleFoundationModels))",
-                    title: "Ask AI about \(prompt)",
-                    subtitle: "Open the research assistant",
-                    icon: CommandIcon(fallback: "AI", systemName: "sparkles"),
-                    primaryAction: CommandAction(id: "ai.quick", title: "Ask AI", kind: .openQuickAI(prompt: prompt)),
-                    secondaryActions: []
-                ), providerID: "foundry.ai", sourceOrder: 0))
-            }
-        }
-
-        logSearchTimings(timings)
-
-        return ranker.ordered(allCandidates, query: query)
-            .prefix(Self.resultLimit(for: query))
-            .map { $0 }
+        let askAI = CommandResult(
+            id: "foundry.quick.\(AIRequestIdentifier.make(prompt: prompt, backend: .appleFoundationModels))",
+            title: "Ask AI about \(prompt)",
+            subtitle: "Open the research assistant",
+            icon: CommandIcon(fallback: "AI", systemName: "sparkles"),
+            primaryAction: CommandAction(id: "ai.quick", title: "Ask AI", kind: .openQuickAI(prompt: prompt)),
+            secondaryActions: []
+        )
+        let web = trailing.filter { $0.id.hasPrefix("quicklink.") }
+        let files = trailing.filter { $0.id.hasPrefix("quicklink.") == false }
+        return Array((leading.prefix(8) + [askAI] + web + files).prefix(Self.resultLimit(for: query)))
     }
 
     func homeResults() async -> [CommandResult] {
@@ -229,42 +186,12 @@ final class CommandRegistry: @unchecked Sendable {
         usageRanking.recordExecution(resultID: resultID, query: query)
     }
 
-    func statusSummary(resultCount: Int, fallback: String) -> String {
-        let resultLabel = resultCount == 1 ? "1 result" : "\(resultCount) results"
-        return resultCount > 0 ? resultLabel : fallback
-    }
-
-    func commandDescriptors() async -> [CommandDescriptor] {
-        await commandCatalog().descriptors
+    func hasUsage(for resultID: String) -> Bool {
+        usageRanking.hasUsage(for: resultID)
     }
 
     func commandCatalog(forceRefresh: Bool = false) async -> CommandCatalogSnapshot {
         await catalogCache.snapshot(forceRefresh: forceRefresh, providers: providers)
-    }
-
-    func providerDescriptors() async -> [CommandProviderDescriptor] {
-        let health = await providerHealth.snapshots(for: providers.map(\.id))
-        return providers.map { provider in
-            let descriptor = provider.descriptor
-            return CommandProviderDescriptor(
-                id: descriptor.id,
-                version: descriptor.version,
-                availability: descriptor.availability,
-                requiredPermissions: descriptor.requiredPermissions,
-                supportedContexts: descriptor.supportedContexts,
-                searchPolicy: descriptor.searchPolicy,
-                health: health[descriptor.id]
-            )
-        }
-    }
-
-    func providerHealthSnapshots() async -> [ProviderHealthSnapshot] {
-        let snapshots = await providerHealth.snapshots(for: providers.map(\.id))
-        return providers.compactMap { snapshots[$0.id] }
-    }
-
-    func recordProviderFailure(providerID: String, message: String) async {
-        await providerHealth.recordFailure(providerID: providerID, message: message)
     }
 
     func commandResult(for commandID: String) async -> CommandResult? {
@@ -343,21 +270,24 @@ final class CommandRegistry: @unchecked Sendable {
         enabledProviders.filter { $0.searchPolicy.includesSupplementalResults }
     }
 
+    static let defaultDisabledCommandIDs: Set<String> = ["foundry.camera"]
+
     private func isCommandEnabled(_ result: CommandResult) -> Bool {
-        configService?.current.commandPreferences[result.id]?.isEnabled != false
+        let preferences = configService?.current.commandPreferences
+        if CommandSettingsCatalog.isSystemSettingsPane(result.id), preferences?[CommandSettingsCatalog.systemSettingsID]?.isEnabled == false {
+            return false
+        }
+        return preferences?[result.id]?.isEnabled ?? !Self.defaultDisabledCommandIDs.contains(result.id)
     }
 
     private func isMediaQuery(_ query: String) -> Bool {
         MediaDownloadProvider.mediaURLs(in: query).isEmpty == false
     }
 
-    private func mediaOnlyCandidates(_ candidates: [RankCandidate], isMediaQuery: Bool) -> [RankCandidate] {
-        guard isMediaQuery else { return candidates }
-        return candidates.filter { $0.result.route == .mediaDownload }
-    }
-
-    private func isFallbackEligible(for provider: CommandProvider) -> Bool {
-        provider.descriptor.availability == .available
+    private func scopedCandidates(_ candidates: [RankCandidate], query: String) -> [RankCandidate] {
+        if isMediaQuery(query) { return candidates.filter { $0.result.route == .mediaDownload } }
+        if FileSearchProvider.fileQuery(query) != nil { return candidates.filter { $0.providerID == "foundry.files" } }
+        return candidates
     }
 
     private func isFallbackEligible(for result: CommandResult) -> Bool {
@@ -436,8 +366,7 @@ private actor CommandCatalogCache {
 
             return CommandCatalogSnapshot(
                 generation: generation,
-                createdAt: Date(),
-                descriptors: descriptors.sorted { lhs, rhs in
+                    descriptors: descriptors.sorted { lhs, rhs in
                     lhs.title.localizedCaseInsensitiveCompare(rhs.title) == .orderedAscending
                 },
                 providerFailures: providerFailures.sorted()

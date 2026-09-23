@@ -7,7 +7,7 @@ import FoundryServices
 import UniformTypeIdentifiers
 
 @MainActor
-final class ActionRunner: CommandExecuting {
+final class ActionRunner {
     private let diagnostics: DiagnosticsService
     private let snippetStore: any SnippetStore
     private let mediaDownloadService: any MediaDownloading
@@ -18,7 +18,12 @@ final class ActionRunner: CommandExecuting {
     private let openURL: (URL) -> Bool
     private let openApplication: (URL, NSWorkspace.OpenConfiguration, @escaping @Sendable (NSRunningApplication?, Error?) -> Void) -> Void
     private let snippetContext: () -> SnippetRenderContext
+    private let pasteboard: NSPasteboard
     let directPasteService: DirectPasteService
+    private let scriptDirectories: ScriptDirectoryStore
+    private let confirmScriptDirectory: @MainActor (String) -> Bool
+    private let scriptTimeout: TimeInterval
+    private let scriptOutputLimit: Int
     private var activeExecutionTasks: [UUID: Task<CommandOutcome, Never>] = [:]
 
     init(
@@ -34,8 +39,17 @@ final class ActionRunner: CommandExecuting {
             NSWorkspace.shared.openApplication(at: url, configuration: configuration, completionHandler: completion)
         },
         directPasteService: DirectPasteService = .shared,
-        snippetContext: @escaping () -> SnippetRenderContext = { .current() }
+        pasteboard: NSPasteboard = .general,
+        snippetContext: @escaping () -> SnippetRenderContext = { .current() },
+        scriptDirectories: ScriptDirectoryStore = .shared,
+        confirmScriptDirectory: @escaping @MainActor (String) -> Bool = ActionRunner.promptToTrustScriptDirectory,
+        scriptTimeout: TimeInterval = 30,
+        scriptOutputLimit: Int = 256 * 1024
     ) {
+        self.scriptDirectories = scriptDirectories
+        self.confirmScriptDirectory = confirmScriptDirectory
+        self.scriptTimeout = scriptTimeout
+        self.scriptOutputLimit = scriptOutputLimit
         self.diagnostics = diagnostics
         self.snippetStore = snippetStore
         self.mediaDownloadService = mediaDownloadService
@@ -46,6 +60,7 @@ final class ActionRunner: CommandExecuting {
         self.openURL = openURL
         self.openApplication = openApplication
         self.snippetContext = snippetContext
+        self.pasteboard = pasteboard
         self.directPasteService = directPasteService
     }
 
@@ -122,7 +137,7 @@ final class ActionRunner: CommandExecuting {
         case let .openURL(urlString):
             guard let url = URL(string: urlString) else {
                 diagnostics.log("Invalid URL: \(urlString)")
-                return finish(.failure(message: "Invalid URL", retryable: false), feedback: .failure("Invalid URL"))
+                return finish(.failure(message: "That link isn't a valid URL", retryable: false), feedback: .failure("That link isn't a valid URL"))
             }
             if openURL(url) == false {
                 return finish(.failure(message: "Could not open link", retryable: true), feedback: .failure("Could not open link"))
@@ -141,35 +156,75 @@ final class ActionRunner: CommandExecuting {
                 return finish(.failure(message: "Could not create Foundry folder", retryable: true), feedback: .failure("Could not create Foundry folder"))
             }
 
-        case let .revealInFinder(path):
-            NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: path)])
-            diagnostics.log("Revealed in Finder: \(path)")
-            return .success(message: "Revealed in Finder")
+        case let .openFileWithApp(path, appPath):
+            if await Self.open([URL(fileURLWithPath: path)], withAppAt: URL(fileURLWithPath: appPath)) == false {
+                return finish(.failure(message: "Could not open file with that app", retryable: true), feedback: .failure("Could not open file with that app"))
+            }
+            return .success(message: "Opened file")
+
+        case let .openURLWithApp(urlString, bundleID):
+            guard let url = URL(string: urlString) else {
+                return finish(.failure(message: "That link isn't valid", retryable: false), feedback: .failure("That link isn't valid"))
+            }
+            guard let appURL = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID) else {
+                return finish(.failure(message: "That app isn't installed", retryable: false), feedback: .failure("That app isn't installed"))
+            }
+            if await Self.open([url], withAppAt: appURL) == false {
+                return finish(.failure(message: "Could not open link with that app", retryable: true), feedback: .failure("Could not open link with that app"))
+            }
+            return .success(message: "Opened link")
 
         case let .copyToClipboard(value):
-            NSPasteboard.general.clearContents()
-            NSPasteboard.general.setString(value, forType: .string)
+            pasteboard.clearContents()
+            pasteboard.setString(value, forType: .string)
             diagnostics.log("Copied to clipboard")
-            return finish(.copied(content: value), feedback: .success("Copied to clipboard"))
+            return finish(.copied(content: value), feedback: .success(Self.copiedMessage(for: value)))
+
+        case let .copyFile(path):
+            let url = URL(fileURLWithPath: path)
+            pasteboard.clearContents()
+            pasteboard.writeObjects([url as NSURL])
+            diagnostics.log("Copied file")
+            return finish(.copied(content: path), feedback: .success("Copied \u{201C}\(url.lastPathComponent)\u{201D}"))
+
+        case let .addToFileShelf(path):
+            return .addToFileShelf(urls: [URL(fileURLWithPath: path)])
 
         case let .copySnippet(id):
             guard let snippet = snippetStore.load().first(where: { $0.id == id }) else { return .failure(message: "Snippet not found", retryable: false) }
             let rendered = SnippetRenderer.render(snippet.content, context: snippetContext())
-            NSPasteboard.general.clearContents(); NSPasteboard.general.setString(rendered.text, forType: .string)
+            pasteboard.clearContents(); pasteboard.setString(rendered.text, forType: .string)
             return finish(.copied(content: rendered.text), feedback: .success("Copied to clipboard"))
+
+        case let .deleteSnippet(id):
+            let snippets = snippetStore.load()
+            guard snippets.contains(where: { $0.id == id }) else { return .failure(message: "Snippet not found", retryable: false) }
+            _ = snippetStore.save(snippets.filter { $0.id != id })
+            return finish(.refreshResults(message: "Snippet deleted"), feedback: .success("Snippet deleted"))
+
+        case let .deleteQuicklink(id):
+            let store = QuicklinkStore.shared
+            let links = store.load()
+            guard links.contains(where: { $0.id == id }) else { return .failure(message: "Quicklink not found", retryable: false) }
+            do {
+                try store.save(links.filter { $0.id != id })
+            } catch {
+                return finish(.failure(message: "Quicklink could not be deleted", retryable: true), feedback: .failure("Quicklink could not be deleted"))
+            }
+            return finish(.refreshResults(message: "Quicklink deleted"), feedback: .success("Quicklink deleted"))
 
         case let .pasteSnippet(id):
             guard let snippet = snippetStore.load().first(where: { $0.id == id }) else { return .failure(message: "Snippet not found", retryable: false) }
             let rendered = SnippetRenderer.render(snippet.content, context: snippetContext())
             do {
-                try directPasteService.stage(.text(rendered.text), cursorOffset: rendered.cursorOffsetFromEnd, snippetID: id)
+                try directPasteService.stage(.text(rendered.text), cursorOffset: rendered.cursorOffsetFromEnd)
                 return finish(.pasted(content: rendered.text), feedback: .success("Inserted snippet"))
             } catch DirectPasteError.missingTarget { return finish(.stayOpen(message: "No originating application is available"), feedback: .failure("No originating application is available")) }
             catch { return finish(.stayOpen(message: "Could not stage paste"), feedback: .failure("Could not stage paste")) }
 
-        case let .pasteText(value, cursorOffset, snippetID):
+        case let .pasteText(value, cursorOffset, _):
             do {
-                try directPasteService.stage(.text(value), cursorOffset: cursorOffset, snippetID: snippetID)
+                try directPasteService.stage(.text(value), cursorOffset: cursorOffset)
                 diagnostics.log("Staged direct paste")
                 return finish(.pasted(content: value), feedback: .success("Inserted snippet"))
             } catch DirectPasteError.missingTarget {
@@ -179,7 +234,7 @@ final class ActionRunner: CommandExecuting {
             }
 
         case .createSnippetFromClipboard:
-            guard let content = NSPasteboard.general.string(forType: .string)?.trimmingCharacters(in: .whitespacesAndNewlines), content.isEmpty == false else {
+            guard let content = pasteboard.string(forType: .string)?.trimmingCharacters(in: .whitespacesAndNewlines), content.isEmpty == false else {
                 diagnostics.log("Clipboard is empty")
                 return finish(.failure(message: "Clipboard is empty", retryable: false), feedback: .info("Clipboard is empty"))
             }
@@ -314,8 +369,14 @@ final class ActionRunner: CommandExecuting {
         case let .openDeveloperTools(tool):
             return .open(route: .developerTools(tool: tool))
 
-        case .openSettings:
+        case .openSettings, .openCommandSettings:
             return .open(route: .settings)
+
+        case .openWelcomeGuide:
+            return .open(route: .welcomeGuide)
+
+        case let .fillQuery(text):
+            return .open(route: .query(text))
 
         case .openHome:
             return .open(route: .home)
@@ -357,6 +418,24 @@ final class ActionRunner: CommandExecuting {
                 return .failure(message: "\(name) is not running", retryable: false)
             }
 
+        case let .forceQuitApplication(bundleID, name):
+            guard let running = NSWorkspace.shared.runningApplications.first(where: { $0.bundleIdentifier == bundleID && bundleID != nil || $0.localizedName == name }) else {
+                return .failure(message: "\(name) is not running", retryable: false)
+            }
+            return running.forceTerminate()
+                ? finish(.success(message: "Force quit \(name)"), feedback: .success("Force quit \(name)"))
+                : finish(.failure(message: "Could not force quit \(name)", retryable: true), feedback: .failure("Could not force quit \(name)"))
+
+        case let .hideApplication(bundleID, name):
+            let hidden = NSRunningApplication.runningApplications(withBundleIdentifier: bundleID).map { $0.hide() }.contains(true)
+            return hidden ? finish(.success(message: "Hid \(name)"), feedback: .success("Hid \(name)")) : .failure(message: "\(name) is not running", retryable: false)
+
+        case .quitAllApplications:
+            let spared: Set<String> = [Bundle.main.bundleIdentifier ?? "", "com.apple.finder"]
+            let targets = NSWorkspace.shared.runningApplications.filter { $0.activationPolicy == .regular && spared.contains($0.bundleIdentifier ?? "") == false }
+            let quit = targets.filter { $0.terminate() }.count
+            return finish(.success(message: "Asked \(quit) apps to quit"), feedback: .success("Asked \(quit) apps to quit"))
+
         case .toggleKeepAwake:
             do {
                 let state = try KeepAwakeController.toggle()
@@ -368,18 +447,28 @@ final class ActionRunner: CommandExecuting {
             }
 
         case let .terminatePort(port):
-            let command = "lsof -ti tcp:\(port) | xargs -r kill"
             do {
-                let result = try await ProcessRunner.run(path: "/bin/zsh", arguments: ["-lc", command], timeout: 3)
-                let message = result.succeeded ? "Stopped port \(port)" : "Failed to stop port \(port)"
+                let lookup = try await ProcessRunner.run(path: "/usr/sbin/lsof", arguments: ["-ti", "tcp:\(port)"], timeout: 3)
+                let pids = lookup.stdout.split(whereSeparator: \.isNewline).map(String.init)
+                guard lookup.succeeded, pids.isEmpty == false else {
+                    let message = "No process is listening on port \(port)"
+                    diagnostics.log(message)
+                    return finish(.failure(message: message, retryable: true), feedback: .failure(message))
+                }
+                var failed = false
+                for pid in pids {
+                    let result = try await ProcessRunner.run(path: "/bin/kill", arguments: [pid], timeout: 3)
+                    failed = failed || !result.succeeded
+                }
+                let message = failed ? "Couldn't stop the process on port \(port)" : "Stopped port \(port)"
                 diagnostics.log(message)
-                return finish(result.succeeded ? .success(message: message) : .failure(message: message, retryable: true), feedback: result.succeeded ? .success(message) : .failure(message))
+                return finish(failed ? .failure(message: message, retryable: true) : .success(message: message), feedback: failed ? .failure(message) : .success(message))
             } catch {
                 if Self.isCancellation(error) {
                     return .cancelled
                 }
                 diagnostics.log("Failed to stop port \(port): \(error.localizedDescription)")
-                return finish(.failure(message: "Failed to stop port \(port)", retryable: true), feedback: .failure("Failed to stop port \(port)"))
+                return finish(.failure(message: "Couldn't stop the process on port \(port)", retryable: true), feedback: .failure("Couldn't stop the process on port \(port)"))
             }
 
         case let .setAudioDevice(id, kind):
@@ -396,7 +485,11 @@ final class ActionRunner: CommandExecuting {
             resetRanking(commandID)
             return finish(.stayOpen(message: "Ranking reset"), feedback: .success("Ranking reset"))
 
+        case .toggleFavorite:
+            return .stayOpen(message: nil)
+
         case .rebuildApp:
+            #if DEBUG
             guard let sourceRoot = SourceRootLocator.locate() else {
                 diagnostics.log("Cannot rebuild Foundry: source root is unavailable")
                 return .failure(message: "Cannot rebuild Foundry", retryable: false)
@@ -413,21 +506,61 @@ final class ActionRunner: CommandExecuting {
                 diagnostics.log("Failed to rebuild Foundry app: \(error.localizedDescription)")
                 return .failure(message: "Failed to rebuild Foundry app", retryable: true)
             }
+            #else
+            diagnostics.log("Cannot rebuild Foundry outside a debug build")
+            return .failure(message: "Cannot rebuild Foundry", retryable: false)
+            #endif
 
         case let .runProcess(path, arguments):
             do {
                 let result = try await ProcessRunner.run(path: path, arguments: arguments)
+                let shortcut = path == ShortcutsProvider.cliPath ? arguments.last : nil
                 guard result.succeeded else {
                     diagnostics.log("Failed to run \(path)")
-                    return .failure(message: "Failed to run process", retryable: true)
+                    return .failure(message: shortcut.map { "“\($0)” failed: \(result.stderr.trimmingCharacters(in: .whitespacesAndNewlines))" } ?? "Failed to run process", retryable: true)
                 }
-                return .success(message: "Process completed")
+                return .success(message: shortcut.map { "Ran “\($0)”" } ?? "Process completed")
             } catch {
                 if Self.isCancellation(error) {
                     return .cancelled
                 }
                 diagnostics.log("Failed to run \(path): \(error.localizedDescription)")
                 return .failure(message: "Failed to run process", retryable: true)
+            }
+
+        case let .runScript(path, arguments, mode):
+            let directory = (path as NSString).deletingLastPathComponent
+            if scriptDirectories.isTrusted(directory) == false {
+                guard confirmScriptDirectory(directory) else {
+                    return finish(.denied(message: "Scripts in this folder are not trusted"), feedback: .info("Script not run"))
+                }
+                scriptDirectories.setTrusted(true, for: directory)
+            }
+            let name = (path as NSString).lastPathComponent
+            do {
+                let result = try await ProcessRunner.run(path: path, arguments: arguments, timeout: scriptTimeout, outputLimit: scriptOutputLimit, currentDirectoryURL: URL(fileURLWithPath: directory))
+                let lastLine = { (text: String) in text.split(whereSeparator: \.isNewline).last.map(String.init) }
+                if result.timedOut {
+                    return finish(.failure(message: "\(name) timed out after \(Int(scriptTimeout)) s", retryable: true), feedback: .failure("\(name) timed out"))
+                }
+                guard result.succeeded else {
+                    let message = lastLine(result.stderr) ?? lastLine(result.stdout) ?? "\(name) exited with code \(result.exitCode)"
+                    return finish(.failure(message: message, retryable: true), feedback: .failure(message))
+                }
+                switch mode {
+                case .silent:
+                    return .success(message: nil)
+                case .compact, .inline:
+                    return finish(.success(message: lastLine(result.stdout) ?? "Ran \(name)"), feedback: .success(lastLine(result.stdout) ?? "Ran \(name)"))
+                case .fullOutput:
+                    let url = FileManager.default.temporaryDirectory.appendingPathComponent("Foundry \(name) output.txt")
+                    try Data((result.stdout + result.stderr).utf8).write(to: url, options: .atomic)
+                    _ = openURL(url)
+                    return .success(message: "Opened output of \(name)")
+                }
+            } catch {
+                if Self.isCancellation(error) { return .cancelled }
+                return finish(.failure(message: "Could not run \(name): \(error.localizedDescription)", retryable: true), feedback: .failure("Could not run \(name)"))
             }
 
         case let .tileWindow(placement):
@@ -504,6 +637,14 @@ final class ActionRunner: CommandExecuting {
         }
     }
 
+    private static func open(_ urls: [URL], withAppAt appURL: URL) async -> Bool {
+        await withCheckedContinuation { (continuation: CheckedContinuation<Bool, Never>) in
+            NSWorkspace.shared.open(urls, withApplicationAt: appURL, configuration: NSWorkspace.OpenConfiguration()) { _, error in
+                continuation.resume(returning: error == nil)
+            }
+        }
+    }
+
     nonisolated private static func snippetTitle(from content: String) -> String {
         let firstLine = content.split(separator: "\n").first?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         return firstLine.isEmpty ? "Clipboard Snippet" : String(firstLine.prefix(60))
@@ -539,6 +680,14 @@ final class ActionRunner: CommandExecuting {
         }
     }
 
+    static func promptToTrustScriptDirectory(_ directory: String) -> Bool {
+        let alert = NSAlert()
+        alert.messageText = "Run scripts from “\((directory as NSString).lastPathComponent)”?"
+        alert.informativeText = "Scripts in \(directory) can run any command as you. Only trust folders whose scripts you wrote or reviewed. Foundry will not ask again for this folder."
+        alert.addButton(withTitle: "Trust and Run")
+        alert.addButton(withTitle: "Cancel")
+        return alert.runModal() == .alertFirstButtonReturn
+    }
 }
 
 private struct MediaBatchResult: Sendable {
@@ -682,5 +831,13 @@ private final class ContinuationGate<Value: Sendable>: @unchecked Sendable {
         guard let continuation else { return false }
         continuation.resume(returning: result)
         return true
+    }
+}
+
+extension ActionRunner {
+    static func copiedMessage(for value: String) -> String {
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.isEmpty == false, trimmed.count <= 32, trimmed.contains(where: \.isNewline) == false else { return "Copied to clipboard" }
+        return "Copied \(trimmed)"
     }
 }
