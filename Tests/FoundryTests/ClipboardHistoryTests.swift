@@ -13,6 +13,12 @@ final class ClipboardHistoryTests: XCTestCase {
         XCTAssertEqual(values[0].signature, ClipboardHistoryItem(payload: .text("hello")).signature)
     }
 
+    func testPollingBacksOffOnlyWhileTheUserIsIdle() {
+        XCTAssertEqual(ClipboardHistoryState.pollInterval(secondsSinceInput: 0), 0.7)
+        XCTAssertEqual(ClipboardHistoryState.pollInterval(secondsSinceInput: 59), 0.7)
+        XCTAssertEqual(ClipboardHistoryState.pollInterval(secondsSinceInput: 60), 5)
+    }
+
     func testPersistedClipboardAgeIsNotAlwaysNow() {
         let now = Date(timeIntervalSince1970: 10_000)
         let recent = ClipboardHistoryItem(payload: .text("recent"), createdAt: now)
@@ -35,10 +41,57 @@ final class ClipboardHistoryTests: XCTestCase {
 
     func testPolicyPreservesNewestFirstInputWhileDeduplicating() {
         let policy = ClipboardHistoryPolicy(maxItems: 3, maxBytes: 6)
-        let oldPinned = ClipboardHistoryItem(payload: .text("1234"), createdAt: Date(timeIntervalSince1970: 1), isPinned: true)
-        let newest = ClipboardHistoryItem(payload: .text("12"), createdAt: Date(timeIntervalSince1970: 2))
-        let duplicate = ClipboardHistoryItem(payload: .text("12"), createdAt: Date(timeIntervalSince1970: 3))
+        let now = Date()
+        let oldPinned = ClipboardHistoryItem(payload: .text("1234"), createdAt: now, isPinned: true)
+        let newest = ClipboardHistoryItem(payload: .text("12"), createdAt: now)
+        let duplicate = ClipboardHistoryItem(payload: .text("12"), createdAt: now)
         XCTAssertEqual(policy.bounded([duplicate, newest, oldPinned]).map(\.signature), [duplicate.signature, oldPinned.signature])
+    }
+
+    func testPolicyDropsUnpinnedItemsPastTheAgeLimit() {
+        let now = Date()
+        let policy = ClipboardHistoryPolicy(maxItems: 10, maxBytes: 1_000_000, maxAge: 90 * 86_400)
+        let fresh = ClipboardHistoryItem(payload: .text("fresh"), createdAt: now)
+        let stale = ClipboardHistoryItem(payload: .text("stale"), createdAt: now.addingTimeInterval(-91 * 86_400))
+        let oldPinned = ClipboardHistoryItem(payload: .text("old pinned"), createdAt: now.addingTimeInterval(-400 * 86_400), isPinned: true)
+        XCTAssertEqual(policy.bounded([fresh, stale, oldPinned], relativeTo: now).map(\.signature), [fresh.signature, oldPinned.signature])
+    }
+
+    func testPinnedItemsSurviveTheItemCountLimit() {
+        let policy = ClipboardHistoryPolicy(maxItems: 2, maxBytes: 1_000)
+        let pinned = ClipboardHistoryItem(payload: .text("pinned"), isPinned: true)
+        let items = [ClipboardHistoryItem(payload: .text("a")), ClipboardHistoryItem(payload: .text("b")), ClipboardHistoryItem(payload: .text("c")), pinned]
+        XCTAssertEqual(policy.bounded(items).map(\.id), [items[0].id, pinned.id])
+    }
+
+    @MainActor
+    func testKindFiltersFullTextSearchAndPinnedFirst() {
+        let pasteboard = TestPasteboardClient()
+        let state = ClipboardHistoryState(pasteboard: pasteboard, persistence: nil)
+        for payload in [ClipboardPayload.text("first line\nneedle on line two"), .text("https://example.com/path"), .image(Data([1, 2])), .files([URL(fileURLWithPath: "/tmp/x")])] {
+            pasteboard.snapshotValue = PasteboardSnapshot(types: [.string], payload: payload, sourceBundleIdentifier: "com.example")
+            pasteboard.changeCountValue += 1
+            state.captureIfChanged()
+        }
+        XCTAssertEqual(state.visibleItems.count, 4)
+
+        state.kindFilter = .links
+        XCTAssertEqual(state.visibleItems.map(\.title), ["https://example.com/path"])
+        state.kindFilter = .text
+        XCTAssertEqual(state.visibleItems.map(\.title), ["first line"])
+        state.kindFilter = .images
+        XCTAssertEqual(state.visibleItems.map(\.kindLabel), ["Image"])
+        state.kindFilter = .all
+
+        state.query = "needle"
+        XCTAssertEqual(state.visibleItems.map(\.title), ["first line"], "search reaches past the first line")
+        state.query = ""
+
+        let oldest = state.visibleItems.last!.id
+        state.select(id: oldest)
+        state.togglePinSelected()
+        XCTAssertEqual(state.visibleItems.first?.id, oldest)
+        XCTAssertTrue(state.visibleItems.first!.isPinned)
     }
 
     func testSystemPasteboardCapturesImageOnlyPasteboard() {
@@ -58,11 +111,11 @@ final class ClipboardHistoryTests: XCTestCase {
         await MainActor.run { state.start() }
         pasteboard.snapshotValue = PasteboardSnapshot(types: [NSPasteboard.PasteboardType("org.nspasteboard.ConcealedType")], payload: .text("secret"), sourceBundleIdentifier: "com.passwordmanager")
         pasteboard.changeCountValue += 1
-        await MainActor.run { state.captureIfChangedForTesting() }
+        await MainActor.run { state.captureIfChanged() }
         let emptyAfterSecret = await MainActor.run { state.items.isEmpty }
         XCTAssertTrue(emptyAfterSecret)
         pasteboard.snapshotValue = PasteboardSnapshot(types: [.string], payload: .text("later"), sourceBundleIdentifier: "com.example")
-        await MainActor.run { state.captureIfChangedForTesting() }
+        await MainActor.run { state.captureIfChanged() }
         let emptyAfterLater = await MainActor.run { state.items.isEmpty }
         XCTAssertTrue(emptyAfterLater)
     }
@@ -79,7 +132,7 @@ final class ClipboardHistoryTests: XCTestCase {
         for value in ["first", "second", "third"] {
             pasteboard.snapshotValue = PasteboardSnapshot(types: [.string], payload: .text(value), sourceBundleIdentifier: "com.example")
             pasteboard.changeCountValue += 1
-            await MainActor.run { state.captureIfChangedForTesting() }
+            await MainActor.run { state.captureIfChanged() }
         }
         await state.waitForPersistenceForTesting()
 
@@ -125,7 +178,7 @@ final class ClipboardHistoryTests: XCTestCase {
         let state = ClipboardHistoryState(pasteboard: pasteboard, persistence: persistence)
         pasteboard.snapshotValue = PasteboardSnapshot(types: [.string], payload: .text("latest"), sourceBundleIdentifier: "com.example")
         pasteboard.changeCountValue += 1
-        state.captureIfChangedForTesting()
+        state.captureIfChanged()
 
         await state.shutdown()
 

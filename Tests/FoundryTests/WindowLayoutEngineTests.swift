@@ -33,6 +33,33 @@ final class WindowLayoutEngineTests: XCTestCase {
         assertFrame(for: .rightThird, equals: CGRect(x: 666.667, y: 0, width: 333.333, height: 700))
     }
 
+    func testTwoThirdsFourthsAndCenterHalfAreFullHeightColumns() {
+        assertFrame(for: .leftTwoThirds, equals: CGRect(x: 0, y: 0, width: 666.667, height: 700))
+        assertFrame(for: .centerTwoThirds, equals: CGRect(x: 166.667, y: 0, width: 666.667, height: 700))
+        assertFrame(for: .rightTwoThirds, equals: CGRect(x: 333.333, y: 0, width: 666.667, height: 700))
+        assertFrame(for: .firstFourth, equals: CGRect(x: 0, y: 0, width: 250, height: 700))
+        assertFrame(for: .secondFourth, equals: CGRect(x: 250, y: 0, width: 250, height: 700))
+        assertFrame(for: .thirdFourth, equals: CGRect(x: 500, y: 0, width: 250, height: 700))
+        assertFrame(for: .lastFourth, equals: CGRect(x: 750, y: 0, width: 250, height: 700))
+        assertFrame(for: .firstThreeFourths, equals: CGRect(x: 0, y: 0, width: 750, height: 700))
+        assertFrame(for: .lastThreeFourths, equals: CGRect(x: 250, y: 0, width: 750, height: 700))
+        assertFrame(for: .centerHalf, equals: CGRect(x: 250, y: 0, width: 500, height: 700))
+        let gapped = WindowLayoutOptions(gap: 10, nudgeDistance: 10, resizeStep: 10, minimumSize: CGSize(width: 200, height: 140))
+        assertFrame(for: .lastFourth, options: gapped, equals: CGRect(x: 745, y: 10, width: 245, height: 680))
+    }
+
+    func testAlmostMaximizeAndMaximizeHeight() {
+        assertFrame(for: .almostMaximize, equals: CGRect(x: 50, y: 35, width: 900, height: 630))
+        assertFrame(for: .maximizeHeight, currentFrame: CGRect(x: 120, y: 200, width: 400, height: 300), equals: CGRect(x: 120, y: 0, width: 400, height: 700))
+        assertFrame(for: .maximizeHeight, currentFrame: CGRect(x: 900, y: 200, width: 400, height: 300), equals: CGRect(x: 600, y: 0, width: 400, height: 700))
+        assertFrame(for: .maximizeHeight, currentFrame: CGRect(x: -50, y: 200, width: 1400, height: 300), equals: CGRect(x: 0, y: 0, width: 1000, height: 700))
+    }
+
+    func testPlacementCountMatchesRectangleClassTools() {
+        XCTAssertEqual(WindowPlacement.allCases.count, 34)
+        XCTAssertGreaterThanOrEqual(WindowLayoutQuery.overviewResultLimit, WindowPlacement.allCases.count)
+    }
+
     func testMaximizeFillsTheVisibleFrame() {
         assertFrame(for: .maximize, equals: visibleFrame)
     }
@@ -143,7 +170,7 @@ final class WindowLayoutEngineTests: XCTestCase {
 
         XCTAssertEqual(grouped.count, WindowPlacement.allCases.count)
         XCTAssertEqual(Set(grouped), Set(WindowPlacement.allCases))
-        XCTAssertEqual(WindowLayoutGroup.common.placements, [.leftHalf, .rightHalf, .maximize, .restore])
+        XCTAssertEqual(WindowLayoutGroup.common.placements, [.leftHalf, .rightHalf, .maximize, .restore, .almostMaximize])
         XCTAssertEqual(WindowLayoutGroup.quarters.placements, [.topLeft, .topRight, .bottomLeft, .bottomRight])
         XCTAssertEqual(WindowLayoutGroup.displays.placements, [.nextDisplay, .previousDisplay])
     }
