@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct AgentShelfView: View {
-    @ObservedObject var agents: AgentMonitorState
+    var agents: AgentMonitorState
     let dismiss: () -> Void
     @State private var selectedProvider: AgentProviderKind?
 
@@ -32,7 +32,7 @@ struct AgentShelfView: View {
                     Text("Agent Shelf")
                         .font(FoundryTheme.body(size: 14, weight: .semibold))
                         .foregroundStyle(FoundryTheme.primaryText)
-                    Text("\(active.count) active · \(filteredSessions.count) tracked")
+                    Text("\(active.count) active · \(filteredSessions.count) tracked · \(agents.socketListening ? "live" : "live updates off")")
                         .font(FoundryTheme.body(size: 11, weight: .medium))
                         .foregroundStyle(FoundryTheme.mutedText)
                 }
@@ -47,6 +47,8 @@ struct AgentShelfView: View {
                 }
                 .buttonStyle(.plain)
                 .pointerCursor()
+                .help("Refresh sessions")
+                .accessibilityLabel("Refresh sessions")
             }
             .padding(.horizontal, 18)
             .padding(.vertical, 12)
@@ -69,7 +71,16 @@ struct AgentShelfView: View {
                         if recent.isEmpty == false {
                             section(title: "Recent", sessions: recent)
                         }
-                        if filteredSessions.isEmpty {
+                        if filteredSessions.isEmpty && agents.hasLoaded == false {
+                            HStack(spacing: 8) {
+                                ProgressView().controlSize(.small)
+                                Text("Looking for agent sessions…")
+                                    .font(FoundryTheme.body(size: 12, weight: .medium))
+                                    .foregroundStyle(FoundryTheme.mutedText)
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 38)
+                        } else if filteredSessions.isEmpty {
                             FoundryEmptyState(
                                 symbol: "sparkles.rectangle.stack",
                                 title: selectedProvider.map { "No \($0.rawValue) sessions found" } ?? "No agent sessions found",

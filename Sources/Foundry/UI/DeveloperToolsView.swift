@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct DeveloperToolsView: View {
-    @ObservedObject var state: DeveloperToolsState
+    @Bindable var state: DeveloperToolsState
 
     var body: some View {
         ScrollView(.vertical) {
@@ -61,7 +61,7 @@ struct DeveloperToolsView: View {
         .accessibilityLabel(tool.rawValue)
         .accessibilityValue(state.selectedTool == tool ? "Selected" : "Not selected")
         .accessibilityAddTraits(state.selectedTool == tool ? .isSelected : [])
-        .help("Use \(tool.rawValue)")
+        .help("\(tool.rawValue) · ⌘\((DeveloperToolsState.Tool.allCases.firstIndex(of: tool) ?? 0) + 1)")
     }
 
     private var baseTool: some View {

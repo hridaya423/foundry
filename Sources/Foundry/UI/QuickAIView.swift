@@ -3,47 +3,61 @@ import Foundation
 import SwiftUI
 
 struct QuickAIHeaderControlsView: View {
-    @ObservedObject var quickAI: QuickAIState
+    @Bindable var quickAI: QuickAIState
     @FocusState.Binding var inputFocused: Bool
     let onNewChat: () -> Void
+    @State private var isShowingThreads = false
 
     var body: some View {
         HStack(spacing: 8) {
             QuickAIComposer(
                 text: $quickAI.quickAIQuery,
-                placeholder: "Ask follow-up...",
+                placeholder: quickAI.activeThread?.messages.isEmpty == false ? "Ask follow-up…" : "Ask anything…",
                 onSubmit: { Task { await quickAI.submit() } }
             )
             .focused($inputFocused)
             .frame(height: 42)
 
-            Menu {
-                Button("New Chat") { onNewChat() }
-                if quickAI.quickAIThreads.isEmpty == false {
-                    Divider()
-                    ForEach(quickAI.quickAIThreads) { thread in
-                        Button(thread.title) { quickAI.selectThread(thread) }
-                    }
+            if quickAI.isQuickAILoading {
+                FoundryIconButton(systemName: "stop.circle.fill", accessibilityLabel: "Stop answering", tint: FoundryTheme.secondaryText) {
+                    quickAI.stop()
                 }
-             } label: {
+                .help("Stop (⌘.)")
+            }
+
+            Button { isShowingThreads = true } label: {
                  Image(systemName: "text.bubble")
                      .font(.system(size: 15, weight: .medium))
                      .foregroundStyle(FoundryTheme.secondaryText)
                      .frame(width: 30, height: 30)
              }
-             .menuStyle(.borderlessButton)
+             .buttonStyle(.plain)
              .pointerCursor()
+             .help("Chats")
+             .accessibilityLabel("Chats")
+             .popover(isPresented: $isShowingThreads, arrowEdge: .bottom) {
+                 QuickAIThreadPicker(quickAI: quickAI, onNewChat: {
+                     isShowingThreads = false
+                     onNewChat()
+                 }, isPresented: $isShowingThreads)
+             }
         }
     }
 }
 
 struct QuickAISurfaceView: View {
-    @ObservedObject var quickAI: QuickAIState
+    @Bindable var quickAI: QuickAIState
+    var onOpenAISettings: (() -> Void)?
 
     var body: some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 18) {
-                if let active = quickAI.quickAIThreads.first(where: { $0.id == quickAI.activeQuickAIThreadID }) {
+                if let active = quickAI.activeThread, active.messages.isEmpty, quickAI.isQuickAILoading == false {
+                    QuickAIEmptyState { prompt in
+                        quickAI.quickAIQuery = prompt
+                        Task { await quickAI.submit() }
+                    }
+                } else if let active = quickAI.activeThread {
                     ForEach(active.messages) { message in
                         quickAIMessageRow(message)
                     }
@@ -65,8 +79,15 @@ struct QuickAISurfaceView: View {
                 }
 
                 if quickAI.quickAILastFailedPrompt != nil, quickAI.isQuickAILoading == false {
-                    FoundryActionButton(title: "Retry", systemName: "arrow.clockwise") {
-                        quickAI.retry()
+                    HStack(spacing: 10) {
+                        FoundryActionButton(title: "Retry", systemName: "arrow.clockwise") {
+                            quickAI.retry()
+                        }
+                        if let onOpenAISettings {
+                            FoundryActionButton(title: "AI Settings", systemName: "gear") {
+                                onOpenAISettings()
+                            }
+                        }
                     }
                         .padding(.top, 2)
                 }
@@ -79,14 +100,8 @@ struct QuickAISurfaceView: View {
     @ViewBuilder
     private func quickAIMessageRow(_ message: AIChatMessage) -> some View {
         if message.role == .tool {
-            let isRunning = message.content.hasPrefix("running:")
-            let isComplete = message.content.hasPrefix("complete:")
-            let markerLength = isRunning ? 8 : isComplete ? 9 : 0
-            let payload = String(message.content.dropFirst(markerLength))
-            let parts = payload.split(separator: "\n", maxSplits: 1, omittingEmptySubsequences: false)
-            let name = parts.first.map(String.init) ?? payload
-            let result = parts.dropFirst().first.map(String.init)
-            QuickAIToolEventRow(name: name, isRunning: isRunning, result: result)
+            let event = message.toolEvent ?? .init(name: message.content, result: "")
+            QuickAIToolEventRow(name: event.name, isRunning: event.isRunning, result: event.result)
         } else {
             HStack(alignment: .firstTextBaseline, spacing: 12) {
                 Image(systemName: message.role == .user ? "person.crop.circle" : "sparkles")
@@ -99,8 +114,69 @@ struct QuickAISurfaceView: View {
                     .foregroundStyle(message.role == .user ? FoundryTheme.secondaryText : FoundryTheme.primaryText)
                     .textSelection(.enabled)
                     .frame(maxWidth: .infinity, alignment: .leading)
+
+                if message.role == .assistant {
+                    CopyMessageButton(content: message.content)
+                }
             }
         }
+    }
+}
+
+private struct QuickAIEmptyState: View {
+    let ask: (String) -> Void
+
+    private static let suggestions = [
+        "Summarize what's on my clipboard",
+        "Explain a shell command",
+        "Draft a short, friendly reply"
+    ]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Ask anything")
+                .font(FoundryTheme.body(size: 17, weight: .semibold))
+                .foregroundStyle(FoundryTheme.primaryText)
+            Text("Answers stream here. Press ⌘N for a new chat, ⌘. to stop.")
+                .font(FoundryTheme.body(size: 12, weight: .regular))
+                .foregroundStyle(FoundryTheme.mutedText)
+            ForEach(Self.suggestions, id: \.self) { suggestion in
+                Button { ask(suggestion) } label: {
+                    Label(suggestion, systemImage: "sparkles")
+                        .font(FoundryTheme.body(size: 13, weight: .medium))
+                        .foregroundStyle(FoundryTheme.secondaryText)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 8)
+                        .background(Color.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                }
+                .buttonStyle(PressableButtonStyle())
+                .pointerCursor()
+            }
+        }
+        .padding(.top, 8)
+    }
+}
+
+private struct CopyMessageButton: View {
+    let content: String
+    @State private var copied = false
+
+    var body: some View {
+        Button {
+            NSPasteboard.general.clearContents()
+            NSPasteboard.general.setString(content, forType: .string)
+            copied = true
+            Task { try? await Task.sleep(for: .seconds(1.2)); copied = false }
+        } label: {
+            Image(systemName: copied ? "checkmark" : "doc.on.doc")
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(FoundryTheme.faintText)
+                .frame(width: 22, height: 22)
+        }
+        .buttonStyle(.plain)
+        .pointerCursor()
+        .accessibilityLabel(copied ? "Copied" : "Copy answer")
+        .help("Copy answer")
     }
 }
 
@@ -192,18 +268,41 @@ private enum QuickAIToolPresentation {
     }
 }
 
-private struct AIFormattedText: View {
+struct AIFormattedText: View {
     let content: String
 
+    final class ParsedBox: NSObject {
+        let value: AttributedString
+        init(_ value: AttributedString) { self.value = value }
+    }
+
+    static let parsedCache: NSCache<NSString, ParsedBox> = {
+        let cache = NSCache<NSString, ParsedBox>()
+        cache.countLimit = 200
+        return cache
+    }()
+
+    static func releaseCachedMarkdown() {
+        parsedCache.removeAllObjects()
+    }
+
     var body: some View {
-        if let attributed = try? AttributedString(
-            markdown: content,
-            options: .init(interpretedSyntax: .inlineOnlyPreservingWhitespace)
-        ) {
+        if let attributed = Self.attributed(content) {
             Text(attributed)
         } else {
             Text(content)
         }
+    }
+
+    private static func attributed(_ content: String) -> AttributedString? {
+        let key = content as NSString
+        if let cached = parsedCache.object(forKey: key) { return cached.value }
+        guard let parsed = try? AttributedString(
+            markdown: content,
+            options: .init(interpretedSyntax: .inlineOnlyPreservingWhitespace)
+        ) else { return nil }
+        parsedCache.setObject(ParsedBox(parsed), forKey: key)
+        return parsed
     }
 }
 
@@ -313,5 +412,47 @@ private final class QuickAITextViewContent: NSTextView {
             .foregroundColor: NSColor.labelColor.withAlphaComponent(0.34)
         ]
         placeholder.draw(in: NSRect(x: 4, y: 10, width: bounds.width - 8, height: 24), withAttributes: attrs)
+    }
+}
+
+private struct QuickAIThreadPicker: View {
+    @Bindable var quickAI: QuickAIState
+    let onNewChat: () -> Void
+    @Binding var isPresented: Bool
+    @State private var filter = ""
+
+    private var threads: [AIChatThread] {
+        let needle = filter.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard needle.isEmpty == false else { return quickAI.quickAIThreads }
+        return quickAI.quickAIThreads.filter { $0.title.lowercased().contains(needle) }
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            TextField("Search chats…", text: $filter)
+                .textFieldStyle(.roundedBorder)
+            Button("New Chat") { onNewChat() }
+                .keyboardShortcut("n")
+            Divider()
+            if threads.isEmpty {
+                Text(quickAI.quickAIThreads.isEmpty ? "No chats yet" : "No matching chats")
+                    .font(FoundryTheme.body(size: 12, weight: .regular))
+                    .foregroundStyle(FoundryTheme.faintText)
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .padding(.vertical, 10)
+            } else {
+                List(threads) { thread in
+                    Button(thread.title) {
+                        quickAI.selectThread(thread)
+                        isPresented = false
+                    }
+                    .buttonStyle(.plain)
+                }
+                .listStyle(.plain)
+                .scrollIndicators(.never)
+            }
+        }
+        .padding(10)
+        .frame(width: 260, height: 300)
     }
 }

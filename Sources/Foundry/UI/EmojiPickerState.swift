@@ -1,24 +1,79 @@
 import AppKit
 import Foundation
+import Observation
 
 @MainActor
-final class EmojiPickerState: ObservableObject {
-    @Published var query = "" {
+@Observable
+final class EmojiPickerState {
+    var query = "" {
         didSet { keepSelectionValid() }
     }
-    @Published var selectedID: String?
+    var selectedID: String?
 
-    private let columns = 12
+    private(set) var recentValues: [String]
 
-    var pinned: [EmojiItem] {
-        ["😍", "😋", "🥵", "😂", "❤️", "🔥"].compactMap { value in
+    private(set) var columns: Int
+    private static let columnsKey = "emoji.columns"
+    static let columnOptions = [10, 12, 14]
+    private let defaults: UserDefaults
+    private static let recentsKey = "emoji.recents"
+    private static let recentLimit = 12
+    private static let suggestedValues = ["👍", "😂", "❤️", "🔥", "🎉", "✅"]
+
+    private(set) var skinTone: String
+    static let skinTones = ["", "🏻", "🏼", "🏽", "🏾", "🏿"]
+    private static let skinToneKey = "emoji.skinTone"
+
+    init(defaults: UserDefaults = .standard) {
+        self.defaults = defaults
+        self.recentValues = defaults.stringArray(forKey: Self.recentsKey) ?? []
+        let storedColumns = defaults.integer(forKey: Self.columnsKey)
+        self.columns = Self.columnOptions.contains(storedColumns) ? storedColumns : 12
+        let storedTone = defaults.string(forKey: Self.skinToneKey) ?? ""
+        self.skinTone = Self.skinTones.contains(storedTone) ? storedTone : ""
+    }
+
+    var hasRecents: Bool { recentValues.isEmpty == false }
+
+    var recents: [EmojiItem] {
+        (hasRecents ? recentValues : Self.suggestedValues).compactMap { value in
             Self.allEmoji.first { $0.value == value }
         }
     }
 
+    func cycleColumns() {
+        guard let index = Self.columnOptions.firstIndex(of: columns) else { return }
+        columns = Self.columnOptions[(index + 1) % Self.columnOptions.count]
+        defaults.set(columns, forKey: Self.columnsKey)
+    }
+
+    func recordRecent(_ value: String) {
+        recentValues = Array(([value] + recentValues.filter { $0 != value }).prefix(Self.recentLimit))
+        defaults.set(recentValues, forKey: Self.recentsKey)
+    }
+
+    func cycleSkinTone() {
+        guard let index = Self.skinTones.firstIndex(of: skinTone) else { return }
+        skinTone = Self.skinTones[(index + 1) % Self.skinTones.count]
+        defaults.set(skinTone, forKey: Self.skinToneKey)
+    }
+
+    func toneAppliedValue(_ item: EmojiItem) -> String {
+        guard skinTone.isEmpty == false else { return item.value }
+        let base = Self.stripTones(item.value)
+        guard Self.toneableBases.contains(base) else { return item.value }
+        return base + skinTone
+    }
+
+    static func stripTones(_ value: String) -> String {
+        String(String.UnicodeScalarView(value.unicodeScalars.filter { (0x1F3FB ... 0x1F3FF).contains($0.value) == false }))
+    }
+
     var visibleEmoji: [EmojiItem] {
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        guard trimmed.isEmpty == false else { return Self.allEmoji }
+        guard trimmed.isEmpty == false else {
+            return Self.allEmoji.filter { Self.stripTones($0.value) == $0.value }
+        }
         return Self.allEmoji.filter { item in
             item.value == trimmed
                 || item.name.contains(trimmed)
@@ -68,8 +123,10 @@ final class EmojiPickerState: ObservableObject {
     @discardableResult
     func copySelectedEmoji() -> Bool {
         guard let selectedEmoji else { return false }
+        let value = toneAppliedValue(selectedEmoji)
         NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(selectedEmoji.value, forType: .string)
+        NSPasteboard.general.setString(value, forType: .string)
+        recordRecent(value)
         return true
     }
 
@@ -98,6 +155,16 @@ struct EmojiItem: Identifiable, Hashable, Sendable {
 
 private extension EmojiPickerState {
     static let allEmoji: [EmojiItem] = loadEmojiCatalog() + extraSymbols
+
+    static let toneableBases: Set<String> = {
+        let values = Set(allEmoji.map(\.value))
+        var bases = Set<String>()
+        for value in values {
+            let base = stripTones(value)
+            if base != value, values.contains(base) { bases.insert(base) }
+        }
+        return bases
+    }()
 
     static func loadEmojiCatalog() -> [EmojiItem] {
         guard let url = Bundle.module.url(forResource: "emoji", withExtension: "tsv"),

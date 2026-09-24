@@ -54,6 +54,28 @@ struct AIChatMessage: Identifiable, Codable, Hashable, Sendable {
         self.content = content
         self.createdAt = createdAt
     }
+
+    struct ToolEvent: Equatable {
+        let name: String
+        let result: String?
+        var isRunning: Bool { result == nil }
+    }
+
+    static func tool(_ event: ToolEvent) -> AIChatMessage {
+        AIChatMessage(role: .tool, content: event.encoded)
+    }
+
+    var toolEvent: ToolEvent? {
+        guard role == .tool else { return nil }
+        if content.hasPrefix("running:") { return ToolEvent(name: String(content.dropFirst(8)), result: nil) }
+        guard content.hasPrefix("complete:") else { return nil }
+        let parts = content.dropFirst(9).split(separator: "\n", maxSplits: 1, omittingEmptySubsequences: false)
+        return ToolEvent(name: String(parts.first ?? ""), result: parts.count > 1 ? String(parts[1]) : "")
+    }
+}
+
+extension AIChatMessage.ToolEvent {
+    var encoded: String { result.map { "complete:\(name)\n\($0)" } ?? "running:\(name)" }
 }
 
 enum AIConversationContext {

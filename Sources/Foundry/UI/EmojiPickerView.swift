@@ -2,21 +2,34 @@ import AppKit
 import SwiftUI
 
 struct EmojiPickerView: View {
-    @ObservedObject var state: EmojiPickerState
+    var state: EmojiPickerState
     let copyAndDismiss: () -> Void
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    private let columns = Array(repeating: GridItem(.fixed(44), spacing: 10), count: 12)
+    private var columns: [GridItem] { Array(repeating: GridItem(.fixed(44), spacing: 10), count: state.columns) }
 
     var body: some View {
         ScrollViewReader { proxy in
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
                     if state.query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                        emojiSection(title: "Pinned", items: state.pinned)
+                        emojiSection(title: state.hasRecents ? "Recent" : "Suggested", items: state.recents)
                     }
 
-                    emojiSection(title: state.query.isEmpty ? "All" : "Results", items: state.visibleEmoji)
+                    emojiSection(title: state.query.isEmpty ? "All" : "Results", items: state.visibleEmoji) {
+                        Button(action: state.cycleColumns) {
+                            Image(systemName: "rectangle.grid.3x2")
+                                .font(.system(size: 11, weight: .semibold))
+                                .foregroundStyle(FoundryTheme.mutedText)
+                                .frame(width: 24, height: 24)
+                                .background(Color.primary.opacity(0.06))
+                                .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
+                        }
+                        .buttonStyle(.plain)
+                        .pointerCursor()
+                        .help("\(state.columns) columns — click to cycle 10, 12, 14")
+                        .accessibilityLabel("Grid columns, \(state.columns)")
+                    }
                 }
                 .padding(.horizontal, 20)
                 .padding(.vertical, 16)
@@ -31,13 +44,17 @@ struct EmojiPickerView: View {
         }
     }
 
-    private func emojiSection(title: String, items: [EmojiItem]) -> some View {
+    private func emojiSection<Trailing: View>(title: String, items: [EmojiItem], @ViewBuilder trailing: () -> Trailing = { EmptyView() }) -> some View {
         VStack(alignment: .leading, spacing: 12) {
+            HStack {
             Text(title)
                 .font(FoundryTheme.body(size: 11, weight: .semibold))
                 .foregroundStyle(FoundryTheme.faintText)
                 .textCase(.uppercase)
                 .tracking(0.5)
+            Spacer()
+            trailing()
+            }
 
             if items.isEmpty {
                 Text("No matching emoji")

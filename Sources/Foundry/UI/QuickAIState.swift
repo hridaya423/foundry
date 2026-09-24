@@ -1,15 +1,17 @@
 import Foundation
 import SwiftUI
+import Observation
 
 @MainActor
-final class QuickAIState: ObservableObject {
-    @Published var quickAIQuery = ""
-    @Published var quickAIResponse = ""
-    @Published var quickAIStatus = ""
-    @Published var isQuickAILoading = false
-    @Published var quickAILastFailedPrompt: String?
-    @Published var quickAIThreads: [AIChatThread]
-    @Published var activeQuickAIThreadID: UUID?
+@Observable
+final class QuickAIState {
+    var quickAIQuery = ""
+    var quickAIResponse = ""
+    var quickAIStatus = ""
+    var isQuickAILoading = false
+    var quickAILastFailedPrompt: String?
+    var quickAIThreads: [AIChatThread]
+    var activeQuickAIThreadID: UUID?
 
     private let aiProvider: AIProvider
     private let aiChatStore: any AIChatStoring
@@ -94,6 +96,15 @@ final class QuickAIState: ObservableObject {
         quickAITask = Task { [weak self] in
             await self?.performQuickAI(prompt: prompt, persistUserMessage: false, threadID: threadID, requestID: requestID)
         }
+    }
+
+    var activeThread: AIChatThread? {
+        quickAIThreads.first { $0.id == activeQuickAIThreadID }
+    }
+
+    func stop() {
+        guard isQuickAILoading else { return }
+        quickAITask?.cancel()
     }
 
     func selectThread(_ thread: AIChatThread) {
@@ -189,9 +200,7 @@ final class QuickAIState: ObservableObject {
         for await event in aiProvider.stream(prompt: prompt, context: conversationContext, profileID: profileID, sessionID: threadID.uuidString) {
             guard Task.isCancelled == false else {
                 guard isCurrentQuickAIRequest(requestID, threadID: threadID) else { return }
-                isQuickAILoading = false
-                quickAIStatus = "Cancelled"
-                quickAILastFailedPrompt = prompt
+                finishCancelled(prompt: prompt, partial: response, threadID: threadID)
                 return
             }
             guard isCurrentQuickAIRequest(requestID, threadID: threadID) else { return }
@@ -224,9 +233,7 @@ final class QuickAIState: ObservableObject {
 
         guard Task.isCancelled == false else {
             guard isCurrentQuickAIRequest(requestID, threadID: threadID) else { return }
-            isQuickAILoading = false
-            quickAIStatus = "Cancelled"
-            quickAILastFailedPrompt = prompt
+            finishCancelled(prompt: prompt, partial: response, threadID: threadID)
             return
         }
         guard isCurrentQuickAIRequest(requestID, threadID: threadID) else { return }
@@ -242,17 +249,31 @@ final class QuickAIState: ObservableObject {
         }
     }
 
+    func finishCancelled(prompt: String, partial: String, threadID: UUID) {
+        isQuickAILoading = false
+        quickAIResponse = partial
+        guard partial.isEmpty == false, let index = quickAIThreads.firstIndex(where: { $0.id == threadID }) else {
+            quickAIStatus = "Stopped"
+            quickAILastFailedPrompt = prompt
+            return
+        }
+        quickAIStatus = "Stopped"
+        quickAIThreads[index].messages.append(AIChatMessage(role: .assistant, content: partial))
+        quickAIThreads[index].updatedAt = .now
+        persistAIThreads()
+    }
+
     private func recordToolStarted(_ name: String, threadID: UUID) {
         guard let index = quickAIThreads.firstIndex(where: { $0.id == threadID }) else { return }
-        quickAIThreads[index].messages.append(AIChatMessage(role: .tool, content: "running:\(name)"))
+        quickAIThreads[index].messages.append(.tool(.init(name: name, result: nil)))
         quickAIThreads[index].updatedAt = .now
         persistAIThreads()
     }
 
     private func recordToolFinished(_ name: String, result: String, threadID: UUID) {
         guard let threadIndex = quickAIThreads.firstIndex(where: { $0.id == threadID }),
-              let messageIndex = quickAIThreads[threadIndex].messages.lastIndex(where: { $0.role == .tool && $0.content == "running:\(name)" }) else { return }
-        quickAIThreads[threadIndex].messages[messageIndex].content = "complete:\(name)\n\(String(result.prefix(1800)))"
+              let messageIndex = quickAIThreads[threadIndex].messages.lastIndex(where: { $0.toolEvent == .init(name: name, result: nil) }) else { return }
+        quickAIThreads[threadIndex].messages[messageIndex].content = AIChatMessage.ToolEvent(name: name, result: String(result.prefix(1800))).encoded
         quickAIThreads[threadIndex].updatedAt = .now
         persistAIThreads()
     }
