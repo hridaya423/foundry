@@ -1,11 +1,14 @@
 import AppKit
 import Foundation
+import ServiceManagement
 import SwiftUI
 import FoundryDomain
 import FoundryServices
+import Observation
 
 @MainActor
-final class CommandPanelState: ObservableObject {
+@Observable
+final class CommandPanelState {
     enum Mode {
         case search
         case quickAI
@@ -18,61 +21,99 @@ final class CommandPanelState: ObservableObject {
         case translator
         case developerTools
         case agents
-        case settings
         case mediaDownloads
+        case settings
     }
 
-    @Published var query = "" {
+    var query = "" {
         didSet { refreshResults() }
     }
-    @Published var results: [CommandResult] = []
-    @Published var selectedResultID: String?
-    @Published private(set) var selectionScrollToken = UUID()
-    @Published var isShowingActions = false
-    @Published var selectedActionID: String?
-    @Published var diagnosticsSummary = "IDLE"
-    @Published var mode: Mode = .search
-    @Published var focusToken = UUID()
-    @Published private(set) var isSearchLoading = false
-    @Published private(set) var isHomeLoading = false
-    @Published var hoverHighlightsArmed = true
-    @Published private(set) var actionFeedback: ActionFeedback? = nil
-    @Published var isAgentShelfVisible: Bool
-    @Published var hotkey: FoundryHotkey
-    @Published var hotkeyError: String? = nil
-    @Published var themeIntensity: Double
-    @Published var searchSensitivity: SearchSensitivity
-    @Published var settingsPersistenceError: String?
-    @Published private(set) var snippetExpansion: SnippetExpansionConfig
-    @Published private(set) var snippetExpansionError: String?
-    @Published var commandSettingsQuery = "" {
+    var results: [CommandResult] = []
+    var selectedResultID: String?
+    private(set) var selectionScrollToken = UUID()
+    var isShowingActions = false {
+        didSet {
+            if isShowingActions { prepareOpenWithActions() }
+            else { openWithTask?.cancel(); openWithActions = [] }
+        }
+    }
+    var actionFilter = "" {
+        didSet { if isShowingActions { selectedActionID = visibleActions.first?.id } }
+    }
+    private var openWithActions: [CommandAction] = []
+    private var openWithTask: Task<Void, Never>?
+    var selectedActionID: String?
+    var mode: Mode = .search {
+        didSet {
+            guard mode != oldValue else { return }
+            let span = diagnostics.startSpan("mode.switch")
+            DispatchQueue.main.async { [diagnostics] in
+                diagnostics.endSpan(span)
+            }
+        }
+    }
+    var focusToken = UUID()
+    var presentationToken = UUID()
+    private(set) var isSearchLoading = false
+    private(set) var isHomeLoading = false
+    var hoverHighlightsArmed = true
+    private(set) var actionFeedback: ActionFeedback? = nil
+    var isAgentShelfVisible: Bool
+    var hotkey: FoundryHotkey
+    var hotkeyError: String? = nil
+    private(set) var launcherHotkeyFailed = false
+    var showMenuBarIcon: Bool
+    var popToRootAfterSeconds: Double
+    var windowMode: WindowMode
+    private(set) var launchAtLoginError: String?
+    private(set) var mainBrowser: BrowserSource?
+    var themeIntensity: Double
+    var searchSensitivity: SearchSensitivity
+    var settingsPersistenceError: String?
+    private(set) var snippetExpansion: SnippetExpansionConfig
+    private(set) var snippetExpansionError: String?
+    var commandSettingsQuery = "" {
         didSet { rebuildCommandRows() }
     }
-    @Published private(set) var commandDescriptors: [CommandDescriptor] = []
-    @Published private(set) var commandPreferences: [String: CommandPreference]
-    @Published private(set) var commandRows: [CommandSettingsRowModel] = []
-    @Published private(set) var visibleCommandRows: [CommandSettingsRowModel] = []
-    @Published private(set) var commandCatalogFailures: [String] = []
-    @Published private(set) var isCommandCatalogLoading = false
-    @Published private(set) var isCommandCatalogReady = false
-    @Published private(set) var configLoadError: String?
-    @Published var expandedCommandID: String?
+    private(set) var commandDescriptors: [CommandDescriptor] = []
+    private(set) var commandPreferences: [String: CommandPreference]
+    private(set) var commandRows: [CommandSettingsRowModel] = []
+    private(set) var visibleCommandRows: [CommandSettingsRowModel] = []
+    private(set) var commandCatalogFailures: [String] = []
+    private(set) var isCommandCatalogLoading = false
+    private(set) var isCommandCatalogReady = false
+    private(set) var configLoadError: String?
+    var expandedCommandID: String?
     var onHotkeyChanged: ((FoundryHotkey) throws -> Void)?
     var onCommandPreferencesChanged: (() -> Void)?
+    var onMenuBarIconVisibilityChanged: ((Bool) -> Void)?
+    var onCompactCollapseChanged: ((Bool) -> Void)?
+    var onOpenSettings: (() -> Void)?
+    var onQuickLook: ((URL) -> Void)?
+    var onTransientNotice: ((ActionFeedback) -> Void)?
+    var pendingSettingsCommandID: String?
+    var onOpenWelcomeGuide: (() -> Void)?
+    var onSnippetExpansionChanged: (() -> Void)?
+    var onRequestSnippetAccessibility: (() -> Void)?
+    var onOpenSnippetPrivacySettings: (() -> Void)?
+    var onResultExecuted: (() -> Void)?
+    var now: () -> Date = Date.init
+    private var lastClosedAt: Date?
 
-    let emojiPicker = EmojiPickerState()
+    @ObservationIgnored lazy var emojiPicker = EmojiPickerState()
     let fileShelf = FileShelfState()
     let agents = AgentMonitorState()
     let clipboardHistory: ClipboardHistoryState
     let snippets: SnippetState
-    let fileConversion = FileConversionState()
-    let camera = CameraPreviewState()
-    let translator = TranslatorState()
-    let developerTools = DeveloperToolsState()
+    @ObservationIgnored lazy var fileConversion = FileConversionState()
+    @ObservationIgnored lazy var camera = CameraPreviewState()
+    @ObservationIgnored lazy var translator = TranslatorState()
+    @ObservationIgnored lazy var developerTools = DeveloperToolsState()
     let widgetBoard: WidgetBoardState
     let aiSettings: AISettingsState
     let quickAI: QuickAIState
     let mediaDownloads: MediaDownloadManager
+    let installedBrowsers: [BrowserSource]
     private let configService: ConfigService
 
     private let registry: CommandRegistry
@@ -81,11 +122,14 @@ final class CommandPanelState: ObservableObject {
     private let diagnostics: DiagnosticsService
     private var activeActionCancellationID: UUID?
     private var actionGeneration = 0
-    @Published private(set) var isActionInProgress = false
+    private(set) var isActionInProgress = false
     private var feedbackTask: Task<Void, Never>?
     private var commandCatalogTask: Task<Void, Never>?
     private var isPanelOpen = false
     private var homeRefreshID = UUID()
+
+    private(set) var favoriteResults: [CommandResult] = []
+    private(set) var runningAppBundleIDs: Set<String> = []
 
     var selectedResult: CommandResult? {
         results.first { $0.id == selectedResultID }
@@ -93,16 +137,70 @@ final class CommandPanelState: ObservableObject {
 
     var selectedActions: [CommandAction] {
         guard let selectedResult else { return [] }
+        let isFavorite = commandPreferences[selectedResult.id]?.favoriteRank != nil
         return orderedActions(for: selectedResult)
+            + openWithActions
             + [CommandAction(
+                id: "favorite.toggle.\(selectedResult.id)",
+                title: isFavorite ? "Remove from Favorites" : "Add to Favorites",
+                kind: .toggleFavorite(commandID: selectedResult.id)
+            ), CommandAction(
                 id: "ranking.reset.\(selectedResult.id)",
                 title: "Reset Ranking",
                 kind: .resetRanking(commandID: selectedResult.id)
+            ), CommandAction(
+                id: "settings.configure.\(selectedResult.id)",
+                title: "Configure Command",
+                kind: .openCommandSettings(commandID: selectedResult.id)
             )]
     }
 
     var selectedAction: CommandAction? {
         selectedActions.first { $0.id == selectedActionID }
+    }
+
+    private func prepareOpenWithActions() {
+        guard let result = selectedResult, result.id.hasPrefix("file.") else { return }
+        let path = String(result.id.dropFirst("file.".count))
+        let resultID = result.id
+        openWithTask = Task { [weak self] in
+            let url = URL(fileURLWithPath: path)
+            let (apps, defaultApp) = await Task.detached { () -> ([URL], URL?) in
+                let apps = NSWorkspace.shared.urlsForApplications(toOpen: url)
+                return (apps, NSWorkspace.shared.urlForApplication(toOpen: url))
+            }.value
+            guard Task.isCancelled == false else { return }
+            let selfBundleID = Bundle.main.bundleIdentifier
+            var actions: [CommandAction] = []
+            for appURL in apps.prefix(12) {
+                let bundle = Bundle(url: appURL)
+                if bundle?.bundleIdentifier == selfBundleID { continue }
+                let name = bundle?.localizedInfoDictionary?["CFBundleName"] as? String
+                    ?? bundle?.infoDictionary?["CFBundleName"] as? String
+                    ?? appURL.deletingPathExtension().lastPathComponent
+                let isDefault = appURL == defaultApp
+                actions.append(CommandAction(
+                    id: "openwith.\(resultID).\(bundle?.bundleIdentifier ?? appURL.path)",
+                    title: "Open with \(name)\(isDefault ? " — Default" : "")",
+                    kind: .openFileWithApp(path: path, appPath: appURL.path)
+                ))
+            }
+            guard let self, Task.isCancelled == false else { return }
+            self.openWithActions = actions
+        }
+    }
+
+    var visibleActions: [CommandAction] {
+        let tokens = actionFilter.lowercased().split(separator: " ")
+        guard tokens.isEmpty == false else { return selectedActions }
+        return selectedActions.filter { action in
+            let title = action.title.lowercased()
+            return tokens.allSatisfy { title.contains($0) }
+        }
+    }
+
+    var actionShortcuts: [String: ActionShortcut] {
+        ActionShortcut.assign(to: selectedActions)
     }
 
     init(
@@ -122,7 +220,12 @@ final class CommandPanelState: ObservableObject {
         self.clipboardHistory = clipboardHistory ?? ClipboardHistoryState(configuration: config.current.clipboard)
         self.snippets = SnippetState(store: snippetStore)
         self.isAgentShelfVisible = config.current.showAgentShelf
+        self.showMenuBarIcon = config.current.showMenuBarIcon
+        self.popToRootAfterSeconds = config.current.popToRootAfterSeconds
+        self.windowMode = config.current.windowMode
         self.hotkey = config.current.hotkey
+        self.mainBrowser = UserDefaults.standard.string(forKey: "foundry.mainBrowser").flatMap(BrowserSource.init(rawValue:))
+        self.installedBrowsers = BrowserSource.allCases.filter(\.isInstalled)
         self.themeIntensity = config.current.themeIntensity
         self.searchSensitivity = config.current.searchSensitivity
         self.settingsPersistenceError = nil
@@ -138,6 +241,17 @@ final class CommandPanelState: ObservableObject {
         self.widgetBoard.persistenceErrorHandler = { [weak self] error in
             self?.showSettingsPersistenceError(error)
         }
+        Task { [weak self] in
+            try? await Task.sleep(for: .seconds(2))
+            self?.ensureAgentsSocket()
+        }
+    }
+
+    private var agentsSocketStarted = false
+
+    private func ensureAgentsSocket() {
+        guard agentsSocketStarted == false else { return }
+        agentsSocketStarted = true
         agents.startSocket()
     }
 
@@ -151,26 +265,6 @@ final class CommandPanelState: ObservableObject {
                 return
             }
             self?.actionFeedback = nil
-        }
-    }
-
-    func setAgentShelfVisible(_ isVisible: Bool) {
-        guard isAgentShelfVisible != isVisible else { return }
-        let previous = isAgentShelfVisible
-        isAgentShelfVisible = isVisible
-        do {
-            try configService.updateAgentShelfVisibility(isVisible)
-            settingsPersistenceError = nil
-            if isPanelOpen {
-                if isVisible {
-                    agents.start()
-                } else {
-                    agents.stopPolling()
-                }
-            }
-        } catch {
-            isAgentShelfVisible = previous
-            showSettingsPersistenceError(error)
         }
     }
 
@@ -200,16 +294,80 @@ final class CommandPanelState: ObservableObject {
         }
     }
 
-    func setThemeIntensity(_ intensity: Double) {
-        let previous = themeIntensity
-        themeIntensity = intensity
+    @discardableResult
+    private func applySetting<Value>(_ keyPath: ReferenceWritableKeyPath<CommandPanelState, Value>, _ value: Value, save: (Value) throws -> Void) -> Bool {
+        let previous = self[keyPath: keyPath]
+        self[keyPath: keyPath] = value
         do {
-            try configService.updateThemeIntensity(intensity)
+            try save(value)
             settingsPersistenceError = nil
+            return true
         } catch {
-            themeIntensity = previous
+            self[keyPath: keyPath] = previous
             showSettingsPersistenceError(error)
+            return false
         }
+    }
+
+    func setMenuBarIconVisible(_ visible: Bool) {
+        if applySetting(\.showMenuBarIcon, visible, save: configService.updateMenuBarIconVisibility) {
+            onMenuBarIconVisibilityChanged?(visible)
+        }
+    }
+
+    func setLauncherHotkeyFailed(_ failed: Bool) {
+        launcherHotkeyFailed = failed
+    }
+
+    var launchAtLoginAvailable: Bool {
+        Bundle.main.bundleURL.pathExtension == "app" && Bundle.main.bundleIdentifier == "com.hridya.foundry"
+    }
+
+    var launchAtLoginEnabled: Bool {
+        SMAppService.mainApp.status == .enabled
+    }
+
+    func setLaunchAtLogin(_ enabled: Bool) {
+        guard launchAtLoginAvailable else { return }
+        do {
+            if enabled {
+                try SMAppService.mainApp.register()
+            } else {
+                try SMAppService.mainApp.unregister()
+            }
+            UserDefaults.standard.set(enabled, forKey: "foundry.launchAtLoginConsent")
+            launchAtLoginError = nil
+        } catch {
+            launchAtLoginError = "Could not update launch at login: \(error.localizedDescription)"
+            diagnostics.log("Launch at login update failed: \(error.localizedDescription)")
+        }
+    }
+
+    func setMainBrowser(_ browser: BrowserSource) {
+        mainBrowser = browser
+        UserDefaults.standard.set(browser.rawValue, forKey: "foundry.mainBrowser")
+        if browser == .firefox {
+            FirefoxConnectorInstaller(diagnostics: diagnostics).requestFirefoxConnector()
+        }
+    }
+
+    func setThemeIntensity(_ intensity: Double) {
+        applySetting(\.themeIntensity, intensity, save: configService.updateThemeIntensity)
+    }
+
+    func setPopToRootAfter(_ seconds: Double) {
+        applySetting(\.popToRootAfterSeconds, seconds, save: configService.updatePopToRootAfter)
+    }
+
+    func setWindowMode(_ mode: WindowMode) {
+        applySetting(\.windowMode, mode, save: configService.updateWindowMode)
+    }
+
+    var compactCollapsed: Bool {
+        windowMode == .compact
+            && mode == .search
+            && query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            && isShowingActions == false
     }
 
     private func showSettingsPersistenceError(_ error: Error) {
@@ -218,48 +376,61 @@ final class CommandPanelState: ObservableObject {
     }
 
     func resetForOpen() {
+        let span = diagnostics.startSpan("panel.resetForOpen")
+        defer { diagnostics.endSpan(span) }
         detachActiveAction()
         isPanelOpen = true
-        mode = .search
+        ensureAgentsSocket()
+        let shouldRestore = lastClosedAt.map { now().timeIntervalSince($0) < popToRootAfterSeconds } ?? false
         isSearchLoading = false
+        clipboardHistory.captureIfChanged()
         widgetBoard.start()
         if isAgentShelfVisible {
             agents.start()
         } else {
             agents.stopPolling()
         }
-        emojiPicker.reset()
+        if shouldRestore {
+            isShowingActions = false
+            selectedActionID = nil
+            return
+        }
+        mode = .search
+        resetTransientFeatures()
         clipboardHistory.reset()
         snippets.reset()
-        fileConversion.reset()
-        camera.stop()
-        translator.reset()
-        developerTools.reset()
         query = ""
         quickAI.resetTransientState()
         results = []
         selectedResultID = nil
         isShowingActions = false
         selectedActionID = nil
-        refreshStatusSummary()
     }
 
     func panelWillClose() {
         detachActiveAction()
         isPanelOpen = false
+        lastClosedAt = now()
         homeRefreshID = UUID()
         isSearchLoading = false
         isHomeLoading = false
         searchCoordinator.cancel()
         widgetBoard.stop()
-        emojiPicker.reset()
+        resetTransientFeatures()
         clipboardHistory.reset()
         snippets.reset()
+        agents.stopPolling()
+        ClipboardImagePreview.releaseCachedImages()
+        AIFormattedText.releaseCachedMarkdown()
+    }
+
+    private func resetTransientFeatures() {
+        emojiPicker.reset()
+        pendingSnippetArguments = nil
         fileConversion.reset()
         camera.stop()
         translator.reset()
         developerTools.reset()
-        agents.stopPolling()
     }
 
     func shutdown() {
@@ -281,7 +452,12 @@ final class CommandPanelState: ObservableObject {
     }
 
     func openSettings() {
-        beginFeatureMode(.settings, status: "settings")
+        if isPanelOpen == false { onOpenSettings?() }
+        beginFeatureMode(.settings)
+    }
+
+    func openWelcomeGuide() {
+        onOpenWelcomeGuide?()
     }
 
     var commandCatalogCount: Int {
@@ -328,6 +504,35 @@ final class CommandPanelState: ObservableObject {
         }
     }
 
+    func exportBackup(to url: URL) {
+        do {
+            let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "dev"
+            try FoundryBackup.make(scriptDirectories: ScriptDirectoryStore.shared.directories, appVersion: version).encoded().write(to: url, options: .atomic)
+        } catch {
+            settingsPersistenceError = "Could not save the backup: \(error.localizedDescription)"
+            diagnostics.log("Backup export failed: \(error.localizedDescription)")
+        }
+    }
+
+    func loadBackup(from url: URL) -> FoundryBackup? {
+        do {
+            return try FoundryBackup.decode(Data(contentsOf: url))
+        } catch {
+            settingsPersistenceError = (error as? LocalizedError)?.errorDescription ?? "Could not read the backup."
+            return nil
+        }
+    }
+
+    func restoreBackup(_ backup: FoundryBackup) {
+        do {
+            try backup.restore()
+            NSApp.terminate(nil)
+        } catch {
+            settingsPersistenceError = "Could not import the backup. Your previous files are kept as .pre-import copies."
+            diagnostics.log("Backup import failed: \(error.localizedDescription)")
+        }
+    }
+
     func toggleCommandExpansion(_ commandID: String) {
         expandedCommandID = expandedCommandID == commandID ? nil : commandID
     }
@@ -343,7 +548,8 @@ final class CommandPanelState: ObservableObject {
     }
 
     func commandPreference(for commandID: String) -> CommandPreference {
-        commandPreferences[commandID] ?? CommandPreference()
+        commandPreferences[commandID]
+            ?? CommandPreference(isEnabled: CommandRegistry.defaultDisabledCommandIDs.contains(commandID) == false)
     }
 
     func setCommandEnabled(_ isEnabled: Bool, for commandID: String) {
@@ -353,21 +559,24 @@ final class CommandPanelState: ObservableObject {
     }
 
     func setSearchSensitivity(_ sensitivity: SearchSensitivity) {
-        let previous = searchSensitivity
-        searchSensitivity = sensitivity
-        do {
-            try configService.updateSearchSensitivity(sensitivity)
-            settingsPersistenceError = nil
+        if applySetting(\.searchSensitivity, sensitivity, save: configService.updateSearchSensitivity) {
             refreshResults()
-        } catch {
-            searchSensitivity = previous
-            showSettingsPersistenceError(error)
         }
     }
 
     func setClipboardPaused(_ paused: Bool) {
         var configuration = configService.current.clipboard
         configuration.isPaused = paused
+        updateClipboard(configuration)
+    }
+
+    var clipboardCaptureEnabled: Bool {
+        configService.current.clipboard.isEnabled
+    }
+
+    func setClipboardEnabled(_ enabled: Bool) {
+        var configuration = configService.current.clipboard
+        configuration.isEnabled = enabled
         updateClipboard(configuration)
     }
 
@@ -385,33 +594,27 @@ final class CommandPanelState: ObservableObject {
         updateSnippetExpansion(next)
     }
 
-    func requestSnippetExpansionAccessibility() { NotificationCenter.default.post(name: .foundryRequestSnippetAccessibility, object: nil) }
-    func openSnippetExpansionPrivacySettings() { NotificationCenter.default.post(name: .foundryOpenSnippetPrivacy, object: nil) }
+    func requestSnippetExpansionAccessibility() { onRequestSnippetAccessibility?() }
+    func openSnippetExpansionPrivacySettings() { onOpenSnippetPrivacySettings?() }
 
     func setSnippetExpansionError(_ message: String?) { snippetExpansionError = message }
 
     func setDirectPasteError(_ error: Error) {
-        diagnosticsSummary = "Could not complete paste: \(error.localizedDescription)"
+        showActionFeedback(.failure("Couldn't paste: \(error.localizedDescription)"))
         diagnostics.log("Direct paste failed: \(error.localizedDescription)")
     }
 
     private func updateSnippetExpansion(_ next: SnippetExpansionConfig) {
-        let previous = snippetExpansion
-        snippetExpansion = next.normalized
-        do {
-            try configService.updateSnippetExpansionConfig(snippetExpansion)
-            settingsPersistenceError = nil
-            NotificationCenter.default.post(name: .foundrySnippetExpansionChanged, object: nil)
-        } catch {
-            snippetExpansion = previous
-            showSettingsPersistenceError(error)
+        if applySetting(\.snippetExpansion, next.normalized, save: configService.updateSnippetExpansionConfig) {
+            onSnippetExpansionChanged?()
         }
     }
 
-    func setClipboardRetention(maxItems: Int, maxBytes: Int) {
+    func setClipboardRetention(maxItems: Int, maxBytes: Int, maxAgeDays: Int? = nil) {
         var configuration = configService.current.clipboard
         configuration.maxItems = maxItems
         configuration.maxBytes = maxBytes
+        if let maxAgeDays { configuration.maxAgeDays = maxAgeDays }
         updateClipboard(configuration)
     }
 
@@ -425,28 +628,28 @@ final class CommandPanelState: ObservableObject {
     func directPasteSelectedClipboardItem() -> Bool {
         guard let item = clipboardHistory.selectedItem else {
             clipboardHistory.report(ClipboardDirectPasteError.noSelection)
-            diagnosticsSummary = "Could not stage paste: \(ClipboardDirectPasteError.noSelection.localizedDescription)"
             return false
         }
         do {
             try actionRunner.directPasteService.stage(item.payload)
             return true
         } catch {
-            diagnosticsSummary = "Could not stage paste: \(error.localizedDescription)"
+            diagnostics.log("Could not stage paste: \(error.localizedDescription)")
             return false
         }
     }
 
+    private(set) var pendingSnippetArguments: [String]?
+
     @discardableResult
-    func directPasteSelectedSnippet() -> Bool {
+    func directPasteSelectedSnippet(arguments: [String: String] = [:]) -> Bool {
         guard let snippet = snippets.selectedItem else { return false }
-        let rendered = SnippetRenderer.render(snippet.content)
+        let rendered = SnippetRenderer.render(snippet.content, arguments: arguments)
         do {
-            try actionRunner.directPasteService.stage(.text(rendered.text), cursorOffset: rendered.cursorOffsetFromEnd, snippetID: snippet.id)
-            diagnosticsSummary = "Snippet ready to insert"
+            try actionRunner.directPasteService.stage(.text(rendered.text), cursorOffset: rendered.cursorOffsetFromEnd)
             return true
         } catch {
-            diagnosticsSummary = "Could not stage snippet: \(error.localizedDescription)"
+            diagnostics.log("Could not stage snippet: \(error.localizedDescription)")
             return false
         }
     }
@@ -467,6 +670,45 @@ final class CommandPanelState: ObservableObject {
         var preference = commandPreference(for: commandID)
         preference.favoriteRank = isFavorite ? nextFavoriteRank() : nil
         updateCommandPreference(preference, for: commandID)
+    }
+
+    @discardableResult
+    func toggleFavorite(commandID: String) -> Bool {
+        let nowFavorite = commandPreferences[commandID]?.favoriteRank == nil
+        setCommandFavorite(nowFavorite, for: commandID)
+        return nowFavorite
+    }
+
+    func isSuggestibleApp(_ result: CommandResult) -> Bool {
+        HomeSuggestionRules.isSuggestible(
+            resultID: result.id,
+            runningBundleIDs: runningAppBundleIDs,
+            hasUsage: registry.hasUsage(for: result.id)
+        )
+    }
+
+    func hasUsage(for resultID: String) -> Bool {
+        registry.hasUsage(for: resultID)
+    }
+
+    private func refreshFavorites() {
+        let favoriteIDs = commandPreferences
+            .filter { $0.value.favoriteRank != nil }
+            .sorted { ($0.value.favoriteRank ?? 0) < ($1.value.favoriteRank ?? 0) }
+            .map(\.key)
+        guard favoriteIDs.isEmpty == false else {
+            favoriteResults = []
+            return
+        }
+        let registry = registry
+        Task { @MainActor [weak self] in
+            var resolved: [CommandResult] = []
+            for commandID in favoriteIDs.prefix(8) {
+                guard let result = await registry.commandResult(for: commandID) else { continue }
+                resolved.append(result)
+            }
+            self?.favoriteResults = resolved
+        }
     }
 
     func setCommandAliases(_ rawAliases: String, for commandID: String) {
@@ -527,14 +769,11 @@ final class CommandPanelState: ObservableObject {
             rebuildCommandRows()
             showSettingsPersistenceError(error)
         }
-    }
-
-    func openHome() {
-        showHome()
+        refreshFavorites()
     }
 
     func openMediaDownloads() {
-        beginFeatureMode(.mediaDownloads, status: "downloads")
+        beginFeatureMode(.mediaDownloads)
     }
 
     func cancelDownload(_ id: UUID) {
@@ -570,35 +809,55 @@ final class CommandPanelState: ObservableObject {
     @discardableResult
     func startMediaDownloads(from value: String) -> Int {
         let urls = MediaDownloadProvider.mediaURLs(in: value)
-        for url in urls {
-            let action = CommandAction(
-                id: "media.download.batch.\(UUID().uuidString)",
-                title: "Download",
-                kind: .downloadMedia(url: url.absoluteString)
-            )
-            Task { @MainActor [weak self] in
-                guard let self else { return }
-                _ = await execute(action, commandID: "media.download.batch")
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            await withTaskGroup(of: Void.self) { group in
+                var pending = urls[...]
+                for _ in 0..<min(3, pending.count) {
+                    let url = pending.removeFirst()
+                    group.addTask { [weak self] in
+                        _ = await self?.execute(Self.mediaDownloadAction(for: url), commandID: "media.download.batch")
+                    }
+                }
+                while await group.next() != nil, pending.isEmpty == false {
+                    let url = pending.removeFirst()
+                    group.addTask { [weak self] in
+                        _ = await self?.execute(Self.mediaDownloadAction(for: url), commandID: "media.download.batch")
+                    }
+                }
             }
         }
         return urls.count
     }
 
+    private static func mediaDownloadAction(for url: URL) -> CommandAction {
+        CommandAction(
+            id: "media.download.batch.\(UUID().uuidString)",
+            title: "Download",
+            kind: .downloadMedia(url: url.absoluteString)
+        )
+    }
+
     func openAgents() {
-        beginFeatureMode(.agents, status: "agents")
+        beginFeatureMode(.agents)
         agents.start()
     }
 
     func handleEscape() -> Bool {
-        if mode != .search || isShowingActions {
-            backToSearch()
+        if isShowingActions {
+            if actionFilter.isEmpty {
+                isShowingActions = false
+                selectedActionID = nil
+            } else {
+                actionFilter = ""
+            }
+            return true
+        }
+        if mode != .search {
+            showHome()
             return true
         }
         return false
-    }
-
-    func backToSearch() {
-        showHome()
     }
 
     func showHome() {
@@ -609,11 +868,7 @@ final class CommandPanelState: ObservableObject {
         mode = .search
         isSearchLoading = false
         isHomeLoading = false
-        emojiPicker.reset()
-        camera.stop()
-        fileConversion.reset()
-        translator.reset()
-        developerTools.reset()
+        resetTransientFeatures()
         query = ""
         quickAI.resetTransientState()
         results = []
@@ -624,32 +879,39 @@ final class CommandPanelState: ObservableObject {
         if isAgentShelfVisible {
             agents.start()
         }
-        refreshStatusSummary()
     }
 
     private func execute(_ action: CommandAction, commandID: String) async -> CommandOutcome {
+        if case let .toggleFavorite(id) = action.kind {
+            let nowFavorite = toggleFavorite(commandID: id)
+            return .stayOpen(message: nowFavorite ? "Added to Favorites" : "Removed from Favorites")
+        }
+        if case let .openCommandSettings(id) = action.kind {
+            pendingSettingsCommandID = id
+            open(.settings)
+            return .stayOpen(message: nil)
+        }
         let request = CommandExecutionRequest(commandID: commandID, action: action)
         let generation = actionGeneration
         activeActionCancellationID = request.invocation.cancellationID
         isActionInProgress = true
+        var feedbackShown = false
+        var successFeedback: ActionFeedback? = nil
         let outcome = await actionRunner.execute(request) { [weak self] event in
-            guard let self else { return }
-            guard self.actionGeneration == generation else { return }
-            switch event {
-            case let .status(message):
-                diagnosticsSummary = message
-            case let .downloadProgress(progress):
-                diagnosticsSummary = progress.message
-            case let .feedback(feedback):
-                showActionFeedback(feedback)
-            }
+            guard let self, self.actionGeneration == generation, case let .feedback(feedback) = event else { return }
+            feedbackShown = true
+            if case .success = feedback { successFeedback = feedback }
+            showActionFeedback(feedback)
         }
         guard actionGeneration == generation else { return .cancelled }
         isActionInProgress = false
         if activeActionCancellationID == request.invocation.cancellationID {
             activeActionCancellationID = nil
         }
-        apply(outcome)
+        apply(outcome, feedbackShown: feedbackShown)
+        if outcome.shouldDismissPanel, let successFeedback {
+            onTransientNotice?(successFeedback)
+        }
         return outcome
     }
 
@@ -670,7 +932,6 @@ final class CommandPanelState: ObservableObject {
 
     func cancelCurrentAction() {
         cancelActiveAction()
-        diagnosticsSummary = "Cancelled"
     }
 
     @discardableResult
@@ -688,42 +949,41 @@ final class CommandPanelState: ObservableObject {
         return outcome.shouldDismissPanel
     }
 
-    private func apply(_ outcome: CommandOutcome) {
+    private func apply(_ outcome: CommandOutcome, feedbackShown: Bool) {
         switch outcome {
         case let .open(route):
             open(route)
-        case let .success(message):
-            if let message { diagnosticsSummary = message }
-            refreshStatusSummary(fallback: message ?? "")
-        case let .failure(message, _):
-            diagnosticsSummary = message
-        case let .denied(message):
-            diagnosticsSummary = message
-        case .cancelled:
-            refreshStatusSummary()
-        case let .stayOpen(message):
-            if let message { diagnosticsSummary = message }
+        case let .failure(message, _), let .denied(message):
+            if feedbackShown == false { showActionFeedback(.failure(message)) }
+        case let .stayOpen(message?):
+            if feedbackShown == false { showActionFeedback(.success(message)) }
         case let .refreshResults(message):
-            if let message { diagnosticsSummary = message }
+            if let message, feedbackShown == false { showActionFeedback(.success(message)) }
             refreshResults()
         case let .fileResults(urls):
             if urls.isEmpty {
-                diagnosticsSummary = "No files returned"
+                showActionFeedback(.info("No files found"))
             } else {
                 NSWorkspace.shared.activateFileViewerSelecting(urls)
-                diagnosticsSummary = "Opened \(urls.count) file\(urls.count == 1 ? "" : "s")"
+            }
+        case let .addToFileShelf(urls):
+            let result = fileShelf.add(urls: urls)
+            if result.addedCount > 0 {
+                showActionFeedback(.success(result.addedCount == 1 ? "Added to File Shelf" : "Added \(result.addedCount) files to File Shelf"))
+            } else {
+                showActionFeedback(.info("Already in the File Shelf"))
             }
         case let .followUp(actionIDs):
             let availableIDs = Set(selectedActions.map(\.id))
             if let actionID = actionIDs.first(where: { availableIDs.contains($0) }) {
+                actionFilter = ""
                 isShowingActions = true
                 selectedActionID = actionID
-                diagnosticsSummary = "Choose a follow-up action"
             } else {
-                diagnosticsSummary = "No follow-up action available"
+                showActionFeedback(.info("No follow-up action available"))
             }
-        case .copied, .pasted:
-            refreshStatusSummary()
+        case .success, .cancelled, .stayOpen(nil), .copied, .pasted:
+            break
         }
     }
 
@@ -766,9 +1026,13 @@ final class CommandPanelState: ObservableObject {
         case .settings:
             openSettings()
         case .home:
-            openHome()
+            showHome()
         case .mediaDownloads:
             openMediaDownloads()
+        case .welcomeGuide:
+            openWelcomeGuide()
+        case let .query(text):
+            query = text
         }
     }
 
@@ -788,8 +1052,109 @@ final class CommandPanelState: ObservableObject {
             diagnostics.log("No selected result for actions")
             return
         }
+        actionFilter = ""
         isShowingActions.toggle()
         selectedActionID = isShowingActions ? selectedActions.first?.id : nil
+    }
+
+    func performModeShortcut(_ shortcut: ActionShortcut, dismiss: @escaping @MainActor () -> Void) -> Bool {
+        guard shortcut.modifiers == [.command] else { return false }
+        if mode == .search, shortcut.key == "y",
+           let id = selectedResult?.id, id.hasPrefix("file.") {
+            onQuickLook?(URL(fileURLWithPath: String(id.dropFirst("file.".count))))
+            return true
+        }
+        if mode == .quickAI {
+            switch shortcut.key {
+            case "n": openQuickAI()
+            case ".": quickAI.stop()
+            default: return false
+            }
+            return true
+        }
+        if mode == .developerTools {
+            let tools = DeveloperToolsState.Tool.allCases
+            guard let index = Int(shortcut.key), tools.indices.contains(index - 1) else { return false }
+            developerTools.selectedTool = tools[index - 1]
+            return true
+        }
+        if mode == .snippets {
+            guard shortcut.key == "\r", snippets.selectedItem != nil else { return false }
+            snippets.copySelected()
+            showActionFeedback(.success("Copied snippet"))
+            dismiss()
+            return true
+        }
+        if mode == .translator {
+            guard shortcut.key == "s" else { return false }
+            translator.swapLanguages()
+            return true
+        }
+        if mode == .emojiPicker {
+            guard shortcut.key == "t" else { return false }
+            emojiPicker.cycleSkinTone()
+            return true
+        }
+        guard mode == .clipboardHistory else { return false }
+        let filters = ClipboardHistoryState.KindFilter.allCases
+        switch shortcut.key {
+        case "\r":
+            guard clipboardHistory.selectedItem != nil else { return false }
+            clipboardHistory.copySelected()
+            dismiss()
+        case "p":
+            clipboardHistory.togglePinSelected()
+        case let key where Int(key).map { (1...filters.count).contains($0) } == true:
+            clipboardHistory.kindFilter = filters[Int(key)! - 1]
+        default:
+            return false
+        }
+        return true
+    }
+
+    @discardableResult
+    func insertTranslation() -> Bool {
+        guard translator.result.isEmpty == false else { return false }
+        do {
+            try actionRunner.directPasteService.stage(.text(translator.result), cursorOffset: 0)
+            return true
+        } catch {
+            diagnostics.log("Could not stage paste: \(error.localizedDescription)")
+            return false
+        }
+    }
+
+    func insertOrCopySelectedSnippet() -> Bool {
+        guard let snippet = snippets.selectedItem else { return false }
+        let names = SnippetRenderer.argumentNames(in: snippet.content)
+        if names.isEmpty == false {
+            pendingSnippetArguments = names
+            return false
+        }
+        if directPasteSelectedSnippet() == false { snippets.copySelected() }
+        return true
+    }
+
+    func cancelSnippetArguments() { pendingSnippetArguments = nil }
+
+    @discardableResult
+    func submitSnippetArguments(_ values: [String: String]) -> Bool {
+        pendingSnippetArguments = nil
+        return directPasteSelectedSnippet(arguments: values)
+    }
+
+    func pasteOrCopySelectedClipboardItem() {
+        if directPasteSelectedClipboardItem() == false { clipboardHistory.copySelected() }
+    }
+
+    func performActionShortcut(_ shortcut: ActionShortcut, dismiss: @escaping @MainActor () -> Void) -> Bool {
+        guard mode == .search, isActionInProgress == false, let result = selectedResult,
+              let actionID = actionShortcuts.first(where: { $0.value == shortcut })?.key,
+              let action = selectedActions.first(where: { $0.id == actionID }) else { return false }
+        Task { @MainActor in
+            if await executeResult(result, action: action).shouldDismissPanel { dismiss() }
+        }
+        return true
     }
 
     func pasteFromClipboard() -> Bool {
@@ -805,14 +1170,10 @@ final class CommandPanelState: ObservableObject {
             snippets.query += text
         case .translator:
             translator.sourceText += text
-        case .camera, .fileConversion, .fileShelf, .settings, .mediaDownloads, .developerTools, .quickAI, .agents:
+        case .camera, .fileConversion, .fileShelf, .mediaDownloads, .developerTools, .quickAI, .agents, .settings:
             return false
         }
         return true
-    }
-
-    func showFileShelf() {
-        openFileShelf()
     }
 
     func handleDroppedFiles(_ urls: [URL]) {
@@ -852,40 +1213,17 @@ final class CommandPanelState: ObservableObject {
     }
 
     private func moveSelection(offset: Int) {
-        if mode == .emojiPicker {
-            offset > 0 ? emojiPicker.moveDown() : emojiPicker.moveUp()
-            return
-        }
-
-        if mode == .fileShelf {
-            fileShelf.moveSelection(offset: offset)
-            return
-        }
-
-        if mode == .fileConversion {
-            return
-        }
-
-        if mode == .snippets {
-            snippets.moveSelection(offset: offset)
-            return
-        }
-
-        if mode == .clipboardHistory {
-            clipboardHistory.moveSelection(offset: offset)
-            return
-        }
-
-        if mode == .camera {
-            return
-        }
-
-        if mode == .translator {
-            return
+        switch mode {
+        case .emojiPicker: offset > 0 ? emojiPicker.moveDown() : emojiPicker.moveUp(); return
+        case .fileShelf: fileShelf.moveSelection(offset: offset); return
+        case .snippets: snippets.moveSelection(offset: offset); return
+        case .clipboardHistory: clipboardHistory.moveSelection(offset: offset); return
+        case .fileConversion, .camera, .translator, .settings: return
+        case .search, .mediaDownloads, .developerTools, .quickAI, .agents: break
         }
 
         if isShowingActions {
-            let actions = selectedActions
+            let actions = visibleActions
             guard actions.isEmpty == false else { return }
             let currentIndex = selectedActionID.flatMap { id in actions.firstIndex { $0.id == id } } ?? 0
             let nextIndex = min(max(currentIndex + offset, 0), actions.count - 1)
@@ -910,7 +1248,6 @@ final class CommandPanelState: ObservableObject {
             isSearchLoading = false
             results = []
             selectedResultID = nil
-            refreshStatusSummary()
             refreshHomeResults()
             return
         }
@@ -922,7 +1259,6 @@ final class CommandPanelState: ObservableObject {
             isSearchLoading = false
             results = []
             selectedResultID = nil
-            refreshStatusSummary(fallback: "Press Tab or Return to ask AI")
             return
         }
 
@@ -941,7 +1277,8 @@ final class CommandPanelState: ObservableObject {
         )
     }
 
-    private func applySearchResults(_ nextResults: [CommandResult], preserving preferredID: String?) {
+    private func applySearchResults(_ rankedResults: [CommandResult], preserving preferredID: String?) {
+        let nextResults = ResultSection.ordered(rankedResults)
         results = nextResults
         if MediaDownloadProvider.mediaURLs(in: query).isEmpty == false,
            let mediaResult = nextResults.first(where: { $0.route == .mediaDownload }) {
@@ -952,12 +1289,6 @@ final class CommandPanelState: ObservableObject {
             selectedResultID = nextResults.first?.id
         }
         selectionScrollToken = UUID()
-        refreshStatusSummary()
-    }
-
-    private func refreshStatusSummary(fallback: String = "") {
-        guard isActionInProgress == false else { return }
-        diagnosticsSummary = registry.statusSummary(resultCount: results.count, fallback: fallback)
     }
 
     private func refreshHomeResults() {
@@ -972,12 +1303,17 @@ final class CommandPanelState: ObservableObject {
             if self.fileShelf.files.isEmpty == false {
                 homeResults.removeAll { $0.id == "foundry.file-shelf" }
             }
+            self.runningAppBundleIDs = Self.regularRunningAppBundleIDs()
             self.results = homeResults
             self.selectedResultID = homeResults.first?.id
             self.selectionScrollToken = UUID()
             self.isHomeLoading = false
-            self.refreshStatusSummary()
+            self.refreshFavorites()
         }
+    }
+
+    private static func regularRunningAppBundleIDs() -> Set<String> {
+        RunningAppsSnapshot.bundleIDs(regularOnly: true)
     }
 
     private func stopTransientPolling() {
@@ -985,7 +1321,7 @@ final class CommandPanelState: ObservableObject {
         agents.stopPolling()
     }
 
-    private func beginFeatureMode(_ nextMode: Mode, status: String) {
+    private func beginFeatureMode(_ nextMode: Mode) {
         stopTransientPolling()
         homeRefreshID = UUID()
         isSearchLoading = false
@@ -996,31 +1332,31 @@ final class CommandPanelState: ObservableObject {
         searchCoordinator.cancel()
         results = []
         selectedResultID = nil
-        diagnosticsSummary = status
     }
 
     private func openEmojiPicker() {
-        beginFeatureMode(.emojiPicker, status: "emoji & symbols")
+        beginFeatureMode(.emojiPicker)
         emojiPicker.reset()
     }
 
-    private func openFileShelf() {
-        beginFeatureMode(.fileShelf, status: "file shelf")
+    func openFileShelf() {
+        beginFeatureMode(.fileShelf)
         fileShelf.selectFirst()
     }
 
-    private func openClipboardHistory() {
-        beginFeatureMode(.clipboardHistory, status: "clipboard history")
+    func openClipboardHistory() {
+        beginFeatureMode(.clipboardHistory)
         clipboardHistory.reset()
     }
 
     private func openSnippets() {
-        beginFeatureMode(.snippets, status: "snippets")
+        beginFeatureMode(.snippets)
         snippets.reset()
+        pendingSnippetArguments = nil
     }
 
     private func openFileConverter(path: String? = nil) {
-        beginFeatureMode(.fileConversion, status: "file converter")
+        beginFeatureMode(.fileConversion)
         fileConversion.reset()
         if let path {
             fileConversion.setSource(url: URL(fileURLWithPath: path))
@@ -1030,19 +1366,19 @@ final class CommandPanelState: ObservableObject {
     }
 
     private func openCamera() {
-        beginFeatureMode(.camera, status: "camera")
+        beginFeatureMode(.camera)
         camera.start()
     }
 
     private func openTranslator(text: String? = nil, language: String? = nil) {
-        beginFeatureMode(.translator, status: "translator")
+        beginFeatureMode(.translator)
         translator.reset()
         if let text { translator.sourceText = text }
         if let language { translator.targetLanguage = language.capitalized }
     }
 
     private func openDeveloperTools(tool: String? = nil) {
-        beginFeatureMode(.developerTools, status: "developer tools")
+        beginFeatureMode(.developerTools)
         developerTools.reset()
         if let tool, let selectedTool = DeveloperToolsState.Tool(commandID: tool) {
             developerTools.selectedTool = selectedTool
@@ -1050,12 +1386,7 @@ final class CommandPanelState: ObservableObject {
     }
 
     func openQuickAI(initialPrompt: String = "") {
-        mode = .quickAI
-        searchCoordinator.cancel()
-        results = []
-        selectedResultID = nil
-        isShowingActions = false
-        selectedActionID = nil
+        beginFeatureMode(.quickAI)
         quickAI.startNewThread(initialPrompt: initialPrompt, selectedAIProfileID: aiSettings.defaultAIProfileID)
     }
 
@@ -1070,29 +1401,28 @@ final class CommandPanelState: ObservableObject {
         }
         diagnostics.log("Executing action \(action.id) for result \(result.id)")
         registry.recordExecution(resultID: result.id, query: query)
-        return await execute(action, commandID: result.id)
+        onResultExecuted?()
+        let outcome = await execute(action, commandID: result.id)
+        if case .copied = outcome, result.route == .calculator {
+            let expression = result.subtitle?.components(separatedBy: " · ").first ?? ""
+            CalculatorHistoryStore.shared.record(expression: expression, result: result.title)
+        }
+        return outcome
     }
 
     func executeCommand(commandID: String) async {
         guard let result = await registry.commandResult(for: commandID) else {
             diagnostics.log("Command hotkey target is unavailable: \(commandID)")
-            diagnosticsSummary = "Command unavailable"
+            showActionFeedback(.failure("That command is no longer available"))
             return
         }
         results = [result]
         selectedResultID = result.id
         isShowingActions = false
         selectedActionID = nil
-        diagnosticsSummary = result.title
         await executeResult(result)
     }
 
-}
-
-extension Notification.Name {
-    static let foundryRequestSnippetAccessibility = Notification.Name("foundry.requestSnippetAccessibility")
-    static let foundryOpenSnippetPrivacy = Notification.Name("foundry.openSnippetPrivacy")
-    static let foundrySnippetExpansionChanged = Notification.Name("foundry.snippetExpansionChanged")
 }
 
 private enum ClipboardDirectPasteError: LocalizedError {

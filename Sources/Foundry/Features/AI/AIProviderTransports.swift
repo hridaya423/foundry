@@ -2,7 +2,7 @@ import Foundation
 
 enum OpenAICompatibleTransport {
     static func respond(profile: AIProviderProfile, messages: [[String: Any]], tools: [AgentTool], credentials: AICredentialStore) async -> AgentModelResponse {
-        guard let url = AITransportSupport.endpoint(profile, path: "chat/completions") else { return .failure("Invalid provider endpoint", .configuration) }
+        guard let url = AITransportSupport.endpoint(profile, path: "chat/completions") else { return .failure("The endpoint URL isn't valid. Fix it in Settings › AI.", .configuration) }
         do {
             let apiKey = try AITransportSupport.apiKey(profile, store: credentials)
             if profile.authentication == .apiKey, apiKey == nil { return .failure("Add an API key for \(profile.name) before sending requests.", .configuration) }
@@ -138,7 +138,7 @@ enum OllamaTransport {
 
 enum AnthropicTransport {
     static func respond(profile: AIProviderProfile, messages: [[String: Any]], tools: [AgentTool], credentials: AICredentialStore) async -> AgentModelResponse {
-        guard let url = AITransportSupport.endpoint(profile, path: "messages") else { return .failure("Invalid Anthropic endpoint", .configuration) }
+        guard let url = AITransportSupport.endpoint(profile, path: "messages") else { return .failure("The Anthropic endpoint URL isn't valid. Fix it in Settings › AI.", .configuration) }
         do {
             guard let apiKey = try AITransportSupport.apiKey(profile, store: credentials) else { return .failure("Add an Anthropic API key before sending requests.", .configuration) }
             var request = URLRequest(url: url)
@@ -219,7 +219,7 @@ enum GeminiTransport {
             return .failure("Add a Gemini API key and valid endpoint before sending requests.", .configuration)
         }
         components.queryItems = [URLQueryItem(name: "alt", value: "sse")]
-        guard let url = components.url else { return .failure("Invalid Gemini endpoint", .configuration) }
+        guard let url = components.url else { return .failure("The Gemini endpoint URL isn't valid. Fix it in Settings › AI.", .configuration) }
         do {
             var request = URLRequest(url: url)
             request.httpMethod = "POST"

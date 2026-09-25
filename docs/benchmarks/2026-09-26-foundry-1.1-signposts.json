@@ -1,0 +1,19 @@
+{
+  "build": "staged build/Foundry.app (1.1 work, release, Swift 6.1 / macOS 15 SDK \u2014 no Liquid Glass)",
+  "machine": "Apple M4, macOS 26.2, AC power",
+  "driver": "scripts/drive-signposts.swift 30 --reopen build/Foundry.app (reopen handler opens, Finder activation closes; no Accessibility on this host)",
+  "unit": "ms",
+  "spans": {
+    "panel.show": {
+      "n": 30,
+      "p50": 13.6,
+      "p95": 20.88,
+      "max": 20.88,
+      "firstOpen": 20.45
+    }
+  },
+  "idleWakeupsPerSecond": {
+    "panelHidden": 0.12,
+    "method": "top -l 2 -s 60 -stats idlew delta, after the 30 cycles, user idle"
+  }
+}

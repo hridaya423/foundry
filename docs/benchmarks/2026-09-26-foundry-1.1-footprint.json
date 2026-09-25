@@ -1,0 +1,217 @@
+{
+  "capturedAt" : "2026-09-26T14:54:43Z",
+  "hardware" : "Apple M4",
+  "isolatedLaunchers" : false,
+  "launchers" : [
+    {
+      "build" : "1",
+      "bundleIdentifier" : "com.hridya.foundry",
+      "bundleKilobytes" : 14604,
+      "hotkey" : "Command-Space",
+      "idleRSSMegabytes" : {
+        "maximum" : 102.3125,
+        "mean" : 102.3125,
+        "minimum" : 102.3125,
+        "p50" : 102.3125,
+        "p95" : 102.3125
+      },
+      "keyCode" : 49,
+      "memorySamples" : [
+        {
+          "capturedAt" : "2026-09-26T14:54:28Z",
+          "footprintMegabytes" : 31.235198974609375,
+          "processes" : [
+            {
+              "command" : "\/Users\/hridyaagrawal\/honey\/anvil\/build\/Foundry.app\/Contents\/MacOS\/Foundry",
+              "elapsedSeconds" : 247,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 45938,
+              "rssKilobytes" : 104768
+            }
+          ],
+          "rssMegabytes" : 102.3125
+        },
+        {
+          "capturedAt" : "2026-09-26T14:54:29Z",
+          "footprintMegabytes" : 31.235198974609375,
+          "processes" : [
+            {
+              "command" : "\/Users\/hridyaagrawal\/honey\/anvil\/build\/Foundry.app\/Contents\/MacOS\/Foundry",
+              "elapsedSeconds" : 248,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 45938,
+              "rssKilobytes" : 104768
+            }
+          ],
+          "rssMegabytes" : 102.3125
+        },
+        {
+          "capturedAt" : "2026-09-26T14:54:31Z",
+          "footprintMegabytes" : 31.235198974609375,
+          "processes" : [
+            {
+              "command" : "\/Users\/hridyaagrawal\/honey\/anvil\/build\/Foundry.app\/Contents\/MacOS\/Foundry",
+              "elapsedSeconds" : 250,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 45938,
+              "rssKilobytes" : 104768
+            }
+          ],
+          "rssMegabytes" : 102.3125
+        },
+        {
+          "capturedAt" : "2026-09-26T14:54:33Z",
+          "footprintMegabytes" : 31.235198974609375,
+          "processes" : [
+            {
+              "command" : "\/Users\/hridyaagrawal\/honey\/anvil\/build\/Foundry.app\/Contents\/MacOS\/Foundry",
+              "elapsedSeconds" : 251,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 45938,
+              "rssKilobytes" : 104768
+            }
+          ],
+          "rssMegabytes" : 102.3125
+        },
+        {
+          "capturedAt" : "2026-09-26T14:54:34Z",
+          "footprintMegabytes" : 31.235198974609375,
+          "processes" : [
+            {
+              "command" : "\/Users\/hridyaagrawal\/honey\/anvil\/build\/Foundry.app\/Contents\/MacOS\/Foundry",
+              "elapsedSeconds" : 253,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 45938,
+              "rssKilobytes" : 104768
+            }
+          ],
+          "rssMegabytes" : 102.3125
+        },
+        {
+          "capturedAt" : "2026-09-26T14:54:36Z",
+          "footprintMegabytes" : 31.235198974609375,
+          "processes" : [
+            {
+              "command" : "\/Users\/hridyaagrawal\/honey\/anvil\/build\/Foundry.app\/Contents\/MacOS\/Foundry",
+              "elapsedSeconds" : 255,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 45938,
+              "rssKilobytes" : 104768
+            }
+          ],
+          "rssMegabytes" : 102.3125
+        },
+        {
+          "capturedAt" : "2026-09-26T14:54:37Z",
+          "footprintMegabytes" : 31.235198974609375,
+          "processes" : [
+            {
+              "command" : "\/Users\/hridyaagrawal\/honey\/anvil\/build\/Foundry.app\/Contents\/MacOS\/Foundry",
+              "elapsedSeconds" : 256,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 45938,
+              "rssKilobytes" : 104768
+            }
+          ],
+          "rssMegabytes" : 102.3125
+        },
+        {
+          "capturedAt" : "2026-09-26T14:54:39Z",
+          "footprintMegabytes" : 31.235198974609375,
+          "processes" : [
+            {
+              "command" : "\/Users\/hridyaagrawal\/honey\/anvil\/build\/Foundry.app\/Contents\/MacOS\/Foundry",
+              "elapsedSeconds" : 258,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 45938,
+              "rssKilobytes" : 104768
+            }
+          ],
+          "rssMegabytes" : 102.3125
+        },
+        {
+          "capturedAt" : "2026-09-26T14:54:40Z",
+          "footprintMegabytes" : 31.235198974609375,
+          "processes" : [
+            {
+              "command" : "\/Users\/hridyaagrawal\/honey\/anvil\/build\/Foundry.app\/Contents\/MacOS\/Foundry",
+              "elapsedSeconds" : 259,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 45938,
+              "rssKilobytes" : 104768
+            }
+          ],
+          "rssMegabytes" : 102.3125
+        },
+        {
+          "capturedAt" : "2026-09-26T14:54:42Z",
+          "footprintMegabytes" : 31.235198974609375,
+          "processes" : [
+            {
+              "command" : "\/Users\/hridyaagrawal\/honey\/anvil\/build\/Foundry.app\/Contents\/MacOS\/Foundry",
+              "elapsedSeconds" : 261,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 45938,
+              "rssKilobytes" : 104768
+            }
+          ],
+          "rssMegabytes" : 102.3125
+        }
+      ],
+      "modifierFlags" : 1048576,
+      "name" : "Foundry",
+      "panelSamples" : [
+
+      ],
+      "version" : "1.0.0",
+      "warmedFootprintMegabytes" : {
+        "maximum" : 31.235198974609375,
+        "mean" : 31.235198974609375,
+        "minimum" : 31.235198974609375,
+        "p50" : 31.235198974609375,
+        "p95" : 31.235198974609375
+      }
+    }
+  ],
+  "logicalCPUCount" : 10,
+  "macOS" : "26.2",
+  "macOSBuild" : "25C56",
+  "machineIdentifier" : "Mac16,10",
+  "measuredRuns" : 0,
+  "memoryMetric" : "Summary Footprint from macOS footprint for selected process IDs",
+  "memorySampleCount" : 10,
+  "memorySampleIntervalSeconds" : 1,
+  "panelMetric" : "Elapsed time from CGEvent post to the first matching on-screen CGWindow entry",
+  "panelPollMicroseconds" : 500,
+  "panelTimeoutSeconds" : 2,
+  "physicalMemoryBytes" : 17179869184,
+  "postPanelSettleSeconds" : 1,
+  "processMinimumAgeSeconds" : 5,
+  "processSelection" : "Bundle processes, their descendants, and Raycast's newly spawned WebKit XPC processes",
+  "processStabilitySeconds" : 0.1,
+  "startedAt" : "2026-09-26T14:54:26Z",
+  "startupWaitSeconds" : 0,
+  "systemAtEnd" : {
+    "powerDetails" : "Now drawing from 'AC Power'",
+    "powerSettings" : "System-wide power settings:\nCurrently in use:\n standby              0\n Sleep On Power Button 1\n autorestart          1\n powernap             1\n networkoversleep     0\n disksleep            0\n sleep                0 (sleep prevented by powerd)\n ttyskeepawake        1\n displaysleep         0\n tcpkeepalive         1\n lowpowermode         0\n womp                 1",
+    "powerSource" : "AC Power",
+    "thermalDetails" : "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded"
+  },
+  "systemAtStart" : {
+    "powerDetails" : "Now drawing from 'AC Power'",
+    "powerSettings" : "System-wide power settings:\nCurrently in use:\n standby              0\n Sleep On Power Button 1\n autorestart          1\n powernap             1\n networkoversleep     0\n disksleep            0\n sleep                0 (sleep prevented by powerd)\n ttyskeepawake        1\n displaysleep         0\n tcpkeepalive         1\n lowpowermode         0\n womp                 1",
+    "powerSource" : "AC Power",
+    "thermalDetails" : "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded"
+  },
+  "warmupRuns" : 5
+}

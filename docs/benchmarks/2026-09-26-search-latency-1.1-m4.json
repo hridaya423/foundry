@@ -1,0 +1,16 @@
+{
+  "driver" : "Tests\/FoundryTests\/SearchLatencyBenchmarkTests.swift (in-process, default registry, 90 ms keystrokes, first round warm-up)",
+  "search.complete" : {
+    "max" : 49.700000000000003,
+    "n" : 132,
+    "p50" : 28.149999999999999,
+    "p95" : 40.68
+  },
+  "search.immediate" : {
+    "max" : 48.740000000000002,
+    "n" : 132,
+    "p50" : 27.5,
+    "p95" : 40
+  },
+  "unit" : "ms"
+}
