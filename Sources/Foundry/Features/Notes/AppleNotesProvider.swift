@@ -16,7 +16,14 @@ final class AppleNotesProvider: CommandProvider {
         let search = normalizedSearch(from: request.query)
         guard search.count >= 2 else { return [] }
 
-        return searchNotes(search).prefix(8).map { note in
+        guard let notes = allNotes() else {
+            return [unavailableResult]
+        }
+        let needle = search.lowercased()
+        return notes
+            .filter { $0.title.lowercased().contains(needle) || $0.preview.lowercased().contains(needle) }
+            .prefix(8)
+            .map { note in
             CommandResult(
                 id: "apple-note.\(note.id)",
                 title: note.title,
@@ -53,23 +60,55 @@ final class AppleNotesProvider: CommandProvider {
         return ""
     }
 
-    private func searchNotes(_ query: String) -> [AppleNoteResult] {
+    private final class NotesCacheBox: @unchecked Sendable {
+        private let lock = NSLock()
+        private var cached: (at: Date, notes: [AppleNoteResult])?
+        private let ttl: TimeInterval = 60
+
+        func notes(refresh: () -> [AppleNoteResult]?) -> [AppleNoteResult]? {
+            lock.lock()
+            defer { lock.unlock() }
+            if let cached, Date().timeIntervalSince(cached.at) < ttl { return cached.notes }
+            guard let notes = refresh() else { return cached?.notes }
+            cached = (Date(), notes)
+            return notes
+        }
+    }
+
+    private let notesCache = NotesCacheBox()
+
+    private func allNotes() -> [AppleNoteResult]? {
+        notesCache.notes(refresh: fetchAllNotes)
+    }
+
+    private func fetchAllNotes() -> [AppleNoteResult]? {
         guard let result = ProcessRunner.runSynchronously(
             path: "/usr/bin/osascript",
-            arguments: searchScriptArguments(query: query),
+            arguments: listScriptArguments(),
             timeout: 3,
             outputLimit: 4 * 1024 * 1024
         ), result.succeeded,
-        let data = result.stdout.data(using: .utf8),
-              let notes = try? JSONDecoder().decode([AppleNoteResult].self, from: data) else { return [] }
-        return notes
+        let data = result.stdout.data(using: .utf8) else { return nil }
+        return try? JSONDecoder().decode([AppleNoteResult].self, from: data)
     }
 
-    private func searchScriptArguments(query: String) -> [String] {
+    private let unavailableResult = CommandResult(
+        id: "apple-note.unavailable",
+        title: "Couldn’t search Apple Notes",
+        subtitle: "Check Automation access in System Settings › Privacy & Security",
+        icon: CommandIcon(fallback: "AN", systemName: "exclamationmark.triangle"),
+        primaryAction: CommandAction(
+            id: "apple-note.open-privacy",
+            title: "Open Privacy Settings",
+            kind: .openURL("x-apple.systempreferences:com.apple.preference.security?Privacy_Automation")
+        ),
+        secondaryActions: []
+    )
+
+    private func listScriptArguments() -> [String] {
         [
             "-l", "JavaScript",
-            "-e", "function run(argv) { const q = String(argv[0] || '').toLowerCase(); const Notes = Application('Notes'); const strip = s => String(s || '').replace(/<[^>]*>/g, ' ').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/\\s+/g, ' ').trim(); return JSON.stringify(Notes.notes().map(n => ({ id: n.id(), title: n.name(), preview: strip(n.body()).slice(0, 180) })).filter(n => n.title.toLowerCase().includes(q) || n.preview.toLowerCase().includes(q)).slice(0, 8)); }",
-            query
+            "-e", "function run(argv) { const Notes = Application('Notes'); const strip = s => String(s || '').replace(/<[^>]*>/g, ' ').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/\\s+/g, ' ').trim(); return JSON.stringify(Notes.notes().map(n => ({ id: n.id(), title: n.name(), preview: strip(n.body()).slice(0, 180) })).slice(0, 4000)); }"
         ]
     }
 

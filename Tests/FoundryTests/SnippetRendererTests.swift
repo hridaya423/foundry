@@ -29,4 +29,37 @@ final class SnippetRendererTests: XCTestCase {
         XCTAssertEqual(rendered.text, "abcd{unknown}")
         XCTAssertEqual(rendered.cursorOffsetFromEnd, 13)
     }
+
+    private func context() -> SnippetRenderContext {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        return SnippetRenderContext(
+            now: Date(timeIntervalSince1970: 0),
+            locale: Locale(identifier: "en_US_POSIX"),
+            calendar: calendar,
+            clipboard: ""
+        )
+    }
+
+    func testDateFormatPlaceholder() {
+        let rendered = SnippetRenderer.render("due {date:yyyy-MM-dd}", context: context())
+        XCTAssertEqual(rendered.text, "due 1970-01-01")
+    }
+
+    func testArgumentNamesAreExtractedOnceInOrder() {
+        XCTAssertEqual(
+            SnippetRenderer.argumentNames(in: "Hi {argument name=\"to\"} re: {argument name=\"topic\"} {argument name=\"to\"}"),
+            ["to", "topic"]
+        )
+        XCTAssertTrue(SnippetRenderer.argumentNames(in: "plain {date}").isEmpty)
+    }
+
+    func testArgumentsSubstituteAndMissingNamesKeepTheToken() {
+        let rendered = SnippetRenderer.render(
+            "Hi {argument name=\"to\"}, {argument name=\"topic\"}",
+            context: context(),
+            arguments: ["to": "Asha"]
+        )
+        XCTAssertEqual(rendered.text, "Hi Asha, {argument name=\"topic\"}")
+    }
 }

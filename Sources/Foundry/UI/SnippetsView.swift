@@ -2,7 +2,7 @@ import AppKit
 import SwiftUI
 
 struct SnippetsView: View {
-    @ObservedObject var state: SnippetState
+    var state: SnippetState
     let insert: () -> Bool
     @State private var isConfirmingDelete = false
 
@@ -309,7 +309,7 @@ private struct SnippetRow: View {
 }
 
 private struct SnippetEditor: View {
-    @ObservedObject var state: SnippetState
+    var state: SnippetState
     @State private var title = ""
     @State private var keyword = ""
     @State private var tags = ""
@@ -352,11 +352,30 @@ private struct SnippetEditor: View {
             HStack(spacing: 6) {
                 Image(systemName: "wand.and.stars")
                     .font(.system(size: 10, weight: .semibold))
-                Text("{clipboard}  {date}  {time}  {cursor}  auto-expand when used")
+                Text("{clipboard}  {selection}  {date:format}  {time}  {cursor}  {argument name=\"…\"}")
                     .font(FoundryTheme.body(size: 11, weight: .regular))
             }
             .foregroundStyle(FoundryTheme.faintText)
             .padding(.leading, 2)
+
+            let rendered = SnippetRenderer.render(content)
+            if rendered.text != content {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("PREVIEW")
+                        .font(FoundryTheme.body(size: 10, weight: .semibold))
+                        .foregroundStyle(FoundryTheme.faintText)
+                        .tracking(0.6)
+                    Text(rendered.text)
+                        .font(FoundryTheme.body(size: 12, weight: .regular))
+                        .foregroundStyle(FoundryTheme.secondaryText)
+                        .lineLimit(3)
+                        .truncationMode(.tail)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .padding(.horizontal, 13)
+                .padding(.vertical, 9)
+                .background(fieldBackground)
+            }
         }
         .onAppear { sync() }
         .onChange(of: state.selectedID) { _, _ in sync() }
@@ -411,4 +430,63 @@ private func relativeDate(_ date: Date) -> String {
     let hours = minutes / 60
     if hours < 24 { return "\(hours)h ago" }
     return "\(hours / 24)d ago"
+}
+
+struct SnippetArgumentPrompt: View {
+    let names: [String]
+    let onCancel: () -> Void
+    let onSubmit: ([String: String]) -> Void
+    @State private var values: [String: String] = [:]
+    @FocusState private var focused: String?
+
+    var body: some View {
+        ZStack {
+            Color.black.opacity(0.22)
+                .onTapGesture(perform: onCancel)
+            VStack(alignment: .leading, spacing: 12) {
+                Text(names.count == 1 ? "One placeholder to fill in" : "\(names.count) placeholders to fill in")
+                    .font(FoundryTheme.body(size: 13, weight: .semibold))
+                    .foregroundStyle(FoundryTheme.primaryText)
+                ForEach(names, id: \.self) { name in
+                    TextField(name, text: binding(for: name))
+                        .textFieldStyle(.plain)
+                        .font(FoundryTheme.body(size: 13, weight: .regular))
+                        .foregroundStyle(FoundryTheme.primaryText)
+                        .padding(.horizontal, 13)
+                        .frame(height: 36)
+                        .background(
+                            RoundedRectangle(cornerRadius: 9, style: .continuous)
+                                .fill(Color.primary.opacity(0.06))
+                        )
+                        .focused($focused, equals: name)
+                        .onSubmit(submit)
+                }
+                HStack {
+                    Button("Cancel", action: onCancel)
+                        .keyboardShortcut(.cancelAction)
+                    Spacer()
+                    Button("Insert", action: submit)
+                        .keyboardShortcut(.defaultAction)
+                }
+                .buttonStyle(PressableButtonStyle())
+            }
+            .padding(18)
+            .frame(width: 320)
+            .background(
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .fill(Color(nsColor: .windowBackgroundColor))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            .strokeBorder(Color.primary.opacity(0.10), lineWidth: 1)
+                    )
+            )
+        }
+        .onAppear { focused = names.first }
+    }
+
+    private func binding(for name: String) -> Binding<String> {
+        Binding(get: { values[name] ?? "" }, set: { values[name] = $0 })
+    }
+
+    private func submit() { onSubmit(values) }
 }
