@@ -2,7 +2,7 @@ import AppKit
 import SwiftUI
 
 struct MediaDownloadsView: View {
-    @ObservedObject var manager: MediaDownloadManager
+    var manager: MediaDownloadManager
     let start: (String) -> Int
     let cancel: (UUID) -> Void
     let retry: (MediaDownloadItem) -> Void

@@ -1,9 +1,11 @@
 import AppKit
 import AVFoundation
 import Foundation
+import Observation
 
 @MainActor
-final class CameraPreviewState: ObservableObject {
+@Observable
+final class CameraPreviewState {
     enum Status: Equatable {
         case idle, requestingPermission, starting, active
         case denied, restricted, noDevice
@@ -22,7 +24,7 @@ final class CameraPreviewState: ObservableObject {
         }
     }
 
-    @Published private(set) var status: Status = .idle
+    private(set) var status: Status = .idle
     let session: AVCaptureSession
     private let camera: CameraCapturing
     private var task: Task<Void, Never>?

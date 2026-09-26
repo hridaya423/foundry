@@ -1,8 +1,10 @@
 import AppKit
 import Foundation
+import Observation
 
 @MainActor
-final class DeveloperToolsState: ObservableObject {
+@Observable
+final class DeveloperToolsState {
     enum Tool: String, CaseIterable, Identifiable {
         case base = "Base Conversion"
         case bitwise = "Bit Operations"
@@ -51,59 +53,59 @@ final class DeveloperToolsState: ObservableObject {
         var id: String { label }
     }
 
-    @Published var selectedTool: Tool = .base
-    @Published var baseInput = "255" {
+    var selectedTool: Tool = .base
+    var baseInput = "255" {
         didSet { refreshBase() }
     }
-    @Published private(set) var baseRows: [OutputRow] = []
-    @Published private(set) var baseError: String?
+    private(set) var baseRows: [OutputRow] = []
+    private(set) var baseError: String?
 
-    @Published var bitOperation: BitOperation = .and {
+    var bitOperation: BitOperation = .and {
         didSet { refreshBitwise() }
     }
-    @Published var bitLeftInput = "5" {
+    var bitLeftInput = "5" {
         didSet { refreshBitwise() }
     }
-    @Published var bitRightInput = "3" {
+    var bitRightInput = "3" {
         didSet { refreshBitwise() }
     }
-    @Published var bitWidthInput = "8" {
+    var bitWidthInput = "8" {
         didSet { refreshBitwise() }
     }
-    @Published private(set) var bitExpression = ""
-    @Published private(set) var bitRows: [OutputRow] = []
-    @Published private(set) var bitError: String?
+    private(set) var bitExpression = ""
+    private(set) var bitRows: [OutputRow] = []
+    private(set) var bitError: String?
 
-    @Published var base64Operation: Base64Operation = .encode {
+    var base64Operation: Base64Operation = .encode {
         didSet { refreshBase64() }
     }
-    @Published var base64Input = "" {
+    var base64Input = "" {
         didSet { refreshBase64() }
     }
-    @Published private(set) var base64Output = ""
-    @Published private(set) var base64Error: String?
+    private(set) var base64Output = ""
+    private(set) var base64Error: String?
 
-    @Published var jsonInput = "" {
+    var jsonInput = "" {
         didSet { refreshJSON() }
     }
-    @Published private(set) var jsonOutput = ""
-    @Published private(set) var jsonError: String?
+    private(set) var jsonOutput = ""
+    private(set) var jsonError: String?
 
-    @Published var caseInput = "" {
+    var caseInput = "" {
         didSet { refreshCase() }
     }
-    @Published private(set) var caseRows: [OutputRow] = []
+    private(set) var caseRows: [OutputRow] = []
 
-    @Published var timestampInput = "" {
+    var timestampInput = "" {
         didSet { refreshTimestamp() }
     }
-    @Published private(set) var timestampRows: [OutputRow] = []
-    @Published private(set) var timestampError: String?
+    private(set) var timestampRows: [OutputRow] = []
+    private(set) var timestampError: String?
 
-    @Published var wordCountInput = "" {
+    var wordCountInput = "" {
         didSet { refreshWordCount() }
     }
-    @Published private(set) var wordCountRows: [OutputRow] = []
+    private(set) var wordCountRows: [OutputRow] = []
 
     init() {
         refreshBase()

@@ -3,7 +3,7 @@ import AVFoundation
 import SwiftUI
 
 struct CameraPreviewView: View {
-    @ObservedObject var state: CameraPreviewState
+    var state: CameraPreviewState
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {

@@ -1,14 +1,16 @@
 import AppKit
 import Foundation
+import Observation
 
 @MainActor
-final class SnippetState: ObservableObject {
-    @Published var query = "" {
+@Observable
+final class SnippetState {
+    var query = "" {
         didSet { keepSelectionValid() }
     }
-    @Published private(set) var items: [StoredSnippet] = []
-    @Published var selectedID: String?
-    @Published private(set) var persistenceError: String? = nil
+    private(set) var items: [StoredSnippet] = []
+    var selectedID: String?
+    private(set) var persistenceError: String? = nil
     private let store: any SnippetStore
     private let contentLimit = 65_536
     private var persistTask: Task<Void, Never>?
