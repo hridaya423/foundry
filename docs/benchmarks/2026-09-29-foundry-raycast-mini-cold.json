@@ -1,0 +1,906 @@
+{
+  "capturedAt" : "2026-09-28T23:08:23Z",
+  "hardware" : "Apple M4",
+  "isolatedLaunchers" : false,
+  "launchers" : [
+    {
+      "build" : "1",
+      "bundleIdentifier" : "com.hridya.foundry",
+      "bundleKilobytes" : 16152,
+      "hotkey" : "Command-Space",
+      "idleRSSMegabytes" : {
+        "maximum" : 70.03125,
+        "mean" : 69.91458333333334,
+        "minimum" : 69.84375,
+        "p50" : 69.859375,
+        "p95" : 70.03125
+      },
+      "keyCode" : 49,
+      "memorySamples" : [
+        {
+          "capturedAt" : "2026-09-28T23:07:26Z",
+          "footprintMegabytes" : 25.92267608642578,
+          "processes" : [
+            {
+              "command" : "\/Users\/hridyaagrawal\/Applications\/Foundry.app\/Contents\/MacOS\/Foundry",
+              "elapsedSeconds" : 46,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 13253,
+              "rssKilobytes" : 71520
+            }
+          ],
+          "rssMegabytes" : 69.84375
+        },
+        {
+          "capturedAt" : "2026-09-28T23:07:28Z",
+          "footprintMegabytes" : 25.92267608642578,
+          "processes" : [
+            {
+              "command" : "\/Users\/hridyaagrawal\/Applications\/Foundry.app\/Contents\/MacOS\/Foundry",
+              "elapsedSeconds" : 47,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 13253,
+              "rssKilobytes" : 71536
+            }
+          ],
+          "rssMegabytes" : 69.859375
+        },
+        {
+          "capturedAt" : "2026-09-28T23:07:29Z",
+          "footprintMegabytes" : 25.92267608642578,
+          "processes" : [
+            {
+              "command" : "\/Users\/hridyaagrawal\/Applications\/Foundry.app\/Contents\/MacOS\/Foundry",
+              "elapsedSeconds" : 49,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 13253,
+              "rssKilobytes" : 71536
+            }
+          ],
+          "rssMegabytes" : 69.859375
+        },
+        {
+          "capturedAt" : "2026-09-28T23:07:31Z",
+          "footprintMegabytes" : 25.92267608642578,
+          "processes" : [
+            {
+              "command" : "\/Users\/hridyaagrawal\/Applications\/Foundry.app\/Contents\/MacOS\/Foundry",
+              "elapsedSeconds" : 50,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 13253,
+              "rssKilobytes" : 71536
+            }
+          ],
+          "rssMegabytes" : 69.859375
+        },
+        {
+          "capturedAt" : "2026-09-28T23:07:32Z",
+          "footprintMegabytes" : 25.92267608642578,
+          "processes" : [
+            {
+              "command" : "\/Users\/hridyaagrawal\/Applications\/Foundry.app\/Contents\/MacOS\/Foundry",
+              "elapsedSeconds" : 52,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 13253,
+              "rssKilobytes" : 71536
+            }
+          ],
+          "rssMegabytes" : 69.859375
+        },
+        {
+          "capturedAt" : "2026-09-28T23:07:34Z",
+          "footprintMegabytes" : 25.92267608642578,
+          "processes" : [
+            {
+              "command" : "\/Users\/hridyaagrawal\/Applications\/Foundry.app\/Contents\/MacOS\/Foundry",
+              "elapsedSeconds" : 53,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 13253,
+              "rssKilobytes" : 71536
+            }
+          ],
+          "rssMegabytes" : 69.859375
+        },
+        {
+          "capturedAt" : "2026-09-28T23:07:35Z",
+          "footprintMegabytes" : 25.92267608642578,
+          "processes" : [
+            {
+              "command" : "\/Users\/hridyaagrawal\/Applications\/Foundry.app\/Contents\/MacOS\/Foundry",
+              "elapsedSeconds" : 55,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 13253,
+              "rssKilobytes" : 71536
+            }
+          ],
+          "rssMegabytes" : 69.859375
+        },
+        {
+          "capturedAt" : "2026-09-28T23:07:37Z",
+          "footprintMegabytes" : 25.92267608642578,
+          "processes" : [
+            {
+              "command" : "\/Users\/hridyaagrawal\/Applications\/Foundry.app\/Contents\/MacOS\/Foundry",
+              "elapsedSeconds" : 56,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 13253,
+              "rssKilobytes" : 71536
+            }
+          ],
+          "rssMegabytes" : 69.859375
+        },
+        {
+          "capturedAt" : "2026-09-28T23:07:38Z",
+          "footprintMegabytes" : 25.92267608642578,
+          "processes" : [
+            {
+              "command" : "\/Users\/hridyaagrawal\/Applications\/Foundry.app\/Contents\/MacOS\/Foundry",
+              "elapsedSeconds" : 58,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 13253,
+              "rssKilobytes" : 71536
+            }
+          ],
+          "rssMegabytes" : 69.859375
+        },
+        {
+          "capturedAt" : "2026-09-28T23:07:40Z",
+          "footprintMegabytes" : 25.92267608642578,
+          "processes" : [
+            {
+              "command" : "\/Users\/hridyaagrawal\/Applications\/Foundry.app\/Contents\/MacOS\/Foundry",
+              "elapsedSeconds" : 59,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 13253,
+              "rssKilobytes" : 71520
+            }
+          ],
+          "rssMegabytes" : 69.84375
+        },
+        {
+          "capturedAt" : "2026-09-28T23:07:41Z",
+          "footprintMegabytes" : 25.92267608642578,
+          "processes" : [
+            {
+              "command" : "\/Users\/hridyaagrawal\/Applications\/Foundry.app\/Contents\/MacOS\/Foundry",
+              "elapsedSeconds" : 61,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 13253,
+              "rssKilobytes" : 71712
+            }
+          ],
+          "rssMegabytes" : 70.03125
+        },
+        {
+          "capturedAt" : "2026-09-28T23:07:43Z",
+          "footprintMegabytes" : 25.92267608642578,
+          "processes" : [
+            {
+              "command" : "\/Users\/hridyaagrawal\/Applications\/Foundry.app\/Contents\/MacOS\/Foundry",
+              "elapsedSeconds" : 62,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 13253,
+              "rssKilobytes" : 71712
+            }
+          ],
+          "rssMegabytes" : 70.03125
+        },
+        {
+          "capturedAt" : "2026-09-28T23:07:44Z",
+          "footprintMegabytes" : 25.92267608642578,
+          "processes" : [
+            {
+              "command" : "\/Users\/hridyaagrawal\/Applications\/Foundry.app\/Contents\/MacOS\/Foundry",
+              "elapsedSeconds" : 64,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 13253,
+              "rssKilobytes" : 71712
+            }
+          ],
+          "rssMegabytes" : 70.03125
+        },
+        {
+          "capturedAt" : "2026-09-28T23:07:46Z",
+          "footprintMegabytes" : 25.92267608642578,
+          "processes" : [
+            {
+              "command" : "\/Users\/hridyaagrawal\/Applications\/Foundry.app\/Contents\/MacOS\/Foundry",
+              "elapsedSeconds" : 65,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 13253,
+              "rssKilobytes" : 71712
+            }
+          ],
+          "rssMegabytes" : 70.03125
+        },
+        {
+          "capturedAt" : "2026-09-28T23:07:47Z",
+          "footprintMegabytes" : 25.92267608642578,
+          "processes" : [
+            {
+              "command" : "\/Users\/hridyaagrawal\/Applications\/Foundry.app\/Contents\/MacOS\/Foundry",
+              "elapsedSeconds" : 67,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 13253,
+              "rssKilobytes" : 71712
+            }
+          ],
+          "rssMegabytes" : 70.03125
+        }
+      ],
+      "modifierFlags" : 1048576,
+      "name" : "Foundry",
+      "panelSamples" : [
+
+      ],
+      "version" : "1.1.0",
+      "warmedFootprintMegabytes" : {
+        "maximum" : 25.92267608642578,
+        "mean" : 25.92267608642578,
+        "minimum" : 25.92267608642578,
+        "p50" : 25.92267608642578,
+        "p95" : 25.92267608642578
+      }
+    },
+    {
+      "build" : "0",
+      "bundleIdentifier" : "com.raycast.macos",
+      "bundleKilobytes" : 196340,
+      "hotkey" : "Command-49",
+      "idleRSSMegabytes" : {
+        "maximum" : 274.421875,
+        "mean" : 259.625,
+        "minimum" : 255.8125,
+        "p50" : 257.046875,
+        "p95" : 274.421875
+      },
+      "keyCode" : 49,
+      "memorySamples" : [
+        {
+          "capturedAt" : "2026-09-28T23:07:59Z",
+          "footprintMegabytes" : 278.13230895996094,
+          "processes" : [
+            {
+              "command" : "\/Applications\/Raycast.app\/Contents\/Extensions\/RaycastAppIntents.appex\/Contents\/MacOS\/RaycastAppIntents -LaunchArguments eyJzZXJ2aWNlTmFtZSI6ImNvbS5yYXljYXN0Lm1hY29zLlJheWNhc3RBcHBJbnRlbnRzIiwiZW5oYW5jZWRTZWN1cml0eSI6ZmFsc2UsInR5cGUiOjF9",
+              "elapsedSeconds" : 14625,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 2190,
+              "rssKilobytes" : 2784
+            },
+            {
+              "command" : "\/Applications\/Raycast.app\/Contents\/MacOS\/Raycast",
+              "elapsedSeconds" : 63,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 13273,
+              "rssKilobytes" : 96256
+            },
+            {
+              "command" : "Raycast Backend  ",
+              "elapsedSeconds" : 61,
+              "ownership" : "descendant",
+              "parentPID" : 13273,
+              "pid" : 13306,
+              "rssKilobytes" : 160992
+            },
+            {
+              "command" : "\/Applications\/Raycast.app\/Contents\/XPCServices\/Raycast Pasteboard.xpc\/Contents\/MacOS\/com.raycast.macos.Pasteboard",
+              "elapsedSeconds" : 59,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 13317,
+              "rssKilobytes" : 20976
+            }
+          ],
+          "rssMegabytes" : 274.421875
+        },
+        {
+          "capturedAt" : "2026-09-28T23:08:01Z",
+          "footprintMegabytes" : 278.14793395996094,
+          "processes" : [
+            {
+              "command" : "\/Applications\/Raycast.app\/Contents\/Extensions\/RaycastAppIntents.appex\/Contents\/MacOS\/RaycastAppIntents -LaunchArguments eyJzZXJ2aWNlTmFtZSI6ImNvbS5yYXljYXN0Lm1hY29zLlJheWNhc3RBcHBJbnRlbnRzIiwiZW5oYW5jZWRTZWN1cml0eSI6ZmFsc2UsInR5cGUiOjF9",
+              "elapsedSeconds" : 14626,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 2190,
+              "rssKilobytes" : 2816
+            },
+            {
+              "command" : "\/Applications\/Raycast.app\/Contents\/MacOS\/Raycast",
+              "elapsedSeconds" : 64,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 13273,
+              "rssKilobytes" : 90080
+            },
+            {
+              "command" : "Raycast Backend  ",
+              "elapsedSeconds" : 62,
+              "ownership" : "descendant",
+              "parentPID" : 13273,
+              "pid" : 13306,
+              "rssKilobytes" : 166944
+            },
+            {
+              "command" : "\/Applications\/Raycast.app\/Contents\/XPCServices\/Raycast Pasteboard.xpc\/Contents\/MacOS\/com.raycast.macos.Pasteboard",
+              "elapsedSeconds" : 60,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 13317,
+              "rssKilobytes" : 20960
+            }
+          ],
+          "rssMegabytes" : 274.21875
+        },
+        {
+          "capturedAt" : "2026-09-28T23:08:02Z",
+          "footprintMegabytes" : 278.24168395996094,
+          "processes" : [
+            {
+              "command" : "\/Applications\/Raycast.app\/Contents\/Extensions\/RaycastAppIntents.appex\/Contents\/MacOS\/RaycastAppIntents -LaunchArguments eyJzZXJ2aWNlTmFtZSI6ImNvbS5yYXljYXN0Lm1hY29zLlJheWNhc3RBcHBJbnRlbnRzIiwiZW5oYW5jZWRTZWN1cml0eSI6ZmFsc2UsInR5cGUiOjF9",
+              "elapsedSeconds" : 14628,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 2190,
+              "rssKilobytes" : 2816
+            },
+            {
+              "command" : "\/Applications\/Raycast.app\/Contents\/MacOS\/Raycast",
+              "elapsedSeconds" : 66,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 13273,
+              "rssKilobytes" : 80560
+            },
+            {
+              "command" : "Raycast Backend  ",
+              "elapsedSeconds" : 64,
+              "ownership" : "descendant",
+              "parentPID" : 13273,
+              "pid" : 13306,
+              "rssKilobytes" : 160640
+            },
+            {
+              "command" : "\/Applications\/Raycast.app\/Contents\/XPCServices\/Raycast Pasteboard.xpc\/Contents\/MacOS\/com.raycast.macos.Pasteboard",
+              "elapsedSeconds" : 62,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 13317,
+              "rssKilobytes" : 20912
+            }
+          ],
+          "rssMegabytes" : 258.71875
+        },
+        {
+          "capturedAt" : "2026-09-28T23:08:04Z",
+          "footprintMegabytes" : 278.27293395996094,
+          "processes" : [
+            {
+              "command" : "\/Applications\/Raycast.app\/Contents\/Extensions\/RaycastAppIntents.appex\/Contents\/MacOS\/RaycastAppIntents -LaunchArguments eyJzZXJ2aWNlTmFtZSI6ImNvbS5yYXljYXN0Lm1hY29zLlJheWNhc3RBcHBJbnRlbnRzIiwiZW5oYW5jZWRTZWN1cml0eSI6ZmFsc2UsInR5cGUiOjF9",
+              "elapsedSeconds" : 14630,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 2190,
+              "rssKilobytes" : 2816
+            },
+            {
+              "command" : "\/Applications\/Raycast.app\/Contents\/MacOS\/Raycast",
+              "elapsedSeconds" : 68,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 13273,
+              "rssKilobytes" : 80592
+            },
+            {
+              "command" : "Raycast Backend  ",
+              "elapsedSeconds" : 66,
+              "ownership" : "descendant",
+              "parentPID" : 13273,
+              "pid" : 13306,
+              "rssKilobytes" : 160704
+            },
+            {
+              "command" : "\/Applications\/Raycast.app\/Contents\/XPCServices\/Raycast Pasteboard.xpc\/Contents\/MacOS\/com.raycast.macos.Pasteboard",
+              "elapsedSeconds" : 64,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 13317,
+              "rssKilobytes" : 20912
+            }
+          ],
+          "rssMegabytes" : 258.8125
+        },
+        {
+          "capturedAt" : "2026-09-28T23:08:06Z",
+          "footprintMegabytes" : 278.24168395996094,
+          "processes" : [
+            {
+              "command" : "\/Applications\/Raycast.app\/Contents\/Extensions\/RaycastAppIntents.appex\/Contents\/MacOS\/RaycastAppIntents -LaunchArguments eyJzZXJ2aWNlTmFtZSI6ImNvbS5yYXljYXN0Lm1hY29zLlJheWNhc3RBcHBJbnRlbnRzIiwiZW5oYW5jZWRTZWN1cml0eSI6ZmFsc2UsInR5cGUiOjF9",
+              "elapsedSeconds" : 14631,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 2190,
+              "rssKilobytes" : 2816
+            },
+            {
+              "command" : "\/Applications\/Raycast.app\/Contents\/MacOS\/Raycast",
+              "elapsedSeconds" : 69,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 13273,
+              "rssKilobytes" : 80608
+            },
+            {
+              "command" : "Raycast Backend  ",
+              "elapsedSeconds" : 67,
+              "ownership" : "descendant",
+              "parentPID" : 13273,
+              "pid" : 13306,
+              "rssKilobytes" : 160784
+            },
+            {
+              "command" : "\/Applications\/Raycast.app\/Contents\/XPCServices\/Raycast Pasteboard.xpc\/Contents\/MacOS\/com.raycast.macos.Pasteboard",
+              "elapsedSeconds" : 65,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 13317,
+              "rssKilobytes" : 21040
+            }
+          ],
+          "rssMegabytes" : 259.03125
+        },
+        {
+          "capturedAt" : "2026-09-28T23:08:07Z",
+          "footprintMegabytes" : 278.24168395996094,
+          "processes" : [
+            {
+              "command" : "\/Applications\/Raycast.app\/Contents\/Extensions\/RaycastAppIntents.appex\/Contents\/MacOS\/RaycastAppIntents -LaunchArguments eyJzZXJ2aWNlTmFtZSI6ImNvbS5yYXljYXN0Lm1hY29zLlJheWNhc3RBcHBJbnRlbnRzIiwiZW5oYW5jZWRTZWN1cml0eSI6ZmFsc2UsInR5cGUiOjF9",
+              "elapsedSeconds" : 14633,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 2190,
+              "rssKilobytes" : 2816
+            },
+            {
+              "command" : "\/Applications\/Raycast.app\/Contents\/MacOS\/Raycast",
+              "elapsedSeconds" : 71,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 13273,
+              "rssKilobytes" : 80608
+            },
+            {
+              "command" : "Raycast Backend  ",
+              "elapsedSeconds" : 69,
+              "ownership" : "descendant",
+              "parentPID" : 13273,
+              "pid" : 13306,
+              "rssKilobytes" : 160880
+            },
+            {
+              "command" : "\/Applications\/Raycast.app\/Contents\/XPCServices\/Raycast Pasteboard.xpc\/Contents\/MacOS\/com.raycast.macos.Pasteboard",
+              "elapsedSeconds" : 67,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 13317,
+              "rssKilobytes" : 21040
+            }
+          ],
+          "rssMegabytes" : 259.125
+        },
+        {
+          "capturedAt" : "2026-09-28T23:08:09Z",
+          "footprintMegabytes" : 278.24168395996094,
+          "processes" : [
+            {
+              "command" : "\/Applications\/Raycast.app\/Contents\/Extensions\/RaycastAppIntents.appex\/Contents\/MacOS\/RaycastAppIntents -LaunchArguments eyJzZXJ2aWNlTmFtZSI6ImNvbS5yYXljYXN0Lm1hY29zLlJheWNhc3RBcHBJbnRlbnRzIiwiZW5oYW5jZWRTZWN1cml0eSI6ZmFsc2UsInR5cGUiOjF9",
+              "elapsedSeconds" : 14634,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 2190,
+              "rssKilobytes" : 2816
+            },
+            {
+              "command" : "\/Applications\/Raycast.app\/Contents\/MacOS\/Raycast",
+              "elapsedSeconds" : 72,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 13273,
+              "rssKilobytes" : 80608
+            },
+            {
+              "command" : "Raycast Backend  ",
+              "elapsedSeconds" : 70,
+              "ownership" : "descendant",
+              "parentPID" : 13273,
+              "pid" : 13306,
+              "rssKilobytes" : 160960
+            },
+            {
+              "command" : "\/Applications\/Raycast.app\/Contents\/XPCServices\/Raycast Pasteboard.xpc\/Contents\/MacOS\/com.raycast.macos.Pasteboard",
+              "elapsedSeconds" : 68,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 13317,
+              "rssKilobytes" : 21040
+            }
+          ],
+          "rssMegabytes" : 259.203125
+        },
+        {
+          "capturedAt" : "2026-09-28T23:08:10Z",
+          "footprintMegabytes" : 278.36668395996094,
+          "processes" : [
+            {
+              "command" : "\/Applications\/Raycast.app\/Contents\/Extensions\/RaycastAppIntents.appex\/Contents\/MacOS\/RaycastAppIntents -LaunchArguments eyJzZXJ2aWNlTmFtZSI6ImNvbS5yYXljYXN0Lm1hY29zLlJheWNhc3RBcHBJbnRlbnRzIiwiZW5oYW5jZWRTZWN1cml0eSI6ZmFsc2UsInR5cGUiOjF9",
+              "elapsedSeconds" : 14636,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 2190,
+              "rssKilobytes" : 2816
+            },
+            {
+              "command" : "\/Applications\/Raycast.app\/Contents\/MacOS\/Raycast",
+              "elapsedSeconds" : 74,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 13273,
+              "rssKilobytes" : 78336
+            },
+            {
+              "command" : "Raycast Backend  ",
+              "elapsedSeconds" : 72,
+              "ownership" : "descendant",
+              "parentPID" : 13273,
+              "pid" : 13306,
+              "rssKilobytes" : 159760
+            },
+            {
+              "command" : "\/Applications\/Raycast.app\/Contents\/XPCServices\/Raycast Pasteboard.xpc\/Contents\/MacOS\/com.raycast.macos.Pasteboard",
+              "elapsedSeconds" : 70,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 13317,
+              "rssKilobytes" : 21040
+            }
+          ],
+          "rssMegabytes" : 255.8125
+        },
+        {
+          "capturedAt" : "2026-09-28T23:08:12Z",
+          "footprintMegabytes" : 278.39793395996094,
+          "processes" : [
+            {
+              "command" : "\/Applications\/Raycast.app\/Contents\/Extensions\/RaycastAppIntents.appex\/Contents\/MacOS\/RaycastAppIntents -LaunchArguments eyJzZXJ2aWNlTmFtZSI6ImNvbS5yYXljYXN0Lm1hY29zLlJheWNhc3RBcHBJbnRlbnRzIiwiZW5oYW5jZWRTZWN1cml0eSI6ZmFsc2UsInR5cGUiOjF9",
+              "elapsedSeconds" : 14638,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 2190,
+              "rssKilobytes" : 2816
+            },
+            {
+              "command" : "\/Applications\/Raycast.app\/Contents\/MacOS\/Raycast",
+              "elapsedSeconds" : 76,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 13273,
+              "rssKilobytes" : 78080
+            },
+            {
+              "command" : "Raycast Backend  ",
+              "elapsedSeconds" : 74,
+              "ownership" : "descendant",
+              "parentPID" : 13273,
+              "pid" : 13306,
+              "rssKilobytes" : 160160
+            },
+            {
+              "command" : "\/Applications\/Raycast.app\/Contents\/XPCServices\/Raycast Pasteboard.xpc\/Contents\/MacOS\/com.raycast.macos.Pasteboard",
+              "elapsedSeconds" : 72,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 13317,
+              "rssKilobytes" : 21040
+            }
+          ],
+          "rssMegabytes" : 255.953125
+        },
+        {
+          "capturedAt" : "2026-09-28T23:08:14Z",
+          "footprintMegabytes" : 278.39793395996094,
+          "processes" : [
+            {
+              "command" : "\/Applications\/Raycast.app\/Contents\/Extensions\/RaycastAppIntents.appex\/Contents\/MacOS\/RaycastAppIntents -LaunchArguments eyJzZXJ2aWNlTmFtZSI6ImNvbS5yYXljYXN0Lm1hY29zLlJheWNhc3RBcHBJbnRlbnRzIiwiZW5oYW5jZWRTZWN1cml0eSI6ZmFsc2UsInR5cGUiOjF9",
+              "elapsedSeconds" : 14639,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 2190,
+              "rssKilobytes" : 2816
+            },
+            {
+              "command" : "\/Applications\/Raycast.app\/Contents\/MacOS\/Raycast",
+              "elapsedSeconds" : 77,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 13273,
+              "rssKilobytes" : 78080
+            },
+            {
+              "command" : "Raycast Backend  ",
+              "elapsedSeconds" : 75,
+              "ownership" : "descendant",
+              "parentPID" : 13273,
+              "pid" : 13306,
+              "rssKilobytes" : 160160
+            },
+            {
+              "command" : "\/Applications\/Raycast.app\/Contents\/XPCServices\/Raycast Pasteboard.xpc\/Contents\/MacOS\/com.raycast.macos.Pasteboard",
+              "elapsedSeconds" : 73,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 13317,
+              "rssKilobytes" : 21040
+            }
+          ],
+          "rssMegabytes" : 255.953125
+        },
+        {
+          "capturedAt" : "2026-09-28T23:08:15Z",
+          "footprintMegabytes" : 278.50730895996094,
+          "processes" : [
+            {
+              "command" : "\/Applications\/Raycast.app\/Contents\/Extensions\/RaycastAppIntents.appex\/Contents\/MacOS\/RaycastAppIntents -LaunchArguments eyJzZXJ2aWNlTmFtZSI6ImNvbS5yYXljYXN0Lm1hY29zLlJheWNhc3RBcHBJbnRlbnRzIiwiZW5oYW5jZWRTZWN1cml0eSI6ZmFsc2UsInR5cGUiOjF9",
+              "elapsedSeconds" : 14641,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 2190,
+              "rssKilobytes" : 2816
+            },
+            {
+              "command" : "\/Applications\/Raycast.app\/Contents\/MacOS\/Raycast",
+              "elapsedSeconds" : 79,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 13273,
+              "rssKilobytes" : 77984
+            },
+            {
+              "command" : "Raycast Backend  ",
+              "elapsedSeconds" : 77,
+              "ownership" : "descendant",
+              "parentPID" : 13273,
+              "pid" : 13306,
+              "rssKilobytes" : 160240
+            },
+            {
+              "command" : "\/Applications\/Raycast.app\/Contents\/XPCServices\/Raycast Pasteboard.xpc\/Contents\/MacOS\/com.raycast.macos.Pasteboard",
+              "elapsedSeconds" : 75,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 13317,
+              "rssKilobytes" : 21040
+            }
+          ],
+          "rssMegabytes" : 255.9375
+        },
+        {
+          "capturedAt" : "2026-09-28T23:08:17Z",
+          "footprintMegabytes" : 278.33543395996094,
+          "processes" : [
+            {
+              "command" : "\/Applications\/Raycast.app\/Contents\/Extensions\/RaycastAppIntents.appex\/Contents\/MacOS\/RaycastAppIntents -LaunchArguments eyJzZXJ2aWNlTmFtZSI6ImNvbS5yYXljYXN0Lm1hY29zLlJheWNhc3RBcHBJbnRlbnRzIiwiZW5oYW5jZWRTZWN1cml0eSI6ZmFsc2UsInR5cGUiOjF9",
+              "elapsedSeconds" : 14643,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 2190,
+              "rssKilobytes" : 2816
+            },
+            {
+              "command" : "\/Applications\/Raycast.app\/Contents\/MacOS\/Raycast",
+              "elapsedSeconds" : 81,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 13273,
+              "rssKilobytes" : 78208
+            },
+            {
+              "command" : "Raycast Backend  ",
+              "elapsedSeconds" : 79,
+              "ownership" : "descendant",
+              "parentPID" : 13273,
+              "pid" : 13306,
+              "rssKilobytes" : 160272
+            },
+            {
+              "command" : "\/Applications\/Raycast.app\/Contents\/XPCServices\/Raycast Pasteboard.xpc\/Contents\/MacOS\/com.raycast.macos.Pasteboard",
+              "elapsedSeconds" : 77,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 13317,
+              "rssKilobytes" : 21040
+            }
+          ],
+          "rssMegabytes" : 256.1875
+        },
+        {
+          "capturedAt" : "2026-09-28T23:08:18Z",
+          "footprintMegabytes" : 278.35105895996094,
+          "processes" : [
+            {
+              "command" : "\/Applications\/Raycast.app\/Contents\/Extensions\/RaycastAppIntents.appex\/Contents\/MacOS\/RaycastAppIntents -LaunchArguments eyJzZXJ2aWNlTmFtZSI6ImNvbS5yYXljYXN0Lm1hY29zLlJheWNhc3RBcHBJbnRlbnRzIiwiZW5oYW5jZWRTZWN1cml0eSI6ZmFsc2UsInR5cGUiOjF9",
+              "elapsedSeconds" : 14644,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 2190,
+              "rssKilobytes" : 2816
+            },
+            {
+              "command" : "\/Applications\/Raycast.app\/Contents\/MacOS\/Raycast",
+              "elapsedSeconds" : 82,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 13273,
+              "rssKilobytes" : 78224
+            },
+            {
+              "command" : "Raycast Backend  ",
+              "elapsedSeconds" : 80,
+              "ownership" : "descendant",
+              "parentPID" : 13273,
+              "pid" : 13306,
+              "rssKilobytes" : 161056
+            },
+            {
+              "command" : "\/Applications\/Raycast.app\/Contents\/XPCServices\/Raycast Pasteboard.xpc\/Contents\/MacOS\/com.raycast.macos.Pasteboard",
+              "elapsedSeconds" : 78,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 13317,
+              "rssKilobytes" : 21040
+            }
+          ],
+          "rssMegabytes" : 256.96875
+        },
+        {
+          "capturedAt" : "2026-09-28T23:08:20Z",
+          "footprintMegabytes" : 278.31980895996094,
+          "processes" : [
+            {
+              "command" : "\/Applications\/Raycast.app\/Contents\/Extensions\/RaycastAppIntents.appex\/Contents\/MacOS\/RaycastAppIntents -LaunchArguments eyJzZXJ2aWNlTmFtZSI6ImNvbS5yYXljYXN0Lm1hY29zLlJheWNhc3RBcHBJbnRlbnRzIiwiZW5oYW5jZWRTZWN1cml0eSI6ZmFsc2UsInR5cGUiOjF9",
+              "elapsedSeconds" : 14646,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 2190,
+              "rssKilobytes" : 2816
+            },
+            {
+              "command" : "\/Applications\/Raycast.app\/Contents\/MacOS\/Raycast",
+              "elapsedSeconds" : 84,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 13273,
+              "rssKilobytes" : 78224
+            },
+            {
+              "command" : "Raycast Backend  ",
+              "elapsedSeconds" : 82,
+              "ownership" : "descendant",
+              "parentPID" : 13273,
+              "pid" : 13306,
+              "rssKilobytes" : 161072
+            },
+            {
+              "command" : "\/Applications\/Raycast.app\/Contents\/XPCServices\/Raycast Pasteboard.xpc\/Contents\/MacOS\/com.raycast.macos.Pasteboard",
+              "elapsedSeconds" : 80,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 13317,
+              "rssKilobytes" : 21040
+            }
+          ],
+          "rssMegabytes" : 256.984375
+        },
+        {
+          "capturedAt" : "2026-09-28T23:08:22Z",
+          "footprintMegabytes" : 278.33543395996094,
+          "processes" : [
+            {
+              "command" : "\/Applications\/Raycast.app\/Contents\/Extensions\/RaycastAppIntents.appex\/Contents\/MacOS\/RaycastAppIntents -LaunchArguments eyJzZXJ2aWNlTmFtZSI6ImNvbS5yYXljYXN0Lm1hY29zLlJheWNhc3RBcHBJbnRlbnRzIiwiZW5oYW5jZWRTZWN1cml0eSI6ZmFsc2UsInR5cGUiOjF9",
+              "elapsedSeconds" : 14647,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 2190,
+              "rssKilobytes" : 2816
+            },
+            {
+              "command" : "\/Applications\/Raycast.app\/Contents\/MacOS\/Raycast",
+              "elapsedSeconds" : 85,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 13273,
+              "rssKilobytes" : 78224
+            },
+            {
+              "command" : "Raycast Backend  ",
+              "elapsedSeconds" : 83,
+              "ownership" : "descendant",
+              "parentPID" : 13273,
+              "pid" : 13306,
+              "rssKilobytes" : 161136
+            },
+            {
+              "command" : "\/Applications\/Raycast.app\/Contents\/XPCServices\/Raycast Pasteboard.xpc\/Contents\/MacOS\/com.raycast.macos.Pasteboard",
+              "elapsedSeconds" : 81,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 13317,
+              "rssKilobytes" : 21040
+            }
+          ],
+          "rssMegabytes" : 257.046875
+        }
+      ],
+      "modifierFlags" : 1048576,
+      "name" : "Raycast",
+      "panelSamples" : [
+
+      ],
+      "version" : "2.2.0.0",
+      "warmedFootprintMegabytes" : {
+        "maximum" : 278.50730895996094,
+        "mean" : 278.3021006266276,
+        "minimum" : 278.13230895996094,
+        "p50" : 278.31980895996094,
+        "p95" : 278.50730895996094
+      }
+    }
+  ],
+  "logicalCPUCount" : 10,
+  "macOS" : "26.2",
+  "macOSBuild" : "25C56",
+  "machineIdentifier" : "Mac16,10",
+  "measuredRuns" : 0,
+  "memoryMetric" : "Summary Footprint from macOS footprint for selected process IDs",
+  "memorySampleCount" : 15,
+  "memorySampleIntervalSeconds" : 1,
+  "panelMetric" : "Elapsed time from CGEvent post to the first matching on-screen CGWindow entry",
+  "panelPollMicroseconds" : 500,
+  "panelTimeoutSeconds" : 2,
+  "physicalMemoryBytes" : 17179869184,
+  "postPanelSettleSeconds" : 2,
+  "processMinimumAgeSeconds" : 5,
+  "processSelection" : "Bundle processes, their descendants, and Raycast's newly spawned WebKit XPC processes",
+  "processStabilitySeconds" : 0.1,
+  "startedAt" : "2026-09-28T23:07:15Z",
+  "startupWaitSeconds" : 8,
+  "systemAtEnd" : {
+    "powerDetails" : "Now drawing from 'AC Power'",
+    "powerSettings" : "System-wide power settings:\nCurrently in use:\n standby              0\n Sleep On Power Button 1\n autorestart          1\n powernap             1\n networkoversleep     0\n disksleep            0\n sleep                0 (sleep prevented by powerd)\n ttyskeepawake        1\n displaysleep         0\n tcpkeepalive         1\n lowpowermode         0\n womp                 1",
+    "powerSource" : "AC Power",
+    "thermalDetails" : "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded"
+  },
+  "systemAtStart" : {
+    "powerDetails" : "Now drawing from 'AC Power'",
+    "powerSettings" : "System-wide power settings:\nCurrently in use:\n standby              0\n Sleep On Power Button 1\n autorestart          1\n powernap             1\n networkoversleep     0\n disksleep            0\n sleep                0 (sleep prevented by powerd)\n ttyskeepawake        1\n displaysleep         0\n tcpkeepalive         1\n lowpowermode         0\n womp                 1",
+    "powerSource" : "AC Power",
+    "thermalDetails" : "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded"
+  },
+  "warmupRuns" : 5
+}
