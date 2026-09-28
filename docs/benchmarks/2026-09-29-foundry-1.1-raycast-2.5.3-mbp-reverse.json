@@ -1,0 +1,1638 @@
+{
+  "capturedAt" : "2026-09-29T05:42:09Z",
+  "hardware" : "Apple M4 Pro",
+  "isolatedLaunchers" : true,
+  "launchers" : [
+    {
+      "build" : "0",
+      "bundleIdentifier" : "com.raycast.macos",
+      "bundleKilobytes" : 224088,
+      "hotkey" : "Command-47",
+      "idleRSSMegabytes" : {
+        "maximum" : 1111.890625,
+        "mean" : 1111.0875,
+        "minimum" : 1110.671875,
+        "p50" : 1110.90625,
+        "p95" : 1111.890625
+      },
+      "keyCode" : 47,
+      "memorySamples" : [
+        {
+          "capturedAt" : "2026-09-29T05:40:47Z",
+          "footprintMegabytes" : 628.1562652587891,
+          "processes" : [
+            {
+              "command" : "\/Applications\/Raycast.app\/Contents\/MacOS\/Raycast",
+              "elapsedSeconds" : 31,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 76095,
+              "rssKilobytes" : 125360
+            },
+            {
+              "command" : "\/System\/Library\/Frameworks\/WebKit.framework\/Versions\/A\/XPCServices\/com.apple.WebKit.GPU.xpc\/Contents\/MacOS\/com.apple.WebKit.GPU",
+              "elapsedSeconds" : 31,
+              "ownership" : "newDetachedWebKit",
+              "parentPID" : 1,
+              "pid" : 76186,
+              "rssKilobytes" : 35120
+            },
+            {
+              "command" : "\/System\/Library\/Frameworks\/WebKit.framework\/Versions\/A\/XPCServices\/com.apple.WebKit.WebContent.xpc\/Contents\/MacOS\/com.apple.WebKit.WebContent",
+              "elapsedSeconds" : 31,
+              "ownership" : "newDetachedWebKit",
+              "parentPID" : 1,
+              "pid" : 76209,
+              "rssKilobytes" : 223584
+            },
+            {
+              "command" : "\/System\/Library\/Frameworks\/WebKit.framework\/Versions\/A\/XPCServices\/com.apple.WebKit.Networking.xpc\/Contents\/MacOS\/com.apple.WebKit.Networking",
+              "elapsedSeconds" : 31,
+              "ownership" : "newDetachedWebKit",
+              "parentPID" : 1,
+              "pid" : 76233,
+              "rssKilobytes" : 30048
+            },
+            {
+              "command" : "Raycast Backend  ",
+              "elapsedSeconds" : 31,
+              "ownership" : "descendant",
+              "parentPID" : 76095,
+              "pid" : 76237,
+              "rssKilobytes" : 639648
+            },
+            {
+              "command" : "\/Applications\/Raycast.app\/Contents\/XPCServices\/Raycast Accessibility.xpc\/Contents\/MacOS\/com.raycast.macos.Accessibility",
+              "elapsedSeconds" : 30,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 76240,
+              "rssKilobytes" : 24224
+            },
+            {
+              "command" : "\/Applications\/Raycast.app\/Contents\/XPCServices\/Raycast Pasteboard.xpc\/Contents\/MacOS\/com.raycast.macos.Pasteboard",
+              "elapsedSeconds" : 30,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 76241,
+              "rssKilobytes" : 28032
+            },
+            {
+              "command" : "\/System\/Library\/Frameworks\/WebKit.framework\/Versions\/A\/XPCServices\/com.apple.WebKit.GPU.xpc\/Contents\/MacOS\/com.apple.WebKit.GPU",
+              "elapsedSeconds" : 29,
+              "ownership" : "newDetachedWebKit",
+              "parentPID" : 1,
+              "pid" : 76332,
+              "rssKilobytes" : 32560
+            }
+          ],
+          "rssMegabytes" : 1111.890625
+        },
+        {
+          "capturedAt" : "2026-09-29T05:40:48Z",
+          "footprintMegabytes" : 627.1875152587891,
+          "processes" : [
+            {
+              "command" : "\/Applications\/Raycast.app\/Contents\/MacOS\/Raycast",
+              "elapsedSeconds" : 33,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 76095,
+              "rssKilobytes" : 125344
+            },
+            {
+              "command" : "\/System\/Library\/Frameworks\/WebKit.framework\/Versions\/A\/XPCServices\/com.apple.WebKit.GPU.xpc\/Contents\/MacOS\/com.apple.WebKit.GPU",
+              "elapsedSeconds" : 33,
+              "ownership" : "newDetachedWebKit",
+              "parentPID" : 1,
+              "pid" : 76186,
+              "rssKilobytes" : 35120
+            },
+            {
+              "command" : "\/System\/Library\/Frameworks\/WebKit.framework\/Versions\/A\/XPCServices\/com.apple.WebKit.WebContent.xpc\/Contents\/MacOS\/com.apple.WebKit.WebContent",
+              "elapsedSeconds" : 33,
+              "ownership" : "newDetachedWebKit",
+              "parentPID" : 1,
+              "pid" : 76209,
+              "rssKilobytes" : 223552
+            },
+            {
+              "command" : "\/System\/Library\/Frameworks\/WebKit.framework\/Versions\/A\/XPCServices\/com.apple.WebKit.Networking.xpc\/Contents\/MacOS\/com.apple.WebKit.Networking",
+              "elapsedSeconds" : 33,
+              "ownership" : "newDetachedWebKit",
+              "parentPID" : 1,
+              "pid" : 76233,
+              "rssKilobytes" : 30048
+            },
+            {
+              "command" : "Raycast Backend  ",
+              "elapsedSeconds" : 33,
+              "ownership" : "descendant",
+              "parentPID" : 76095,
+              "pid" : 76237,
+              "rssKilobytes" : 639648
+            },
+            {
+              "command" : "\/Applications\/Raycast.app\/Contents\/XPCServices\/Raycast Accessibility.xpc\/Contents\/MacOS\/com.raycast.macos.Accessibility",
+              "elapsedSeconds" : 32,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 76240,
+              "rssKilobytes" : 24224
+            },
+            {
+              "command" : "\/Applications\/Raycast.app\/Contents\/XPCServices\/Raycast Pasteboard.xpc\/Contents\/MacOS\/com.raycast.macos.Pasteboard",
+              "elapsedSeconds" : 32,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 76241,
+              "rssKilobytes" : 28032
+            },
+            {
+              "command" : "\/System\/Library\/Frameworks\/WebKit.framework\/Versions\/A\/XPCServices\/com.apple.WebKit.GPU.xpc\/Contents\/MacOS\/com.apple.WebKit.GPU",
+              "elapsedSeconds" : 31,
+              "ownership" : "newDetachedWebKit",
+              "parentPID" : 1,
+              "pid" : 76332,
+              "rssKilobytes" : 32560
+            }
+          ],
+          "rssMegabytes" : 1111.84375
+        },
+        {
+          "capturedAt" : "2026-09-29T05:40:50Z",
+          "footprintMegabytes" : 627.1875152587891,
+          "processes" : [
+            {
+              "command" : "\/Applications\/Raycast.app\/Contents\/MacOS\/Raycast",
+              "elapsedSeconds" : 34,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 76095,
+              "rssKilobytes" : 125344
+            },
+            {
+              "command" : "\/System\/Library\/Frameworks\/WebKit.framework\/Versions\/A\/XPCServices\/com.apple.WebKit.GPU.xpc\/Contents\/MacOS\/com.apple.WebKit.GPU",
+              "elapsedSeconds" : 34,
+              "ownership" : "newDetachedWebKit",
+              "parentPID" : 1,
+              "pid" : 76186,
+              "rssKilobytes" : 35120
+            },
+            {
+              "command" : "\/System\/Library\/Frameworks\/WebKit.framework\/Versions\/A\/XPCServices\/com.apple.WebKit.WebContent.xpc\/Contents\/MacOS\/com.apple.WebKit.WebContent",
+              "elapsedSeconds" : 34,
+              "ownership" : "newDetachedWebKit",
+              "parentPID" : 1,
+              "pid" : 76209,
+              "rssKilobytes" : 223552
+            },
+            {
+              "command" : "\/System\/Library\/Frameworks\/WebKit.framework\/Versions\/A\/XPCServices\/com.apple.WebKit.Networking.xpc\/Contents\/MacOS\/com.apple.WebKit.Networking",
+              "elapsedSeconds" : 34,
+              "ownership" : "newDetachedWebKit",
+              "parentPID" : 1,
+              "pid" : 76233,
+              "rssKilobytes" : 30048
+            },
+            {
+              "command" : "Raycast Backend  ",
+              "elapsedSeconds" : 34,
+              "ownership" : "descendant",
+              "parentPID" : 76095,
+              "pid" : 76237,
+              "rssKilobytes" : 639648
+            },
+            {
+              "command" : "\/Applications\/Raycast.app\/Contents\/XPCServices\/Raycast Accessibility.xpc\/Contents\/MacOS\/com.raycast.macos.Accessibility",
+              "elapsedSeconds" : 33,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 76240,
+              "rssKilobytes" : 24224
+            },
+            {
+              "command" : "\/Applications\/Raycast.app\/Contents\/XPCServices\/Raycast Pasteboard.xpc\/Contents\/MacOS\/com.raycast.macos.Pasteboard",
+              "elapsedSeconds" : 33,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 76241,
+              "rssKilobytes" : 28032
+            },
+            {
+              "command" : "\/System\/Library\/Frameworks\/WebKit.framework\/Versions\/A\/XPCServices\/com.apple.WebKit.GPU.xpc\/Contents\/MacOS\/com.apple.WebKit.GPU",
+              "elapsedSeconds" : 32,
+              "ownership" : "newDetachedWebKit",
+              "parentPID" : 1,
+              "pid" : 76332,
+              "rssKilobytes" : 32560
+            }
+          ],
+          "rssMegabytes" : 1111.84375
+        },
+        {
+          "capturedAt" : "2026-09-29T05:40:51Z",
+          "footprintMegabytes" : 627.1093902587891,
+          "processes" : [
+            {
+              "command" : "\/Applications\/Raycast.app\/Contents\/MacOS\/Raycast",
+              "elapsedSeconds" : 36,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 76095,
+              "rssKilobytes" : 125344
+            },
+            {
+              "command" : "\/System\/Library\/Frameworks\/WebKit.framework\/Versions\/A\/XPCServices\/com.apple.WebKit.GPU.xpc\/Contents\/MacOS\/com.apple.WebKit.GPU",
+              "elapsedSeconds" : 36,
+              "ownership" : "newDetachedWebKit",
+              "parentPID" : 1,
+              "pid" : 76186,
+              "rssKilobytes" : 35120
+            },
+            {
+              "command" : "\/System\/Library\/Frameworks\/WebKit.framework\/Versions\/A\/XPCServices\/com.apple.WebKit.WebContent.xpc\/Contents\/MacOS\/com.apple.WebKit.WebContent",
+              "elapsedSeconds" : 36,
+              "ownership" : "newDetachedWebKit",
+              "parentPID" : 1,
+              "pid" : 76209,
+              "rssKilobytes" : 223504
+            },
+            {
+              "command" : "\/System\/Library\/Frameworks\/WebKit.framework\/Versions\/A\/XPCServices\/com.apple.WebKit.Networking.xpc\/Contents\/MacOS\/com.apple.WebKit.Networking",
+              "elapsedSeconds" : 36,
+              "ownership" : "newDetachedWebKit",
+              "parentPID" : 1,
+              "pid" : 76233,
+              "rssKilobytes" : 30048
+            },
+            {
+              "command" : "Raycast Backend  ",
+              "elapsedSeconds" : 36,
+              "ownership" : "descendant",
+              "parentPID" : 76095,
+              "pid" : 76237,
+              "rssKilobytes" : 639648
+            },
+            {
+              "command" : "\/Applications\/Raycast.app\/Contents\/XPCServices\/Raycast Accessibility.xpc\/Contents\/MacOS\/com.raycast.macos.Accessibility",
+              "elapsedSeconds" : 35,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 76240,
+              "rssKilobytes" : 24224
+            },
+            {
+              "command" : "\/Applications\/Raycast.app\/Contents\/XPCServices\/Raycast Pasteboard.xpc\/Contents\/MacOS\/com.raycast.macos.Pasteboard",
+              "elapsedSeconds" : 35,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 76241,
+              "rssKilobytes" : 28032
+            },
+            {
+              "command" : "\/System\/Library\/Frameworks\/WebKit.framework\/Versions\/A\/XPCServices\/com.apple.WebKit.GPU.xpc\/Contents\/MacOS\/com.apple.WebKit.GPU",
+              "elapsedSeconds" : 34,
+              "ownership" : "newDetachedWebKit",
+              "parentPID" : 1,
+              "pid" : 76332,
+              "rssKilobytes" : 32560
+            }
+          ],
+          "rssMegabytes" : 1111.796875
+        },
+        {
+          "capturedAt" : "2026-09-29T05:40:53Z",
+          "footprintMegabytes" : 626.5781402587891,
+          "processes" : [
+            {
+              "command" : "\/Applications\/Raycast.app\/Contents\/MacOS\/Raycast",
+              "elapsedSeconds" : 37,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 76095,
+              "rssKilobytes" : 125248
+            },
+            {
+              "command" : "\/System\/Library\/Frameworks\/WebKit.framework\/Versions\/A\/XPCServices\/com.apple.WebKit.GPU.xpc\/Contents\/MacOS\/com.apple.WebKit.GPU",
+              "elapsedSeconds" : 37,
+              "ownership" : "newDetachedWebKit",
+              "parentPID" : 1,
+              "pid" : 76186,
+              "rssKilobytes" : 35008
+            },
+            {
+              "command" : "\/System\/Library\/Frameworks\/WebKit.framework\/Versions\/A\/XPCServices\/com.apple.WebKit.WebContent.xpc\/Contents\/MacOS\/com.apple.WebKit.WebContent",
+              "elapsedSeconds" : 37,
+              "ownership" : "newDetachedWebKit",
+              "parentPID" : 1,
+              "pid" : 76209,
+              "rssKilobytes" : 223360
+            },
+            {
+              "command" : "\/System\/Library\/Frameworks\/WebKit.framework\/Versions\/A\/XPCServices\/com.apple.WebKit.Networking.xpc\/Contents\/MacOS\/com.apple.WebKit.Networking",
+              "elapsedSeconds" : 37,
+              "ownership" : "newDetachedWebKit",
+              "parentPID" : 1,
+              "pid" : 76233,
+              "rssKilobytes" : 30000
+            },
+            {
+              "command" : "Raycast Backend  ",
+              "elapsedSeconds" : 37,
+              "ownership" : "descendant",
+              "parentPID" : 76095,
+              "pid" : 76237,
+              "rssKilobytes" : 639536
+            },
+            {
+              "command" : "\/Applications\/Raycast.app\/Contents\/XPCServices\/Raycast Accessibility.xpc\/Contents\/MacOS\/com.raycast.macos.Accessibility",
+              "elapsedSeconds" : 36,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 76240,
+              "rssKilobytes" : 24224
+            },
+            {
+              "command" : "\/Applications\/Raycast.app\/Contents\/XPCServices\/Raycast Pasteboard.xpc\/Contents\/MacOS\/com.raycast.macos.Pasteboard",
+              "elapsedSeconds" : 36,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 76241,
+              "rssKilobytes" : 28032
+            },
+            {
+              "command" : "\/System\/Library\/Frameworks\/WebKit.framework\/Versions\/A\/XPCServices\/com.apple.WebKit.GPU.xpc\/Contents\/MacOS\/com.apple.WebKit.GPU",
+              "elapsedSeconds" : 35,
+              "ownership" : "newDetachedWebKit",
+              "parentPID" : 1,
+              "pid" : 76332,
+              "rssKilobytes" : 32560
+            }
+          ],
+          "rssMegabytes" : 1111.296875
+        },
+        {
+          "capturedAt" : "2026-09-29T05:40:54Z",
+          "footprintMegabytes" : 624.8750152587891,
+          "processes" : [
+            {
+              "command" : "\/Applications\/Raycast.app\/Contents\/MacOS\/Raycast",
+              "elapsedSeconds" : 39,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 76095,
+              "rssKilobytes" : 125248
+            },
+            {
+              "command" : "\/System\/Library\/Frameworks\/WebKit.framework\/Versions\/A\/XPCServices\/com.apple.WebKit.GPU.xpc\/Contents\/MacOS\/com.apple.WebKit.GPU",
+              "elapsedSeconds" : 39,
+              "ownership" : "newDetachedWebKit",
+              "parentPID" : 1,
+              "pid" : 76186,
+              "rssKilobytes" : 35008
+            },
+            {
+              "command" : "\/System\/Library\/Frameworks\/WebKit.framework\/Versions\/A\/XPCServices\/com.apple.WebKit.WebContent.xpc\/Contents\/MacOS\/com.apple.WebKit.WebContent",
+              "elapsedSeconds" : 39,
+              "ownership" : "newDetachedWebKit",
+              "parentPID" : 1,
+              "pid" : 76209,
+              "rssKilobytes" : 223312
+            },
+            {
+              "command" : "\/System\/Library\/Frameworks\/WebKit.framework\/Versions\/A\/XPCServices\/com.apple.WebKit.Networking.xpc\/Contents\/MacOS\/com.apple.WebKit.Networking",
+              "elapsedSeconds" : 39,
+              "ownership" : "newDetachedWebKit",
+              "parentPID" : 1,
+              "pid" : 76233,
+              "rssKilobytes" : 30000
+            },
+            {
+              "command" : "Raycast Backend  ",
+              "elapsedSeconds" : 39,
+              "ownership" : "descendant",
+              "parentPID" : 76095,
+              "pid" : 76237,
+              "rssKilobytes" : 639248
+            },
+            {
+              "command" : "\/Applications\/Raycast.app\/Contents\/XPCServices\/Raycast Accessibility.xpc\/Contents\/MacOS\/com.raycast.macos.Accessibility",
+              "elapsedSeconds" : 38,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 76240,
+              "rssKilobytes" : 24224
+            },
+            {
+              "command" : "\/Applications\/Raycast.app\/Contents\/XPCServices\/Raycast Pasteboard.xpc\/Contents\/MacOS\/com.raycast.macos.Pasteboard",
+              "elapsedSeconds" : 38,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 76241,
+              "rssKilobytes" : 28032
+            },
+            {
+              "command" : "\/System\/Library\/Frameworks\/WebKit.framework\/Versions\/A\/XPCServices\/com.apple.WebKit.GPU.xpc\/Contents\/MacOS\/com.apple.WebKit.GPU",
+              "elapsedSeconds" : 37,
+              "ownership" : "newDetachedWebKit",
+              "parentPID" : 1,
+              "pid" : 76332,
+              "rssKilobytes" : 32560
+            }
+          ],
+          "rssMegabytes" : 1110.96875
+        },
+        {
+          "capturedAt" : "2026-09-29T05:40:56Z",
+          "footprintMegabytes" : 620.4531402587891,
+          "processes" : [
+            {
+              "command" : "\/Applications\/Raycast.app\/Contents\/MacOS\/Raycast",
+              "elapsedSeconds" : 40,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 76095,
+              "rssKilobytes" : 125248
+            },
+            {
+              "command" : "\/System\/Library\/Frameworks\/WebKit.framework\/Versions\/A\/XPCServices\/com.apple.WebKit.GPU.xpc\/Contents\/MacOS\/com.apple.WebKit.GPU",
+              "elapsedSeconds" : 40,
+              "ownership" : "newDetachedWebKit",
+              "parentPID" : 1,
+              "pid" : 76186,
+              "rssKilobytes" : 35008
+            },
+            {
+              "command" : "\/System\/Library\/Frameworks\/WebKit.framework\/Versions\/A\/XPCServices\/com.apple.WebKit.WebContent.xpc\/Contents\/MacOS\/com.apple.WebKit.WebContent",
+              "elapsedSeconds" : 40,
+              "ownership" : "newDetachedWebKit",
+              "parentPID" : 1,
+              "pid" : 76209,
+              "rssKilobytes" : 223264
+            },
+            {
+              "command" : "\/System\/Library\/Frameworks\/WebKit.framework\/Versions\/A\/XPCServices\/com.apple.WebKit.Networking.xpc\/Contents\/MacOS\/com.apple.WebKit.Networking",
+              "elapsedSeconds" : 40,
+              "ownership" : "newDetachedWebKit",
+              "parentPID" : 1,
+              "pid" : 76233,
+              "rssKilobytes" : 30000
+            },
+            {
+              "command" : "Raycast Backend  ",
+              "elapsedSeconds" : 40,
+              "ownership" : "descendant",
+              "parentPID" : 76095,
+              "pid" : 76237,
+              "rssKilobytes" : 639232
+            },
+            {
+              "command" : "\/Applications\/Raycast.app\/Contents\/XPCServices\/Raycast Accessibility.xpc\/Contents\/MacOS\/com.raycast.macos.Accessibility",
+              "elapsedSeconds" : 39,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 76240,
+              "rssKilobytes" : 24224
+            },
+            {
+              "command" : "\/Applications\/Raycast.app\/Contents\/XPCServices\/Raycast Pasteboard.xpc\/Contents\/MacOS\/com.raycast.macos.Pasteboard",
+              "elapsedSeconds" : 39,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 76241,
+              "rssKilobytes" : 28032
+            },
+            {
+              "command" : "\/System\/Library\/Frameworks\/WebKit.framework\/Versions\/A\/XPCServices\/com.apple.WebKit.GPU.xpc\/Contents\/MacOS\/com.apple.WebKit.GPU",
+              "elapsedSeconds" : 38,
+              "ownership" : "newDetachedWebKit",
+              "parentPID" : 1,
+              "pid" : 76332,
+              "rssKilobytes" : 32560
+            }
+          ],
+          "rssMegabytes" : 1110.90625
+        },
+        {
+          "capturedAt" : "2026-09-29T05:40:57Z",
+          "footprintMegabytes" : 619.9843902587891,
+          "processes" : [
+            {
+              "command" : "\/Applications\/Raycast.app\/Contents\/MacOS\/Raycast",
+              "elapsedSeconds" : 42,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 76095,
+              "rssKilobytes" : 125248
+            },
+            {
+              "command" : "\/System\/Library\/Frameworks\/WebKit.framework\/Versions\/A\/XPCServices\/com.apple.WebKit.GPU.xpc\/Contents\/MacOS\/com.apple.WebKit.GPU",
+              "elapsedSeconds" : 42,
+              "ownership" : "newDetachedWebKit",
+              "parentPID" : 1,
+              "pid" : 76186,
+              "rssKilobytes" : 35008
+            },
+            {
+              "command" : "\/System\/Library\/Frameworks\/WebKit.framework\/Versions\/A\/XPCServices\/com.apple.WebKit.WebContent.xpc\/Contents\/MacOS\/com.apple.WebKit.WebContent",
+              "elapsedSeconds" : 42,
+              "ownership" : "newDetachedWebKit",
+              "parentPID" : 1,
+              "pid" : 76209,
+              "rssKilobytes" : 223056
+            },
+            {
+              "command" : "\/System\/Library\/Frameworks\/WebKit.framework\/Versions\/A\/XPCServices\/com.apple.WebKit.Networking.xpc\/Contents\/MacOS\/com.apple.WebKit.Networking",
+              "elapsedSeconds" : 42,
+              "ownership" : "newDetachedWebKit",
+              "parentPID" : 1,
+              "pid" : 76233,
+              "rssKilobytes" : 30000
+            },
+            {
+              "command" : "Raycast Backend  ",
+              "elapsedSeconds" : 42,
+              "ownership" : "descendant",
+              "parentPID" : 76095,
+              "pid" : 76237,
+              "rssKilobytes" : 639216
+            },
+            {
+              "command" : "\/Applications\/Raycast.app\/Contents\/XPCServices\/Raycast Accessibility.xpc\/Contents\/MacOS\/com.raycast.macos.Accessibility",
+              "elapsedSeconds" : 41,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 76240,
+              "rssKilobytes" : 24224
+            },
+            {
+              "command" : "\/Applications\/Raycast.app\/Contents\/XPCServices\/Raycast Pasteboard.xpc\/Contents\/MacOS\/com.raycast.macos.Pasteboard",
+              "elapsedSeconds" : 41,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 76241,
+              "rssKilobytes" : 28032
+            },
+            {
+              "command" : "\/System\/Library\/Frameworks\/WebKit.framework\/Versions\/A\/XPCServices\/com.apple.WebKit.GPU.xpc\/Contents\/MacOS\/com.apple.WebKit.GPU",
+              "elapsedSeconds" : 40,
+              "ownership" : "newDetachedWebKit",
+              "parentPID" : 1,
+              "pid" : 76332,
+              "rssKilobytes" : 32560
+            }
+          ],
+          "rssMegabytes" : 1110.6875
+        },
+        {
+          "capturedAt" : "2026-09-29T05:40:59Z",
+          "footprintMegabytes" : 619.9687652587891,
+          "processes" : [
+            {
+              "command" : "\/Applications\/Raycast.app\/Contents\/MacOS\/Raycast",
+              "elapsedSeconds" : 43,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 76095,
+              "rssKilobytes" : 125248
+            },
+            {
+              "command" : "\/System\/Library\/Frameworks\/WebKit.framework\/Versions\/A\/XPCServices\/com.apple.WebKit.GPU.xpc\/Contents\/MacOS\/com.apple.WebKit.GPU",
+              "elapsedSeconds" : 43,
+              "ownership" : "newDetachedWebKit",
+              "parentPID" : 1,
+              "pid" : 76186,
+              "rssKilobytes" : 35008
+            },
+            {
+              "command" : "\/System\/Library\/Frameworks\/WebKit.framework\/Versions\/A\/XPCServices\/com.apple.WebKit.WebContent.xpc\/Contents\/MacOS\/com.apple.WebKit.WebContent",
+              "elapsedSeconds" : 43,
+              "ownership" : "newDetachedWebKit",
+              "parentPID" : 1,
+              "pid" : 76209,
+              "rssKilobytes" : 223056
+            },
+            {
+              "command" : "\/System\/Library\/Frameworks\/WebKit.framework\/Versions\/A\/XPCServices\/com.apple.WebKit.Networking.xpc\/Contents\/MacOS\/com.apple.WebKit.Networking",
+              "elapsedSeconds" : 43,
+              "ownership" : "newDetachedWebKit",
+              "parentPID" : 1,
+              "pid" : 76233,
+              "rssKilobytes" : 29984
+            },
+            {
+              "command" : "Raycast Backend  ",
+              "elapsedSeconds" : 43,
+              "ownership" : "descendant",
+              "parentPID" : 76095,
+              "pid" : 76237,
+              "rssKilobytes" : 639216
+            },
+            {
+              "command" : "\/Applications\/Raycast.app\/Contents\/XPCServices\/Raycast Accessibility.xpc\/Contents\/MacOS\/com.raycast.macos.Accessibility",
+              "elapsedSeconds" : 42,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 76240,
+              "rssKilobytes" : 24224
+            },
+            {
+              "command" : "\/Applications\/Raycast.app\/Contents\/XPCServices\/Raycast Pasteboard.xpc\/Contents\/MacOS\/com.raycast.macos.Pasteboard",
+              "elapsedSeconds" : 42,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 76241,
+              "rssKilobytes" : 28032
+            },
+            {
+              "command" : "\/System\/Library\/Frameworks\/WebKit.framework\/Versions\/A\/XPCServices\/com.apple.WebKit.GPU.xpc\/Contents\/MacOS\/com.apple.WebKit.GPU",
+              "elapsedSeconds" : 41,
+              "ownership" : "newDetachedWebKit",
+              "parentPID" : 1,
+              "pid" : 76332,
+              "rssKilobytes" : 32560
+            }
+          ],
+          "rssMegabytes" : 1110.671875
+        },
+        {
+          "capturedAt" : "2026-09-29T05:41:00Z",
+          "footprintMegabytes" : 620.0156402587891,
+          "processes" : [
+            {
+              "command" : "\/Applications\/Raycast.app\/Contents\/MacOS\/Raycast",
+              "elapsedSeconds" : 45,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 76095,
+              "rssKilobytes" : 125248
+            },
+            {
+              "command" : "\/System\/Library\/Frameworks\/WebKit.framework\/Versions\/A\/XPCServices\/com.apple.WebKit.GPU.xpc\/Contents\/MacOS\/com.apple.WebKit.GPU",
+              "elapsedSeconds" : 45,
+              "ownership" : "newDetachedWebKit",
+              "parentPID" : 1,
+              "pid" : 76186,
+              "rssKilobytes" : 35008
+            },
+            {
+              "command" : "\/System\/Library\/Frameworks\/WebKit.framework\/Versions\/A\/XPCServices\/com.apple.WebKit.WebContent.xpc\/Contents\/MacOS\/com.apple.WebKit.WebContent",
+              "elapsedSeconds" : 45,
+              "ownership" : "newDetachedWebKit",
+              "parentPID" : 1,
+              "pid" : 76209,
+              "rssKilobytes" : 223056
+            },
+            {
+              "command" : "\/System\/Library\/Frameworks\/WebKit.framework\/Versions\/A\/XPCServices\/com.apple.WebKit.Networking.xpc\/Contents\/MacOS\/com.apple.WebKit.Networking",
+              "elapsedSeconds" : 45,
+              "ownership" : "newDetachedWebKit",
+              "parentPID" : 1,
+              "pid" : 76233,
+              "rssKilobytes" : 29984
+            },
+            {
+              "command" : "Raycast Backend  ",
+              "elapsedSeconds" : 45,
+              "ownership" : "descendant",
+              "parentPID" : 76095,
+              "pid" : 76237,
+              "rssKilobytes" : 639264
+            },
+            {
+              "command" : "\/Applications\/Raycast.app\/Contents\/XPCServices\/Raycast Accessibility.xpc\/Contents\/MacOS\/com.raycast.macos.Accessibility",
+              "elapsedSeconds" : 44,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 76240,
+              "rssKilobytes" : 24224
+            },
+            {
+              "command" : "\/Applications\/Raycast.app\/Contents\/XPCServices\/Raycast Pasteboard.xpc\/Contents\/MacOS\/com.raycast.macos.Pasteboard",
+              "elapsedSeconds" : 44,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 76241,
+              "rssKilobytes" : 28032
+            },
+            {
+              "command" : "\/System\/Library\/Frameworks\/WebKit.framework\/Versions\/A\/XPCServices\/com.apple.WebKit.GPU.xpc\/Contents\/MacOS\/com.apple.WebKit.GPU",
+              "elapsedSeconds" : 43,
+              "ownership" : "newDetachedWebKit",
+              "parentPID" : 1,
+              "pid" : 76332,
+              "rssKilobytes" : 32560
+            }
+          ],
+          "rssMegabytes" : 1110.71875
+        },
+        {
+          "capturedAt" : "2026-09-29T05:41:02Z",
+          "footprintMegabytes" : 619.9843902587891,
+          "processes" : [
+            {
+              "command" : "\/Applications\/Raycast.app\/Contents\/MacOS\/Raycast",
+              "elapsedSeconds" : 46,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 76095,
+              "rssKilobytes" : 125264
+            },
+            {
+              "command" : "\/System\/Library\/Frameworks\/WebKit.framework\/Versions\/A\/XPCServices\/com.apple.WebKit.GPU.xpc\/Contents\/MacOS\/com.apple.WebKit.GPU",
+              "elapsedSeconds" : 46,
+              "ownership" : "newDetachedWebKit",
+              "parentPID" : 1,
+              "pid" : 76186,
+              "rssKilobytes" : 35008
+            },
+            {
+              "command" : "\/System\/Library\/Frameworks\/WebKit.framework\/Versions\/A\/XPCServices\/com.apple.WebKit.WebContent.xpc\/Contents\/MacOS\/com.apple.WebKit.WebContent",
+              "elapsedSeconds" : 46,
+              "ownership" : "newDetachedWebKit",
+              "parentPID" : 1,
+              "pid" : 76209,
+              "rssKilobytes" : 223056
+            },
+            {
+              "command" : "\/System\/Library\/Frameworks\/WebKit.framework\/Versions\/A\/XPCServices\/com.apple.WebKit.Networking.xpc\/Contents\/MacOS\/com.apple.WebKit.Networking",
+              "elapsedSeconds" : 46,
+              "ownership" : "newDetachedWebKit",
+              "parentPID" : 1,
+              "pid" : 76233,
+              "rssKilobytes" : 29984
+            },
+            {
+              "command" : "Raycast Backend  ",
+              "elapsedSeconds" : 46,
+              "ownership" : "descendant",
+              "parentPID" : 76095,
+              "pid" : 76237,
+              "rssKilobytes" : 639264
+            },
+            {
+              "command" : "\/Applications\/Raycast.app\/Contents\/XPCServices\/Raycast Accessibility.xpc\/Contents\/MacOS\/com.raycast.macos.Accessibility",
+              "elapsedSeconds" : 45,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 76240,
+              "rssKilobytes" : 24224
+            },
+            {
+              "command" : "\/Applications\/Raycast.app\/Contents\/XPCServices\/Raycast Pasteboard.xpc\/Contents\/MacOS\/com.raycast.macos.Pasteboard",
+              "elapsedSeconds" : 45,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 76241,
+              "rssKilobytes" : 28032
+            },
+            {
+              "command" : "\/System\/Library\/Frameworks\/WebKit.framework\/Versions\/A\/XPCServices\/com.apple.WebKit.GPU.xpc\/Contents\/MacOS\/com.apple.WebKit.GPU",
+              "elapsedSeconds" : 44,
+              "ownership" : "newDetachedWebKit",
+              "parentPID" : 1,
+              "pid" : 76332,
+              "rssKilobytes" : 32560
+            }
+          ],
+          "rssMegabytes" : 1110.734375
+        },
+        {
+          "capturedAt" : "2026-09-29T05:41:03Z",
+          "footprintMegabytes" : 619.9843902587891,
+          "processes" : [
+            {
+              "command" : "\/Applications\/Raycast.app\/Contents\/MacOS\/Raycast",
+              "elapsedSeconds" : 48,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 76095,
+              "rssKilobytes" : 125216
+            },
+            {
+              "command" : "\/System\/Library\/Frameworks\/WebKit.framework\/Versions\/A\/XPCServices\/com.apple.WebKit.GPU.xpc\/Contents\/MacOS\/com.apple.WebKit.GPU",
+              "elapsedSeconds" : 48,
+              "ownership" : "newDetachedWebKit",
+              "parentPID" : 1,
+              "pid" : 76186,
+              "rssKilobytes" : 35008
+            },
+            {
+              "command" : "\/System\/Library\/Frameworks\/WebKit.framework\/Versions\/A\/XPCServices\/com.apple.WebKit.WebContent.xpc\/Contents\/MacOS\/com.apple.WebKit.WebContent",
+              "elapsedSeconds" : 48,
+              "ownership" : "newDetachedWebKit",
+              "parentPID" : 1,
+              "pid" : 76209,
+              "rssKilobytes" : 223056
+            },
+            {
+              "command" : "\/System\/Library\/Frameworks\/WebKit.framework\/Versions\/A\/XPCServices\/com.apple.WebKit.Networking.xpc\/Contents\/MacOS\/com.apple.WebKit.Networking",
+              "elapsedSeconds" : 48,
+              "ownership" : "newDetachedWebKit",
+              "parentPID" : 1,
+              "pid" : 76233,
+              "rssKilobytes" : 29984
+            },
+            {
+              "command" : "Raycast Backend  ",
+              "elapsedSeconds" : 48,
+              "ownership" : "descendant",
+              "parentPID" : 76095,
+              "pid" : 76237,
+              "rssKilobytes" : 639264
+            },
+            {
+              "command" : "\/Applications\/Raycast.app\/Contents\/XPCServices\/Raycast Accessibility.xpc\/Contents\/MacOS\/com.raycast.macos.Accessibility",
+              "elapsedSeconds" : 47,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 76240,
+              "rssKilobytes" : 24224
+            },
+            {
+              "command" : "\/Applications\/Raycast.app\/Contents\/XPCServices\/Raycast Pasteboard.xpc\/Contents\/MacOS\/com.raycast.macos.Pasteboard",
+              "elapsedSeconds" : 47,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 76241,
+              "rssKilobytes" : 28032
+            },
+            {
+              "command" : "\/System\/Library\/Frameworks\/WebKit.framework\/Versions\/A\/XPCServices\/com.apple.WebKit.GPU.xpc\/Contents\/MacOS\/com.apple.WebKit.GPU",
+              "elapsedSeconds" : 46,
+              "ownership" : "newDetachedWebKit",
+              "parentPID" : 1,
+              "pid" : 76332,
+              "rssKilobytes" : 32560
+            }
+          ],
+          "rssMegabytes" : 1110.6875
+        },
+        {
+          "capturedAt" : "2026-09-29T05:41:05Z",
+          "footprintMegabytes" : 619.9531402587891,
+          "processes" : [
+            {
+              "command" : "\/Applications\/Raycast.app\/Contents\/MacOS\/Raycast",
+              "elapsedSeconds" : 49,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 76095,
+              "rssKilobytes" : 125200
+            },
+            {
+              "command" : "\/System\/Library\/Frameworks\/WebKit.framework\/Versions\/A\/XPCServices\/com.apple.WebKit.GPU.xpc\/Contents\/MacOS\/com.apple.WebKit.GPU",
+              "elapsedSeconds" : 49,
+              "ownership" : "newDetachedWebKit",
+              "parentPID" : 1,
+              "pid" : 76186,
+              "rssKilobytes" : 35008
+            },
+            {
+              "command" : "\/System\/Library\/Frameworks\/WebKit.framework\/Versions\/A\/XPCServices\/com.apple.WebKit.WebContent.xpc\/Contents\/MacOS\/com.apple.WebKit.WebContent",
+              "elapsedSeconds" : 49,
+              "ownership" : "newDetachedWebKit",
+              "parentPID" : 1,
+              "pid" : 76209,
+              "rssKilobytes" : 223056
+            },
+            {
+              "command" : "\/System\/Library\/Frameworks\/WebKit.framework\/Versions\/A\/XPCServices\/com.apple.WebKit.Networking.xpc\/Contents\/MacOS\/com.apple.WebKit.Networking",
+              "elapsedSeconds" : 49,
+              "ownership" : "newDetachedWebKit",
+              "parentPID" : 1,
+              "pid" : 76233,
+              "rssKilobytes" : 29984
+            },
+            {
+              "command" : "Raycast Backend  ",
+              "elapsedSeconds" : 49,
+              "ownership" : "descendant",
+              "parentPID" : 76095,
+              "pid" : 76237,
+              "rssKilobytes" : 639264
+            },
+            {
+              "command" : "\/Applications\/Raycast.app\/Contents\/XPCServices\/Raycast Accessibility.xpc\/Contents\/MacOS\/com.raycast.macos.Accessibility",
+              "elapsedSeconds" : 48,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 76240,
+              "rssKilobytes" : 24224
+            },
+            {
+              "command" : "\/Applications\/Raycast.app\/Contents\/XPCServices\/Raycast Pasteboard.xpc\/Contents\/MacOS\/com.raycast.macos.Pasteboard",
+              "elapsedSeconds" : 48,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 76241,
+              "rssKilobytes" : 28032
+            },
+            {
+              "command" : "\/System\/Library\/Frameworks\/WebKit.framework\/Versions\/A\/XPCServices\/com.apple.WebKit.GPU.xpc\/Contents\/MacOS\/com.apple.WebKit.GPU",
+              "elapsedSeconds" : 47,
+              "ownership" : "newDetachedWebKit",
+              "parentPID" : 1,
+              "pid" : 76332,
+              "rssKilobytes" : 32560
+            }
+          ],
+          "rssMegabytes" : 1110.671875
+        },
+        {
+          "capturedAt" : "2026-09-29T05:41:06Z",
+          "footprintMegabytes" : 619.9531402587891,
+          "processes" : [
+            {
+              "command" : "\/Applications\/Raycast.app\/Contents\/MacOS\/Raycast",
+              "elapsedSeconds" : 51,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 76095,
+              "rssKilobytes" : 125200
+            },
+            {
+              "command" : "\/System\/Library\/Frameworks\/WebKit.framework\/Versions\/A\/XPCServices\/com.apple.WebKit.GPU.xpc\/Contents\/MacOS\/com.apple.WebKit.GPU",
+              "elapsedSeconds" : 51,
+              "ownership" : "newDetachedWebKit",
+              "parentPID" : 1,
+              "pid" : 76186,
+              "rssKilobytes" : 35008
+            },
+            {
+              "command" : "\/System\/Library\/Frameworks\/WebKit.framework\/Versions\/A\/XPCServices\/com.apple.WebKit.WebContent.xpc\/Contents\/MacOS\/com.apple.WebKit.WebContent",
+              "elapsedSeconds" : 51,
+              "ownership" : "newDetachedWebKit",
+              "parentPID" : 1,
+              "pid" : 76209,
+              "rssKilobytes" : 223056
+            },
+            {
+              "command" : "\/System\/Library\/Frameworks\/WebKit.framework\/Versions\/A\/XPCServices\/com.apple.WebKit.Networking.xpc\/Contents\/MacOS\/com.apple.WebKit.Networking",
+              "elapsedSeconds" : 51,
+              "ownership" : "newDetachedWebKit",
+              "parentPID" : 1,
+              "pid" : 76233,
+              "rssKilobytes" : 29984
+            },
+            {
+              "command" : "Raycast Backend  ",
+              "elapsedSeconds" : 51,
+              "ownership" : "descendant",
+              "parentPID" : 76095,
+              "pid" : 76237,
+              "rssKilobytes" : 639264
+            },
+            {
+              "command" : "\/Applications\/Raycast.app\/Contents\/XPCServices\/Raycast Accessibility.xpc\/Contents\/MacOS\/com.raycast.macos.Accessibility",
+              "elapsedSeconds" : 50,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 76240,
+              "rssKilobytes" : 24224
+            },
+            {
+              "command" : "\/Applications\/Raycast.app\/Contents\/XPCServices\/Raycast Pasteboard.xpc\/Contents\/MacOS\/com.raycast.macos.Pasteboard",
+              "elapsedSeconds" : 50,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 76241,
+              "rssKilobytes" : 28032
+            },
+            {
+              "command" : "\/System\/Library\/Frameworks\/WebKit.framework\/Versions\/A\/XPCServices\/com.apple.WebKit.GPU.xpc\/Contents\/MacOS\/com.apple.WebKit.GPU",
+              "elapsedSeconds" : 49,
+              "ownership" : "newDetachedWebKit",
+              "parentPID" : 1,
+              "pid" : 76332,
+              "rssKilobytes" : 32560
+            }
+          ],
+          "rssMegabytes" : 1110.671875
+        },
+        {
+          "capturedAt" : "2026-09-29T05:41:08Z",
+          "footprintMegabytes" : 620.1875152587891,
+          "processes" : [
+            {
+              "command" : "\/Applications\/Raycast.app\/Contents\/MacOS\/Raycast",
+              "elapsedSeconds" : 52,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 76095,
+              "rssKilobytes" : 125216
+            },
+            {
+              "command" : "\/System\/Library\/Frameworks\/WebKit.framework\/Versions\/A\/XPCServices\/com.apple.WebKit.GPU.xpc\/Contents\/MacOS\/com.apple.WebKit.GPU",
+              "elapsedSeconds" : 52,
+              "ownership" : "newDetachedWebKit",
+              "parentPID" : 1,
+              "pid" : 76186,
+              "rssKilobytes" : 35008
+            },
+            {
+              "command" : "\/System\/Library\/Frameworks\/WebKit.framework\/Versions\/A\/XPCServices\/com.apple.WebKit.WebContent.xpc\/Contents\/MacOS\/com.apple.WebKit.WebContent",
+              "elapsedSeconds" : 52,
+              "ownership" : "newDetachedWebKit",
+              "parentPID" : 1,
+              "pid" : 76209,
+              "rssKilobytes" : 223056
+            },
+            {
+              "command" : "\/System\/Library\/Frameworks\/WebKit.framework\/Versions\/A\/XPCServices\/com.apple.WebKit.Networking.xpc\/Contents\/MacOS\/com.apple.WebKit.Networking",
+              "elapsedSeconds" : 52,
+              "ownership" : "newDetachedWebKit",
+              "parentPID" : 1,
+              "pid" : 76233,
+              "rssKilobytes" : 29984
+            },
+            {
+              "command" : "Raycast Backend  ",
+              "elapsedSeconds" : 52,
+              "ownership" : "descendant",
+              "parentPID" : 76095,
+              "pid" : 76237,
+              "rssKilobytes" : 639504
+            },
+            {
+              "command" : "\/Applications\/Raycast.app\/Contents\/XPCServices\/Raycast Accessibility.xpc\/Contents\/MacOS\/com.raycast.macos.Accessibility",
+              "elapsedSeconds" : 51,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 76240,
+              "rssKilobytes" : 24224
+            },
+            {
+              "command" : "\/Applications\/Raycast.app\/Contents\/XPCServices\/Raycast Pasteboard.xpc\/Contents\/MacOS\/com.raycast.macos.Pasteboard",
+              "elapsedSeconds" : 51,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 76241,
+              "rssKilobytes" : 28032
+            },
+            {
+              "command" : "\/System\/Library\/Frameworks\/WebKit.framework\/Versions\/A\/XPCServices\/com.apple.WebKit.GPU.xpc\/Contents\/MacOS\/com.apple.WebKit.GPU",
+              "elapsedSeconds" : 50,
+              "ownership" : "newDetachedWebKit",
+              "parentPID" : 1,
+              "pid" : 76332,
+              "rssKilobytes" : 32560
+            }
+          ],
+          "rssMegabytes" : 1110.921875
+        }
+      ],
+      "modifierFlags" : 1048576,
+      "name" : "Raycast",
+      "panelLatencyMilliseconds" : {
+        "maximum" : 22.499042,
+        "mean" : 17.746558299999997,
+        "minimum" : 13.810167,
+        "p50" : 17.536709,
+        "p95" : 21.491791
+      },
+      "panelSamples" : [
+        {
+          "capturedAt" : "2026-09-29T05:40:28Z",
+          "milliseconds" : 18.174334
+        },
+        {
+          "capturedAt" : "2026-09-29T05:40:28Z",
+          "milliseconds" : 17.581334
+        },
+        {
+          "capturedAt" : "2026-09-29T05:40:29Z",
+          "milliseconds" : 20.340291
+        },
+        {
+          "capturedAt" : "2026-09-29T05:40:30Z",
+          "milliseconds" : 17.68275
+        },
+        {
+          "capturedAt" : "2026-09-29T05:40:30Z",
+          "milliseconds" : 16.723125
+        },
+        {
+          "capturedAt" : "2026-09-29T05:40:31Z",
+          "milliseconds" : 17.126458
+        },
+        {
+          "capturedAt" : "2026-09-29T05:40:31Z",
+          "milliseconds" : 17.361417
+        },
+        {
+          "capturedAt" : "2026-09-29T05:40:32Z",
+          "milliseconds" : 19.186709
+        },
+        {
+          "capturedAt" : "2026-09-29T05:40:32Z",
+          "milliseconds" : 16.208458
+        },
+        {
+          "capturedAt" : "2026-09-29T05:40:33Z",
+          "milliseconds" : 22.499042
+        },
+        {
+          "capturedAt" : "2026-09-29T05:40:33Z",
+          "milliseconds" : 21.491791
+        },
+        {
+          "capturedAt" : "2026-09-29T05:40:34Z",
+          "milliseconds" : 17.745333
+        },
+        {
+          "capturedAt" : "2026-09-29T05:40:34Z",
+          "milliseconds" : 17.783
+        },
+        {
+          "capturedAt" : "2026-09-29T05:40:35Z",
+          "milliseconds" : 16.599208
+        },
+        {
+          "capturedAt" : "2026-09-29T05:40:35Z",
+          "milliseconds" : 20.229208
+        },
+        {
+          "capturedAt" : "2026-09-29T05:40:36Z",
+          "milliseconds" : 13.81275
+        },
+        {
+          "capturedAt" : "2026-09-29T05:40:37Z",
+          "milliseconds" : 17.688958
+        },
+        {
+          "capturedAt" : "2026-09-29T05:40:37Z",
+          "milliseconds" : 17.773042
+        },
+        {
+          "capturedAt" : "2026-09-29T05:40:38Z",
+          "milliseconds" : 17.417167
+        },
+        {
+          "capturedAt" : "2026-09-29T05:40:38Z",
+          "milliseconds" : 17.404458
+        },
+        {
+          "capturedAt" : "2026-09-29T05:40:39Z",
+          "milliseconds" : 17.412375
+        },
+        {
+          "capturedAt" : "2026-09-29T05:40:39Z",
+          "milliseconds" : 17.213916
+        },
+        {
+          "capturedAt" : "2026-09-29T05:40:40Z",
+          "milliseconds" : 15.997666
+        },
+        {
+          "capturedAt" : "2026-09-29T05:40:40Z",
+          "milliseconds" : 16.894875
+        },
+        {
+          "capturedAt" : "2026-09-29T05:40:41Z",
+          "milliseconds" : 17.915292
+        },
+        {
+          "capturedAt" : "2026-09-29T05:40:41Z",
+          "milliseconds" : 17.160583
+        },
+        {
+          "capturedAt" : "2026-09-29T05:40:42Z",
+          "milliseconds" : 13.810167
+        },
+        {
+          "capturedAt" : "2026-09-29T05:40:42Z",
+          "milliseconds" : 17.739
+        },
+        {
+          "capturedAt" : "2026-09-29T05:40:43Z",
+          "milliseconds" : 17.536709
+        },
+        {
+          "capturedAt" : "2026-09-29T05:40:44Z",
+          "milliseconds" : 19.887333
+        }
+      ],
+      "version" : "2.5.3.0",
+      "warmedFootprintMegabytes" : {
+        "maximum" : 628.1562652587891,
+        "mean" : 622.7718902587891,
+        "minimum" : 619.9531402587891,
+        "p50" : 620.1875152587891,
+        "p95" : 628.1562652587891
+      }
+    },
+    {
+      "build" : "1",
+      "bundleIdentifier" : "com.hridya.foundry",
+      "bundleKilobytes" : 16152,
+      "hotkey" : "⌘ Space",
+      "idleRSSMegabytes" : {
+        "maximum" : 196.390625,
+        "mean" : 167.278125,
+        "minimum" : 123.9375,
+        "p50" : 196.015625,
+        "p95" : 196.390625
+      },
+      "keyCode" : 49,
+      "memorySamples" : [
+        {
+          "capturedAt" : "2026-09-29T05:41:47Z",
+          "footprintMegabytes" : 115.4698257446289,
+          "processes" : [
+            {
+              "command" : "\/Applications\/Foundry.app\/Contents\/MacOS\/Foundry",
+              "elapsedSeconds" : 38,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 77853,
+              "rssKilobytes" : 201104
+            }
+          ],
+          "rssMegabytes" : 196.390625
+        },
+        {
+          "capturedAt" : "2026-09-29T05:41:49Z",
+          "footprintMegabytes" : 115.4698257446289,
+          "processes" : [
+            {
+              "command" : "\/Applications\/Foundry.app\/Contents\/MacOS\/Foundry",
+              "elapsedSeconds" : 40,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 77853,
+              "rssKilobytes" : 201104
+            }
+          ],
+          "rssMegabytes" : 196.390625
+        },
+        {
+          "capturedAt" : "2026-09-29T05:41:50Z",
+          "footprintMegabytes" : 115.4698257446289,
+          "processes" : [
+            {
+              "command" : "\/Applications\/Foundry.app\/Contents\/MacOS\/Foundry",
+              "elapsedSeconds" : 41,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 77853,
+              "rssKilobytes" : 201104
+            }
+          ],
+          "rssMegabytes" : 196.390625
+        },
+        {
+          "capturedAt" : "2026-09-29T05:41:52Z",
+          "footprintMegabytes" : 115.2198257446289,
+          "processes" : [
+            {
+              "command" : "\/Applications\/Foundry.app\/Contents\/MacOS\/Foundry",
+              "elapsedSeconds" : 42,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 77853,
+              "rssKilobytes" : 200816
+            }
+          ],
+          "rssMegabytes" : 196.109375
+        },
+        {
+          "capturedAt" : "2026-09-29T05:41:53Z",
+          "footprintMegabytes" : 115.2198257446289,
+          "processes" : [
+            {
+              "command" : "\/Applications\/Foundry.app\/Contents\/MacOS\/Foundry",
+              "elapsedSeconds" : 44,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 77853,
+              "rssKilobytes" : 200816
+            }
+          ],
+          "rssMegabytes" : 196.109375
+        },
+        {
+          "capturedAt" : "2026-09-29T05:41:55Z",
+          "footprintMegabytes" : 115.2198257446289,
+          "processes" : [
+            {
+              "command" : "\/Applications\/Foundry.app\/Contents\/MacOS\/Foundry",
+              "elapsedSeconds" : 45,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 77853,
+              "rssKilobytes" : 200816
+            }
+          ],
+          "rssMegabytes" : 196.109375
+        },
+        {
+          "capturedAt" : "2026-09-29T05:41:56Z",
+          "footprintMegabytes" : 115.2198257446289,
+          "processes" : [
+            {
+              "command" : "\/Applications\/Foundry.app\/Contents\/MacOS\/Foundry",
+              "elapsedSeconds" : 47,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 77853,
+              "rssKilobytes" : 200720
+            }
+          ],
+          "rssMegabytes" : 196.015625
+        },
+        {
+          "capturedAt" : "2026-09-29T05:41:57Z",
+          "footprintMegabytes" : 115.2198257446289,
+          "processes" : [
+            {
+              "command" : "\/Applications\/Foundry.app\/Contents\/MacOS\/Foundry",
+              "elapsedSeconds" : 48,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 77853,
+              "rssKilobytes" : 200720
+            }
+          ],
+          "rssMegabytes" : 196.015625
+        },
+        {
+          "capturedAt" : "2026-09-29T05:41:59Z",
+          "footprintMegabytes" : 115.2198257446289,
+          "processes" : [
+            {
+              "command" : "\/Applications\/Foundry.app\/Contents\/MacOS\/Foundry",
+              "elapsedSeconds" : 50,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 77853,
+              "rssKilobytes" : 200720
+            }
+          ],
+          "rssMegabytes" : 196.015625
+        },
+        {
+          "capturedAt" : "2026-09-29T05:42:00Z",
+          "footprintMegabytes" : 41.48540496826172,
+          "processes" : [
+            {
+              "command" : "\/Applications\/Foundry.app\/Contents\/MacOS\/Foundry",
+              "elapsedSeconds" : 51,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 77853,
+              "rssKilobytes" : 126912
+            }
+          ],
+          "rssMegabytes" : 123.9375
+        },
+        {
+          "capturedAt" : "2026-09-29T05:42:02Z",
+          "footprintMegabytes" : 41.48540496826172,
+          "processes" : [
+            {
+              "command" : "\/Applications\/Foundry.app\/Contents\/MacOS\/Foundry",
+              "elapsedSeconds" : 53,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 77853,
+              "rssKilobytes" : 126912
+            }
+          ],
+          "rssMegabytes" : 123.9375
+        },
+        {
+          "capturedAt" : "2026-09-29T05:42:03Z",
+          "footprintMegabytes" : 41.48540496826172,
+          "processes" : [
+            {
+              "command" : "\/Applications\/Foundry.app\/Contents\/MacOS\/Foundry",
+              "elapsedSeconds" : 54,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 77853,
+              "rssKilobytes" : 126912
+            }
+          ],
+          "rssMegabytes" : 123.9375
+        },
+        {
+          "capturedAt" : "2026-09-29T05:42:05Z",
+          "footprintMegabytes" : 41.48540496826172,
+          "processes" : [
+            {
+              "command" : "\/Applications\/Foundry.app\/Contents\/MacOS\/Foundry",
+              "elapsedSeconds" : 56,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 77853,
+              "rssKilobytes" : 126912
+            }
+          ],
+          "rssMegabytes" : 123.9375
+        },
+        {
+          "capturedAt" : "2026-09-29T05:42:06Z",
+          "footprintMegabytes" : 41.48540496826172,
+          "processes" : [
+            {
+              "command" : "\/Applications\/Foundry.app\/Contents\/MacOS\/Foundry",
+              "elapsedSeconds" : 57,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 77853,
+              "rssKilobytes" : 126912
+            }
+          ],
+          "rssMegabytes" : 123.9375
+        },
+        {
+          "capturedAt" : "2026-09-29T05:42:08Z",
+          "footprintMegabytes" : 41.48540496826172,
+          "processes" : [
+            {
+              "command" : "\/Applications\/Foundry.app\/Contents\/MacOS\/Foundry",
+              "elapsedSeconds" : 58,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 77853,
+              "rssKilobytes" : 126912
+            }
+          ],
+          "rssMegabytes" : 123.9375
+        }
+      ],
+      "modifierFlags" : 1048576,
+      "name" : "Foundry",
+      "panelLatencyMilliseconds" : {
+        "maximum" : 135.516375,
+        "mean" : 110.72787643333332,
+        "minimum" : 94.959375,
+        "p50" : 104.380625,
+        "p95" : 134.379417
+      },
+      "panelSamples" : [
+        {
+          "capturedAt" : "2026-09-29T05:41:23Z",
+          "milliseconds" : 134.136125
+        },
+        {
+          "capturedAt" : "2026-09-29T05:41:24Z",
+          "milliseconds" : 95.73875
+        },
+        {
+          "capturedAt" : "2026-09-29T05:41:25Z",
+          "milliseconds" : 104.380625
+        },
+        {
+          "capturedAt" : "2026-09-29T05:41:25Z",
+          "milliseconds" : 106.171292
+        },
+        {
+          "capturedAt" : "2026-09-29T05:41:26Z",
+          "milliseconds" : 106.078459
+        },
+        {
+          "capturedAt" : "2026-09-29T05:41:27Z",
+          "milliseconds" : 135.516375
+        },
+        {
+          "capturedAt" : "2026-09-29T05:41:28Z",
+          "milliseconds" : 99.001792
+        },
+        {
+          "capturedAt" : "2026-09-29T05:41:28Z",
+          "milliseconds" : 134.379417
+        },
+        {
+          "capturedAt" : "2026-09-29T05:41:29Z",
+          "milliseconds" : 133.6555
+        },
+        {
+          "capturedAt" : "2026-09-29T05:41:30Z",
+          "milliseconds" : 133.702
+        },
+        {
+          "capturedAt" : "2026-09-29T05:41:30Z",
+          "milliseconds" : 112.834333
+        },
+        {
+          "capturedAt" : "2026-09-29T05:41:31Z",
+          "milliseconds" : 104.814167
+        },
+        {
+          "capturedAt" : "2026-09-29T05:41:32Z",
+          "milliseconds" : 103.693625
+        },
+        {
+          "capturedAt" : "2026-09-29T05:41:33Z",
+          "milliseconds" : 133.1545
+        },
+        {
+          "capturedAt" : "2026-09-29T05:41:33Z",
+          "milliseconds" : 94.959375
+        },
+        {
+          "capturedAt" : "2026-09-29T05:41:34Z",
+          "milliseconds" : 102.077959
+        },
+        {
+          "capturedAt" : "2026-09-29T05:41:35Z",
+          "milliseconds" : 100.587167
+        },
+        {
+          "capturedAt" : "2026-09-29T05:41:36Z",
+          "milliseconds" : 103.340708
+        },
+        {
+          "capturedAt" : "2026-09-29T05:41:36Z",
+          "milliseconds" : 96.0845
+        },
+        {
+          "capturedAt" : "2026-09-29T05:41:37Z",
+          "milliseconds" : 103.937
+        },
+        {
+          "capturedAt" : "2026-09-29T05:41:38Z",
+          "milliseconds" : 132.944916
+        },
+        {
+          "capturedAt" : "2026-09-29T05:41:38Z",
+          "milliseconds" : 95.171625
+        },
+        {
+          "capturedAt" : "2026-09-29T05:41:39Z",
+          "milliseconds" : 101.918333
+        },
+        {
+          "capturedAt" : "2026-09-29T05:41:40Z",
+          "milliseconds" : 101.257292
+        },
+        {
+          "capturedAt" : "2026-09-29T05:41:41Z",
+          "milliseconds" : 110.856042
+        },
+        {
+          "capturedAt" : "2026-09-29T05:41:41Z",
+          "milliseconds" : 106.624625
+        },
+        {
+          "capturedAt" : "2026-09-29T05:41:42Z",
+          "milliseconds" : 99.960458
+        },
+        {
+          "capturedAt" : "2026-09-29T05:41:43Z",
+          "milliseconds" : 134.247291
+        },
+        {
+          "capturedAt" : "2026-09-29T05:41:43Z",
+          "milliseconds" : 95.429834
+        },
+        {
+          "capturedAt" : "2026-09-29T05:41:44Z",
+          "milliseconds" : 105.182208
+        }
+      ],
+      "version" : "1.1.0",
+      "warmedFootprintMegabytes" : {
+        "maximum" : 115.4698257446289,
+        "mean" : 85.77605743408203,
+        "minimum" : 41.48540496826172,
+        "p50" : 115.2198257446289,
+        "p95" : 115.4698257446289
+      }
+    }
+  ],
+  "logicalCPUCount" : 14,
+  "macOS" : "27.0",
+  "macOSBuild" : "26A428",
+  "machineIdentifier" : "Mac16,7",
+  "measuredRuns" : 30,
+  "memoryMetric" : "Summary Footprint from macOS footprint for selected process IDs",
+  "memorySampleCount" : 15,
+  "memorySampleIntervalSeconds" : 1,
+  "panelMetric" : "Elapsed time from CGEvent post to the first matching on-screen CGWindow entry",
+  "panelPollMicroseconds" : 500,
+  "panelTimeoutSeconds" : 2,
+  "physicalMemoryBytes" : 51539607552,
+  "postPanelSettleSeconds" : 2,
+  "processMinimumAgeSeconds" : 5,
+  "processSelection" : "Bundle processes, their descendants, and Raycast's newly spawned WebKit XPC processes",
+  "processStabilitySeconds" : 0.1,
+  "startedAt" : "2026-09-29T05:40:14Z",
+  "startupWaitSeconds" : 10,
+  "systemAtEnd" : {
+    "powerDetails" : "Now drawing from 'AC Power'\n -InternalBattery-0 (id=23068771)\t80%; AC attached; not charging present: true",
+    "powerSettings" : "System-wide power settings:\n SleepDisabled\t\t1\nCurrently in use:\n standby              1\n Sleep On Power Button 1\n hibernatefile        \/var\/vm\/sleepimage\n powernap             1\n networkoversleep     0\n disksleep            10\n sleep                0 (sleep prevented by sharingd, powerd)\n hibernatemode        3\n ttyskeepawake        1\n displaysleep         5\n tcpkeepalive         1\n powermode            1\n womp                 0",
+    "powerSource" : "AC Power",
+    "thermalDetails" : "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded"
+  },
+  "systemAtStart" : {
+    "powerDetails" : "Now drawing from 'AC Power'\n -InternalBattery-0 (id=23068771)\t80%; AC attached; not charging present: true",
+    "powerSettings" : "System-wide power settings:\n SleepDisabled\t\t1\nCurrently in use:\n standby              1\n Sleep On Power Button 1\n hibernatefile        \/var\/vm\/sleepimage\n powernap             1\n networkoversleep     0\n disksleep            10\n sleep                0 (sleep prevented by sharingd, powerd)\n hibernatemode        3\n ttyskeepawake        1\n displaysleep         5\n tcpkeepalive         1\n powermode            1\n womp                 0",
+    "powerSource" : "AC Power",
+    "thermalDetails" : "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded"
+  },
+  "warmupRuns" : 5
+}
