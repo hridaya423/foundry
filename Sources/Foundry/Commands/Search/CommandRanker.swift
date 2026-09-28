@@ -18,7 +18,7 @@ final class CommandRanker {
     func ordered(_ candidates: [RankCandidate], query: String?) -> [CommandResult] {
         let preferences = configService?.current.commandPreferences ?? [:]
         let sensitivity = configService?.current.searchSensitivity ?? .medium
-        let normalizedQuery = query.map(SearchScoring.normalize)
+        let normalizedQuery = query.map { SearchScoring.PreparedQuery(query: $0) }
         let usageBoosts = usageRanking.usageBoosts(for: candidates.map { $0.result.id }, query: query)
 
         return candidates
@@ -26,7 +26,7 @@ final class CommandRanker {
                 let preference = preferences[candidate.result.id]
                 let match = normalizedQuery.flatMap { normalizedQuery in
                     SearchScoring.matchPrepared(
-                        normalizedQuery: normalizedQuery,
+                        query: normalizedQuery,
                         normalizedTitle: candidate.result.normalizedSearchTitle,
                         normalizedSubtitle: candidate.result.normalizedSearchSubtitle,
                         normalizedKeywords: candidate.result.normalizedSearchKeywords,
