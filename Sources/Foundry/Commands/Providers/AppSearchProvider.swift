@@ -6,24 +6,28 @@ import FoundryServices
 final class AppSearchProvider: CommandProvider, @unchecked Sendable {
     let id = "foundry.apps"
 
-    private let diagnostics: DiagnosticsService
     private let appCache: InstalledAppCache
 
-    init(diagnostics: DiagnosticsService, roots: [URL]? = nil) {
-        self.diagnostics = diagnostics
-        self.appCache = InstalledAppCache(roots: roots ?? Self.appSearchRoots(), diagnostics: diagnostics)
+    init(diagnostics: DiagnosticsService, roots: [URL]? = nil, extraApps: [URL]? = nil) {
+        self.appCache = InstalledAppCache(roots: roots ?? Self.appSearchRoots(), extraApps: extraApps ?? (roots == nil ? Self.coreServicesApps : []), diagnostics: diagnostics)
     }
 
-    func search(_ request: CommandSearchRequest) async -> [CommandResult] {
-        let normalizedQuery = SearchScoring.normalize(request.query)
-        guard normalizedQuery.isEmpty == false else { return [] }
+    static let coreServicesApps: [URL] = [
+        "Finder", "Applications/Keychain Access", "Applications/Archive Utility", "Applications/Directory Utility",
+        "Applications/Feedback Assistant", "Applications/Ticket Viewer", "Applications/Wireless Diagnostics"
+    ].map { URL(fileURLWithPath: "/System/Library/CoreServices/\($0).app") }
 
+    func search(_ request: CommandSearchRequest) async -> [CommandResult] {
+        let normalizedQuery = SearchScoring.PreparedQuery(query: request.query)
+        guard normalizedQuery.normalized.isEmpty == false else { return [] }
+
+        let running = runningBundleIDs()
         return await appCache.current().compactMap { app -> CommandResult? in
             guard Task.isCancelled == false else { return nil }
             let resultID = "app.\(app.identity)"
             let aliases = request.customAliases[resultID] ?? []
             guard SearchScoring.matchPrepared(
-                normalizedQuery: normalizedQuery,
+                query: normalizedQuery,
                 normalizedTitle: app.normalizedName,
                 normalizedSubtitle: nil,
                 normalizedKeywords: app.normalizedSearchCandidates,
@@ -31,17 +35,31 @@ final class AppSearchProvider: CommandProvider, @unchecked Sendable {
                 sensitivity: request.sensitivity
             ) != nil else { return nil }
 
-            return Self.result(for: app, searchAliases: aliases, searchKeywords: app.normalizedSearchCandidates)
+            return Self.result(for: app, isRunning: running.contains(app.bundleIdentifier), searchAliases: aliases, searchKeywords: app.normalizedSearchCandidates)
         }
+    }
+
+    private func runningBundleIDs() -> Set<String> {
+        RunningAppsSnapshot.bundleIDs()
     }
 
     func defaultResults() async -> [CommandResult] {
-        await appCache.current().map { app in
-            Self.result(for: app, searchAliases: [], searchKeywords: app.normalizedSearchCandidates)
+        let running = runningBundleIDs()
+        return await appCache.current().map { app in
+            Self.result(for: app, isRunning: running.contains(app.bundleIdentifier), searchAliases: [], searchKeywords: app.normalizedSearchCandidates)
         }
     }
 
-    private static func result(for app: InstalledApp, searchAliases: [String]? = nil, searchKeywords: [String]? = nil) -> CommandResult {
+    static func actions(identity: String, name: String, path: String, bundleID: String, isRunning: Bool) -> [CommandAction] {
+        guard isRunning, bundleID.isEmpty == false else { return [] }
+        return [
+            CommandAction(id: "app.\(identity).quit", title: "Quit", kind: .quitApplication(bundleID: bundleID, name: name)),
+            CommandAction(id: "app.\(identity).hide", title: "Hide", kind: .hideApplication(bundleID: bundleID, name: name)),
+            CommandAction(id: "app.\(identity).force-quit", title: "Force Quit", kind: .forceQuitApplication(bundleID: bundleID, name: name))
+        ]
+    }
+
+    private static func result(for app: InstalledApp, isRunning: Bool, searchAliases: [String]? = nil, searchKeywords: [String]? = nil) -> CommandResult {
         let path = app.path.path
         return CommandResult(
             id: "app.\(app.identity)",
@@ -51,14 +69,11 @@ final class AppSearchProvider: CommandProvider, @unchecked Sendable {
             searchAliases: searchAliases ?? app.normalizedSearchCandidates,
             searchKeywords: searchKeywords ?? app.normalizedSearchCandidates,
             primaryAction: CommandAction(id: "app.\(app.identity).open", title: "Open", kind: .openApp(path: path, name: app.name)),
-            secondaryActions: [
-                CommandAction(id: "app.\(app.identity).reveal", title: "Reveal in Finder", kind: .revealInFinder(path: path)),
-                CommandAction(id: "app.\(app.identity).copy-path", title: "Copy Path", kind: .copyToClipboard(path))
-            ]
+            secondaryActions: actions(identity: app.identity, name: app.name, path: path, bundleID: app.bundleIdentifier, isRunning: isRunning)
         )
     }
 
-    fileprivate static func loadApps(roots: [URL], diagnostics: DiagnosticsService) -> [InstalledApp] {
+    fileprivate static func loadApps(roots: [URL], extraApps: [URL] = [], diagnostics: DiagnosticsService) -> [InstalledApp] {
         let span = diagnostics.startSpan("apps.load")
         defer { diagnostics.endSpan(span) }
 
@@ -82,6 +97,11 @@ final class AppSearchProvider: CommandProvider, @unchecked Sendable {
             }
         }
 
+        for url in extraApps {
+            guard let app = InstalledApp(url: url), seen.insert(app.identity).inserted else { continue }
+            discovered.append(app)
+        }
+
         diagnostics.log("Loaded \(discovered.count) installed apps")
         return discovered.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
     }
@@ -90,7 +110,8 @@ final class AppSearchProvider: CommandProvider, @unchecked Sendable {
         var roots = [
             URL(fileURLWithPath: "/Applications"),
             URL(fileURLWithPath: "/System/Applications"),
-            URL(fileURLWithPath: "/System/Applications/Utilities")
+            URL(fileURLWithPath: "/System/Applications/Utilities"),
+            URL(fileURLWithPath: "/System/Cryptexes/App/System/Applications")
         ]
 
         roots.append(FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Applications"))
@@ -100,6 +121,7 @@ final class AppSearchProvider: CommandProvider, @unchecked Sendable {
 
 private final class InstalledAppCache: @unchecked Sendable {
     private let roots: [URL]
+    private let extraApps: [URL]
     private let diagnostics: DiagnosticsService
     private let lock = NSLock()
     private var apps: [InstalledApp] = []
@@ -109,37 +131,49 @@ private final class InstalledAppCache: @unchecked Sendable {
     private var nextRefresh = Date.distantPast
     private let refreshInterval: TimeInterval = 30
 
-    init(roots: [URL], diagnostics: DiagnosticsService) {
+    init(roots: [URL], extraApps: [URL], diagnostics: DiagnosticsService) {
         self.roots = roots
+        self.extraApps = extraApps
         self.diagnostics = diagnostics
     }
 
     func current() async -> [InstalledApp] {
         let signature = rootSignatures()
         let now = Date()
-        if let cached = withLock({ () -> [InstalledApp]? in
-            guard hasLoaded, now < nextRefresh, signature == rootSignature else { return nil }
-            return apps
-        }) {
+
+        let (cached, stale): ([InstalledApp]?, Bool) = withLock {
+            guard hasLoaded, signature == rootSignature else { return (nil, false) }
+            return (apps, now >= nextRefresh)
+        }
+        if let cached {
+            if stale {
+                let task = loadTask()
+                Task { [weak self] in
+                    self?.finishRefresh(await task.value)
+                }
+            }
             return cached
         }
 
-        let task: Task<[InstalledApp], Never> = withLock {
+        return await finishRefresh(loadTask().value)
+    }
+
+    private func loadTask() -> Task<[InstalledApp], Never> {
+        withLock {
             if let refreshTask {
                 return refreshTask
             }
-
-            let roots = roots
-            let diagnostics = diagnostics
             let task = Task.detached(priority: .utility) {
-                AppSearchProvider.loadApps(roots: roots, diagnostics: diagnostics)
+                AppSearchProvider.loadApps(roots: self.roots, extraApps: self.extraApps, diagnostics: self.diagnostics)
             }
             refreshTask = task
             return task
         }
+    }
 
-        let discovered = await task.value
-        return withLock {
+    @discardableResult
+    private func finishRefresh(_ discovered: [InstalledApp]) -> [InstalledApp] {
+        withLock {
             if discovered.isEmpty == false || apps.isEmpty {
                 apps = discovered
             }
@@ -148,13 +182,6 @@ private final class InstalledAppCache: @unchecked Sendable {
             nextRefresh = Date().addingTimeInterval(refreshInterval)
             refreshTask = nil
             return apps
-        }
-    }
-
-    func invalidate() {
-        withLock {
-            hasLoaded = false
-            nextRefresh = .distantPast
         }
     }
 

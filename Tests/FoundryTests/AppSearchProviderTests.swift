@@ -1,7 +1,6 @@
 import Foundation
 import XCTest
 @testable import Foundry
-import FoundryDomain
 import FoundryServices
 
 final class AppSearchProviderTests: XCTestCase {
@@ -18,6 +17,22 @@ final class AppSearchProviderTests: XCTestCase {
         try writeApp(named: "Second App", to: root)
         let secondResults = await provider.results(matching: "second app")
         XCTAssertEqual(secondResults.first?.title, "Second App")
+    }
+
+    func testFinderIsFoundButCoreServicesHelpersAreNot() async {
+        let provider = AppSearchProvider(diagnostics: DiagnosticsService(), roots: [], extraApps: AppSearchProvider.coreServicesApps)
+        let finder = await provider.results(matching: "finder")
+        XCTAssertEqual(finder.first?.id, "app.com.apple.finder")
+        let dock = await provider.results(matching: "dock")
+        XCTAssertTrue(dock.isEmpty)
+    }
+
+    func testRunningAppsGetQuitHideAndForceQuitActions() {
+        let idle = AppSearchProvider.actions(identity: "x", name: "X", path: "/Applications/X.app", bundleID: "com.x", isRunning: false).map(\.title)
+        XCTAssertTrue(idle.isEmpty)
+        let running = AppSearchProvider.actions(identity: "x", name: "X", path: "/Applications/X.app", bundleID: "com.x", isRunning: true).map(\.title)
+        XCTAssertEqual(running, ["Quit", "Hide", "Force Quit"])
+        XCTAssertTrue(CommandActionKind.forceQuitApplication(bundleID: "com.x", name: "X").isDestructive)
     }
 
     private func writeApp(named name: String, to root: URL) throws {
