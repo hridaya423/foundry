@@ -1,0 +1,918 @@
+{
+  "capturedAt" : "2026-09-29T18:23:21Z",
+  "hardware" : "Apple M4 Pro",
+  "isolatedLaunchers" : true,
+  "launchers" : [
+    {
+      "build" : "99",
+      "bundleIdentifier" : "com.tinycast.app",
+      "bundleKilobytes" : 13576,
+      "hotkey" : "carbon-6144-49",
+      "idleRSSMegabytes" : {
+        "maximum" : 121.5625,
+        "mean" : 120.95729166666666,
+        "minimum" : 120.625,
+        "p50" : 120.625,
+        "p95" : 121.5625
+      },
+      "keyCode" : 49,
+      "memorySamples" : [
+        {
+          "capturedAt" : "2026-09-29T18:22:03.458Z",
+          "footprintMegabytes" : 40.87602996826172,
+          "processes" : [
+            {
+              "command" : "\/Applications\/Tinycast.app\/Contents\/MacOS\/Tinycast",
+              "elapsedSeconds" : 33,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 24556,
+              "rssKilobytes" : 124480
+            }
+          ],
+          "rssMegabytes" : 121.5625
+        },
+        {
+          "capturedAt" : "2026-09-29T18:22:04.899Z",
+          "footprintMegabytes" : 40.87602996826172,
+          "processes" : [
+            {
+              "command" : "\/Applications\/Tinycast.app\/Contents\/MacOS\/Tinycast",
+              "elapsedSeconds" : 34,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 24556,
+              "rssKilobytes" : 124480
+            }
+          ],
+          "rssMegabytes" : 121.5625
+        },
+        {
+          "capturedAt" : "2026-09-29T18:22:06.317Z",
+          "footprintMegabytes" : 40.719757080078125,
+          "processes" : [
+            {
+              "command" : "\/Applications\/Tinycast.app\/Contents\/MacOS\/Tinycast",
+              "elapsedSeconds" : 36,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 24556,
+              "rssKilobytes" : 124416
+            }
+          ],
+          "rssMegabytes" : 121.5
+        },
+        {
+          "capturedAt" : "2026-09-29T18:22:07.749Z",
+          "footprintMegabytes" : 40.641632080078125,
+          "processes" : [
+            {
+              "command" : "\/Applications\/Tinycast.app\/Contents\/MacOS\/Tinycast",
+              "elapsedSeconds" : 37,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 24556,
+              "rssKilobytes" : 124288
+            }
+          ],
+          "rssMegabytes" : 121.375
+        },
+        {
+          "capturedAt" : "2026-09-29T18:22:09.179Z",
+          "footprintMegabytes" : 40.641632080078125,
+          "processes" : [
+            {
+              "command" : "\/Applications\/Tinycast.app\/Contents\/MacOS\/Tinycast",
+              "elapsedSeconds" : 38,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 24556,
+              "rssKilobytes" : 124288
+            }
+          ],
+          "rssMegabytes" : 121.375
+        },
+        {
+          "capturedAt" : "2026-09-29T18:22:10.606Z",
+          "footprintMegabytes" : 40.641632080078125,
+          "processes" : [
+            {
+              "command" : "\/Applications\/Tinycast.app\/Contents\/MacOS\/Tinycast",
+              "elapsedSeconds" : 40,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 24556,
+              "rssKilobytes" : 124272
+            }
+          ],
+          "rssMegabytes" : 121.359375
+        },
+        {
+          "capturedAt" : "2026-09-29T18:22:12.021Z",
+          "footprintMegabytes" : 40.641632080078125,
+          "processes" : [
+            {
+              "command" : "\/Applications\/Tinycast.app\/Contents\/MacOS\/Tinycast",
+              "elapsedSeconds" : 41,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 24556,
+              "rssKilobytes" : 123520
+            }
+          ],
+          "rssMegabytes" : 120.625
+        },
+        {
+          "capturedAt" : "2026-09-29T18:22:13.459Z",
+          "footprintMegabytes" : 40.641632080078125,
+          "processes" : [
+            {
+              "command" : "\/Applications\/Tinycast.app\/Contents\/MacOS\/Tinycast",
+              "elapsedSeconds" : 43,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 24556,
+              "rssKilobytes" : 123520
+            }
+          ],
+          "rssMegabytes" : 120.625
+        },
+        {
+          "capturedAt" : "2026-09-29T18:22:14.879Z",
+          "footprintMegabytes" : 40.641632080078125,
+          "processes" : [
+            {
+              "command" : "\/Applications\/Tinycast.app\/Contents\/MacOS\/Tinycast",
+              "elapsedSeconds" : 44,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 24556,
+              "rssKilobytes" : 123520
+            }
+          ],
+          "rssMegabytes" : 120.625
+        },
+        {
+          "capturedAt" : "2026-09-29T18:22:16.316Z",
+          "footprintMegabytes" : 40.641632080078125,
+          "processes" : [
+            {
+              "command" : "\/Applications\/Tinycast.app\/Contents\/MacOS\/Tinycast",
+              "elapsedSeconds" : 46,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 24556,
+              "rssKilobytes" : 123520
+            }
+          ],
+          "rssMegabytes" : 120.625
+        },
+        {
+          "capturedAt" : "2026-09-29T18:22:17.729Z",
+          "footprintMegabytes" : 40.641632080078125,
+          "processes" : [
+            {
+              "command" : "\/Applications\/Tinycast.app\/Contents\/MacOS\/Tinycast",
+              "elapsedSeconds" : 47,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 24556,
+              "rssKilobytes" : 123520
+            }
+          ],
+          "rssMegabytes" : 120.625
+        },
+        {
+          "capturedAt" : "2026-09-29T18:22:19.166Z",
+          "footprintMegabytes" : 40.641632080078125,
+          "processes" : [
+            {
+              "command" : "\/Applications\/Tinycast.app\/Contents\/MacOS\/Tinycast",
+              "elapsedSeconds" : 48,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 24556,
+              "rssKilobytes" : 123520
+            }
+          ],
+          "rssMegabytes" : 120.625
+        },
+        {
+          "capturedAt" : "2026-09-29T18:22:20.599Z",
+          "footprintMegabytes" : 40.641632080078125,
+          "processes" : [
+            {
+              "command" : "\/Applications\/Tinycast.app\/Contents\/MacOS\/Tinycast",
+              "elapsedSeconds" : 50,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 24556,
+              "rssKilobytes" : 123520
+            }
+          ],
+          "rssMegabytes" : 120.625
+        },
+        {
+          "capturedAt" : "2026-09-29T18:22:22.037Z",
+          "footprintMegabytes" : 40.641632080078125,
+          "processes" : [
+            {
+              "command" : "\/Applications\/Tinycast.app\/Contents\/MacOS\/Tinycast",
+              "elapsedSeconds" : 51,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 24556,
+              "rssKilobytes" : 123520
+            }
+          ],
+          "rssMegabytes" : 120.625
+        },
+        {
+          "capturedAt" : "2026-09-29T18:22:23.479Z",
+          "footprintMegabytes" : 40.641632080078125,
+          "processes" : [
+            {
+              "command" : "\/Applications\/Tinycast.app\/Contents\/MacOS\/Tinycast",
+              "elapsedSeconds" : 53,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 24556,
+              "rssKilobytes" : 123520
+            }
+          ],
+          "rssMegabytes" : 120.625
+        }
+      ],
+      "modifierFlags" : 786432,
+      "name" : "Tinycast",
+      "panelLatencyMilliseconds" : {
+        "maximum" : 76.880667,
+        "mean" : 64.81692086666666,
+        "minimum" : 51.009791,
+        "p50" : 64.712,
+        "p95" : 75.735625
+      },
+      "panelSamples" : [
+        {
+          "axMilliseconds" : 58.329708,
+          "capturedAt" : "2026-09-29T18:21:43.415Z",
+          "milliseconds" : 58.786208,
+          "postedAt" : "2026-09-29T18:21:43.617Z"
+        },
+        {
+          "axMilliseconds" : 55.032167,
+          "capturedAt" : "2026-09-29T18:21:43.991Z",
+          "milliseconds" : 55.411875,
+          "postedAt" : "2026-09-29T18:21:44.196Z"
+        },
+        {
+          "axMilliseconds" : 50.556666,
+          "capturedAt" : "2026-09-29T18:21:44.566Z",
+          "milliseconds" : 51.009791,
+          "postedAt" : "2026-09-29T18:21:44.767Z"
+        },
+        {
+          "axMilliseconds" : 64.252375,
+          "capturedAt" : "2026-09-29T18:21:45.132Z",
+          "milliseconds" : 64.712,
+          "postedAt" : "2026-09-29T18:21:45.337Z"
+        },
+        {
+          "axMilliseconds" : 53.333375,
+          "capturedAt" : "2026-09-29T18:21:45.715Z",
+          "milliseconds" : 53.746334,
+          "postedAt" : "2026-09-29T18:21:45.921Z"
+        },
+        {
+          "axMilliseconds" : 53.31575,
+          "capturedAt" : "2026-09-29T18:21:46.285Z",
+          "milliseconds" : 53.693084,
+          "postedAt" : "2026-09-29T18:21:46.490Z"
+        },
+        {
+          "axMilliseconds" : 52.433916,
+          "capturedAt" : "2026-09-29T18:21:46.858Z",
+          "milliseconds" : 52.976791,
+          "postedAt" : "2026-09-29T18:21:47.063Z"
+        },
+        {
+          "axMilliseconds" : 54.164583,
+          "capturedAt" : "2026-09-29T18:21:47.433Z",
+          "milliseconds" : 54.530041,
+          "postedAt" : "2026-09-29T18:21:47.639Z"
+        },
+        {
+          "axMilliseconds" : 62.866208,
+          "capturedAt" : "2026-09-29T18:21:48.011Z",
+          "milliseconds" : 63.345125,
+          "postedAt" : "2026-09-29T18:21:48.213Z"
+        },
+        {
+          "axMilliseconds" : 58.814833,
+          "capturedAt" : "2026-09-29T18:21:48.595Z",
+          "milliseconds" : 59.326583,
+          "postedAt" : "2026-09-29T18:21:48.800Z"
+        },
+        {
+          "axMilliseconds" : 74.01775,
+          "capturedAt" : "2026-09-29T18:21:49.179Z",
+          "milliseconds" : 74.662375,
+          "postedAt" : "2026-09-29T18:21:49.386Z"
+        },
+        {
+          "axMilliseconds" : 59.578666,
+          "capturedAt" : "2026-09-29T18:21:49.781Z",
+          "milliseconds" : 60.047,
+          "postedAt" : "2026-09-29T18:21:49.984Z"
+        },
+        {
+          "axMilliseconds" : 63.021125,
+          "capturedAt" : "2026-09-29T18:21:50.366Z",
+          "milliseconds" : 63.544208,
+          "postedAt" : "2026-09-29T18:21:50.572Z"
+        },
+        {
+          "axMilliseconds" : 76.365167,
+          "capturedAt" : "2026-09-29T18:21:50.956Z",
+          "milliseconds" : 76.880667,
+          "postedAt" : "2026-09-29T18:21:51.160Z"
+        },
+        {
+          "axMilliseconds" : 64.158917,
+          "capturedAt" : "2026-09-29T18:21:51.556Z",
+          "milliseconds" : 70.2335,
+          "postedAt" : "2026-09-29T18:21:51.757Z"
+        },
+        {
+          "axMilliseconds" : 67.549375,
+          "capturedAt" : "2026-09-29T18:21:52.148Z",
+          "milliseconds" : 68.088917,
+          "postedAt" : "2026-09-29T18:21:52.350Z"
+        },
+        {
+          "axMilliseconds" : 58.364167,
+          "capturedAt" : "2026-09-29T18:21:52.732Z",
+          "milliseconds" : 58.823625,
+          "postedAt" : "2026-09-29T18:21:52.934Z"
+        },
+        {
+          "axMilliseconds" : 75.266959,
+          "capturedAt" : "2026-09-29T18:21:53.312Z",
+          "milliseconds" : 75.735625,
+          "postedAt" : "2026-09-29T18:21:53.518Z"
+        },
+        {
+          "axMilliseconds" : 71.932875,
+          "capturedAt" : "2026-09-29T18:21:53.916Z",
+          "milliseconds" : 72.334667,
+          "postedAt" : "2026-09-29T18:21:54.122Z"
+        },
+        {
+          "axMilliseconds" : 72.623208,
+          "capturedAt" : "2026-09-29T18:21:54.516Z",
+          "milliseconds" : 73.123417,
+          "postedAt" : "2026-09-29T18:21:54.721Z"
+        },
+        {
+          "axMilliseconds" : 67.623709,
+          "capturedAt" : "2026-09-29T18:21:55.111Z",
+          "milliseconds" : 68.372584,
+          "postedAt" : "2026-09-29T18:21:55.317Z"
+        },
+        {
+          "axMilliseconds" : 71.312292,
+          "capturedAt" : "2026-09-29T18:21:55.700Z",
+          "milliseconds" : 71.833834,
+          "postedAt" : "2026-09-29T18:21:55.906Z"
+        },
+        {
+          "axMilliseconds" : 71.910125,
+          "capturedAt" : "2026-09-29T18:21:56.299Z",
+          "milliseconds" : 72.46375,
+          "postedAt" : "2026-09-29T18:21:56.505Z"
+        },
+        {
+          "axMilliseconds" : 51.395292,
+          "capturedAt" : "2026-09-29T18:21:56.899Z",
+          "milliseconds" : 51.815917,
+          "postedAt" : "2026-09-29T18:21:57.100Z"
+        },
+        {
+          "axMilliseconds" : 71.985667,
+          "capturedAt" : "2026-09-29T18:21:57.467Z",
+          "milliseconds" : 72.505125,
+          "postedAt" : "2026-09-29T18:21:57.672Z"
+        },
+        {
+          "axMilliseconds" : 71.835125,
+          "capturedAt" : "2026-09-29T18:21:58.066Z",
+          "milliseconds" : 72.341792,
+          "postedAt" : "2026-09-29T18:21:58.271Z"
+        },
+        {
+          "axMilliseconds" : 68.270792,
+          "capturedAt" : "2026-09-29T18:21:58.662Z",
+          "milliseconds" : 68.740583,
+          "postedAt" : "2026-09-29T18:21:58.867Z"
+        },
+        {
+          "axMilliseconds" : 74.134833,
+          "capturedAt" : "2026-09-29T18:21:59.254Z",
+          "milliseconds" : 74.675708,
+          "postedAt" : "2026-09-29T18:21:59.461Z"
+        },
+        {
+          "axMilliseconds" : 68.111125,
+          "capturedAt" : "2026-09-29T18:21:59.856Z",
+          "milliseconds" : 68.617541,
+          "postedAt" : "2026-09-29T18:22:00.059Z"
+        },
+        {
+          "axMilliseconds" : 61.639,
+          "capturedAt" : "2026-09-29T18:22:00.448Z",
+          "milliseconds" : 62.128959,
+          "postedAt" : "2026-09-29T18:22:00.650Z"
+        }
+      ],
+      "version" : "0.11.3",
+      "warmedFootprintMegabytes" : {
+        "maximum" : 40.87602996826172,
+        "mean" : 40.67809346516927,
+        "minimum" : 40.641632080078125,
+        "p50" : 40.641632080078125,
+        "p95" : 40.87602996826172
+      }
+    },
+    {
+      "build" : "1",
+      "bundleIdentifier" : "com.hridya.foundry",
+      "bundleKilobytes" : 16508,
+      "hotkey" : "⌘ Space",
+      "idleRSSMegabytes" : {
+        "maximum" : 130.71875,
+        "mean" : 130.56354166666668,
+        "minimum" : 130.484375,
+        "p50" : 130.5,
+        "p95" : 130.71875
+      },
+      "keyCode" : 49,
+      "memorySamples" : [
+        {
+          "capturedAt" : "2026-09-29T18:22:59.383Z",
+          "footprintMegabytes" : 60.62602996826172,
+          "processes" : [
+            {
+              "command" : "\/Users\/hridyaagrawal\/Honey\/anvil\/build\/Foundry.app\/Contents\/MacOS\/Foundry",
+              "elapsedSeconds" : 34,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 25114,
+              "rssKilobytes" : 133856
+            }
+          ],
+          "rssMegabytes" : 130.71875
+        },
+        {
+          "capturedAt" : "2026-09-29T18:23:00.824Z",
+          "footprintMegabytes" : 60.62602996826172,
+          "processes" : [
+            {
+              "command" : "\/Users\/hridyaagrawal\/Honey\/anvil\/build\/Foundry.app\/Contents\/MacOS\/Foundry",
+              "elapsedSeconds" : 35,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 25114,
+              "rssKilobytes" : 133856
+            }
+          ],
+          "rssMegabytes" : 130.71875
+        },
+        {
+          "capturedAt" : "2026-09-29T18:23:02.254Z",
+          "footprintMegabytes" : 60.56352996826172,
+          "processes" : [
+            {
+              "command" : "\/Users\/hridyaagrawal\/Honey\/anvil\/build\/Foundry.app\/Contents\/MacOS\/Foundry",
+              "elapsedSeconds" : 37,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 25114,
+              "rssKilobytes" : 133808
+            }
+          ],
+          "rssMegabytes" : 130.671875
+        },
+        {
+          "capturedAt" : "2026-09-29T18:23:03.691Z",
+          "footprintMegabytes" : 60.56352996826172,
+          "processes" : [
+            {
+              "command" : "\/Users\/hridyaagrawal\/Honey\/anvil\/build\/Foundry.app\/Contents\/MacOS\/Foundry",
+              "elapsedSeconds" : 38,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 25114,
+              "rssKilobytes" : 133808
+            }
+          ],
+          "rssMegabytes" : 130.671875
+        },
+        {
+          "capturedAt" : "2026-09-29T18:23:05.124Z",
+          "footprintMegabytes" : 60.54790496826172,
+          "processes" : [
+            {
+              "command" : "\/Users\/hridyaagrawal\/Honey\/anvil\/build\/Foundry.app\/Contents\/MacOS\/Foundry",
+              "elapsedSeconds" : 39,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 25114,
+              "rssKilobytes" : 133760
+            }
+          ],
+          "rssMegabytes" : 130.625
+        },
+        {
+          "capturedAt" : "2026-09-29T18:23:06.563Z",
+          "footprintMegabytes" : 60.54790496826172,
+          "processes" : [
+            {
+              "command" : "\/Users\/hridyaagrawal\/Honey\/anvil\/build\/Foundry.app\/Contents\/MacOS\/Foundry",
+              "elapsedSeconds" : 41,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 25114,
+              "rssKilobytes" : 133760
+            }
+          ],
+          "rssMegabytes" : 130.625
+        },
+        {
+          "capturedAt" : "2026-09-29T18:23:08.000Z",
+          "footprintMegabytes" : 60.54790496826172,
+          "processes" : [
+            {
+              "command" : "\/Users\/hridyaagrawal\/Honey\/anvil\/build\/Foundry.app\/Contents\/MacOS\/Foundry",
+              "elapsedSeconds" : 42,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 25114,
+              "rssKilobytes" : 133632
+            }
+          ],
+          "rssMegabytes" : 130.5
+        },
+        {
+          "capturedAt" : "2026-09-29T18:23:09.435Z",
+          "footprintMegabytes" : 60.54790496826172,
+          "processes" : [
+            {
+              "command" : "\/Users\/hridyaagrawal\/Honey\/anvil\/build\/Foundry.app\/Contents\/MacOS\/Foundry",
+              "elapsedSeconds" : 44,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 25114,
+              "rssKilobytes" : 133632
+            }
+          ],
+          "rssMegabytes" : 130.5
+        },
+        {
+          "capturedAt" : "2026-09-29T18:23:10.860Z",
+          "footprintMegabytes" : 60.54790496826172,
+          "processes" : [
+            {
+              "command" : "\/Users\/hridyaagrawal\/Honey\/anvil\/build\/Foundry.app\/Contents\/MacOS\/Foundry",
+              "elapsedSeconds" : 45,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 25114,
+              "rssKilobytes" : 133632
+            }
+          ],
+          "rssMegabytes" : 130.5
+        },
+        {
+          "capturedAt" : "2026-09-29T18:23:12.300Z",
+          "footprintMegabytes" : 60.53227996826172,
+          "processes" : [
+            {
+              "command" : "\/Users\/hridyaagrawal\/Honey\/anvil\/build\/Foundry.app\/Contents\/MacOS\/Foundry",
+              "elapsedSeconds" : 47,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 25114,
+              "rssKilobytes" : 133632
+            }
+          ],
+          "rssMegabytes" : 130.5
+        },
+        {
+          "capturedAt" : "2026-09-29T18:23:13.732Z",
+          "footprintMegabytes" : 60.53227996826172,
+          "processes" : [
+            {
+              "command" : "\/Users\/hridyaagrawal\/Honey\/anvil\/build\/Foundry.app\/Contents\/MacOS\/Foundry",
+              "elapsedSeconds" : 48,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 25114,
+              "rssKilobytes" : 133616
+            }
+          ],
+          "rssMegabytes" : 130.484375
+        },
+        {
+          "capturedAt" : "2026-09-29T18:23:15.175Z",
+          "footprintMegabytes" : 60.53227996826172,
+          "processes" : [
+            {
+              "command" : "\/Users\/hridyaagrawal\/Honey\/anvil\/build\/Foundry.app\/Contents\/MacOS\/Foundry",
+              "elapsedSeconds" : 49,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 25114,
+              "rssKilobytes" : 133616
+            }
+          ],
+          "rssMegabytes" : 130.484375
+        },
+        {
+          "capturedAt" : "2026-09-29T18:23:16.608Z",
+          "footprintMegabytes" : 60.53227996826172,
+          "processes" : [
+            {
+              "command" : "\/Users\/hridyaagrawal\/Honey\/anvil\/build\/Foundry.app\/Contents\/MacOS\/Foundry",
+              "elapsedSeconds" : 51,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 25114,
+              "rssKilobytes" : 133616
+            }
+          ],
+          "rssMegabytes" : 130.484375
+        },
+        {
+          "capturedAt" : "2026-09-29T18:23:18.037Z",
+          "footprintMegabytes" : 60.53227996826172,
+          "processes" : [
+            {
+              "command" : "\/Users\/hridyaagrawal\/Honey\/anvil\/build\/Foundry.app\/Contents\/MacOS\/Foundry",
+              "elapsedSeconds" : 52,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 25114,
+              "rssKilobytes" : 133616
+            }
+          ],
+          "rssMegabytes" : 130.484375
+        },
+        {
+          "capturedAt" : "2026-09-29T18:23:19.476Z",
+          "footprintMegabytes" : 60.53227996826172,
+          "processes" : [
+            {
+              "command" : "\/Users\/hridyaagrawal\/Honey\/anvil\/build\/Foundry.app\/Contents\/MacOS\/Foundry",
+              "elapsedSeconds" : 54,
+              "ownership" : "bundle",
+              "parentPID" : 1,
+              "pid" : 25114,
+              "rssKilobytes" : 133616
+            }
+          ],
+          "rssMegabytes" : 130.484375
+        }
+      ],
+      "modifierFlags" : 1048576,
+      "name" : "Foundry",
+      "panelLatencyMilliseconds" : {
+        "maximum" : 25.755083,
+        "mean" : 19.0476278,
+        "minimum" : 11.177167,
+        "p50" : 19.110917,
+        "p95" : 25.549875
+      },
+      "panelSamples" : [
+        {
+          "axMilliseconds" : 3.644833,
+          "capturedAt" : "2026-09-29T18:22:38.285Z",
+          "milliseconds" : 21.6785,
+          "postedAt" : "2026-09-29T18:22:38.488Z"
+        },
+        {
+          "axMilliseconds" : 3.814,
+          "capturedAt" : "2026-09-29T18:22:38.901Z",
+          "milliseconds" : 19.618959,
+          "postedAt" : "2026-09-29T18:22:39.107Z"
+        },
+        {
+          "axMilliseconds" : 3.317458,
+          "capturedAt" : "2026-09-29T18:22:39.527Z",
+          "milliseconds" : 18.770708,
+          "postedAt" : "2026-09-29T18:22:39.733Z"
+        },
+        {
+          "axMilliseconds" : 3.346083,
+          "capturedAt" : "2026-09-29T18:22:40.151Z",
+          "milliseconds" : 18.635,
+          "postedAt" : "2026-09-29T18:22:40.356Z"
+        },
+        {
+          "axMilliseconds" : 3.660041,
+          "capturedAt" : "2026-09-29T18:22:40.768Z",
+          "milliseconds" : 21.105583,
+          "postedAt" : "2026-09-29T18:22:40.971Z"
+        },
+        {
+          "axMilliseconds" : 2.980958,
+          "capturedAt" : "2026-09-29T18:22:41.384Z",
+          "milliseconds" : 12.853291,
+          "postedAt" : "2026-09-29T18:22:41.590Z"
+        },
+        {
+          "axMilliseconds" : 3.064709,
+          "capturedAt" : "2026-09-29T18:22:42.002Z",
+          "milliseconds" : 18.955584,
+          "postedAt" : "2026-09-29T18:22:42.206Z"
+        },
+        {
+          "axMilliseconds" : 3.378709,
+          "capturedAt" : "2026-09-29T18:22:42.626Z",
+          "milliseconds" : 19.227,
+          "postedAt" : "2026-09-29T18:22:42.832Z"
+        },
+        {
+          "axMilliseconds" : 3.249708,
+          "capturedAt" : "2026-09-29T18:22:43.252Z",
+          "milliseconds" : 19.306708,
+          "postedAt" : "2026-09-29T18:22:43.457Z"
+        },
+        {
+          "axMilliseconds" : 3.107334,
+          "capturedAt" : "2026-09-29T18:22:43.877Z",
+          "milliseconds" : 18.612792,
+          "postedAt" : "2026-09-29T18:22:44.082Z"
+        },
+        {
+          "axMilliseconds" : 3.234,
+          "capturedAt" : "2026-09-29T18:22:44.501Z",
+          "milliseconds" : 17.933417,
+          "postedAt" : "2026-09-29T18:22:44.707Z"
+        },
+        {
+          "axMilliseconds" : 3.364959,
+          "capturedAt" : "2026-09-29T18:22:45.127Z",
+          "milliseconds" : 18.07,
+          "postedAt" : "2026-09-29T18:22:45.332Z"
+        },
+        {
+          "axMilliseconds" : 3.642542,
+          "capturedAt" : "2026-09-29T18:22:45.752Z",
+          "milliseconds" : 19.110917,
+          "postedAt" : "2026-09-29T18:22:45.956Z"
+        },
+        {
+          "axMilliseconds" : 3.580167,
+          "capturedAt" : "2026-09-29T18:22:46.376Z",
+          "milliseconds" : 19.423875,
+          "postedAt" : "2026-09-29T18:22:46.582Z"
+        },
+        {
+          "axMilliseconds" : 12.03175,
+          "capturedAt" : "2026-09-29T18:22:47.001Z",
+          "milliseconds" : 12.422792,
+          "postedAt" : "2026-09-29T18:22:47.205Z"
+        },
+        {
+          "axMilliseconds" : 2.647708,
+          "capturedAt" : "2026-09-29T18:22:47.593Z",
+          "milliseconds" : 11.177167,
+          "postedAt" : "2026-09-29T18:22:47.798Z"
+        },
+        {
+          "axMilliseconds" : 3.334792,
+          "capturedAt" : "2026-09-29T18:22:48.209Z",
+          "milliseconds" : 20.751625,
+          "postedAt" : "2026-09-29T18:22:48.413Z"
+        },
+        {
+          "axMilliseconds" : 3.755291,
+          "capturedAt" : "2026-09-29T18:22:48.835Z",
+          "milliseconds" : 19.125958,
+          "postedAt" : "2026-09-29T18:22:49.041Z"
+        },
+        {
+          "axMilliseconds" : 22.318916,
+          "capturedAt" : "2026-09-29T18:22:49.459Z",
+          "milliseconds" : 25.549875,
+          "postedAt" : "2026-09-29T18:22:49.666Z"
+        },
+        {
+          "axMilliseconds" : 3.257042,
+          "capturedAt" : "2026-09-29T18:22:50.085Z",
+          "milliseconds" : 20.312667,
+          "postedAt" : "2026-09-29T18:22:50.290Z"
+        },
+        {
+          "axMilliseconds" : 3.428875,
+          "capturedAt" : "2026-09-29T18:22:50.710Z",
+          "milliseconds" : 22.70875,
+          "postedAt" : "2026-09-29T18:22:50.912Z"
+        },
+        {
+          "axMilliseconds" : 3.340708,
+          "capturedAt" : "2026-09-29T18:22:51.334Z",
+          "milliseconds" : 19.776458,
+          "postedAt" : "2026-09-29T18:22:51.539Z"
+        },
+        {
+          "axMilliseconds" : 3.262583,
+          "capturedAt" : "2026-09-29T18:22:51.951Z",
+          "milliseconds" : 18.225916,
+          "postedAt" : "2026-09-29T18:22:52.156Z"
+        },
+        {
+          "axMilliseconds" : 3.51925,
+          "capturedAt" : "2026-09-29T18:22:52.568Z",
+          "milliseconds" : 19.53,
+          "postedAt" : "2026-09-29T18:22:52.772Z"
+        },
+        {
+          "axMilliseconds" : 13.240917,
+          "capturedAt" : "2026-09-29T18:22:53.193Z",
+          "milliseconds" : 16.501459,
+          "postedAt" : "2026-09-29T18:22:53.399Z"
+        },
+        {
+          "axMilliseconds" : 3.578959,
+          "capturedAt" : "2026-09-29T18:22:53.818Z",
+          "milliseconds" : 18.9985,
+          "postedAt" : "2026-09-29T18:22:54.023Z"
+        },
+        {
+          "axMilliseconds" : 2.983125,
+          "capturedAt" : "2026-09-29T18:22:54.443Z",
+          "milliseconds" : 17.6605,
+          "postedAt" : "2026-09-29T18:22:54.649Z"
+        },
+        {
+          "axMilliseconds" : 3.270625,
+          "capturedAt" : "2026-09-29T18:22:55.060Z",
+          "milliseconds" : 18.817334,
+          "postedAt" : "2026-09-29T18:22:55.266Z"
+        },
+        {
+          "axMilliseconds" : 3.654708,
+          "capturedAt" : "2026-09-29T18:22:55.685Z",
+          "milliseconds" : 20.812416,
+          "postedAt" : "2026-09-29T18:22:55.890Z"
+        },
+        {
+          "axMilliseconds" : 22.852875,
+          "capturedAt" : "2026-09-29T18:22:56.309Z",
+          "milliseconds" : 25.755083,
+          "postedAt" : "2026-09-29T18:22:56.516Z"
+        }
+      ],
+      "version" : "1.1.0",
+      "warmedFootprintMegabytes" : {
+        "maximum" : 60.62602996826172,
+        "mean" : 60.55415496826172,
+        "minimum" : 60.53227996826172,
+        "p50" : 60.54790496826172,
+        "p95" : 60.62602996826172
+      }
+    }
+  ],
+  "logicalCPUCount" : 14,
+  "macOS" : "27.0",
+  "macOSBuild" : "26A428",
+  "machineIdentifier" : "Mac16,7",
+  "measuredRuns" : 30,
+  "memoryMetric" : "Summary Footprint from macOS footprint for selected process IDs",
+  "memorySampleCount" : 15,
+  "memorySampleIntervalSeconds" : 1,
+  "panelMetric" : "Elapsed time from CGEvent post to the first matching on-screen CGWindow entry",
+  "panelPollMicroseconds" : 500,
+  "panelTimeoutSeconds" : 2,
+  "physicalMemoryBytes" : 51539607552,
+  "postPanelSettleSeconds" : 2,
+  "processMinimumAgeSeconds" : 5,
+  "processSelection" : "Bundle processes, their descendants, and Raycast's newly spawned WebKit XPC processes",
+  "processStabilitySeconds" : 0.1,
+  "startedAt" : "2026-09-29T18:21:29.718Z",
+  "startupWaitSeconds" : 10,
+  "systemAtEnd" : {
+    "powerDetails" : "Now drawing from 'Battery Power'\n -InternalBattery-0 (id=23593059)\t16%; discharging; 0:53 remaining present: true",
+    "powerSettings" : "System-wide power settings:\n SleepDisabled\t\t1\nCurrently in use:\n standby              1\n Sleep On Power Button 1\n hibernatefile        \/var\/vm\/sleepimage\n powernap             1\n networkoversleep     0\n disksleep            10\n sleep                1 (sleep prevented by powerd)\n hibernatemode        3\n ttyskeepawake        1\n displaysleep         5\n tcpkeepalive         1\n powermode            0\n womp                 0",
+    "powerSource" : "Battery Power",
+    "thermalDetails" : "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded"
+  },
+  "systemAtStart" : {
+    "powerDetails" : "Now drawing from 'Battery Power'\n -InternalBattery-0 (id=23593059)\t16%; discharging; 0:45 remaining present: true",
+    "powerSettings" : "System-wide power settings:\n SleepDisabled\t\t1\nCurrently in use:\n standby              1\n Sleep On Power Button 1\n hibernatefile        \/var\/vm\/sleepimage\n powernap             1\n networkoversleep     0\n disksleep            10\n sleep                1 (sleep prevented by powerd)\n hibernatemode        3\n ttyskeepawake        1\n displaysleep         5\n tcpkeepalive         1\n powermode            0\n womp                 0",
+    "powerSource" : "Battery Power",
+    "thermalDetails" : "Note: No thermal warning level has been recorded\nNote: No performance warning level has been recorded\nNote: No CPU power status has been recorded"
+  },
+  "warmupRuns" : 5
+}
