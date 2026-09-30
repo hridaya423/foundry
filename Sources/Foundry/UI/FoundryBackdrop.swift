@@ -35,6 +35,14 @@ struct FoundryBackdrop: View {
     var intensity: Double = 0.72
     var isOpaque = false
 
+    @Environment(\.colorScheme) private var colorScheme
+
+    private var panelWash: Color {
+        colorScheme == .dark
+            ? Color.black.opacity(0.46 * intensity)
+            : Color.white.opacity(0.26 * intensity)
+    }
+
     var body: some View {
         ZStack {
             if isOpaque {
@@ -45,62 +53,29 @@ struct FoundryBackdrop: View {
                     startPoint: .top,
                     endPoint: .center
                 )
-            } else if #available(macOS 26.0, *) {
-                Color.clear
-                    .glassEffect(.regular, in: RoundedRectangle(cornerRadius: FoundryTheme.Radius.panel, style: .continuous))
             } else {
-                VisualEffectView(material: .hudWindow, blendingMode: .behindWindow)
-                Color.black.opacity(0.20 * intensity)
+                #if compiler(>=6.2)
+                if #available(macOS 26.0, *) {
+                    ZStack {
+                        Color.clear
+                            .glassEffect(.regular, in: FoundrySmoothedRectangle(cornerRadius: FoundryTheme.Radius.panel, smoothing: 0.75))
+                        FoundrySmoothedRectangle(cornerRadius: FoundryTheme.Radius.panel, smoothing: 0.75)
+                            .fill(panelWash)
+                    }
+                } else {
+                    legacyGlass
+                }
+                #else
+                legacyGlass
+                #endif
             }
         }
         .ignoresSafeArea()
     }
-}
 
-struct GridPattern: Shape {
-    func path(in rect: CGRect) -> Path {
-        var path = Path()
-        let step: CGFloat = 18
-
-        var x = rect.minX
-        while x <= rect.maxX {
-            path.move(to: CGPoint(x: x, y: rect.minY))
-            path.addLine(to: CGPoint(x: x, y: rect.maxY))
-            x += step
-        }
-
-        var y = rect.minY
-        while y <= rect.maxY {
-            path.move(to: CGPoint(x: rect.minX, y: y))
-            path.addLine(to: CGPoint(x: rect.maxX, y: y))
-            y += step
-        }
-
-        return path
-    }
-}
-
-struct CornerBrackets: Shape {
-    func path(in rect: CGRect) -> Path {
-        var path = Path()
-        let length: CGFloat = 18
-
-        path.move(to: CGPoint(x: rect.minX, y: rect.minY + length))
-        path.addLine(to: CGPoint(x: rect.minX, y: rect.minY))
-        path.addLine(to: CGPoint(x: rect.minX + length, y: rect.minY))
-
-        path.move(to: CGPoint(x: rect.maxX - length, y: rect.minY))
-        path.addLine(to: CGPoint(x: rect.maxX, y: rect.minY))
-        path.addLine(to: CGPoint(x: rect.maxX, y: rect.minY + length))
-
-        path.move(to: CGPoint(x: rect.maxX, y: rect.maxY - length))
-        path.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY))
-        path.addLine(to: CGPoint(x: rect.maxX - length, y: rect.maxY))
-
-        path.move(to: CGPoint(x: rect.minX + length, y: rect.maxY))
-        path.addLine(to: CGPoint(x: rect.minX, y: rect.maxY))
-        path.addLine(to: CGPoint(x: rect.minX, y: rect.maxY - length))
-
-        return path
+    @ViewBuilder
+    private var legacyGlass: some View {
+        VisualEffectView(material: .hudWindow, blendingMode: .behindWindow)
+        panelWash
     }
 }
