@@ -92,7 +92,9 @@ struct OnboardingView: View {
                 .font(FoundryTheme.body(size: 13, weight: .regular))
                 .foregroundStyle(FoundryTheme.secondaryText)
 
-            ShortcutRecorder(hotkey: panel.hotkey, placeholder: "Record a different shortcut", onChange: { panel.setHotkey($0) })
+            ShortcutRecorder(hotkey: panel.hotkey, placeholder: "Record a different shortcut", onChange: { hotkey in
+                if hotkey == .commandSpace { state.useCommandSpace() } else { panel.setHotkey(hotkey) }
+            })
                 .frame(width: 260, height: 30)
 
             Button("Use ⌘Space instead") {
@@ -105,7 +107,7 @@ struct OnboardingView: View {
 
             if state.spotlightHoldsCommandSpace {
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("⌘Space is held by Spotlight:")
+                    Text("⌘Space is still held by Spotlight:")
                         .font(FoundryTheme.body(size: 12, weight: .semibold))
                         .foregroundStyle(FoundryTheme.warning)
                     Text("1. Open Keyboard Shortcuts\n2. Turn off “Show Spotlight search”")
@@ -126,7 +128,7 @@ struct OnboardingView: View {
             }
 
             if state.isWaitingForSpotlight {
-                Label("Waiting for Spotlight to release ⌘Space…", systemImage: "clock")
+                Label("Turning off Spotlight's ⌘Space shortcut…", systemImage: "clock")
                     .font(FoundryTheme.body(size: 12, weight: .medium))
                     .foregroundStyle(FoundryTheme.mutedText)
             }

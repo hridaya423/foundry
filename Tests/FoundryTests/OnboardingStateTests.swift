@@ -69,14 +69,46 @@ final class OnboardingStateTests: XCTestCase {
         XCTAssertFalse(state.isWaitingForSpotlight)
     }
 
-    func testCommandSpaceWaitsWhileSpotlightHoldsIt() {
+    func testCommandSpaceAutoDisablesSpotlight() {
         let state = makeState()
-        state.useCommandSpace(spotlightEnabled: { true })
+        state.useCommandSpace(spotlightEnabled: { true }, disableSpotlight: { true })
+        XCTAssertTrue(state.isWaitingForSpotlight)
+        XCTAssertFalse(state.spotlightHoldsCommandSpace)
+        state.spotlightPollTick(spotlightEnabled: { false })
+        XCTAssertEqual(state.panel.hotkey, .commandSpace)
+        XCTAssertFalse(state.isWaitingForSpotlight)
+    }
+
+    func testCommandSpaceShowsManualStepsWhenAutoDisableFails() {
+        let state = makeState()
+        state.useCommandSpace(spotlightEnabled: { true }, disableSpotlight: { false })
         XCTAssertTrue(state.spotlightHoldsCommandSpace)
         XCTAssertTrue(state.isWaitingForSpotlight)
         XCTAssertNotEqual(state.panel.hotkey, .commandSpace)
         state.stopWaitingForSpotlight()
         XCTAssertFalse(state.isWaitingForSpotlight)
+    }
+
+    func testCommandSpaceFallsBackToManualStepsAfterTimeout() {
+        let state = makeState()
+        state.useCommandSpace(spotlightEnabled: { true }, disableSpotlight: { true })
+        XCTAssertFalse(state.spotlightHoldsCommandSpace)
+        for _ in 0..<10 { state.spotlightPollTick(spotlightEnabled: { true }) }
+        XCTAssertTrue(state.spotlightHoldsCommandSpace)
+        XCTAssertTrue(state.isWaitingForSpotlight)
+    }
+
+    func testSpotlightSetEnabledPreservesEntryAndWritesFlag() {
+        let suite = "foundry-spotlight-\(UUID().uuidString)"
+        let suiteDefaults = UserDefaults(suiteName: suite)!
+        suiteDefaults.set(["64": ["enabled": true, "value": ["type": "standard"]]], forKey: "AppleSymbolicHotKeys")
+        XCTAssertTrue(SpotlightShortcut.setEnabled(false, suiteName: suite, reloadPreferences: {}))
+        let hotkeys = suiteDefaults.dictionary(forKey: "AppleSymbolicHotKeys")
+        XCTAssertFalse(SpotlightShortcut.isEnabled(symbolicHotKeys: hotkeys))
+        let entry = hotkeys?["64"] as? [String: Any]
+        XCTAssertNotNil(entry?["value"])
+        XCTAssertTrue(SpotlightShortcut.setEnabled(true, suiteName: suite, reloadPreferences: {}))
+        XCTAssertTrue(SpotlightShortcut.isEnabled(symbolicHotKeys: suiteDefaults.dictionary(forKey: "AppleSymbolicHotKeys")))
     }
 
     func testSpotlightShortcutParsing() {

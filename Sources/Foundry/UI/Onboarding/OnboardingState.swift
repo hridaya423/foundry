@@ -18,6 +18,7 @@ enum OnboardingStep: Int, CaseIterable {
 
 enum SpotlightShortcut {
     static let symbolicHotKeyID = "64"
+    static let suiteName = "com.apple.symbolichotkeys"
 
     static func isEnabled(symbolicHotKeys: [String: Any]?) -> Bool {
         guard let entry = symbolicHotKeys?[symbolicHotKeyID] as? [String: Any] else { return true }
@@ -27,8 +28,33 @@ enum SpotlightShortcut {
     }
 
     static func isEnabledOnThisMac() -> Bool {
-        let defaults = UserDefaults(suiteName: "com.apple.symbolichotkeys")
+        let defaults = UserDefaults(suiteName: suiteName)
         return isEnabled(symbolicHotKeys: defaults?.dictionary(forKey: "AppleSymbolicHotKeys"))
+    }
+
+    static func setEnabled(_ enabled: Bool, suiteName: String = suiteName, reloadPreferences: () -> Void = reloadPreferences) -> Bool {
+        guard let defaults = UserDefaults(suiteName: suiteName) else { return false }
+        var hotkeys = defaults.dictionary(forKey: "AppleSymbolicHotKeys") ?? [:]
+        var entry = hotkeys[symbolicHotKeyID] as? [String: Any] ?? [:]
+        entry["enabled"] = enabled
+        hotkeys[symbolicHotKeyID] = entry
+        defaults.set(hotkeys, forKey: "AppleSymbolicHotKeys")
+        defaults.synchronize()
+        reloadPreferences()
+        return true
+    }
+
+    static func disableOnThisMac() -> Bool {
+        setEnabled(false)
+    }
+
+    // SystemUIServer caches symbolic hotkeys through cfprefsd; restarting the
+    // prefs daemon forces every client to re-read without a logout.
+    static func reloadPreferences() {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/killall")
+        process.arguments = ["cfprefsd"]
+        try? process.run()
     }
 
     static let keyboardShortcutsURL = URL(string: "x-apple.systempreferences:com.apple.Keyboard-Settings.extension")!
@@ -103,22 +129,37 @@ final class OnboardingState {
         didTryPanel = true
     }
 
-    func useCommandSpace(spotlightEnabled: @escaping @Sendable () -> Bool = SpotlightShortcut.isEnabledOnThisMac) {
-        if spotlightEnabled() {
-            spotlightHoldsCommandSpace = true
-            isWaitingForSpotlight = true
-            spotlightPoll?.invalidate()
-            spotlightPoll = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
-                MainActor.assumeIsolated {
-                    guard let self, spotlightEnabled() == false else { return }
-                    self.spotlightHoldsCommandSpace = false
-                    self.stopWaitingForSpotlight()
-                    self.panel.setHotkey(.commandSpace)
-                }
-            }
-        } else {
+    private var spotlightTicks = 0
+
+    func useCommandSpace(spotlightEnabled: @escaping @Sendable () -> Bool = SpotlightShortcut.isEnabledOnThisMac, disableSpotlight: () -> Bool = SpotlightShortcut.disableOnThisMac) {
+        guard spotlightEnabled() else {
             spotlightHoldsCommandSpace = false
             panel.setHotkey(.commandSpace)
+            return
+        }
+        spotlightTicks = 0
+        isWaitingForSpotlight = true
+        if disableSpotlight() == false {
+            spotlightHoldsCommandSpace = true
+        }
+        spotlightPoll?.invalidate()
+        spotlightPoll = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] _ in
+            MainActor.assumeIsolated {
+                self?.spotlightPollTick(spotlightEnabled: spotlightEnabled)
+            }
+        }
+    }
+
+    func spotlightPollTick(spotlightEnabled: () -> Bool) {
+        guard spotlightEnabled() else {
+            spotlightHoldsCommandSpace = false
+            stopWaitingForSpotlight()
+            panel.setHotkey(.commandSpace)
+            return
+        }
+        spotlightTicks += 1
+        if spotlightTicks >= 10 {
+            spotlightHoldsCommandSpace = true
         }
     }
 
