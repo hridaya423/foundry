@@ -1,0 +1,6 @@
+# regenerable media: tools/seq.py, tools/cutout.py, tools/score.py, tools/final.sh
+renders/
+assets/seq/
+assets/audio/
+snapshots/
+__pycache__/
