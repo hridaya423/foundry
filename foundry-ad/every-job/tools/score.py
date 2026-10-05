@@ -360,7 +360,6 @@ voice.add(quindar(), TM["vo"]["a"] - 0.28)
 
 # ------------------------------------------------------------------ the logo: "...for mankind." bare, then end of transmission, then the room
 LOGO, END_ = TM["logo"], TM["end"]
-sfx.add(whoosh(0.8, 3000, 250, up=False) * 0.35, LOGO, width=0.015)
 voice.add(quindar(2475, 0.25) * 1.4, TM["vo"]["quindar"])
 
 # ------------------------------------------------------------------ Armstrong: line A under the translate kill; line B lands on the logo
@@ -375,6 +374,14 @@ def vo_piece(s0, s1):
 va = vo_piece(*SEG_A)
 vb = np.concatenate([np.concatenate([vo_piece(s0, s1), np.zeros(int(g * SR))]) for s0, s1, g in SEG_B])
 pk = max(np.abs(va).max(), np.abs(vb).max())
+# line B is the last thing said: lift it, and lift "mankind" more (its "-kind" falls away in the recording), with presence
+gb = np.full(len(vb), 10 ** (3.0 / 20))
+mk = int((TM["vo"]["mankind"] - TM["vo"]["b"] - 0.03) * SR)
+ramp = np.linspace(0, 1, int(0.04 * SR))
+lift = np.concatenate([np.zeros(mk), ramp, np.ones(max(0, len(vb) - mk - len(ramp)))])[: len(vb)]
+gb *= 10 ** ((3.5 * lift + 2.5 * lift * np.linspace(0, 1, len(vb))) / 20)
+vb = vb + bp(vb, 1800, 4500) * 0.45 * lift
+vb = np.tanh(vb / pk * gb * 1.1) / 1.1 * pk
 voice.add(va / pk * 0.92, TM["vo"]["a"]); voice.add(vb / pk * 0.92, TM["vo"]["b"])
 
 # ------------------------------------------------------------------ mix
