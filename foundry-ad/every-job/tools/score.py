@@ -132,6 +132,15 @@ def riser(d):
     x = saw(f, d) * 0.25 + whoosh(d, 400, 12000) * 0.8
     return x * (t / d) ** 2
 
+def drone(d, base=29.14, bright=1.0):
+    """One low, breathing drone: B-flat, a fifth, slow beating, filtered air on top."""
+    t_ = tt(d)
+    x = sum(np.sin(2 * np.pi * base * m * t_ * (1 + 0.0015 * np.sin(2 * np.pi * 0.07 * (k + 1) * t_))) * a
+            for k, (m, a) in enumerate([(1, 1.0), (2, 0.55), (3, 0.28), (1.5, 0.22), (4, 0.08)]))
+    air = lp(hp(noise(d), 120), 700 * bright) * 0.35 * (0.6 + 0.4 * np.sin(2 * np.pi * 0.11 * t_))
+    return np.tanh((x * 0.5 + air) * 0.9) * 0.6
+
+
 def bell(f, d=1.2, tau=0.4):
     x = np.zeros(int(d * SR))
     for r, a in [(1, 1), (2.76, 0.4), (5.4, 0.25), (8.93, 0.12)]:
@@ -266,7 +275,7 @@ def rocket(d):
     return np.tanh((lp(b, 500, 2) * 2.2 + bp(cr, 400, 5000) * 0.9 + lp(noise(d), 90, 2) * 0.8) * 1.4)
 r0 = rocket(TM["act2"] - ign + 0.1); sfx.add(r0 * adsr(len(r0) / SR, 0.02, 0.15) * 0.4, ign, width=0.02)
 sfx.add(bell(note(91), 1.2, 0.4) * 0.12, ign + 0.42)                                     # the carriage bell: end of line
-music.add(pad([46, 58, 61, 65], TM["act2"], 1500, 0.2) * 0.3, 0.0, width=0.02)
+dr = drone(TM["meltCmd"]); music.add(dr * np.linspace(0.25, 0.75, len(dr)) * 0.45, 0.0, width=0.02)
 
 # ------------------------------------------------------------------ Act II: the I-beam, the pings, the noise, the wall
 A2 = TM["act2"]
@@ -296,15 +305,27 @@ CAST = TM["cast"]
 rr = rocket(CAST + 0.9 - MELT0); sfx.add(rr * adsr(len(rr) / SR, 0.03, 0.6) * 0.55, MELT0, width=0.02)
 sfx.add(crackle(1.6, 140) * 0.45, MELT0 + 0.05, width=0.012)
 sfx.add(whoosh(1.4, 5000, 140, up=False) * 1.0, TM["river"][0] + 0.2, width=0.012)
-music.add(pad([34, 41, 46], CAST - MELT0, 400, 0.4) * 0.22, MELT0)
+dr = drone(CAST - MELT0, bright=2.0); ev = adsr(CAST - MELT0, 0.2, 0.4); n_ = min(len(dr), len(ev)); music.add(dr[:n_] * ev[:n_] * 0.55, MELT0, width=0.02)
 
 # ------------------------------------------------------------------ the casting
 GLASS = TM["glass"]
 sfx.add(boom(1.5) * 0.6, CAST); sfx.add(hp(noise(1.0), 3000) * adsr(1.0, 0.05, 0.5) * 0.14, CAST, width=0.02)
 sfx.add(crackle(0.6, 140) * 0.4, CAST + 0.7, width=0.012)
 for k in range(10): sfx.add(tick_metal() * 0.5, CAST + 1.0 + k * 0.06 + 0.03 * rng.random(), pan=-0.5 + rng.random())
-for k in range(9): sfx.add(bell(note(82 + [0, 2, 5, 7, 9, 12, 14, 17, 19][k]), 0.9, 0.3) * 0.035, GLASS - 0.42 + k * 0.045, pan=-0.6 + 0.15 * k)
-sfx.add(bell(note(94), 1.4, 0.5) * 0.06, GLASS); music.add(pad([46, 58, 61, 65], 0.8, 2200, 0.2) * 0.25, GLASS)
+C = TM["cool"]
+sfx.add(hp(noise(0.9), 2500) * adsr(0.9, 0.3, 0.4) * 0.1, CAST + 0.45, width=0.02)                    # the skin sizzles as it sets
+for k in range(16):                                                                                   # iron pinging as it contracts
+    sfx.add(tick_metal() * (0.35 + 0.4 * rng.random()), CAST + C["gap0"] + (C["gap1"] - C["gap0"] + 0.2) * rng.random(), pan=-0.6 + 1.2 * rng.random())
+sfx.add(whoosh(0.32, 1200, 5000) * 0.18, CAST + C["sweep0"], width=0.01)                               # the light runs along it
+kn = CAST + C["knock0"]                                                                               # knockout: the mould cracks and falls away
+sfx.add(lp(noise(0.12), 900) * env_exp(0.12, 0.02) * 1.6 + sine(85, 0.12) * env_exp(0.12, 0.03) * 0.8, kn)
+sand = np.zeros(int(0.6 * SR))
+for _ in range(900):
+    i = rng.integers(0, len(sand) - 200); sand[i:i + 200] += noise(200 / SR) * np.exp(-np.arange(200) / 30) * rng.random() ** 2
+sfx.add(bp(sand, 1500, 9000) * adsr(0.6, 0.02, 0.35) * 0.55, kn + 0.03, width=0.02)
+for k in range(10):                                                                                   # the shell flakes off
+    sfx.add(tick_metal() * 0.3, CAST + C["flake0"] + k * 0.035 + 0.02 * rng.random(), pan=0.6 - 0.12 * k)
+sfx.add(key(3) * 0.6, TM["line3"]["t0"] - 0.06)                                                       # the caret: one quiet tick
 l3 = TM["line3"]
 for i in range(len(l3["text"])): sfx.add(key(i) * 0.7, l3["t0"] + i / l3["cps"])
 
@@ -317,7 +338,6 @@ def groove(t0, t1, g=1.0):
         music.add(bass_note(root - 12, BEAT / 2 - 0.01) * 0.5 * g, t + BEAT / 2)
         for o in (0.125, 0.375): sfx.add(key(b + 1) * 0.18 * g, t + o, pan=-0.3)
         if b % 2 == 1: music.add(clap(), t, 0.28 * g)
-        music.add(pluck(chord[b % 3] + 12, 0.3) * 0.13 * g, t, pan=0.35 if b % 2 else -0.35, width=0.012)
         t += BEAT
 groove(TM["settle"], K[2]["enter"])
 groove(K[3]["flash"], K[5]["end"] - 0.35, 0.8)
@@ -335,18 +355,13 @@ for i in range(6): sfx.add(tick_metal() * 0.8 + 0, kw["enter"] + i * 0.07, pan=-
 sfx.add(norm(cut(WHISTLE_SRC, 1.55, 1.0, 0.01, 0.3), 0.55), kd["enter"] + 0.05, width=0.015)
 sfx.add(lp(noise(kd["end"] - kd["enter"]), 260) * adsr(kd["end"] - kd["enter"], 0.15, 0.1) * 0.55, kd["enter"], width=0.02)
 sfx.add(whoosh(0.4, 300, 7000) * 1.2, kd["end"] - 0.38, width=0.015)
-music.add(pad([46, 53, 58, 61], kt["end"] - kt["enter"], 700, 0.5) * 0.18, kt["enter"], width=0.02)
+dr = drone(TM["end"] - kt["enter"]); music.add(dr * 0.22, kt["enter"], width=0.03)
 voice.add(quindar(), TM["vo"]["a"] - 0.28)
 
-# ------------------------------------------------------------------ the logo: back through the tiles; "...for mankind." lands on it
+# ------------------------------------------------------------------ the logo: "...for mankind." bare, then end of transmission, then the room
 LOGO, END_ = TM["logo"], TM["end"]
-sfx.add(whoosh(0.85, 6000, 200, up=False) * 0.6, LOGO, width=0.015)
-land = TM["vo"]["mankind"]
-sfx.add(anvil_hit(0, 0.5, 1.3) * 0.9, land)
-music.add(pad([34, 46, 50, 53, 58, 62], END_ - land + 0.2, 2600, 0.05) * 0.5, land - 0.15, width=0.02)
-music.add(boom(1.4) * 0.5, land)
-for k in range(10):
-    sfx.add(bell(note(82 + [0, 2, 4, 7, 9, 12, 14, 16, 19, 21][k]), 1.2, 0.35) * 0.028, land + 0.3 + k * 0.035, pan=-0.6 + 0.13 * k)
+sfx.add(whoosh(0.8, 3000, 250, up=False) * 0.35, LOGO, width=0.015)
+voice.add(quindar(2475, 0.25) * 1.4, TM["vo"]["quindar"])
 
 # ------------------------------------------------------------------ Armstrong: line A under the translate kill; line B lands on the logo
 src = os.path.join(ROOT, "..", "research", "footage", "icons", "Armstrong_Small_Step.ogg")
@@ -369,7 +384,7 @@ def duck_curve():
         a_, b_ = t2i(c["t0"] - 0.1), t2i(c["enter"])
         g[a_:b_] = np.minimum(g[a_:b_], np.linspace(1, 0.45, b_ - a_) ** 0.5)
     vo_a = (TM["vo"]["a"], TM["vo"]["a"] + SEG_A[1] - SEG_A[0])
-    vo_b = (TM["vo"]["b"], TM["vo"]["mankind"] + 0.95)
+    vo_b = (TM["vo"]["b"], TM["vo"]["end"])
     for a0, a1 in (vo_a, vo_b):  # Armstrong owns the room
         a_, b_ = t2i(a0 - 0.12), t2i(a1 + 0.05)
         g[a_:b_] = np.minimum(g[a_:b_], 0.2)
@@ -389,12 +404,15 @@ _a, _b = t2i(TM["vo"]["a"]), t2i(TM["vo"]["a"] + 2.3)
 _r = lambda x: 20 * np.log10(np.sqrt(np.mean(x[_a:_b] ** 2)) + 1e-9)
 print(f"under Armstrong: voice {_r(voice.L):.1f} dB, music {_r(music.L * dk):.1f} dB, sfx {_r(sfx.L * 0.35):.1f} dB")
 vo_gate = np.ones(N)
-for a0, a1 in ((TM["vo"]["a"], TM["vo"]["a"] + SEG_A[1] - SEG_A[0]), (TM["vo"]["b"], TM["vo"]["mankind"] + 0.95)):
+for a0, a1 in ((TM["vo"]["a"], TM["vo"]["a"] + SEG_A[1] - SEG_A[0]), (TM["vo"]["b"], TM["vo"]["end"])):
     vo_gate[t2i(a0 - 0.12):t2i(a1)] = 0.4
 vo_gate = lp(vo_gate, 20, 1)
 sil = np.ones(N); sil[t2i(TM["meltCmd"]):t2i(TM["meltCmd"] + 0.05)] = 0.0
-mL = (reverb(music.L * dk * sc, 1.8, 0.22) + reverb(sfx.L * vo_gate, 1.2, 0.12) * 0.9) * sil + voice.L
-mR = (reverb(music.R * dk * sc, 1.8, 0.22) + reverb(sfx.R * vo_gate, 1.2, 0.12) * 0.9) * sil + voice.R
+q0 = t2i(TM["vo"]["end"]); sil[q0:] = np.minimum(sil[q0:], np.exp(-np.arange(N - q0) / (0.25 * SR)))   # after "mankind." the music lets go
+sil = lp(sil, 30, 1)
+room_ = lp(noise(DUR), 260) * 0.012
+mL = (reverb(music.L * dk * sc, 1.8, 0.22) + reverb(sfx.L * vo_gate, 1.2, 0.12) * 0.9) * sil + voice.L + room_
+mR = (reverb(music.R * dk * sc, 1.8, 0.22) + reverb(sfx.R * vo_gate, 1.2, 0.12) * 0.9) * sil + voice.R + room_[::-1]
 mix = np.stack([mL, mR])
 mix = np.tanh(mix * 1.1) / np.tanh(1.1)
 mix[:, -int(0.25 * SR):] *= np.linspace(1, 0, int(0.25 * SR))

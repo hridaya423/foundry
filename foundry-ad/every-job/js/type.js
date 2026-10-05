@@ -166,7 +166,7 @@
   function bar(el, t, c, TM) {
     if (t < TM.glass || t >= TM.logo + 0.3) { el.style.visibility = "hidden"; return; }
     el.style.visibility = "visible";
-    const a = ease.inOutCubic(prog(t, TM.glass, TM.glass + 0.26));
+    const a = ease.inOutCubic(prog(t, TM.glass, TM.glass + 0.14));
     const d = ease.inOutCubic(prog(t, TM.bardown, TM.bardown + 0.34));
     const out = ease.inCubic(prog(t, TM.logo - 0.05, TM.logo + 0.25));
     const w = lerp(1360, 1180, d), h = lerp(168, 124, d), cy = lerp(540, 930, d) + out * 60;
@@ -195,7 +195,7 @@
       txt.dataset.k = key; txt.innerHTML = ""; txt.append(str);
       if (link) { const s = document.createElement("span"); s.className = "link"; s.textContent = link; txt.append(s); }
     }
-    caret.style.opacity = typing || Math.floor((t - t0) * 4) % 2 === 0 ? "1" : "0.15";
+    caret.style.opacity = t < TM.line3.t0 - 0.06 ? "0" : typing || Math.floor((t - t0) * 4) % 2 === 0 ? "1" : "0.15";
   }
 
   window.TYPE = { bar, oneCommand, command, word, roll, caption, reels };

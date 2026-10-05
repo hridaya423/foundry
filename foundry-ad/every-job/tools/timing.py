@@ -21,47 +21,52 @@ LINE2 = {"text": "An app for every job.", "t0": ACT2 + 0.06, "cps": 52}
 HEROES = 3.3                     # the first three apps, big enough to read
 BURST0, BURST1 = 4.2, 5.25       # then everything else
 HEAT0 = 4.3                      # the set starts to struggle
-WALL0, WALL1 = 5.0, 5.85         # pull back: a wall of sets
-MELT_CMD = 6.0                   # enter on `melt them down` (3 frames of silence, then ignition)
-RIVER0, RIVER1 = 6.75, 8.4       # the camera falls with the river
-CAST = 8.4
-GLASS = 9.9
-LINE3 = {"text": "One for every job.", "t0": GLASS + 0.1, "cps": 54}
-SETTLE = 10.45                   # the bar settles low and stays there
+WALL0, WALL1 = 5.0, 5.7          # pull back: a wall of sets, then hold on it
+MELT_CMD = 6.2                   # enter on `melt them down` (3 frames of silence, then ignition)
+RIVER0, RIVER1 = 6.95, 8.6       # the camera falls with the river
+CAST = 8.6
+# the casting cools from the rim in; its last heat retreats to where the cursor lives and becomes the caret
+COOL = {"fill": 0.0, "core0": 0.55, "core1": 1.45, "gap0": 0.9, "gap1": 1.45, "sweep0": 1.12, "sweep1": 1.45,
+        "knock0": 1.4, "knock1": 1.78, "flake0": 1.45, "flake1": 1.82, "point": 1.82}
+GLASS = CAST + 1.8
+LINE3 = {"text": "One for every job.", "t0": GLASS + 0.16, "cps": 54}
+SETTLE = 11.0                    # the bar settles low and stays there
 
 # ---------------------------------------------------------------- the kills: app -> command -> result
 KILL_APPS = {
-    "gif": "GIF Maker Online - Free",
+    "gif": "GIF Maker Pro",
     "rmbg": "Background Eraser Online",
-    "translate": "Translate Free",
-    "currency": "Currency Converter 2024",
-    "tile": "Window Snap Lite",
+    "translate": "Translate",
+    "currency": "Currency Converter Plus",
+    "tile": "Window Snap",
     "download": "YouTube Downloader MP4 (No Virus)",
 }
-KILLS = [  # (kind, flash, text, paste, enter, end)
-    ("gif", 10.5, "convert to gif", None, 11.0, 11.75),
-    ("rmbg", 11.75, "remove background", None, 12.3, 13.05),
-    ("translate", 13.05, "translate to japanese", None, 13.55, 16.45),
-    ("currency", 16.45, "100 usd in eur", None, 16.85, 17.35),
-    ("tile", 17.35, "tile windows", None, 17.75, 18.25),
-    ("download", 18.25, "download ", "youtu.be/lumiere-1895", 18.65, 19.35),
+KILLS = [  # (kind, flash, text, paste, enter, end): they speed up into the logo
+    ("gif", 11.15, "convert to gif", None, 11.65, 12.4),
+    ("rmbg", 12.4, "remove background", None, 12.85, 13.55),
+    ("translate", 13.55, "translate to japanese", None, 14.0, 16.85),
+    ("currency", 16.85, "100 usd in eur", None, 17.2, 17.6),
+    ("tile", 17.6, "tile windows", None, 17.9, 18.25),
+    ("download", 18.25, "download ", "youtu.be/lumiere-1895", 18.55, 19.15),
 ]
-LOGO = 19.35
-END = 21.4
+LOGO = 19.15                     # cut to the logo on "for" in "...leap for mankind."
+END = 21.3
 
 # ---------------------------------------------------------------- Armstrong: line A over the translate kill, line B lands on the logo
 SEG_A = (15.40, 17.75)
 SEG_B = [(20.72, 21.02, 0.2), (21.80, 23.72, 0.0)]
-VO_A = 13.62
-MANKIND_SRC = 22.78
-MANKIND_AT = LOGO + 0.72         # "mankind." lands as the wordmark resolves
-VO_B = MANKIND_AT - ((SEG_B[0][1] - SEG_B[0][0]) + SEG_B[0][2] + (MANKIND_SRC - SEG_B[1][0]))
+VO_A = 14.07
+FOR_SRC, MANKIND_SRC, END_SRC = 22.60, 22.78, 23.72
+VO_B = LOGO - ((SEG_B[0][1] - SEG_B[0][0]) + SEG_B[0][2] + (FOR_SRC - SEG_B[1][0]))
+MANKIND_AT = VO_B + (SEG_B[0][1] - SEG_B[0][0]) + SEG_B[0][2] + (MANKIND_SRC - SEG_B[1][0])
+VO_END = VO_B + (SEG_B[0][1] - SEG_B[0][0]) + SEG_B[0][2] + (END_SRC - SEG_B[1][0])
+QUINDAR = VO_END + 0.14          # end of transmission
 WORDS_A = [("That's", 15.48), ("one", 15.82), ("small", 16.30), ("step", 16.78), ("for", 17.18), ("man,", 17.40)]
 
 
 def kill_cmd(k):
     kind, flash, text, paste, enter, end = k
-    t0 = flash + 0.12
+    t0 = flash + 0.1
     c = {"kind": kind, "app": KILL_APPS[kind], "flash": flash, "text": text, "t0": t0, "cps": 62, "enter": enter, "end": end, "where": "bar", "dim": 0.5}
     if paste:
         c.update({"paste": paste, "pasteAt": t0 + len(text) / 62 + 0.04})
@@ -85,7 +90,8 @@ TM = {
     "settle": SETTLE, "logo": LOGO, "end": END, "apps": APPS, "appT": APP_T,
     "cmd0": {"text": "melt them down", "t0": MELT_CMD - 0.42, "cps": 50, "enter": MELT_CMD, "out": MELT_CMD + 0.06, "dim": 0.3},
     "kills": [kill_cmd(k) for k in KILLS],
-    "vo": {"a": VO_A, "segA": SEG_A, "b": round(VO_B, 4), "segB": SEG_B, "mankind": MANKIND_AT},
+    "vo": {"a": VO_A, "segA": SEG_A, "b": round(VO_B, 4), "segB": SEG_B, "mankind": round(MANKIND_AT, 4), "end": round(VO_END, 4), "quindar": round(QUINDAR, 4)},
+    "cool": COOL, "rate": "89.25",
     "wordsA": [[w, round(VO_A + (s - SEG_A[0]), 4)] for w, s in WORDS_A],
     "translateA": round(VO_A + (17.40 - SEG_A[0]) + 0.1, 4),    # as "man," lands, the line becomes Japanese
 }

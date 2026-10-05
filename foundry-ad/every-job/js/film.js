@@ -247,13 +247,10 @@
       ctx.setTransform(s, 0, 0, s, W / 2 - fx * s, H / 2 - fy * s);
       ctx.beginPath(); cellPath(ctx, c); ctx.clip();
       ctx.setTransform(1, 0, 0, 1, 0, 0);
-      // first every tile is the train coming at you; then each one is another moment of the film
-      const own = u > 0.12 + c.r * 0.45;
-      const name = own ? FILM_CLIPS[Math.floor(c.r * FILM_CLIPS.length)] : "arrival";
-      const im = M.frameAt(name, own ? t + c.r * 3 : 2.6, 0, "hold");
-      if (own) M.drawCover(ctx, im, { x: bx0, y: by0, w: Math.max(1, bx1 - bx0), h: Math.max(1, by1 - by0) }, 1.0);
-      else M.drawCover(ctx, im, full, 1.02);
-      const k = ease.inOutCubic(prog(u, 0.7 + (c.cx - minX) / (maxX - minX) * 0.32 + c.r * 0.04, 0.88 + (c.cx - minX) / (maxX - minX) * 0.32 + c.r * 0.04));
+      // every tile is the train that just came at you; then one wave cools them to bone, left to right
+      M.drawCover(ctx, M.frameAt("arrival", 2.9, 0, "hold"), full, 1.02);
+      const fx_ = (c.cx - minX) / (maxX - minX);
+      const k = ease.inOutCubic(prog(u, 0.62 + fx_ * 0.42, 0.86 + fx_ * 0.42));
       if (k > 0) { ctx.fillStyle = `rgba(241,239,234,${k.toFixed(3)})`; ctx.fillRect(bx0 - 1, by0 - 1, bx1 - bx0 + 2, by1 - by0 + 2); }
       ctx.restore();
     }
@@ -271,7 +268,17 @@
     const plates = { off: M.stills.tvoff, lit: M.stills.tvlit };
     const barTex = barCanvas();
     const KW = { x: 340, y: 150, w: 1240, h: 640 };          // where a killed app reappears
-    const killEdge = M.edgeField([KW], 160, 3);
+    // a killed app burns outward from its close button
+    const killEdge = (() => {
+      const c = M.canvas(W / 4, H / 4), x = c.getContext("2d"), img = x.createImageData(c.width, c.height);
+      const ox = KW.x + 40, oy = KW.y + 40, reach = Math.hypot(KW.w, KW.h) * 0.75;
+      for (let py = 0; py < c.height; py++) for (let px_ = 0; px_ < c.width; px_++) {
+        const X = (px_ + 0.5) * 4, Y = (py + 0.5) * 4, o = (py * c.width + px_) * 4;
+        const inside = X >= KW.x && X < KW.x + KW.w && Y >= KW.y && Y < KW.y + KW.h;
+        img.data[o] = Math.round(255 * clamp(1 - Math.hypot(X - ox, Y - oy) / reach)); img.data[o + 2] = inside ? 255 : 0; img.data[o + 3] = 255;
+      }
+      x.putImageData(img, 0, 0); return c;
+    })();
     const sc = M.canvas(), ctx = sc.getContext("2d");
     const atlas = M.canvas(), actx = atlas.getContext("2d");
     const mc = M.metalCanvas();
@@ -292,7 +299,7 @@
       } else els.capA.style.visibility = "hidden";
       els.capB.style.visibility = "hidden";
       const kc = TM.kills[3];
-      T.reels(els.calc, t >= kc.enter && t < kc.end ? t : -1, { from: "00.00", to: "92.18", unitFrom: "eur", unitTo: "eur", t0: kc.enter, delay: 0.02, dur: 0.38 });
+      T.reels(els.calc, t >= kc.enter && t < kc.end ? t : -1, { from: "00.00", to: TM.rate, unitFrom: "eur", unitTo: "eur", t0: kc.enter, delay: 0.02, dur: 0.3 });
       els.small.style.visibility = t >= kc.enter && t < kc.end ? "visible" : "hidden";
 
       ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.fillStyle = "#050505"; ctx.fillRect(0, 0, W, H);
@@ -313,13 +320,20 @@
       } else if (t < TM.settle + 0.06 && !kill) {
         // the casting: one river into Foundry's bar
         tv = null; g.amber = 0;
-        const c = t - TM.cast, impY = (BAR.y + BAR.h / 2) / H;
-        const tail = ease.inQuad(prog(c, 0.5, 0.72)) * impY;
-        g.cast = { t: c, plate: ease.outCubic(prog(c, 0.0, 0.4)), pol0: 99, pol1: 99, flash: 99, iron: 1, tau: 0.75,
-          sweep: lerp(0.05, 0.95, ease.inOutCubic(prog(t, TM.glass - 0.42, TM.glass - 0.02))),
-          fade: 1 - ease.inOutCubic(prog(t, TM.glass, TM.glass + 0.3)),
+        const c = t - TM.cast, impY = (BAR.y + BAR.h / 2) / H, C = TM.cool;
+        const tail = ease.inQuad(prog(c, 0.42, 0.62)) * impY;
+        // the core of heat retreats from the middle of the bar to where the cursor lives, and shrinks to a caret
+        const ce = ease.inOutCubic(prog(c, C.core0, C.core1));
+        const CARET = { x: BAR.x + 82, y: BAR.y + BAR.h / 2 };
+        const cool = [lerp(960, CARET.x, ce), CARET.y, Math.exp(lerp(Math.log(780), Math.log(7), ce)), Math.exp(lerp(Math.log(140), Math.log(30), ce))];
+        const coolB = [ease.inOutCubic(prog(c, C.gap0, C.gap1)), lerp(0.08, 0.95, ease.inOutCubic(prog(c, C.sweep0, C.sweep1))),
+          ease.inCubic(prog(c, C.knock0, C.knock1)), ease.inOutCubic(prog(c, C.flake0, C.flake1))];
+        g.cast = { t: c, plate: ease.outCubic(prog(c, 0.0, 0.4)), iron: 1, tau: 0.5, cool, coolB,
+          coreHeat: 1 - ease.inOutCubic(prog(t, TM.line3.t0 - 0.08, TM.line3.t0 + 0.02)),
+          smoke: ease.inOutCubic(prog(c, 0.45, 0.9)) * (1 - ease.inOutCubic(prog(c, C.knock0, C.knock1 + 0.2))),
+          fade: 1 - ease.inOutCubic(prog(t, TM.line3.t0, TM.line3.t0 + 0.2)),
           imp: [0.5, impY, 0.5, impY], stream: [tail, 1, 74, 0], impT: [0.0, 0.0] };
-        Object.assign(g, { raw: 1, exposure: 1.04, logo: barTex, zoom: lerp(1.1, 1.0, ease.outCubic(prog(c, 0, TM.glass - TM.cast))) });
+        Object.assign(g, { raw: 1, exposure: 1.04, logo: barTex, zoom: lerp(1.1, 1.0, ease.outCubic(prog(c, 0, 1.2))) });
         const vy = (x) => -0.6 * (1 - ease.outExpo(prog(x, TM.cast, TM.cast + 0.35)));
         g.blurY = Math.min(380, vel(vy, t) * H);
       } else if (t < TM.logo) {
@@ -345,7 +359,7 @@
             const a = ease.outExpo(prog(u, 0, 0.24));
             const flyF = (x) => 1 + 4.6 * ease.inExpo(prog(x, kd.end - 0.36, kd.end));
             const fly = flyF(t);
-            const w0 = 1180, h0 = 124, w1 = 1240, h1 = 700;
+            const w0 = 1180, h0 = 124, w1 = 1020, h1 = 580;
             const w = lerp(w0, w1, a) * fly, h = lerp(h0, h1, a) * fly;
             const cy = lerp(930, 470, a) + (540 - 470) * ease.inCubic(prog(t, kd.end - 0.36, kd.end));
             const r = { x: W / 2 - w / 2, y: cy - h / 2, w, h };
@@ -354,6 +368,7 @@
             M.roundRect(ctx, r.x, r.y, r.w, r.h, lerp(62, 18, a) * fly); ctx.clip();
             M.drawCover(ctx, M.frameAt("arrival", Math.max(0, u) * 1.6 + 0.3, 0, "hold"), r, 1.02);
             ctx.restore();
+            ctx.save(); ctx.strokeStyle = "rgba(255,255,255,0.16)"; ctx.lineWidth = 1.5; M.roundRect(ctx, r.x + 0.75, r.y + 0.75, r.w - 1.5, r.h - 1.5, lerp(62, 18, a) * fly); ctx.stroke(); ctx.restore();
             g.blurY = Math.min(300, vel(flyF, t) * 100); g.blurX = g.blurY * 0.7;
           }
         }
@@ -365,7 +380,7 @@
           const sc_ = 0.94 + 0.06 * p;
           drawWindow(ctx, { title: kill.app, clip: a[1], t: kill.flash, off: 11 },
             { x: KW.x + KW.w * (1 - sc_) / 2, y: KW.y + KW.h * (1 - sc_) / 2, w: KW.w * sc_, h: KW.h * sc_ }, t, clamp(p * 1.5), 80);
-          const burn = prog(t, kill.enter - 0.2, kill.enter);
+          const burn = prog(t, kill.enter - 0.24, kill.enter);
           if (burn > 0) Object.assign(g, { heat: ease.inQuad(burn), edge: killEdge, ember: 1, heatMask: 1 });
         }
       } else {

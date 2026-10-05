@@ -167,8 +167,100 @@
     }
     return c*uCastFade;
   }
+  // ---------------------------------------------------------------- the bar: one river cast into Foundry's bar, cooled from the rim in
+  uniform vec4 uCool;    // the retreating core: centre x, y (px), radii x, y (px)
+  uniform vec4 uCoolB;   // gap (0..1), sweep (q.x), knockout (0..1), flaking (0..1)
+  uniform float uSmoke, uCoreHeat;
+  vec3 barColor(vec2 s){
+    float asp = uRes.x/uRes.y;
+    vec2 q = 0.5 + (s - 0.5)/uZoom;
+    vec2 px = s*uRes, qp = q*vec2(asp, 1.0);
+    float m0 = texture(uLogo, q).r;
+    float m1 = textureLod(uLogo, q, 1.5).r, m3 = textureLod(uLogo, q, 4.0).r;
+    vec2 mg = vec2(dFdx(m0), dFdy(m0));
+    // the sand mould; on knockout it breaks up and falls away
+    float kn = uCoolB.z;
+    float grain = fbm(qp*180.0)*0.5 + fbm(qp*40.0)*0.5;
+    float chunk = fbm(qp*26.0 + vec2(0.0, -kn*kn*3.0));
+    float alive = mix(1.0, smoothstep(kn - 0.05, kn + 0.05, chunk + 0.2), 0.6)*(1.0 - kn)*(1.0 - kn);
+    vec3 plate = vec3(0.085, 0.078, 0.072)*(0.7 + 0.6*fbm(qp*180.0 + vec2(0.0, -kn*kn*1.4)));
+    float rim = clamp(dot(mg*uRes.y*0.5, vec2(-0.6, -0.8)), 0., 1.);
+    plate = mix(plate, vec3(0.018, 0.016, 0.015), m0*0.92) + vec3(0.22, 0.2, 0.18)*rim*0.5;
+    vec3 c = plate*uPlate*alive;
+    c += vec3(0.07, 0.065, 0.06)*kn*(1.0 - kn)*4.0*fbm(qp*30.0 + vec2(0.0, -uCastT*1.5))*(1.0 - alive)*0.35;   // dust
+    // the casting shrinks from the mould wall as it cools: a dark gap opens around it
+    float castM = smoothstep(0.5 + 0.34*uCoolB.x, 0.56 + 0.34*uCoolB.x, m1)*smoothstep(0.35, 0.6, m0);
+    // fill from the impact
+    vec2 i1 = uImp.xy*vec2(asp, 1.), sp = s*vec2(asp, 1.);
+    float d1 = length(sp - i1) + fbm(qp*22.0)*0.05;
+    float tf = uImpT.x - uTau*log(max(1e-4, 1.0 - min(0.999, d1/0.9)));
+    float age = uCastT - tf;
+    float wet = smoothstep(-0.015, 0.02, age)*castM;
+    // heat: the skin cools fast, thin parts first; the core keeps the heat and retreats
+    float thick = smoothstep(0.45, 1.0, m3);
+    float ts = exp(-max(age, 0.0)/(0.12 + 0.22*thick));
+    float dc = length((px - uCool.xy)/max(uCool.zw, vec2(1.0)));
+    float core = smoothstep(1.0, 0.45, dc + (fbm(px*0.012 + uCastT*0.7) - 0.5)*0.35);
+    float temp = max(ts, core*uCoreHeat);
+    // liquid: glossy, flowing out from the impact
+    vec2 rel = sp - i1;
+    float bm; vec3 liquid = lava(0.4 + 0.55*wet, vec2(atan(rel.y, rel.x)*9.0, length(rel)*26.0 - uCastT*3.2), temp, bm);
+    liquid += body(1.25)*smoothstep(0.06, 0.0, age)*smoothstep(-0.015, 0.0, age)*0.8;
+    // setting: plates of skin with heat glowing through the cracks
+    vec2 vr = voro(qp*24.0 + fbm(qp*9.0)*0.8);
+    float crack = 1.0 - smoothstep(0.0, 0.04, vr.y);
+    // set: matte cast iron, top bevel lit, lower edge in shadow, one band of light
+    float sand = fbm(qp*90.0)*0.6 + fbm(qp*22.0)*0.4;
+    float bev = clamp(-mg.y*uRes.y*0.5, 0., 1.), shd = clamp(mg.y*uRes.y*0.5, 0., 1.);
+    vec3 iron = vec3(0.19, 0.185, 0.18)*(0.7 + 0.6*sand) + vec3(0.62, 0.6, 0.57)*bev - vec3(0.1)*shd;
+    float dxs = (q.x - uCoolB.y)*asp;
+    float swp = step(0.0, uCoolB.y)*step(uCoolB.y, 0.94);
+    iron += vec3(0.85, 0.82, 0.77)*(exp(-pow(dxs/0.022, 2.0))*1.1 + exp(-pow(dxs/0.14, 2.0))*0.3)*(0.55 + 0.7*sand)*swp;
+    vec3 crust = mix(iron*0.5, body(temp*1.05)*0.55, smoothstep(0.08, 0.5, temp)) + body(0.42 + temp)*crack*smoothstep(0.05, 0.42, temp);
+    vec3 metal = mix(crust, liquid, smoothstep(0.38, 0.72, temp));
+    metal = mix(iron, metal, smoothstep(0.02, 0.1, temp));
+    // the shell flakes away; under it, the glass bar
+    // peels away in organic flakes from the far end, toward the caret
+    float fn = fbm(qp*11.0)*0.75 + 0.25*(1.0 - clamp((px.x - uCool.x)/1300.0, 0., 1.));
+    float ft = uCoolB.w*1.25;
+    float flaked = smoothstep(fn - 0.01, fn + 0.01, ft);
+    float lip = smoothstep(0.035, 0.0, abs(ft - fn))*step(0.001, uCoolB.w)*(1.0 - step(0.999, uCoolB.w));
+    float ny = clamp((px.y - (uImp.y*uRes.y - 84.0))/168.0, 0., 1.);
+    vec3 glass = mix(vec3(0.16, 0.16, 0.17), vec3(0.064, 0.064, 0.072), ny) + vec3(0.2)*bev;
+    metal = mix(metal, glass, flaked*(1.0 - core*uCoreHeat));
+    metal += vec3(0.55, 0.52, 0.48)*lip*0.6;                 // the lifting edge of each flake catches the light
+    c = mix(c, metal, wet);
+    // the last of the heat: one molten point where the cursor will be
+    c += body(1.1 + 0.2*core)*core*uCoreHeat*smoothstep(1.6, 0.0, uCool.z/20.0)*0.6;
+    // smoke and a few sparks while it sets
+    float top_ = uImp.y - 84.0/uRes.y;
+    float above = smoothstep(top_ + 0.01, top_ - 0.03, s.y)*exp(-max(top_ - s.y, 0.0)*3.5)*smoothstep(0.24, 0.8, px.x/uRes.x)*smoothstep(0.86, 0.7, px.x/uRes.x);
+    float col = smoothstep(0.45, 0.75, fbm(vec2(px.x*0.006 + 7.0, uCastT*0.3)));
+    float wisp = fbm(vec2(px.x*0.009 + sin(px.y*0.01 + uCastT*2.0)*0.6, px.y*0.006 + uCastT*1.1) + 2.0);
+    c += vec3(0.1, 0.096, 0.092)*smoothstep(0.42, 0.75, wisp)*col*above*uSmoke;
+    for (int k = 0; k < 7; k++) {
+      float fk = float(k), t0 = 0.6 + h21(vec2(fk, 2.0))*0.7, u = uCastT - t0;
+      if (u < 0.0 || u > 0.45) continue;
+      vec2 o = vec2((0.2 + 0.6*h21(vec2(fk, 5.0)))*uRes.x, uImp.y*uRes.y - 20.0);
+      vec2 v = vec2((h21(vec2(fk, 7.0)) - 0.5)*500.0, -600.0 - 500.0*h21(vec2(fk, 9.0)));
+      vec2 sp_ = o + v*u + vec2(0.0, 1800.0)*u*u;
+      c += body(1.2)*exp(-dot(px - sp_, px - sp_)/12.0)*(1.0 - u/0.45)*2.0;
+    }
+    // the river feeding it, and its splash
+    if (uStream.z > 0.0 && s.y >= uStream.x && s.y <= uImp.y) {
+      float neck = 0.75 + 0.5*fbm(vec2(s.y*14.0 - uCastT*9.0, 0.0));
+      float wob = (fbm(vec2(s.y*3.0 - uCastT*2.0, 0.0)) - 0.5)*0.004;
+      float dx = abs(s.x - uImp.x - wob)/max(uStream.z*neck*0.5/uRes.x, 1e-5);
+      float sb; vec3 st = lava(0.3 + 0.7*smoothstep(1.25, 0.0, dx), vec2(s.x*uRes.x/uStream.z*2.0, s.y*7.0 - uCastT*11.0), 1.0, sb);
+      c = mix(c, st, sb) + body(0.9)*smoothstep(2.6, 0.8, dx)*0.12;
+    }
+    float on = step(uStream.x, uImp.y - 0.002)*step(0.5, uStream.z);
+    float r = length((s - uImp.xy)*vec2(asp, 1.));
+    c += (body(1.1)*exp(-r*r/0.0009)*0.9 + body(0.7)*exp(-r*r/0.012)*0.25)*on;
+    return c*uCastFade;
+  }
   void main(){
-    if (uCast > 0.5) { fragColor = vec4(castColor(vec2(vUv.x, 1.0 - vUv.y)), 1.0); return; }
+    if (uCast > 0.5) { vec2 s_ = vec2(vUv.x, 1.0 - vUv.y); fragColor = vec4(uIron > 0.5 ? barColor(s_) : castColor(s_), 1.0); return; }
     vec2 p = vec2(vUv.x, 1.0 - vUv.y);
     p = 0.5 + (p - 0.5)/uZoom + uPan;
     float asp = uRes.x/uRes.y;
@@ -445,7 +537,8 @@
       if (c) {
         gl.uniform1f(u.uCastT, c.t); gl.uniform1f(u.uPlate, c.plate); gl.uniform1f(u.uPol0, c.pol0); gl.uniform1f(u.uPol1, c.pol1);
         gl.uniform1f(u.uFlash, c.flash); gl.uniform1f(u.uIron, c.iron || 0); gl.uniform1f(u.uSweep, c.sweep == null ? -1 : c.sweep);
-        gl.uniform1f(u.uCastFade, c.fade == null ? 1 : c.fade); gl.uniform1f(u.uTau, c.tau || 0.62); gl.uniform4f(u.uImp, ...c.imp); gl.uniform4f(u.uStream, ...c.stream); gl.uniform2f(u.uImpT, ...c.impT);
+        gl.uniform1f(u.uCastFade, c.fade == null ? 1 : c.fade); gl.uniform1f(u.uTau, c.tau || 0.62);
+        if (c.cool) { gl.uniform4f(u.uCool, ...c.cool); gl.uniform4f(u.uCoolB, ...c.coolB); gl.uniform1f(u.uSmoke, c.smoke); gl.uniform1f(u.uCoreHeat, c.coreHeat); } gl.uniform4f(u.uImp, ...c.imp); gl.uniform4f(u.uStream, ...c.stream); gl.uniform2f(u.uImpT, ...c.impT);
       }
       gl.uniform2f(u.uRes, W, H); gl.uniform1f(u.uT, s.t); gl.uniform1f(u.uHeat, s.heat); gl.uniform1f(u.uFlow, s.flow);
       gl.uniform1f(u.uPinch, s.pinch); gl.uniform1f(u.uTilt, s.tilt); gl.uniform1f(u.uSeed, s.seed || 0);
