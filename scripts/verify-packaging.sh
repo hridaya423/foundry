@@ -4,6 +4,7 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 APP_DIR="$ROOT_DIR/build/Foundry.app"
 BUNDLE_DIR="$APP_DIR/Contents/Resources/Foundry_Foundry.bundle"
+BUNDLE_CONTENTS_DIR="$BUNDLE_DIR/Contents/Resources"
 INSTALL_DIR="/Applications/Foundry.app"
 EXPECTED_VERSION="$(tr -d '[:space:]' < "$ROOT_DIR/VERSION")"
 EXPECTED_BUILD_NUMBER="${BUILD_NUMBER:-1}"
@@ -40,8 +41,9 @@ if grep -R -E -q "$ROOT_DIR|FoundrySourceRoot" "$APP_DIR/Contents/Info.plist" "$
     exit 1
 fi
 
+[[ -d "$BUNDLE_CONTENTS_DIR" ]] || BUNDLE_CONTENTS_DIR="$BUNDLE_DIR"
 for required in NOTICE.txt background_removal_worker.py manifest.json background.js emoji.tsv; do
-    [[ -f "$BUNDLE_DIR/$required" ]] || { echo "error: missing resource: $required" >&2; exit 1; }
+    [[ -f "$BUNDLE_CONTENTS_DIR/$required" ]] || { echo "error: missing resource: $required" >&2; exit 1; }
 done
 if find "$BUNDLE_DIR" -type f \( -name '*.pyc' -o -name '*.sh' -o -name '*.command' -o -name 'feynobg_worker.py' -o -iname '*obsolete*worker*' \) -print -quit | grep -q .; then
     echo "error: stale or undeclared resource found" >&2

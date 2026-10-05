@@ -17,7 +17,7 @@ concurrency:
 jobs:
   build:
     runs-on: macos-26
-    timeout-minutes: 30
+    timeout-minutes: 60
     permissions:
       contents: read
     env:
@@ -29,11 +29,60 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Check signing secrets
+        id: signing
+        env:
+          HAS_P12: ${{ secrets.MACOS_DEVELOPER_ID_P12 }}
+          HAS_P12_PASSWORD: ${{ secrets.MACOS_DEVELOPER_ID_P12_PASSWORD }}
+          HAS_APPLE_ID: ${{ secrets.APPLE_ID }}
+          HAS_APPLE_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
+          HAS_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          if [[ -n "$HAS_P12" && -n "$HAS_P12_PASSWORD" && -n "$HAS_APPLE_ID" && -n "$HAS_APPLE_PASSWORD" && -n "$HAS_TEAM_ID" ]]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Signing secrets are missing — building ad-hoc and skipping notarization. See docs/distribution.md."
+          fi
+
+      - name: Import Developer ID certificate
+        if: steps.signing.outputs.enabled == 'true'
+        env:
+          MACOS_DEVELOPER_ID_P12: ${{ secrets.MACOS_DEVELOPER_ID_P12 }}
+          MACOS_DEVELOPER_ID_P12_PASSWORD: ${{ secrets.MACOS_DEVELOPER_ID_P12_PASSWORD }}
+        run: |
+          set -euo pipefail
+          KEYCHAIN="foundry-signing-${RUNNER_TEMP##*/}.keychain-db"
+          KEYCHAIN_PASSWORD="$(openssl rand -hex 16)"
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          P12_PATH="$RUNNER_TEMP/devid.p12"
+          printf '%s' "$MACOS_DEVELOPER_ID_P12" | base64 --decode -o "$P12_PATH"
+          security import "$P12_PATH" -k "$KEYCHAIN" -P "$MACOS_DEVELOPER_ID_P12_PASSWORD" -T /usr/bin/codesign
+          rm -f "$P12_PATH"
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN" >/dev/null
+          DEFAULT_KEYCHAINS="$(security list-keychain -d user | tr -d '"' | tr '\n' ' ')"
+          security list-keychain -d user -s "$KEYCHAIN" $DEFAULT_KEYCHAINS
+          echo "CODE_SIGN_IDENTITY=Developer ID Application" >> "$GITHUB_ENV"
+          security find-identity -v -p codesigning "$KEYCHAIN"
+
       - name: Run tests
         run: swift test
 
       - name: Build and verify app
         run: ./scripts/verify-packaging.sh
+
+      - name: Package DMG
+        run: ./scripts/package-dmg.sh
+
+      - name: Notarize DMG
+        if: steps.signing.outputs.enabled == 'true'
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: ./scripts/notarize-dmg.sh "build/Foundry-$(tr -d '[:space:]' < VERSION)-build-${BUILD_NUMBER}.dmg"
 
       - name: Archive app
         run: |
@@ -49,6 +98,7 @@ jobs:
           name: foundry-release
           path: |
             Foundry-*.zip
+            build/Foundry-*.dmg
             release-version
           if-no-files-found: error
           retention-days: 1
@@ -81,9 +131,12 @@ jobs:
           fi
 
           tag="v${version}"
-          asset="release/Foundry-${version}-build-${GITHUB_RUN_NUMBER}.zip"
-          test -f "$asset"
+          zip_asset="release/Foundry-${version}-build-${GITHUB_RUN_NUMBER}.zip"
+          dmg_asset="release/build/Foundry-${version}-build-${GITHUB_RUN_NUMBER}.dmg"
+          test -f "$zip_asset"
+          test -f "$dmg_asset"
 
+          assets=("$dmg_asset" "$zip_asset")
           if gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             gh release delete "$tag" --repo "$GITHUB_REPOSITORY" --yes --cleanup-tag
           fi
@@ -91,9 +144,9 @@ jobs:
             gh api --method DELETE "repos/${GITHUB_REPOSITORY}/git/refs/tags/${tag}"
           fi
 
-          gh release create "$tag" "$asset" \
+          gh release create "$tag" "${assets[@]}" \
             --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" \
             --title "Foundry ${version} (build ${GITHUB_RUN_NUMBER})" \
-            --notes "Automated build from commit ${GITHUB_SHA}." \
+            --notes "Automated build from commit ${GITHUB_SHA}. Download the .dmg, drag Foundry to Applications, then open the launcher with ⌥Space." \
             --latest

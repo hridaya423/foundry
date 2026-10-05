@@ -84,6 +84,12 @@ if [[ ! -d "$RESOURCE_BUNDLE_DIR" ]]; then
     echo "error: SwiftPM resource bundle is missing" >&2
     exit 1
 fi
+# Newer SwiftPM versions emit a full bundle (Contents/Resources/*); older ones
+# laid files flat at the bundle root. Check where this toolchain put them.
+RESOURCE_CONTENTS_DIR="$RESOURCE_BUNDLE_DIR/Contents/Resources"
+if [[ ! -d "$RESOURCE_CONTENTS_DIR" ]]; then
+    RESOURCE_CONTENTS_DIR="$RESOURCE_BUNDLE_DIR"
+fi
 
 if find "$RESOURCE_BUNDLE_DIR" -type f \( -name '*.pyc' -o -name 'feynobg_worker.py' -o -iname '*feyno*worker*' -o -iname '*obsolete*worker*' \) -print -quit | grep -q .; then
     echo "error: stale or obsolete worker resource found" >&2
@@ -99,7 +105,7 @@ if find "$RESOURCE_BUNDLE_DIR" -type f -perm -111 -print -quit | grep -q .; then
 fi
 
 for required in NOTICE.txt background_removal_worker.py manifest.json background.js emoji.tsv; do
-    if [[ ! -f "$RESOURCE_BUNDLE_DIR/$required" ]]; then
+    if [[ ! -f "$RESOURCE_CONTENTS_DIR/$required" ]]; then
         echo "error: required resource is missing: $required" >&2
         exit 1
     fi
@@ -136,10 +142,12 @@ EOF
 
 if [[ "$SIGNING_IDENTITY" == "-" ]]; then
     echo "Signing $APP_NAME with an ad-hoc identity..."
+    TIMESTAMP_FLAG="--timestamp=none"
 else
     echo "Signing $APP_NAME with $SIGNING_IDENTITY..."
+    TIMESTAMP_FLAG="--timestamp"
 fi
-codesign --force --deep --options runtime --entitlements "$ROOT_DIR/Supporting/Foundry.entitlements" --sign "$SIGNING_IDENTITY" "$APP_DIR"
+codesign --force --deep --options runtime --entitlements "$ROOT_DIR/Supporting/Foundry.entitlements" "$TIMESTAMP_FLAG" --sign "$SIGNING_IDENTITY" "$APP_DIR"
 # codesign writes diagnostics to stderr; keep them out of the plist stream.
 if ! codesign --display --entitlements :- "$APP_DIR" 2>/dev/null | plutil -lint - >/dev/null; then
     echo "error: signed app entitlements are not valid plist data" >&2
