@@ -283,7 +283,7 @@
     const atlas = M.canvas(), actx = atlas.getContext("2d");
     const mc = M.metalCanvas();
     const els = { capA: document.getElementById("capA"), capB: document.getElementById("capB"), bar: document.getElementById("bar"), calc: document.getElementById("calc"), small: document.getElementById("calcsmall") };
-    const tileTree = M.splitTree([0, 1, 1, 2, 3, 5].map((k, i) => ({ t: TM.kills[4].enter + i * 0.07, k: Math.max(1, k) })), 61);
+    const tileTree = M.splitTree([1, 1, 2, 3, 4].map((k, i) => ({ t: TM.kills[4].enter + i * 0.09, k })), 61);   // splits on the enter, then holds
     const TILE_CLIPS = ["typists", "operator", "telegraph", "console", "gallop", "aldrin", "arrival", "reels", "ticker", "drawers", "moonface", "crowd", "flag", "capsule"];
     const barT = { glass: TM.glass, bardown: TM.settle, logo: TM.logo, line3: TM.line3 };
 
@@ -293,9 +293,9 @@
       T.command(t, t >= TM.cmd0.t0 - 0.12 && t <= TM.cmd0.out + 0.14 ? TM.cmd0 : null);
       T.bar(els.bar, t, kill && t >= kill.t0 - 0.1 ? kill : null, barT);
       const ktr = TM.kills[2];
-      if (t >= ktr.enter && t < ktr.end + 0.05) {
+      if (t >= ktr.enter && t < ktr.end) {
         T.caption(els.capA, t, { words: TM.wordsA, at: TM.translateA, dur: 0.28, to: "人間にとっては小さな一歩だが、", toFont: "'Noto JP'", pool: "人間一歩小さな偉大飛躍だがとはにっ" });
-        els.capA.style.opacity = String(1 - ease.inCubic(prog(t, ktr.end - 0.08, ktr.end + 0.05)));
+        els.capA.style.opacity = String(1 - ease.inOutCubic(prog(t, ktr.end - 0.16, ktr.end - 0.02)));
       } else els.capA.style.visibility = "hidden";
       els.capB.style.visibility = "hidden";
       const kc = TM.kills[3];
@@ -357,7 +357,7 @@
           if (u >= 0) {
             // the download opens out of the bar, plays, and the train comes through
             const a = ease.outExpo(prog(u, 0, 0.24));
-            const flyF = (x) => 1 + 4.6 * ease.inExpo(prog(x, kd.end - 0.36, kd.end));
+            const flyF = (x) => 1 + 4.6 * ease.inExpo(prog(x, kd.end - 0.34, kd.end));
             const fly = flyF(t);
             const w0 = 1180, h0 = 124, w1 = 1020, h1 = 580;
             const w = lerp(w0, w1, a) * fly, h = lerp(h0, h1, a) * fly;

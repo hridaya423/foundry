@@ -41,16 +41,16 @@ KILL_APPS = {
     "tile": "Window Snap",
     "download": "YouTube Downloader MP4 (No Virus)",
 }
-KILLS = [  # (kind, flash, text, paste, enter, end): they speed up into the logo
+KILLS = [  # (kind, flash, text, paste, enter, end): one even cadence; every result gets room to land
     ("gif", 11.15, "convert to gif", None, 11.65, 12.4),
     ("rmbg", 12.4, "remove background", None, 12.85, 13.55),
     ("translate", 13.55, "translate to japanese", None, 14.0, 16.85),
-    ("currency", 16.85, "100 usd in eur", None, 17.2, 17.6),
-    ("tile", 17.6, "tile windows", None, 17.9, 18.25),
-    ("download", 18.25, "download ", "youtu.be/lumiere-1895", 18.55, 19.15),
+    ("currency", 16.85, "100 usd in eur", None, 17.3, 17.95),
+    ("tile", 17.95, "tile windows", None, 18.4, 19.15),
+    ("download", 19.15, "download ", "youtu.be/lumiere-1895", 19.6, 20.55),
 ]
-LOGO = 19.15                     # cut to the logo on "for" in "...leap for mankind."
-END = 21.3
+LOGO = 20.55                     # cut to the logo on "for" in "...leap for mankind."
+END = 22.7
 
 # ---------------------------------------------------------------- Armstrong: line A over the translate kill, line B lands on the logo
 SEG_A = (15.40, 17.75)
