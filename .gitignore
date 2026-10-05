@@ -9,3 +9,8 @@ DerivedData/
 .DS_Store
 
 .env
+
+# old ad attempts — kept on disk, not in git
+foundry-ad/century/
+foundry-ad/machine/
+foundry-ad/melt/
