@@ -102,7 +102,7 @@ private actor BEN2Runtime {
 
     private func performSetup(root: URL, status: (@MainActor @Sendable (String) -> Void)?) async throws {
         guard let uv = firstExecutable(["/opt/homebrew/bin/uv", "/usr/local/bin/uv", FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".local/bin/uv").path]) else { throw BackgroundRemovalError.modelUnavailable("BEN2 needs uv to install its local runtime. Install uv with Homebrew, then try again.") }
-        guard Bundle.module.url(forResource: "background_removal_worker", withExtension: "py") != nil else { throw BackgroundRemovalError.modelSetupFailed("The bundled background-removal worker script is missing.") }
+        guard Bundle.packagedResources?.url(forResource: "background_removal_worker", withExtension: "py") != nil else { throw BackgroundRemovalError.modelSetupFailed("The bundled background-removal worker script is missing.") }
         let staging = root.deletingLastPathComponent().appendingPathComponent(".foundry-ben2-staging-\(UUID().uuidString)")
         let stagedModel = staging.appendingPathComponent("models/\(BEN2Artifact.filename)")
         let stagedRuntime = staging.appendingPathComponent("runtime")
@@ -189,7 +189,7 @@ private actor BEN2Runtime {
     }
 
     private func verifiedPaths(root: URL) throws -> Paths? {
-        guard let script = Bundle.module.url(forResource: "background_removal_worker", withExtension: "py"),
+        guard let script = Bundle.packagedResources?.url(forResource: "background_removal_worker", withExtension: "py"),
                (try? BEN2Artifact.sha256(at: script)) == BEN2Artifact.workerSHA256 else { return nil }
         let model = root.appendingPathComponent("models/\(BEN2Artifact.filename)")
         let python = root.appendingPathComponent("runtime/bin/python")

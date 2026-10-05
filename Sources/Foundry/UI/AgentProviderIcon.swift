@@ -32,8 +32,8 @@ struct AgentProviderIcon: View {
 
     nonisolated static func brandResourceURL(for provider: AgentProviderKind) -> URL? {
         guard let resource = brandResources[provider] else { return nil }
-        return Bundle.module.url(forResource: resource, withExtension: "svg")
-            ?? Bundle.module.url(forResource: resource, withExtension: "svg", subdirectory: "ProviderIcons")
+        return Bundle.packagedResources?.url(forResource: resource, withExtension: "svg")
+            ?? Bundle.packagedResources?.url(forResource: resource, withExtension: "svg", subdirectory: "ProviderIcons")
     }
 
     private var appIcon: NSImage? {

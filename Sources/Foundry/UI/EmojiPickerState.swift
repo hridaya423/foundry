@@ -167,7 +167,7 @@ private extension EmojiPickerState {
     }()
 
     static func loadEmojiCatalog() -> [EmojiItem] {
-        guard let url = Bundle.module.url(forResource: "emoji", withExtension: "tsv"),
+        guard let url = Bundle.packagedResources?.url(forResource: "emoji", withExtension: "tsv"),
               let data = try? String(contentsOf: url, encoding: .utf8) else {
             return []
         }

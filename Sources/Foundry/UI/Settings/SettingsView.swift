@@ -390,7 +390,7 @@ struct SettingsView: View {
 
             SettingsGroup {
                 HStack(spacing: 12) {
-                    SettingsLabel(title: "Pop to root", subtitle: "Reopening within this time restores the last mode and query")
+                    SettingsLabel(title: "Pop to root", subtitle: "Reopening within this time restores the last mode")
                     Spacer()
                     Picker("Pop to root", selection: Binding(
                         get: { state.popToRootAfterSeconds },

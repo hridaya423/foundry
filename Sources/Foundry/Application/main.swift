@@ -3,6 +3,17 @@ import Darwin
 import Foundation
 import ServiceManagement
 
+// Vars like ELECTRON_RUN_AS_NODE leak in when Foundry is started from an
+// Electron-hosted shell (e.g. Devin CLI, VS Code terminal). LaunchServices and
+// Process both propagate the caller's environment to children, so every app
+// Foundry opens would inherit them — ELECTRON_RUN_AS_NODE makes Electron apps
+// boot as plain node and never load. Strip the host's vars once at startup.
+for key in ProcessInfo.processInfo.environment.keys {
+    if key.hasPrefix("ELECTRON_") || key.hasPrefix("VSCODE_") || key == "ATOM_SHELL_INTERNAL_RUN_AS_NODE" {
+        unsetenv(key)
+    }
+}
+
 if let bridgeIndex = CommandLine.arguments.firstIndex(of: "--agent-bridge"),
    bridgeIndex + 1 < CommandLine.arguments.count,
    let provider = AgentBridgeProvider(rawValue: CommandLine.arguments[bridgeIndex + 1]) {

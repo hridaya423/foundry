@@ -15,7 +15,7 @@ enum SettingsSearch {
         SettingItem(title: "Show in menu bar", keywords: ["menubar", "status item", "icon"], pane: .general, anchorID: "general.system"),
         SettingItem(title: "Launch at login", keywords: ["startup", "login item", "open at login"], pane: .general, anchorID: "general.system"),
         SettingItem(title: "Main browser", keywords: ["safari", "chrome", "arc", "brave", "firefox", "tabs", "history"], pane: .general, anchorID: "general.system"),
-        SettingItem(title: "Pop to root", keywords: ["reset", "restore", "reopen", "remember query"], pane: .general, anchorID: "general.popToRoot"),
+        SettingItem(title: "Pop to root", keywords: ["reset", "restore", "reopen", "remember mode"], pane: .general, anchorID: "general.popToRoot"),
         SettingItem(title: "Compact panel", keywords: ["compact", "window mode", "size", "search bar only"], pane: .general, anchorID: "general.compact"),
         SettingItem(title: "Search sensitivity", keywords: ["fuzzy", "matching", "results"], pane: .general, anchorID: "general.sensitivity"),
         SettingItem(title: "Snippet expansion", keywords: ["snippets", "keywords", "text expansion", "accessibility", "excluded apps"], pane: .general, anchorID: "general.snippets"),

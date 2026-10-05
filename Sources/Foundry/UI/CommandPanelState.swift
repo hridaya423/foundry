@@ -393,6 +393,11 @@ final class CommandPanelState {
         if shouldRestore {
             isShowingActions = false
             selectedActionID = nil
+            if query.isEmpty == false {
+                query = ""
+                results = []
+                selectedResultID = nil
+            }
             return
         }
         mode = .search

@@ -48,8 +48,8 @@ final class FirefoxConnectorInstaller {
         try? FileManager.default.removeItem(at: hostDirectory.appendingPathComponent("com.honey.foundry.json"))
         try manifestData.write(to: hostDirectory.appendingPathComponent("com.hridya.foundry.json"), options: .atomic)
 
-        guard let manifest = Bundle.module.url(forResource: "manifest", withExtension: "json"),
-              let background = Bundle.module.url(forResource: "background", withExtension: "js") else { throw InstallerError.resourceUnavailable }
+        guard let manifest = Bundle.packagedResources?.url(forResource: "manifest", withExtension: "json"),
+              let background = Bundle.packagedResources?.url(forResource: "background", withExtension: "js") else { throw InstallerError.resourceUnavailable }
         let source = FileManager.default.temporaryDirectory.appendingPathComponent("FoundryFirefoxConnector-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: source, withIntermediateDirectories: true)
         try FileManager.default.copyItem(at: manifest, to: source.appendingPathComponent("manifest.json"))
