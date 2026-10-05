@@ -41,31 +41,40 @@ KILL_APPS = {
     "tile": "Window Snap",
     "download": "YouTube Downloader MP4 (No Virus)",
 }
-KILLS = [  # (kind, flash, text, paste, enter, end): one even cadence; every result gets room to land
+KILLS = [  # (kind, flash, text, paste, enter, end): one even cadence; translate last, so Armstrong is never interrupted
     ("gif", 11.15, "convert to gif", None, 11.65, 12.4),
     ("rmbg", 12.4, "remove background", None, 12.85, 13.55),
-    ("translate", 13.55, "translate to japanese", None, 14.0, 16.85),
-    ("currency", 16.85, "100 usd in eur", None, 17.3, 17.95),
-    ("tile", 17.95, "tile windows", None, 18.4, 19.15),
-    ("download", 19.15, "download ", "youtu.be/lumiere-1895", 19.6, 20.55),
+    ("currency", 13.55, "100 usd in eur", None, 14.0, 14.65),
+    ("tile", 14.65, "tile windows", None, 15.1, 15.85),
+    ("download", 15.85, "download ", "youtu.be/lumiere-1895", 16.3, 17.25),
+    ("translate", 17.25, "translate to japanese", None, 17.7, None),     # runs into the logo
 ]
-LOGO = 20.55                     # cut to the logo on "for" in "...leap for mankind."
-END = 22.7
 
-# ---------------------------------------------------------------- Armstrong: line A over the translate kill, line B lands on the logo
+# ---------------------------------------------------------------- Armstrong, whole: "That's one small step for man, one giant leap for mankind."
 SEG_A = (15.40, 17.75)
 SEG_B = [(20.72, 21.02, 0.2), (21.80, 23.72, 0.0)]
-VO_A = 14.07
+A_GAP = 0.5                      # his pause, tightened; the line turns Japanese in it
+VO_A = 17.7 + 0.32            # translate's enter is the Quindar intro tone; then him
+VO_B = VO_A + (SEG_A[1] - SEG_A[0]) + A_GAP
 FOR_SRC, MANKIND_SRC, END_SRC = 22.60, 22.78, 23.72
-VO_B = LOGO - ((SEG_B[0][1] - SEG_B[0][0]) + SEG_B[0][2] + (FOR_SRC - SEG_B[1][0]))
-MANKIND_AT = VO_B + (SEG_B[0][1] - SEG_B[0][0]) + SEG_B[0][2] + (MANKIND_SRC - SEG_B[1][0])
-VO_END = VO_B + (SEG_B[0][1] - SEG_B[0][0]) + SEG_B[0][2] + (END_SRC - SEG_B[1][0])
+
+
+def b_at(src):
+    s0, s1, g = SEG_B[0]
+    return VO_B + (src - s0) if src <= s1 else VO_B + (s1 - s0) + g + (src - SEG_B[1][0])
+
+
+LOGO = b_at(FOR_SRC)             # cut to the logo on "for" in "...leap for mankind."
+MANKIND_AT, VO_END = b_at(MANKIND_SRC), b_at(END_SRC)
 QUINDAR = VO_END + 0.14          # end of transmission
+END = round(LOGO + 2.15, 2)
+WORDS_B = [("one", 20.80), ("giant", 21.88), ("leap", 22.18)]
 WORDS_A = [("That's", 15.48), ("one", 15.82), ("small", 16.30), ("step", 16.78), ("for", 17.18), ("man,", 17.40)]
 
 
 def kill_cmd(k):
     kind, flash, text, paste, enter, end = k
+    end = end if end is not None else LOGO
     t0 = flash + 0.1
     c = {"kind": kind, "app": KILL_APPS[kind], "flash": flash, "text": text, "t0": t0, "cps": 62, "enter": enter, "end": end, "where": "bar", "dim": 0.5}
     if paste:
@@ -93,6 +102,7 @@ TM = {
     "vo": {"a": VO_A, "segA": SEG_A, "b": round(VO_B, 4), "segB": SEG_B, "mankind": round(MANKIND_AT, 4), "end": round(VO_END, 4), "quindar": round(QUINDAR, 4)},
     "cool": COOL, "rate": "89.25",
     "wordsA": [[w, round(VO_A + (s - SEG_A[0]), 4)] for w, s in WORDS_A],
+    "wordsB": [[w, round(b_at(s), 4)] for w, s in WORDS_B],
     "translateA": round(VO_A + (17.40 - SEG_A[0]) + 0.1, 4),    # as "man," lands, the line becomes Japanese
 }
 

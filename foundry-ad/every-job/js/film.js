@@ -220,6 +220,13 @@
     if (xs < W + 50) { mctx.lineWidth = 16; mctx.beginPath(); mctx.moveTo(xs, -30); mctx.lineTo(xs, H + 30); mctx.stroke(); }
   }
 
+  // ------------------------------------------------------------------ the moon, under Armstrong's whole line
+  function moon(ctx, t) {
+    const k = TM.kills.find((x) => x.kind === "translate"), u2 = t - k.flash;
+    if (u2 < 1.4) M.drawCover(ctx, M.frameAt("aldrin", u2, 0, "hold"), full, lerp(1.12, 1.05, prog(u2, 0, 1.4)), 0.5, 0.45);
+    else M.drawCover(ctx, M.frameAt("flag", (u2 - 1.4) * 0.95, 0, "hold"), full, lerp(1.1, 1.0, prog(u2, 1.4, TM.end - k.flash)), 0.5, 0.5);
+  }
+
   // ------------------------------------------------------------------ the logo: back through tiles that hold the whole film
   const WM = window.WORDMARK;
   let minX = 1e9, maxX = -1e9, minY = 1e9, maxY = -1e9;
@@ -247,8 +254,8 @@
       ctx.setTransform(s, 0, 0, s, W / 2 - fx * s, H / 2 - fy * s);
       ctx.beginPath(); cellPath(ctx, c); ctx.clip();
       ctx.setTransform(1, 0, 0, 1, 0, 0);
-      // every tile is the train that just came at you; then one wave cools them to bone, left to right
-      M.drawCover(ctx, M.frameAt("arrival", 2.9, 0, "hold"), full, 1.02);
+      // every tile holds the moon as he finishes the line; then one wave cools them to bone, left to right
+      moon(ctx, t);
       const fx_ = (c.cx - minX) / (maxX - minX);
       const k = ease.inOutCubic(prog(u, 0.62 + fx_ * 0.42, 0.86 + fx_ * 0.42));
       if (k > 0) { ctx.fillStyle = `rgba(241,239,234,${k.toFixed(3)})`; ctx.fillRect(bx0 - 1, by0 - 1, bx1 - bx0 + 2, by1 - by0 + 2); }
@@ -267,23 +274,12 @@
     ]);
     const plates = { off: M.stills.tvoff, lit: M.stills.tvlit };
     const barTex = barCanvas();
-    const KW = { x: 340, y: 150, w: 1240, h: 640 };          // where a killed app reappears
-    // a killed app burns outward from its close button
-    const killEdge = (() => {
-      const c = M.canvas(W / 4, H / 4), x = c.getContext("2d"), img = x.createImageData(c.width, c.height);
-      const ox = KW.x + 40, oy = KW.y + 40, reach = Math.hypot(KW.w, KW.h) * 0.75;
-      for (let py = 0; py < c.height; py++) for (let px_ = 0; px_ < c.width; px_++) {
-        const X = (px_ + 0.5) * 4, Y = (py + 0.5) * 4, o = (py * c.width + px_) * 4;
-        const inside = X >= KW.x && X < KW.x + KW.w && Y >= KW.y && Y < KW.y + KW.h;
-        img.data[o] = Math.round(255 * clamp(1 - Math.hypot(X - ox, Y - oy) / reach)); img.data[o + 2] = inside ? 255 : 0; img.data[o + 3] = 255;
-      }
-      x.putImageData(img, 0, 0); return c;
-    })();
     const sc = M.canvas(), ctx = sc.getContext("2d");
     const atlas = M.canvas(), actx = atlas.getContext("2d");
     const mc = M.metalCanvas();
     const els = { capA: document.getElementById("capA"), capB: document.getElementById("capB"), bar: document.getElementById("bar"), calc: document.getElementById("calc"), small: document.getElementById("calcsmall") };
-    const tileTree = M.splitTree([1, 1, 2, 3, 4].map((k, i) => ({ t: TM.kills[4].enter + i * 0.09, k })), 61);   // splits on the enter, then holds
+    const KK = Object.fromEntries(TM.kills.map((k) => [k.kind, k]));
+    const tileTree = M.splitTree([1, 1, 2, 3, 4].map((k, i) => ({ t: KK.tile.enter + i * 0.09, k })), 61);   // splits on the enter, then holds
     const TILE_CLIPS = ["typists", "operator", "telegraph", "console", "gallop", "aldrin", "arrival", "reels", "ticker", "drawers", "moonface", "crowd", "flag", "capsule"];
     const barT = { glass: TM.glass, bardown: TM.settle, logo: TM.logo, line3: TM.line3 };
 
@@ -292,13 +288,14 @@
       const kill = TM.kills.find((k) => t >= k.flash && t < k.end);
       T.command(t, t >= TM.cmd0.t0 - 0.12 && t <= TM.cmd0.out + 0.14 ? TM.cmd0 : null);
       T.bar(els.bar, t, kill && t >= kill.t0 - 0.1 ? kill : null, barT);
-      const ktr = TM.kills[2];
+      // Armstrong, whole: line A builds in English and turns Japanese in his pause; line B builds under it
+      const ktr = KK.translate;
       if (t >= ktr.enter && t < ktr.end) {
         T.caption(els.capA, t, { words: TM.wordsA, at: TM.translateA, dur: 0.28, to: "人間にとっては小さな一歩だが、", toFont: "'Noto JP'", pool: "人間一歩小さな偉大飛躍だがとはにっ" });
-        els.capA.style.opacity = String(1 - ease.inOutCubic(prog(t, ktr.end - 0.16, ktr.end - 0.02)));
-      } else els.capA.style.visibility = "hidden";
-      els.capB.style.visibility = "hidden";
-      const kc = TM.kills[3];
+        T.caption(els.capB, t, { words: TM.wordsB, at: 1e9, dur: 0.3, to: "", toFont: MONO, pool: "a" });
+        els.capA.style.opacity = els.capB.style.opacity = String(1 - ease.inOutCubic(prog(t, ktr.end - 0.1, ktr.end)));
+      } else { els.capA.style.visibility = "hidden"; els.capB.style.visibility = "hidden"; }
+      const kc = KK.currency;
       T.reels(els.calc, t >= kc.enter && t < kc.end ? t : -1, { from: "00.00", to: TM.rate, unitFrom: "eur", unitTo: "eur", t0: kc.enter, delay: 0.02, dur: 0.3 });
       els.small.style.visibility = t >= kc.enter && t < kc.end ? "visible" : "hidden";
 
@@ -338,21 +335,18 @@
         g.blurY = Math.min(380, vel(vy, t) * H);
       } else if (t < TM.logo) {
         tv = null; g.amber = 0;
-        const K = TM.kills;
-        // results
-        if (t < K[2].flash) plateScene(ctx, mctx, t, g);
-        else if (t < K[3].flash) {
-          const u2 = t - K[2].flash;
-          if (u2 < 1.25) M.drawCover(ctx, M.frameAt("aldrin", u2, 0, "hold"), full, lerp(1.12, 1.05, prog(u2, 0, 1.25)), 0.5, 0.45);
-          else M.drawCover(ctx, M.frameAt("flag", (u2 - 1.25) * 0.95, 0, "hold"), full, lerp(1.1, 1.02, prog(u2, 1.25, K[3].flash - K[2].flash)), 0.5, 0.5);
-          g.contrast = 1.15; g.sat = 0.35;
-        } else if (t < K[4].flash) {
+        // results, by whichever kill is running
+        const cur = [...TM.kills].reverse().find((k) => t >= k.flash) || KK.gif;
+        if (cur.kind === "gif" || cur.kind === "rmbg") plateScene(ctx, mctx, t, g);
+        else if (cur.kind === "translate") {
+          moon(ctx, t); g.contrast = 1.15; g.sat = 0.35;
+        } else if (cur.kind === "currency") {
           ctx.fillStyle = "#0b0b0b"; ctx.fillRect(0, 0, W, H);
-        } else if (t < K[5].flash) {
+        } else if (cur.kind === "tile") {
           const lay = M.layout(tileTree, t, 10);
           for (const r of lay) { ctx.save(); ctx.beginPath(); ctx.rect(r.x, r.y, r.w, r.h); ctx.clip(); M.drawCover(ctx, M.frameAt(TILE_CLIPS[r.id % TILE_CLIPS.length], t, r.id * 7), r, 1.04); ctx.restore(); }
         } else {
-          const kd = K[5], u = t - kd.enter;
+          const kd = KK.download, u = t - kd.enter;
           ctx.fillStyle = "#070707"; ctx.fillRect(0, 0, W, H);
           if (u >= 0) {
             // the download opens out of the bar, plays, and the train comes through
@@ -372,19 +366,13 @@
             g.blurY = Math.min(300, vel(flyF, t) * 100); g.blurX = g.blurY * 0.7;
           }
         }
-        // the killed app: it comes back for a moment, then burns as its command runs
+        // while a command is typed the picture waits, dimmed; enter releases it
         if (kill && t < kill.enter) {
-          const p = ease.outExpo(prog(t, kill.flash, kill.flash + 0.1));
-          const a = TM.apps.find((x) => x[0] === kill.app);
-          ctx.fillStyle = `rgba(0,0,0,${(0.45 * p).toFixed(3)})`; ctx.fillRect(0, 0, W, H);
-          const sc_ = 0.94 + 0.06 * p;
-          drawWindow(ctx, { title: kill.app, clip: a[1], t: kill.flash, off: 11 },
-            { x: KW.x + KW.w * (1 - sc_) / 2, y: KW.y + KW.h * (1 - sc_) / 2, w: KW.w * sc_, h: KW.h * sc_ }, t, clamp(p * 1.5), 80);
-          const burn = prog(t, kill.enter - 0.24, kill.enter);
-          if (burn > 0) Object.assign(g, { heat: ease.inQuad(burn), edge: killEdge, ember: 1, heatMask: 1 });
+          const d = ease.outCubic(prog(t, kill.flash, kill.flash + 0.12)) * (1 - ease.inCubic(prog(t, kill.enter - 0.04, kill.enter)));
+          ctx.fillStyle = `rgba(0,0,0,${(0.38 * d).toFixed(3)})`; ctx.fillRect(0, 0, W, H);
         }
       } else {
-        tv = null; g.amber = 0;
+        tv = null; g.amber = 0; g.contrast = 1.15; g.sat = 0.35;
         logo(ctx, t);
       }
 

@@ -339,15 +339,14 @@ def groove(t0, t1, g=1.0):
         for o in (0.125, 0.375): sfx.add(key(b + 1) * 0.18 * g, t + o, pan=-0.3)
         if b % 2 == 1: music.add(clap(), t, 0.28 * g)
         t += BEAT
-groove(TM["settle"], K[2]["enter"])
-groove(K[3]["flash"], K[5]["end"] - 0.35, 0.8)
+KK = {k["kind"]: k for k in K}
+groove(TM["settle"], KK["translate"]["flash"])
 for k in K:
-    sfx.add(ping(84), k["flash"], 0.9)                                                    # the old app, one last notification
-    sfx.add(crackle(0.25, 200) * 0.5, k["enter"] - 0.2, width=0.01)                      # it burns
     for i in range(len(k["text"])): sfx.add(key(i + 3) * 0.75, k["t0"] + i / k["cps"], pan=-0.2 + 0.4 * rng.random())
     if k.get("paste"): sfx.add(key(2) * 0.9, k["pasteAt"]); sfx.add(key(5) * 0.7, k["pasteAt"] + 0.03)
+    if k["kind"] == "translate": continue                                                 # its enter is the Quindar tone, nothing over him
     sfx.add(anvil_hit(1, 1.0, 0.6) * 0.62, k["enter"]); music.add(kick(0.9), k["enter"])
-kg, kr, kt, kc, kw, kd = K
+kg, kr, kt, kc, kw, kd = (KK[n] for n in ("gif", "rmbg", "translate", "currency", "tile", "download"))
 sfx.add(cut(HORSE_SRC, 7.0, kr["end"] - kg["enter"], 0.05, 0.3) * 0.7, kg["enter"], pan=-0.1, width=0.01)
 sfx.add(whoosh(0.3, 800, 9000) * 0.6, kr["enter"]); sfx.add(whoosh(0.35, 200, 3000) * 0.8, kr["enter"] + 0.42, pan=0.6, width=0.01)
 for i in range(22): sfx.add(tick_metal() * 0.6, kc["enter"] + i * 0.016 * (1 + i / 22), pan=-0.4)
@@ -355,8 +354,8 @@ for i in range(6): sfx.add(tick_metal() * 0.8 + 0, kw["enter"] + i * 0.07, pan=-
 sfx.add(norm(cut(WHISTLE_SRC, 1.55, 1.0, 0.01, 0.3), 0.55), kd["enter"] + 0.05, width=0.015)
 sfx.add(lp(noise(kd["end"] - kd["enter"]), 260) * adsr(kd["end"] - kd["enter"], 0.15, 0.1) * 0.55, kd["enter"], width=0.02)
 sfx.add(whoosh(0.4, 300, 7000) * 1.2, kd["end"] - 0.38, width=0.015)
-dr = drone(TM["end"] - kt["enter"]); music.add(dr * 0.22, kt["enter"], width=0.03)
-voice.add(quindar(), TM["vo"]["a"] - 0.28)
+dr = drone(TM["end"] - kt["flash"]); music.add(dr * 0.22, kt["flash"], width=0.03)
+voice.add(quindar() * 1.2, [k for k in K if k["kind"] == "translate"][0]["enter"])
 
 # ------------------------------------------------------------------ the logo: "...for mankind." bare, then end of transmission, then the room
 LOGO, END_ = TM["logo"], TM["end"]
@@ -401,7 +400,7 @@ def duck_curve():
 
 def sidechain():
     g = np.ones(N)
-    for t in list(np.arange(TM["act2"], TM["meltCmd"] - 0.4, BEAT)) + list(np.arange(TM["settle"], TM["kills"][2]["enter"], BEAT)):
+    for t in list(np.arange(TM["act2"], TM["meltCmd"] - 0.4, BEAT)) + list(np.arange(TM["settle"], [k for k in TM["kills"] if k["kind"] == "translate"][0]["flash"], BEAT)):
         i = t2i(t); n = int(0.2 * SR)
         g[i:i + n] = np.minimum(g[i:i + n], 1 - 0.55 * np.exp(-np.arange(n) / (0.05 * SR)))
     return g
