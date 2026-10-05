@@ -28,7 +28,7 @@ final class OnboardingWindowController: NSObject, NSWindowDelegate {
 
     private func makeWindow() -> NSWindow {
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 640, height: 460),
+            contentRect: NSRect(x: 0, y: 0, width: 800, height: 580),
             styleMask: [.titled, .closable, .fullSizeContentView],
             backing: .buffered,
             defer: false
@@ -39,9 +39,13 @@ final class OnboardingWindowController: NSObject, NSWindowDelegate {
         window.isMovableByWindowBackground = true
         window.isReleasedWhenClosed = false
         window.delegate = self
-        window.contentMinSize = NSSize(width: 640, height: 460)
-        window.contentMaxSize = NSSize(width: 640, height: 460)
-        window.contentViewController = NSHostingController(rootView: OnboardingView(state: state))
+        let size = NSSize(width: 800, height: 580)
+        let hosting = NSHostingController(rootView: OnboardingView(state: state).frame(width: size.width, height: size.height))
+        hosting.sizingOptions = []
+        window.contentViewController = hosting
+        window.contentMinSize = size
+        window.contentMaxSize = size
+        window.setContentSize(size)
         window.center()
         return window
     }
