@@ -4,7 +4,7 @@ import { useRef, useState, type KeyboardEvent } from "react";
 import Link from "next/link";
 
 const commands = ["Clipboard History", "Window Management", "AI Chat"];
-const downloadUrl = "https://github.com/hridaya423/foundry/releases/download/v1.0.0/Foundry-1.0.0-build-3.zip";
+const downloadUrl = "https://github.com/hridaya423/foundry/releases/download/v1.1.0/Foundry-1.1.0-build-4.dmg";
 
 function CommandIcon({ index }: { index: number }) {
   return (
