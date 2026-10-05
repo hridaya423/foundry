@@ -136,7 +136,9 @@ jobs:
           test -f "$zip_asset"
           test -f "$dmg_asset"
 
-          assets=("$dmg_asset" "$zip_asset")
+          cp "$dmg_asset" release/Foundry.dmg
+          cp "$zip_asset" release/Foundry.zip
+          assets=("$dmg_asset" "$zip_asset" release/Foundry.dmg release/Foundry.zip)
           if gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             gh release delete "$tag" --repo "$GITHUB_REPOSITORY" --yes --cleanup-tag
           fi
