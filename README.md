@@ -4,7 +4,7 @@ Foundry is a native macOS launcher and command palette. It requires macOS 14 or 
 
 ## Download
 
-Grab the latest build from [Releases](https://github.com/hridaya423/foundry/releases/latest) — open the DMG and drag Foundry to Applications. On first launch, right-click the app and choose **Open** to approve it.
+Grab the latest build from [Releases](https://github.com/hridaya423/foundry/releases/latest) — open the DMG and drag Foundry to Applications. On first launch macOS warns that the developer can't be verified: open **System Settings → Privacy & Security**, scroll to **Security**, and click **Open Anyway** next to Foundry.
 
 Press **⌥Space** anywhere to open the launcher. The first-run setup lets you pick a different shortcut — including ⌘Space, which Foundry can take over from Spotlight automatically — and a menu-bar item is always available.
 
