@@ -44,14 +44,14 @@ export default function DownloadLink({ className, children }: { className?: stri
               <button className="dl-close" onClick={() => setOpen(false)} aria-label="Close">
                 ×
               </button>
-              <h2 id="dl-title">While that downloads…</h2>
+              <h2 id="dl-title">Before you open it</h2>
               <p>
-                Foundry isn’t notarized with Apple yet, so the first launch needs one manual
-                approval — takes ten seconds:
+                This build isn’t notarized, so macOS blocks the first launch. Getting past it
+                takes ten seconds:
               </p>
               <ol className="dl-steps">
                 <li>Open the DMG and drag Foundry to Applications.</li>
-                <li>Open Foundry — macOS will warn it can’t verify the developer.</li>
+                <li>Open Foundry. macOS warns it can’t verify the developer.</li>
                 <li>
                   <strong>System Settings → Privacy &amp; Security</strong>, scroll to{" "}
                   <strong>Security</strong>, click <strong>Open Anyway</strong>.
@@ -64,7 +64,7 @@ export default function DownloadLink({ className, children }: { className?: stri
                 Got it
               </button>
               <a className="dl-restart" href={foundryDownloadUrl}>
-                Download didn’t start? Get it again
+                Download didn’t start? Restart it
               </a>
             </div>
           </div>,
