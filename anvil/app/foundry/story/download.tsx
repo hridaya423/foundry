@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { motion, useMotionValueEvent, useTransform, type MotionValue } from "motion/react";
 import { arrowCells, downloadStart } from "./download-motion";
+import DownloadLink from "../download-gate";
 import { phase } from "./shelf-motion";
 
 export default function DownloadStory({ progress, animated }: { progress: MotionValue<number>; animated: boolean }) {
@@ -14,7 +15,7 @@ export default function DownloadStory({ progress, animated }: { progress: Motion
     <h2 id="download-heading"><span>Your next</span><span>command <span className="download-heading-end">starts here<span className="download-period">.</span></span></span></h2>
     <div className="download-still-arrow" aria-hidden="true">{arrowCells.map(([x, y]) => <span key={`${x}:${y}`} style={{ gridColumn: x + 3, gridRow: y + 4 }} />)}</div>
     <div className="download-action">
-      <a className="foundry-cta" href="https://github.com/hridaya423/foundry/releases/latest/download/Foundry.dmg">Download Foundry</a>
+      <DownloadLink className="foundry-cta">Download Foundry</DownloadLink>
       <p>v1.1 · macOS 14+ · Open source</p>
     </div>
     <footer className="download-footer">

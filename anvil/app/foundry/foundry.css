@@ -429,3 +429,110 @@ body:has(.foundry-preview)::after {
   line-height: 0;
   vertical-align: baseline;
 }
+
+.dl-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(15, 13, 12, 0.72);
+  backdrop-filter: blur(10px);
+}
+
+.dl-modal {
+  position: relative;
+  width: min(460px, 100%);
+  padding: 32px 36px 28px;
+  border: 1px solid var(--f-line);
+  border-radius: 18px;
+  background: linear-gradient(160deg, #1d1916, #141110);
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.55);
+  color: var(--f-text);
+  outline: none;
+}
+
+.dl-modal h2 {
+  font-size: 22px;
+  font-weight: 600;
+  margin: 0 0 10px;
+  letter-spacing: -0.01em;
+}
+
+.dl-modal p {
+  margin: 0 0 18px;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--f-muted);
+}
+
+.dl-steps {
+  margin: 0 0 22px;
+  padding-left: 20px;
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--f-muted);
+}
+
+.dl-steps li {
+  margin-bottom: 10px;
+}
+
+.dl-steps strong {
+  color: var(--f-text);
+  font-weight: 600;
+}
+
+.dl-steps kbd {
+  display: inline-block;
+  padding: 1px 7px;
+  border: 1px solid var(--f-line);
+  border-bottom-width: 2px;
+  border-radius: 5px;
+  background: #241f1b;
+  color: var(--f-text);
+  font: inherit;
+}
+
+.dl-close {
+  position: absolute;
+  top: 12px;
+  right: 14px;
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--f-muted);
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.dl-close:hover {
+  color: var(--f-text);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.dl-ok.foundry-cta {
+  display: flex;
+  width: 100%;
+  height: 48px;
+  font-size: 16px;
+}
+
+.dl-restart {
+  display: block;
+  margin-top: 14px;
+  text-align: center;
+  font-size: 12px;
+  color: var(--f-muted);
+  text-decoration: none;
+}
+
+.dl-restart:hover {
+  color: var(--f-text);
+  text-decoration: underline;
+}
