@@ -47,6 +47,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         )
 
         self.shellController = shellController
+        DownloadNotice.showIfNeeded()
         shellController.start()
         diagnostics.endSpan(launchSpan)
 
