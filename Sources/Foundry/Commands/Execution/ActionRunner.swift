@@ -1,6 +1,7 @@
 import AppKit
 import Carbon
 import CoreAudio
+import CoreImage
 import Foundation
 import FoundryDomain
 import FoundryServices
@@ -475,6 +476,34 @@ final class ActionRunner {
                 return finish(.failure(message: "Could not update Keep Awake", retryable: true), feedback: .failure("Could not update Keep Awake"))
             }
 
+        case let .extractTextFromImage(path):
+            return await extractTextFromImage(path: path, emit: emit)
+
+        case .pickColor:
+            return await pickColor(emit: emit)
+
+        case .generateQRCode:
+            return generateQRCode(emit: emit)
+
+        case .readQRCode:
+            return await readQRCode(emit: emit)
+
+        case .pasteClipboardAsPlainText:
+            guard let text = pasteboard.string(forType: .string), text.isEmpty == false else {
+                return finish(.failure(message: "Clipboard has no text", retryable: false), feedback: .info("Clipboard has no text"))
+            }
+            do {
+                try directPasteService.stage(.text(text), cursorOffset: 0)
+                return finish(.pasted(content: text), feedback: .success("Pasted as plain text"))
+            } catch DirectPasteError.missingTarget {
+                return finish(.stayOpen(message: "No originating application is available"), feedback: .failure("No originating application is available"))
+            } catch {
+                return finish(.stayOpen(message: "Could not stage paste"), feedback: .failure("Could not stage paste"))
+            }
+
+        case .celebrate:
+            return finish(.stayOpen(message: nil), feedback: .success("🎉"))
+
         case let .terminatePort(port):
             do {
                 let lookup = try await ProcessRunner.run(path: "/usr/sbin/lsof", arguments: ["-ti", "tcp:\(port)"], timeout: 3)
@@ -695,6 +724,105 @@ final class ActionRunner {
         guard let index = snippets.firstIndex(where: { $0.id == id }) else { return }
         snippets[index].recordUse()
         _ = snippetStore.save(snippets)
+    }
+
+    private func pickImageFile(title: String) -> URL? {
+        let panel = NSOpenPanel()
+        panel.title = title
+        panel.allowedContentTypes = [.image]
+        panel.allowsMultipleSelection = false
+        panel.canChooseDirectories = false
+        return panel.runModal() == .OK ? panel.url : nil
+    }
+
+    private func extractTextFromImage(path: String?, emit: @escaping @MainActor @Sendable (CommandExecutionEvent) -> Void) async -> CommandOutcome {
+        let url = path.map { URL(fileURLWithPath: $0) } ?? pickImageFile(title: "Extract Text from Image")
+        guard let url else { return .cancelled }
+        do {
+            emit(.status("Recognizing text…"))
+            let lines = try await VisionText.recognizeText(at: url)
+            let text = lines.joined(separator: "\n")
+            guard text.isEmpty == false else {
+                return .failure(message: "No text found in \(url.lastPathComponent)", retryable: false)
+            }
+            pasteboard.clearContents()
+            pasteboard.setString(text, forType: .string)
+            diagnostics.log("OCR extracted \(lines.count) lines from \(url.lastPathComponent)")
+            return .copied(content: text)
+        } catch {
+            diagnostics.log("OCR failed: \(error.localizedDescription)")
+            return .failure(message: "Could not extract text", retryable: true)
+        }
+    }
+
+    private func pickColor(emit: @escaping @MainActor @Sendable (CommandExecutionEvent) -> Void) async -> CommandOutcome {
+        let color: NSColor? = await withCheckedContinuation { continuation in
+            let sampler = UncheckedSampler(NSColorSampler())
+            sampler.value.show { color in
+                continuation.resume(returning: color)
+                withExtendedLifetime(sampler) {}
+            }
+        }
+        guard let color else { return .cancelled }
+        let hex = Self.hexString(for: color)
+        pasteboard.clearContents()
+        pasteboard.setString(hex, forType: .string)
+        emit(.feedback(.success("Copied \(hex)")))
+        return .copied(content: hex)
+    }
+
+    private func generateQRCode(emit: @escaping @MainActor @Sendable (CommandExecutionEvent) -> Void) -> CommandOutcome {
+        guard let content = pasteboard.string(forType: .string)?.trimmingCharacters(in: .whitespacesAndNewlines), content.isEmpty == false else {
+            return .failure(message: "Clipboard has no text to encode", retryable: false)
+        }
+        guard let data = content.data(using: .utf8),
+              let filter = CIFilter(name: "CIQRCodeGenerator") else {
+            return .failure(message: "Could not generate QR code", retryable: false)
+        }
+        filter.setValue(data, forKey: "inputMessage")
+        filter.setValue("M", forKey: "inputCorrectionLevel")
+        guard let output = filter.outputImage else {
+            return .failure(message: "Could not generate QR code", retryable: false)
+        }
+        let scaled = output.transformed(by: CGAffineTransform(scaleX: 12, y: 12))
+        guard let cgImage = Self.qrContext.createCGImage(scaled, from: scaled.extent) else {
+            return .failure(message: "Could not render QR code", retryable: false)
+        }
+        let image = NSImage(cgImage: cgImage, size: NSSize(width: scaled.extent.width, height: scaled.extent.height))
+        pasteboard.clearContents()
+        pasteboard.writeObjects([image])
+        emit(.feedback(.success("QR code copied to clipboard")))
+        diagnostics.log("Generated QR code for \(content.count) characters")
+        return .copied(content: content)
+    }
+
+    private func readQRCode(emit: @escaping @MainActor @Sendable (CommandExecutionEvent) -> Void) async -> CommandOutcome {
+        guard let url = pickImageFile(title: "Read QR Code") else { return .cancelled }
+        do {
+            emit(.status("Scanning image…"))
+            let payloads = try await VisionText.readBarcodes(at: url)
+            guard let payload = payloads.first else {
+                return .failure(message: "No QR code found in \(url.lastPathComponent)", retryable: false)
+            }
+            pasteboard.clearContents()
+            pasteboard.setString(payload, forType: .string)
+            diagnostics.log("Decoded QR payload: \(payload)")
+            emit(.feedback(.success("Copied \(payload)")))
+            return .copied(content: payload)
+        } catch {
+            diagnostics.log("QR decode failed: \(error.localizedDescription)")
+            return .failure(message: "Could not read QR code", retryable: true)
+        }
+    }
+
+    private static let qrContext = CIContext()
+
+    nonisolated private static func hexString(for color: NSColor) -> String {
+        guard let rgb = color.usingColorSpace(.sRGB) else { return "#000000" }
+        let r = Int((rgb.redComponent * 255).rounded())
+        let g = Int((rgb.greenComponent * 255).rounded())
+        let b = Int((rgb.blueComponent * 255).rounded())
+        return String(format: "#%02X%02X%02X", r, g, b)
     }
 
     private static func open(_ urls: [URL], withAppAt appURL: URL) async -> Bool {
@@ -919,6 +1047,11 @@ private enum AudioDeviceController {
         let status = AudioObjectSetPropertyData(AudioObjectID(kAudioObjectSystemObject), &address, 0, nil, UInt32(MemoryLayout<AudioDeviceID>.size), &device)
         guard status == noErr else { throw NSError(domain: NSOSStatusErrorDomain, code: Int(status)) }
     }
+}
+
+private final class UncheckedSampler: @unchecked Sendable {
+    let value: NSColorSampler
+    init(_ value: NSColorSampler) { self.value = value }
 }
 
 private struct RaycastSnippetImport: Decodable {

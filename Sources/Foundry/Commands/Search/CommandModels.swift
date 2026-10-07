@@ -121,6 +121,12 @@ enum CommandActionKind: Hashable, Sendable {
     case hideApplication(bundleID: String, name: String)
     case quitAllApplications
     case toggleKeepAwake
+    case extractTextFromImage(path: String?)
+    case pickColor
+    case generateQRCode
+    case readQRCode
+    case pasteClipboardAsPlainText
+    case celebrate
     case terminatePort(Int)
     case setAudioDevice(id: UInt32, kind: AudioDeviceKind)
     case resetRanking(commandID: String)

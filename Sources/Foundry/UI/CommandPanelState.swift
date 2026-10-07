@@ -656,6 +656,7 @@ final class CommandPanelState {
     }
 
     private(set) var pendingSnippetArguments: [String]?
+    private(set) var confettiBurstID = 0
 
     @discardableResult
     func directPasteSelectedSnippet(arguments: [String: String] = [:]) -> Bool {
@@ -1430,6 +1431,9 @@ final class CommandPanelState {
         registry.recordExecution(resultID: result.id, query: query)
         onResultExecuted?()
         let outcome = await execute(action, commandID: result.id)
+        if case .celebrate = action.kind, case .stayOpen = outcome {
+            confettiBurstID &+= 1
+        }
         if case .copied = outcome, result.route == .calculator {
             let expression = result.subtitle?.components(separatedBy: " · ").first ?? ""
             CalculatorHistoryStore.shared.record(expression: expression, result: result.title)

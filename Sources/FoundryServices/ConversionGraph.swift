@@ -153,7 +153,7 @@ public enum ConversionGraph {
         "dng", "cr2", "cr3", "nef", "arw", "orf", "rw2", "raf", "pef", "srw",
     ]
     /// Formats Vision OCR can load — conservative subset of imageReadExts.
-    static let visionReadExts: Set<String> = [
+    public static let visionReadExts: Set<String> = [
         "png", "jpg", "jpeg", "heic", "tif", "tiff", "bmp", "gif", "webp",
     ]
 

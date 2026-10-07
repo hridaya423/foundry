@@ -410,6 +410,105 @@ final class ActionRunnerTests: XCTestCase {
         XCTAssertEqual(outcome, .fileResults([URL(fileURLWithPath: "/tmp/x.txt")]))
     }
 
+    func testGenerateQRCodeCopiesImageFromClipboardText() async {
+        let pasteboard = NSPasteboard(name: NSPasteboard.Name("ActionRunnerTests.qr"))
+        pasteboard.clearContents()
+        pasteboard.setString("https://example.com", forType: .string)
+        let runner = ActionRunner(diagnostics: DiagnosticsService(), pasteboard: pasteboard)
+
+        let outcome = await runner.execute(CommandExecutionRequest(
+            commandID: "test.qr",
+            action: CommandAction(id: "test.qr.generate", title: "Generate", kind: .generateQRCode)
+        )) { _ in }
+
+        XCTAssertEqual(outcome, .copied(content: "https://example.com"))
+        XCTAssertNotNil(pasteboard.data(forType: .tiff))
+        XCTAssertNil(pasteboard.string(forType: .string))
+    }
+
+    func testGenerateQRCodeFailsOnEmptyClipboard() async {
+        let pasteboard = NSPasteboard(name: NSPasteboard.Name("ActionRunnerTests.qrempty"))
+        pasteboard.clearContents()
+        let runner = ActionRunner(diagnostics: DiagnosticsService(), pasteboard: pasteboard)
+
+        let outcome = await runner.execute(CommandExecutionRequest(
+            commandID: "test.qr",
+            action: CommandAction(id: "test.qr.generate", title: "Generate", kind: .generateQRCode)
+        )) { _ in }
+
+        guard case let .failure(message, _) = outcome else {
+            return XCTFail("Expected failure, got \(outcome)")
+        }
+        XCTAssertTrue(message.contains("Clipboard"))
+    }
+
+    func testExtractTextFromImageRunsVisionOCR() async throws {
+        let folder = FileManager.default.temporaryDirectory
+            .appendingPathComponent("Foundry-OCR-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let imageURL = folder.appendingPathComponent("label.png")
+        try Self.renderTextImage(text: "HELLO WORLD").write(to: imageURL)
+
+        let pasteboard = NSPasteboard(name: NSPasteboard.Name("ActionRunnerTests.ocr"))
+        let runner = ActionRunner(diagnostics: DiagnosticsService(), pasteboard: pasteboard)
+
+        let outcome = await runner.execute(CommandExecutionRequest(
+            commandID: "test.ocr",
+            action: CommandAction(id: "test.ocr.run", title: "Extract Text", kind: .extractTextFromImage(path: imageURL.path))
+        )) { _ in }
+
+        guard case let .copied(content) = outcome else {
+            return XCTFail("Expected .copied, got \(outcome)")
+        }
+        XCTAssertTrue(content.uppercased().contains("HELLO"))
+        XCTAssertEqual(pasteboard.string(forType: .string), content)
+    }
+
+    func testExtractTextFromImageFailsOnMissingFile() async {
+        let runner = ActionRunner(diagnostics: DiagnosticsService())
+
+        let outcome = await runner.execute(CommandExecutionRequest(
+            commandID: "test.ocr",
+            action: CommandAction(id: "test.ocr.missing", title: "Extract Text", kind: .extractTextFromImage(path: "/tmp/does-not-exist-\(UUID().uuidString).png"))
+        )) { _ in }
+
+        guard case .failure = outcome else {
+            return XCTFail("Expected failure, got \(outcome)")
+        }
+    }
+
+    func testCelebrateStaysOpen() async {
+        let runner = ActionRunner(diagnostics: DiagnosticsService())
+
+        let outcome = await runner.execute(CommandExecutionRequest(
+            commandID: "test.party",
+            action: CommandAction(id: "test.party.go", title: "Celebrate", kind: .celebrate)
+        )) { _ in }
+
+        XCTAssertEqual(outcome, .stayOpen(message: nil))
+    }
+
+    nonisolated private static func renderTextImage(text: String) throws -> Data {
+        let size = NSSize(width: 640, height: 160)
+        let image = NSImage(size: size)
+        image.lockFocus()
+        NSColor.white.setFill()
+        NSRect(origin: .zero, size: size).fill()
+        let attributes: [NSAttributedString.Key: Any] = [
+            .font: NSFont.boldSystemFont(ofSize: 72),
+            .foregroundColor: NSColor.black
+        ]
+        NSAttributedString(string: text, attributes: attributes).draw(at: NSPoint(x: 20, y: 40))
+        image.unlockFocus()
+        guard let tiff = image.tiffRepresentation,
+              let bitmap = NSBitmapImageRep(data: tiff),
+              let png = bitmap.representation(using: .png, properties: [:]) else {
+            throw NSError(domain: "ActionRunnerTests", code: 1)
+        }
+        return png
+    }
+
     private final class TestSnippetStore: SnippetStore, @unchecked Sendable {
         let url = URL(fileURLWithPath: "/tmp/test-snippets.json")
         var snippets: [StoredSnippet]

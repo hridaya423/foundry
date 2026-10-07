@@ -158,6 +158,60 @@ final class BuiltInCommandProvider: CommandProvider {
                 primaryAction: CommandAction(id: "foundry.developer-tools.open", title: "Open", kind: .openDeveloperTools())
             ),
             BuiltInCommand(
+                id: "foundry.extract-text",
+                title: "Extract Text from Image",
+                subtitle: "Run OCR on an image and copy the text",
+                aliases: ["ocr", "recognize text", "read text", "text from image", "vision"],
+                systemIcon: "text.viewfinder",
+                fallback: "OCR",
+                primaryAction: CommandAction(id: "foundry.extract-text.perform", title: "Choose Image", kind: .extractTextFromImage(path: nil))
+            ),
+            BuiltInCommand(
+                id: "foundry.pick-color",
+                title: "Pick Color",
+                subtitle: "Sample a color anywhere on screen and copy the hex value",
+                aliases: ["color picker", "eyedropper", "hex color", "sample color"],
+                systemIcon: "eyedropper.halffull",
+                fallback: "CL",
+                primaryAction: CommandAction(id: "foundry.pick-color.perform", title: "Pick Color", kind: .pickColor)
+            ),
+            BuiltInCommand(
+                id: "foundry.qr-generate",
+                title: "Generate QR Code",
+                subtitle: "Encode the clipboard text as a QR code image",
+                aliases: ["qr code", "qr generate", "make qr", "barcode"],
+                systemIcon: "qrcode",
+                fallback: "QR",
+                primaryAction: CommandAction(id: "foundry.qr-generate.perform", title: "Generate", kind: .generateQRCode)
+            ),
+            BuiltInCommand(
+                id: "foundry.qr-read",
+                title: "Read QR Code",
+                subtitle: "Decode a QR code or barcode from an image",
+                aliases: ["qr scan", "decode qr", "read barcode", "scan code"],
+                systemIcon: "qrcode.viewfinder",
+                fallback: "QR",
+                primaryAction: CommandAction(id: "foundry.qr-read.perform", title: "Choose Image", kind: .readQRCode)
+            ),
+            BuiltInCommand(
+                id: "foundry.paste-plain",
+                title: "Paste Clipboard as Plain Text",
+                subtitle: "Insert the clipboard text into the previous app",
+                aliases: ["paste plain", "paste without formatting", "plain paste", "strip formatting"],
+                systemIcon: "doc.plaintext",
+                fallback: "PP",
+                primaryAction: CommandAction(id: "foundry.paste-plain.perform", title: "Paste", kind: .pasteClipboardAsPlainText)
+            ),
+            BuiltInCommand(
+                id: "foundry.confetti",
+                title: "Make Confetti",
+                subtitle: "Celebrate something",
+                aliases: ["confetti", "celebrate", "party"],
+                systemIcon: "party.popper.fill",
+                fallback: "🎉",
+                primaryAction: CommandAction(id: "foundry.confetti.perform", title: "Celebrate", kind: .celebrate)
+            ),
+            BuiltInCommand(
                 id: "foundry.settings",
                 title: "Open Foundry Settings",
                 subtitle: "Customize Home, commands, and Foundry preferences",

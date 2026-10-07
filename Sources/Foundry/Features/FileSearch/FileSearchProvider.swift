@@ -198,6 +198,11 @@ final class FileSearchProvider: CommandProvider, @unchecked Sendable {
         secondary += [
             CommandAction(id: "\(id).shelf", title: "Add to File Shelf", kind: .addToFileShelf(path: path)),
             CommandAction(id: "\(id).convert", title: "Convert…", kind: .openFileConverter(path: path)),
+        ]
+        if ConversionGraph.visionReadExts.contains(ConversionGraph.normalizedExtension(of: url)) {
+            secondary.append(CommandAction(id: "\(id).ocr", title: "Extract Text", kind: .extractTextFromImage(path: path)))
+        }
+        secondary += [
             CommandAction(id: "\(id).compress", title: "Compress", kind: .compressFile(path: path)),
             CommandAction(id: "\(id).rename", title: "Rename…", kind: .renameFile(path: path)),
             CommandAction(id: "\(id).trash", title: "Move to Trash", kind: .moveToTrash(path: path)),
