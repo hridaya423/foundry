@@ -74,6 +74,8 @@ final class OnboardingState {
     let panel: CommandPanelState
     let permissions: PermissionHealthState
     var onFinish: (() -> Void)?
+    /// Fired on every step transition and finish — activation funnel telemetry.
+    var onStepChanged: ((OnboardingStep) -> Void)?
     private let defaults: UserDefaults
     private let version: String
     private var spotlightPoll: Timer?
@@ -110,12 +112,14 @@ final class OnboardingState {
     func go(to next: OnboardingStep) {
         step = next
         defaults.set(next.rawValue, forKey: Self.stepKey)
+        onStepChanged?(next)
     }
 
     func finish() {
         stopWaitingForSpotlight()
         defaults.set(version, forKey: Self.completedVersionKey)
         defaults.removeObject(forKey: Self.stepKey)
+        onStepChanged?(.done)
         onFinish?()
     }
 

@@ -58,19 +58,26 @@ struct OnboardingView: View {
     private var welcomeStep: some View {
         VStack(spacing: 20) {
             Spacer()
-            Image(nsImage: NSApp.applicationIconImage)
-                .resizable()
-                .frame(width: 96, height: 96)
-            Text("Everything on your Mac, one keystroke away.")
-                .font(.system(size: 26, weight: .semibold))
-                .foregroundStyle(FoundryTheme.primaryText)
-                .multilineTextAlignment(.center)
-                .fixedSize(horizontal: false, vertical: true)
-            Text("Launch apps, run commands, and ask AI from a single panel.")
-                .font(FoundryTheme.body(size: 14, weight: .regular))
-                .foregroundStyle(FoundryTheme.secondaryText)
-                .multilineTextAlignment(.center)
-                .fixedSize(horizontal: false, vertical: true)
+            OnboardingReveal(index: 0) {
+                Image(nsImage: NSApp.applicationIconImage)
+                    .resizable()
+                    .frame(width: 96, height: 96)
+                    .shadow(color: Color(red: 0.98, green: 0.39, blue: 0.16).opacity(0.38), radius: 26, y: 8)
+            }
+            OnboardingReveal(index: 1) {
+                Text("Everything on your Mac, one keystroke away.")
+                    .font(.system(size: 26, weight: .semibold))
+                    .foregroundStyle(FoundryTheme.primaryText)
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            OnboardingReveal(index: 2) {
+                Text("Launch apps, run commands, and ask AI from a single panel.")
+                    .font(FoundryTheme.body(size: 14, weight: .regular))
+                    .foregroundStyle(FoundryTheme.secondaryText)
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
             Spacer()
         }
         .padding(.horizontal, 48)
@@ -155,6 +162,7 @@ struct OnboardingView: View {
                 Image(systemName: "checkmark.circle.fill")
                     .font(.system(size: 44))
                     .foregroundStyle(FoundryTheme.success)
+                    .symbolEffect(.bounce, options: .nonRepeating, value: state.didTryPanel)
                 Text("That’s the whole idea.")
                     .font(.system(size: 22, weight: .semibold))
                     .foregroundStyle(FoundryTheme.primaryText)
@@ -174,16 +182,23 @@ struct OnboardingView: View {
                     .multilineTextAlignment(.center)
                     .fixedSize(horizontal: false, vertical: true)
             } else {
-                Text("Press \(panel.hotkey.displayName) now")
-                    .font(.system(size: 26, weight: .semibold))
-                    .foregroundStyle(FoundryTheme.primaryText)
-                    .multilineTextAlignment(.center)
-                    .fixedSize(horizontal: false, vertical: true)
-                Text("The panel opens right over this window.")
-                    .font(FoundryTheme.body(size: 14, weight: .regular))
-                    .foregroundStyle(FoundryTheme.secondaryText)
-                    .multilineTextAlignment(.center)
-                    .fixedSize(horizontal: false, vertical: true)
+                OnboardingReveal(index: 0) {
+                    PulsingKeycap(text: panel.hotkey.displayName)
+                }
+                OnboardingReveal(index: 1) {
+                    Text("Press it now")
+                        .font(.system(size: 26, weight: .semibold))
+                        .foregroundStyle(FoundryTheme.primaryText)
+                        .multilineTextAlignment(.center)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                OnboardingReveal(index: 2) {
+                    Text("The panel opens right over this window.")
+                        .font(FoundryTheme.body(size: 14, weight: .regular))
+                        .foregroundStyle(FoundryTheme.secondaryText)
+                        .multilineTextAlignment(.center)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
             }
             Spacer()
         }
@@ -265,8 +280,7 @@ struct OnboardingView: View {
                 }
                 .padding(.horizontal, 14)
                 .padding(.vertical, 12)
-                .background(Color.primary.opacity(0.05))
-                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .onboardingCard()
             }
             Spacer()
         }
@@ -333,10 +347,10 @@ struct OnboardingView: View {
             }
             .padding(.horizontal, 14)
             .padding(.vertical, 12)
-            .background(Color.primary.opacity(enabled ? 0.06 : 0.03))
-            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .onboardingCard()
         }
         .buttonStyle(FoundryQuietButtonStyle())
+        .opacity(enabled ? 1 : 0.55)
         .disabled(enabled == false)
         .pointerCursor()
     }
@@ -358,8 +372,7 @@ struct OnboardingView: View {
                 cheatRow("⌘K", "Actions on a result")
                 cheatRow("⌘,", "Settings")
             }
-            .background(Color.primary.opacity(0.05))
-            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .onboardingCard()
             .frame(maxWidth: 400)
 
             Toggle(isOn: $clipboardHotkeyOn) {
@@ -379,7 +392,11 @@ struct OnboardingView: View {
             Spacer()
         }
         .padding(.horizontal, 48)
+        .overlay(ConfettiBurst(trigger: doneConfetti))
+        .onAppear { doneConfetti &+= 1 }
     }
+
+    @State private var doneConfetti = 0
 
     private func cheatRow(_ keys: String, _ label: String) -> some View {
         HStack {
@@ -397,9 +414,10 @@ struct OnboardingView: View {
         HStack(spacing: 14) {
             ForEach(Array(OnboardingStep.allCases.enumerated()), id: \.offset) { index, step in
                 Circle()
-                    .fill(step == state.step ? FoundryTheme.primaryText : Color.primary.opacity(0.18))
+                    .fill(step == state.step ? FoundryTheme.accentTint : Color.primary.opacity(0.18))
                     .frame(width: 6, height: 6)
-                    .scaleEffect(step == state.step ? 1.2 : 1)
+                    .scaleEffect(step == state.step ? 1.3 : 1)
+                    .animation(reduceMotion ? nil : .spring(response: 0.3, dampingFraction: 0.6), value: state.step)
             }
 
             Spacer()
@@ -477,7 +495,62 @@ private struct OnboardingToggle: View {
         .controlSize(.small)
         .padding(.horizontal, 14)
         .padding(.vertical, 12)
-        .background(Color.primary.opacity(0.05))
-        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .onboardingCard()
+    }
+}
+
+private extension View {
+    func onboardingCard() -> some View {
+        FoundryGlassSurface(role: .contentSurface, shape: RoundedRectangle(cornerRadius: 12, style: .continuous)) { self }
+    }
+}
+
+private struct OnboardingReveal<Content: View>: View {
+    let index: Int
+    @ViewBuilder var content: Content
+    @State private var shown = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        content
+            .opacity(shown ? 1 : 0)
+            .offset(y: shown ? 0 : 10)
+            .onAppear {
+                guard shown == false else { return }
+                withAnimation(reduceMotion ? nil : .easeOut(duration: 0.42).delay(Double(index) * 0.07)) {
+                    shown = true
+                }
+            }
+    }
+}
+
+private struct PulsingKeycap: View {
+    let text: String
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        Group {
+            if reduceMotion {
+                keycap
+            } else {
+                keycap
+                    .phaseAnimator([false, true]) { content, pressed in
+                        content
+                            .scaleEffect(pressed ? 0.94 : 1)
+                            .shadow(color: FoundryTheme.accentTint.opacity(pressed ? 0.05 : 0.5), radius: pressed ? 4 : 22, y: pressed ? 1 : 6)
+                    } animation: { pressed in
+                        pressed ? .easeIn(duration: 0.18) : .spring(response: 0.5, dampingFraction: 0.55).delay(0.9)
+                    }
+            }
+        }
+    }
+
+    private var keycap: some View {
+        Text(text)
+            .font(.system(size: 30, weight: .medium, design: .rounded))
+            .foregroundStyle(FoundryTheme.primaryText)
+            .padding(.horizontal, 30)
+            .padding(.vertical, 16)
+            .onboardingCard()
     }
 }

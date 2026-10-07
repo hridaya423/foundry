@@ -58,9 +58,27 @@ final class PanelController: NSObject, NSWindowDelegate {
         panel.setFrame(frame(for: panel), display: false)
         panel.ignoresMouseEvents = false
         panel.inputEnabled = true
+
+        let reduceMotion = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+        let contentLayer = panel.contentView?.layer
+        if reduceMotion == false, let contentLayer {
+            CATransaction.begin()
+            CATransaction.setDisableActions(true)
+            contentLayer.anchorPoint = CGPoint(x: 0.5, y: 0.5)
+            contentLayer.position = CGPoint(x: contentLayer.frame.midX, y: contentLayer.frame.midY)
+            contentLayer.transform = CATransform3DConcat(
+                CATransform3DMakeScale(0.972, 0.972, 1),
+                CATransform3DMakeTranslation(0, 5, 0)
+            )
+            CATransaction.commit()
+            panel.alphaValue = 0
+        }
         NSAnimationContext.runAnimationGroup { context in
-            context.duration = 0
+            context.duration = reduceMotion ? 0 : 0.18
+            context.timingFunction = CAMediaTimingFunction(controlPoints: 0.2, 0.9, 0.25, 1)
+            context.allowsImplicitAnimation = true
             panel.animator().alphaValue = 1
+            contentLayer?.transform = CATransform3DIdentity
         }
         panel.contentView?.layoutSubtreeIfNeeded()
         panel.displayIfNeeded()

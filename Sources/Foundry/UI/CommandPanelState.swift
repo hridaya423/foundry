@@ -1433,6 +1433,7 @@ final class CommandPanelState {
         let outcome = await execute(action, commandID: result.id)
         if case .celebrate = action.kind, case .stayOpen = outcome {
             confettiBurstID &+= 1
+            NSHapticFeedbackManager.defaultPerformer.perform(.alignment, performanceTime: .now)
         }
         if case .copied = outcome, result.route == .calculator {
             let expression = result.subtitle?.components(separatedBy: " · ").first ?? ""

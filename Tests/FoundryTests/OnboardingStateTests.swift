@@ -53,6 +53,16 @@ final class OnboardingStateTests: XCTestCase {
         XCTAssertTrue(finished)
     }
 
+    func testStepChangesFireInstrumentationCallback() {
+        let state = makeState()
+        var steps: [OnboardingStep] = []
+        state.onStepChanged = { steps.append($0) }
+        state.go(to: .shortcut)
+        state.go(to: .tryIt)
+        state.finish()
+        XCTAssertEqual(steps, [.shortcut, .tryIt, .done])
+    }
+
     func testTryItOnlyCountsCommandsRunDuringThatStep() {
         let state = makeState()
         state.panelDidRunCommand()

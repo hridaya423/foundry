@@ -45,6 +45,9 @@ final class ShellController {
         self.panelController = PanelController(state: panelState, diagnostics: diagnostics, directPasteService: actionRunner.directPasteService)
         let permissionHealth = PermissionHealthState()
         let onboardingState = OnboardingState(panel: panelState, permissions: permissionHealth)
+        onboardingState.onStepChanged = { [diagnostics] step in
+            diagnostics.log("onboarding.\(step)")
+        }
         let onboardingController = OnboardingWindowController(state: onboardingState)
         self.onboardingController = onboardingController
         let statusItemController = StatusItemController(state: panelState)
