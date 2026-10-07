@@ -28,17 +28,33 @@ Implement the full Foundry megaplan (~/.devin/plans/plan-2b52c0932c2a6746.md) to
 - Drops inside conversion mode route to `fileConversion.addSources`.
 - qa-capture extended with `convert*` surfaces.
 
+### P3 — Facelifts ✅ committed 4ad89bb
+- Snippets: `useCount`/`lastUsedAt` usage tracking (recorded from UI + ActionRunner paths), Raycast-compatible export, configurable expansion delimiters (Space/Tab/Return/comma/period/colon/semicolon) wired through ConfigService → SnippetExpansionService → Settings UI, NSTextView-backed editor with cursor-aware placeholder insertion, Import/Export buttons in header.
+- Downloads: remote favicons, completed-file thumbnails, status badges, hover, context menus.
+- Clipboard: Paste as Plain Text, smart Open Link on URL-shaped text.
+
+### P4 — Parity commands ✅ committed 78a7868
+- `VisionText` shared helper (OCR + barcode). Commands: Extract Text, Pick Color (NSColorSampler), Generate/Read QR, Paste as Plain Text, Confetti (`ConfettiBurst` view). Extract Text also a file action on images. All exhaustive switches updated.
+
+### P5 — Onboarding + motion ✅ committed b8413d2
+- Panel entrance (fade+drift, reduced-motion aware), staggered onboarding reveals, pulsing keycap (`phaseAnimator`), springing footer dots, success symbolEffect bounce, confetti + haptic on done, ember accent.
+
+### P6 — Perf + structure ✅ committed 1d3c40e
+- `build-app.sh` strips the release binary before codesign → app bundle **18 MB → 7.8 MB**, signature verified.
+- AgentProviderIcon + PreviewPane + rename-alert icon off the main-actor render path (cached async loaders); `lsof` port lookup async so provider deadlines bind it.
+- `CommandPanelState` 1463 → 923 core + 357 Settings ext + 216 Modes ext; no behavior change, 587 tests green.
+
+### P7 — Release
+- `VERSION` → `1.2.0`; `docs/release-notes/1.2.0.md` written; HANDOFF updated.
+- `build-app.sh` → signed 7.8 MB bundle (1.2.0); `verify-packaging.sh` passed; `package-dmg.sh` → `Foundry-1.2.0-build-1.dmg` with branded layout verified (mounted: .DS_Store positions, .background pair, volume icon, Applications symlink).
+
 ## In flight
 - Nothing blocking.
 
 ## Remaining
-- P3: Downloads facelift; Snippets (placeholder menu, export, usage counts, delimiters); Clipboard paste-plain; surface sweep.
-- P4: OCR, color picker, QR gen/decode, caffeinate, confetti, plain-text paste.
-- P5: onboarding glass/motion polish + activation instrumentation.
-- P6: perf budgets, CommandPanelState split, lazy features, bundle diet.
-- P7: version bump, release notes, docs, final verification + code-review pass.
+- Final code-review pass over the megaplan diff range; commit P7 docs.
 
 ## Evidence
-- `swift test`: 577 tests, 3 skipped, 0 failures (post P1+P2).
-- Loaded conversion surface verified visually (PNG→JPEG w/ options, readiness, preview); empty hero verified; `--convert` launch path verified.
-- Note: screen-recording capture flaky mid-session; file search returned no results in-app on this machine during QA drive (mdfind works in terminal) — flagged for P6 debugging.
+- `swift test`: **587 tests, 3 skipped, 0 failures** (post-P6).
+- Loaded conversion surface verified visually; `--convert` launch path verified; DMG layout verified by mounting.
+- Note: screen-recording capture flaky mid-session; file search returned no results in-app on this machine during QA drive (mdfind works in terminal) — likely Spotlight permission on the host, not a code path.

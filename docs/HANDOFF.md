@@ -18,21 +18,25 @@ Read this first if you are picking this work up (a new session, another machine,
 
 All work lands as small commits on `main`. `git log --oneline` is the record of what is done. Stage exact files only — `launch-film/` (the film project) and `anvil/` (the marketing site) are tracked but separate concerns; don't include their changes in Foundry commits. `.devin/` is untracked goal state.
 
-## Where things stand (1.1.0, 2026-09-26)
+## Where things stand (1.2.0, 2026-10-08)
 
-- The plan is complete except the items listed under "Open items" below. `VERSION` is `1.1.0`; release notes are in `docs/release-notes/1.1.0.md`.
-- `swift test`: 531 tests, 0 failures (3 skipped, including the opt-in benchmark). `./scripts/build-app.sh`, `./scripts/verify-packaging.sh`, and `git diff --check` all pass.
-- P0–P5: done (see `git log --oneline v1.0.0..HEAD`).
-- P6: `docs/benchmarks/2026-09-26-foundry-1.1-report.md`. Every budget is met except bundle size, which is 552 KB over (the reason is in the report). This host has no Accessibility, so `scripts/drive-signposts.swift N --reopen build/Foundry.app` drives `panel.show` through the reopen handler, and `benchmark-launchers.swift --bundle <app> --runs 0` measures memory without posting key events.
-- P7: deslop and structural pass, write-only `diagnosticsSummary` replaced with toasts, copy sweep, VoiceOver row activation, and a hidden main menu so ⌘C/⌘X/⌘A/⌘Z/⌘W work.
+- The megaplan (`~/.devin/plans/plan-2b52c0932c2a6746.md`) is implemented: P0 brand (custom `.icns` + designed DMG with Finder layout), P1 conversion graph/router over native+brew engines, P2 conversion UX + Finder-style file actions + `--convert`, P3 Downloads/Snippets/Clipboard facelift, P4 parity commands (OCR, color picker, QR gen/decode, plain paste, confetti), P5 onboarding motion + panel entrance, P6 perf (18 MB → 7.8 MB via pre-sign strip, icons off-main, async `lsof`, `CommandPanelState` split 1463 → 923+357+216), P7 release docs.
+- `VERSION` is `1.2.0`; release notes are in `docs/release-notes/1.2.0.md`.
+- `swift test`: 587 tests, 0 failures (3 skipped). `build-app.sh` produces a signed 7.8 MB bundle; `package-dmg.sh` produces the branded DMG.
+
+### Prior state (1.1.0, 2026-09-26)
+
+- `docs/benchmarks/2026-09-26-foundry-1.1-report.md` — perf budgets; bundle size was 552 KB over then, now resolved by the strip step in P6.
+- This host has no Accessibility, so `scripts/drive-signposts.swift N --reopen build/Foundry.app` drives `panel.show` through the reopen handler, and `benchmark-launchers.swift --bundle <app> --runs 0` measures memory without posting key events.
+- P7 (1.1): deslop pass, toasts, copy sweep, VoiceOver row activation, hidden main menu.
 
 ## Open items
 
 1. The fresh-account manual sweep (onboarding reaches a first command within 30 s) and a live VoiceOver/focus-order walk need a GUI session with Accessibility granted to the terminal.
 2. Live `search.immediate`/`search.complete` through real keystrokes: run `scripts/drive-signposts.swift 30` (hotkey mode) on a host that grants Accessibility.
-3. Deferred refactors. Budgets are met without them, and they can't be UI-verified here: P6.1 `@Observable` migration, P6.2 lazy feature states, and splitting the 1,341-line `CommandPanelState` (extract a settings state object).
+3. Deferred refactors. Done in 1.2: `CommandPanelState` split into `CommandPanelState.swift` (core/search/actions) + `+Settings` (config mutation, backup, command prefs) + `+Modes` (feature-mode navigation). Still open: P6.1 `@Observable` migration of remaining legacy state objects, P6.2 lazy feature states.
 4. Liquid Glass render cost needs an Xcode 26 / Swift 6.2 build.
-5. Distribution (signing, notarization, Sparkle, DMG, Homebrew) is still out of scope. Note: pushing a change to `VERSION` triggers `.github/workflows/release.yml`.
+5. Distribution (notarization, Sparkle, Homebrew) is still out of scope; signing + designed DMG are done in-repo. Note: pushing a change to `VERSION` triggers `.github/workflows/release.yml`.
 
 ## Known flakes and quirks
 
