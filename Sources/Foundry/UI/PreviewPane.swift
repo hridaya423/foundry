@@ -78,10 +78,12 @@ struct FilePreview: View {
                         .resizable()
                         .aspectRatio(contentMode: .fit)
                 } else {
-                    Image(nsImage: NSWorkspace.shared.icon(forFile: path))
-                        .resizable()
-                        .aspectRatio(contentMode: .fit)
-                        .frame(width: 96, height: 96)
+                    FileIcon(path: path) {
+                        Image(systemName: "doc")
+                            .font(.system(size: 48, weight: .light))
+                            .foregroundStyle(FoundryTheme.faintText)
+                    }
+                    .frame(width: 96, height: 96)
                 }
             }
             .frame(maxWidth: .infinity, minHeight: 140, maxHeight: .infinity)

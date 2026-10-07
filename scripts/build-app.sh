@@ -75,6 +75,9 @@ fi
 rm -rf "$APP_DIR"
 mkdir -p "$MACOS_DIR" "$RESOURCES_DIR"
 cp "$EXECUTABLE" "$MACOS_DIR/$APP_NAME"
+# Strip local/debug symbols — release binaries carry ~10MB of symbol table in
+# __LINKEDIT. Must run before codesigning since it rewrites the binary.
+strip -x "$MACOS_DIR/$APP_NAME"
 if [[ -d "$RESOURCE_BUNDLE" ]]; then
     cp -R "$RESOURCE_BUNDLE" "$RESOURCES_DIR/"
 fi

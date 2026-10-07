@@ -195,7 +195,7 @@ final class ActionRunner {
             return await compressFile(path: path, emit: emit)
 
         case let .renameFile(path):
-            return renameFile(path: path, emit: emit)
+            return await renameFile(path: path, emit: emit)
 
         case let .moveToTrash(path):
             let url = URL(fileURLWithPath: path)
@@ -988,14 +988,17 @@ extension ActionRunner {
         }
     }
 
-    private func renameFile(path: String, emit: @escaping @MainActor @Sendable (CommandExecutionEvent) -> Void) -> CommandOutcome {
+    private func renameFile(path: String, emit: @escaping @MainActor @Sendable (CommandExecutionEvent) -> Void) async -> CommandOutcome {
         let source = URL(fileURLWithPath: path)
+        let icon = await Task.detached(priority: .utility) {
+            NSWorkspace.shared.icon(forFile: path)
+        }.value
         let alert = NSAlert()
         alert.messageText = "Rename \u{201C}\(source.lastPathComponent)\u{201D}"
         alert.informativeText = "Enter a new name. The file stays in the same folder."
         alert.addButton(withTitle: "Rename")
         alert.addButton(withTitle: "Cancel")
-        alert.icon = NSWorkspace.shared.icon(forFile: path)
+        alert.icon = icon
         let field = NSTextField(frame: NSRect(x: 0, y: 0, width: 280, height: 24))
         field.stringValue = source.lastPathComponent
         alert.accessoryView = field

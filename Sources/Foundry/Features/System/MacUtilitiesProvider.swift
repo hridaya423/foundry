@@ -23,7 +23,7 @@ final class MacUtilitiesProvider: CommandProvider {
         results.append(contentsOf: quitAppResults(query: trimmed))
         results.append(contentsOf: runningAppResults(query: trimmed))
         results.append(contentsOf: quitAllResults(query: trimmed, sensitivity: request.sensitivity))
-        results.append(contentsOf: portResults(query: trimmed))
+        results.append(contentsOf: await portResults(query: trimmed))
         results.append(contentsOf: audioDeviceResults(query: trimmed, sensitivity: request.sensitivity))
 
         return results
@@ -119,11 +119,11 @@ final class MacUtilitiesProvider: CommandProvider {
         return [makeResult(id: "mac.quit-all", title: "Quit All Apps", subtitle: "Quit every open app except Finder and Foundry", icon: "xmark.rectangle.portrait", fallback: "QA", route: .macUtility, primary: .quitAllApplications)]
     }
 
-    private func portResults(query: String) -> [CommandResult] {
+    private func portResults(query: String) async -> [CommandResult] {
         guard let needle = SearchScoring.payload(in: query, prefixes: ["port", "kill port", "stop port"]),
               let candidate = needle.split(whereSeparator: { !$0.isNumber }).first,
               let port = Int(candidate), (1...65535).contains(port) else { return [] }
-        let usage = PortUtility.lookup(port: port)
+        let usage = await PortUtility.lookup(port: port)
         return [
             makeResult(
                 id: "mac.port.\(port)",
@@ -166,21 +166,38 @@ final class MacUtilitiesProvider: CommandProvider {
     }
 }
 
-private enum PortUtility {
-    private static let lock = NSLock()
-    nonisolated(unsafe) private static var cache: [Int: (result: String?, at: Date)] = [:]
+private actor PortUtility {
+    private var cache: [Int: (result: String?, at: Date)] = [:]
+    private var inFlight: [Int: Task<String?, Never>] = [:]
 
-    static func lookup(port: Int) -> String? {
-        if let cached = lock.withLock({ cache[port] }), Date().timeIntervalSince(cached.at) < 0.5 {
+    static let shared = PortUtility()
+
+    /// Async so a slow lsof never pins a cooperative pool thread while the
+    /// provider race is already past its deadline. Concurrent same-port
+    /// lookups share one process.
+    static func lookup(port: Int) async -> String? {
+        await shared.performLookup(port: port)
+    }
+
+    private func performLookup(port: Int) async -> String? {
+        if let cached = cache[port], Date().timeIntervalSince(cached.at) < 0.5 {
             return cached.result
         }
-        let result = runLookup(port: port)
-        lock.withLock { cache[port] = (result, Date()) }
+        if let task = inFlight[port] {
+            return await task.value
+        }
+        let task = Task.detached(priority: .utility) {
+            await Self.runLookup(port: port)
+        }
+        inFlight[port] = task
+        let result = await task.value
+        inFlight[port] = nil
+        cache[port] = (result, Date())
         return result
     }
 
-    private static func runLookup(port: Int) -> String? {
-        guard let result = ProcessRunner.runSynchronously(
+    private static func runLookup(port: Int) async -> String? {
+        guard let result = try? await ProcessRunner.run(
             path: "/usr/sbin/lsof",
             arguments: ["-nP", "-iTCP:\(port)", "-sTCP:LISTEN"],
             timeout: 2,
