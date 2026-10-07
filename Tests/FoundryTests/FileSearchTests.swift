@@ -50,6 +50,22 @@ final class FileSearchTests: XCTestCase {
         XCTAssertEqual(ResultSection.of(first), .files)
     }
 
+    func testFileResultExposesFinderStyleActions() {
+        let path = "/Users/test/Documents/report-1.txt"
+        let result = FileSearchProvider.result(path)
+        let kinds = result.secondaryActions.map(\.kind)
+
+        XCTAssertTrue(kinds.contains(.revealFile(path: path)))
+        XCTAssertTrue(kinds.contains(.copyFile(path: path)))
+        XCTAssertTrue(kinds.contains(.copyToClipboard(path)))
+        XCTAssertTrue(kinds.contains(.addToFileShelf(path: path)))
+        XCTAssertTrue(kinds.contains(.openFileConverter(path: path)))
+        XCTAssertTrue(kinds.contains(.compressFile(path: path)))
+        XCTAssertTrue(kinds.contains(.renameFile(path: path)))
+        XCTAssertTrue(kinds.contains(.moveToTrash(path: path)))
+        XCTAssertTrue(result.secondaryActions.contains { $0.kind.isDestructive })
+    }
+
     func testCancelledSearchPublishesNothing() async {
         let provider = FileSearchProvider(scope: home) { _, _ in
             try? await Task.sleep(for: .milliseconds(200))

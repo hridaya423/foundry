@@ -51,6 +51,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         shellController.start()
         diagnostics.endSpan(launchSpan)
 
+        if let convertPaths = Self.convertArguments() {
+            shellController.openFileConverter(paths: convertPaths)
+        }
+
         Task { @MainActor [weak self] in
             await Task.yield()
             guard let self else { return }
@@ -61,6 +65,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
         shellController?.showPanel()
         return false
+    }
+
+    /// Finder "Open With…" and dropping files onto the Dock icon route here —
+    /// the app declares `public.data`/`public.folder` document types so any
+    /// file can be sent straight into the converter.
+    func application(_ sender: NSApplication, openFile filename: String) -> Bool {
+        application(sender, openFiles: [filename])
+        return true
+    }
+
+    func application(_ sender: NSApplication, openFiles filenames: [String]) {
+        shellController?.openFileConverter(paths: filenames)
+        sender.reply(toOpenOrPrint: .success)
     }
 
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
@@ -76,6 +93,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationWillTerminate(_ notification: Notification) {
         shellController?.stop()
         KeepAwakeController.stop()
+    }
+
+    /// `--convert <path> [<path>…]` — scriptable entry into the converter
+    /// (`open -a Foundry --args --convert ~/Desktop/photo.heic`).
+    private static func convertArguments() -> [String]? {
+        let args = CommandLine.arguments
+        guard let index = args.firstIndex(of: "--convert"), index + 1 < args.count else { return nil }
+        let paths = args[(index + 1)...].prefix { $0.hasPrefix("--") == false }
+        return paths.isEmpty ? nil : Array(paths)
     }
 
     private static func confirm(action: CommandActionDescriptor, source: CommandInvocationSource) -> Bool {

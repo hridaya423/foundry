@@ -175,6 +175,13 @@ final class ShellController {
             diagnostics.endSpan(span)
         }
     }
+
+    /// Finder "Open With", dock drops, and `--convert <path>` all land here:
+    /// the panel opens straight into the converter with the files loaded.
+    func openFileConverter(paths: [String]) {
+        showPanel()
+        panelState.openFileConverter(paths: paths)
+    }
     private func runCommandHotkey(commandID: String) async {
         guard let result = await registry.commandResult(for: commandID) else {
             showPanel()

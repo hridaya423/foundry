@@ -197,6 +197,31 @@ func drive(_ surface: String) {
                 type("clip")
                 Thread.sleep(forTimeInterval: 0.5)
             }
+        case "convert":
+            type("convert file")
+            Thread.sleep(forTimeInterval: 0.8)
+            postKey(36)
+            Thread.sleep(forTimeInterval: 0.9)
+        case "convert-search":
+            postKey(53)                        // esc → back to search surface (or dismiss)
+            Thread.sleep(forTimeInterval: 0.6)
+            ensurePanelOpen()                  // reopen if esc closed the panel
+            Thread.sleep(forTimeInterval: 0.4)
+            type("f package.swift")
+            Thread.sleep(forTimeInterval: 6.0)
+        case "convert-file":
+            postKey(53)
+            Thread.sleep(forTimeInterval: 0.6)
+            ensurePanelOpen()
+            Thread.sleep(forTimeInterval: 0.4)
+            type("f foundryqa")
+            Thread.sleep(forTimeInterval: 6.0)
+            postKey(40, flags: .maskCommand)   // ⌘K actions
+            Thread.sleep(forTimeInterval: 0.6)
+            type("convert")
+            Thread.sleep(forTimeInterval: 0.6)
+            postKey(36)
+            Thread.sleep(forTimeInterval: 1.2)
         default:
             print("WARN unknown surface \(surface); capturing raw")
         }

@@ -342,6 +342,74 @@ final class ActionRunnerTests: XCTestCase {
         }
     }
 
+    func testCompressFileCreatesZipBesideSource() async throws {
+        let folder = FileManager.default.temporaryDirectory
+            .appendingPathComponent("Foundry-ActionRunner-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let source = folder.appendingPathComponent("note.txt")
+        try "hello".write(to: source, atomically: true, encoding: .utf8)
+        let runner = ActionRunner(diagnostics: DiagnosticsService())
+
+        let outcome = await runner.execute(CommandExecutionRequest(
+            commandID: "test.file",
+            action: CommandAction(id: "test.file.compress", title: "Compress", kind: .compressFile(path: source.path))
+        )) { _ in }
+
+        guard case let .fileResults(urls) = outcome, let zip = urls.first else {
+            return XCTFail("Expected .fileResults, got \(outcome)")
+        }
+        XCTAssertEqual(zip.pathExtension, "zip")
+        XCTAssertTrue(FileManager.default.fileExists(atPath: zip.path))
+    }
+
+    func testMoveToTrashRequiresConfirmationAndTrashesFile() async throws {
+        let folder = FileManager.default.temporaryDirectory
+            .appendingPathComponent("Foundry-ActionRunner-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        let source = folder.appendingPathComponent("doomed.txt")
+        try "bye".write(to: source, atomically: true, encoding: .utf8)
+        let runner = ActionRunner(diagnostics: DiagnosticsService(), confirmAction: { _, _ in true })
+
+        let outcome = await runner.execute(CommandExecutionRequest(
+            commandID: "test.file",
+            action: CommandAction(id: "test.file.trash", title: "Move to Trash", kind: .moveToTrash(path: source.path))
+        )) { _ in }
+
+        XCTAssertEqual(outcome, .refreshResults(message: "Moved to Trash"))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: source.path))
+        try? FileManager.default.removeItem(at: folder)
+    }
+
+    func testMoveToTrashDeniedLeavesFileUntouched() async throws {
+        let folder = FileManager.default.temporaryDirectory
+            .appendingPathComponent("Foundry-ActionRunner-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let source = folder.appendingPathComponent("safe.txt")
+        try "hi".write(to: source, atomically: true, encoding: .utf8)
+        let runner = ActionRunner(diagnostics: DiagnosticsService(), confirmAction: { _, _ in false })
+
+        let outcome = await runner.execute(CommandExecutionRequest(
+            commandID: "test.file",
+            action: CommandAction(id: "test.file.trash", title: "Move to Trash", kind: .moveToTrash(path: source.path))
+        )) { _ in }
+
+        XCTAssertEqual(outcome, .denied(message: "Action cancelled"))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: source.path))
+    }
+
+    func testRevealFileReturnsTypedFileResults() async {
+        let runner = ActionRunner(diagnostics: DiagnosticsService())
+
+        let outcome = await runner.execute(CommandExecutionRequest(
+            commandID: "test.file",
+            action: CommandAction(id: "test.file.reveal", title: "Reveal", kind: .revealFile(path: "/tmp/x.txt"))
+        )) { _ in }
+
+        XCTAssertEqual(outcome, .fileResults([URL(fileURLWithPath: "/tmp/x.txt")]))
+    }
+
     private final class TestSnippetStore: SnippetStore, @unchecked Sendable {
         let url = URL(fileURLWithPath: "/tmp/test-snippets.json")
         var snippets: [StoredSnippet]

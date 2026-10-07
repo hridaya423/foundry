@@ -85,6 +85,10 @@ enum CommandActionKind: Hashable, Sendable {
     case openFileWithApp(path: String, appPath: String)
     case copyToClipboard(String)
     case copyFile(path: String)
+    case revealFile(path: String)
+    case compressFile(path: String)
+    case renameFile(path: String)
+    case moveToTrash(path: String)
     case addToFileShelf(path: String)
     case pasteText(String, cursorOffset: Int = 0, snippetID: String? = nil)
     case copySnippet(id: String)
@@ -213,7 +217,7 @@ extension CommandAction {
 extension CommandActionKind {
     var isDestructive: Bool {
         switch self {
-        case .terminateProcess, .quitApplication, .forceQuitApplication, .quitAllApplications, .terminatePort, .rebuildApp, .quit, .deleteSnippet, .deleteQuicklink:
+        case .terminateProcess, .quitApplication, .forceQuitApplication, .quitAllApplications, .terminatePort, .rebuildApp, .quit, .deleteSnippet, .deleteQuicklink, .moveToTrash:
             true
         default:
             false
@@ -240,7 +244,13 @@ struct ActionShortcut: Hashable, Sendable {
 
     var display: String {
         let symbols: [Modifier: String] = [.control: "⌃", .option: "⌥", .shift: "⇧", .command: "⌘"]
-        return Modifier.allCases.filter(modifiers.contains).compactMap { symbols[$0] }.joined() + (key == "\r" ? "↵" : key.uppercased())
+        let glyph: String
+        switch key {
+        case "\r": glyph = "↵"
+        case "\u{7f}", "\u{8}": glyph = "⌫"
+        default: glyph = key.uppercased()
+        }
+        return Modifier.allCases.filter(modifiers.contains).compactMap { symbols[$0] }.joined() + glyph
     }
 
     static let secondary = ActionShortcut(key: "\r", modifiers: [.command])
@@ -259,6 +269,9 @@ struct ActionShortcut: Hashable, Sendable {
         switch kind {
         case .copyToClipboard: ActionShortcut(key: "c", modifiers: [.shift, .command])
         case .copyFile: ActionShortcut(key: "c", modifiers: [.command])
+        case .revealFile: ActionShortcut(key: "r", modifiers: [.shift, .command])
+        case .renameFile: ActionShortcut(key: "e", modifiers: [.command])
+        case .moveToTrash: ActionShortcut(key: "\u{7f}", modifiers: [.command])
         case .toggleFavorite: ActionShortcut(key: "d", modifiers: [.command])
         case .openCommandSettings: ActionShortcut(key: ",", modifiers: [.shift, .command])
         case .deleteSnippet, .deleteQuicklink: ActionShortcut(key: "x", modifiers: [.control])

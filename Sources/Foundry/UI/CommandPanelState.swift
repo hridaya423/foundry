@@ -1182,6 +1182,11 @@ final class CommandPanelState {
     }
 
     func handleDroppedFiles(_ urls: [URL]) {
+        if mode == .fileConversion {
+            guard urls.isEmpty == false else { return }
+            fileConversion.addSources(urls: urls)
+            return
+        }
         let result = fileShelf.add(urls: urls)
         guard result.didReceiveFiles else {
             showActionFeedback(.failure("Couldn't add those files"))
@@ -1361,10 +1366,15 @@ final class CommandPanelState {
     }
 
     private func openFileConverter(path: String? = nil) {
+        openFileConverter(paths: path.map { [$0] } ?? [])
+    }
+
+    /// Public entry for launch arguments and Finder "Open With"/dock drops.
+    func openFileConverter(paths: [String]) {
         beginFeatureMode(.fileConversion)
         fileConversion.reset()
-        if let path {
-            fileConversion.setSource(url: URL(fileURLWithPath: path))
+        if paths.isEmpty == false {
+            fileConversion.setSources(urls: paths.map { URL(fileURLWithPath: $0) })
         } else if fileShelf.selectedFiles.isEmpty == false {
             fileConversion.setSources(urls: fileShelf.selectedFiles.map(\.url))
         }

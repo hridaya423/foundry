@@ -187,6 +187,26 @@ final class ActionRunner {
             diagnostics.log("Copied file")
             return finish(.copied(content: path), feedback: .success("Copied \u{201C}\(url.lastPathComponent)\u{201D}"))
 
+        case let .revealFile(path):
+            return .fileResults([URL(fileURLWithPath: path)])
+
+        case let .compressFile(path):
+            return await compressFile(path: path, emit: emit)
+
+        case let .renameFile(path):
+            return renameFile(path: path, emit: emit)
+
+        case let .moveToTrash(path):
+            let url = URL(fileURLWithPath: path)
+            do {
+                try FileManager.default.trashItem(at: url, resultingItemURL: nil)
+                diagnostics.log("Moved to Trash: \(path)")
+                return finish(.refreshResults(message: "Moved to Trash"), feedback: .success("Moved \u{201C}\(url.lastPathComponent)\u{201D} to Trash"))
+            } catch {
+                diagnostics.log("Trash failed for \(path): \(error.localizedDescription)")
+                return finish(.failure(message: "Could not move to Trash", retryable: true), feedback: .failure("Could not move to Trash"))
+            }
+
         case let .addToFileShelf(path):
             return .addToFileShelf(urls: [URL(fileURLWithPath: path)])
 
@@ -776,6 +796,75 @@ enum KeepAwakeController {
 
     static func stop() {
         owner.stop()
+    }
+}
+
+extension ActionRunner {
+    // MARK: - File actions
+
+    private func compressFile(path: String, emit: @escaping @MainActor @Sendable (CommandExecutionEvent) -> Void) async -> CommandOutcome {
+        let source = URL(fileURLWithPath: path)
+        let destination = Self.uniqueArchiveDestination(for: source)
+        do {
+            _ = try await ProcessRunner.run(path: "/usr/bin/ditto", arguments: ["-c", "-k", "--keepParent", source.path, destination.path])
+            diagnostics.log("Compressed \(source.lastPathComponent) → \(destination.lastPathComponent)")
+            emit(.feedback(.success("Created \u{201C}\(destination.lastPathComponent)\u{201D}")))
+            return .fileResults([destination])
+        } catch is CancellationError {
+            try? FileManager.default.removeItem(at: destination)
+            return .cancelled
+        } catch {
+            try? FileManager.default.removeItem(at: destination)
+            diagnostics.log("Compress failed for \(path): \(error.localizedDescription)")
+            return .failure(message: "Could not compress \u{201C}\(source.lastPathComponent)\u{201D}", retryable: true)
+        }
+    }
+
+    private func renameFile(path: String, emit: @escaping @MainActor @Sendable (CommandExecutionEvent) -> Void) -> CommandOutcome {
+        let source = URL(fileURLWithPath: path)
+        let alert = NSAlert()
+        alert.messageText = "Rename \u{201C}\(source.lastPathComponent)\u{201D}"
+        alert.informativeText = "Enter a new name. The file stays in the same folder."
+        alert.addButton(withTitle: "Rename")
+        alert.addButton(withTitle: "Cancel")
+        alert.icon = NSWorkspace.shared.icon(forFile: path)
+        let field = NSTextField(frame: NSRect(x: 0, y: 0, width: 280, height: 24))
+        field.stringValue = source.lastPathComponent
+        alert.accessoryView = field
+        alert.window.initialFirstResponder = field
+        NSApp.activate(ignoringOtherApps: true)
+        guard alert.runModal() == .alertFirstButtonReturn else { return .cancelled }
+        let newName = field.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard newName.isEmpty == false, newName != source.lastPathComponent else { return .cancelled }
+        guard newName.contains("/") == false, newName.contains(":") == false else {
+            emit(.feedback(.failure("Names can\u{2019}t contain / or :")))
+            return .failure(message: "Invalid name", retryable: true)
+        }
+        let destination = source.deletingLastPathComponent().appendingPathComponent(newName)
+        guard FileManager.default.fileExists(atPath: destination.path) == false else {
+            emit(.feedback(.failure("\u{201C}\(newName)\u{201D} already exists")))
+            return .failure(message: "A file with that name already exists", retryable: true)
+        }
+        do {
+            try FileManager.default.moveItem(at: source, to: destination)
+            diagnostics.log("Renamed \(source.lastPathComponent) → \(newName)")
+            return .refreshResults(message: "Renamed to \u{201C}\(newName)\u{201D}")
+        } catch {
+            diagnostics.log("Rename failed for \(path): \(error.localizedDescription)")
+            return .failure(message: "Could not rename file", retryable: true)
+        }
+    }
+
+    private static func uniqueArchiveDestination(for source: URL) -> URL {
+        let folder = source.deletingLastPathComponent()
+        let base = source.lastPathComponent
+        var candidate = folder.appendingPathComponent("\(base).zip")
+        var counter = 2
+        while FileManager.default.fileExists(atPath: candidate.path) {
+            candidate = folder.appendingPathComponent("\(base) \(counter).zip")
+            counter += 1
+        }
+        return candidate
     }
 }
 

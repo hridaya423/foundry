@@ -131,6 +131,22 @@ cat > "$CONTENTS_DIR/Info.plist" <<EOF
 <dict>
     <key>CFBundleDisplayName</key>
     <string>Foundry</string>
+    <key>CFBundleDocumentTypes</key>
+    <array>
+        <dict>
+            <key>CFBundleTypeName</key>
+            <string>Any File</string>
+            <key>CFBundleTypeRole</key>
+            <string>Viewer</string>
+            <key>LSHandlerRank</key>
+            <string>Alternate</string>
+            <key>LSItemContentTypes</key>
+            <array>
+                <string>public.data</string>
+                <string>public.folder</string>
+            </array>
+        </dict>
+    </array>
     <key>CFBundleExecutable</key>
     <string>Foundry</string>
     <key>CFBundleIdentifier</key>

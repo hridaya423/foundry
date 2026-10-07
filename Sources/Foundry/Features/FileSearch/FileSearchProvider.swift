@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 import FoundryDomain
 import FoundryServices
@@ -182,18 +183,52 @@ final class FileSearchProvider: CommandProvider, @unchecked Sendable {
         let url = URL(fileURLWithPath: path)
         let parent = (url.deletingLastPathComponent().path as NSString).abbreviatingWithTildeInPath
         let id = "file.\(path)"
+        var secondary: [CommandAction] = [
+            CommandAction(id: "\(id).reveal", title: "Reveal in Finder", kind: .revealFile(path: path)),
+            CommandAction(id: "\(id).copy-file", title: "Copy File", kind: .copyFile(path: path)),
+            CommandAction(id: "\(id).copy-path", title: "Copy Path", kind: .copyToClipboard(path)),
+        ]
+        for app in FileAppResolver.apps(for: url) {
+            secondary.append(CommandAction(
+                id: "\(id).open-with.\(app.path)",
+                title: "Open With \(app.name)",
+                kind: .openFileWithApp(path: path, appPath: app.path)
+            ))
+        }
+        secondary += [
+            CommandAction(id: "\(id).shelf", title: "Add to File Shelf", kind: .addToFileShelf(path: path)),
+            CommandAction(id: "\(id).convert", title: "Convert…", kind: .openFileConverter(path: path)),
+            CommandAction(id: "\(id).compress", title: "Compress", kind: .compressFile(path: path)),
+            CommandAction(id: "\(id).rename", title: "Rename…", kind: .renameFile(path: path)),
+            CommandAction(id: "\(id).trash", title: "Move to Trash", kind: .moveToTrash(path: path)),
+        ]
         return CommandResult(
             id: id,
             title: url.lastPathComponent,
             subtitle: parent,
             icon: CommandIcon(fallback: "FI", filePath: path),
             primaryAction: CommandAction(id: "\(id).open", title: "Open", kind: .openURL(url.absoluteString)),
-            secondaryActions: [
-                CommandAction(id: "\(id).copy-file", title: "Copy File", kind: .copyFile(path: path)),
-                CommandAction(id: "\(id).shelf", title: "Add to File Shelf", kind: .addToFileShelf(path: path)),
-                CommandAction(id: "\(id).convert", title: "Convert…", kind: .openFileConverter(path: path))
-            ]
+            secondaryActions: secondary
         )
+    }
+}
+
+/// LaunchServices-backed "Open With" listing, cached per file extension —
+/// Spotlight can produce dozens of results per keystroke and the lookup is
+/// stable for a session.
+enum FileAppResolver {
+    struct App: Equatable { let name: String; let path: String }
+
+    private static let cache = OSAllocatedUnfairLock(initialState: [String: [App]]())
+
+    static func apps(for url: URL, limit: Int = 4) -> [App] {
+        let key = url.pathExtension.lowercased()
+        if let cached = cache.withLock({ $0[key] }) { return Array(cached.prefix(limit)) }
+        let resolved = NSWorkspace.shared.urlsForApplications(toOpen: url).map {
+            App(name: $0.deletingPathExtension().lastPathComponent, path: $0.path)
+        }
+        cache.withLock { $0[key] = resolved }
+        return Array(resolved.prefix(limit))
     }
 }
 

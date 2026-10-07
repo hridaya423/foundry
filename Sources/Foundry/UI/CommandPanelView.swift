@@ -807,6 +807,14 @@ struct CommandPanelView: View {
             "Application"
         case .copyToClipboard, .copySnippet, .copyFile:
             "Copy"
+        case .revealFile:
+            "Finder"
+        case .compressFile:
+            "Archive"
+        case .renameFile:
+            "Rename"
+        case .moveToTrash:
+            "Delete"
         case .deleteSnippet, .deleteQuicklink:
             "Delete"
         case .addToFileShelf:
@@ -1050,7 +1058,7 @@ private struct ActionRow: View {
 
             Text(action.title)
                 .font(FoundryTheme.rowTitleFont)
-                .foregroundStyle(FoundryTheme.primaryText)
+                .foregroundStyle(action.kind.isDestructive ? FoundryTheme.error : FoundryTheme.primaryText)
 
             Spacer()
 
@@ -1090,6 +1098,14 @@ private struct ActionRow: View {
             "arrow.down.circle"
         case .copyToClipboard, .copySnippet, .copyFile:
             "doc.on.doc"
+        case .revealFile:
+            "folder"
+        case .compressFile:
+            "archivebox"
+        case .renameFile:
+            "pencil"
+        case .moveToTrash:
+            "trash"
         case .deleteSnippet, .deleteQuicklink:
             "trash"
         case .addToFileShelf:
