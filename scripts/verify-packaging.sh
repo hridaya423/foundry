@@ -30,6 +30,14 @@ if /usr/bin/plutil -p "$APP_DIR/Contents/Info.plist" | grep -q 'FoundrySourceRoo
     echo "error: developer source path remains in Info.plist" >&2
     exit 1
 fi
+[[ "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIconFile' "$APP_DIR/Contents/Info.plist")" == "AppIcon" ]] || {
+    echo "error: CFBundleIconFile is missing or wrong" >&2
+    exit 1
+}
+ICON_FILE="$APP_DIR/Contents/Resources/AppIcon.icns"
+[[ -f "$ICON_FILE" ]] || { echo "error: AppIcon.icns missing from bundle resources" >&2; exit 1; }
+[[ "$(stat -f '%z' "$ICON_FILE")" -gt 10000 ]] || { echo "error: AppIcon.icns is suspiciously small" >&2; exit 1; }
+file "$ICON_FILE" | grep -q 'Mac OS X icon' || { echo "error: AppIcon.icns is not a valid icns" >&2; exit 1; }
 codesign --verify --deep --strict "$APP_DIR"
 ENTITLEMENTS_FILE="$(mktemp -t foundry-entitlements).plist"
 trap 'rm -f "$ENTITLEMENTS_FILE"' EXIT

@@ -111,6 +111,19 @@ for required in NOTICE.txt background_removal_worker.py manifest.json background
     fi
 done
 
+# App icon: regenerate with `swift scripts/render-icon.swift` then
+# `iconutil -c icns Supporting/AppIcon.iconset -o Supporting/AppIcon.icns`.
+ICON_FILE="$ROOT_DIR/Supporting/AppIcon.icns"
+if [[ ! -f "$ICON_FILE" ]]; then
+    echo "error: Supporting/AppIcon.icns is missing; run scripts/render-icon.swift + iconutil" >&2
+    exit 1
+fi
+if [[ -d "$ROOT_DIR/Supporting/AppIcon.iconset" && "$ROOT_DIR/Supporting/AppIcon.iconset" -nt "$ICON_FILE" ]]; then
+    echo "error: AppIcon.iconset is newer than AppIcon.icns; rebuild it with iconutil" >&2
+    exit 1
+fi
+cp "$ICON_FILE" "$RESOURCES_DIR/AppIcon.icns"
+
 cat > "$CONTENTS_DIR/Info.plist" <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -122,6 +135,10 @@ cat > "$CONTENTS_DIR/Info.plist" <<EOF
     <string>Foundry</string>
     <key>CFBundleIdentifier</key>
     <string>com.hridya.foundry</string>
+    <key>CFBundleIconFile</key>
+    <string>AppIcon</string>
+    <key>CFBundleIconName</key>
+    <string>AppIcon</string>
     <key>CFBundleName</key>
     <string>Foundry</string>
     <key>CFBundlePackageType</key>
