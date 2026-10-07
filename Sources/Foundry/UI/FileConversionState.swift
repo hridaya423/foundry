@@ -1,6 +1,5 @@
 import AppKit
 import Foundation
-import ImageIO
 import UniformTypeIdentifiers
 import FoundryServices
 import Observation
@@ -12,6 +11,7 @@ final class FileConversionState {
     var outputFolderURL: URL?
     var availableTargets: [FileConversionTarget] = []
     var selectedTargetID: String?
+    var options = ConversionOptions.standard
     var status = ""
     var isConverting = false
     var outputURLs: [URL] = []
@@ -24,9 +24,9 @@ final class FileConversionState {
     private(set) var capabilities: [String: FileConversionCapability] = [:]
 
     private var conversionTask: Task<Void, Never>?
-    private let assess: @Sendable (FileConversionTarget) async -> CapabilityState
+    private let assess: @Sendable (FileConversionTarget, [String]) async -> CapabilityState
     private let provision: @Sendable (SetupPlan, String) async throws -> Void
-    private let convertOperation: @Sendable (URL, FileConversionTarget, URL) async -> Result<URL, Error>
+    private let convertOperation: @Sendable (URL, FileConversionTarget, URL, ConversionOptions) async -> Result<URL, Error>
     private let operations: OperationCoordinator
     private var operationID: UUID?
     private var conversionGeneration = UUID()
@@ -38,15 +38,17 @@ final class FileConversionState {
     }
 
     init(
-        assess: @escaping @Sendable (FileConversionTarget) async -> CapabilityState = { await FileConversionService.assess($0) },
+        assess: @escaping @Sendable (FileConversionTarget, [String]) async -> CapabilityState = { target, inputExts in
+            await FileConversionService.assess(target: target.outputExtension, forInputExts: inputExts)
+        },
         provision: @escaping @Sendable (SetupPlan, String) async throws -> Void = { plan, fingerprint in
             let executor = ClosureProvisioningExecutor { command in
                 _ = try await ProcessRunner.run(path: command.executable, arguments: command.arguments)
             }
             _ = try await DependencyProvisioner(executor: executor).provision(plan: plan, approvedFingerprint: fingerprint)
         },
-        convert: @escaping @Sendable (URL, FileConversionTarget, URL) async -> Result<URL, Error> = { source, target, folder in
-            await FileConversionService.convert(sourceURL: source, target: target, outputFolderURL: folder)
+        convert: @escaping @Sendable (URL, FileConversionTarget, URL, ConversionOptions) async -> Result<URL, Error> = { source, target, folder, options in
+            await FileConversionService.convert(sourceURL: source, target: target, outputFolderURL: folder, options: options)
         },
         operations: OperationCoordinator = OperationCoordinator()
     ) {
@@ -85,9 +87,10 @@ final class FileConversionState {
         let panel = NSOpenPanel()
         panel.canChooseFiles = true
         panel.canChooseDirectories = false
-        panel.allowsMultipleSelection = false
-        if panel.runModal() == .OK, let url = panel.url {
-            setSource(url: url)
+        panel.allowsMultipleSelection = true
+        panel.prompt = sourceURLs.isEmpty ? "Choose" : "Add"
+        if panel.runModal() == .OK, panel.urls.isEmpty == false {
+            addSources(urls: panel.urls)
         }
     }
 
@@ -104,6 +107,40 @@ final class FileConversionState {
 
     func setSource(url: URL) {
         setSources(urls: [url])
+    }
+
+    /// Merge additional files into the current batch (drop / "Add Files").
+    func addSources(urls: [URL]) {
+        guard urls.isEmpty == false else { return }
+        setSources(urls: sourceURLs + urls)
+    }
+
+    func removeSource(url: URL) {
+        guard sourceURLs.contains(url) else { return }
+        if sourceURLs.count == 1 {
+            startOver()
+        } else {
+            setSources(urls: sourceURLs.filter { $0 != url })
+        }
+    }
+
+    /// Clear the batch and results while keeping the pane open.
+    func startOver() {
+        conversionGeneration = UUID()
+        conversionTask?.cancel()
+        conversionTask = nil
+        sourceURLs = []
+        outputFolderURL = nil
+        availableTargets = []
+        selectedTargetID = nil
+        options = .standard
+        status = ""
+        isConverting = false
+        outputURLs = []
+        outputURL = nil
+        dependencySetup = nil
+        capabilities = [:]
+        phase = .assessing; progress = nil; failure = nil; itemOutcomes = []; operationID = nil; lastRequest = nil
     }
 
     func setSources(urls: [URL]) {
@@ -156,7 +193,7 @@ final class FileConversionState {
                   conversionGeneration == generation,
                   sourceURLs == sources,
                   sources.isEmpty == false else { return }
-            guard case .ready = await assess(setup.target) else { throw FileConversionError.unavailable("The installed converter is not ready yet") }
+            guard case .ready = await assess(setup.target, sourceURLs.map { ConversionGraph.normalizedExtension(of: $0) }) else { throw FileConversionError.unavailable("The installed converter is not ready yet") }
             guard Task.isCancelled == false,
                   conversionGeneration == generation,
                   sourceURLs == sources else { return }
@@ -187,8 +224,9 @@ final class FileConversionState {
     }
 
     func refreshCapabilities() async {
+        let inputExts = sourceURLs.map { ConversionGraph.normalizedExtension(of: $0) }
         var refreshed: [String: FileConversionCapability] = [:]
-        for target in availableTargets { refreshed[target.id] = FileConversionCapability(state: await assess(target)) }
+        for target in availableTargets { refreshed[target.id] = FileConversionCapability(state: await assess(target, inputExts)) }
         capabilities = refreshed
     }
 
@@ -246,7 +284,8 @@ final class FileConversionState {
                     self.status = prefix + "Converting to \(target.title)…"
                 }
 
-                let result = await self?.convertOperation(sourceURL, target, outputFolderURL) ?? .failure(FileConversionError.cancelled)
+                let snapshot = self?.options ?? .standard
+                let result = await self?.convertOperation(sourceURL, target, outputFolderURL, snapshot) ?? .failure(FileConversionError.cancelled)
                 guard Task.isCancelled == false else { await MainActor.run { self?.cancelRemaining(sourceURLs, generation: generation, operationID: operationID) }; return }
                 switch result {
                 case let .success(outputURL):
@@ -304,7 +343,7 @@ final class FileConversionState {
         guard failed.isEmpty == false else { return }
         Task { [weak self] in
             guard let self else { return }
-            switch await self.assess(request.target) {
+            switch await self.assess(request.target, request.sources.map { ConversionGraph.normalizedExtension(of: $0) }) {
             case .ready:
                 break
             case let .setupRequired(plan):
@@ -370,47 +409,23 @@ final class FileConversionState {
         NSWorkspace.shared.activateFileViewerSelecting(outputURLs)
     }
 
+    /// Shared output formats across all sources. Compared by output extension
+    /// only — each file re-resolves its own route at convert time, so a mixed
+    /// batch (jpg + docx → PDF) shares one target with different routes.
     private func commonTargets(for urls: [URL]) -> [FileConversionTarget] {
         guard let firstURL = urls.first else { return [] }
         let firstTargets = FileConversionService.availableTargets(for: firstURL)
         guard urls.count > 1 else { return firstTargets }
 
-        let remainingTargets = urls.dropFirst().map { FileConversionService.availableTargets(for: $0) }
+        let remainingExts = urls.dropFirst().map {
+            Set(FileConversionService.availableTargets(for: $0).map(\.outputExtension))
+        }
         return firstTargets.filter { target in
-            remainingTargets.allSatisfy { targets in
-                targets.contains { $0.id == target.id && $0.family == target.family }
-            }
+            remainingExts.allSatisfy { $0.contains(target.outputExtension) }
         }
     }
 }
 
-struct FileConversionTarget: Identifiable, Hashable {
-    enum Category: String, Hashable, CaseIterable {
-        case photo = "Photo"
-        case icon = "Icon"
-        case document = "Document"
-        case pdf = "PDF"
-        case music = "Music"
-        case video = "Video"
-    }
-
-    enum Family: Hashable {
-        case image
-        case text
-        case mediaFFmpeg
-        case imageMagick
-        case pandoc
-        case soffice
-    }
-
-    let id: String
-    let title: String
-    let outputExtension: String
-    let category: Category
-    let family: Family
-}
-
-enum FileConversionError: Error { case unavailable(String), cancelled }
 enum FileConversionItemState: Equatable { case pending, processing, completed, failed, cancelled }
 struct FileConversionItemOutcome: Identifiable, Equatable {
     let sourceURL: URL
@@ -428,296 +443,4 @@ struct FileConversionCapability {
 private struct ClosureProvisioningExecutor: ProvisioningExecutor {
     let body: @Sendable (ExactCommand) async throws -> Void
     func execute(_ command: ExactCommand) async throws { try await body(command) }
-}
-
-enum FileConversionService {
-    static func assess(_ target: FileConversionTarget) async -> CapabilityState {
-        await assess(target, locator: ExecutableLocator(), environment: ProcessInfo.processInfo.environment)
-    }
-
-    static func assess(_ target: FileConversionTarget, locator: ExecutableLocator, environment: [String: String]) async -> CapabilityState {
-        let requirement: CapabilityRequirement?
-        switch target.family {
-        case .mediaFFmpeg: requirement = try? CapabilityRequirement(executableName: "ffmpeg", explicitPaths: ["/opt/homebrew/bin/ffmpeg", "/usr/local/bin/ffmpeg"])
-        case .imageMagick: requirement = try? CapabilityRequirement(executableName: "magick", explicitPaths: ["/opt/homebrew/bin/magick", "/usr/local/bin/magick"])
-        case .pandoc: requirement = try? CapabilityRequirement(executableName: "pandoc", explicitPaths: ["/opt/homebrew/bin/pandoc", "/usr/local/bin/pandoc"])
-        case .soffice: requirement = try? CapabilityRequirement(executableName: "soffice", explicitPaths: ["/Applications/LibreOffice.app/Contents/MacOS/soffice", "/opt/homebrew/bin/soffice", "/usr/local/bin/soffice"])
-        default: return .ready
-        }
-        guard let requirement else { return .unavailable("Missing dependency: \(missingDependencyName(for: target) ?? "converter")") }
-        let assessment = (try? await CapabilityAssessor(locator: locator, versionProbe: VersionProbe(), environment: environment).assess(requirement)) ?? .unavailable("Capability assessment failed")
-        guard case .setupRequired = assessment else { return assessment }
-        guard let brew = (try? locator.locate(name: "brew", candidates: ["/opt/homebrew/bin/brew", "/usr/local/bin/brew"], environment: environment)) ?? nil else {
-            return .unavailable("Homebrew is required to install \(missingDependencyName(for: target) ?? "the converter")")
-        }
-        guard let plan = setupPlan(for: target, homebrewPath: brew.path) else {
-            return .unavailable("No setup plan exists for \(missingDependencyName(for: target) ?? "the converter")")
-        }
-        return .setupRequired(plan)
-    }
-
-    private static func setupPlan(for target: FileConversionTarget, homebrewPath: String) -> SetupPlan? {
-        let command: ExactCommand
-        switch target.family {
-        case .mediaFFmpeg: command = ExactCommand(executable: homebrewPath, arguments: ["install", "ffmpeg"])
-        case .imageMagick: command = ExactCommand(executable: homebrewPath, arguments: ["install", "imagemagick"])
-        case .pandoc: command = ExactCommand(executable: homebrewPath, arguments: ["install", "pandoc"])
-        case .soffice: command = ExactCommand(executable: homebrewPath, arguments: ["install", "--cask", "libreoffice"])
-        default: return nil
-        }
-        return SetupPlan(commands: [command], artifacts: [], mutationScope: "Homebrew installs the required tool for this user", cleanupOwnership: "Homebrew owns the installed package", disclosure: "Network access to Homebrew is required; disk impact varies by package.")
-    }
-    static func missingDependencyName(for target: FileConversionTarget) -> String? {
-        switch target.family {
-        case .mediaFFmpeg: return "ffmpeg"
-        case .imageMagick: return "magick"
-        case .pandoc: return "pandoc"
-        case .soffice: return "soffice"
-        default: return nil
-        }
-    }
-
-    static func availableTargets(for url: URL) -> [FileConversionTarget] {
-        let ext = url.pathExtension.lowercased()
-        var targets: [FileConversionTarget] = []
-        let imageMetadata = imageMetadata(for: url)
-
-        if imageExtensions.contains(ext) {
-            targets.append(contentsOf: [
-                target("png", category: .photo, family: .image),
-                target("jpg", title: "JPEG", category: .photo, family: .image),
-                target("heic", title: "HEIC", category: .photo, family: .image),
-                target("tiff", title: "TIFF", category: .photo, family: .image),
-                target("gif", title: "GIF", category: .photo, family: .image),
-                target("bmp", title: "BMP", category: .photo, family: .image)
-            ].filter { $0.outputExtension != ext })
-            targets.append(contentsOf: [
-                target("webp", title: "WEBP", category: .photo, family: .imageMagick),
-                target("avif", title: "AVIF", category: .photo, family: .imageMagick),
-                target("jp2", title: "JPEG 2000", category: .photo, family: .imageMagick),
-            ].filter { $0.outputExtension != ext })
-            if imageMetadata?.isIconCandidate == true {
-                targets.append(contentsOf: [
-                    target("ico", title: "ICO", category: .icon, family: .imageMagick),
-                    target("icns", title: "ICNS", category: .icon, family: .imageMagick)
-                ])
-            }
-        }
-
-        if textDocumentExtensions.contains(ext) {
-            targets.append(contentsOf: [
-                target("txt", title: "Plain Text", category: .document, family: .text),
-                target("rtf", title: "Rich Text", category: .document, family: .text),
-                target("html", title: "HTML", category: .document, family: .text),
-                target("doc", title: "Word .doc", category: .document, family: .text),
-                target("docx", title: "Word .docx", category: .document, family: .text),
-                target("odt", title: "OpenDocument", category: .document, family: .text),
-                target("wordml", title: "Word XML", category: .document, family: .text)
-            ].filter { $0.outputExtension != ext })
-            targets.append(contentsOf: [
-                target("md", title: "Markdown", category: .document, family: .pandoc),
-                target("epub", title: "EPUB", category: .document, family: .pandoc),
-                target("rst", title: "reStructuredText", category: .document, family: .pandoc),
-                target("latex", title: "LaTeX", category: .document, family: .pandoc),
-                target("docbook", title: "DocBook", category: .document, family: .pandoc)
-            ].filter { $0.outputExtension != ext })
-        }
-
-        if officeDocumentExtensions.contains(ext) {
-            targets.append(contentsOf: [
-                target("pdf", title: "PDF", category: .pdf, family: .soffice),
-                target("docx", title: "Word .docx", category: .document, family: .soffice),
-                target("odt", title: "OpenDocument Text", category: .document, family: .soffice),
-                target("html", title: "HTML", category: .document, family: .soffice),
-                target("txt", title: "Plain Text", category: .document, family: .soffice),
-                target("rtf", title: "Rich Text", category: .document, family: .soffice)
-            ].filter { $0.outputExtension != ext })
-        }
-
-        if pdfExtensions.contains(ext) {
-            targets.append(contentsOf: [
-                target("docx", title: "Word .docx", category: .document, family: .soffice),
-                target("odt", title: "OpenDocument Text", category: .document, family: .soffice),
-                target("rtf", title: "Rich Text", category: .document, family: .soffice),
-                target("txt", title: "Plain Text", category: .document, family: .soffice)
-            ])
-        }
-
-        if mediaExtensions.contains(ext) {
-            let mediaTargets = audioExtensions.contains(ext)
-                ? [target("mp3", category: .music, family: .mediaFFmpeg), target("m4a", category: .music, family: .mediaFFmpeg), target("wav", category: .music, family: .mediaFFmpeg), target("flac", category: .music, family: .mediaFFmpeg), target("ogg", category: .music, family: .mediaFFmpeg), target("aac", category: .music, family: .mediaFFmpeg)]
-                : [target("mp4", category: .video, family: .mediaFFmpeg), target("mov", category: .video, family: .mediaFFmpeg), target("mkv", category: .video, family: .mediaFFmpeg), target("webm", category: .video, family: .mediaFFmpeg), target("mp3", title: "MP3 audio", category: .music, family: .mediaFFmpeg), target("gif", title: "GIF", category: .photo, family: .mediaFFmpeg)]
-            targets.append(contentsOf: mediaTargets.filter { $0.outputExtension != ext })
-        }
-
-        return sortTargets(dedupeTargets(targets))
-    }
-
-    static func defaultTargetID(for url: URL, in targets: [FileConversionTarget]) -> String? {
-        let ext = url.pathExtension.lowercased()
-        let preferred: String?
-        switch ext {
-        case "png": preferred = "jpg"
-        case "jpg", "jpeg", "heic", "heif", "tif", "tiff", "bmp", "gif", "webp": preferred = "png"
-        case "pdf": preferred = "docx"
-        case "doc", "docx", "odt", "rtf", "wordml", "pages", "html", "htm": preferred = "pdf"
-        case "txt", "md", "markdown": preferred = "pdf"
-        default:
-            if audioExtensions.contains(ext) { preferred = "mp3" }
-            else if videoExtensions.contains(ext) { preferred = "mp4" }
-            else { preferred = nil }
-        }
-        if let preferred, let match = targets.first(where: { $0.id == preferred }) {
-            return match.id
-        }
-        return targets.first?.id
-    }
-
-    static func convert(sourceURL: URL, target: FileConversionTarget, outputFolderURL: URL) async -> Result<URL, Error> {
-        do {
-            try Task.checkCancellation()
-            try FileManager.default.createDirectory(at: outputFolderURL, withIntermediateDirectories: true)
-            let destination = uniqueDestination(for: sourceURL, target: target, in: outputFolderURL)
-            let artifactStore = ArtifactStore()
-            let staged = try artifactStore.stage(for: destination)
-            defer { artifactStore.discard(staged) }
-
-            switch target.family {
-            case .image:
-                try await run("/usr/bin/sips", ["-s", "format", target.outputExtension == "jpg" ? "jpeg" : target.outputExtension, sourceURL.path, "--out", staged.url.path])
-            case .text:
-                try await run("/usr/bin/textutil", ["-convert", target.outputExtension, "-output", staged.url.path, sourceURL.path])
-            case .mediaFFmpeg:
-                let ffmpeg = try await executable(named: "ffmpeg", target: target)
-                try await run(ffmpeg, ["-y", "-i", sourceURL.path, staged.url.path])
-            case .imageMagick:
-                let magick = try await executable(named: "magick", target: target)
-                try await run(magick, [sourceURL.path, staged.url.path])
-            case .pandoc:
-                let pandoc = try await executable(named: "pandoc", target: target)
-                try await run(pandoc, [sourceURL.path, "-o", staged.url.path])
-            case .soffice:
-                let soffice = try await executable(named: "soffice", target: target)
-                let temporaryFolder = FileManager.default.temporaryDirectory.appendingPathComponent("Foundry-Conversion-\(UUID().uuidString)")
-                try FileManager.default.createDirectory(at: temporaryFolder, withIntermediateDirectories: true)
-                defer { try? FileManager.default.removeItem(at: temporaryFolder) }
-                try await run(soffice, ["--headless", "--convert-to", sofficeFormat(target.outputExtension), "--outdir", temporaryFolder.path, sourceURL.path])
-                let generated = temporaryFolder.appendingPathComponent(sourceURL.deletingPathExtension().lastPathComponent + "." + target.outputExtension)
-                guard FileManager.default.fileExists(atPath: generated.path) else {
-                    throw NSError(domain: "FoundryConversion", code: 2, userInfo: [NSLocalizedDescriptionKey: "LibreOffice did not produce the expected output."])
-                }
-                try FileManager.default.removeItem(at: staged.url)
-                try FileManager.default.moveItem(at: generated, to: staged.url)
-            }
-            let committed = try artifactStore.commit(staged) { url in
-                (try? FileManager.default.attributesOfItem(atPath: url.path)[.size] as? NSNumber)?.intValue ?? 0 > 0
-            }
-            return .success(committed)
-        } catch {
-            return .failure(error)
-        }
-    }
-
-    private static func target(_ ext: String, title: String? = nil, category: FileConversionTarget.Category, family: FileConversionTarget.Family) -> FileConversionTarget {
-        FileConversionTarget(id: ext, title: title ?? ext.uppercased(), outputExtension: ext, category: category, family: family)
-    }
-
-    private static func uniqueDestination(for sourceURL: URL, target: FileConversionTarget, in folder: URL) -> URL {
-        let original = sourceURL.deletingPathExtension().lastPathComponent
-        let extensionName = target.outputExtension
-        var index = 1
-        while true {
-            let suffix = index == 1 ? "" : " \(index)"
-            let candidate = folder.appendingPathComponent("\(original)\(suffix).\(extensionName)")
-            if FileManager.default.fileExists(atPath: candidate.path) == false { return candidate }
-            index += 1
-        }
-    }
-
-    private static func run(_ path: String, _ arguments: [String]) async throws {
-        let result = try await ProcessRunner.run(path: path, arguments: arguments, timeout: 30 * 60)
-        guard result.succeeded else {
-            if result.timedOut {
-                throw NSError(domain: "FoundryConversion", code: 124, userInfo: [NSLocalizedDescriptionKey: "Conversion timed out."])
-            }
-            let output = result.stderr.isEmpty ? result.stdout : result.stderr
-            let message = output.trimmingCharacters(in: .whitespacesAndNewlines)
-            throw NSError(domain: "FoundryConversion", code: Int(result.exitCode), userInfo: [NSLocalizedDescriptionKey: message.isEmpty ? "Conversion failed" : message])
-        }
-    }
-
-    private static func firstExecutable(_ paths: [String]) -> String? {
-        paths.first { FileManager.default.isExecutableFile(atPath: $0) }
-    }
-
-    private static func executable(named name: String, target: FileConversionTarget) async throws -> String {
-        if case .ready = await assess(target) {
-            let paths = ["/opt/homebrew/bin/\(name)", "/usr/local/bin/\(name)", "/Applications/LibreOffice.app/Contents/MacOS/\(name)"]
-            if let path = firstExecutable(paths) { return path }
-        }
-        throw FileConversionError.unavailable("Required converter is not ready")
-    }
-
-    private static func sofficeFormat(_ ext: String) -> String {
-        switch ext {
-        case "pdf": return "pdf"
-        case "docx": return "docx"
-        case "odt": return "odt"
-        case "html": return "html"
-        case "txt": return "txt:Text"
-        default: return ext
-        }
-    }
-
-    private static func dedupeTargets(_ targets: [FileConversionTarget]) -> [FileConversionTarget] {
-        var seen = Set<String>()
-        return targets.filter { seen.insert($0.id).inserted }
-    }
-
-    private static func sortTargets(_ targets: [FileConversionTarget]) -> [FileConversionTarget] {
-        targets.sorted { lhs, rhs in
-            let left = categoryOrder[lhs.category] ?? 99
-            let right = categoryOrder[rhs.category] ?? 99
-            if left == right {
-                return lhs.title.localizedCaseInsensitiveCompare(rhs.title) == .orderedAscending
-            }
-            return left < right
-        }
-    }
-
-    private static func imageMetadata(for url: URL) -> ImageMetadata? {
-        guard imageExtensions.contains(url.pathExtension.lowercased()),
-              let source = CGImageSourceCreateWithURL(url as CFURL, nil),
-              let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
-              let width = properties[kCGImagePropertyPixelWidth] as? CGFloat,
-              let height = properties[kCGImagePropertyPixelHeight] as? CGFloat else {
-            return nil
-        }
-        return ImageMetadata(width: width, height: height)
-    }
-
-    private static let imageExtensions: Set<String> = ["png", "jpg", "jpeg", "heic", "tif", "tiff", "gif", "bmp", "webp"]
-    private static let textDocumentExtensions: Set<String> = ["txt", "rtf", "rtfd", "html", "htm", "doc", "docx", "odt", "wordml", "webarchive"]
-    private static let officeDocumentExtensions: Set<String> = ["doc", "docx", "odt", "rtf", "ppt", "pptx", "odp", "xls", "xlsx", "ods"]
-    private static let pdfExtensions: Set<String> = ["pdf"]
-    private static let audioExtensions: Set<String> = ["mp3", "m4a", "wav", "aif", "aiff", "caf", "aac", "flac", "ogg"]
-    private static let videoExtensions: Set<String> = ["mp4", "mov", "m4v", "mkv", "webm", "avi", "mpeg", "mpg"]
-    private static let mediaExtensions = audioExtensions.union(videoExtensions)
-    private static let categoryOrder: [FileConversionTarget.Category: Int] = [
-        .photo: 0,
-        .icon: 1,
-        .document: 2,
-        .pdf: 3,
-        .music: 4,
-        .video: 5
-    ]
-}
-
-private struct ImageMetadata {
-    let width: CGFloat
-    let height: CGFloat
-
-    var isIconCandidate: Bool {
-        abs(width - height) < 0.5 && width <= 2048 && height <= 2048
-    }
 }
