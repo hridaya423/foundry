@@ -97,6 +97,7 @@ enum CommandActionKind: Hashable, Sendable {
     case deleteQuicklink(id: String)
     case createSnippetFromClipboard
     case importSnippets
+    case exportSnippets
     case downloadMedia(url: String)
     case downloadMediaBatch(urls: [String])
     case chooseMediaDownloadFolder

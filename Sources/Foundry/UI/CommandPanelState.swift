@@ -599,6 +599,17 @@ final class CommandPanelState {
         updateSnippetExpansion(next)
     }
 
+    func setSnippetExpansionDelimiter(_ delimiter: String, enabled: Bool) {
+        var next = snippetExpansion
+        let affected = delimiter == "\n" ? ["\n", "\r"] : [delimiter]
+        if enabled {
+            for value in affected where next.delimiters.contains(value) == false { next.delimiters.append(value) }
+        } else {
+            next.delimiters.removeAll { affected.contains($0) }
+        }
+        updateSnippetExpansion(next)
+    }
+
     func requestSnippetExpansionAccessibility() { onRequestSnippetAccessibility?() }
     func openSnippetExpansionPrivacySettings() { onOpenSnippetPrivacySettings?() }
 
@@ -652,6 +663,7 @@ final class CommandPanelState {
         let rendered = SnippetRenderer.render(snippet.content, arguments: arguments)
         do {
             try actionRunner.directPasteService.stage(.text(rendered.text), cursorOffset: rendered.cursorOffsetFromEnd)
+            snippets.markUsed(id: snippet.id)
             return true
         } catch {
             diagnostics.log("Could not stage snippet: \(error.localizedDescription)")

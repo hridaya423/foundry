@@ -8,8 +8,10 @@ struct StoredSnippet: Codable, Identifiable, Hashable {
     var tags: [String]
     var isPinned: Bool
     var updatedAt: Date
+    var useCount: Int
+    var lastUsedAt: Date?
 
-    init(id: String = UUID().uuidString, title: String = "", content: String = "", keyword: String = "", tags: [String] = [], isPinned: Bool = false, updatedAt: Date = Date()) {
+    init(id: String = UUID().uuidString, title: String = "", content: String = "", keyword: String = "", tags: [String] = [], isPinned: Bool = false, updatedAt: Date = Date(), useCount: Int = 0, lastUsedAt: Date? = nil) {
         self.id = id
         self.title = title
         self.content = content
@@ -17,6 +19,26 @@ struct StoredSnippet: Codable, Identifiable, Hashable {
         self.tags = tags
         self.isPinned = isPinned
         self.updatedAt = updatedAt
+        self.useCount = useCount
+        self.lastUsedAt = lastUsedAt
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(String.self, forKey: .id)
+        title = try container.decode(String.self, forKey: .title)
+        content = try container.decode(String.self, forKey: .content)
+        keyword = try container.decodeIfPresent(String.self, forKey: .keyword) ?? ""
+        tags = try container.decodeIfPresent([String].self, forKey: .tags) ?? []
+        isPinned = try container.decodeIfPresent(Bool.self, forKey: .isPinned) ?? false
+        updatedAt = try container.decodeIfPresent(Date.self, forKey: .updatedAt) ?? .distantPast
+        useCount = try container.decodeIfPresent(Int.self, forKey: .useCount) ?? 0
+        lastUsedAt = try container.decodeIfPresent(Date.self, forKey: .lastUsedAt)
+    }
+
+    mutating func recordUse() {
+        useCount += 1
+        lastUsedAt = Date()
     }
 }
 

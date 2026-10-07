@@ -19,7 +19,7 @@ enum ResultSection: String, CaseIterable {
         switch result.primaryAction.kind {
         case .openApp: return .applications
         case .openQuickAI: return .fallback
-        case .copySnippet, .pasteSnippet, .pasteText, .createSnippetFromClipboard, .importSnippets: return .snippets
+        case .copySnippet, .pasteSnippet, .pasteText, .createSnippetFromClipboard, .importSnippets, .exportSnippets: return .snippets
         default: return .commands
         }
     }

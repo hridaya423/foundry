@@ -153,7 +153,7 @@ final class ShellController {
 
     private func configureSnippetExpansion() {
         let settings = config.current.snippetExpansion
-        snippetExpansion.configure(isEnabled: settings.isEnabled, excludedBundleIdentifiers: settings.excludedBundleIdentifiers)
+        snippetExpansion.configure(isEnabled: settings.isEnabled, excludedBundleIdentifiers: settings.excludedBundleIdentifiers, delimiters: settings.delimiters)
     }
 
     private func togglePanel() {

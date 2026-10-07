@@ -214,6 +214,7 @@ final class ActionRunner {
             guard let snippet = snippetStore.load().first(where: { $0.id == id }) else { return .failure(message: "Snippet not found", retryable: false) }
             let rendered = SnippetRenderer.render(snippet.content, context: snippetContext())
             pasteboard.clearContents(); pasteboard.setString(rendered.text, forType: .string)
+            recordSnippetUse(id: id)
             return finish(.copied(content: rendered.text), feedback: .success("Copied to clipboard"))
 
         case let .deleteSnippet(id):
@@ -238,6 +239,7 @@ final class ActionRunner {
             let rendered = SnippetRenderer.render(snippet.content, context: snippetContext())
             do {
                 try directPasteService.stage(.text(rendered.text), cursorOffset: rendered.cursorOffsetFromEnd)
+                recordSnippetUse(id: id)
                 return finish(.pasted(content: rendered.text), feedback: .success("Inserted snippet"))
             } catch DirectPasteError.missingTarget { return finish(.stayOpen(message: "No originating application is available"), feedback: .failure("No originating application is available")) }
             catch { return finish(.stayOpen(message: "Could not stage paste"), feedback: .failure("Could not stage paste")) }
@@ -269,6 +271,13 @@ final class ActionRunner {
 
         case .importSnippets:
             let outcome = importSnippets()
+            if case let .success(message) = outcome, let message {
+                emit(.feedback(.success(message)))
+            }
+            return outcome
+
+        case .exportSnippets:
+            let outcome = exportSnippets()
             if case let .success(message) = outcome, let message {
                 emit(.feedback(.success(message)))
             }
@@ -657,6 +666,37 @@ final class ActionRunner {
         }
     }
 
+    private func exportSnippets() -> CommandOutcome {
+        let snippets = snippetStore.load()
+        guard snippets.isEmpty == false else {
+            return .failure(message: "No snippets to export", retryable: false)
+        }
+        let panel = NSSavePanel()
+        panel.allowedContentTypes = [.json]
+        panel.nameFieldStringValue = "foundry-snippets.json"
+        guard panel.runModal() == .OK, let url = panel.url else { return .cancelled }
+
+        let exported = snippets.map { RaycastSnippetExport(name: $0.title, text: $0.content, keyword: $0.keyword.isEmpty ? nil : $0.keyword) }
+        do {
+            let encoder = JSONEncoder()
+            encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+            try encoder.encode(exported).write(to: url, options: .atomic)
+            let message = "Exported \(snippets.count) snippet\(snippets.count == 1 ? "" : "s")"
+            diagnostics.log("\(message) to \(url.path)")
+            return .success(message: message)
+        } catch {
+            diagnostics.log("Snippet export failed: \(error.localizedDescription)")
+            return .failure(message: "Snippet export failed", retryable: true)
+        }
+    }
+
+    private func recordSnippetUse(id: String) {
+        var snippets = snippetStore.load()
+        guard let index = snippets.firstIndex(where: { $0.id == id }) else { return }
+        snippets[index].recordUse()
+        _ = snippetStore.save(snippets)
+    }
+
     private static func open(_ urls: [URL], withAppAt appURL: URL) async -> Bool {
         await withCheckedContinuation { (continuation: CheckedContinuation<Bool, Never>) in
             NSWorkspace.shared.open(urls, withApplicationAt: appURL, configuration: NSWorkspace.OpenConfiguration()) { _, error in
@@ -882,6 +922,12 @@ private enum AudioDeviceController {
 }
 
 private struct RaycastSnippetImport: Decodable {
+    let name: String
+    let text: String
+    let keyword: String?
+}
+
+private struct RaycastSnippetExport: Encodable {
     let name: String
     let text: String
     let keyword: String?

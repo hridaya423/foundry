@@ -110,6 +110,14 @@ final class SnippetState {
         guard let selectedItem else { return }
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(SnippetRenderer.render(selectedItem.content).text, forType: .string)
+        markUsed(id: selectedItem.id)
+    }
+
+    func markUsed(id: String) {
+        guard let index = items.firstIndex(where: { $0.id == id }) else { return }
+        items[index].recordUse()
+        invalidateVisibleItems()
+        schedulePersist()
     }
 
     func moveSelection(offset: Int) {
@@ -122,6 +130,51 @@ final class SnippetState {
 
     func select(id: String) {
         selectedID = id
+    }
+
+    func importFromFile() {
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [.json]
+        panel.allowsMultipleSelection = false
+        panel.canChooseDirectories = false
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        do {
+            let data = try Data(contentsOf: url)
+            let imported = try JSONDecoder().decode([RaycastSnippetFile].self, from: data)
+            flushPendingPersistence()
+            var added = 0
+            for item in imported {
+                let title = item.name.trimmingCharacters(in: .whitespacesAndNewlines)
+                let content = item.text.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard title.isEmpty == false, content.isEmpty == false else { continue }
+                if items.contains(where: { $0.title == title && $0.content == content }) { continue }
+                items.insert(StoredSnippet(title: title, content: String(content.prefix(contentLimit)), keyword: item.keyword ?? ""), at: 0)
+                added += 1
+            }
+            items = sorted(items)
+            invalidateVisibleItems()
+            keepSelectionValid()
+            persist()
+            if added > 0 { selectedID = items.first?.id }
+        } catch {
+            persistenceError = "Could not import snippets: \(error.localizedDescription)"
+        }
+    }
+
+    func exportToFile() {
+        guard items.isEmpty == false else { return }
+        let panel = NSSavePanel()
+        panel.allowedContentTypes = [.json]
+        panel.nameFieldStringValue = "foundry-snippets.json"
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        let exported = items.map { RaycastSnippetFile(name: $0.title, text: $0.content, keyword: $0.keyword.isEmpty ? nil : $0.keyword) }
+        do {
+            let encoder = JSONEncoder()
+            encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+            try encoder.encode(exported).write(to: url, options: .atomic)
+        } catch {
+            persistenceError = "Could not export snippets: \(error.localizedDescription)"
+        }
     }
 
     private func persist() {
@@ -164,4 +217,10 @@ final class SnippetState {
     private func invalidateVisibleItems() {
         visibleItemsCache = nil
     }
+}
+
+private struct RaycastSnippetFile: Codable {
+    let name: String
+    let text: String
+    let keyword: String?
 }

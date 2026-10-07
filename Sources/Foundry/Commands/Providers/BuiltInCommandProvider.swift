@@ -122,6 +122,15 @@ final class BuiltInCommandProvider: CommandProvider {
                 primaryAction: CommandAction(id: "foundry.snippets.import.perform", title: "Import", kind: .importSnippets)
             ),
             BuiltInCommand(
+                id: "foundry.snippets.export",
+                title: "Export Snippets",
+                subtitle: "Save your snippets as Raycast-compatible JSON",
+                aliases: ["export snippets", "backup snippets", "snippets backup"],
+                systemIcon: "square.and.arrow.up",
+                fallback: "SN",
+                primaryAction: CommandAction(id: "foundry.snippets.export.perform", title: "Export", kind: .exportSnippets)
+            ),
+            BuiltInCommand(
                 id: "foundry.translate",
                 title: "Translate",
                  subtitle: "Translate text between languages",

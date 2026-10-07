@@ -466,6 +466,37 @@ struct SettingsView: View {
                 .padding(.horizontal, 12)
                 .padding(.vertical, 10)
                 SettingsDivider()
+                VStack(alignment: .leading, spacing: 10) {
+                    SettingsLabel(title: "Expand after", subtitle: "Keywords expand when one of these is typed")
+                    HStack(spacing: 8) {
+                        ForEach(snippetDelimiterOptions, id: \.delimiter) { option in
+                            Button {
+                                state.setSnippetExpansionDelimiter(option.delimiter, enabled: !state.snippetExpansion.delimiters.contains(option.delimiter))
+                            } label: {
+                                Text(option.label)
+                                    .font(FoundryTheme.body(size: 11.5, weight: .semibold))
+                                    .foregroundStyle(state.snippetExpansion.delimiters.contains(option.delimiter) ? FoundryTheme.primaryText : FoundryTheme.mutedText)
+                                    .padding(.horizontal, 11)
+                                    .frame(height: 26)
+                                    .background(
+                                        Capsule()
+                                            .fill(state.snippetExpansion.delimiters.contains(option.delimiter) ? FoundryTheme.accentTint.opacity(0.18) : Color.primary.opacity(0.05))
+                                            .overlay(
+                                                Capsule()
+                                                    .strokeBorder(state.snippetExpansion.delimiters.contains(option.delimiter) ? FoundryTheme.accentTint.opacity(0.4) : Color.primary.opacity(0.08), lineWidth: 1)
+                                            )
+                                    )
+                            }
+                            .buttonStyle(PressableButtonStyle())
+                            .pointerCursor()
+                            .accessibilityLabel("Expand after \(option.label)")
+                            .accessibilityValue(state.snippetExpansion.delimiters.contains(option.delimiter) ? "On" : "Off")
+                        }
+                    }
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 11)
+                SettingsDivider()
                 ConfigFieldRow(
                     title: "Excluded apps",
                     placeholder: "com.example.app, com.other.app",
@@ -477,6 +508,10 @@ struct SettingsView: View {
                 SettingsNotice(text: error, symbol: "exclamationmark.triangle")
             }
         }
+    }
+
+    private var snippetDelimiterOptions: [(label: String, delimiter: String)] {
+        [("Space", " "), ("Return", "\n"), ("Tab", "\t"), ("Quote", "'"), ("Backtick", "`")]
     }
 
     private var appearanceContent: some View {

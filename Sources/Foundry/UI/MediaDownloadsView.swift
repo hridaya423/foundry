@@ -260,25 +260,11 @@ private struct MediaDownloadRow: View {
     let remove: () -> Void
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var fileError: String?
+    @State private var isHovering = false
 
     var body: some View {
         HStack(spacing: 12) {
-            ZStack {
-                Circle()
-                    .fill(statusColor.opacity(0.12))
-                    .frame(width: 34, height: 34)
-
-                if item.status == .active, item.progress.fractionCompleted == nil {
-                    ProgressView()
-                        .controlSize(.small)
-                        .tint(statusColor)
-                } else {
-                    Image(systemName: iconName)
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(statusColor)
-                        .contentTransition(.symbolEffect(.replace))
-                }
-            }
+            leadingIcon
 
             VStack(alignment: .leading, spacing: 7) {
                 HStack(spacing: 8) {
@@ -337,6 +323,112 @@ private struct MediaDownloadRow: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 11)
+        .background(isHovering ? Color.primary.opacity(0.035) : .clear)
+        .animation(reduceMotion ? nil : .easeOut(duration: 0.12), value: isHovering)
+        .onHover { isHovering = $0 }
+        .contextMenu { rowMenu }
+    }
+
+    private var leadingIcon: some View {
+        ZStack(alignment: .bottomTrailing) {
+            Group {
+                if item.status == .completed, let path = item.progress.outputURLs.first?.path {
+                    FileIcon(path: path) { hostIcon }
+                } else {
+                    hostIcon
+                }
+            }
+            .frame(width: 34, height: 34)
+            .clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 9, style: .continuous)
+                    .strokeBorder(Color.primary.opacity(0.08), lineWidth: 1)
+            )
+
+            if item.status != .active {
+                statusBadge
+            }
+        }
+    }
+
+    private var hostIcon: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 9, style: .continuous)
+                .fill(statusColor.opacity(0.10))
+
+            if let faviconURL {
+                RemoteIcon(url: faviconURL) { fallbackGlyph }
+                    .padding(5)
+            } else {
+                fallbackGlyph
+            }
+
+            if item.status == .active, item.progress.fractionCompleted == nil {
+                RoundedRectangle(cornerRadius: 9, style: .continuous)
+                    .fill(Color.black.opacity(0.35))
+                ProgressView()
+                    .controlSize(.small)
+                    .tint(.white)
+                    .scaleEffect(0.8)
+            }
+        }
+    }
+
+    private var fallbackGlyph: some View {
+        Image(systemName: "link")
+            .font(.system(size: 13, weight: .semibold))
+            .foregroundStyle(statusColor)
+    }
+
+    private var statusBadge: some View {
+        Image(systemName: badgeSymbol)
+            .font(.system(size: 7, weight: .black))
+            .foregroundStyle(.white)
+            .frame(width: 13, height: 13)
+            .background(statusColor)
+            .clipShape(Circle())
+            .overlay(Circle().strokeBorder(Color(nsColor: .windowBackgroundColor), lineWidth: 1.5))
+            .offset(x: 3, y: 3)
+            .accessibilityHidden(true)
+    }
+
+    private var badgeSymbol: String {
+        switch item.status {
+        case .active: "arrow.down"
+        case .completed: "checkmark"
+        case .failed: "exclamationmark"
+        case .cancelled: "xmark"
+        }
+    }
+
+    private var faviconURL: URL? {
+        guard let host = URL(string: item.sourceURL)?.host, host.isEmpty == false else { return nil }
+        return URL(string: "https://icons.duckduckgo.com/ip3/\(host).ico")
+    }
+
+    @ViewBuilder
+    private var rowMenu: some View {
+        if item.status == .completed, item.progress.outputURLs.isEmpty == false {
+            Button("Reveal in Finder") {
+                let files = item.progress.outputURLs.filter { FileManager.default.fileExists(atPath: $0.path) }
+                if files.isEmpty == false { NSWorkspace.shared.activateFileViewerSelecting(files) }
+            }
+        }
+        if let url = URL(string: item.sourceURL) {
+            Button("Open Source Page") { NSWorkspace.shared.open(url) }
+            Button("Copy URL") {
+                NSPasteboard.general.clearContents()
+                NSPasteboard.general.setString(item.sourceURL, forType: .string)
+            }
+        }
+        if item.status == .failed || item.status == .cancelled {
+            Divider()
+            Button("Retry Download") { retry(item) }
+        }
+        if item.status != .active {
+            Divider()
+            Button("Remove from List") { remove() }
+        }
     }
 
     @ViewBuilder
@@ -376,15 +468,6 @@ private struct MediaDownloadRow: View {
             .foregroundStyle(FoundryTheme.mutedText)
             .help("Remove from list")
             .accessibilityLabel("Remove \(item.progress.title) from history")
-        }
-    }
-
-    private var iconName: String {
-        switch item.status {
-        case .active: "arrow.down"
-        case .completed: "checkmark"
-        case .failed: "exclamationmark"
-        case .cancelled: "xmark"
         }
     }
 

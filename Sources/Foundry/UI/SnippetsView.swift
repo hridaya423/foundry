@@ -30,6 +30,20 @@ struct SnippetsView: View {
                     .tracking(0.6)
                     .padding(.leading, 11)
                 Spacer()
+                Menu {
+                    Button("Import Snippets…") { state.importFromFile() }
+                    Button("Export Snippets…") { state.exportToFile() }
+                } label: {
+                    Image(systemName: "ellipsis")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundStyle(FoundryTheme.secondaryText)
+                        .frame(width: 30, height: 30)
+                }
+                .menuStyle(.borderlessButton)
+                .menuIndicator(.hidden)
+                .fixedSize()
+                .pointerCursor()
+                .help("Import or export snippets")
                 SnippetIconButton(symbol: "plus", help: "New snippet", action: state.newSnippet)
             }
             .frame(height: 30)
@@ -200,6 +214,7 @@ struct SnippetsView: View {
         let parts: [String?] = [
             snippet.keyword.isEmpty ? nil : snippet.keyword,
             snippet.tags.isEmpty ? nil : snippet.tags.map { "#\($0)" }.joined(separator: " "),
+            snippet.useCount > 0 ? "used \(snippet.useCount)×" : nil,
             relativeDate(snippet.updatedAt)
         ]
         return parts.compactMap { $0 }.joined(separator: "  •  ")
@@ -314,6 +329,7 @@ private struct SnippetEditor: View {
     @State private var keyword = ""
     @State private var tags = ""
     @State private var content = ""
+    @State private var insertRequest: String?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -339,23 +355,55 @@ private struct SnippetEditor: View {
                         .padding(.vertical, 12)
                         .allowsHitTesting(false)
                 }
-                TextEditor(text: $content)
-                    .font(FoundryTheme.body(size: 13.5, weight: .regular))
-                    .foregroundStyle(FoundryTheme.primaryText)
-                    .scrollContentBackground(.hidden)
+                SnippetTextEditor(text: $content, insertRequest: $insertRequest)
                     .padding(.horizontal, 9)
                     .padding(.vertical, 5)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(fieldBackground)
 
-            HStack(spacing: 6) {
-                Image(systemName: "wand.and.stars")
-                    .font(.system(size: 10, weight: .semibold))
-                Text("{clipboard}  {selection}  {date:format}  {time}  {cursor}  {argument name=\"…\"}")
-                    .font(FoundryTheme.body(size: 11, weight: .regular))
+            HStack(spacing: 8) {
+                Menu {
+                    ForEach(Self.placeholders, id: \.token) { placeholder in
+                        Button {
+                            insertRequest = placeholder.token
+                        } label: {
+                            VStack(alignment: .leading) {
+                                Text(placeholder.title)
+                                Text(placeholder.token).font(.caption)
+                            }
+                        }
+                    }
+                } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: "curlybraces")
+                            .font(.system(size: 10, weight: .semibold))
+                        Text("Insert placeholder")
+                            .font(FoundryTheme.body(size: 11, weight: .semibold))
+                        Image(systemName: "chevron.up.chevron.down")
+                            .font(.system(size: 7, weight: .bold))
+                            .foregroundStyle(FoundryTheme.faintText)
+                    }
+                    .foregroundStyle(FoundryTheme.secondaryText)
+                    .padding(.horizontal, 10)
+                    .frame(height: 24)
+                    .background(
+                        Capsule()
+                            .fill(Color.primary.opacity(0.05))
+                            .overlay(Capsule().strokeBorder(Color.primary.opacity(0.08), lineWidth: 1))
+                    )
+                }
+                .menuStyle(.borderlessButton)
+                .menuIndicator(.hidden)
+                .fixedSize()
+                .pointerCursor()
+                .help("Insert a dynamic placeholder at the cursor")
+
+                Text("Dynamic values fill in when the snippet is pasted")
+                    .font(FoundryTheme.body(size: 10.5, weight: .regular))
+                    .foregroundStyle(FoundryTheme.faintText)
+                    .lineLimit(1)
             }
-            .foregroundStyle(FoundryTheme.faintText)
             .padding(.leading, 2)
 
             let rendered = SnippetRenderer.render(content)
@@ -419,6 +467,83 @@ private struct SnippetEditor: View {
 
     private func persist() {
         state.updateSelected(title: title, content: content, keyword: keyword, tags: tags.split(separator: ",").map { $0.trimmingCharacters(in: .whitespacesAndNewlines) })
+    }
+}
+
+extension SnippetEditor {
+    static let placeholders: [(title: String, token: String)] = [
+        ("Clipboard contents", "{clipboard}"),
+        ("Selected text", "{selection}"),
+        ("Current date", "{date}"),
+        ("Current time", "{time}"),
+        ("Custom date format", "{date:yyyy-MM-dd}"),
+        ("Cursor position", "{cursor}"),
+        ("Prompt for a value", "{argument name=\"value\"}")
+    ]
+}
+
+private struct SnippetTextEditor: NSViewRepresentable {
+    @Binding var text: String
+    @Binding var insertRequest: String?
+
+    func makeCoordinator() -> Coordinator { Coordinator(text: $text) }
+
+    func makeNSView(context: Context) -> NSScrollView {
+        let scrollView = NSScrollView()
+        scrollView.drawsBackground = false
+        scrollView.hasVerticalScroller = true
+        scrollView.borderType = .noBorder
+
+        let textView = NSTextView()
+        textView.isRichText = false
+        textView.allowsUndo = true
+        textView.isAutomaticQuoteSubstitutionEnabled = false
+        textView.isAutomaticDashSubstitutionEnabled = false
+        textView.isAutomaticTextReplacementEnabled = false
+        textView.isAutomaticSpellingCorrectionEnabled = false
+        textView.font = NSFont.systemFont(ofSize: 13.5)
+        textView.textColor = NSColor.labelColor
+        textView.insertionPointColor = NSColor.labelColor
+        textView.drawsBackground = false
+        textView.textContainerInset = NSSize(width: 0, height: 2)
+        textView.isVerticallyResizable = true
+        textView.isHorizontallyResizable = false
+        textView.autoresizingMask = [.width]
+        textView.textContainer?.widthTracksTextView = true
+        textView.delegate = context.coordinator
+        context.coordinator.textView = textView
+        textView.string = text
+
+        scrollView.documentView = textView
+        return scrollView
+    }
+
+    func updateNSView(_ scrollView: NSScrollView, context: Context) {
+        guard let textView = scrollView.documentView as? NSTextView else { return }
+        if textView.string != text {
+            let selection = textView.selectedRange()
+            textView.string = text
+            if selection.location <= text.utf16.count {
+                textView.setSelectedRange(selection)
+            }
+        }
+        if let token = insertRequest {
+            insertRequest = nil
+            textView.insertText(token, replacementRange: textView.selectedRange())
+            textView.window?.makeFirstResponder(textView)
+        }
+    }
+
+    final class Coordinator: NSObject, NSTextViewDelegate {
+        var text: Binding<String>
+        weak var textView: NSTextView?
+
+        init(text: Binding<String>) { self.text = text }
+
+        func textDidChange(_ notification: Notification) {
+            guard let textView else { return }
+            text.wrappedValue = textView.string
+        }
     }
 }
 

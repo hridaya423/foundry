@@ -76,6 +76,44 @@ final class LibraryPersistenceTests: XCTestCase {
 
         XCTAssertEqual(state.selectedID, state.visibleItems.first?.id)
     }
+
+    func testLegacySnippetFileWithoutUsageFieldsStillDecodes() throws {
+        let legacy = """
+        [{"id":"a","title":"Sig","content":"Best,\\nH","keyword":"sig","tags":[],"isPinned":false,"updatedAt":0}]
+        """.data(using: .utf8)!
+
+        let snippets = try JSONDecoder().decode([StoredSnippet].self, from: legacy)
+
+        XCTAssertEqual(snippets.count, 1)
+        XCTAssertEqual(snippets[0].useCount, 0)
+        XCTAssertNil(snippets[0].lastUsedAt)
+    }
+
+    @MainActor func testCopyingSnippetRecordsUsage() {
+        let store = InMemorySnippetStore()
+        store.snippets = [StoredSnippet(title: "Sig", content: "body")]
+        let state = SnippetState(store: store)
+        state.load()
+
+        state.copySelected()
+
+        XCTAssertEqual(state.items.first?.useCount, 1)
+        XCTAssertNotNil(state.items.first?.lastUsedAt)
+    }
+
+    func testSnippetExpansionConfigKeepsCustomDelimitersAndDropsInvalid() {
+        var config = SnippetExpansionConfig()
+        config.delimiters = [" ", ";", "", " ", "toolong!"]
+
+        let normalized = config.normalized
+
+        XCTAssertEqual(normalized.delimiters, [" ", ";"])
+    }
+
+    func testSnippetExpansionConfigDefaultsDelimitersWhenAbsent() throws {
+        let decoded = try JSONDecoder().decode(SnippetExpansionConfig.self, from: Data("{\"isEnabled\":true}".utf8))
+        XCTAssertEqual(decoded.delimiters, SnippetExpansionConfig.defaultDelimiters)
+    }
 }
 
 private final class InMemorySnippetStore: SnippetStore, @unchecked Sendable {

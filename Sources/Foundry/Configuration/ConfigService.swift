@@ -136,12 +136,20 @@ struct ClipboardConfig: Codable, Equatable {
 struct SnippetExpansionConfig: Codable, Equatable {
     var isEnabled = false
     var excludedBundleIdentifiers: [String] = []
+    var delimiters: [String] = Self.defaultDelimiters
 
     static let `default` = SnippetExpansionConfig()
+    static let defaultDelimiters: [String] = [" ", "\n", "\r", "\t", "'", "\"", "`"]
 
     var normalized: SnippetExpansionConfig {
         var value = self
         value.excludedBundleIdentifiers = ClipboardConfig.normalizeBundleIdentifiers(excludedBundleIdentifiers)
+        var seen = Set<String>()
+        value.delimiters = delimiters.filter { delimiter in
+            guard delimiter.isEmpty == false, delimiter.count <= 4, seen.contains(delimiter) == false else { return false }
+            seen.insert(delimiter)
+            return true
+        }
         return value
     }
 
@@ -151,6 +159,7 @@ struct SnippetExpansionConfig: Codable, Equatable {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         isEnabled = try container.decodeIfPresent(Bool.self, forKey: .isEnabled) ?? false
         excludedBundleIdentifiers = try container.decodeIfPresent([String].self, forKey: .excludedBundleIdentifiers) ?? []
+        delimiters = try container.decodeIfPresent([String].self, forKey: .delimiters) ?? Self.defaultDelimiters
         self = normalized
     }
 }

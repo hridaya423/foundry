@@ -198,11 +198,18 @@ private struct ClipboardPreviewPane: View {
                     ClipboardCardButton(symbol: monospace ? "textformat" : "chevron.left.forwardslash.chevron.right", label: monospace ? "Show proportional text" : "Show monospaced text") { monospace.toggle() }
                 }
                 Spacer(minLength: 0)
+                if case let .text(value) = item.payload, let url = linkURL(in: value) {
+                    ClipboardCardButton(symbol: "safari", label: "Open link") { NSWorkspace.shared.open(url) }
+                }
                 if case .files = item.payload {
                     ClipboardCardButton(symbol: "tray.and.arrow.down", label: "Add files to shelf", action: addToShelf)
                 }
+                if case .text = item.payload {
+                    ClipboardCardButton(symbol: "doc.plaintext", label: "Paste as plain text", action: paste)
+                } else {
+                    ClipboardCardButton(symbol: "text.insert", label: "Paste into originating app", action: paste)
+                }
                 ClipboardCardButton(symbol: "doc.on.doc", label: "Copy item", action: copy)
-                ClipboardCardButton(symbol: "text.insert", label: "Paste into originating app", action: paste)
                 ClipboardCardButton(symbol: "xmark", label: "Remove item", action: remove)
             }
 
@@ -212,6 +219,14 @@ private struct ClipboardPreviewPane: View {
             PreviewMetadata(rows: metadata)
         }
         .padding(.leading, 14)
+    }
+
+    private func linkURL(in value: String) -> URL? {
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.contains(" ") == false, trimmed.count > 6,
+              let url = URL(string: trimmed), let scheme = url.scheme?.lowercased(),
+              scheme == "http" || scheme == "https", url.host?.contains(".") == true else { return nil }
+        return url
     }
 
     @ViewBuilder

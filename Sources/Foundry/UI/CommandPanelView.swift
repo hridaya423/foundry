@@ -821,7 +821,7 @@ struct CommandPanelView: View {
             "File Shelf"
         case .pasteText, .pasteSnippet:
             "Insert"
-        case .createSnippetFromClipboard, .importSnippets:
+        case .createSnippetFromClipboard, .importSnippets, .exportSnippets:
             "Snippet"
         case .downloadMedia, .downloadMediaBatch:
             "Download"
@@ -1116,6 +1116,8 @@ private struct ActionRow: View {
             "plus.rectangle.on.rectangle"
         case .importSnippets:
             "square.and.arrow.down"
+        case .exportSnippets:
+            "square.and.arrow.up"
         case .downloadMedia, .downloadMediaBatch:
             "arrow.down.circle"
         case .chooseMediaDownloadFolder:

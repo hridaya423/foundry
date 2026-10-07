@@ -41,9 +41,10 @@ final class SnippetExpansionService: @unchecked Sendable {
 
     var isRunning: Bool { eventTap != nil || testEventTapRunning }
 
-    func configure(isEnabled: Bool, excludedBundleIdentifiers: [String]) {
+    func configure(isEnabled: Bool, excludedBundleIdentifiers: [String], delimiters: [String] = SnippetExpansionConfig.defaultDelimiters) {
         lastError = nil
         onStatusChanged?(nil)
+        activeDelimiters = Set(delimiters)
         engine = SnippetExpansionEngine(
             snippets: snippetStore.load().filter { SnippetRenderer.argumentNames(in: $0.content).isEmpty },
             excludedBundleIdentifiers: excludedBundleIdentifiers,
@@ -164,7 +165,9 @@ final class SnippetExpansionService: @unchecked Sendable {
         }
     }
 
-    private func isDelimiter(_ value: String) -> Bool { [" ", "\n", "\r", "\t", "'", "\"", "`"].contains(value) }
+    private var activeDelimiters: Set<String> = Set(SnippetExpansionConfig.defaultDelimiters)
+
+    private func isDelimiter(_ value: String) -> Bool { activeDelimiters.contains(value) }
 
     private static func scheduleRetry(_ callback: @escaping @Sendable () -> Void) -> (() -> Void) {
         var timer: Timer?
