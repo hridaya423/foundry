@@ -1,0 +1,256 @@
+{
+  "layout": "swimlane",
+  "style": "paper",
+  "animation": "flow",
+  "title": {
+    "prefix": "Foundry 1.1 \u00b7",
+    "highlight": "Premium Plan",
+    "subtitle": "57 commits \u00b7 +10.5k/\u22122.6k LOC \u00b7 528 tests \u00b7 two Macs"
+  },
+  "signature": "@devin eval",
+  "lanes": [
+    {
+      "title": "P0\u2013P1 Lab & Shell",
+      "subtitle": "Measure first: baselines + budgets before touching UI",
+      "steps": [
+        {
+          "id": "base",
+          "title": "1.0 Baseline",
+          "icon": "benchmark",
+          "icon_style": "illustrated"
+        },
+        {
+          "id": "rig",
+          "title": "Signpost Rig",
+          "icon": "clock",
+          "icon_style": "illustrated"
+        },
+        {
+          "id": "shell",
+          "title": "Panel Prewarm",
+          "icon": "package",
+          "icon_style": "illustrated"
+        },
+        {
+          "id": "menubar",
+          "title": "Menu Bar Item",
+          "icon": "gear",
+          "icon_style": "illustrated"
+        }
+      ]
+    },
+    {
+      "title": "P2\u2013P3 Design & Onboarding",
+      "subtitle": "Design tokens \u2192 new Home \u2192 first-run flow that never existed",
+      "steps": [
+        {
+          "id": "tokens",
+          "title": "Design Tokens",
+          "icon": "eye",
+          "icon_style": "illustrated"
+        },
+        {
+          "id": "home",
+          "title": "Home Redesign",
+          "icon": "package",
+          "icon_style": "illustrated"
+        },
+        {
+          "id": "settings",
+          "title": "Settings Window",
+          "icon": "gear",
+          "icon_style": "illustrated"
+        },
+        {
+          "id": "onboard",
+          "title": "Onboarding Flow",
+          "icon": "user",
+          "icon_style": "illustrated"
+        },
+        {
+          "id": "perm",
+          "title": "Permission Health",
+          "icon": "shield",
+          "icon_style": "illustrated"
+        }
+      ]
+    },
+    {
+      "title": "P4 Launcher Parity",
+      "subtitle": "Files, links, scripts, shortcuts, actions",
+      "steps": [
+        {
+          "id": "files",
+          "title": "File Search f\u00b7",
+          "icon": "folder",
+          "icon_style": "illustrated"
+        },
+        {
+          "id": "links",
+          "title": "Quicklinks",
+          "icon": "globe",
+          "icon_style": "illustrated"
+        },
+        {
+          "id": "scripts",
+          "title": "Scripts + Shortcuts",
+          "icon": "terminal",
+          "icon_style": "illustrated"
+        },
+        {
+          "id": "cmdk",
+          "title": "\u2318K Actions",
+          "icon": "hash",
+          "icon_style": "illustrated"
+        },
+        {
+          "id": "backup",
+          "title": "Backup + Preview",
+          "icon": "db",
+          "icon_style": "illustrated"
+        }
+      ]
+    },
+    {
+      "title": "P5 Feature Polish",
+      "subtitle": "Every existing feature gets its missing half",
+      "steps": [
+        {
+          "id": "clip",
+          "title": "Clipboard SQLite",
+          "icon": "clipboard",
+          "icon_style": "illustrated"
+        },
+        {
+          "id": "snip",
+          "title": "Snippet Placeholders",
+          "icon": "file",
+          "icon_style": "illustrated"
+        },
+        {
+          "id": "ai",
+          "title": "Quick AI Rework",
+          "icon": "brain",
+          "icon_style": "illustrated"
+        },
+        {
+          "id": "misc",
+          "title": "Translator & Widgets",
+          "icon": "gear",
+          "icon_style": "illustrated"
+        }
+      ]
+    },
+    {
+      "title": "P6\u2013P7 Perf & Gate",
+      "subtitle": "On a slower M4: every latency budget met",
+      "steps": [
+        {
+          "id": "debounce",
+          "title": "\u221240ms Debounce",
+          "icon": "clock",
+          "icon_style": "illustrated"
+        },
+        {
+          "id": "lazy",
+          "title": "Lazy States + Backoff",
+          "icon": "cache",
+          "icon_style": "illustrated"
+        },
+        {
+          "id": "a11y",
+          "title": "VoiceOver + Chords",
+          "icon": "user",
+          "icon_style": "illustrated"
+        },
+        {
+          "id": "deslop",
+          "title": "Deslop + Copy Pass",
+          "icon": "scan",
+          "icon_style": "illustrated"
+        },
+        {
+          "id": "ship",
+          "title": "Ship 1.1.0",
+          "icon": "success",
+          "icon_style": "hero"
+        }
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "from": "base",
+      "to": "rig"
+    },
+    {
+      "from": "rig",
+      "to": "shell"
+    },
+    {
+      "from": "shell",
+      "to": "menubar"
+    },
+    {
+      "from": "tokens",
+      "to": "home"
+    },
+    {
+      "from": "home",
+      "to": "settings"
+    },
+    {
+      "from": "settings",
+      "to": "onboard"
+    },
+    {
+      "from": "onboard",
+      "to": "perm"
+    },
+    {
+      "from": "files",
+      "to": "links"
+    },
+    {
+      "from": "links",
+      "to": "scripts"
+    },
+    {
+      "from": "scripts",
+      "to": "cmdk"
+    },
+    {
+      "from": "cmdk",
+      "to": "backup"
+    },
+    {
+      "from": "clip",
+      "to": "snip"
+    },
+    {
+      "from": "snip",
+      "to": "ai"
+    },
+    {
+      "from": "ai",
+      "to": "misc"
+    },
+    {
+      "from": "debounce",
+      "to": "lazy"
+    },
+    {
+      "from": "lazy",
+      "to": "a11y"
+    },
+    {
+      "from": "a11y",
+      "to": "deslop"
+    },
+    {
+      "from": "deslop",
+      "to": "ship"
+    }
+  ],
+  "footer": "panel.show 13.6/20.9 ms \u00b7 search 27.5/40 ms \u00b7 footprint 31.2 MB (\u221238%) \u00b7 signing + Sparkle deferred by request"
+}

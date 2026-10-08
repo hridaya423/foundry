@@ -60,8 +60,8 @@ struct SnippetPreview: View {
         var result = AttributedString(snippet.content)
         result.font = .system(size: 12.5)
         var searchStart = snippet.content.startIndex
-        while let open = snippet.content.range(of: "{", range: searchStart..<snippet.content.endIndex),
-              let close = snippet.content.range(of: "}", range: open.upperBound..<snippet.content.endIndex) {
+        while let open = snippet.content.range(of: "{", range: searchStart..<snippet.content.endIndex) {
+            guard let close = snippet.content.range(of: "}", range: open.upperBound..<snippet.content.endIndex) else { break }
             let tokenRange = open.lowerBound..<close.upperBound
             if let lower = AttributedString.Index(tokenRange.lowerBound, within: result),
                let upper = AttributedString.Index(tokenRange.upperBound, within: result) {
