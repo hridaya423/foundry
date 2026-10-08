@@ -8,6 +8,7 @@ struct MediaDownloadsView: View {
     let cancel: (UUID) -> Void
     let retry: (MediaDownloadItem) -> Void
     let changeDestination: () -> Void
+    var performHaptic: () -> Void = {}
 
     @State private var links = ""
     @State private var validationMessage: String?
@@ -88,7 +89,7 @@ struct MediaDownloadsView: View {
     private func showNotice(_ item: MediaDownloadItem) {
         noticeDismissTask?.cancel()
         notice = item
-        NSHapticFeedbackManager.defaultPerformer.perform(.levelChange, performanceTime: .now)
+        performHaptic()
         noticeDismissTask = Task { @MainActor in
             try? await Task.sleep(for: .seconds(6))
             guard Task.isCancelled == false else { return }
@@ -326,7 +327,7 @@ struct MediaDownloadsView: View {
 
             VStack(spacing: 0) {
                 ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
-                    MediaDownloadRow(item: item, cancel: cancel, retry: retry) {
+                    MediaDownloadRow(item: item, cancel: cancel, retry: retry, redownload: { _ = start(item.sourceURL) }) {
                         manager.remove(id: item.id)
                     }
                     .overlay(
@@ -425,6 +426,7 @@ private struct MediaDownloadRow: View {
     let item: MediaDownloadItem
     let cancel: (UUID) -> Void
     let retry: (MediaDownloadItem) -> Void
+    let redownload: () -> Void
     let remove: () -> Void
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var fileError: String?
@@ -581,6 +583,7 @@ private struct MediaDownloadRow: View {
                 let files = item.progress.outputURLs.filter { FileManager.default.fileExists(atPath: $0.path) }
                 if files.isEmpty == false { NSWorkspace.shared.activateFileViewerSelecting(files) }
             }
+            Button("Redownload") { redownload() }
         }
         if let url = URL(string: item.sourceURL) {
             Button("Open Source Page") { NSWorkspace.shared.open(url) }

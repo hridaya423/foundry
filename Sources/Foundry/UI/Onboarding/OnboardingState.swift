@@ -110,6 +110,8 @@ final class OnboardingState {
     }
 
     func go(to next: OnboardingStep) {
+        tryAdvanceTask?.cancel()
+        tryAdvanceTask = nil
         step = next
         defaults.set(next.rawValue, forKey: Self.stepKey)
         onStepChanged?(next)
@@ -128,9 +130,22 @@ final class OnboardingState {
         didTryPanel = false
     }
 
+    /// Fires once when the try-it panel actually runs a command — the view
+    /// maps it to confetti + haptic.
+    var onDidTryPanel: (() -> Void)?
+    private var tryAdvanceTask: Task<Void, Never>?
+
     func panelDidRunCommand() {
         guard step == .tryIt, didTryPanel == false else { return }
         didTryPanel = true
+        onDidTryPanel?()
+        // Celebrate, then glide onward — cancelled if the user navigates.
+        tryAdvanceTask?.cancel()
+        tryAdvanceTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .milliseconds(1200))
+            guard Task.isCancelled == false, let self, self.step == .tryIt, self.didTryPanel else { return }
+            self.advance()
+        }
     }
 
     private var spotlightTicks = 0

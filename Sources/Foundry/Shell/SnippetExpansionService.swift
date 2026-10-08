@@ -149,6 +149,14 @@ final class SnippetExpansionService: @unchecked Sendable {
                 try directPaste.stage(.text(rendered.text + expansion.delimiter), cursorOffset: rendered.cursorOffsetFromEnd)
                 for _ in 0..<expansion.deleteCount { Self.sendBackspace() }
                 try await directPaste.completePendingPaste()
+                let store = self.snippetStore
+                let snippetID = expansion.snippetID
+                Task.detached {
+                    var snippets = store.load()
+                    guard let index = snippets.firstIndex(where: { $0.id == snippetID }) else { return }
+                    snippets[index].recordUse()
+                    _ = store.save(snippets)
+                }
                 if hapticsEnabled {
                     NSHapticFeedbackManager.defaultPerformer.perform(.alignment, performanceTime: .now)
                 }

@@ -311,10 +311,33 @@ struct FileConversionView: View {
         VStack(alignment: .leading, spacing: 6) {
             fieldLabel("Format")
 
+            if state.availableTargets.count > 8 {
+                HStack(spacing: 6) {
+                    Image(systemName: "magnifyingglass")
+                        .font(.system(size: 10, weight: .medium))
+                        .foregroundStyle(FoundryTheme.faintText)
+                    TextField("Filter formats…", text: $formatFilter)
+                        .textFieldStyle(.plain)
+                        .font(FoundryTheme.body(size: 12, weight: .medium))
+                        .foregroundStyle(FoundryTheme.primaryText)
+                    if formatFilter.isEmpty == false {
+                        Button { formatFilter = "" } label: {
+                            Image(systemName: "xmark.circle.fill")
+                                .font(.system(size: 10))
+                                .foregroundStyle(FoundryTheme.faintText)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .padding(.horizontal, 10)
+                .frame(height: 26)
+                .background(fieldBackground)
+            }
+
             Menu {
-                ForEach(groupedTargetCategories, id: \.self) { category in
+                ForEach(filteredTargetCategories, id: \.self) { category in
                     Section(category.rawValue) {
-                        ForEach(groupedTargets[category] ?? []) { target in
+                        ForEach(filteredTargets[category] ?? []) { target in
                             Button { state.selectedTargetID = target.id } label: {
                                 HStack {
                                     Text(target.title)
@@ -646,6 +669,16 @@ struct FileConversionView: View {
             }
             if let outputURL = outcome.outputURL {
                 sizeDelta(source: outcome.sourceURL, output: outputURL)
+                FoundryIconButton(
+                    systemName: "eye",
+                    accessibilityLabel: "Quick Look \(outputURL.lastPathComponent)",
+                    action: { state.onQuickLookOutput?(outputURL) }
+                )
+                FoundryIconButton(
+                    systemName: "square.and.arrow.up",
+                    accessibilityLabel: "Share \(outputURL.lastPathComponent)",
+                    action: { state.onShareOutput?(outputURL) }
+                )
             }
         }
         .frame(height: 26)
@@ -919,6 +952,20 @@ struct FileConversionView: View {
 
     private var groupedTargetCategories: [FileConversionTarget.Category] {
         FileConversionTarget.Category.allCases.filter { groupedTargets[$0]?.isEmpty == false }
+    }
+
+    @State private var formatFilter = ""
+
+    private var filteredTargets: [FileConversionTarget.Category: [FileConversionTarget]] {
+        let query = formatFilter.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard query.isEmpty == false else { return groupedTargets }
+        return groupedTargets.mapValues { targets in
+            targets.filter { $0.title.lowercased().contains(query) || $0.outputExtension.lowercased().contains(query) }
+        }
+    }
+
+    private var filteredTargetCategories: [FileConversionTarget.Category] {
+        FileConversionTarget.Category.allCases.filter { filteredTargets[$0]?.isEmpty == false }
     }
 
     private func fieldLabel(_ text: String) -> some View {

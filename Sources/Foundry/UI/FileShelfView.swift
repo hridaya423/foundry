@@ -1,9 +1,12 @@
 import AppKit
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct FileShelfView: View {
     var state: FileShelfState
     let convertSelected: ([ShelfFile]) -> Void
+    var extractText: (URL) -> Void = { _ in }
+    var decodeBarcode: (URL) -> Void = { _ in }
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var isConfirmingClear = false
 
@@ -99,6 +102,8 @@ struct FileShelfView: View {
                                         state.removeBackgroundWithBEN2()
                                     },
                                     cancelBackgroundRemoval: { state.cancelBackgroundRemoval() },
+                                    extractText: { extractText(file.url) },
+                                    decodeBarcode: { decodeBarcode(file.url) },
                                     remove: { state.remove(id: file.id) }
                                 )
                                 .id(file.id)
@@ -208,7 +213,13 @@ struct FileShelfRow: View {
     let removeBackground: () -> Void
     let tryBEN2: () -> Void
     let cancelBackgroundRemoval: () -> Void
+    let extractText: () -> Void
+    let decodeBarcode: () -> Void
     let remove: () -> Void
+
+    private var isImageFile: Bool {
+        UTType(filenameExtension: file.url.pathExtension)?.conforms(to: .image) == true
+    }
 
     @State private var isHovering = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -274,6 +285,10 @@ struct FileShelfRow: View {
                 } label: {
                     Label("Remove Background", systemImage: "wand.and.stars")
                 }
+            }
+            if isImageFile {
+                Button("Extract Text (OCR)", action: extractText)
+                Button("Read QR or Barcode", action: decodeBarcode)
             }
             Button("Reveal in Finder", action: reveal)
             Divider()

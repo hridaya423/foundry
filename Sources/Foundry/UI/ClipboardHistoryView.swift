@@ -9,12 +9,16 @@ struct ClipboardHistoryView: View {
     @State private var isConfirmingClear = false
     let directPaste: () -> Bool
     let pause: (Bool) -> Void
+    let extractText: (String) -> Void
+    let decodeBarcode: (String) -> Void
 
-    init(state: ClipboardHistoryState, fileShelf: FileShelfState, directPaste: @escaping () -> Bool = { false }, pause: @escaping (Bool) -> Void = { _ in }) {
+    init(state: ClipboardHistoryState, fileShelf: FileShelfState, directPaste: @escaping () -> Bool = { false }, pause: @escaping (Bool) -> Void = { _ in }, extractText: @escaping (String) -> Void = { _ in }, decodeBarcode: @escaping (String) -> Void = { _ in }) {
         self.state = state
         self.fileShelf = fileShelf
         self.directPaste = directPaste
         self.pause = pause
+        self.extractText = extractText
+        self.decodeBarcode = decodeBarcode
     }
 
     var body: some View {
@@ -68,7 +72,14 @@ struct ClipboardHistoryView: View {
                         ScrollView {
                             LazyVStack(spacing: 2) {
                                 ForEach(state.visibleItems) { item in
-                                    ClipboardHistoryRow(item: item, isSelected: state.selectedID == item.id)
+                                    ClipboardHistoryRow(
+                                        item: item,
+                                        isSelected: state.selectedID == item.id,
+                                        onCopy: { state.select(id: item.id); state.copySelected() },
+                                        onPaste: { state.select(id: item.id); _ = directPaste() },
+                                        onExtractText: { extractText(item.id) },
+                                        onRemove: { state.select(id: item.id); state.removeSelected() }
+                                    )
                                         .id(item.id)
                                         .contentShape(Rectangle())
                                         .onTapGesture { state.select(id: item.id) }
@@ -96,7 +107,9 @@ struct ClipboardHistoryView: View {
                             remove: { state.select(id: item.id); state.removeSelected() },
                             paste: { state.select(id: item.id); _ = directPaste() },
                             addToShelf: { state.select(id: item.id); state.addSelectedFiles(to: fileShelf) },
-                            mergeWithPrevious: { state.select(id: item.id); state.copyMergedWithPreviousSelected() }
+                            mergeWithPrevious: { state.select(id: item.id); state.copyMergedWithPreviousSelected() },
+                            extractText: { extractText(item.id) },
+                            decodeBarcode: { decodeBarcode(item.id) }
                         )
                     }
                 }
@@ -116,8 +129,13 @@ struct ClipboardHistoryView: View {
 private struct ClipboardHistoryRow: View {
     let item: ClipboardHistoryItem
     let isSelected: Bool
+    let onCopy: () -> Void
+    let onPaste: () -> Void
+    let onExtractText: () -> Void
+    let onRemove: () -> Void
 
     @State private var isHovering = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         HStack(spacing: 10) {
@@ -147,16 +165,41 @@ private struct ClipboardHistoryRow: View {
                     .foregroundStyle(FoundryTheme.faintText)
                     .accessibilityLabel("Pinned")
             }
-            Text(item.timeLabel)
-                .font(FoundryTheme.metaFont.monospacedDigit())
-                .foregroundStyle(FoundryTheme.faintText)
+            if isHovering {
+                HStack(spacing: 2) {
+                    hoverAction("doc.on.doc", label: "Copy", action: onCopy)
+                    hoverAction("arrow.up.doc.on.clipboard", label: "Paste as plain text", action: onPaste)
+                    if case .image = item.payload {
+                        hoverAction("text.viewfinder", label: "Extract text", action: onExtractText)
+                    }
+                    hoverAction("xmark", label: "Remove", action: onRemove)
+                }
+            } else {
+                Text(item.timeLabel)
+                    .font(FoundryTheme.metaFont.monospacedDigit())
+                    .foregroundStyle(FoundryTheme.faintText)
+            }
         }
         .padding(.horizontal, 10)
         .frame(height: 36)
         .background(RowBackground(isSelected: isSelected, isHovering: isHovering, cornerRadius: 8))
         .onHover { isHovering = $0 }
+        .animation(reduceMotion ? nil : .easeOut(duration: 0.12), value: isHovering)
         .accessibilityElement(children: .combine)
         .accessibilityAddTraits(isSelected ? .isSelected : [])
+    }
+
+    private func hoverAction(_ symbol: String, label: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: symbol)
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundStyle(FoundryTheme.secondaryText)
+                .frame(width: 22, height: 22)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .help(label)
+        .accessibilityLabel(label)
     }
 }
 
@@ -167,6 +210,8 @@ private struct ClipboardPreviewPane: View {
     let paste: () -> Void
     let addToShelf: () -> Void
     let mergeWithPrevious: () -> Void
+    let extractText: () -> Void
+    let decodeBarcode: () -> Void
 
     @AppStorage("clipboard.preview.monospace") private var monospace = false
 
@@ -212,6 +257,10 @@ private struct ClipboardPreviewPane: View {
                 }
                 if case .files = item.payload {
                     ClipboardCardButton(symbol: "tray.and.arrow.down", label: "Add files to shelf", action: addToShelf)
+                }
+                if case .image = item.payload {
+                    ClipboardCardButton(symbol: "text.viewfinder", label: "Extract text (OCR)", action: extractText)
+                    ClipboardCardButton(symbol: "qrcode.viewfinder", label: "Read QR or barcode", action: decodeBarcode)
                 }
                 if case .text = item.payload {
                     ClipboardCardButton(symbol: "doc.plaintext", label: "Paste as plain text", action: paste)

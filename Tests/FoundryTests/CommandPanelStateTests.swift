@@ -263,6 +263,53 @@ final class CommandPanelStateTests: XCTestCase {
         state.shutdown()
     }
 
+    func testReturnStagesDirectPasteFromClipboardMode() {
+        let diagnostics = DiagnosticsService()
+        let config = ConfigService(diagnostics: diagnostics, url: temporaryURL())
+        let pasteboard = NSPasteboard(name: NSPasteboard.Name("CommandPanelStateTests.optionReturn"))
+        let target = DirectPasteTestTarget(processIdentifier: 42)
+        let directPaste = DirectPasteService(pasteboard: pasteboard, ownProcessIdentifier: 7) { target }
+        let actionRunner = ActionRunner(diagnostics: diagnostics, directPasteService: directPaste)
+        let pasteboardClient = TestClipboardPasteboard()
+        let clipboard = ClipboardHistoryState(pasteboard: pasteboardClient, persistence: nil, configuration: config.current.clipboard)
+        let state = makeState(diagnostics: diagnostics, config: config, clipboard: clipboard, actionRunner: actionRunner)
+
+        let item = ClipboardHistoryItem(payload: .text("hello"))
+        pasteboardClient.snapshotValue = PasteboardSnapshot(types: [.string], payload: item.payload, sourceBundleIdentifier: "com.example")
+        pasteboardClient.changeCountValue += 1
+        clipboard.captureIfChanged()
+        clipboard.select(id: item.id)
+        directPaste.captureTarget()
+
+        state.mode = .clipboardHistory
+        state.pasteOrCopySelectedClipboardItem()
+        XCTAssertTrue(directPaste.hasPendingPaste)
+        state.shutdown()
+    }
+
+    func testCommandReturnCopiesClipboardSelectionWithoutPendingPaste() {
+        let diagnostics = DiagnosticsService()
+        let config = ConfigService(diagnostics: diagnostics, url: temporaryURL())
+        let pasteboard = NSPasteboard(name: NSPasteboard.Name("CommandPanelStateTests.plainReturn"))
+        let directPaste = DirectPasteService(pasteboard: pasteboard, ownProcessIdentifier: 7) { DirectPasteTestTarget(processIdentifier: 42) }
+        let actionRunner = ActionRunner(diagnostics: diagnostics, directPasteService: directPaste)
+        let pasteboardClient = TestClipboardPasteboard()
+        let clipboard = ClipboardHistoryState(pasteboard: pasteboardClient, persistence: nil, configuration: config.current.clipboard)
+        let state = makeState(diagnostics: diagnostics, config: config, clipboard: clipboard, actionRunner: actionRunner)
+
+        let item = ClipboardHistoryItem(payload: .text("hello"))
+        pasteboardClient.snapshotValue = PasteboardSnapshot(types: [.string], payload: item.payload, sourceBundleIdentifier: "com.example")
+        pasteboardClient.changeCountValue += 1
+        clipboard.captureIfChanged()
+        clipboard.select(id: item.id)
+
+        state.mode = .clipboardHistory
+        XCTAssertTrue(state.performModeShortcut(ActionShortcut(key: "\r", modifiers: [.command])) {})
+        XCTAssertFalse(directPaste.hasPendingPaste)
+        XCTAssertEqual(pasteboardClient.writtenPayloads.last, .text("hello"))
+        state.shutdown()
+    }
+
     func testReopenRestoresContextWithinPopToRootTimeout() {
         let diagnostics = DiagnosticsService()
         let config = ConfigService(diagnostics: diagnostics, url: temporaryURL())
@@ -566,9 +613,10 @@ final class CommandPanelStateTests: XCTestCase {
 final class TestClipboardPasteboard: PasteboardClient, @unchecked Sendable {
     var changeCountValue = 0
     var snapshotValue: PasteboardSnapshot?
+    var writtenPayloads: [ClipboardPayload] = []
     var changeCount: Int { changeCountValue }
     func snapshot() -> PasteboardSnapshot? { snapshotValue }
-    func write(_ payload: ClipboardPayload) {}
+    func write(_ payload: ClipboardPayload) { writtenPayloads.append(payload) }
 }
 
 private final class DirectPasteTestTarget: NSObject, DirectPasteTarget {

@@ -112,6 +112,15 @@ final class CommandPanelState {
             self?.confettiBurstID &+= 1
             self?.performHaptic(.alignment)
         }
+        state.onConversionCompleted = { [weak self] in
+            self?.performHaptic(.levelChange)
+        }
+        state.onQuickLookOutput = { [weak self] url in
+            self?.actionRunner.onQuickLook?(url)
+        }
+        state.onShareOutput = { [weak self] url in
+            self?.actionRunner.shareFile(at: url)
+        }
         return state
     }()
     @ObservationIgnored lazy var camera = CameraPreviewState()
@@ -426,6 +435,54 @@ final class CommandPanelState {
         }
     }
 
+    /// Clipboard image item → Vision OCR → staged text file → Quick Look.
+    func extractTextFromClipboardItem(id: String) {
+        guard let item = clipboardHistory.items.first(where: { $0.id == id }),
+              case let .image(data) = item.payload else { return }
+        Task {
+            do {
+                if try await actionRunner.extractTextPreview(fromImageData: data) == false {
+                    clipboardHistory.report(ClipboardVisionError.noTextFound)
+                }
+            } catch {
+                diagnostics.log("Clipboard OCR failed: \(error.localizedDescription)")
+                clipboardHistory.report(ClipboardVisionError.failed)
+            }
+        }
+    }
+
+    /// Clipboard image item → barcode/QR decode → staged text → Quick Look.
+    func decodeBarcodeFromClipboardItem(id: String) {
+        guard let item = clipboardHistory.items.first(where: { $0.id == id }),
+              case let .image(data) = item.payload else { return }
+        Task {
+            do {
+                if try await actionRunner.decodeBarcodePreview(fromImageData: data) == false {
+                    clipboardHistory.report(ClipboardVisionError.noBarcodeFound)
+                }
+            } catch {
+                diagnostics.log("Clipboard barcode decode failed: \(error.localizedDescription)")
+                clipboardHistory.report(ClipboardVisionError.failed)
+            }
+        }
+    }
+
+    /// File Shelf image → OCR → staged text → Quick Look.
+    func extractTextFromShelfFile(_ url: URL) {
+        Task {
+            do { _ = try await actionRunner.extractTextPreview(at: url) }
+            catch { diagnostics.log("Shelf OCR failed: \(error.localizedDescription)") }
+        }
+    }
+
+    /// File Shelf image → barcode/QR decode → staged text → Quick Look.
+    func decodeBarcodeFromShelfFile(_ url: URL) {
+        Task {
+            do { _ = try await actionRunner.decodeBarcodePreview(at: url) }
+            catch { diagnostics.log("Shelf barcode decode failed: \(error.localizedDescription)") }
+        }
+    }
+
     var pendingSnippetArguments: [String]?
     private(set) var confettiBurstID = 0
 
@@ -671,10 +728,6 @@ final class CommandPanelState {
         guard mode == .clipboardHistory else { return false }
         let filters = ClipboardHistoryState.KindFilter.allCases
         switch shortcut.key {
-        case "\r" where shortcut.modifiers.contains(.option):
-            guard clipboardHistory.selectedItem != nil else { return false }
-            if directPasteSelectedClipboardItem() == false { clipboardHistory.copySelected() }
-            dismiss()
         case "\r":
             guard clipboardHistory.selectedItem != nil else { return false }
             clipboardHistory.copySelected()
@@ -1019,4 +1072,15 @@ final class CommandPanelState {
 private enum ClipboardDirectPasteError: LocalizedError {
     case noSelection
     var errorDescription: String? { "Select an item to paste." }
+}
+
+private enum ClipboardVisionError: LocalizedError {
+    case noTextFound, noBarcodeFound, failed
+    var errorDescription: String? {
+        switch self {
+        case .noTextFound: "No text found in that image."
+        case .noBarcodeFound: "No barcode found in that image."
+        case .failed: "Could not analyze that image."
+        }
+    }
 }

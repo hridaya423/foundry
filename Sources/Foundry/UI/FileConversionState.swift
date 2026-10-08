@@ -28,6 +28,12 @@ final class FileConversionState {
     /// Fired once ever when the first batch completes cleanly — lets the
     /// panel celebrate without FileConversionState owning motion.
     var onFirstSuccess: (() -> Void)?
+    /// Fired on every cleanly completed batch — the panel maps this to a
+    /// gated haptic.
+    var onConversionCompleted: (() -> Void)?
+    /// Result-row affordances — wired by the owning panel state.
+    var onQuickLookOutput: ((URL) -> Void)?
+    var onShareOutput: ((URL) -> Void)?
     private let assess: @Sendable (FileConversionTarget, [String]) async -> CapabilityState
     private let provision: @Sendable (SetupPlan, String) async throws -> Void
     private let convertOperation: @Sendable (URL, FileConversionTarget, URL, ConversionOptions) async -> Result<URL, Error>
@@ -133,6 +139,9 @@ final class FileConversionState {
         conversionGeneration = UUID()
         conversionTask?.cancel()
         conversionTask = nil
+        if let operationID {
+            _ = operations.update(id: operationID, phase: .cancelled, progress: progress, failure: OperationFailure(message: "Conversion cancelled"))
+        }
         sourceURLs = []
         outputFolderURL = nil
         availableTargets = []
@@ -148,6 +157,17 @@ final class FileConversionState {
     }
 
     func setSources(urls: [URL]) {
+        if isConverting {
+            // A new source set invalidates the in-flight batch — cancel it so
+            // late results can't write outcomes for a batch the user replaced.
+            conversionGeneration = UUID()
+            conversionTask?.cancel()
+            conversionTask = nil
+            isConverting = false
+            if let operationID {
+                _ = operations.update(id: operationID, phase: .cancelled, progress: progress, failure: OperationFailure(message: "Conversion cancelled"))
+            }
+        }
         var seen = Set<URL>()
         sourceURLs = urls.filter { $0.isFileURL && seen.insert($0).inserted }
         if outputFolderURL == nil {
@@ -215,16 +235,22 @@ final class FileConversionState {
     func installTool() async {
         guard let setup = dependencySetup, isCurrentSetup(setup) else { return }
         let id = beginProvisioning()
+        let generation = conversionGeneration
         dependencySetup = nil
         do {
             try await provision(setup.plan, setup.plan.fingerprint)
             await refreshCapabilities()
+            guard conversionGeneration == generation else { return }
             phase = .completed; progress = .items(completed: 1, total: 1); status = "Tool installed"
             operations.update(id: id, phase: .completed, progress: progress)
         } catch is CancellationError {
+            guard conversionGeneration == generation else { return }
             phase = .cancelled; status = "Tool installation cancelled"
             operations.update(id: id, phase: .cancelled, progress: progress, failure: OperationFailure(message: "Tool installation cancelled"))
-        } catch { failProvisioning(operationID: id, error: error) }
+        } catch {
+            guard conversionGeneration == generation else { return }
+            failProvisioning(operationID: id, error: error)
+        }
     }
 
     func refreshCapabilities() async {
@@ -251,12 +277,8 @@ final class FileConversionState {
         let outputFolderURL = requestedOutputFolder ?? self.outputFolderURL ?? sourceURLs[0].deletingLastPathComponent()
         let total = sourceURLs.count
         lastRequest = (sourceURLs, target, outputFolderURL)
-        if existingID == nil {
-            let completed = Dictionary(uniqueKeysWithValues: preservingCompleted.map { ($0.sourceURL, $0) })
-            itemOutcomes = sourceURLs.map { completed[$0] ?? FileConversionItemOutcome(sourceURL: $0, state: .pending, outputURL: nil, failure: nil) }
-        } else {
-            for sourceURL in sourceURLs { setOutcome(sourceURL, state: .pending, outputURL: nil, failure: nil) }
-        }
+        let preserved = Dictionary(uniqueKeysWithValues: preservingCompleted.map { ($0.sourceURL, $0) })
+        itemOutcomes = sourceURLs.map { preserved[$0] ?? FileConversionItemOutcome(sourceURL: $0, state: .pending, outputURL: nil, failure: nil) }
         failure = nil
         let operationID = existingID ?? operations.start(retryDescriptor: RetryDescriptor(maxAttempts: 3))
         self.operationID = operationID
@@ -442,6 +464,8 @@ final class FileConversionState {
             if UserDefaults.standard.bool(forKey: "conversion.firstSuccessCelebrated") == false {
                 UserDefaults.standard.set(true, forKey: "conversion.firstSuccessCelebrated")
                 onFirstSuccess?()
+            } else {
+                onConversionCompleted?()
             }
         } else {
             _ = self.operations.update(id: operationID, phase: .failed, progress: self.progress, failure: self.failure)

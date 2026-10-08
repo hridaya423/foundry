@@ -78,6 +78,20 @@ final class PanelController: NSObject, NSWindowDelegate {
             context.timingFunction = CAMediaTimingFunction(controlPoints: 0.2, 0.9, 0.25, 1)
             context.allowsImplicitAnimation = true
             panel.animator().alphaValue = 1
+        }
+        if reduceMotion == false, let contentLayer {
+            // Physical settle — a whisper of overshoot on arrival.
+            let settle = CASpringAnimation(keyPath: "transform")
+            settle.damping = 14
+            settle.stiffness = 260
+            settle.mass = 0.8
+            settle.initialVelocity = 0.6
+            settle.fromValue = NSValue(caTransform3D: contentLayer.transform)
+            settle.toValue = NSValue(caTransform3D: CATransform3DIdentity)
+            settle.duration = min(settle.settlingDuration, 0.5)
+            contentLayer.add(settle, forKey: "foundry.entranceSettle")
+            contentLayer.transform = CATransform3DIdentity
+        } else {
             contentLayer?.transform = CATransform3DIdentity
         }
         panel.contentView?.layoutSubtreeIfNeeded()

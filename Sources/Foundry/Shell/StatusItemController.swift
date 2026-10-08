@@ -7,6 +7,7 @@ struct StatusItemMenuModel: Equatable {
         case openFoundry
         case clipboardHistory
         case clipboardPauseToggle
+        case keepAwake
         case settings
         case welcomeGuide
         case quit
@@ -18,11 +19,12 @@ struct StatusItemMenuModel: Equatable {
         let title: String
         let keyEquivalent: String
         let keyEquivalentModifierMask: NSEvent.ModifierFlags
+        var isOn: Bool = false
     }
 
     let items: [Item]
 
-    init(hotkey: FoundryHotkey, clipboardPaused: Bool, hotkeyFailed: Bool) {
+    init(hotkey: FoundryHotkey, clipboardPaused: Bool, hotkeyFailed: Bool, keepAwakeActive: Bool = false) {
         var items: [Item] = []
         if hotkeyFailed {
             items.append(Item(kind: .hotkeyWarning, title: "\(hotkey.displayName) is unavailable — Choose Another Shortcut…", keyEquivalent: "", keyEquivalentModifierMask: []))
@@ -35,6 +37,7 @@ struct StatusItemMenuModel: Equatable {
         }
         items.append(Item(kind: .clipboardHistory, title: "Clipboard History", keyEquivalent: "", keyEquivalentModifierMask: []))
         items.append(Item(kind: .clipboardPauseToggle, title: clipboardPaused ? "Resume Clipboard" : "Pause Clipboard", keyEquivalent: "", keyEquivalentModifierMask: []))
+        items.append(Item(kind: .keepAwake, title: "Keep Awake", keyEquivalent: "", keyEquivalentModifierMask: [], isOn: keepAwakeActive))
         items.append(Item(kind: .separator, title: "", keyEquivalent: "", keyEquivalentModifierMask: []))
         items.append(Item(kind: .settings, title: "Settings…", keyEquivalent: ",", keyEquivalentModifierMask: .command))
         items.append(Item(kind: .welcomeGuide, title: "Welcome Guide", keyEquivalent: "", keyEquivalentModifierMask: []))
@@ -90,7 +93,8 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         let model = StatusItemMenuModel(
             hotkey: state.hotkey,
             clipboardPaused: state.clipboardHistory.isPaused,
-            hotkeyFailed: state.launcherHotkeyFailed
+            hotkeyFailed: state.launcherHotkeyFailed,
+            keepAwakeActive: KeepAwakeController.isActive()
         )
         for item in model.items {
             if item.kind == .separator {
@@ -103,6 +107,9 @@ final class StatusItemController: NSObject, NSMenuDelegate {
             menuItem.target = self
             if item.kind == .hotkeyWarning {
                 menuItem.image = NSImage(systemSymbolName: "exclamationmark.triangle", accessibilityDescription: nil)
+            }
+            if item.isOn {
+                menuItem.state = .on
             }
             menu.addItem(menuItem)
         }
@@ -118,6 +125,8 @@ final class StatusItemController: NSObject, NSMenuDelegate {
             state.openClipboardHistory()
         case .clipboardPauseToggle:
             state.setClipboardPaused(state.clipboardHistory.isPaused == false)
+        case .keepAwake:
+            _ = try? KeepAwakeController.toggle()
         case .settings, .hotkeyWarning:
             state.openSettings()
         case .welcomeGuide:

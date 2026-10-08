@@ -203,7 +203,13 @@ struct OnboardingView: View {
             Spacer()
         }
         .padding(.horizontal, 48)
+        .overlay(ConfettiBurst(trigger: tryItConfetti))
+        .onChange(of: state.didTryPanel) { _, tried in
+            if tried { tryItConfetti &+= 1 }
+        }
     }
+
+    @State private var tryItConfetti = 0
 
     private var preferencesStep: some View {
         VStack(alignment: .leading, spacing: 14) {

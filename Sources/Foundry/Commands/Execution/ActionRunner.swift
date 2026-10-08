@@ -23,6 +23,7 @@ final class ActionRunner {
     let directPasteService: DirectPasteService
     private let scriptDirectories: ScriptDirectoryStore
     private let confirmScriptDirectory: @MainActor (String) -> Bool
+    private let offerQRSave: @MainActor (NSImage, String) -> Void
     private let scriptTimeout: TimeInterval
     private let scriptOutputLimit: Int
     private var activeExecutionTasks: [UUID: Task<CommandOutcome, Never>] = [:]
@@ -45,11 +46,13 @@ final class ActionRunner {
         snippetContext: @escaping () -> SnippetRenderContext = { .current() },
         scriptDirectories: ScriptDirectoryStore = .shared,
         confirmScriptDirectory: @escaping @MainActor (String) -> Bool = ActionRunner.promptToTrustScriptDirectory,
+        offerQRSave: @escaping @MainActor (NSImage, String) -> Void = ActionRunner.presentQRSaveOffer,
         scriptTimeout: TimeInterval = 30,
         scriptOutputLimit: Int = 256 * 1024
     ) {
         self.scriptDirectories = scriptDirectories
         self.confirmScriptDirectory = confirmScriptDirectory
+        self.offerQRSave = offerQRSave
         self.scriptTimeout = scriptTimeout
         self.scriptOutputLimit = scriptOutputLimit
         self.diagnostics = diagnostics
@@ -780,25 +783,71 @@ final class ActionRunner {
         do {
             emit(.status("Recognizing text…"))
             let lines = try await VisionText.recognizeText(at: url)
-            let text = lines.joined(separator: "\n")
-            guard text.isEmpty == false else {
+            guard try presentExtractedText(lines, sourceName: url.deletingPathExtension().lastPathComponent, suffix: "OCR") else {
                 return .failure(message: "No text found in \(url.lastPathComponent)", retryable: false)
             }
-            let staging = FileManager.default.temporaryDirectory
-                .appendingPathComponent("FoundryOCR", isDirectory: true)
-            try FileManager.default.createDirectory(at: staging, withIntermediateDirectories: true)
-            let preview = staging.appendingPathComponent("\(url.deletingPathExtension().lastPathComponent) — OCR.txt")
-            try text.write(to: preview, atomically: true, encoding: .utf8)
-            if let onQuickLook {
-                onQuickLook(preview)
-                return .stayOpen(message: nil)
-            }
-            NSWorkspace.shared.open(preview)
-            return .success(message: nil)
+            return onQuickLook == nil ? .success(message: nil) : .stayOpen(message: nil)
         } catch {
             diagnostics.log("OCR preview failed: \(error.localizedDescription)")
             return .failure(message: "Could not extract text", retryable: true)
         }
+    }
+
+    /// Stage extracted/decoded text as a temp file and present it via Quick
+    /// Look (or open it when no panel is wired). Returns false when empty.
+    private func presentExtractedText(_ lines: [String], sourceName: String, suffix: String) throws -> Bool {
+        let text = lines.joined(separator: "\n")
+        guard text.isEmpty == false else { return false }
+        let preview = try stageTextPreview(text, named: "\(sourceName) — \(suffix)")
+        if let onQuickLook {
+            onQuickLook(preview)
+        } else {
+            NSWorkspace.shared.open(preview)
+        }
+        return true
+    }
+
+    private func stageTextPreview(_ text: String, named name: String) throws -> URL {
+        let staging = FileManager.default.temporaryDirectory.appendingPathComponent("FoundryOCR", isDirectory: true)
+        try FileManager.default.createDirectory(at: staging, withIntermediateDirectories: true)
+        let preview = staging.appendingPathComponent("\(name).txt")
+        try text.write(to: preview, atomically: true, encoding: .utf8)
+        return preview
+    }
+
+    private func cgImage(from data: Data) -> CGImage? {
+        NSImage(data: data)?.cgImage(forProposedRect: nil, context: nil, hints: nil)
+    }
+
+    /// OCR a clipboard image payload → stage → Quick Look. Returns false when
+    /// no text is found.
+    @MainActor
+    func extractTextPreview(fromImageData data: Data, sourceName: String = "Clipboard image") async throws -> Bool {
+        guard let image = cgImage(from: data) else { throw FileConversionError.unavailable("Could not decode image data") }
+        let lines = try await VisionText.recognizeText(in: image)
+        return try presentExtractedText(lines, sourceName: sourceName, suffix: "OCR")
+    }
+
+    /// Barcode/QR decode of a clipboard image payload → stage → Quick Look.
+    @MainActor
+    func decodeBarcodePreview(fromImageData data: Data, sourceName: String = "Clipboard image") async throws -> Bool {
+        guard let image = cgImage(from: data) else { throw FileConversionError.unavailable("Could not decode image data") }
+        let lines = try await VisionText.readBarcodes(in: image)
+        return try presentExtractedText(lines, sourceName: sourceName, suffix: "Barcode")
+    }
+
+    /// Barcode/QR decode of an image file → stage → Quick Look (File Shelf).
+    @MainActor
+    func decodeBarcodePreview(at url: URL) async throws -> Bool {
+        let lines = try await VisionText.readBarcodes(at: url)
+        return try presentExtractedText(lines, sourceName: url.deletingPathExtension().lastPathComponent, suffix: "Barcode")
+    }
+
+    /// OCR of an image file → stage → Quick Look (File Shelf).
+    @MainActor
+    func extractTextPreview(at url: URL) async throws -> Bool {
+        let lines = try await VisionText.recognizeText(at: url)
+        return try presentExtractedText(lines, sourceName: url.deletingPathExtension().lastPathComponent, suffix: "OCR")
     }
 
     private func pickColor(emit: @escaping @MainActor @Sendable (CommandExecutionEvent) -> Void) async -> CommandOutcome {
@@ -945,9 +994,33 @@ final class ActionRunner {
         }
         pasteboard.clearContents()
         pasteboard.writeObjects([image])
-        emit(.feedback(.success("QR code copied to clipboard")))
         diagnostics.log("Generated QR code for \(content.count) characters")
+        offerQRSave(image, content)
+        emit(.feedback(.success("QR code copied to clipboard")))
         return .copied(content: content)
+    }
+
+    /// "Copied — save a PNG?" offer after QR generation. Injectable: modal
+    /// UI must never run under tests.
+    static func presentQRSaveOffer(_ image: NSImage, content: String) {
+        let alert = NSAlert()
+        alert.messageText = "QR code copied to clipboard"
+        alert.informativeText = content.count > 120 ? String(content.prefix(120)) + "…" : content
+        alert.addButton(withTitle: "Save as PNG…")
+        alert.addButton(withTitle: "Done")
+        NSApp.activate(ignoringOtherApps: true)
+        if alert.runModal() == .alertFirstButtonReturn {
+            let panel = NSSavePanel()
+            panel.allowedContentTypes = [.png]
+            panel.nameFieldStringValue = "QR Code.png"
+            panel.canCreateDirectories = true
+            if panel.runModal() == .OK, let destination = panel.url,
+               let tiff = image.tiffRepresentation,
+               let bitmap = NSBitmapImageRep(data: tiff),
+               let png = bitmap.representation(using: .png, properties: [:]) {
+                try? png.write(to: destination)
+            }
+        }
     }
 
     private func qrImage(for content: String) -> NSImage? {
@@ -1284,6 +1357,13 @@ extension ActionRunner {
             diagnostics.log("Compress failed for \(path): \(error.localizedDescription)")
             return .failure(message: "Could not compress \u{201C}\(source.lastPathComponent)\u{201D}", retryable: true)
         }
+    }
+
+    /// Present the share picker for a file URL — used by conversion results
+    /// and any surface that already holds a URL (no command-result plumbing).
+    @MainActor
+    func shareFile(at url: URL) {
+        _ = shareFile(path: url.path)
     }
 
     private func shareFile(path: String) -> CommandOutcome {

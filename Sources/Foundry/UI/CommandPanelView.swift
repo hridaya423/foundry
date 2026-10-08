@@ -125,8 +125,8 @@ struct CommandPanelView: View {
                     .transition(reduceMotion ? .opacity : .opacity.combined(with: .scale(scale: 0.96, anchor: .bottom)))
                 }
             }
-            .animation(reduceMotion ? nil : Animation.easeOut(duration: 0.14), value: state.isShowingActions)
-            .animation(reduceMotion ? nil : Animation.easeOut(duration: 0.14), value: state.pendingDropURLs != nil)
+            .animation(reduceMotion ? nil : Animation.spring(response: 0.28, dampingFraction: 0.82), value: state.isShowingActions)
+            .animation(reduceMotion ? nil : Animation.spring(response: 0.28, dampingFraction: 0.82), value: state.pendingDropURLs != nil)
             .animation(reduceMotion ? nil : Animation.easeInOut(duration: 0.12), value: state.mode)
             .animation(reduceMotion ? nil : Animation.easeOut(duration: 0.14), value: fileShelf.files.count)
             .animation(reduceMotion ? nil : Animation.easeOut(duration: 0.14), value: agents.sessions.count)
@@ -276,11 +276,11 @@ struct CommandPanelView: View {
                 id: "shelf",
                 header: { FeatureTitle(symbol: "tray.full", title: "File Shelf") },
                 content: {
-                    FileShelfView(state: state.fileShelf) { selectedFiles in
+                    FileShelfView(state: state.fileShelf, convertSelected: { selectedFiles in
                         guard selectedFiles.isEmpty == false else { return }
                         state.fileConversion.setSources(urls: selectedFiles.map(\.url))
                         state.mode = .fileConversion
-                    }
+                    }, extractText: state.extractTextFromShelfFile, decodeBarcode: state.decodeBarcodeFromShelfFile)
                 },
                 footerActions: [.init(label: "Remove", keys: "⌫"), .home]
             )
@@ -298,7 +298,9 @@ struct CommandPanelView: View {
                         let staged = state.directPasteSelectedClipboardItem()
                         if staged { dismiss() }
                         return staged
-                    }, pause: state.setClipboardPaused)
+                    }, pause: state.setClipboardPaused,
+                        extractText: state.extractTextFromClipboardItem,
+                        decodeBarcode: state.decodeBarcodeFromClipboardItem)
                 },
                 footerActions: [.init(label: "Paste", keys: "↵", emphasized: true), .init(label: "Copy", keys: "⌘↵"), .init(label: "Pin", keys: "⌘P"), .home]
             )
@@ -365,7 +367,8 @@ struct CommandPanelView: View {
                         start: state.startMediaDownloads,
                         cancel: state.cancelDownload,
                         retry: state.retryDownload,
-                        changeDestination: state.changeMediaDownloadFolder
+                        changeDestination: state.changeMediaDownloadFolder,
+                        performHaptic: { state.performHaptic(.levelChange) }
                     )
                 },
                 footerActions: [.home]

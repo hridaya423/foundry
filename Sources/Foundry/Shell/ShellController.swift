@@ -52,6 +52,9 @@ final class ShellController {
         onboardingState.onStepChanged = { [diagnostics] step in
             diagnostics.log("onboarding.\(step)")
         }
+        onboardingState.onDidTryPanel = { [weak panelState] in
+            panelState?.performHaptic(.levelChange)
+        }
         let onboardingController = OnboardingWindowController(state: onboardingState)
         self.onboardingController = onboardingController
         let statusItemController = StatusItemController(state: panelState)
