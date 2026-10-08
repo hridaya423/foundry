@@ -244,12 +244,13 @@ final class CommandRegistry: @unchecked Sendable {
         aliases: [String: [String]],
         timeout: Duration
     ) async -> ([RankCandidate], [ProviderSearchTiming]) {
-        let sensitivity = configService?.current.searchSensitivity ?? .medium
+        let config = configService?.current
         return await providerScheduler.search(
             query: query,
             providers: providers,
             aliases: aliases,
-            sensitivity: sensitivity,
+            sensitivity: config?.searchSensitivity ?? .medium,
+            snippetInsertAsPrimary: config?.snippetExpansion.insertAsPrimary ?? true,
             timeout: timeout
         )
     }

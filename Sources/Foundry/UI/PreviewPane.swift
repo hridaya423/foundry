@@ -53,6 +53,69 @@ struct PreviewMetadata: View {
     }
 }
 
+struct SnippetPreview: View {
+    let snippet: StoredSnippet
+
+    private var attributedContent: AttributedString {
+        var result = AttributedString(snippet.content)
+        result.font = .system(size: 12.5)
+        var searchStart = snippet.content.startIndex
+        while let open = snippet.content.range(of: "{", range: searchStart..<snippet.content.endIndex),
+              let close = snippet.content.range(of: "}", range: open.upperBound..<snippet.content.endIndex) {
+            let tokenRange = open.lowerBound..<close.upperBound
+            if let lower = AttributedString.Index(tokenRange.lowerBound, within: result),
+               let upper = AttributedString.Index(tokenRange.upperBound, within: result) {
+                result[lower..<upper].foregroundColor = FoundryTheme.accentTint
+            }
+            searchStart = close.upperBound
+        }
+        return result
+    }
+
+    private var metadata: [(label: String, value: String)] {
+        var rows: [(String, String)] = []
+        if snippet.keyword.isEmpty == false { rows.append(("Keyword", snippet.keyword)) }
+        if snippet.tags.isEmpty == false { rows.append(("Tags", snippet.tags.map { "#\($0)" }.joined(separator: " "))) }
+        if snippet.useCount > 0 { rows.append(("Used", "\(snippet.useCount)×")) }
+        if let lastUsed = snippet.lastUsedAt { rows.append(("Last used", PreviewMetadata.date(lastUsed))) }
+        rows.append(("Updated", PreviewMetadata.date(snippet.updatedAt)))
+        rows.append(("Length", "\(snippet.content.count) chars"))
+        return rows
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 8) {
+                Image(systemName: "curlybraces")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(FoundryTheme.accentTint)
+                Text(snippet.title)
+                    .font(FoundryTheme.body(size: 13, weight: .semibold))
+                    .foregroundStyle(FoundryTheme.primaryText)
+                    .lineLimit(2)
+                if snippet.isPinned {
+                    Image(systemName: "pin.fill")
+                        .font(.system(size: 9))
+                        .foregroundStyle(FoundryTheme.mutedText)
+                }
+            }
+
+            ScrollView {
+                Text(attributedContent)
+                    .foregroundStyle(FoundryTheme.secondaryText)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .textSelection(.enabled)
+            }
+            .frame(maxWidth: .infinity, minHeight: 120, maxHeight: .infinity)
+
+            PreviewMetadata(rows: metadata)
+        }
+        .padding(16)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Snippet preview, \(snippet.title)")
+    }
+}
+
 struct FilePreview: View {
     let path: String
     var showsMetadata = true

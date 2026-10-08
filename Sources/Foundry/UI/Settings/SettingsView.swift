@@ -364,6 +364,13 @@ struct SettingsView: View {
                     )
                     .disabled(state.launchAtLoginAvailable == false)
                     SettingsDivider()
+                    SettingsToggleRow(
+                        title: "Haptic feedback",
+                        subtitle: "Subtle taps for drops, snippet expansion, and celebrations",
+                        isOn: state.hapticsEnabled,
+                        set: state.setHapticsEnabled
+                    )
+                    SettingsDivider()
                     HStack(spacing: 12) {
                         SettingsLabel(title: "Main browser", subtitle: "Used for browser history and open-tab results")
                         Spacer()
@@ -497,6 +504,37 @@ struct SettingsView: View {
                 .padding(.horizontal, 12)
                 .padding(.vertical, 11)
                 SettingsDivider()
+                VStack(alignment: .leading, spacing: 10) {
+                    SettingsLabel(title: "Return key in search", subtitle: "What Return does on a snippet result")
+                    HStack(spacing: 8) {
+                        ForEach(snippetPrimaryActionOptions, id: \.insert) { option in
+                            Button {
+                                state.setSnippetInsertAsPrimary(option.insert)
+                            } label: {
+                                Text(option.label)
+                                    .font(FoundryTheme.body(size: 11.5, weight: .semibold))
+                                    .foregroundStyle(state.snippetExpansion.insertAsPrimary == option.insert ? FoundryTheme.primaryText : FoundryTheme.mutedText)
+                                    .padding(.horizontal, 11)
+                                    .frame(height: 26)
+                                    .background(
+                                        Capsule()
+                                            .fill(state.snippetExpansion.insertAsPrimary == option.insert ? FoundryTheme.accentTint.opacity(0.18) : Color.primary.opacity(0.05))
+                                            .overlay(
+                                                Capsule()
+                                                    .strokeBorder(state.snippetExpansion.insertAsPrimary == option.insert ? FoundryTheme.accentTint.opacity(0.4) : Color.primary.opacity(0.08), lineWidth: 1)
+                                            )
+                                    )
+                            }
+                            .buttonStyle(PressableButtonStyle())
+                            .pointerCursor()
+                            .accessibilityLabel("Return key \(option.label)")
+                            .accessibilityValue(state.snippetExpansion.insertAsPrimary == option.insert ? "Selected" : "")
+                        }
+                    }
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 11)
+                SettingsDivider()
                 ExcludedAppsRow(
                     title: "Excluded apps",
                     bundleIDs: state.snippetExpansion.excludedBundleIdentifiers,
@@ -511,6 +549,10 @@ struct SettingsView: View {
 
     private var snippetDelimiterOptions: [(label: String, delimiter: String)] {
         [("Space", " "), ("Return", "\n"), ("Tab", "\t"), ("Quote", "'"), ("Backtick", "`")]
+    }
+
+    private var snippetPrimaryActionOptions: [(label: String, insert: Bool)] {
+        [("Insert", true), ("Copy", false)]
     }
 
     private var appearanceContent: some View {

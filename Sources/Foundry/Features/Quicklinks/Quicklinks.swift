@@ -8,8 +8,30 @@ struct Quicklink: Codable, Identifiable, Hashable, Sendable {
     var keyword: String = ""
     var openWithBundleID: String?
     var useFavicon: Bool?
+    var isEnabled: Bool = true
 
     var takesArgument: Bool { QuicklinkTemplate.argumentRange(in: link) != nil }
+
+    init(id: String = UUID().uuidString, name: String, link: String, keyword: String = "", openWithBundleID: String? = nil, useFavicon: Bool? = nil, isEnabled: Bool = true) {
+        self.id = id
+        self.name = name
+        self.link = link
+        self.keyword = keyword
+        self.openWithBundleID = openWithBundleID
+        self.useFavicon = useFavicon
+        self.isEnabled = isEnabled
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decodeIfPresent(String.self, forKey: .id) ?? UUID().uuidString
+        name = try container.decode(String.self, forKey: .name)
+        link = try container.decode(String.self, forKey: .link)
+        keyword = try container.decodeIfPresent(String.self, forKey: .keyword) ?? ""
+        openWithBundleID = try container.decodeIfPresent(String.self, forKey: .openWithBundleID)
+        useFavicon = try container.decodeIfPresent(Bool.self, forKey: .useFavicon)
+        isEnabled = try container.decodeIfPresent(Bool.self, forKey: .isEnabled) ?? true
+    }
 }
 
 enum QuicklinkTemplate {
@@ -42,7 +64,9 @@ enum QuicklinkTemplate {
         Quicklink(id: "youtube", name: "Search YouTube", link: "https://www.youtube.com/results?search_query={argument}", keyword: "yt"),
         Quicklink(id: "maps", name: "Search Maps", link: "maps://?q={argument}", keyword: "maps"),
         Quicklink(id: "translate", name: "Google Translate", link: "https://translate.google.com/?sl=auto&text={argument}", keyword: "gt"),
-        Quicklink(id: "search-files", name: "Search Files", link: "foundry://files/{argument}", keyword: "sf")
+        Quicklink(id: "search-files", name: "Search Files", link: "foundry://files/{argument}", keyword: "sf"),
+        Quicklink(id: "duckduckgo", name: "Search DuckDuckGo", link: "https://duckduckgo.com/?q={argument}", keyword: "ddg", isEnabled: false),
+        Quicklink(id: "wikipedia", name: "Search Wikipedia", link: "https://en.wikipedia.org/wiki/Special:Search?search={argument}", keyword: "wiki", isEnabled: false)
     ]
 
     static func importRaycast(_ data: Data) throws -> [Quicklink] {
@@ -127,7 +151,7 @@ final class QuicklinkProvider: CommandProvider, @unchecked Sendable {
         let query = request.query.trimmingCharacters(in: .whitespaces)
         guard query.isEmpty == false else { return [] }
         let create = SearchScoring.match(query: query, title: Self.createCommand.title, subtitle: nil, keywords: ["new quicklink", "add quicklink"], aliases: [], sensitivity: request.sensitivity) != nil ? [Self.createCommand] : []
-        return create + store.load().compactMap { link in
+        return create + store.load().filter(\.isEnabled).compactMap { link in
             if link.takesArgument, let argument = argument(in: query, for: link) {
                 return result(for: link, argument: argument, aliases: request.customAliases["quicklink.\(link.id)"] ?? [])
             }
@@ -141,7 +165,7 @@ final class QuicklinkProvider: CommandProvider, @unchecked Sendable {
 
     func fallbackResults(matching query: String, sensitivity _: SearchSensitivity) async -> [CommandResult] {
         let query = query.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard query.isEmpty == false, let google = store.load().first(where: { $0.id == "google" && $0.takesArgument }) else { return [] }
+        guard query.isEmpty == false, let google = store.load().first(where: { $0.id == "google" && $0.takesArgument && $0.isEnabled }) else { return [] }
         return [result(for: google, argument: query, aliases: [])]
     }
 

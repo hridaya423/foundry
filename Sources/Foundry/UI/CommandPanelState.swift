@@ -63,6 +63,7 @@ final class CommandPanelState {
     var hotkeyError: String? = nil
     var launcherHotkeyFailed = false
     var showMenuBarIcon: Bool
+    var hapticsEnabled: Bool
     var popToRootAfterSeconds: Double
     var windowMode: WindowMode
     var launchAtLoginError: String?
@@ -109,7 +110,7 @@ final class CommandPanelState {
         let state = FileConversionState()
         state.onFirstSuccess = { [weak self] in
             self?.confettiBurstID &+= 1
-            NSHapticFeedbackManager.defaultPerformer.perform(.alignment, performanceTime: .now)
+            self?.performHaptic(.alignment)
         }
         return state
     }()
@@ -228,6 +229,7 @@ final class CommandPanelState {
         self.snippets = SnippetState(store: snippetStore)
         self.isAgentShelfVisible = config.current.showAgentShelf
         self.showMenuBarIcon = config.current.showMenuBarIcon
+        self.hapticsEnabled = config.current.hapticsEnabled
         self.popToRootAfterSeconds = config.current.popToRootAfterSeconds
         self.windowMode = config.current.windowMode
         self.hotkey = config.current.hotkey
@@ -669,6 +671,10 @@ final class CommandPanelState {
         guard mode == .clipboardHistory else { return false }
         let filters = ClipboardHistoryState.KindFilter.allCases
         switch shortcut.key {
+        case "\r" where shortcut.modifiers.contains(.option):
+            guard clipboardHistory.selectedItem != nil else { return false }
+            if directPasteSelectedClipboardItem() == false { clipboardHistory.copySelected() }
+            dismiss()
         case "\r":
             guard clipboardHistory.selectedItem != nil else { return false }
             clipboardHistory.copySelected()
@@ -785,9 +791,15 @@ final class CommandPanelState {
         return choices
     }
 
+    func performHaptic(_ pattern: NSHapticFeedbackManager.FeedbackPattern) {
+        guard hapticsEnabled else { return }
+        NSHapticFeedbackManager.defaultPerformer.perform(pattern, performanceTime: .now)
+    }
+
     func resolveDrop(_ choice: DropChoice) {
         guard let urls = pendingDropURLs else { return }
         pendingDropURLs = nil
+        performHaptic(.levelChange)
         switch choice {
         case .shelf:
             shelfFiles(urls)
@@ -980,7 +992,7 @@ final class CommandPanelState {
         let outcome = await execute(action, commandID: result.id)
         if case .celebrate = action.kind, case .stayOpen = outcome {
             confettiBurstID &+= 1
-            NSHapticFeedbackManager.defaultPerformer.perform(.alignment, performanceTime: .now)
+            performHaptic(.alignment)
         }
         if case .copied = outcome, result.route == .calculator {
             let expression = result.subtitle?.components(separatedBy: " · ").first ?? ""

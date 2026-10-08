@@ -93,7 +93,10 @@ final class QuicklinkTests: XCTestCase {
     func testStoreSeedsDefaultsAndPersistsEdits() throws {
         let url = FileManager.default.temporaryDirectory.appendingPathComponent("quicklinks-\(UUID().uuidString).json")
         defer { try? FileManager.default.removeItem(at: url) }
-        XCTAssertEqual(QuicklinkStore(url: url).load().count, 6)
+        let seeded = QuicklinkStore(url: url).load()
+        XCTAssertEqual(seeded.count, 8)
+        XCTAssertEqual(seeded.filter(\.isEnabled).count, 6, "DuckDuckGo and Wikipedia ship disabled")
+        XCTAssertEqual(seeded.filter { $0.isEnabled == false }.map(\.id).sorted(), ["duckduckgo", "wikipedia"])
         try QuicklinkStore(url: url).save([Quicklink(name: "One", link: "https://one")])
         XCTAssertEqual(QuicklinkStore(url: url).load().map(\.name), ["One"])
     }

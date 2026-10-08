@@ -23,8 +23,8 @@ struct OnboardingView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .id(state.step)
                 .transition(reduceMotion ? .opacity : .asymmetric(
-                    insertion: .opacity.combined(with: .offset(x: 24)),
-                    removal: .opacity.combined(with: .offset(x: -24))
+                    insertion: .opacity.combined(with: .offset(x: 24)).combined(with: .scale(scale: 0.98)),
+                    removal: .opacity.combined(with: .offset(x: -24)).combined(with: .scale(scale: 1.02))
                 ))
 
             footer
@@ -411,13 +411,13 @@ struct OnboardingView: View {
     }
 
     private var footer: some View {
-        HStack(spacing: 14) {
+        HStack(spacing: 8) {
             ForEach(Array(OnboardingStep.allCases.enumerated()), id: \.offset) { index, step in
-                Circle()
+                Capsule()
                     .fill(step == state.step ? FoundryTheme.accentTint : Color.primary.opacity(0.18))
-                    .frame(width: 6, height: 6)
-                    .scaleEffect(step == state.step ? 1.3 : 1)
-                    .animation(reduceMotion ? nil : .spring(response: 0.3, dampingFraction: 0.6), value: state.step)
+                    .frame(width: step == state.step ? 20 : 6, height: 6)
+                    .animation(reduceMotion ? nil : .spring(response: 0.34, dampingFraction: 0.72), value: state.step)
+                    .accessibilityLabel("Step \(index + 1) of \(OnboardingStep.allCases.count)\(step == state.step ? ", current" : "")")
             }
 
             Spacer()

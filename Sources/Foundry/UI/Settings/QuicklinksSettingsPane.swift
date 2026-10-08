@@ -40,6 +40,8 @@ struct QuicklinksSettingsPane: View {
                         .textFieldStyle(.roundedBorder)
 
                         HStack(spacing: 10) {
+                            Toggle("Enabled", isOn: $link.isEnabled)
+                                .toggleStyle(.checkbox)
                             Toggle("Site icon", isOn: Binding(
                                 get: { link.useFavicon != false },
                                 set: { link.useFavicon = $0 ? nil : false }
@@ -64,6 +66,7 @@ struct QuicklinksSettingsPane: View {
                     .controlSize(.small)
                     .padding(.horizontal, 12)
                     .padding(.vertical, 8)
+                    .opacity(link.isEnabled ? 1 : 0.55)
                     if link.id != links.last?.id { SettingsDivider() }
                 }
             }

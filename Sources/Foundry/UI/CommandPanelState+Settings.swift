@@ -49,6 +49,12 @@ extension CommandPanelState {
         }
     }
 
+    func setHapticsEnabled(_ enabled: Bool) {
+        if applySetting(\.hapticsEnabled, enabled, save: configService.updateHapticsEnabled) {
+            onSnippetExpansionChanged?()
+        }
+    }
+
     func setMenuBarIconVisible(_ visible: Bool) {
         if applySetting(\.showMenuBarIcon, visible, save: configService.updateMenuBarIconVisibility) {
             onMenuBarIconVisibilityChanged?(visible)
@@ -203,6 +209,12 @@ extension CommandPanelState {
         } else {
             next.delimiters.removeAll { affected.contains($0) }
         }
+        updateSnippetExpansion(next)
+    }
+
+    func setSnippetInsertAsPrimary(_ insert: Bool) {
+        var next = snippetExpansion
+        next.insertAsPrimary = insert
         updateSnippetExpansion(next)
     }
 

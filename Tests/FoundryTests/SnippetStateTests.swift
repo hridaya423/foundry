@@ -1,4 +1,5 @@
 import XCTest
+import FoundryDomain
 @testable import Foundry
 
 @MainActor
@@ -65,6 +66,19 @@ final class SnippetStateTests: XCTestCase {
         XCTAssertTrue(csv.hasPrefix("name,keyword,text,uses,last_used\n"))
         XCTAssertTrue(csv.contains("\"T,with\"\"quotes\",\"tt\",\"multi\nline\",\"4\""), "CSV fields are quoted and escaped")
         XCTAssertTrue(csv.hasSuffix("\n"))
+    }
+
+    func testRootSearchPrimaryActionFollowsPreference() async {
+        let provider = LibraryProvider(store: InMemorySnippetStore(snippets: [
+            StoredSnippet(id: "a", title: "Addr", content: "123 Main"),
+        ]))
+
+        let insertFirst = await provider.search(CommandSearchRequest(query: "Addr", snippetInsertAsPrimary: true))
+        XCTAssertEqual(insertFirst.first?.primaryAction.kind, .pasteSnippet(id: "a"))
+
+        let copyFirst = await provider.search(CommandSearchRequest(query: "Addr", snippetInsertAsPrimary: false))
+        XCTAssertEqual(copyFirst.first?.primaryAction.kind, .copySnippet(id: "a"))
+        XCTAssertEqual(copyFirst.first?.secondaryActions.first?.kind, .pasteSnippet(id: "a"))
     }
 }
 

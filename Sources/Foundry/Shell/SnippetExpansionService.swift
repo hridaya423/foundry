@@ -41,10 +41,13 @@ final class SnippetExpansionService: @unchecked Sendable {
 
     var isRunning: Bool { eventTap != nil || testEventTapRunning }
 
-    func configure(isEnabled: Bool, excludedBundleIdentifiers: [String], delimiters: [String] = SnippetExpansionConfig.defaultDelimiters) {
+    private var hapticsEnabled = true
+
+    func configure(isEnabled: Bool, excludedBundleIdentifiers: [String], delimiters: [String] = SnippetExpansionConfig.defaultDelimiters, hapticsEnabled: Bool = true) {
         lastError = nil
         onStatusChanged?(nil)
         activeDelimiters = Set(delimiters)
+        self.hapticsEnabled = hapticsEnabled
         engine = SnippetExpansionEngine(
             snippets: snippetStore.load().filter { SnippetRenderer.argumentNames(in: $0.content).isEmpty },
             excludedBundleIdentifiers: excludedBundleIdentifiers,
@@ -139,12 +142,16 @@ final class SnippetExpansionService: @unchecked Sendable {
         guard case let .expanded(expansion) = engine.receive(input) else { return Unmanaged.passUnretained(event) }
         let rendered = SnippetRenderer.render(expansion.renderedContent)
         let directPaste = self.directPaste
+        let hapticsEnabled = self.hapticsEnabled
         Task { @MainActor in
             directPaste.captureTarget()
             do {
                 try directPaste.stage(.text(rendered.text + expansion.delimiter), cursorOffset: rendered.cursorOffsetFromEnd)
                 for _ in 0..<expansion.deleteCount { Self.sendBackspace() }
                 try await directPaste.completePendingPaste()
+                if hapticsEnabled {
+                    NSHapticFeedbackManager.defaultPerformer.perform(.alignment, performanceTime: .now)
+                }
             } catch {
                 self.lastError = Self.message(for: error)
                 self.onStatusChanged?(self.lastError)

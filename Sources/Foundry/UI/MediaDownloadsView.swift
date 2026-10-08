@@ -1,5 +1,6 @@
 import AppKit
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct MediaDownloadsView: View {
     var manager: MediaDownloadManager
@@ -14,6 +15,7 @@ struct MediaDownloadsView: View {
     @State private var notice: MediaDownloadItem?
     @State private var noticedCompletions: Set<UUID> = []
     @State private var noticeDismissTask: Task<Void, Never>?
+    @State private var isDropTargeted = false
     @FocusState private var composerFocused: Bool
 
     private var totalSpeedText: String? {
@@ -24,6 +26,10 @@ struct MediaDownloadsView: View {
 
     private var activeItems: [MediaDownloadItem] {
         manager.items.filter { $0.status == .active }
+    }
+
+    private var linkCount: Int {
+        links.split(whereSeparator: \.isWhitespace).count
     }
 
     private var recentItems: [MediaDownloadItem] {
@@ -48,14 +54,22 @@ struct MediaDownloadsView: View {
             }
         }
         .background {
-            if let selectedID, manager.items.first(where: { $0.id == selectedID })?.status != .active {
-                Button("") {
-                    manager.remove(id: selectedID)
-                    self.selectedID = nil
+            ZStack {
+                if let selectedID, manager.items.first(where: { $0.id == selectedID })?.status != .active {
+                    Button("") {
+                        manager.remove(id: selectedID)
+                        self.selectedID = nil
+                    }
+                    .keyboardShortcut(.delete, modifiers: [])
+                    .hidden()
+                    .accessibilityLabel("Remove selected download")
                 }
-                .keyboardShortcut(.delete, modifiers: [])
-                .hidden()
-                .accessibilityLabel("Remove selected download")
+                if composerFocused == false {
+                    Button("") { pasteLinks() }
+                        .keyboardShortcut("v", modifiers: .command)
+                        .hidden()
+                        .accessibilityLabel("Paste links")
+                }
             }
         }
         .onAppear {
@@ -184,8 +198,11 @@ struct MediaDownloadsView: View {
             .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .stroke(composerFocused ? FoundryTheme.accentTint.opacity(0.48) : Color.primary.opacity(0.09), lineWidth: 1)
+                    .stroke(composerFocused || isDropTargeted ? FoundryTheme.accentTint.opacity(0.48) : Color.primary.opacity(0.09), lineWidth: 1)
             )
+            .onDrop(of: [.url, .fileURL, .plainText], isTargeted: $isDropTargeted) { providers in
+                receiveDroppedLinks(providers)
+            }
 
             if let validationMessage {
                 Label(validationMessage, systemImage: "exclamationmark.circle.fill")
@@ -200,6 +217,16 @@ struct MediaDownloadsView: View {
                     Text("↵ to download")
                         .font(FoundryTheme.mono(size: 10, weight: .medium))
                     Spacer()
+                    if linkCount > 1 {
+                        Text("\(linkCount) links")
+                            .font(FoundryTheme.body(size: 10, weight: .semibold))
+                            .foregroundStyle(FoundryTheme.accentTint)
+                            .padding(.horizontal, 7)
+                            .padding(.vertical, 2)
+                            .background(FoundryTheme.accentTint.opacity(0.14))
+                            .clipShape(Capsule())
+                            .contentTransition(.numericText())
+                    }
                     if manager.activeCount > 0 {
                         Text("\(manager.activeCount) downloading")
                             .foregroundStyle(FoundryTheme.accentTint)
@@ -354,6 +381,34 @@ struct MediaDownloadsView: View {
             return
         }
         links = pasted
+        composerFocused = true
+    }
+
+    private func receiveDroppedLinks(_ providers: [NSItemProvider]) -> Bool {
+        var handled = false
+        for provider in providers {
+            if provider.hasItemConformingToTypeIdentifier(UTType.url.identifier) {
+                handled = true
+                _ = provider.loadObject(ofClass: URL.self) { url, _ in
+                    guard let url else { return }
+                    Task { @MainActor in appendDroppedLink(url.absoluteString) }
+                }
+            } else if provider.hasItemConformingToTypeIdentifier(UTType.plainText.identifier) {
+                handled = true
+                provider.loadItem(forTypeIdentifier: UTType.plainText.identifier, options: nil) { item, _ in
+                    guard let text = item as? String else { return }
+                    Task { @MainActor in appendDroppedLink(text) }
+                }
+            }
+        }
+        return handled
+    }
+
+    private func appendDroppedLink(_ text: String) {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.isEmpty == false else { return }
+        links = links.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? trimmed : links + "\n" + trimmed
+        validationMessage = nil
         composerFocused = true
     }
 

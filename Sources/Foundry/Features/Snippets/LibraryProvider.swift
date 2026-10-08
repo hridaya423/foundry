@@ -30,15 +30,18 @@ final class LibraryProvider: CommandProvider {
             }
             .prefix(32)
             .map { snippet in
+                let insertAction = CommandAction(id: "snippet.insert.\(snippet.id)", title: "Insert Snippet", kind: .pasteSnippet(id: snippet.id))
+                let copyAction = CommandAction(id: "snippet.copy.\(snippet.id)", title: "Copy Snippet", kind: .copySnippet(id: snippet.id))
+                let insertPrimary = request.snippetInsertAsPrimary
                 return CommandResult(
                     id: "snippet.\(snippet.id)",
                     title: snippet.title,
                     subtitle: ([snippet.keyword.isEmpty ? nil : snippet.keyword, snippet.tags.isEmpty ? nil : snippet.tags.map { "#\($0)" }.joined(separator: " "), snippet.content.replacingOccurrences(of: "\n", with: " ")].compactMap { $0 }).joined(separator: " • "),
                     icon: CommandIcon(fallback: "SN", systemName: "curlybraces"),
                     searchKeywords: [snippet.keyword] + snippet.tags,
-                    primaryAction: CommandAction(id: "snippet.insert.\(snippet.id)", title: "Insert Snippet", kind: .pasteSnippet(id: snippet.id)),
+                    primaryAction: insertPrimary ? insertAction : copyAction,
                     secondaryActions: [
-                        CommandAction(id: "snippet.copy.\(snippet.id)", title: "Copy Snippet", kind: .copySnippet(id: snippet.id)),
+                        insertPrimary ? copyAction : insertAction,
                         CommandAction(id: "snippet.open.\(snippet.id)", title: "Open Snippets", kind: .openSnippets),
                         CommandAction(id: "snippet.delete.\(snippet.id)", title: "Delete Snippet", kind: .deleteSnippet(id: snippet.id))
                     ]

@@ -20,14 +20,17 @@ public struct CommandSearchRequest: Sendable {
     public let query: String
     public let customAliases: [String: [String]]
     public let sensitivity: SearchSensitivity
+    public let snippetInsertAsPrimary: Bool
 
     public init(
         query: String,
         customAliases: [String: [String]] = [:],
         sensitivity: SearchSensitivity = .medium,
+        snippetInsertAsPrimary: Bool = true,
     ) {
         self.query = query
         self.customAliases = customAliases
         self.sensitivity = sensitivity
+        self.snippetInsertAsPrimary = snippetInsertAsPrimary
     }
 }

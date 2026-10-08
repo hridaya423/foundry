@@ -15,6 +15,7 @@ struct FoundryConfig: Codable, Equatable {
     var themeIntensity: Double = 0.72
     var showAgentShelf: Bool = true
     var showMenuBarIcon: Bool = true
+    var hapticsEnabled: Bool = true
     var popToRootAfterSeconds: Double = 90
     var windowMode: WindowMode = .standard
     var widgets: WidgetBoardConfig = .default
@@ -25,12 +26,13 @@ struct FoundryConfig: Codable, Equatable {
     var clipboard: ClipboardConfig = .default
     var snippetExpansion: SnippetExpansionConfig = .default
 
-    init(hotkey: FoundryHotkey = .optionSpace, themeIntensity: Double = 0.72, showAgentShelf: Bool = true, showMenuBarIcon: Bool = true, popToRootAfterSeconds: Double = 90, windowMode: WindowMode = .standard, widgets: WidgetBoardConfig = .default, ai: AIConfig = .default, searchSensitivity: SearchSensitivity = .medium, commandPreferences: [String: CommandPreference] = [:], providerEnabled: [String: Bool] = [:], clipboard: ClipboardConfig = .default, snippetExpansion: SnippetExpansionConfig = .default) {
+    init(hotkey: FoundryHotkey = .optionSpace, themeIntensity: Double = 0.72, showAgentShelf: Bool = true, showMenuBarIcon: Bool = true, hapticsEnabled: Bool = true, popToRootAfterSeconds: Double = 90, windowMode: WindowMode = .standard, widgets: WidgetBoardConfig = .default, ai: AIConfig = .default, searchSensitivity: SearchSensitivity = .medium, commandPreferences: [String: CommandPreference] = [:], providerEnabled: [String: Bool] = [:], clipboard: ClipboardConfig = .default, snippetExpansion: SnippetExpansionConfig = .default) {
         schemaVersion = Self.currentSchemaVersion
         self.hotkey = hotkey
         self.themeIntensity = themeIntensity
         self.showAgentShelf = showAgentShelf
         self.showMenuBarIcon = showMenuBarIcon
+        self.hapticsEnabled = hapticsEnabled
         self.popToRootAfterSeconds = popToRootAfterSeconds
         self.windowMode = windowMode
         self.widgets = widgets
@@ -60,6 +62,7 @@ struct FoundryConfig: Codable, Equatable {
         themeIntensity = try container.decodeIfPresent(Double.self, forKey: .themeIntensity) ?? 0.72
         showAgentShelf = try container.decodeIfPresent(Bool.self, forKey: .showAgentShelf) ?? true
         showMenuBarIcon = try container.decodeIfPresent(Bool.self, forKey: .showMenuBarIcon) ?? true
+        hapticsEnabled = try container.decodeIfPresent(Bool.self, forKey: .hapticsEnabled) ?? true
         popToRootAfterSeconds = try container.decodeIfPresent(Double.self, forKey: .popToRootAfterSeconds) ?? 90
         windowMode = try container.decodeIfPresent(WindowMode.self, forKey: .windowMode) ?? .standard
         widgets = try container.decodeIfPresent(WidgetBoardConfig.self, forKey: .widgets) ?? .default
@@ -137,6 +140,7 @@ struct SnippetExpansionConfig: Codable, Equatable {
     var isEnabled = false
     var excludedBundleIdentifiers: [String] = []
     var delimiters: [String] = Self.defaultDelimiters
+    var insertAsPrimary = true
 
     static let `default` = SnippetExpansionConfig()
     static let defaultDelimiters: [String] = [" ", "\n", "\r", "\t", "'", "\"", "`"]
@@ -160,6 +164,7 @@ struct SnippetExpansionConfig: Codable, Equatable {
         isEnabled = try container.decodeIfPresent(Bool.self, forKey: .isEnabled) ?? false
         excludedBundleIdentifiers = try container.decodeIfPresent([String].self, forKey: .excludedBundleIdentifiers) ?? []
         delimiters = try container.decodeIfPresent([String].self, forKey: .delimiters) ?? Self.defaultDelimiters
+        insertAsPrimary = try container.decodeIfPresent(Bool.self, forKey: .insertAsPrimary) ?? true
         self = normalized
     }
 }
@@ -324,6 +329,10 @@ final class ConfigService: @unchecked Sendable {
 
     func updateMenuBarIconVisibility(_ isVisible: Bool) throws {
         try update { $0.showMenuBarIcon = isVisible }
+    }
+
+    func updateHapticsEnabled(_ enabled: Bool) throws {
+        try update { $0.hapticsEnabled = enabled }
     }
 
     func updateHotkey(_ hotkey: FoundryHotkey) throws {

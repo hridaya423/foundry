@@ -481,6 +481,13 @@ struct CommandPanelView: View {
             } preview: {
                 FilePreview(path: String(id.dropFirst("file.".count)))
             }
+        } else if let id = state.selectedResult?.id, id.hasPrefix("snippet."),
+                  let snippet = state.snippets.items.first(where: { "snippet.\($0.id)" == id }) {
+            SplitPreviewLayout {
+                resultsSurface
+            } preview: {
+                SnippetPreview(snippet: snippet)
+            }
         } else {
             resultsSurface
         }

@@ -16,6 +16,7 @@ final class CommandProviderScheduler: @unchecked Sendable {
         providers: [CommandProvider],
         aliases: [String: [String]],
         sensitivity: SearchSensitivity,
+        snippetInsertAsPrimary: Bool = true,
         timeout: Duration
     ) async -> ([RankCandidate], [ProviderSearchTiming]) {
         let aliasKey = aliases
@@ -35,6 +36,7 @@ final class CommandProviderScheduler: @unchecked Sendable {
                         query: query,
                         aliases: aliases,
                         sensitivity: sensitivity,
+                        snippetInsertAsPrimary: snippetInsertAsPrimary,
                         aliasKey: aliasKey,
                         deadline: deadline
                     )
@@ -79,15 +81,17 @@ final class CommandProviderScheduler: @unchecked Sendable {
         query: String,
         aliases: [String: [String]],
         sensitivity: SearchSensitivity,
+        snippetInsertAsPrimary: Bool,
         aliasKey: String,
         deadline: ContinuousClock.Instant
     ) async -> ProviderOperationResult<[CommandResult]> {
-        let operationKey = "search:\(query)|\(sensitivity.rawValue)|\(aliasKey)"
+        let operationKey = "search:\(query)|\(sensitivity.rawValue)|\(snippetInsertAsPrimary)|\(aliasKey)"
         return await race(providerID: provider.id, operationKey: operationKey, {
             try await provider.search(CommandSearchRequest(
                 query: query,
                 customAliases: aliases,
-                sensitivity: sensitivity
+                sensitivity: sensitivity,
+                snippetInsertAsPrimary: snippetInsertAsPrimary
             ))
         }, until: deadline)
     }
