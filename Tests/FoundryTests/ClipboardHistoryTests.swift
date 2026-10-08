@@ -65,6 +65,38 @@ final class ClipboardHistoryTests: XCTestCase {
     }
 
     @MainActor
+    func testCopyMergedWithPreviousConcatenatesNewerThenSelected() {
+        let pasteboard = TestPasteboardClient()
+        let state = ClipboardHistoryState(pasteboard: pasteboard, persistence: nil)
+        for payload in [ClipboardPayload.text("older"), .text("newest")] {
+            pasteboard.snapshotValue = PasteboardSnapshot(types: [.string], payload: payload, sourceBundleIdentifier: nil)
+            pasteboard.changeCountValue += 1
+            state.captureIfChanged()
+        }
+        // items are newest-first; select the older entry, merge with the newer one above it
+        let olderID = state.items.last!.id
+        state.select(id: olderID)
+        XCTAssertTrue(state.copyMergedWithPreviousSelected())
+        guard case let .text(merged) = pasteboard.written.last else {
+            XCTFail("expected a merged text payload")
+            return
+        }
+        XCTAssertEqual(merged, "newest\n\nolder")
+    }
+
+    @MainActor
+    func testCopyMergedWithPreviousFailsForNonTextAndTopRow() {
+        let pasteboard = TestPasteboardClient()
+        let state = ClipboardHistoryState(pasteboard: pasteboard, persistence: nil)
+        pasteboard.snapshotValue = PasteboardSnapshot(types: [.string], payload: .text("only"), sourceBundleIdentifier: nil)
+        pasteboard.changeCountValue += 1
+        state.captureIfChanged()
+        state.select(id: state.items.first!.id)
+        XCTAssertFalse(state.copyMergedWithPreviousSelected(), "top row has no previous entry to merge with")
+        XCTAssertTrue(pasteboard.written.isEmpty)
+    }
+
+    @MainActor
     func testKindFiltersFullTextSearchAndPinnedFirst() {
         let pasteboard = TestPasteboardClient()
         let state = ClipboardHistoryState(pasteboard: pasteboard, persistence: nil)
@@ -189,9 +221,10 @@ final class ClipboardHistoryTests: XCTestCase {
 private final class TestPasteboardClient: PasteboardClient, @unchecked Sendable {
     var changeCountValue = 0
     var snapshotValue: PasteboardSnapshot?
+    var written: [ClipboardPayload] = []
     var changeCount: Int { changeCountValue }
     func snapshot() -> PasteboardSnapshot? { snapshotValue }
-    func write(_ payload: ClipboardPayload) {}
+    func write(_ payload: ClipboardPayload) { written.append(payload) }
 }
 
 private final class RecordingClipboardPersistence: @unchecked Sendable, ClipboardHistoryPersisting {

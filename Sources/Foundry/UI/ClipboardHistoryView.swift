@@ -95,7 +95,8 @@ struct ClipboardHistoryView: View {
                             copy: { state.copy(item) },
                             remove: { state.select(id: item.id); state.removeSelected() },
                             paste: { state.select(id: item.id); _ = directPaste() },
-                            addToShelf: { state.select(id: item.id); state.addSelectedFiles(to: fileShelf) }
+                            addToShelf: { state.select(id: item.id); state.addSelectedFiles(to: fileShelf) },
+                            mergeWithPrevious: { state.select(id: item.id); state.copyMergedWithPreviousSelected() }
                         )
                     }
                 }
@@ -165,6 +166,7 @@ private struct ClipboardPreviewPane: View {
     let remove: () -> Void
     let paste: () -> Void
     let addToShelf: () -> Void
+    let mergeWithPrevious: () -> Void
 
     @AppStorage("clipboard.preview.monospace") private var monospace = false
 
@@ -180,7 +182,14 @@ private struct ClipboardPreviewPane: View {
         rows.append(("Copied", PreviewMetadata.date(item.createdAt)))
         switch item.payload {
         case let .text(value): rows.append(("Characters", value.count.formatted()))
-        case let .image(data): rows.append(("Size", PreviewMetadata.size(data.count)))
+        case let .image(data):
+            rows.append(("Size", PreviewMetadata.size(data.count)))
+            if let source = CGImageSourceCreateWithData(data as CFData, nil),
+               let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
+               let width = properties[kCGImagePropertyPixelWidth] as? Int,
+               let height = properties[kCGImagePropertyPixelHeight] as? Int {
+                rows.append(("Dimensions", "\(width) × \(height)"))
+            }
         case let .files(urls):
             if urls.count == 1, let url = urls.first {
                 rows.append(("Where", (url.deletingLastPathComponent().path as NSString).abbreviatingWithTildeInPath))
@@ -206,6 +215,7 @@ private struct ClipboardPreviewPane: View {
                 }
                 if case .text = item.payload {
                     ClipboardCardButton(symbol: "doc.plaintext", label: "Paste as plain text", action: paste)
+                    ClipboardCardButton(symbol: "text.append", label: "Copy merged with previous", action: mergeWithPrevious)
                 } else {
                     ClipboardCardButton(symbol: "text.insert", label: "Paste into originating app", action: paste)
                 }

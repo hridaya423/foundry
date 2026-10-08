@@ -51,13 +51,16 @@ public struct FileConversionTarget: Identifiable, Hashable, Sendable {
 /// Which `ConversionOptions` fields actually affect this target's output —
 /// drives which controls the UI shows.
 public enum ConversionOptionKind: Hashable, Sendable, CaseIterable {
-    case quality, maxPixelSize, dpiAndPages, audioBitrate
+    case quality, maxPixelSize, dpiAndPages, audioBitrate, stripMetadata
 }
 
 extension FileConversionTarget {
     public var applicableOptions: Set<ConversionOptionKind> {
         var kinds = Set<ConversionOptionKind>()
         if FileConversionService.lossyImageExts.contains(outputExtension) {
+            kinds.insert(.quality)
+        }
+        if ConversionGraph.videoExts.contains(outputExtension), route.engines.contains(.ffmpeg) {
             kinds.insert(.quality)
         }
         let rasterWrites = ConversionGraph.imageWriteExts.union(ConversionGraph.magickWriteExts).subtracting(["pdf"])
@@ -70,6 +73,18 @@ extension FileConversionTarget {
         }
         if ConversionGraph.audioExts.contains(outputExtension), route.engines.contains(.ffmpeg) {
             kinds.insert(.audioBitrate)
+        }
+        // Metadata stripping only where the producing engine honors it:
+        // ImageIO re-encodes pixels (drops EXIF/XMP), ImageMagick gets -strip,
+        // ffmpeg gets -map_metadata -1, PDFKit clears document attributes —
+        // but only for pdf output, since its raster pages carry no metadata.
+        switch route.producingEngine {
+        case .imageIO, .imageMagick, .ffmpeg:
+            kinds.insert(.stripMetadata)
+        case .pdfKit where outputExtension == "pdf":
+            kinds.insert(.stripMetadata)
+        default:
+            break
         }
         return kinds
     }
@@ -227,7 +242,7 @@ public enum FileConversionService {
                 return .success(destination)
             }
 
-            let destination = uniqueDestination(for: sourceURL, ext: target.outputExtension, in: outputFolderURL)
+            let destination = uniqueDestination(for: sourceURL, ext: target.outputExtension, in: outputFolderURL, options: options)
             let artifactStore = ArtifactStore()
             let staged = try artifactStore.stage(for: destination)
             defer { artifactStore.discard(staged) }
@@ -276,7 +291,12 @@ public enum FileConversionService {
         case .imageIO: try convertImageIO(input: input, output: output, ext: edge.output, options: options)
         case .textutil: try await run("/usr/bin/textutil", ["-convert", edge.output, "-output", output.path, input.path])
         case .avFoundation: try await convertAVFoundation(input: input, output: output, ext: edge.output, options: options)
-        case .pdfKit: try convertPDFToImage(input: input, output: output, ext: edge.output, options: options)
+        case .pdfKit:
+            switch edge.output {
+            case "txt": try convertPDFToText(input: input, output: output)
+            case "pdf": try convertPDFPages(input: input, output: output, options: options)
+            default: try convertPDFToImage(input: input, output: output, ext: edge.output, options: options)
+            }
         case .plutil: try await run("/usr/bin/plutil", ["-convert", edge.output == "json" ? "json" : "xml1", "-o", output.path, input.path])
         case .structuredData: try convertStructured(input: input, output: output, from: edge.input, to: edge.output)
         case .archive: try await convertArchive(input: input, output: output, ext: edge.output)
@@ -304,7 +324,15 @@ public enum FileConversionService {
         if let maxPixel = options.maxPixelSize {
             props[kCGImageDestinationImageMaxPixelSize] = maxPixel
         }
-        CGImageDestinationAddImageFromSource(destination, source, 0, props as CFDictionary)
+        if options.stripMetadata {
+            // Re-encode pixels only — EXIF/XMP/GPS data never reaches the output.
+            guard let image = CGImageSourceCreateImageAtIndex(source, 0, nil) else {
+                throw FileConversionError.unavailable("Could not read image")
+            }
+            CGImageDestinationAddImage(destination, image, props as CFDictionary)
+        } else {
+            CGImageDestinationAddImageFromSource(destination, source, 0, props as CFDictionary)
+        }
         guard CGImageDestinationFinalize(destination) else {
             throw FileConversionError.unavailable("Image conversion failed")
         }
@@ -438,6 +466,82 @@ public enum FileConversionService {
         }
         return resolved.isEmpty ? Array(0..<cap) : resolved
     }
+
+    /// PDFKit edge — extracts text with `PDFDocument.string`.
+    private static func convertPDFToText(input: URL, output: URL) throws {
+        guard let document = PDFDocument(url: input), let text = document.string else {
+            throw FileConversionError.unavailable("Could not read text from PDF")
+        }
+        try text.write(to: output, atomically: true, encoding: .utf8)
+    }
+
+    /// PDFKit edge — writes a subset of pages (`options.pages`, e.g. "1-3") as a
+    /// new PDF; `stripMetadata` clears document attributes.
+    private static func convertPDFPages(input: URL, output: URL, options: ConversionOptions) throws {
+        guard let document = PDFDocument(url: input), document.pageCount > 0 else {
+            throw FileConversionError.unavailable("Could not open PDF")
+        }
+        let indexes = parsePageSelection(options.pages, pageCount: document.pageCount)
+        let reduced = PDFDocument()
+        for (position, pageIndex) in indexes.enumerated() {
+            guard let page = document.page(at: pageIndex) else { continue }
+            reduced.insert(page, at: position)
+        }
+        guard reduced.pageCount > 0 else {
+            throw FileConversionError.unavailable("No pages selected")
+        }
+        if options.stripMetadata { reduced.documentAttributes = [:] }
+        guard reduced.write(to: output) else {
+            throw FileConversionError.unavailable("Could not write PDF")
+        }
+    }
+
+    /// Combines several sources into one PDF — PDF pages and/or image files
+    /// (each image becomes one page at native size). Used when multiple
+    /// sources share the pdf target.
+    public static func mergeToPDF(sources: [URL], into output: URL, options: ConversionOptions) async throws {
+        let merged = PDFDocument()
+        var position = 0
+        for source in sources {
+            try Task.checkCancellation()
+            let ext = ConversionGraph.normalizedExtension(of: source)
+            if ext == "pdf" {
+                guard let document = PDFDocument(url: source) else {
+                    throw FileConversionError.unavailable("Could not open \(source.lastPathComponent)")
+                }
+                for pageIndex in parsePageSelection(options.pages, pageCount: document.pageCount) {
+                    guard let page = document.page(at: pageIndex) else { continue }
+                    merged.insert(page, at: position)
+                    position += 1
+                }
+            } else {
+                guard let imageSource = CGImageSourceCreateWithURL(source as CFURL, nil),
+                      let image = CGImageSourceCreateImageAtIndex(imageSource, 0, nil) else {
+                    throw FileConversionError.unavailable("Could not read \(source.lastPathComponent)")
+                }
+                guard let page = PDFPage(image: NSImage(cgImage: image, size: .zero)) else { continue }
+                merged.insert(page, at: position)
+                position += 1
+            }
+        }
+        guard merged.pageCount > 0 else {
+            throw FileConversionError.unavailable("No pages to merge")
+        }
+        if options.stripMetadata { merged.documentAttributes = [:] }
+        guard merged.write(to: output) else {
+            throw FileConversionError.unavailable("Could not write merged PDF")
+        }
+    }
+
+    /// Whether several sources should combine into one pdf rather than convert
+    /// per-file: all pdfs/images sharing the pdf target.
+    public static func shouldMergeForPDFTarget(sources: [URL], target: FileConversionTarget) -> Bool {
+        guard target.outputExtension == "pdf", sources.count > 1 else { return false }
+        let mergeable = Set(["pdf"]).union(imageReadExtsForMerge)
+        return sources.allSatisfy { mergeable.contains(ConversionGraph.normalizedExtension(of: $0)) }
+    }
+
+    private static let imageReadExtsForMerge = ConversionGraph.imageReadExts
 
     /// CSV/TSV ↔ JSON, implemented in Foundation (no dependency).
     private static func convertStructured(input: URL, output: URL, from: String, to: String) throws {
@@ -615,6 +719,11 @@ public enum FileConversionService {
         if let kbps = options.audioBitrateKbps, ConversionGraph.audioExts.contains(ext) {
             args += ["-b:a", "\(kbps)k"]
         }
+        if let quality = options.quality, ConversionGraph.videoExts.contains(ext) {
+            // 1.0 → CRF 18 (visually lossless), 0 → CRF 28 (small).
+            args += ["-crf", String(Int((28.0 - quality * 10.0).rounded()))]
+        }
+        if options.stripMetadata { args += ["-map_metadata", "-1"] }
         if ext == "mp4" { args += ["-movflags", "+faststart"] }
         args.append(output.path)
         try await run(ffmpeg, args)
@@ -624,6 +733,7 @@ public enum FileConversionService {
         let magick = try await locateExecutable(.imageMagick)
         var args = [input.path]
         if let maxPixel = options.maxPixelSize { args += ["-resize", "\(maxPixel)x\(maxPixel)>"] }
+        if options.stripMetadata { args.append("-strip") }
         if let quality = options.quality, lossyImageExts.contains(ext) {
             args += ["-quality", String(Int((quality * 100).rounded()))]
         }
@@ -691,15 +801,43 @@ public enum FileConversionService {
         }
     }
 
-    private static func uniqueDestination(for sourceURL: URL, ext: String, in folder: URL) -> URL {
-        let original = sourceURL.deletingPathExtensionIfCompound().lastPathComponent
+    /// The collision-free output URL a conversion would write — also used by
+    /// the merge path in FileConversionState.
+    public static func destination(for sourceURL: URL, ext: String, in folder: URL, options: ConversionOptions = .standard) -> URL {
+        uniqueDestination(for: sourceURL, ext: ext, in: folder, options: options)
+    }
+
+    private static func uniqueDestination(for sourceURL: URL, ext: String, in folder: URL, options: ConversionOptions) -> URL {
+        let stem = renderNameTemplate(options.nameTemplate, source: sourceURL, ext: ext)
         var index = 1
         while true {
             let suffix = index == 1 ? "" : " \(index)"
-            let candidate = folder.appendingPathComponent("\(original)\(suffix).\(ext)")
+            let candidate = folder.appendingPathComponent("\(stem)\(suffix).\(ext)")
             if FileManager.default.fileExists(atPath: candidate.path) == false { return candidate }
             index += 1
         }
+    }
+
+    private static let nameStampFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.dateFormat = "yyyyMMdd-HHmmss"
+        return formatter
+    }()
+
+    /// Renders `options.nameTemplate` — tokens `{name}`, `{date}`, `{ext}`.
+    /// An empty or nameless template falls back to the source basename.
+    static func renderNameTemplate(_ template: String?, source: URL, ext: String, now: Date = Date()) -> String {
+        let original = source.deletingPathExtensionIfCompound().lastPathComponent
+        guard let template, template.contains("{name}") else { return original }
+        let stamp = nameStampFormatter.string(from: now)
+        var rendered = template
+            .replacingOccurrences(of: "{name}", with: original)
+            .replacingOccurrences(of: "{date}", with: stamp)
+            .replacingOccurrences(of: "{ext}", with: ext)
+        rendered = rendered.replacingOccurrences(of: #"[\\/:*?"<>|]"#, with: "-", options: .regularExpression)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        return rendered.isEmpty ? original : rendered
     }
 
     static func title(for ext: String) -> String {
@@ -790,44 +928,5 @@ private extension URL {
             return deletingPathExtension().deletingPathExtension()
         }
         return deletingPathExtension()
-    }
-}
-
-/// Lightweight Vision helpers shared by the OCR / barcode commands.
-public enum VisionText {
-    public static func recognizeText(in image: CGImage) async throws -> [String] {
-        try await Task.detached(priority: .userInitiated) {
-            let request = VNRecognizeTextRequest()
-            request.recognitionLevel = .accurate
-            request.usesLanguageCorrection = true
-            let handler = VNImageRequestHandler(cgImage: image, options: [:])
-            try handler.perform([request])
-            return (request.results ?? []).compactMap { $0.topCandidates(1).first?.string }
-        }.value
-    }
-
-    public static func recognizeText(at url: URL) async throws -> [String] {
-        guard let source = CGImageSourceCreateWithURL(url as CFURL, nil),
-              let image = CGImageSourceCreateImageAtIndex(source, 0, nil) else {
-            throw FileConversionError.unavailable("Could not read image")
-        }
-        return try await recognizeText(in: image)
-    }
-
-    public static func readBarcodes(in image: CGImage) async throws -> [String] {
-        try await Task.detached(priority: .userInitiated) {
-            let request = VNDetectBarcodesRequest()
-            let handler = VNImageRequestHandler(cgImage: image, options: [:])
-            try handler.perform([request])
-            return (request.results ?? []).compactMap { $0.payloadStringValue }
-        }.value
-    }
-
-    public static func readBarcodes(at url: URL) async throws -> [String] {
-        guard let source = CGImageSourceCreateWithURL(url as CFURL, nil),
-              let image = CGImageSourceCreateImageAtIndex(source, 0, nil) else {
-            throw FileConversionError.unavailable("Could not read image")
-        }
-        return try await readBarcodes(in: image)
     }
 }

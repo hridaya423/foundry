@@ -105,7 +105,14 @@ final class CommandPanelState {
     let agents = AgentMonitorState()
     let clipboardHistory: ClipboardHistoryState
     let snippets: SnippetState
-    @ObservationIgnored lazy var fileConversion = FileConversionState()
+    @ObservationIgnored lazy var fileConversion: FileConversionState = {
+        let state = FileConversionState()
+        state.onFirstSuccess = { [weak self] in
+            self?.confettiBurstID &+= 1
+            NSHapticFeedbackManager.defaultPerformer.perform(.alignment, performanceTime: .now)
+        }
+        return state
+    }()
     @ObservationIgnored lazy var camera = CameraPreviewState()
     @ObservationIgnored lazy var translator = TranslatorState()
     @ObservationIgnored lazy var developerTools = DeveloperToolsState()
@@ -436,6 +443,10 @@ final class CommandPanelState {
 
 
     func handleEscape() -> Bool {
+        if pendingDropURLs != nil {
+            pendingDropURLs = nil
+            return true
+        }
         if isShowingActions {
             if actionFilter.isEmpty {
                 isShowingActions = false
@@ -736,12 +747,88 @@ final class CommandPanelState {
         return true
     }
 
+    /// Files dropped on the panel surface pending the user's choice of action.
+    var pendingDropURLs: [URL]?
+
+    enum DropChoice: CaseIterable {
+        case shelf, convert, extractText, compress
+
+        var title: String {
+            switch self {
+            case .shelf: return "Add to File Shelf"
+            case .convert: return "Convert…"
+            case .extractText: return "Extract Text"
+            case .compress: return "Compress to ZIP"
+            }
+        }
+
+        var systemIcon: String {
+            switch self {
+            case .shelf: return "tray.and.arrow.down"
+            case .convert: return "arrow.triangle.2.circlepath"
+            case .extractText: return "text.viewfinder"
+            case .compress: return "archivebox"
+            }
+        }
+    }
+
+    /// Drop choices for the pending files — Extract Text only when every file
+    /// is an image the OCR engine can read.
+    var dropChoices: [DropChoice] {
+        guard let urls = pendingDropURLs, urls.isEmpty == false else { return [] }
+        var choices: [DropChoice] = [.shelf, .convert]
+        let allImages = urls.allSatisfy {
+            ConversionGraph.visionReadExts.contains(ConversionGraph.normalizedExtension(of: $0))
+        }
+        if allImages { choices.append(.extractText) }
+        choices.append(.compress)
+        return choices
+    }
+
+    func resolveDrop(_ choice: DropChoice) {
+        guard let urls = pendingDropURLs else { return }
+        pendingDropURLs = nil
+        switch choice {
+        case .shelf:
+            shelfFiles(urls)
+        case .convert:
+            openFileConverter(paths: urls.map(\.path))
+        case .extractText:
+            for url in urls {
+                Task { @MainActor [weak self] in
+                    _ = await self?.execute(CommandAction(
+                        id: "drop.ocr.\(UUID().uuidString)",
+                        title: DropChoice.extractText.title,
+                        kind: .extractTextFromImage(path: url.path)
+                    ), commandID: "foundry.files")
+                }
+            }
+        case .compress:
+            for url in urls {
+                Task { @MainActor [weak self] in
+                    _ = await self?.execute(CommandAction(
+                        id: "drop.compress.\(UUID().uuidString)",
+                        title: DropChoice.compress.title,
+                        kind: .compressFile(path: url.path)
+                    ), commandID: "foundry.files")
+                }
+            }
+        }
+    }
+
+    func cancelDrop() { pendingDropURLs = nil }
+
     func handleDroppedFiles(_ urls: [URL]) {
         if mode == .fileConversion {
             guard urls.isEmpty == false else { return }
             fileConversion.addSources(urls: urls)
             return
         }
+        guard urls.isEmpty == false else { return }
+        pendingDropURLs = urls
+    }
+
+    private func shelfFiles(_ urls: [URL]) {
         let result = fileShelf.add(urls: urls)
         guard result.didReceiveFiles else {
             showActionFeedback(.failure("Couldn't add those files"))

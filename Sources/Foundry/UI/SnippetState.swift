@@ -16,6 +16,27 @@ final class SnippetState {
     private var persistTask: Task<Void, Never>?
     private var visibleItemsCache: [StoredSnippet]?
     private var visibleItemsCacheQuery = ""
+    private var exportFormatTarget: FormatPickerTarget?
+    var selectedTag: String? {
+        didSet { keepSelectionValid() }
+    }
+
+    enum SortMode: String, CaseIterable {
+        case recent = "Recently updated"
+        case title = "Title"
+        case mostUsed = "Most used"
+    }
+    var sortMode: SortMode = .recent {
+        didSet { invalidateVisibleItems(); keepSelectionValid() }
+    }
+
+    /// Tags present across the library, sorted by frequency — drives the
+    /// filter chips row.
+    var allTags: [String] {
+        var counts: [String: Int] = [:]
+        for item in items { for tag in item.tags { counts[tag, default: 0] += 1 } }
+        return counts.sorted { $0.value != $1.value ? $0.value > $1.value : $0.key < $1.key }.map(\.key)
+    }
 
     init(store: any SnippetStore = FileSnippetStore()) {
         self.store = store
@@ -23,21 +44,42 @@ final class SnippetState {
 
     var visibleItems: [StoredSnippet] {
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        if trimmed == visibleItemsCacheQuery, let visibleItemsCache { return visibleItemsCache }
+        let cacheKey = "\(trimmed)\u{0}\(selectedTag ?? "")"
+        if cacheKey == visibleItemsCacheQuery, let visibleItemsCache { return visibleItemsCache }
+        var filtered = items
+        if let selectedTag {
+            filtered = filtered.filter { $0.tags.contains(selectedTag) }
+        }
         let visibleItems: [StoredSnippet]
         if trimmed.isEmpty {
-            visibleItems = items
+            visibleItems = filtered
         } else {
-            visibleItems = items.filter {
+            visibleItems = filtered.filter {
             $0.title.lowercased().contains(trimmed)
                 || $0.content.lowercased().contains(trimmed)
                 || $0.keyword.lowercased().contains(trimmed)
                 || $0.tags.joined(separator: " ").lowercased().contains(trimmed)
             }
         }
-        visibleItemsCacheQuery = trimmed
-        visibleItemsCache = visibleItems
-        return visibleItems
+        let sortedItems: [StoredSnippet]
+        switch sortMode {
+        case .recent:
+            sortedItems = visibleItems
+        case .title:
+            sortedItems = visibleItems.sorted {
+                if $0.isPinned != $1.isPinned { return $0.isPinned && !$1.isPinned }
+                return $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending
+            }
+        case .mostUsed:
+            sortedItems = visibleItems.sorted {
+                if $0.isPinned != $1.isPinned { return $0.isPinned && !$1.isPinned }
+                if $0.useCount != $1.useCount { return $0.useCount > $1.useCount }
+                return $0.updatedAt > $1.updatedAt
+            }
+        }
+        visibleItemsCacheQuery = cacheKey
+        visibleItemsCache = sortedItems
+        return sortedItems
     }
 
     var selectedItem: StoredSnippet? {
@@ -164,17 +206,46 @@ final class SnippetState {
     func exportToFile() {
         guard items.isEmpty == false else { return }
         let panel = NSSavePanel()
-        panel.allowedContentTypes = [.json]
+        panel.allowedContentTypes = [.json, .commaSeparatedText]
         panel.nameFieldStringValue = "foundry-snippets.json"
+        let formatPicker = NSPopUpButton(frame: .zero, pullsDown: false)
+        formatPicker.addItems(withTitles: ["JSON (Raycast)", "CSV"])
+        formatPicker.selectItem(at: 0)
+        let actionTarget = FormatPickerTarget { [weak panel] index in
+            panel?.nameFieldStringValue = "foundry-snippets." + (index == 1 ? "csv" : "json")
+        }
+        formatPicker.target = actionTarget
+        formatPicker.action = #selector(FormatPickerTarget.changed(_:))
+        exportFormatTarget = actionTarget
+        let accessory = NSView(frame: NSRect(x: 0, y: 0, width: 200, height: 32))
+        formatPicker.frame = NSRect(x: 0, y: 4, width: 180, height: 24)
+        accessory.addSubview(formatPicker)
+        panel.accessoryView = accessory
         guard panel.runModal() == .OK, let url = panel.url else { return }
-        let exported = items.map { RaycastSnippetFile(name: $0.title, text: $0.content, keyword: $0.keyword.isEmpty ? nil : $0.keyword) }
         do {
-            let encoder = JSONEncoder()
-            encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-            try encoder.encode(exported).write(to: url, options: .atomic)
+            if url.pathExtension.lowercased() == "csv" {
+                try Data(csvExport().utf8).write(to: url, options: .atomic)
+            } else {
+                let exported = items.map { RaycastSnippetFile(name: $0.title, text: $0.content, keyword: $0.keyword.isEmpty ? nil : $0.keyword) }
+                let encoder = JSONEncoder()
+                encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+                try encoder.encode(exported).write(to: url, options: .atomic)
+            }
         } catch {
             persistenceError = "Could not export snippets: \(error.localizedDescription)"
         }
+    }
+
+    func csvExport() -> String {
+        func field(_ value: String) -> String {
+            "\"" + value.replacingOccurrences(of: "\"", with: "\"\"") + "\""
+        }
+        var lines = ["name,keyword,text,uses,last_used"]
+        for item in items {
+            let lastUsed = item.lastUsedAt.map { ISO8601DateFormatter().string(from: $0) } ?? ""
+            lines.append([item.title, item.keyword, item.content, "\(item.useCount)", lastUsed].map(field).joined(separator: ","))
+        }
+        return lines.joined(separator: "\n") + "\n"
     }
 
     private func persist() {
@@ -223,4 +294,11 @@ private struct RaycastSnippetFile: Codable {
     let name: String
     let text: String
     let keyword: String?
+}
+
+@MainActor
+private final class FormatPickerTarget: NSObject {
+    private let handler: (Int) -> Void
+    init(_ handler: @escaping (Int) -> Void) { self.handler = handler }
+    @objc func changed(_ sender: NSPopUpButton) { handler(sender.indexOfSelectedItem) }
 }

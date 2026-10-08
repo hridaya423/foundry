@@ -120,18 +120,25 @@ public struct ConversionRoute: Hashable, Sendable {
 /// User-tunable conversion settings. Engines read the options they understand;
 /// unknown options are ignored (e.g. `dpi` only applies to pdf→image hops).
 public struct ConversionOptions: Sendable, Equatable {
-    public var quality: Double?        // 0…1 — lossy image output (jpg/heic/avif/jp2/webp)
+    public var quality: Double?        // 0…1 — lossy image output (jpg/heic/avif/jp2/webp) and ffmpeg video CRF
     public var maxPixelSize: Int?      // resize longest edge (image outputs)
     public var dpi: Double?            // pdf→image render density (default 144)
-    public var pages: String?          // pdf→image page selection, e.g. "1-3" or "2,4"
+    public var pages: String?          // pdf page selection, e.g. "1-3" or "2,4"
     public var audioBitrateKbps: Int?  // ffmpeg audio bitrate
+    public var stripMetadata: Bool     // drop EXIF/XMP/id3 metadata from image/media/pdf output
+    /// Output filename template. Tokens: `{name}` source basename, `{date}`
+    /// (yyyyMMdd-HHmmss), `{ext}` output extension. Falls back to `{name}`.
+    public var nameTemplate: String?
     public init(quality: Double? = nil, maxPixelSize: Int? = nil, dpi: Double? = nil,
-                pages: String? = nil, audioBitrateKbps: Int? = nil) {
+                pages: String? = nil, audioBitrateKbps: Int? = nil,
+                stripMetadata: Bool = false, nameTemplate: String? = nil) {
         self.quality = quality
         self.maxPixelSize = maxPixelSize
         self.dpi = dpi
         self.pages = pages
         self.audioBitrateKbps = audioBitrateKbps
+        self.stripMetadata = stripMetadata
+        self.nameTemplate = nameTemplate
     }
     public static let standard = ConversionOptions()
 }
@@ -238,8 +245,9 @@ public enum ConversionGraph {
         // AVFoundation: video → mp4/m4a, audio → m4a
         cartesian(.avFoundation, avFoundationReadVideo, ["mp4", "m4a"])
         cartesian(.avFoundation, avFoundationReadAudio, ["m4a"])
-        // PDFKit: pdf → raster pages
-        cartesian(.pdfKit, ["pdf"], ["png", "jpg"])
+        // PDFKit: pdf → raster pages, text, and page-extract/optimize pdf→pdf
+        cartesian(.pdfKit, ["pdf"], ["png", "jpg", "txt"])
+        edges.append(ConversionEdge(input: "pdf", output: "pdf", engine: .pdfKit))
         // plutil: plist↔json
         cartesian(.plutil, ["plist", "json"], ["json", "plist"])
         // Structured data

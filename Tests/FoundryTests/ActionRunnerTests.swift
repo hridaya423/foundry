@@ -489,6 +489,33 @@ final class ActionRunnerTests: XCTestCase {
         XCTAssertEqual(outcome, .stayOpen(message: nil))
     }
 
+    func testWiFiQRPayloadFormatsAndEscapes() {
+        let wpa = ActionRunner.wifiQRPayload(ssid: "Home;Net", password: "p:a,s\"s", security: 0)
+        XCTAssertEqual(wpa, "WIFI:T:WPA;S:Home\\;Net;P:p\\:a\\,s\\\"s;;")
+
+        let wep = ActionRunner.wifiQRPayload(ssid: "Cafe", password: "1234", security: 1)
+        XCTAssertEqual(wep, "WIFI:T:WEP;S:Cafe;P:1234;;")
+
+        let open = ActionRunner.wifiQRPayload(ssid: "OpenNet", password: "ignored", security: 2)
+        XCTAssertEqual(open, "WIFI:T:nopass;S:OpenNet;;")
+    }
+
+    func testColorFormatsCoverHexRGBHSLHSVAndOKLCH() {
+        let red = NSColor(red: 1, green: 0, blue: 0, alpha: 1)
+        let formats = ActionRunner.colorFormats(for: red)
+        let map = Dictionary(uniqueKeysWithValues: formats.map { ($0.label, $0.value) })
+        XCTAssertEqual(map["Hex"], "#FF0000")
+        XCTAssertEqual(map["RGB"], "rgb(255, 0, 0)")
+        XCTAssertEqual(map["HSL"], "hsl(0, 100%, 50%)")
+        XCTAssertEqual(map["HSV"], "hsv(0, 100%, 100%)")
+        XCTAssertTrue(map["OKLCH"]?.hasPrefix("oklch(") == true)
+        XCTAssertTrue(map["NSColor"]?.contains("red: 1.000") == true)
+
+        let translucent = NSColor(red: 0, green: 0, blue: 0, alpha: 0.5)
+        let translucentFormats = Dictionary(uniqueKeysWithValues: ActionRunner.colorFormats(for: translucent).map { ($0.label, $0.value) })
+        XCTAssertEqual(translucentFormats["RGBA"], "rgba(0, 0, 0, 0.50)")
+    }
+
     nonisolated private static func renderTextImage(text: String) throws -> Data {
         let size = NSSize(width: 640, height: 160)
         let image = NSImage(size: size)

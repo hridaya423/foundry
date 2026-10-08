@@ -204,6 +204,7 @@ final class FileSearchProvider: CommandProvider, @unchecked Sendable {
         }
         secondary += [
             CommandAction(id: "\(id).compress", title: "Compress", kind: .compressFile(path: path)),
+            CommandAction(id: "\(id).share", title: "Share…", kind: .shareFile(path: path)),
             CommandAction(id: "\(id).rename", title: "Rename…", kind: .renameFile(path: path)),
             CommandAction(id: "\(id).trash", title: "Move to Trash", kind: .moveToTrash(path: path)),
         ]

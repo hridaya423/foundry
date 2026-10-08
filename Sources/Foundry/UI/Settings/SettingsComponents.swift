@@ -589,3 +589,140 @@ struct CommandSettingsIcon: View {
         }
     }
 }
+
+/// Excluded-apps editor: removable chips for current bundle IDs plus a
+/// running-app picker, with a manual bundle-ID field as the escape hatch.
+struct ExcludedAppsRow: View {
+    let title: String
+    let bundleIDs: [String]
+    let commit: ([String]) -> Void
+
+    @State private var manualID = ""
+
+    private var runningApps: [NSRunningApplication] {
+        NSWorkspace.shared.runningApplications
+            .filter { $0.activationPolicy == .regular && $0.bundleIdentifier != nil }
+            .sorted { ($0.localizedName ?? "") < ($1.localizedName ?? "") }
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 9) {
+            HStack(spacing: 10) {
+                Text(title)
+                    .font(FoundryTheme.body(size: 13, weight: .medium))
+                    .foregroundStyle(FoundryTheme.primaryText)
+                    .frame(width: 112, alignment: .leading)
+
+                Menu {
+                    ForEach(runningApps, id: \.bundleIdentifier) { app in
+                        if let bundleID = app.bundleIdentifier {
+                            Button(app.localizedName ?? bundleID) { add(bundleID) }
+                        }
+                    }
+                    if runningApps.isEmpty {
+                        Text("No running apps")
+                    }
+                } label: {
+                    Label("Add running app…", systemImage: "plus.circle")
+                }
+                .menuStyle(.borderlessButton)
+                .fixedSize()
+                .accessibilityLabel("Add a running app to the exclusion list")
+
+                Spacer()
+            }
+
+            if bundleIDs.isEmpty == false {
+                FlowLayout(spacing: 6) {
+                    ForEach(bundleIDs, id: \.self) { bundleID in
+                        HStack(spacing: 5) {
+                            Text(appName(for: bundleID))
+                                .lineLimit(1)
+                            Button { remove(bundleID) } label: {
+                                Image(systemName: "xmark")
+                                    .font(.system(size: 8, weight: .bold))
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel("Remove \(appName(for: bundleID))")
+                        }
+                        .font(FoundryTheme.body(size: 11, weight: .medium))
+                        .foregroundStyle(FoundryTheme.secondaryText)
+                        .padding(.horizontal, 9)
+                        .frame(height: 24)
+                        .background(
+                            Capsule(style: .continuous).fill(Color.primary.opacity(0.07))
+                        )
+                    }
+                }
+            }
+
+            TextField("Or type a bundle ID, e.g. com.example.app", text: $manualID)
+                .textFieldStyle(.plain)
+                .font(FoundryTheme.mono(size: 12, weight: .regular))
+                .foregroundStyle(FoundryTheme.secondaryText)
+                .onSubmit {
+                    let value = manualID.trimmingCharacters(in: .whitespacesAndNewlines)
+                    guard value.isEmpty == false else { return }
+                    add(value)
+                    manualID = ""
+                }
+                .accessibilityLabel("Add bundle identifier")
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 11)
+    }
+
+    private func appName(for bundleID: String) -> String {
+        guard let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID) else { return bundleID }
+        return FileManager.default.displayName(atPath: url.path).replacingOccurrences(of: ".app", with: "")
+    }
+
+    private func add(_ bundleID: String) {
+        guard bundleIDs.contains(bundleID) == false else { return }
+        commit(bundleIDs + [bundleID])
+    }
+
+    private func remove(_ bundleID: String) {
+        commit(bundleIDs.filter { $0 != bundleID })
+    }
+}
+
+/// Minimal wrapping layout for chip rows.
+struct FlowLayout: Layout {
+    var spacing: CGFloat = 6
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        let width = proposal.width ?? .infinity
+        var x: CGFloat = 0
+        var y: CGFloat = 0
+        var lineHeight: CGFloat = 0
+        for subview in subviews {
+            let size = subview.sizeThatFits(.unspecified)
+            if x + size.width > width, x > 0 {
+                x = 0
+                y += lineHeight + spacing
+                lineHeight = 0
+            }
+            x += size.width + spacing
+            lineHeight = max(lineHeight, size.height)
+        }
+        return CGSize(width: width, height: y + lineHeight)
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        var x = bounds.minX
+        var y = bounds.minY
+        var lineHeight: CGFloat = 0
+        for subview in subviews {
+            let size = subview.sizeThatFits(.unspecified)
+            if x + size.width > bounds.maxX, x > bounds.minX {
+                x = bounds.minX
+                y += lineHeight + spacing
+                lineHeight = 0
+            }
+            subview.place(at: CGPoint(x: x, y: y), proposal: ProposedViewSize(size))
+            x += size.width + spacing
+            lineHeight = max(lineHeight, size.height)
+        }
+    }
+}

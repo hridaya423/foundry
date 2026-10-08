@@ -96,6 +96,12 @@ final class CommandPanelStateTests: XCTestCase {
         state.handleDroppedFiles([fileURL, fileURL])
 
         XCTAssertEqual(state.mode, .search, "Dropping on Home should not navigate away")
+        XCTAssertEqual(state.pendingDropURLs, [fileURL, fileURL], "Drops present the action chooser first")
+        XCTAssertEqual(state.dropChoices, [.shelf, .convert, .compress])
+
+        state.resolveDrop(.shelf)
+
+        XCTAssertNil(state.pendingDropURLs)
         XCTAssertEqual(state.fileShelf.files.count, 1)
         XCTAssertEqual(state.actionFeedback?.message, "Added 1 file to File Shelf · 1 already waiting")
         state.shutdown()

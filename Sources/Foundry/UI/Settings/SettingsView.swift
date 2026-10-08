@@ -497,11 +497,10 @@ struct SettingsView: View {
                 .padding(.horizontal, 12)
                 .padding(.vertical, 11)
                 SettingsDivider()
-                ConfigFieldRow(
+                ExcludedAppsRow(
                     title: "Excluded apps",
-                    placeholder: "com.example.app, com.other.app",
-                    initialValue: state.snippetExpansion.excludedBundleIdentifiers.joined(separator: ", "),
-                    commit: state.setSnippetExpansionExcludedBundleIdentifiers
+                    bundleIDs: state.snippetExpansion.excludedBundleIdentifiers,
+                    commit: { state.setSnippetExpansionExcludedBundleIdentifiers($0.joined(separator: ", ")) }
                 )
             }
             if let error = state.snippetExpansionError {
@@ -833,7 +832,11 @@ struct SettingsView: View {
                     Stepper(value: Binding(get: { state.clipboardHistory.policy.maxBytes / (1_024 * 1_024) }, set: { state.setClipboardRetention(maxItems: state.clipboardHistory.policy.maxItems, maxBytes: $0 * 1_024 * 1_024, maxAgeDays: Int(state.clipboardHistory.policy.maxAge / 86_400)) }), in: (ClipboardConfig.minimumMaxBytes / (1_024 * 1_024))...(ClipboardConfig.maximumMaxBytes / (1_024 * 1_024)), step: 256) { Text("\(state.clipboardHistory.policy.maxBytes / (1_024 * 1_024)) MB") }
                 }.padding(.horizontal, 12).padding(.vertical, 10)
                 SettingsDivider()
-                ConfigFieldRow(title: "Excluded apps", placeholder: "com.example.app, com.other.app", initialValue: state.clipboardHistory.excludedBundleIdentifiers.joined(separator: ", "), commit: state.setClipboardExcludedBundleIdentifiers)
+                ExcludedAppsRow(
+                    title: "Excluded apps",
+                    bundleIDs: state.clipboardHistory.excludedBundleIdentifiers,
+                    commit: { state.setClipboardExcludedBundleIdentifiers($0.joined(separator: ", ")) }
+                )
             }
             if let error = state.clipboardHistory.error {
                 SettingsNotice(text: "Clipboard history could not be saved: \(error.localizedDescription)", symbol: "exclamationmark.triangle")

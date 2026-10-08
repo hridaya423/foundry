@@ -369,17 +369,17 @@ final class ConversionGraphTests: XCTestCase {
         // jpg output via ImageIO: quality + resize controls.
         let jpg = FileConversionService.availableTargets(for: url("a.png"))
             .first { $0.outputExtension == "jpg" }
-        XCTAssertEqual(jpg?.applicableOptions, [.quality, .maxPixelSize])
+        XCTAssertEqual(jpg?.applicableOptions, [.quality, .maxPixelSize, .stripMetadata])
 
         // pdf→png renders through PDFKit: DPI + page selection, no quality/resize.
         let pdfPNG = FileConversionService.availableTargets(for: url("a.pdf"))
             .first { $0.outputExtension == "png" }
         XCTAssertEqual(pdfPNG?.applicableOptions, [.dpiAndPages])
 
-        // wav→mp3 routes through ffmpeg: bitrate control only.
+        // wav→mp3 routes through ffmpeg: bitrate control + metadata strip.
         let mp3 = FileConversionService.availableTargets(for: url("a.wav"))
             .first { $0.outputExtension == "mp3" }
-        XCTAssertEqual(mp3?.applicableOptions, [.audioBitrate])
+        XCTAssertEqual(mp3?.applicableOptions, [.audioBitrate, .stripMetadata])
 
         // csv→json has no tunables.
         let json = FileConversionService.availableTargets(for: url("a.csv"))

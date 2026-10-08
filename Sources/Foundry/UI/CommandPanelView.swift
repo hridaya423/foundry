@@ -114,7 +114,19 @@ struct CommandPanelView: View {
                     .transition(reduceMotion ? .opacity : .opacity.combined(with: .scale(scale: 0.96, anchor: .bottomTrailing)))
                 }
             }
+            .overlay(alignment: .bottom) {
+                if state.pendingDropURLs != nil {
+                    FoundryGlassSurface(role: .floatingOverlay, shape: RoundedRectangle(cornerRadius: 16, style: .continuous)) {
+                        dropChooserSurface
+                            .frame(width: 340)
+                    }
+                    .shadow(color: .black.opacity(0.35), radius: 24, y: 10)
+                    .padding(.bottom, 46)
+                    .transition(reduceMotion ? .opacity : .opacity.combined(with: .scale(scale: 0.96, anchor: .bottom)))
+                }
+            }
             .animation(reduceMotion ? nil : Animation.easeOut(duration: 0.14), value: state.isShowingActions)
+            .animation(reduceMotion ? nil : Animation.easeOut(duration: 0.14), value: state.pendingDropURLs != nil)
             .animation(reduceMotion ? nil : Animation.easeInOut(duration: 0.12), value: state.mode)
             .animation(reduceMotion ? nil : Animation.easeOut(duration: 0.14), value: fileShelf.files.count)
             .animation(reduceMotion ? nil : Animation.easeOut(duration: 0.14), value: agents.sessions.count)
@@ -305,7 +317,7 @@ struct CommandPanelView: View {
                 },
                 content: {
                     ZStack {
-                        SnippetsView(state: state.snippets, insert: {
+                        SnippetsView(state: state.snippets, expansionEnabled: state.snippetExpansion.isEnabled, setExpansionEnabled: { state.setSnippetExpansionEnabled($0) }, insert: {
                             guard state.insertOrCopySelectedSnippet() else { return false }
                             dismiss()
                             return true
@@ -531,7 +543,7 @@ struct CommandPanelView: View {
                     VStack(spacing: 10) {
                         Image(systemName: "tray.and.arrow.down.fill")
                             .font(.system(size: 30, weight: .semibold))
-                        Text("Drop to add to File Shelf")
+                        Text("Drop files to choose what to do")
                             .font(FoundryTheme.body(size: 15, weight: .semibold))
                     }
                     .foregroundStyle(FoundryTheme.primaryText)
@@ -539,6 +551,11 @@ struct CommandPanelView: View {
                     .padding(.vertical, 16)
                     .background(Color.black.opacity(0.18))
                     .clipShape(FoundrySmoothedRectangle(cornerRadius: 18, smoothing: 0.75))
+                    .phaseAnimator([false, true], trigger: isDropTargeted) { content, phase in
+                        content.scaleEffect(reduceMotion ? 1 : (phase ? 1.035 : 1.0))
+                    } animation: { _ in
+                        .easeInOut(duration: 0.55)
+                    }
                      .transition(reduceMotion ? .opacity : .opacity.combined(with: .scale(scale: 0.96)))
                 }
             }
@@ -812,6 +829,8 @@ struct CommandPanelView: View {
             "Finder"
         case .compressFile:
             "Archive"
+        case .shareFile:
+            "Share"
         case .renameFile:
             "Rename"
         case .moveToTrash:
@@ -828,8 +847,14 @@ struct CommandPanelView: View {
             "OCR"
         case .pickColor:
             "Color"
-        case .generateQRCode, .readQRCode:
+        case .generateQRCode, .generateWiFiQRCode, .readQRCode:
             "QR Code"
+        case .recognizeScreenText:
+            "OCR"
+        case .emptyTrash:
+            "Trash"
+        case .toggleDesktopIcons:
+            "Desktop"
         case .pasteClipboardAsPlainText:
             "Paste"
         case .celebrate:
@@ -865,6 +890,59 @@ struct CommandPanelView: View {
             emphasized: true
         )
         return [primary, .actions]
+    }
+
+    private var dropChooserSurface: some View {
+        VStack(spacing: 0) {
+            HStack(spacing: 8) {
+                Text("Dropped \(state.pendingDropURLs?.count ?? 0) file\((state.pendingDropURLs?.count ?? 0) == 1 ? "" : "s")")
+                    .font(FoundryTheme.sectionHeaderFont)
+                    .foregroundStyle(FoundryTheme.faintText)
+                    .textCase(.uppercase)
+                    .tracking(0.4)
+                Spacer()
+                Text("esc")
+                    .font(FoundryTheme.body(size: 10, weight: .semibold))
+                    .foregroundStyle(FoundryTheme.faintText)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(Color.primary.opacity(0.07))
+                    .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
+            }
+            .padding(.horizontal, 20)
+            .frame(height: 40)
+
+            VStack(spacing: 2) {
+                ForEach(Array(state.dropChoices.enumerated()), id: \.offset) { index, choice in
+                    Button {
+                        state.resolveDrop(choice)
+                    } label: {
+                        HStack(spacing: 10) {
+                            Image(systemName: choice.systemIcon)
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundStyle(FoundryTheme.secondaryText)
+                                .frame(width: 20)
+                            Text(choice.title)
+                                .font(FoundryTheme.body(size: 13, weight: .medium))
+                                .foregroundStyle(FoundryTheme.primaryText)
+                            Spacer()
+                            Text(index == 0 ? "↵" : "⌘\(index + 1)")
+                                .font(FoundryTheme.body(size: 11, weight: .semibold))
+                                .foregroundStyle(FoundryTheme.faintText)
+                        }
+                        .padding(.horizontal, 12)
+                        .frame(height: 34)
+                        .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(Color.primary.opacity(0.0001)))
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .pointerCursor()
+                    .keyboardShortcut(index == 0 ? .defaultAction : KeyboardShortcut(.init(Character(UnicodeScalar(48 + index + 1)!)), modifiers: .command))
+                }
+            }
+            .padding(.horizontal, 8)
+            .padding(.bottom, 10)
+        }
     }
 
     private var actionsSurface: some View {
@@ -1113,6 +1191,8 @@ private struct ActionRow: View {
             "folder"
         case .compressFile:
             "archivebox"
+        case .shareFile:
+            "square.and.arrow.up"
         case .renameFile:
             "pencil"
         case .moveToTrash:
@@ -1135,8 +1215,16 @@ private struct ActionRow: View {
             "eyedropper.halffull"
         case .generateQRCode:
             "qrcode"
+        case .generateWiFiQRCode:
+            "wifi"
         case .readQRCode:
             "qrcode.viewfinder"
+        case .recognizeScreenText:
+            "text.viewfinder"
+        case .emptyTrash:
+            "trash.slash"
+        case .toggleDesktopIcons:
+            "macwindow.on.rectangle"
         case .pasteClipboardAsPlainText:
             "doc.plaintext"
         case .celebrate:

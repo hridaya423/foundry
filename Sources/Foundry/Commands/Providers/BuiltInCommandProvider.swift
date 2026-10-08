@@ -194,6 +194,42 @@ final class BuiltInCommandProvider: CommandProvider {
                 primaryAction: CommandAction(id: "foundry.qr-read.perform", title: "Choose Image", kind: .readQRCode)
             ),
             BuiltInCommand(
+                id: "foundry.qr-wifi",
+                title: "Wi-Fi QR Code",
+                subtitle: "Generate a QR code that joins guests to a Wi-Fi network",
+                aliases: ["wifi qr", "wifi code", "share wifi", "network qr"],
+                systemIcon: "wifi",
+                fallback: "WF",
+                primaryAction: CommandAction(id: "foundry.qr-wifi.perform", title: "Generate", kind: .generateWiFiQRCode)
+            ),
+            BuiltInCommand(
+                id: "foundry.screen-ocr",
+                title: "Capture Text from Screen",
+                subtitle: "Select a screen region and copy its text",
+                aliases: ["screen ocr", "screenshot text", "grab text", "capture text", "screen capture ocr"],
+                systemIcon: "text.viewfinder",
+                fallback: "SO",
+                primaryAction: CommandAction(id: "foundry.screen-ocr.perform", title: "Capture", kind: .recognizeScreenText)
+            ),
+            BuiltInCommand(
+                id: "foundry.empty-trash",
+                title: "Empty Trash",
+                subtitle: "Permanently delete everything in the Trash",
+                aliases: ["trash", "empty bin", "delete trash"],
+                systemIcon: "trash.slash",
+                fallback: "TR",
+                primaryAction: CommandAction(id: "foundry.empty-trash.perform", title: "Empty Trash", kind: .emptyTrash)
+            ),
+            BuiltInCommand(
+                id: "foundry.desktop-icons",
+                title: "Toggle Desktop Icons",
+                subtitle: "Show or hide the icons on your desktop",
+                aliases: ["desktop icons", "hide desktop", "show desktop", "clean desktop"],
+                systemIcon: "macwindow.on.rectangle",
+                fallback: "DI",
+                primaryAction: CommandAction(id: "foundry.desktop-icons.perform", title: "Toggle", kind: .toggleDesktopIcons)
+            ),
+            BuiltInCommand(
                 id: "foundry.paste-plain",
                 title: "Paste Clipboard as Plain Text",
                 subtitle: "Insert the clipboard text into the previous app",

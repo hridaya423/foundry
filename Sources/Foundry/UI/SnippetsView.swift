@@ -3,6 +3,8 @@ import SwiftUI
 
 struct SnippetsView: View {
     var state: SnippetState
+    var expansionEnabled = true
+    var setExpansionEnabled: ((Bool) -> Void)? = nil
     let insert: () -> Bool
     @State private var isConfirmingDelete = false
 
@@ -31,6 +33,16 @@ struct SnippetsView: View {
                     .padding(.leading, 11)
                 Spacer()
                 Menu {
+                    Picker("Sort by", selection: Binding(
+                        get: { state.sortMode },
+                        set: { state.sortMode = $0 }
+                    )) {
+                        ForEach(SnippetState.SortMode.allCases, id: \.self) { mode in
+                            Text(mode.rawValue).tag(mode)
+                        }
+                    }
+                    .pickerStyle(.inline)
+                    Divider()
                     Button("Import Snippets…") { state.importFromFile() }
                     Button("Export Snippets…") { state.exportToFile() }
                 } label: {
@@ -47,6 +59,23 @@ struct SnippetsView: View {
                 SnippetIconButton(symbol: "plus", help: "New snippet", action: state.newSnippet)
             }
             .frame(height: 30)
+
+            if state.allTags.isEmpty == false {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 5) {
+                        tagChip(label: "All", selected: state.selectedTag == nil) {
+                            state.selectedTag = nil
+                        }
+                        ForEach(state.allTags, id: \.self) { tag in
+                            tagChip(label: "#\(tag)", selected: state.selectedTag == tag) {
+                                state.selectedTag = state.selectedTag == tag ? nil : tag
+                            }
+                        }
+                    }
+                    .padding(.horizontal, 11)
+                    .padding(.vertical, 2)
+                }
+            }
 
             if state.items.isEmpty {
                 sidebarEmptyState
@@ -99,7 +128,10 @@ struct SnippetsView: View {
             Text("No matching snippets")
                 .font(FoundryTheme.body(size: 13, weight: .medium))
                 .foregroundStyle(FoundryTheme.secondaryText)
-            Button("Clear search") { state.query = "" }
+            Button("Clear filters") {
+                state.query = ""
+                state.selectedTag = nil
+            }
                 .buttonStyle(PressableButtonStyle())
                 .font(FoundryTheme.body(size: 12, weight: .semibold))
                 .foregroundStyle(FoundryTheme.primaryText)
@@ -154,9 +186,23 @@ struct SnippetsView: View {
                         .foregroundStyle(FoundryTheme.error)
                         .lineLimit(2)
                 }
-                Text(state.expansionAvailabilityMessage)
-                    .font(FoundryTheme.body(size: 11, weight: .regular))
-                    .foregroundStyle(FoundryTheme.faintText)
+                HStack(spacing: 8) {
+                    Text(state.expansionAvailabilityMessage)
+                        .font(FoundryTheme.body(size: 11, weight: .regular))
+                        .foregroundStyle(FoundryTheme.faintText)
+                    Spacer()
+                    if let setExpansionEnabled {
+                        Toggle("Auto-expand", isOn: Binding(
+                            get: { expansionEnabled },
+                            set: { setExpansionEnabled($0) }
+                        ))
+                        .toggleStyle(.switch)
+                        .controlSize(.mini)
+                        .font(FoundryTheme.body(size: 11, weight: .medium))
+                        .foregroundStyle(FoundryTheme.secondaryText)
+                        .accessibilityLabel("Auto-expand snippet keywords")
+                    }
+                }
             } else {
                 detailEmptyState
             }
@@ -208,6 +254,23 @@ struct SnippetsView: View {
         }
         .buttonStyle(PressableButtonStyle())
         .pointerCursor()
+    }
+
+    private func tagChip(label: String, selected: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(label)
+                .font(FoundryTheme.body(size: 10.5, weight: .medium))
+                .foregroundStyle(selected ? FoundryTheme.primaryText : FoundryTheme.secondaryText)
+                .padding(.horizontal, 8)
+                .frame(height: 22)
+                .background(
+                    Capsule(style: .continuous)
+                        .fill(selected ? FoundryTheme.accent.opacity(0.22) : Color.primary.opacity(0.06))
+                )
+        }
+        .buttonStyle(.plain)
+        .pointerCursor()
+        .accessibilityLabel("Filter by tag \(label)")
     }
 
     private func snippetSubtitle(_ snippet: StoredSnippet) -> String {
@@ -403,6 +466,13 @@ private struct SnippetEditor: View {
                     .font(FoundryTheme.body(size: 10.5, weight: .regular))
                     .foregroundStyle(FoundryTheme.faintText)
                     .lineLimit(1)
+
+                Spacer(minLength: 8)
+
+                Text("\(content.count.formatted()) characters")
+                    .font(FoundryTheme.mono(size: 10, weight: .regular))
+                    .foregroundStyle(FoundryTheme.faintText)
+                    .contentTransition(.numericText())
             }
             .padding(.leading, 2)
 

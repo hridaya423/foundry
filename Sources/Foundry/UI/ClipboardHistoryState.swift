@@ -117,6 +117,19 @@ final class ClipboardHistoryState {
     func moveSelection(offset: Int) { guard !visibleItems.isEmpty else { return }; let i = selectedID.flatMap { id in visibleItems.firstIndex { $0.id == id } } ?? 0; selectedID = visibleItems[min(max(i + offset, 0), visibleItems.count - 1)].id }
     func copySelected() { if let item = selectedItem { copy(item) } }
     func copy(_ item: ClipboardHistoryItem) { pasteboard.write(item.payload); lastChangeCount = pasteboard.changeCount }
+
+    /// Copies the selected text merged with the entry copied after it (the
+    /// row above it in history). Returns false when either side isn't text.
+    @discardableResult
+    func copyMergedWithPreviousSelected() -> Bool {
+        guard let id = selectedItem?.id,
+              let index = items.firstIndex(where: { $0.id == id }), index > 0,
+              case let .text(current) = items[index].payload,
+              case let .text(previous) = items[index - 1].payload else { return false }
+        pasteboard.write(.text(previous + "\n\n" + current))
+        lastChangeCount = pasteboard.changeCount
+        return true
+    }
     func togglePinSelected() {
         guard let id = selectedItem?.id, let index = items.firstIndex(where: { $0.id == id }) else { return }
         items[index].isPinned.toggle()

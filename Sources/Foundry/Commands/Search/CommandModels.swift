@@ -87,6 +87,7 @@ enum CommandActionKind: Hashable, Sendable {
     case copyFile(path: String)
     case revealFile(path: String)
     case compressFile(path: String)
+    case shareFile(path: String)
     case renameFile(path: String)
     case moveToTrash(path: String)
     case addToFileShelf(path: String)
@@ -124,7 +125,11 @@ enum CommandActionKind: Hashable, Sendable {
     case extractTextFromImage(path: String?)
     case pickColor
     case generateQRCode
+    case generateWiFiQRCode
     case readQRCode
+    case recognizeScreenText
+    case emptyTrash
+    case toggleDesktopIcons
     case pasteClipboardAsPlainText
     case celebrate
     case terminatePort(Int)

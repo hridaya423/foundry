@@ -11,24 +11,30 @@ Press **⌥Space** anywhere to open the launcher. The first-run setup lets you p
 ## Features
 
 - Launcher for apps, commands, and System Settings panes, opened with ⌥Space by default
-- Guided onboarding, a menu bar item, and a searchable Settings window
-- Searchable Actions panel (⌘K) with per-action shortcuts
+- Guided onboarding with motion polish, a menu bar item, and a searchable Settings window
+- Searchable Actions panel (⌘K) with per-action shortcuts and destructive-action styling
 - Quicklinks with arguments, including Raycast Quicklinks import
 - Raycast-compatible Script Commands and Apple Shortcuts
-- File search through Spotlight with the `f ` prefix, `kind:` filters, Quick Look, and drag-out
+- File search through Spotlight with the `f ` prefix, `kind:` filters, Quick Look, drag-out, and Finder-style actions (Reveal, Copy Path, Open With, Compress, Rename, Share, Trash, Convert, Extract Text)
+- A routed conversion engine — native ImageIO/AVFoundation/PDFKit/textutil/plutil engines plus on-demand Homebrew tools (ffmpeg, ImageMagick, pandoc, LibreOffice), multi-hop routes, PDF merge/extract/OCR, archive handling, staged atomic output, and per-target options (quality, bitrate, DPI, page ranges, metadata stripping, naming templates)
+- Scriptable conversion entry points: `open -a Foundry --convert <paths>`, Finder Open With, and Dock drops
 - Settings backup and import
 - Calculator with unit conversions, equations, and a last-10 history
 - Currency exchange via Frankfurter with the rate date shown
 - Translator with live language switching
 - Camera preview inside the launcher
-- Media downloads for direct links, Cobalt, and automatic YouTube support through yt-dlp
-- Clipboard history for text, files, and images, stored locally in SQLite, with pins, filters, and paste on Return
+- Media downloads for direct links, Cobalt, and automatic YouTube support through yt-dlp, with favicons, file thumbnails, context menus, a completion toast, and aggregate speed
+- Clipboard history for text, files, and images, stored locally in SQLite, with pins, filters, plain-text paste, merge-with-previous, and image metadata
 - Apple Notes search and quick actions
 - File Shelf and file conversion
 - Local photo background removal with optional BEN2 support
-- Mac utilities, system commands, and 34 window layouts
+- Mac utilities, system commands, 34 window layouts, Empty Trash, and a desktop-icons toggle
 - Emoji and symbol picker
-- Snippets with create, import, and automatic expansion support
+- Snippets with keywords, placeholders, tag filtering, usage counts, import/export (Raycast JSON and CSV), and automatic expansion with per-app exclusions and configurable delimiters
+- Vision OCR on images, shelf items, clipboard images, and screen regions
+- Color picker with hex/RGB/HSL/HSV/OKLCH/NSColor formats and a recent-colors strip
+- QR generation (text and Wi-Fi join) and QR/barcode reading
+- Caffeinate keep-awake toggle and a confetti celebration command
 - Developer tools for UUIDs, JSON, base64, casing, timestamps, bitwise operations, and base conversion
 - Launch-at-login support
 - Customizable Home with live widgets, agents, and File Shelf
@@ -48,6 +54,6 @@ Install with `INSTALL_APP=1 ./scripts/build-app.sh`. Add `LAUNCH_APP=1` to launc
 
 Run the tests with `swift test`. The package builds with Swift 6.1 (Xcode 16.3) or Swift 6.2; Liquid Glass surfaces need the Swift 6.2 toolchain and fall back to the standard material otherwise.
 
-Release notes: [docs/release-notes/1.1.0.md](docs/release-notes/1.1.0.md). Performance numbers and how to reproduce them: [docs/benchmarks/2026-09-26-foundry-1.1-report.md](docs/benchmarks/2026-09-26-foundry-1.1-report.md).
+Release notes: [docs/release-notes/1.2.0.md](docs/release-notes/1.2.0.md). Performance numbers and how to reproduce them: [docs/benchmarks/](docs/benchmarks/).
 
 YouTube downloads automatically install the current `yt-dlp` formula through Homebrew when needed.

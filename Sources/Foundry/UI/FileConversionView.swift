@@ -469,8 +469,20 @@ struct FileConversionView: View {
                                 .accessibilityLabel("PDF pages to convert")
                         }
                     }
+                    if kinds.contains(.stripMetadata) {
+                        optionRow("Metadata") {
+                            optionChips([(false, "Keep"), (true, "Strip")],
+                                        get: { state.options.stripMetadata },
+                                        set: { state.options.stripMetadata = $0 ?? false })
+                        }
+                    }
                 }
                 .transition(.opacity)
+            }
+            optionRow("Name") {
+                optionChips([(nil, "Same"), ("{name}-converted", "{name}-converted"), ("{name}-{date}", "{name}-{date}")],
+                            get: { state.options.nameTemplate },
+                            set: { state.options.nameTemplate = $0 })
             }
         }
     }

@@ -10,7 +10,17 @@ struct MediaDownloadsView: View {
 
     @State private var links = ""
     @State private var validationMessage: String?
+    @State private var selectedID: UUID?
+    @State private var notice: MediaDownloadItem?
+    @State private var noticedCompletions: Set<UUID> = []
+    @State private var noticeDismissTask: Task<Void, Never>?
     @FocusState private var composerFocused: Bool
+
+    private var totalSpeedText: String? {
+        let speed = activeItems.compactMap(\.progress.speedBytesPerSecond).reduce(0, +)
+        guard speed > 0 else { return nil }
+        return ByteCountFormatter.string(fromByteCount: Int64(speed), countStyle: .binary) + "/s"
+    }
 
     private var activeItems: [MediaDownloadItem] {
         manager.items.filter { $0.status == .active }
@@ -30,7 +40,95 @@ struct MediaDownloadsView: View {
                 queue
             }
         }
-        .onAppear { composerFocused = manager.items.isEmpty }
+        .overlay(alignment: .bottom) {
+            if let notice {
+                completionNotice(notice)
+                    .padding(14)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
+        }
+        .background {
+            if let selectedID, manager.items.first(where: { $0.id == selectedID })?.status != .active {
+                Button("") {
+                    manager.remove(id: selectedID)
+                    self.selectedID = nil
+                }
+                .keyboardShortcut(.delete, modifiers: [])
+                .hidden()
+                .accessibilityLabel("Remove selected download")
+            }
+        }
+        .onAppear {
+            composerFocused = manager.items.isEmpty
+            noticedCompletions = Set(manager.items.filter { $0.status == .completed }.map(\.id))
+        }
+        .onChange(of: manager.items) { _, items in
+            if let newest = items.first(where: { $0.status == .completed && noticedCompletions.contains($0.id) == false }) {
+                noticedCompletions.insert(newest.id)
+                showNotice(newest)
+            }
+            noticedCompletions = noticedCompletions.intersection(Set(items.map(\.id)))
+        }
+    }
+
+    private func showNotice(_ item: MediaDownloadItem) {
+        noticeDismissTask?.cancel()
+        notice = item
+        NSHapticFeedbackManager.defaultPerformer.perform(.levelChange, performanceTime: .now)
+        noticeDismissTask = Task { @MainActor in
+            try? await Task.sleep(for: .seconds(6))
+            guard Task.isCancelled == false else { return }
+            withAnimation(.easeOut(duration: 0.2)) { notice = nil }
+        }
+    }
+
+    private func completionNotice(_ item: MediaDownloadItem) -> some View {
+        HStack(spacing: 10) {
+            if let path = item.progress.outputURLs.first?.path {
+                FileIcon(path: path) { Color.clear }
+                    .frame(width: 26, height: 26)
+            }
+            VStack(alignment: .leading, spacing: 1) {
+                Text(item.progress.title)
+                    .font(FoundryTheme.body(size: 12, weight: .semibold))
+                    .foregroundStyle(FoundryTheme.primaryText)
+                    .lineLimit(1)
+                Text("Download complete")
+                    .font(FoundryTheme.body(size: 11, weight: .regular))
+                    .foregroundStyle(FoundryTheme.mutedText)
+            }
+            Spacer(minLength: 8)
+            let files = item.progress.outputURLs.filter { FileManager.default.fileExists(atPath: $0.path) }
+            if files.isEmpty == false {
+                Button("Reveal") { NSWorkspace.shared.activateFileViewerSelecting(files); notice = nil }
+                    .buttonStyle(FoundryQuietButtonStyle())
+                if files.count == 1, let file = files.first {
+                    Button("Open") { NSWorkspace.shared.open(file); notice = nil }
+                        .buttonStyle(FoundryQuietButtonStyle())
+                }
+            }
+            Button { notice = nil } label: {
+                Image(systemName: "xmark")
+                    .font(.system(size: 9, weight: .bold))
+                    .foregroundStyle(FoundryTheme.mutedText)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Dismiss")
+            .pointerCursor()
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 9)
+        .background(
+            RoundedRectangle(cornerRadius: 13, style: .continuous)
+                .fill(Color.primary.opacity(0.07))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 13, style: .continuous)
+                        .strokeBorder(Color.primary.opacity(0.12), lineWidth: 1)
+                )
+        )
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Download complete: \(item.progress.title)")
+        .accessibilityHint("Reveal or open the downloaded file")
     }
 
     private var composer: some View {
@@ -125,6 +223,13 @@ struct MediaDownloadsView: View {
                 Button("Change", action: changeDestination)
                     .buttonStyle(FoundryQuietButtonStyle())
 
+                if let totalSpeedText {
+                    Text(totalSpeedText)
+                        .foregroundStyle(FoundryTheme.accentTint)
+                        .contentTransition(.numericText())
+                        .help("Combined download speed")
+                }
+
                 Spacer()
 
                 Menu {
@@ -197,6 +302,14 @@ struct MediaDownloadsView: View {
                     MediaDownloadRow(item: item, cancel: cancel, retry: retry) {
                         manager.remove(id: item.id)
                     }
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            .strokeBorder(FoundryTheme.accentTint.opacity(0.45), lineWidth: 1.5)
+                            .padding(.horizontal, 3)
+                            .opacity(selectedID == item.id ? 1 : 0)
+                    )
+                    .onTapGesture { selectedID = selectedID == item.id ? nil : item.id }
+                    .accessibilityHint(item.status == .active ? "" : "Delete removes this row")
                     if index < items.count - 1 {
                         Rectangle()
                             .fill(Color.primary.opacity(0.065))

@@ -24,6 +24,10 @@ final class FileConversionState {
     private(set) var capabilities: [String: FileConversionCapability] = [:]
 
     private var conversionTask: Task<Void, Never>?
+
+    /// Fired once ever when the first batch completes cleanly — lets the
+    /// panel celebrate without FileConversionState owning motion.
+    var onFirstSuccess: (() -> Void)?
     private let assess: @Sendable (FileConversionTarget, [String]) async -> CapabilityState
     private let provision: @Sendable (SetupPlan, String) async throws -> Void
     private let convertOperation: @Sendable (URL, FileConversionTarget, URL, ConversionOptions) async -> Result<URL, Error>
@@ -275,6 +279,44 @@ final class FileConversionState {
                 self?.itemOutcomes.first(where: { $0.sourceURL == url })?.state != .completed
             }
 
+            // Merge path: several pdfs/images sharing the pdf target produce
+            // one combined document instead of per-file outputs.
+            if FileConversionService.shouldMergeForPDFTarget(sources: workSources, target: target) {
+                await MainActor.run { [weak self] in
+                    self?.status = "Merging \(workSources.count) files into one PDF…"
+                }
+                let snapshot = self?.options ?? .standard
+                let destination = FileConversionService.destination(
+                    for: workSources[0], ext: "pdf", in: outputFolderURL, options: snapshot)
+                do {
+                    try await FileConversionService.mergeToPDF(sources: workSources, into: destination, options: snapshot)
+                    await MainActor.run { [weak self] in
+                        guard let self else { return }
+                        for sourceURL in workSources {
+                            self.setOutcome(sourceURL, state: .completed, outputURL: destination, failure: nil)
+                        }
+                        self.progress = .items(completed: completedBeforeStart + workSources.count, total: total)
+                    }
+                } catch {
+                    let isCancel = error is CancellationError
+                    await MainActor.run { [weak self] in
+                        guard let self else { return }
+                        if isCancel {
+                            self.cancelRemaining(sourceURLs, generation: generation, operationID: operationID)
+                        } else {
+                            for sourceURL in workSources {
+                                self.setOutcome(sourceURL, state: .failed, outputURL: nil, failure: OperationFailure(message: error.localizedDescription))
+                            }
+                        }
+                    }
+                    if isCancel { return }
+                }
+                await MainActor.run { [weak self] in
+                    self?.finishConversion(generation: generation, operationID: operationID, total: total)
+                }
+                return
+            }
+
             for (index, sourceURL) in workSources.enumerated() {
                 guard Task.isCancelled == false else { await MainActor.run { self?.cancelRemaining(sourceURLs, generation: generation, operationID: operationID) }; return }
                 await MainActor.run { self?.setOutcome(sourceURL, state: .processing, outputURL: nil, failure: nil) }
@@ -305,35 +347,39 @@ final class FileConversionState {
             }
 
             await MainActor.run {
-                guard let self else { return }
-                guard self.conversionGeneration == generation, self.operationID == operationID, self.isConverting else { return }
-                let outputs = self.itemOutcomes.compactMap(\.outputURL)
-                let failures = self.itemOutcomes.compactMap { outcome -> String? in
-                    guard outcome.state == .failed else { return nil }
-                    return total == 1 ? outcome.failure?.message : "\(outcome.sourceURL.lastPathComponent): \(outcome.failure?.message ?? "Conversion failed")"
-                }
-                self.isConverting = false
-                self.outputURLs = outputs
-                self.outputURL = outputs.last
-                self.phase = failures.isEmpty ? .completed : .failed
-                self.failure = failures.isEmpty ? nil : OperationFailure(message: failures.joined(separator: "\n"))
-                if let operationID = self.operationID {
-                    if failures.isEmpty {
-                        _ = self.operations.update(id: operationID, phase: .completed, progress: self.progress)
-                    } else {
-                        _ = self.operations.update(id: operationID, phase: .failed, progress: self.progress, failure: self.failure)
-                    }
-                }
-                if failures.isEmpty {
-                    self.status = outputs.count == 1
-                        ? "Created \(outputs[0].lastPathComponent)"
-                        : "Created \(outputs.count) files"
-                } else if outputs.isEmpty {
-                    self.status = failures.joined(separator: "\n")
-                } else {
-                    self.status = "Created \(outputs.count) of \(total) files; \(failures.count) failed"
-                }
+                self?.finishConversion(generation: generation, operationID: operationID, total: total)
             }
+        }
+    }
+
+    /// Shared completion for the per-file loop and the merge path: collapses
+    /// item outcomes into phase/status/operation updates.
+    private func finishConversion(generation: UUID, operationID: UUID, total: Int) {
+        guard self.conversionGeneration == generation, self.operationID == operationID, self.isConverting else { return }
+        let outputs = Array(NSOrderedSet(array: self.itemOutcomes.compactMap(\.outputURL))) as? [URL] ?? self.itemOutcomes.compactMap(\.outputURL)
+        let failures = self.itemOutcomes.compactMap { outcome -> String? in
+            guard outcome.state == .failed else { return nil }
+            return total == 1 ? outcome.failure?.message : "\(outcome.sourceURL.lastPathComponent): \(outcome.failure?.message ?? "Conversion failed")"
+        }
+        self.isConverting = false
+        self.outputURLs = outputs
+        self.outputURL = outputs.last
+        self.phase = failures.isEmpty ? .completed : .failed
+        self.failure = failures.isEmpty ? nil : OperationFailure(message: failures.joined(separator: "\n"))
+        if failures.isEmpty {
+            _ = self.operations.update(id: operationID, phase: .completed, progress: self.progress)
+            self.status = outputs.count == 1
+                ? "Created \(outputs[0].lastPathComponent)"
+                : "Created \(outputs.count) files"
+            if UserDefaults.standard.bool(forKey: "conversion.firstSuccessCelebrated") == false {
+                UserDefaults.standard.set(true, forKey: "conversion.firstSuccessCelebrated")
+                onFirstSuccess?()
+            }
+        } else {
+            _ = self.operations.update(id: operationID, phase: .failed, progress: self.progress, failure: self.failure)
+            self.status = outputs.isEmpty
+                ? failures.joined(separator: "\n")
+                : "Created \(outputs.count) of \(total) files; \(failures.count) failed"
         }
     }
 

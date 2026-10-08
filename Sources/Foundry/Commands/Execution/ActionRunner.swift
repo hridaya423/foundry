@@ -194,6 +194,9 @@ final class ActionRunner {
         case let .compressFile(path):
             return await compressFile(path: path, emit: emit)
 
+        case let .shareFile(path):
+            return shareFile(path: path)
+
         case let .renameFile(path):
             return await renameFile(path: path, emit: emit)
 
@@ -485,8 +488,20 @@ final class ActionRunner {
         case .generateQRCode:
             return generateQRCode(emit: emit)
 
+        case .generateWiFiQRCode:
+            return generateWiFiQRCode(emit: emit)
+
         case .readQRCode:
             return await readQRCode(emit: emit)
+
+        case .recognizeScreenText:
+            return await recognizeScreenText(emit: emit)
+
+        case .emptyTrash:
+            return await emptyTrash(emit: emit)
+
+        case .toggleDesktopIcons:
+            return await toggleDesktopIcons(emit: emit)
 
         case .pasteClipboardAsPlainText:
             guard let text = pasteboard.string(forType: .string), text.isEmpty == false else {
@@ -765,35 +780,287 @@ final class ActionRunner {
         }
         guard let color else { return .cancelled }
         let hex = Self.hexString(for: color)
+        Self.recordRecentColor(hex)
+        let formats = Self.colorFormats(for: color)
+        let recents = Self.recentColors()
+        if let chosen = chooseColorFormat(hex: hex, color: color, formats: formats, recents: recents) {
+            pasteboard.clearContents()
+            pasteboard.setString(chosen, forType: .string)
+            emit(.feedback(.success("Copied \(chosen)")))
+            return .copied(content: chosen)
+        }
         pasteboard.clearContents()
         pasteboard.setString(hex, forType: .string)
         emit(.feedback(.success("Copied \(hex)")))
         return .copied(content: hex)
     }
 
+    /// Format + recent-colors picker shown after the sampler. Returns the
+    /// string to copy, or nil to fall back to hex.
+    private func chooseColorFormat(hex: String, color: NSColor, formats: [(label: String, value: String)], recents: [String]) -> String? {
+        let alert = NSAlert()
+        alert.messageText = hex
+        alert.informativeText = "Pick a format to copy."
+        alert.alertStyle = .informational
+        let swatch = NSImageView(frame: NSRect(x: 0, y: 0, width: 40, height: 24))
+        swatch.wantsLayer = true
+        swatch.layer?.backgroundColor = color.cgColor
+        swatch.layer?.cornerRadius = 5
+        alert.accessoryView = swatch
+        let formatPicker = NSPopUpButton(frame: NSRect(x: 48, y: 0, width: 190, height: 24), pullsDown: false)
+        formatPicker.addItems(withTitles: formats.map(\.label))
+        let container = NSView(frame: NSRect(x: 0, y: 0, width: 238, height: 26))
+        container.addSubview(swatch)
+        container.addSubview(formatPicker)
+        var chosenRecent: String?
+        var retainedTarget: PopupTarget?
+        defer { _ = retainedTarget }
+        if recents.isEmpty == false {
+            let recentPicker = NSPopUpButton(frame: NSRect(x: 0, y: 30, width: 238, height: 24), pullsDown: true)
+            recentPicker.title = "Recent colors"
+            for recent in recents { recentPicker.menu?.addItem(NSMenuItem(title: recent, action: nil, keyEquivalent: "")) }
+            container.frame.size.height = 58
+            swatch.frame.origin.y = 32
+            formatPicker.frame.origin.y = 30
+            container.addSubview(recentPicker)
+            let target = PopupTarget { index in
+                guard index > 0, index - 1 < recents.count else { return }
+                chosenRecent = recents[index - 1]
+            }
+            recentPicker.target = target
+            recentPicker.action = #selector(PopupTarget.changed(_:))
+            retainedTarget = target
+        }
+        alert.accessoryView = container
+        alert.addButton(withTitle: "Copy")
+        alert.addButton(withTitle: "Cancel")
+        NSApp.activate(ignoringOtherApps: true)
+        guard alert.runModal() == .alertFirstButtonReturn else { return nil }
+        if let chosenRecent { return chosenRecent }
+        let index = formatPicker.indexOfSelectedItem
+        guard formats.indices.contains(index) else { return nil }
+        return formats[index].value
+    }
+
+    private static var colorTargetKey: UInt8 = 0
+
+    private static func recentColors() -> [String] {
+        (UserDefaults.standard.array(forKey: "colorPicker.recents") as? [String]) ?? []
+    }
+
+    private static func recordRecentColor(_ hex: String) {
+        var recents = recentColors().filter { $0 != hex }
+        recents.insert(hex, at: 0)
+        UserDefaults.standard.set(Array(recents.prefix(12)), forKey: "colorPicker.recents")
+    }
+
+    nonisolated static func colorFormats(for color: NSColor) -> [(label: String, value: String)] {
+        guard let rgb = color.usingColorSpace(.sRGB) else {
+            return [("Hex", "#000000")]
+        }
+        let r255 = Int((rgb.redComponent * 255).rounded())
+        let g255 = Int((rgb.greenComponent * 255).rounded())
+        let b255 = Int((rgb.blueComponent * 255).rounded())
+        let alpha = rgb.alphaComponent
+        let hex = String(format: "#%02X%02X%02X", r255, g255, b255)
+        let rgbString = alpha < 1
+            ? String(format: "rgba(%d, %d, %d, %.2f)", r255, g255, b255, alpha)
+            : "rgb(\(r255), \(g255), \(b255))"
+        var hue: CGFloat = 0, saturation: CGFloat = 0, brightness: CGFloat = 0
+        rgb.getHue(&hue, saturation: &saturation, brightness: &brightness, alpha: nil)
+        let hueDegrees = Int((hue * 360).rounded()) % 360
+        let hsl = hslString(hueDegrees: hueDegrees, saturation: saturation, brightness: brightness)
+        let hsv = String(format: "hsv(%d, %.0f%%, %.0f%%)", hueDegrees, saturation * 100, brightness * 100)
+        let oklch = oklchString(r: rgb.redComponent, g: rgb.greenComponent, b: rgb.blueComponent)
+        return [
+            ("Hex", hex),
+            (alpha < 1 ? "RGBA" : "RGB", rgbString),
+            ("HSL", hsl),
+            ("HSV", hsv),
+            ("OKLCH", oklch),
+            ("NSColor", String(format: "NSColor(red: %.3f, green: %.3f, blue: %.3f, alpha: %.3f)", rgb.redComponent, rgb.greenComponent, rgb.blueComponent, alpha)),
+        ]
+    }
+
+    nonisolated private static func hslString(hueDegrees: Int, saturation: CGFloat, brightness: CGFloat) -> String {
+        let l = brightness * (1 - saturation / 2)
+        let s = (l == 0 || l == 1) ? 0 : (brightness - l) / min(l, 1 - l)
+        return String(format: "hsl(%d, %.0f%%, %.0f%%)", hueDegrees, s * 100, l * 100)
+    }
+
+    nonisolated private static func oklchString(r: CGFloat, g: CGFloat, b: CGFloat) -> String {
+        // sRGB → LMS via the OKLab M1 matrix, then polar lightness/chroma/hue.
+        func cbrt(_ x: CGFloat) -> CGFloat { x < 0 ? -pow(-x, 1.0 / 3.0) : pow(x, 1.0 / 3.0) }
+        func linear(_ c: CGFloat) -> CGFloat { c <= 0.04045 ? c / 12.92 : pow((c + 0.055) / 1.055, 2.4) }
+        let rl = linear(r), gl = linear(g), bl = linear(b)
+        let l = cbrt(0.4122214708 * rl + 0.5363325363 * gl + 0.0514459929 * bl)
+        let m = cbrt(0.2119034982 * rl + 0.6806995451 * gl + 0.1073969566 * bl)
+        let s = cbrt(0.0883024619 * rl + 0.2817188376 * gl + 0.6299787005 * bl)
+        let L = 0.2104542553 * l + 0.7936177850 * m - 0.0040720468 * s
+        let a = 1.9779984951 * l - 2.4285922050 * m + 0.4505937099 * s
+        let bb = 0.0259040371 * l + 0.7827717662 * m - 0.8086757660 * s
+        let C = sqrt(a * a + bb * bb)
+        var h = atan2(bb, a) * 180 / .pi
+        if h < 0 { h += 360 }
+        return String(format: "oklch(%.3f %.3f %.1f)", L, C, h)
+    }
+
     private func generateQRCode(emit: @escaping @MainActor @Sendable (CommandExecutionEvent) -> Void) -> CommandOutcome {
         guard let content = pasteboard.string(forType: .string)?.trimmingCharacters(in: .whitespacesAndNewlines), content.isEmpty == false else {
             return .failure(message: "Clipboard has no text to encode", retryable: false)
         }
-        guard let data = content.data(using: .utf8),
-              let filter = CIFilter(name: "CIQRCodeGenerator") else {
+        guard let image = qrImage(for: content) else {
             return .failure(message: "Could not generate QR code", retryable: false)
         }
-        filter.setValue(data, forKey: "inputMessage")
-        filter.setValue("M", forKey: "inputCorrectionLevel")
-        guard let output = filter.outputImage else {
-            return .failure(message: "Could not generate QR code", retryable: false)
-        }
-        let scaled = output.transformed(by: CGAffineTransform(scaleX: 12, y: 12))
-        guard let cgImage = Self.qrContext.createCGImage(scaled, from: scaled.extent) else {
-            return .failure(message: "Could not render QR code", retryable: false)
-        }
-        let image = NSImage(cgImage: cgImage, size: NSSize(width: scaled.extent.width, height: scaled.extent.height))
         pasteboard.clearContents()
         pasteboard.writeObjects([image])
         emit(.feedback(.success("QR code copied to clipboard")))
         diagnostics.log("Generated QR code for \(content.count) characters")
         return .copied(content: content)
+    }
+
+    private func qrImage(for content: String) -> NSImage? {
+        guard let data = content.data(using: .utf8),
+              let filter = CIFilter(name: "CIQRCodeGenerator") else { return nil }
+        filter.setValue(data, forKey: "inputMessage")
+        filter.setValue("M", forKey: "inputCorrectionLevel")
+        guard let output = filter.outputImage else { return nil }
+        let scaled = output.transformed(by: CGAffineTransform(scaleX: 12, y: 12))
+        guard let cgImage = Self.qrContext.createCGImage(scaled, from: scaled.extent) else { return nil }
+        return NSImage(cgImage: cgImage, size: NSSize(width: scaled.extent.width, height: scaled.extent.height))
+    }
+
+    private func generateWiFiQRCode(emit: @escaping @MainActor @Sendable (CommandExecutionEvent) -> Void) -> CommandOutcome {
+        let alert = NSAlert()
+        alert.messageText = "Wi-Fi QR Code"
+        alert.informativeText = "Guests scan the code to join the network."
+        let ssid = NSTextField(frame: NSRect(x: 0, y: 60, width: 260, height: 24))
+        ssid.placeholderString = "Network name (SSID)"
+        let password = NSSecureTextField(frame: NSRect(x: 0, y: 32, width: 260, height: 24))
+        password.placeholderString = "Password"
+        let security = NSPopUpButton(frame: NSRect(x: 0, y: 0, width: 260, height: 24), pullsDown: false)
+        security.addItems(withTitles: ["WPA / WPA2 / WPA3", "WEP", "Open network"])
+        let container = NSView(frame: NSRect(x: 0, y: 0, width: 260, height: 88))
+        container.addSubview(ssid)
+        container.addSubview(password)
+        container.addSubview(security)
+        alert.accessoryView = container
+        alert.addButton(withTitle: "Generate")
+        alert.addButton(withTitle: "Cancel")
+        NSApp.activate(ignoringOtherApps: true)
+        guard alert.runModal() == .alertFirstButtonReturn else { return .cancelled }
+        let network = ssid.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard network.isEmpty == false else {
+            return .failure(message: "Enter a network name", retryable: true)
+        }
+        let payload = Self.wifiQRPayload(ssid: network, password: password.stringValue, security: security.indexOfSelectedItem)
+        guard let image = qrImage(for: payload) else {
+            return .failure(message: "Could not generate QR code", retryable: false)
+        }
+        pasteboard.clearContents()
+        pasteboard.writeObjects([image])
+        emit(.feedback(.success("Wi-Fi QR code copied to clipboard")))
+        return .copied(content: payload)
+    }
+
+    nonisolated static func wifiQRPayload(ssid: String, password: String, security: Int) -> String {
+        func escaped(_ value: String) -> String {
+            var result = ""
+            for character in value {
+                if "\\;,:\"".contains(character) { result.append("\\") }
+                result.append(character)
+            }
+            return result
+        }
+        switch security {
+        case 2:
+            return "WIFI:T:nopass;S:\(escaped(ssid));;"
+        default:
+            let type = security == 1 ? "WEP" : "WPA"
+            return "WIFI:T:\(type);S:\(escaped(ssid));P:\(escaped(password));;"
+        }
+    }
+
+    private func recognizeScreenText(emit: @escaping @MainActor @Sendable (CommandExecutionEvent) -> Void) async -> CommandOutcome {
+        emit(.status("Select a region…"))
+        let temporary = FileManager.default.temporaryDirectory
+            .appendingPathComponent("foundry-screen-ocr-\(UUID().uuidString).png")
+        do {
+            _ = try await ProcessRunner.run(path: "/usr/sbin/screencapture", arguments: ["-i", "-x", temporary.path], timeout: 120)
+        } catch {
+            return .failure(message: "Could not capture the screen", retryable: true)
+        }
+        defer { try? FileManager.default.removeItem(at: temporary) }
+        guard FileManager.default.fileExists(atPath: temporary.path) else { return .cancelled }
+        do {
+            emit(.status("Recognizing text…"))
+            let lines = try await VisionText.recognizeText(at: temporary)
+            let text = lines.joined(separator: "\n")
+            guard text.isEmpty == false else {
+                return .failure(message: "No text found in the captured region", retryable: false)
+            }
+            pasteboard.clearContents()
+            pasteboard.setString(text, forType: .string)
+            diagnostics.log("Screen OCR captured \(lines.count) line(s)")
+            emit(.feedback(.success("Copied \(lines.count) line(s) of text")))
+            return .copied(content: text)
+        } catch {
+            diagnostics.log("Screen OCR failed: \(error.localizedDescription)")
+            return .failure(message: "Could not extract text", retryable: true)
+        }
+    }
+
+    private func emptyTrash(emit: @escaping @MainActor @Sendable (CommandExecutionEvent) -> Void) async -> CommandOutcome {
+        let alert = NSAlert()
+        alert.messageText = "Empty the Trash?"
+        alert.informativeText = "Items in the Trash are permanently deleted. This cannot be undone."
+        alert.alertStyle = .warning
+        alert.addButton(withTitle: "Empty Trash")
+        alert.addButton(withTitle: "Cancel")
+        alert.buttons.first?.hasDestructiveAction = true
+        NSApp.activate(ignoringOtherApps: true)
+        guard alert.runModal() == .alertFirstButtonReturn else { return .cancelled }
+        do {
+            let result = try await ProcessRunner.run(
+                path: "/usr/bin/osascript",
+                arguments: ["-e", "tell application \"Finder\" to empty trash"],
+                timeout: 60
+            )
+            guard result.succeeded else {
+                return .failure(message: "Finder could not empty the Trash", retryable: true)
+            }
+            diagnostics.log("Emptied trash")
+            emit(.feedback(.success("Trash emptied")))
+            return .success(message: "Trash emptied")
+        } catch {
+            diagnostics.log("Empty Trash failed: \(error.localizedDescription)")
+            return .failure(message: "Could not empty the Trash", retryable: true)
+        }
+    }
+
+    private func toggleDesktopIcons(emit: @escaping @MainActor @Sendable (CommandExecutionEvent) -> Void) async -> CommandOutcome {
+        let current = try? await ProcessRunner.run(
+            path: "/usr/bin/defaults",
+            arguments: ["read", "com.apple.finder", "CreateDesktop"],
+            timeout: 5
+        )
+        let currentlyShown = current?.stdout.trimmingCharacters(in: .whitespacesAndNewlines) != "0"
+        let next = currentlyShown ? "0" : "1"
+        do {
+            _ = try await ProcessRunner.run(
+                path: "/usr/bin/defaults",
+                arguments: ["write", "com.apple.finder", "CreateDesktop", "-bool", next == "1" ? "true" : "false"],
+                timeout: 5
+            )
+            _ = try await ProcessRunner.run(path: "/usr/bin/killall", arguments: ["Finder"], timeout: 5)
+            let message = currentlyShown ? "Desktop icons hidden" : "Desktop icons shown"
+            diagnostics.log(message)
+            emit(.feedback(.success(message)))
+            return .success(message: message)
+        } catch {
+            diagnostics.log("Desktop icon toggle failed: \(error.localizedDescription)")
+            return .failure(message: "Could not toggle desktop icons", retryable: true)
+        }
     }
 
     private func readQRCode(emit: @escaping @MainActor @Sendable (CommandExecutionEvent) -> Void) async -> CommandOutcome {
@@ -988,6 +1255,22 @@ extension ActionRunner {
         }
     }
 
+    private func shareFile(path: String) -> CommandOutcome {
+        let url = URL(fileURLWithPath: path)
+        guard FileManager.default.fileExists(atPath: path) else {
+            return .failure(message: "The file no longer exists", retryable: false)
+        }
+        // Anchor to the Foundry panel (or any app window) — the share picker
+        // needs a live view to present from.
+        guard let anchor = (NSApp.windows.first { $0 is FoundryPanel } ?? NSApp.keyWindow)?.contentView else {
+            return .failure(message: "Could not open the share menu", retryable: false)
+        }
+        let picker = NSSharingServicePicker(items: [url])
+        let rect = NSRect(x: anchor.bounds.midX, y: anchor.bounds.maxY - 40, width: 1, height: 1)
+        picker.show(relativeTo: rect, of: anchor, preferredEdge: .minY)
+        return .stayOpen(message: nil)
+    }
+
     private func renameFile(path: String, emit: @escaping @MainActor @Sendable (CommandExecutionEvent) -> Void) async -> CommandOutcome {
         let source = URL(fileURLWithPath: path)
         let icon = await Task.detached(priority: .utility) {
@@ -1111,4 +1394,11 @@ extension ActionRunner {
         guard trimmed.isEmpty == false, trimmed.count <= 32, trimmed.contains(where: \.isNewline) == false else { return "Copied to clipboard" }
         return "Copied \(trimmed)"
     }
+}
+
+@MainActor
+private final class PopupTarget: NSObject {
+    private let handler: (Int) -> Void
+    init(_ handler: @escaping (Int) -> Void) { self.handler = handler }
+    @objc func changed(_ sender: NSPopUpButton) { handler(sender.indexOfSelectedItem) }
 }
