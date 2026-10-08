@@ -278,7 +278,7 @@ struct AIFormattedText: View {
 
     static let parsedCache: NSCache<NSString, ParsedBox> = {
         let cache = NSCache<NSString, ParsedBox>()
-        cache.countLimit = 200
+        cache.countLimit = 50
         return cache
     }()
 

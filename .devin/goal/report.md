@@ -48,13 +48,19 @@ Implement the full Foundry megaplan (~/.devin/plans/plan-2b52c0932c2a6746.md) to
 - `VERSION` → `1.2.0`; `docs/release-notes/1.2.0.md` written; HANDOFF updated.
 - `build-app.sh` → signed 7.8 MB bundle (1.2.0); `verify-packaging.sh` passed; `package-dmg.sh` → `Foundry-1.2.0-build-1.dmg` with branded layout verified (mounted: .DS_Store positions, .background pair, volume icon, Applications symlink).
 
+### Post-release gap passes ✅ committed 6ea38e6 + dcc0148
+- Pass 1 (`6ea38e6`): `ConversionOptions.stripMetadata`/`nameTemplate`; pdf→txt, multi-PDF merge, images→PDF; ffmpeg `-map_metadata -1` + quality→CRF; magick `-strip`; drop chooser; file Share; snippet CSV export/tag chips/sort modes; clipboard merge + image dims; exclusion pickers; screen OCR, Wi-Fi QR, Empty Trash, Desktop Icons; first-conversion confetti; downloads ⌫ + total speed + toast.
+- Pass 2 (`dcc0148`): snippet Return-key pref (Insert vs Copy) via `CommandSearchRequest.snippetInsertAsPrimary` + Settings UI; `SnippetPreview` pane; `hapticsEnabled` setting gating confetti/drop/expansion taps; downloads link badge + unfocused ⌘V + link drop; color-picker WCAG contrast readout; quicklink `isEnabled` + DDG/Wikipedia shipped disabled; clipboard ⌥↵ plain paste; snippet export remembers directory; onboarding pills + scale-morph.
+
 ## In flight
 - Nothing blocking.
 
 ## Remaining
-- Final code-review pass over the megaplan diff range; commit P7 docs.
+- Manual-only items in `docs/HANDOFF.md` §Open items (Accessibility-gated keystroke benchmark + VoiceOver sweep, Xcode 26 glass cost, notarization).
 
 ## Evidence
-- `swift test`: **587 tests, 3 skipped, 0 failures** (post-P6).
+- `swift test`: **600 tests, 3 skipped, 0 failures** (full suite, post-parallel-batch commit `7afe028`).
+- `swift build`: clean, zero warnings. `verify-packaging.sh`: passed — signed ~7.9 MB bundle.
+- Batch conversion concurrency verified by tests: external-engine batches peak at exactly 2 in-flight, native batches peak at 1, partial failures preserve completed outputs (`FileConversionTests`).
 - Loaded conversion surface verified visually; `--convert` launch path verified; DMG layout verified by mounting.
 - Note: screen-recording capture flaky mid-session; file search returned no results in-app on this machine during QA drive (mdfind works in terminal) — likely Spotlight permission on the host, not a code path.
