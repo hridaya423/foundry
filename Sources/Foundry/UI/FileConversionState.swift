@@ -317,32 +317,30 @@ final class FileConversionState {
                 return
             }
 
-            for (index, sourceURL) in workSources.enumerated() {
-                guard Task.isCancelled == false else { await MainActor.run { self?.cancelRemaining(sourceURLs, generation: generation, operationID: operationID) }; return }
-                await MainActor.run { self?.setOutcome(sourceURL, state: .processing, outputURL: nil, failure: nil) }
-                await MainActor.run { [weak self] in
-                    guard let self else { return }
-                    let prefix = total == 1 ? "" : "\(index + 1) of \(total): "
-                    self.status = prefix + "Converting to \(target.title)…"
-                }
-
-                let snapshot = self?.options ?? .standard
-                let result = await self?.convertOperation(sourceURL, target, outputFolderURL, snapshot) ?? .failure(FileConversionError.cancelled)
-                guard Task.isCancelled == false else { await MainActor.run { self?.cancelRemaining(sourceURLs, generation: generation, operationID: operationID) }; return }
-                switch result {
-                case let .success(outputURL):
-                    await MainActor.run { self?.setOutcome(sourceURL, state: .completed, outputURL: outputURL, failure: nil) }
-                case let .failure(error):
-                    if error is CancellationError || self?.isCancellation(error) == true {
-                        await MainActor.run { self?.cancelRemaining(sourceURLs, generation: generation, operationID: operationID) }
-                        return
+            if target.externalEngines.isEmpty == false, workSources.count > 1 {
+                // External engines (ffmpeg/magick/pandoc/soffice) are
+                // process-based and safe to overlap — cap at 2 concurrent.
+                let completedRun = await self?.runExternalBatch(workSources, target: target, outputFolderURL: outputFolderURL, generation: generation, operationID: operationID, completedBeforeStart: completedBeforeStart, total: total, allSources: sourceURLs) ?? true
+                if completedRun == false { return }
+            } else {
+                for (index, sourceURL) in workSources.enumerated() {
+                    guard Task.isCancelled == false else { await MainActor.run { self?.cancelRemaining(sourceURLs, generation: generation, operationID: operationID) }; return }
+                    await MainActor.run { self?.setOutcome(sourceURL, state: .processing, outputURL: nil, failure: nil) }
+                    await MainActor.run { [weak self] in
+                        guard let self else { return }
+                        let prefix = total == 1 ? "" : "\(index + 1) of \(total): "
+                        self.status = prefix + "Converting to \(target.title)…"
                     }
-                    await MainActor.run { self?.setOutcome(sourceURL, state: .failed, outputURL: nil, failure: OperationFailure(message: error.localizedDescription)) }
-                }
-                await MainActor.run { [weak self] in
-                    let completed = completedBeforeStart + index + 1
-                    self?.progress = .items(completed: completed, total: total)
-                    if let operationID = self?.operationID { self?.operations.updateProgress(id: operationID, progress: .items(completed: completed, total: total)) }
+
+                    let snapshot = self?.options ?? .standard
+                    let result = await self?.convertOperation(sourceURL, target, outputFolderURL, snapshot) ?? .failure(FileConversionError.cancelled)
+                    guard Task.isCancelled == false else { await MainActor.run { self?.cancelRemaining(sourceURLs, generation: generation, operationID: operationID) }; return }
+                    if await self?.recordConversionResult(result, for: sourceURL, sourceURLs: sourceURLs, generation: generation, operationID: operationID) == false { return }
+                    await MainActor.run { [weak self] in
+                        let completed = completedBeforeStart + index + 1
+                        self?.progress = .items(completed: completed, total: total)
+                        if let operationID = self?.operationID { self?.operations.updateProgress(id: operationID, progress: .items(completed: completed, total: total)) }
+                    }
                 }
             }
 
@@ -350,6 +348,76 @@ final class FileConversionState {
                 self?.finishConversion(generation: generation, operationID: operationID, total: total)
             }
         }
+    }
+
+    /// Record a per-file conversion result. Returns false when cancellation
+    /// should abort the batch.
+    private func recordConversionResult(_ result: Result<URL, Error>, for sourceURL: URL, sourceURLs: [URL], generation: UUID, operationID: UUID) async -> Bool {
+        switch result {
+        case let .success(outputURL):
+            await MainActor.run { self.setOutcome(sourceURL, state: .completed, outputURL: outputURL, failure: nil) }
+            return true
+        case let .failure(error):
+            if error is CancellationError || isCancellation(error) {
+                await MainActor.run { self.cancelRemaining(sourceURLs, generation: generation, operationID: operationID) }
+                return false
+            }
+            await MainActor.run { self.setOutcome(sourceURL, state: .failed, outputURL: nil, failure: OperationFailure(message: error.localizedDescription)) }
+            return true
+        }
+    }
+
+    /// Overlap external-engine conversions (ffmpeg/magick/pandoc/soffice) with
+    /// a sliding window of at most two in flight. Returns false when the batch
+    /// was cancelled — `cancelRemaining` has already finalized the operation.
+    private func runExternalBatch(_ workSources: [URL], target: FileConversionTarget, outputFolderURL: URL, generation: UUID, operationID: UUID, completedBeforeStart: Int, total: Int, allSources: [URL]) async -> Bool {
+        let snapshot = options
+        await MainActor.run { [weak self] in
+            self?.status = "Converting \(workSources.count) files to \(target.title)…"
+        }
+        var completedCount = 0
+        var cancelled = false
+        await withTaskGroup(of: (URL, Result<URL, Error>).self) { group in
+            var pending = workSources.makeIterator()
+            for _ in 0..<2 {
+                guard let next = pending.next() else { break }
+                group.addTask { [weak self] in await self?.convertOne(next, target: target, folder: outputFolderURL, options: snapshot) ?? (next, .failure(FileConversionError.cancelled)) }
+            }
+            while let (sourceURL, result) = await group.next() {
+                completedCount += 1
+                if cancelled { continue }
+                if Task.isCancelled || conversionGeneration != generation {
+                    cancelled = true
+                    group.cancelAll()
+                    pending = [].makeIterator()
+                    continue
+                }
+                if await self.recordConversionResult(result, for: sourceURL, sourceURLs: allSources, generation: generation, operationID: operationID) == false {
+                    cancelled = true
+                    group.cancelAll()
+                    pending = [].makeIterator()
+                    continue
+                }
+                await MainActor.run { [weak self] in
+                    let completed = completedBeforeStart + completedCount
+                    self?.progress = .items(completed: completed, total: total)
+                    if let operationID = self?.operationID { self?.operations.updateProgress(id: operationID, progress: .items(completed: completed, total: total)) }
+                }
+                if let next = pending.next() {
+                    group.addTask { [weak self] in await self?.convertOne(next, target: target, folder: outputFolderURL, options: snapshot) ?? (next, .failure(FileConversionError.cancelled)) }
+                }
+            }
+        }
+        return cancelled == false
+    }
+
+    /// One batch item: mark processing, run the conversion, hand back the result.
+    private func convertOne(_ sourceURL: URL, target: FileConversionTarget, folder: URL, options: ConversionOptions) async -> (URL, Result<URL, Error>) {
+        if Task.isCancelled == false {
+            setOutcome(sourceURL, state: .processing, outputURL: nil, failure: nil)
+        }
+        let result = await convertOperation(sourceURL, target, folder, options)
+        return (sourceURL, result)
     }
 
     /// Shared completion for the per-file loop and the merge path: collapses

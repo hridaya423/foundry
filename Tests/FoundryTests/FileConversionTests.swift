@@ -277,6 +277,89 @@ final class FileConversionTests: XCTestCase {
         XCTAssertTrue(state.outputURLs.isEmpty)
     }
 
+    func testExternalEngineBatchCapsConcurrencyAtTwo() async throws {
+        let probe = BatchConcurrencyProbe()
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent("Foundry-Conversion-\(UUID().uuidString)")
+        let sources = (1...5).map { folder.appendingPathComponent("clip\($0).mov") }
+        let state = FileConversionState(
+            assess: { _, _ in .ready },
+            convert: { source, _, folder, _ in
+                await probe.enter()
+                try? await Task.sleep(for: .milliseconds(25))
+                await probe.exit()
+                return .success(folder.appendingPathComponent(source.deletingPathExtension().lastPathComponent + ".mp4"))
+            }
+        )
+        state.setSources(urls: sources)
+        await state.refreshCapabilities()
+        guard let externalTarget = state.availableTargets.first(where: { $0.externalEngines.isEmpty == false }) else {
+            return XCTFail("expected an external-engine target for .mov sources")
+        }
+        state.selectedTargetID = externalTarget.id
+        state.convert()
+        try await waitForConversionToFinish(state)
+
+        XCTAssertEqual(state.phase, .completed)
+        XCTAssertEqual(state.itemOutcomes.filter { $0.state == .completed }.count, 5)
+        let externalPeak = await probe.peak
+        XCTAssertEqual(externalPeak, 2)
+    }
+
+    func testNativeEngineBatchRunsSequentially() async throws {
+        let probe = BatchConcurrencyProbe()
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent("Foundry-Conversion-\(UUID().uuidString)")
+        let sources = (1...3).map { folder.appendingPathComponent("shot\($0).png") }
+        let state = FileConversionState(
+            assess: { _, _ in .ready },
+            convert: { source, _, folder, _ in
+                await probe.enter()
+                try? await Task.sleep(for: .milliseconds(25))
+                await probe.exit()
+                return .success(folder.appendingPathComponent(source.deletingPathExtension().lastPathComponent + ".jpg"))
+            }
+        )
+        state.setSources(urls: sources)
+        await state.refreshCapabilities()
+        guard let nativeTarget = state.availableTargets.first(where: { $0.externalEngines.isEmpty }) else {
+            return XCTFail("expected a native-engine target for .png sources")
+        }
+        state.selectedTargetID = nativeTarget.id
+        state.convert()
+        try await waitForConversionToFinish(state)
+
+        XCTAssertEqual(state.phase, .completed)
+        XCTAssertEqual(state.itemOutcomes.filter { $0.state == .completed }.count, 3)
+        let nativePeak = await probe.peak
+        XCTAssertEqual(nativePeak, 1)
+    }
+
+    func testExternalBatchPartialFailureKeepsCompletedOutputs() async throws {
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent("Foundry-Conversion-\(UUID().uuidString)")
+        let sources = (1...4).map { folder.appendingPathComponent("clip\($0).mov") }
+        let state = FileConversionState(
+            assess: { _, _ in .ready },
+            convert: { source, _, folder, _ in
+                if source.lastPathComponent == "clip2.mov" {
+                    return .failure(FileConversionError.unavailable("engine failed"))
+                }
+                try? await Task.sleep(for: .milliseconds(10))
+                return .success(folder.appendingPathComponent(source.deletingPathExtension().lastPathComponent + ".mp4"))
+            }
+        )
+        state.setSources(urls: sources)
+        await state.refreshCapabilities()
+        guard let externalTarget = state.availableTargets.first(where: { $0.externalEngines.isEmpty == false }) else {
+            return XCTFail("expected an external-engine target for .mov sources")
+        }
+        state.selectedTargetID = externalTarget.id
+        state.convert()
+        try await waitForConversionToFinish(state)
+
+        XCTAssertEqual(state.phase, .failed)
+        XCTAssertEqual(state.outputURLs.count, 3)
+        XCTAssertEqual(state.itemOutcomes.filter { $0.state == .failed }.count, 1)
+    }
+
     private func waitForConversionToFinish(_ state: FileConversionState) async throws {
         for _ in 0..<100 where state.isConverting {
             try await Task.sleep(for: .milliseconds(10))
@@ -533,6 +616,18 @@ private actor ConversionAttempts {
 
     func record(_ source: URL) { values[source, default: 0] += 1 }
     func count(for source: URL) -> Int { values[source, default: 0] }
+}
+
+private actor BatchConcurrencyProbe {
+    private(set) var peak = 0
+    private var inFlight = 0
+
+    func enter() {
+        inFlight += 1
+        peak = max(peak, inFlight)
+    }
+
+    func exit() { inFlight -= 1 }
 }
 
 private actor ConversionGate {
