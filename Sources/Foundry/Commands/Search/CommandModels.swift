@@ -123,6 +123,7 @@ enum CommandActionKind: Hashable, Sendable {
     case quitAllApplications
     case toggleKeepAwake
     case extractTextFromImage(path: String?)
+    case previewExtractedText(path: String)
     case pickColor
     case generateQRCode
     case generateWiFiQRCode

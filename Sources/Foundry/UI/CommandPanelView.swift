@@ -850,7 +850,7 @@ struct CommandPanelView: View {
             "Insert"
         case .createSnippetFromClipboard, .importSnippets, .exportSnippets:
             "Snippet"
-        case .extractTextFromImage:
+        case .extractTextFromImage, .previewExtractedText:
             "OCR"
         case .pickColor:
             "Color"
@@ -1218,6 +1218,8 @@ private struct ActionRow: View {
             "square.and.arrow.up"
         case .extractTextFromImage:
             "text.viewfinder"
+        case .previewExtractedText:
+            "eye"
         case .pickColor:
             "eyedropper.halffull"
         case .generateQRCode:

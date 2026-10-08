@@ -201,6 +201,7 @@ final class FileSearchProvider: CommandProvider, @unchecked Sendable {
         ]
         if ConversionGraph.visionReadExts.contains(ConversionGraph.normalizedExtension(of: url)) {
             secondary.append(CommandAction(id: "\(id).ocr", title: "Extract Text", kind: .extractTextFromImage(path: path)))
+            secondary.append(CommandAction(id: "\(id).ocr.preview", title: "Preview Extracted Text", kind: .previewExtractedText(path: path)))
         }
         secondary += [
             CommandAction(id: "\(id).compress", title: "Compress", kind: .compressFile(path: path)),

@@ -26,6 +26,7 @@ final class ActionRunner {
     private let scriptTimeout: TimeInterval
     private let scriptOutputLimit: Int
     private var activeExecutionTasks: [UUID: Task<CommandOutcome, Never>] = [:]
+    var onQuickLook: (@MainActor (URL) -> Void)?
 
     init(
         diagnostics: DiagnosticsService,
@@ -481,6 +482,8 @@ final class ActionRunner {
 
         case let .extractTextFromImage(path):
             return await extractTextFromImage(path: path, emit: emit)
+        case let .previewExtractedText(path):
+            return await previewExtractedText(path: path, emit: emit)
 
         case .pickColor:
             return await pickColor(emit: emit)
@@ -766,6 +769,34 @@ final class ActionRunner {
             return .copied(content: text)
         } catch {
             diagnostics.log("OCR failed: \(error.localizedDescription)")
+            return .failure(message: "Could not extract text", retryable: true)
+        }
+    }
+
+    /// OCR an image, stage the text as a temp file, and Quick Look it —
+    /// the "result → quicklook" path for extracted text.
+    private func previewExtractedText(path: String, emit: @escaping @MainActor @Sendable (CommandExecutionEvent) -> Void) async -> CommandOutcome {
+        let url = URL(fileURLWithPath: path)
+        do {
+            emit(.status("Recognizing text…"))
+            let lines = try await VisionText.recognizeText(at: url)
+            let text = lines.joined(separator: "\n")
+            guard text.isEmpty == false else {
+                return .failure(message: "No text found in \(url.lastPathComponent)", retryable: false)
+            }
+            let staging = FileManager.default.temporaryDirectory
+                .appendingPathComponent("FoundryOCR", isDirectory: true)
+            try FileManager.default.createDirectory(at: staging, withIntermediateDirectories: true)
+            let preview = staging.appendingPathComponent("\(url.deletingPathExtension().lastPathComponent) — OCR.txt")
+            try text.write(to: preview, atomically: true, encoding: .utf8)
+            if let onQuickLook {
+                onQuickLook(preview)
+                return .stayOpen(message: nil)
+            }
+            NSWorkspace.shared.open(preview)
+            return .success(message: nil)
+        } catch {
+            diagnostics.log("OCR preview failed: \(error.localizedDescription)")
             return .failure(message: "Could not extract text", retryable: true)
         }
     }

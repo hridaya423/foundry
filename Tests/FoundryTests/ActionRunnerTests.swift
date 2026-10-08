@@ -465,6 +465,30 @@ final class ActionRunnerTests: XCTestCase {
         XCTAssertEqual(pasteboard.string(forType: .string), content)
     }
 
+    func testPreviewExtractedTextStagesFileAndQuickLooks() async throws {
+        let folder = FileManager.default.temporaryDirectory
+            .appendingPathComponent("Foundry-OCR-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let imageURL = folder.appendingPathComponent("label.png")
+        try Self.renderTextImage(text: "HELLO WORLD").write(to: imageURL)
+
+        let runner = ActionRunner(diagnostics: DiagnosticsService())
+        var previewed: URL?
+        runner.onQuickLook = { url in previewed = url }
+
+        let outcome = await runner.execute(CommandExecutionRequest(
+            commandID: "test.ocr.preview",
+            action: CommandAction(id: "test.ocr.preview.run", title: "Preview Extracted Text", kind: .previewExtractedText(path: imageURL.path))
+        )) { _ in }
+
+        XCTAssertEqual(outcome, .stayOpen(message: nil))
+        let previewURL = try XCTUnwrap(previewed)
+        defer { try? FileManager.default.removeItem(at: previewURL.deletingLastPathComponent()) }
+        let staged = try String(contentsOf: previewURL, encoding: .utf8)
+        XCTAssertTrue(staged.uppercased().contains("HELLO"))
+    }
+
     func testExtractTextFromImageFailsOnMissingFile() async {
         let runner = ActionRunner(diagnostics: DiagnosticsService())
 

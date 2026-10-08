@@ -200,7 +200,7 @@ struct MediaDownloadsView: View {
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
                     .stroke(composerFocused || isDropTargeted ? FoundryTheme.accentTint.opacity(0.48) : Color.primary.opacity(0.09), lineWidth: 1)
             )
-            .onDrop(of: [.url, .fileURL, .plainText], isTargeted: $isDropTargeted) { providers in
+            .onDrop(of: [.url, .plainText], isTargeted: $isDropTargeted) { providers in
                 receiveDroppedLinks(providers)
             }
 

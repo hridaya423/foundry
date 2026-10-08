@@ -92,6 +92,10 @@ final class PanelController: NSObject, NSWindowDelegate {
         }
     }
 
+    func previewFile(_ url: URL) {
+        quickLook.show(url, relativeTo: panel)
+    }
+
     func hide() {
         quickLook.close()
         state.panelWillClose()

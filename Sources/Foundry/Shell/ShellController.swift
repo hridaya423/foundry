@@ -42,7 +42,11 @@ final class ShellController {
             mediaDownloadManager: mediaDownloadManager,
             clipboardHistory: sharedClipboardHistory
         )
-        self.panelController = PanelController(state: panelState, diagnostics: diagnostics, directPasteService: actionRunner.directPasteService)
+        let panelController = PanelController(state: panelState, diagnostics: diagnostics, directPasteService: actionRunner.directPasteService)
+        self.panelController = panelController
+        actionRunner.onQuickLook = { [weak panelController] url in
+            panelController?.previewFile(url)
+        }
         let permissionHealth = PermissionHealthState()
         let onboardingState = OnboardingState(panel: panelState, permissions: permissionHealth)
         onboardingState.onStepChanged = { [diagnostics] step in
