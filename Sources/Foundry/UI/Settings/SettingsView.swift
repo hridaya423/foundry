@@ -57,17 +57,17 @@ struct SettingsView: View {
         VStack(alignment: .leading, spacing: 2) {
             HStack(spacing: 7) {
                 Image(systemName: "magnifyingglass")
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(FoundryTheme.mutedText)
+                    .font(FoundryTheme.Glyph.xs)
+                    .foregroundStyle(FoundryTheme.textTertiary)
                 TextField("Search settings", text: $searchQuery)
                     .textFieldStyle(.plain)
-                    .font(FoundryTheme.body(size: 13, weight: .regular))
+                    .font(FoundryTheme.bodySecondary)
                     .focused($searchFocused)
                     .onSubmit { if let first = searchMatches.first { reveal(first) } }
             }
             .padding(.horizontal, 9)
             .frame(height: 30)
-            .background(Color.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: FoundryTheme.Radius.control, style: .continuous))
+            .background(FoundryTheme.fillHover, in: RoundedRectangle(cornerRadius: FoundryTheme.Radius.control, style: .continuous))
             .padding(.bottom, 10)
 
             ScrollView {
@@ -79,8 +79,8 @@ struct SettingsView: View {
                     }
                 } else if searchMatches.isEmpty {
                     Text("No settings match \u{201C}\(searchQuery)\u{201D}")
-                        .font(FoundryTheme.body(size: 12, weight: .regular))
-                        .foregroundStyle(FoundryTheme.mutedText)
+                        .font(FoundryTheme.bodySecondary)
+                        .foregroundStyle(FoundryTheme.textTertiary)
                         .padding(.horizontal, 9)
                         .padding(.top, 4)
                 } else {
@@ -101,19 +101,19 @@ struct SettingsView: View {
         Button(action: action) {
             HStack(spacing: 9) {
                 Image(systemName: symbol)
-                    .font(.system(size: 13, weight: .medium))
+                    .font(FoundryTheme.Glyph.sm)
                     .frame(width: 18)
                 Text(title)
-                    .font(FoundryTheme.body(size: 13, weight: .medium))
+                    .font(FoundryTheme.body)
                     .lineLimit(1)
             }
-            .foregroundStyle(isSelected ? FoundryTheme.primaryText : FoundryTheme.secondaryText)
+            .foregroundStyle(isSelected ? FoundryTheme.textPrimary : FoundryTheme.textSecondary)
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, 9)
             .frame(height: 30)
             .background(
                 RoundedRectangle(cornerRadius: FoundryTheme.Radius.control, style: .continuous)
-                    .fill(isSelected ? FoundryTheme.selection : Color.clear)
+                    .fill(isSelected ? FoundryTheme.fillSelected : Color.clear)
             )
             .contentShape(Rectangle())
         }
@@ -141,8 +141,8 @@ struct SettingsView: View {
     private var detailPane: some View {
         VStack(alignment: .leading, spacing: 0) {
             Text(category.title)
-                .font(FoundryTheme.body(size: 20, weight: .semibold))
-                .foregroundStyle(FoundryTheme.primaryText)
+                .font(FoundryTheme.title)
+                .foregroundStyle(FoundryTheme.textPrimary)
                 .padding(.horizontal, 24)
                 .padding(.top, 20)
                 .padding(.bottom, 12)
@@ -294,11 +294,11 @@ struct SettingsView: View {
                     .frame(width: 56, height: 56)
                 VStack(alignment: .leading, spacing: 3) {
                     Text("Foundry")
-                        .font(FoundryTheme.body(size: 17, weight: .semibold))
-                        .foregroundStyle(FoundryTheme.primaryText)
+                        .font(FoundryTheme.title)
+                        .foregroundStyle(FoundryTheme.textPrimary)
                     Text(Self.versionString)
-                        .font(FoundryTheme.body(size: 12, weight: .regular).monospacedDigit())
-                        .foregroundStyle(FoundryTheme.mutedText)
+                        .font(FoundryTheme.bodySecondary.monospacedDigit())
+                        .foregroundStyle(FoundryTheme.textTertiary)
                         .textSelection(.enabled)
                 }
                 Spacer()
@@ -331,8 +331,8 @@ struct SettingsView: View {
                     .padding(.vertical, 11)
                     if let error = state.settings.hotkeyError {
                         Text(error)
-                            .font(FoundryTheme.body(size: 12, weight: .medium))
-                            .foregroundStyle(FoundryTheme.error)
+                            .font(FoundryTheme.bodySecondary)
+                            .foregroundStyle(FoundryTheme.destructive)
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .padding(.horizontal, 12)
                             .padding(.bottom, 8)
@@ -484,24 +484,27 @@ struct SettingsView: View {
                                     enabled: !state.settings.snippetExpansion.delimiters.contains(option.delimiter))
                             } label: {
                                 Text(option.label)
-                                    .font(FoundryTheme.body(size: 11.5, weight: .semibold))
+                                    .font(FoundryTheme.micro)
                                     .foregroundStyle(state.settings.snippetExpansion.delimiters.contains(
-                                        option.delimiter) ? FoundryTheme.primaryText : FoundryTheme.mutedText)
+                                        option.delimiter) ? FoundryTheme.textPrimary : FoundryTheme.textTertiary)
                                     .padding(.horizontal, 11)
                                     .frame(height: 26)
                                     .background(
                                         Capsule()
                                             .fill(state.settings.snippetExpansion.delimiters.contains(
-                                                option.delimiter) ? FoundryTheme.accentTint.opacity(0.18) : Color.primary.opacity(0.05))
+                                                option.delimiter) ? FoundryTheme.accentTintFill : FoundryTheme.fillHover)
                                             .overlay(
                                                 Capsule()
-                                                    .strokeBorder(state.settings.snippetExpansion.delimiters.contains(
-                                                        option.delimiter) ? FoundryTheme.accentTint.opacity(0.4) : Color.primary.opacity(0.08), lineWidth: 1)
+                                                    .strokeBorder(
+                                                        state.settings.snippetExpansion.delimiters.contains(option.delimiter)
+                                                            ? FoundryTheme.accent.opacity(FoundryTheme.Alpha.half)
+                                                            : FoundryTheme.fillTint,
+                                                        lineWidth: 1
+                                                    )
                                             )
                                     )
                             }
                             .buttonStyle(PressableButtonStyle())
-                            .pointerCursor()
                             .accessibilityLabel("Expand after \(option.label)")
                             .accessibilityValue(state.settings.snippetExpansion.delimiters.contains(option.delimiter) ? "On" : "Off")
                         }
@@ -518,24 +521,27 @@ struct SettingsView: View {
                                 state.settings.setSnippetInsertAsPrimary(option.insert)
                             } label: {
                                 Text(option.label)
-                                    .font(FoundryTheme.body(size: 11.5, weight: .semibold))
+                                    .font(FoundryTheme.micro)
                                     .foregroundStyle(state.settings.snippetExpansion.insertAsPrimary
-                                        == option.insert ? FoundryTheme.primaryText : FoundryTheme.mutedText)
+                                        == option.insert ? FoundryTheme.textPrimary : FoundryTheme.textTertiary)
                                     .padding(.horizontal, 11)
                                     .frame(height: 26)
                                     .background(
                                         Capsule()
                                             .fill(state.settings.snippetExpansion.insertAsPrimary
-                                                == option.insert ? FoundryTheme.accentTint.opacity(0.18) : Color.primary.opacity(0.05))
+                                                == option.insert ? FoundryTheme.accentTintFill : FoundryTheme.fillHover)
                                             .overlay(
                                                 Capsule()
-                                                    .strokeBorder(state.settings.snippetExpansion.insertAsPrimary
-                                                        == option.insert ? FoundryTheme.accentTint.opacity(0.4) : Color.primary.opacity(0.08), lineWidth: 1)
+                                                    .strokeBorder(
+                                                        state.settings.snippetExpansion.insertAsPrimary == option.insert
+                                                            ? FoundryTheme.accent.opacity(FoundryTheme.Alpha.half)
+                                                            : FoundryTheme.fillTint,
+                                                        lineWidth: 1
+                                                    )
                                             )
                                     )
                             }
                             .buttonStyle(PressableButtonStyle())
-                            .pointerCursor()
                             .accessibilityLabel("Return key \(option.label)")
                             .accessibilityValue(state.settings.snippetExpansion.insertAsPrimary == option.insert ? "Selected" : "")
                         }
@@ -590,8 +596,8 @@ struct SettingsView: View {
                     )
                     Spacer()
                     Text("\(Int(state.settings.themeIntensity * 100))%")
-                        .font(FoundryTheme.body(size: 12, weight: .semibold))
-                        .foregroundStyle(FoundryTheme.secondaryText)
+                        .font(FoundryTheme.body)
+                        .foregroundStyle(FoundryTheme.textSecondary)
                 }
 
                 Slider(
@@ -601,7 +607,7 @@ struct SettingsView: View {
                     ),
                     in: 0.2...1
                 )
-                .tint(FoundryTheme.secondaryText)
+                .tint(FoundryTheme.textSecondary)
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 11)
@@ -627,12 +633,12 @@ struct SettingsView: View {
             SettingsGroup {
                 HStack(spacing: 9) {
                     Image(systemName: "magnifyingglass")
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(FoundryTheme.mutedText)
+                        .font(FoundryTheme.Glyph.xs)
+                        .foregroundStyle(FoundryTheme.textTertiary)
                     TextField("Search commands", text: $state.settings.commandSettingsQuery)
                         .textFieldStyle(.plain)
-                        .font(FoundryTheme.body(size: 13, weight: .medium))
-                        .foregroundStyle(FoundryTheme.primaryText)
+                        .font(FoundryTheme.body)
+                        .foregroundStyle(FoundryTheme.textPrimary)
                 }
                 .padding(.horizontal, 12)
                 .padding(.vertical, 10)
@@ -643,21 +649,21 @@ struct SettingsView: View {
                     ProgressView()
                         .controlSize(.small)
                     Text("Preparing command catalog…")
-                        .font(FoundryTheme.body(size: 12, weight: .regular))
-                        .foregroundStyle(FoundryTheme.mutedText)
+                        .font(FoundryTheme.bodySecondary)
+                        .foregroundStyle(FoundryTheme.textTertiary)
                 }
                 .padding(.horizontal, 2)
                 .padding(.vertical, 5)
             } else if state.settings.isCommandCatalogReady && state.settings.commandCatalogCount == 0 {
                 Text("No commands are available.")
-                    .font(FoundryTheme.body(size: 12, weight: .regular))
-                    .foregroundStyle(FoundryTheme.mutedText)
+                    .font(FoundryTheme.bodySecondary)
+                    .foregroundStyle(FoundryTheme.textTertiary)
                     .padding(.horizontal, 2)
                     .padding(.vertical, 5)
             } else if state.settings.visibleCommandRows.isEmpty {
                 Text("No commands match this search.")
-                    .font(FoundryTheme.body(size: 12, weight: .regular))
-                    .foregroundStyle(FoundryTheme.mutedText)
+                    .font(FoundryTheme.bodySecondary)
+                    .foregroundStyle(FoundryTheme.textTertiary)
                     .padding(.horizontal, 2)
                     .padding(.vertical, 5)
             } else {
@@ -707,19 +713,19 @@ struct SettingsView: View {
                         )
                         Spacer()
                         Text(state.agents.socketListening ? "Live" : "Offline")
-                            .font(FoundryTheme.body(size: 12, weight: .semibold))
+                            .font(FoundryTheme.body)
                             .foregroundStyle(state.agents.socketListening ? FoundryTheme.success : FoundryTheme.warning)
                     }
                     Text(AgentEventSocketServer.socketURL.path)
-                        .font(FoundryTheme.mono(size: 10, weight: .regular))
-                        .foregroundStyle(FoundryTheme.faintText)
+                        .font(FoundryTheme.mono)
+                        .foregroundStyle(FoundryTheme.textQuaternary)
                         .lineLimit(1)
                         .truncationMode(.middle)
                     Text(
                         "Foundry shows sessions from your coding agents. Approvals and replies happen in each agent's own app unless it supports " +
                             "replying from Foundry.")
-                        .font(FoundryTheme.body(size: 11, weight: .regular))
-                        .foregroundStyle(FoundryTheme.mutedText)
+                        .font(FoundryTheme.caption)
+                        .foregroundStyle(FoundryTheme.textTertiary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 .padding(.horizontal, 12)
@@ -749,8 +755,8 @@ struct SettingsView: View {
             SettingsGroup {
                 if state.agents.sessions.isEmpty {
                     Text("No active or recent agent sessions.")
-                        .font(FoundryTheme.body(size: 12, weight: .regular))
-                        .foregroundStyle(FoundryTheme.mutedText)
+                        .font(FoundryTheme.bodySecondary)
+                        .foregroundStyle(FoundryTheme.textTertiary)
                         .padding(.horizontal, 12)
                         .padding(.vertical, 12)
                 } else {
@@ -758,14 +764,14 @@ struct SettingsView: View {
                         ForEach(state.agents.sessions.prefix(6)) { session in
                             HStack(spacing: 9) {
                                 Image(systemName: session.provider.symbol)
-                                    .font(.system(size: 13, weight: .semibold))
-                                    .foregroundStyle(FoundryTheme.secondaryText)
+                                    .font(FoundryTheme.Glyph.sm)
+                                    .foregroundStyle(FoundryTheme.textSecondary)
                                     .frame(width: 22)
                                 SettingsLabel(title: session.title, subtitle: "\(session.provider.rawValue) · \(session.status.rawValue)")
                                 Spacer()
                                 Text(session.origin.rawValue)
-                                    .font(FoundryTheme.body(size: 10, weight: .medium))
-                                    .foregroundStyle(FoundryTheme.faintText)
+                                    .font(FoundryTheme.caption)
+                                    .foregroundStyle(FoundryTheme.textQuaternary)
                             }
                             .padding(.horizontal, 12)
                             .padding(.vertical, 9)
@@ -782,8 +788,8 @@ struct SettingsView: View {
             SettingsGroup {
                 if state.widgetBoard.config.enabled.isEmpty {
                         Text("No Home widgets yet. Add one below.")
-                        .font(FoundryTheme.body(size: 13, weight: .regular))
-                        .foregroundStyle(FoundryTheme.mutedText)
+                        .font(FoundryTheme.bodySecondary)
+                        .foregroundStyle(FoundryTheme.textTertiary)
                         .padding(.vertical, 5)
                 } else {
                     VStack(spacing: 0) {
@@ -832,14 +838,14 @@ struct SettingsView: View {
             SettingsSectionLabel(title: "Available widgets")
             if state.widgetBoard.isFull {
                 Text("Remove a widget to add another.")
-                    .font(FoundryTheme.body(size: 12, weight: .regular))
-                    .foregroundStyle(FoundryTheme.mutedText)
+                    .font(FoundryTheme.bodySecondary)
+                    .foregroundStyle(FoundryTheme.textTertiary)
                     .padding(.horizontal, 2)
                     .padding(.vertical, 5)
             } else if state.widgetBoard.config.available.isEmpty {
                 Text("All available widgets are already on Home.")
-                    .font(FoundryTheme.body(size: 12, weight: .regular))
-                    .foregroundStyle(FoundryTheme.mutedText)
+                    .font(FoundryTheme.bodySecondary)
+                    .foregroundStyle(FoundryTheme.textTertiary)
                     .padding(.horizontal, 2)
                     .padding(.vertical, 5)
             } else {
@@ -847,8 +853,8 @@ struct SettingsView: View {
                     let kinds = state.widgetBoard.config.available.filter { $0.category == category }
                     if kinds.isEmpty == false {
                         Text(category.title)
-                            .font(FoundryTheme.body(size: 11, weight: .semibold))
-                            .foregroundStyle(FoundryTheme.mutedText)
+                            .font(FoundryTheme.micro)
+                            .foregroundStyle(FoundryTheme.textTertiary)
                             .padding(.horizontal, 2)
                         SettingsGroup {
                             ForEach(kinds) { kind in
@@ -995,7 +1001,7 @@ struct SettingsAnchor: ViewModifier {
             .id(id)
             .overlay(
                 RoundedRectangle(cornerRadius: 11, style: .continuous)
-                    .stroke(FoundryTheme.selectionBorder, lineWidth: highlighted ? 2 : 0)
+                    .stroke(FoundryTheme.stroke, lineWidth: highlighted ? 2 : 0)
                     .allowsHitTesting(false)
             )
     }

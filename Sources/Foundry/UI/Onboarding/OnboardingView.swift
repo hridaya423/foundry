@@ -62,19 +62,19 @@ struct OnboardingView: View {
                 Image(nsImage: NSApp.applicationIconImage)
                     .resizable()
                     .frame(width: 96, height: 96)
-                    .shadow(color: Color(red: 0.98, green: 0.39, blue: 0.16).opacity(0.38), radius: 26, y: 8)
+                    .shadow(color: FoundryTheme.brand.opacity(FoundryTheme.Alpha.half), radius: 26, y: 8)
             }
             OnboardingReveal(index: 1) {
                 Text("Everything on your Mac, one keystroke away.")
-                    .font(.system(size: 26, weight: .semibold))
-                    .foregroundStyle(FoundryTheme.primaryText)
+                    .font(FoundryTheme.Glyph.lg)
+                    .foregroundStyle(FoundryTheme.textPrimary)
                     .multilineTextAlignment(.center)
                     .fixedSize(horizontal: false, vertical: true)
             }
             OnboardingReveal(index: 2) {
                 Text("Launch apps, run commands, and ask AI from a single panel.")
-                    .font(FoundryTheme.body(size: 14, weight: .regular))
-                    .foregroundStyle(FoundryTheme.secondaryText)
+                    .font(FoundryTheme.bodySecondary)
+                    .foregroundStyle(FoundryTheme.textSecondary)
                     .multilineTextAlignment(.center)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -87,20 +87,20 @@ struct OnboardingView: View {
         VStack(spacing: 18) {
             Spacer()
             Text(panel.settings.hotkey.displayName)
-                .font(.system(size: 34, weight: .medium, design: .rounded))
-                .foregroundStyle(FoundryTheme.primaryText)
+                .font(FoundryTheme.title)
+                .foregroundStyle(FoundryTheme.textPrimary)
                 .padding(.horizontal, 28)
                 .padding(.vertical, 14)
-                .background(Color.primary.opacity(0.07))
+                .background(FoundryTheme.fillTint)
                 .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                 .overlay(
                     RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .strokeBorder(Color.primary.opacity(0.14), lineWidth: 1)
+                        .strokeBorder(FoundryTheme.fillEmphasis, lineWidth: 1)
                 )
 
             Text("Press it anywhere to open Foundry.")
-                .font(FoundryTheme.body(size: 13, weight: .regular))
-                .foregroundStyle(FoundryTheme.secondaryText)
+                .font(FoundryTheme.bodySecondary)
+                .foregroundStyle(FoundryTheme.textSecondary)
 
             ShortcutRecorder(hotkey: panel.settings.hotkey, placeholder: "Record a different shortcut", onChange: { hotkey in
                 if hotkey == .commandSpace { state.useCommandSpace() } else { panel.settings.setHotkey(hotkey) }
@@ -111,36 +111,34 @@ struct OnboardingView: View {
                 state.useCommandSpace()
             }
             .buttonStyle(FoundryQuietButtonStyle())
-            .font(FoundryTheme.body(size: 12, weight: .semibold))
-            .foregroundStyle(FoundryTheme.accentTint)
-            .pointerCursor()
+            .font(FoundryTheme.body)
+            .foregroundStyle(FoundryTheme.accent)
 
             if state.spotlightHoldsCommandSpace {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("⌘Space is still held by Spotlight:")
-                        .font(FoundryTheme.body(size: 12, weight: .semibold))
+                        .font(FoundryTheme.body)
                         .foregroundStyle(FoundryTheme.warning)
                     Text("1. Open Keyboard Shortcuts\n2. Turn off “Show Spotlight search”")
-                        .font(FoundryTheme.body(size: 12, weight: .regular))
-                        .foregroundStyle(FoundryTheme.secondaryText)
+                        .font(FoundryTheme.bodySecondary)
+                        .foregroundStyle(FoundryTheme.textSecondary)
                     Button("Open Keyboard Shortcuts") {
                         state.openSpotlightShortcutSettings()
                     }
                     .buttonStyle(FoundryQuietButtonStyle())
-                    .font(FoundryTheme.body(size: 12, weight: .semibold))
-                    .foregroundStyle(FoundryTheme.primaryText)
-                    .pointerCursor()
+                    .font(FoundryTheme.body)
+                    .foregroundStyle(FoundryTheme.textPrimary)
                 }
                 .padding(14)
                 .frame(maxWidth: 360, alignment: .leading)
-                .background(Color.primary.opacity(0.06))
+                .background(FoundryTheme.fillHover)
                 .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
             }
 
             if state.isWaitingForSpotlight {
                 Label("Turning off Spotlight's ⌘Space shortcut…", systemImage: "clock")
-                    .font(FoundryTheme.body(size: 12, weight: .medium))
-                    .foregroundStyle(FoundryTheme.mutedText)
+                    .font(FoundryTheme.bodySecondary)
+                    .foregroundStyle(FoundryTheme.textTertiary)
             }
 
             if panel.settings.launcherHotkeyFailed {
@@ -160,25 +158,25 @@ struct OnboardingView: View {
             Spacer()
             if state.didTryPanel {
                 Image(systemName: "checkmark.circle.fill")
-                    .font(.system(size: 44))
+                    .font(FoundryTheme.Glyph.hero)
                     .foregroundStyle(FoundryTheme.success)
                     .symbolEffect(.bounce, options: .nonRepeating, value: state.didTryPanel)
                 Text("That’s the whole idea.")
-                    .font(.system(size: 22, weight: .semibold))
-                    .foregroundStyle(FoundryTheme.primaryText)
+                    .font(FoundryTheme.Glyph.lg)
+                    .foregroundStyle(FoundryTheme.textPrimary)
                     .fixedSize(horizontal: false, vertical: true)
             } else if panelOpenedForTryIt {
                 Image(systemName: "text.cursor")
-                    .font(.system(size: 36))
-                    .foregroundStyle(FoundryTheme.accentTint)
+                    .font(FoundryTheme.Glyph.xl)
+                    .foregroundStyle(FoundryTheme.accent)
                 Text("Type an app name, press Return")
-                    .font(.system(size: 22, weight: .semibold))
-                    .foregroundStyle(FoundryTheme.primaryText)
+                    .font(FoundryTheme.Glyph.lg)
+                    .foregroundStyle(FoundryTheme.textPrimary)
                     .multilineTextAlignment(.center)
                     .fixedSize(horizontal: false, vertical: true)
                 Text("Foundry runs your top hit instantly.")
-                    .font(FoundryTheme.body(size: 14, weight: .regular))
-                    .foregroundStyle(FoundryTheme.secondaryText)
+                    .font(FoundryTheme.bodySecondary)
+                    .foregroundStyle(FoundryTheme.textSecondary)
                     .multilineTextAlignment(.center)
                     .fixedSize(horizontal: false, vertical: true)
             } else {
@@ -187,15 +185,15 @@ struct OnboardingView: View {
                 }
                 OnboardingReveal(index: 1) {
                     Text("Press it now")
-                        .font(.system(size: 26, weight: .semibold))
-                        .foregroundStyle(FoundryTheme.primaryText)
+                        .font(FoundryTheme.title)
+                        .foregroundStyle(FoundryTheme.textPrimary)
                         .multilineTextAlignment(.center)
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 OnboardingReveal(index: 2) {
                     Text("The panel opens right over this window.")
-                        .font(FoundryTheme.body(size: 14, weight: .regular))
-                        .foregroundStyle(FoundryTheme.secondaryText)
+                        .font(FoundryTheme.bodySecondary)
+                        .foregroundStyle(FoundryTheme.textSecondary)
                         .multilineTextAlignment(.center)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -215,8 +213,8 @@ struct OnboardingView: View {
         VStack(alignment: .leading, spacing: 14) {
             Spacer()
             Text("Make it yours")
-                .font(.system(size: 20, weight: .semibold))
-                .foregroundStyle(FoundryTheme.primaryText)
+                .font(FoundryTheme.title)
+                .foregroundStyle(FoundryTheme.textPrimary)
                 .frame(maxWidth: .infinity)
 
             OnboardingToggle(
@@ -247,41 +245,40 @@ struct OnboardingView: View {
         VStack(alignment: .leading, spacing: 14) {
             Spacer()
             Text("Superpowers, only if you want them")
-                .font(.system(size: 20, weight: .semibold))
-                .foregroundStyle(FoundryTheme.primaryText)
+                .font(FoundryTheme.title)
+                .foregroundStyle(FoundryTheme.textPrimary)
                 .frame(maxWidth: .infinity)
 
             ForEach(PermissionKind.allCases) { kind in
                 HStack(spacing: 12) {
                     Image(systemName: kind.symbol)
-                        .font(.system(size: 16, weight: .medium))
-                        .foregroundStyle(FoundryTheme.secondaryText)
+                        .font(FoundryTheme.Glyph.sm)
+                        .foregroundStyle(FoundryTheme.textSecondary)
                         .frame(width: 28)
                     VStack(alignment: .leading, spacing: 2) {
                         Text(kind.title)
-                            .font(FoundryTheme.body(size: 13, weight: .semibold))
-                            .foregroundStyle(FoundryTheme.primaryText)
+                            .font(FoundryTheme.body)
+                            .foregroundStyle(FoundryTheme.textPrimary)
                         Text(kind.purpose)
-                            .font(FoundryTheme.body(size: 11, weight: .regular))
-                            .foregroundStyle(FoundryTheme.mutedText)
+                            .font(FoundryTheme.caption)
+                            .foregroundStyle(FoundryTheme.textTertiary)
                             .lineLimit(2)
                     }
                     Spacer()
                     let status = permissions.status(for: kind)
                     if status == .granted {
                         Label("Allowed", systemImage: "checkmark.circle.fill")
-                            .font(FoundryTheme.body(size: 11, weight: .semibold))
+                            .font(FoundryTheme.micro)
                             .foregroundStyle(FoundryTheme.success)
                     } else if status == .notGranted {
                         Button("Grant") { permissions.request(kind) }
                             .buttonStyle(FoundryQuietButtonStyle())
-                            .font(FoundryTheme.body(size: 12, weight: .semibold))
-                            .foregroundStyle(FoundryTheme.accentTint)
-                            .pointerCursor()
+                            .font(FoundryTheme.body)
+                            .foregroundStyle(FoundryTheme.accent)
                     } else {
                         Text(status.label)
-                            .font(FoundryTheme.body(size: 11, weight: .medium))
-                            .foregroundStyle(FoundryTheme.mutedText)
+                            .font(FoundryTheme.caption)
+                            .foregroundStyle(FoundryTheme.textTertiary)
                     }
                 }
                 .padding(.horizontal, 14)
@@ -299,8 +296,8 @@ struct OnboardingView: View {
         VStack(spacing: 14) {
             Spacer()
             Text("AI, your way")
-                .font(.system(size: 20, weight: .semibold))
-                .foregroundStyle(FoundryTheme.primaryText)
+                .font(FoundryTheme.title)
+                .foregroundStyle(FoundryTheme.textPrimary)
                 .frame(maxWidth: .infinity)
 
             aiChoiceButton(
@@ -326,9 +323,8 @@ struct OnboardingView: View {
 
             Button("Turn AI off") { state.chooseAI(.off) }
                 .buttonStyle(FoundryQuietButtonStyle())
-                .font(FoundryTheme.body(size: 12, weight: .medium))
-                .foregroundStyle(FoundryTheme.mutedText)
-                .pointerCursor()
+                .font(FoundryTheme.bodySecondary)
+                .foregroundStyle(FoundryTheme.textTertiary)
             Spacer()
         }
         .padding(.horizontal, 56)
@@ -340,16 +336,16 @@ struct OnboardingView: View {
             HStack {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(title)
-                        .font(FoundryTheme.body(size: 13, weight: .semibold))
-                        .foregroundStyle(enabled ? FoundryTheme.primaryText : FoundryTheme.faintText)
+                        .font(FoundryTheme.body)
+                        .foregroundStyle(enabled ? FoundryTheme.textPrimary : FoundryTheme.textQuaternary)
                     Text(detail)
-                        .font(FoundryTheme.body(size: 11, weight: .regular))
-                        .foregroundStyle(FoundryTheme.mutedText)
+                        .font(FoundryTheme.caption)
+                        .foregroundStyle(FoundryTheme.textTertiary)
                 }
                 Spacer()
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(FoundryTheme.faintText)
+                    .font(FoundryTheme.Glyph.xs)
+                    .foregroundStyle(FoundryTheme.textQuaternary)
             }
             .padding(.horizontal, 14)
             .padding(.vertical, 12)
@@ -358,7 +354,6 @@ struct OnboardingView: View {
         .buttonStyle(FoundryQuietButtonStyle())
         .opacity(enabled ? 1 : 0.55)
         .disabled(enabled == false)
-        .pointerCursor()
     }
 
     private var clipboardHotkeyIsSet: Bool {
@@ -369,8 +364,8 @@ struct OnboardingView: View {
         VStack(spacing: 16) {
             Spacer()
             Text("You’re set")
-                .font(.system(size: 22, weight: .semibold))
-                .foregroundStyle(FoundryTheme.primaryText)
+                .font(FoundryTheme.title)
+                .foregroundStyle(FoundryTheme.textPrimary)
 
             VStack(spacing: 0) {
                 cheatRow(panel.settings.hotkey.displayName, "Open Foundry")
@@ -383,8 +378,8 @@ struct OnboardingView: View {
 
             Toggle(isOn: $clipboardHotkeyOn) {
                 Text("⇧⌘V opens Clipboard History")
-                    .font(FoundryTheme.body(size: 13, weight: .medium))
-                    .foregroundStyle(FoundryTheme.primaryText)
+                    .font(FoundryTheme.body)
+                    .foregroundStyle(FoundryTheme.textPrimary)
             }
             .toggleStyle(.switch)
             .controlSize(.small)
@@ -407,8 +402,8 @@ struct OnboardingView: View {
     private func cheatRow(_ keys: String, _ label: String) -> some View {
         HStack {
             Text(label)
-                .font(FoundryTheme.body(size: 13, weight: .medium))
-                .foregroundStyle(FoundryTheme.secondaryText)
+                .font(FoundryTheme.body)
+                .foregroundStyle(FoundryTheme.textSecondary)
             Spacer()
             KeycapHint(text: keys)
         }
@@ -420,7 +415,7 @@ struct OnboardingView: View {
         HStack(spacing: 8) {
             ForEach(Array(OnboardingStep.allCases.enumerated()), id: \.offset) { index, step in
                 Capsule()
-                    .fill(step == state.step ? FoundryTheme.accentTint : Color.primary.opacity(0.18))
+                    .fill(step == state.step ? FoundryTheme.accent : FoundryTheme.stroke)
                     .frame(width: step == state.step ? 20 : 6, height: 6)
                     .animation(reduceMotion ? nil : .spring(response: 0.34, dampingFraction: 0.72), value: state.step)
                     .accessibilityLabel("Step \(index + 1) of \(OnboardingStep.allCases.count)\(step == state.step ? ", current" : "")")
@@ -431,9 +426,8 @@ struct OnboardingView: View {
             if state.step != .welcome && state.step != .done {
                 Button("Skip") { state.finish() }
                     .buttonStyle(FoundryQuietButtonStyle())
-                    .font(FoundryTheme.body(size: 12, weight: .medium))
-                    .foregroundStyle(FoundryTheme.mutedText)
-                    .pointerCursor()
+                    .font(FoundryTheme.bodySecondary)
+                    .foregroundStyle(FoundryTheme.textTertiary)
                     .keyboardShortcut(.cancelAction)
             }
 
@@ -442,11 +436,10 @@ struct OnboardingView: View {
                     state.back()
                 } label: {
                     Image(systemName: "chevron.left")
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(FoundryTheme.Glyph.sm)
                 }
                 .buttonStyle(FoundryQuietButtonStyle())
-                .foregroundStyle(FoundryTheme.secondaryText)
-                .pointerCursor()
+                .foregroundStyle(FoundryTheme.textSecondary)
                 .accessibilityLabel("Back")
                 .keyboardShortcut(.leftArrow, modifiers: [])
             }
@@ -462,7 +455,7 @@ struct OnboardingView: View {
         .frame(height: 54)
         .overlay(alignment: .top) {
             Rectangle()
-                .fill(Color.primary.opacity(0.07))
+                .fill(FoundryTheme.fillTint)
                 .frame(height: 1)
         }
     }
@@ -489,11 +482,11 @@ private struct OnboardingToggle: View {
         })) {
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
-                    .font(FoundryTheme.body(size: 13, weight: .semibold))
-                    .foregroundStyle(FoundryTheme.primaryText)
+                    .font(FoundryTheme.body)
+                    .foregroundStyle(FoundryTheme.textPrimary)
                 Text(detail)
-                    .font(FoundryTheme.body(size: 11, weight: .regular))
-                    .foregroundStyle(FoundryTheme.mutedText)
+                    .font(FoundryTheme.caption)
+                    .foregroundStyle(FoundryTheme.textTertiary)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
@@ -543,7 +536,7 @@ private struct PulsingKeycap: View {
                     .phaseAnimator([false, true]) { content, pressed in
                         content
                             .scaleEffect(pressed ? 0.94 : 1)
-                            .shadow(color: FoundryTheme.accentTint.opacity(pressed ? 0.05 : 0.5), radius: pressed ? 4 : 22, y: pressed ? 1 : 6)
+                            .shadow(color: FoundryTheme.accent.opacity(pressed ? 0.05 : 0.5), radius: pressed ? 4 : 22, y: pressed ? 1 : 6)
                     } animation: { pressed in
                         pressed ? .easeIn(duration: 0.18) : .spring(response: 0.5, dampingFraction: 0.55).delay(0.9)
                     }
@@ -553,8 +546,8 @@ private struct PulsingKeycap: View {
 
     private var keycap: some View {
         Text(text)
-            .font(.system(size: 30, weight: .medium, design: .rounded))
-            .foregroundStyle(FoundryTheme.primaryText)
+            .font(FoundryTheme.title)
+            .foregroundStyle(FoundryTheme.textPrimary)
             .padding(.horizontal, 30)
             .padding(.vertical, 16)
             .onboardingCard()

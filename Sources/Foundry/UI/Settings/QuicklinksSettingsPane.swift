@@ -10,15 +10,15 @@ struct QuicklinksSettingsPane: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Type a keyword and your query, for example “g swift concurrency”. Use {argument}, {clipboard}, {date} or {time} in the link.")
-                .font(FoundryTheme.body(size: 12, weight: .regular))
-                .foregroundStyle(FoundryTheme.mutedText)
+                .font(FoundryTheme.bodySecondary)
+                .foregroundStyle(FoundryTheme.textTertiary)
                 .fixedSize(horizontal: false, vertical: true)
 
             SettingsGroup {
                 if links.isEmpty {
                     Text("No quicklinks yet.")
-                        .font(FoundryTheme.body(size: 12, weight: .regular))
-                        .foregroundStyle(FoundryTheme.mutedText)
+                        .font(FoundryTheme.bodySecondary)
+                        .foregroundStyle(FoundryTheme.textTertiary)
                         .padding(12)
                 }
                 ForEach($links) { $link in
@@ -49,7 +49,7 @@ struct QuicklinksSettingsPane: View {
                             .toggleStyle(.checkbox)
                             Spacer()
                             Text("Open with")
-                                .foregroundStyle(FoundryTheme.mutedText)
+                                .foregroundStyle(FoundryTheme.textTertiary)
                             Button(Self.appName(for: link.openWithBundleID) ?? "Default", action: { pickApp(for: link.id) })
                                 .buttonStyle(.borderless)
                                 .accessibilityLabel("Choose app for \(link.name)")
@@ -61,7 +61,7 @@ struct QuicklinksSettingsPane: View {
                                 .accessibilityLabel("Use default app for \(link.name)")
                             }
                         }
-                        .font(FoundryTheme.body(size: 11, weight: .regular))
+                        .font(FoundryTheme.caption)
                     }
                     .controlSize(.small)
                     .padding(.horizontal, 12)

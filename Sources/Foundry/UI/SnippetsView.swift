@@ -27,8 +27,8 @@ struct SnippetsView: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 8) {
                 Text(state.visibleItems.count == 1 ? "1 SNIPPET" : "\(state.visibleItems.count) SNIPPETS")
-                    .font(FoundryTheme.body(size: 11, weight: .semibold))
-                    .foregroundStyle(FoundryTheme.faintText)
+                    .font(FoundryTheme.micro)
+                    .foregroundStyle(FoundryTheme.textQuaternary)
                     .tracking(0.6)
                     .padding(.leading, 11)
                 Spacer()
@@ -47,14 +47,13 @@ struct SnippetsView: View {
                     Button("Export Snippets…") { state.exportToFile() }
                 } label: {
                     Image(systemName: "ellipsis")
-                        .font(.system(size: 11, weight: .bold))
-                        .foregroundStyle(FoundryTheme.secondaryText)
+                        .font(FoundryTheme.Glyph.xs)
+                        .foregroundStyle(FoundryTheme.textSecondary)
                         .frame(width: 30, height: 30)
                 }
                 .menuStyle(.borderlessButton)
                 .menuIndicator(.hidden)
                 .fixedSize()
-                .pointerCursor()
                 .help("Import or export snippets")
                 SnippetIconButton(symbol: "plus", help: "New snippet", action: state.newSnippet)
             }
@@ -108,11 +107,11 @@ struct SnippetsView: View {
         VStack(spacing: 12) {
             Spacer()
             Image(systemName: "curlybraces")
-                .font(.system(size: 24, weight: .regular))
-                .foregroundStyle(FoundryTheme.faintText)
+                .font(FoundryTheme.Glyph.lg)
+                .foregroundStyle(FoundryTheme.textQuaternary)
             Text("No snippets yet")
-                .font(FoundryTheme.body(size: 13, weight: .medium))
-                .foregroundStyle(FoundryTheme.secondaryText)
+                .font(FoundryTheme.body)
+                .foregroundStyle(FoundryTheme.textSecondary)
             newSnippetButton
             Spacer()
         }
@@ -123,29 +122,28 @@ struct SnippetsView: View {
         VStack(spacing: 12) {
             Spacer()
             Image(systemName: "magnifyingglass")
-                .font(.system(size: 24, weight: .regular))
-                .foregroundStyle(FoundryTheme.faintText)
+                .font(FoundryTheme.Glyph.lg)
+                .foregroundStyle(FoundryTheme.textQuaternary)
             Text("No matching snippets")
-                .font(FoundryTheme.body(size: 13, weight: .medium))
-                .foregroundStyle(FoundryTheme.secondaryText)
+                .font(FoundryTheme.body)
+                .foregroundStyle(FoundryTheme.textSecondary)
             Button("Clear filters") {
                 state.query = ""
                 state.selectedTag = nil
             }
                 .buttonStyle(PressableButtonStyle())
-                .font(FoundryTheme.body(size: 12, weight: .semibold))
-                .foregroundStyle(FoundryTheme.primaryText)
+                .font(FoundryTheme.body)
+                .foregroundStyle(FoundryTheme.textPrimary)
                 .padding(.horizontal, 14)
                 .frame(height: 32)
                 .background(
                     RoundedRectangle(cornerRadius: 9, style: .continuous)
-                        .fill(Color.primary.opacity(0.08))
+                        .fill(FoundryTheme.fillTint)
                         .overlay(
                             RoundedRectangle(cornerRadius: 9, style: .continuous)
-                                .strokeBorder(Color.primary.opacity(0.10), lineWidth: 1)
+                                .strokeBorder(FoundryTheme.fillSelected, lineWidth: 1)
                         )
                 )
-                .pointerCursor()
             Spacer()
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -156,22 +154,22 @@ struct SnippetsView: View {
         VStack(alignment: .leading, spacing: 12) {
             if let persistenceError = state.persistenceError {
                 Label(persistenceError, systemImage: "exclamationmark.triangle.fill")
-                    .font(FoundryTheme.body(size: 12, weight: .medium))
-                    .foregroundStyle(FoundryTheme.error)
+                    .font(FoundryTheme.bodySecondary)
+                    .foregroundStyle(FoundryTheme.destructive)
                     .lineLimit(2)
             }
             if let selected = state.selectedItem {
                 HStack(spacing: 4) {
                     Text("EDIT SNIPPET")
-                        .font(FoundryTheme.body(size: 11, weight: .semibold))
-                        .foregroundStyle(FoundryTheme.faintText)
+                        .font(FoundryTheme.micro)
+                        .foregroundStyle(FoundryTheme.textQuaternary)
                         .tracking(0.6)
                         .padding(.leading, 13)
                     Spacer()
                     SnippetIconButton(
                         symbol: selected.isPinned ? "pin.fill" : "pin",
                         help: selected.isPinned ? "Unpin" : "Pin",
-                        tint: selected.isPinned ? FoundryTheme.primaryText : FoundryTheme.secondaryText,
+                        tint: selected.isPinned ? FoundryTheme.textPrimary : FoundryTheme.textSecondary,
                         action: state.togglePinnedSelected
                     )
                     SnippetIconButton(symbol: "doc.on.doc", help: "Copy to clipboard", action: state.copySelected)
@@ -186,14 +184,14 @@ struct SnippetsView: View {
                             + "Save is allowed, but auto-expansion is disabled until resolved.",
                         systemImage: "exclamationmark.triangle"
                     )
-                        .font(FoundryTheme.body(size: 11, weight: .medium))
-                        .foregroundStyle(FoundryTheme.error)
+                        .font(FoundryTheme.caption)
+                        .foregroundStyle(FoundryTheme.destructive)
                         .lineLimit(2)
                 }
                 HStack(spacing: 8) {
                     Text(state.expansionAvailabilityMessage)
-                        .font(FoundryTheme.body(size: 11, weight: .regular))
-                        .foregroundStyle(FoundryTheme.faintText)
+                        .font(FoundryTheme.caption)
+                        .foregroundStyle(FoundryTheme.textQuaternary)
                     Spacer()
                     if let setExpansionEnabled {
                         Toggle("Auto-expand", isOn: Binding(
@@ -202,8 +200,8 @@ struct SnippetsView: View {
                         ))
                         .toggleStyle(.switch)
                         .controlSize(.mini)
-                        .font(FoundryTheme.body(size: 11, weight: .medium))
-                        .foregroundStyle(FoundryTheme.secondaryText)
+                        .font(FoundryTheme.caption)
+                        .foregroundStyle(FoundryTheme.textSecondary)
                         .accessibilityLabel("Auto-expand snippet keywords")
                     }
                 }
@@ -220,15 +218,15 @@ struct SnippetsView: View {
         VStack(spacing: 12) {
             Spacer()
             Image(systemName: "curlybraces.square")
-                .font(.system(size: 30, weight: .regular))
-                .foregroundStyle(FoundryTheme.faintText)
+                .font(FoundryTheme.Glyph.xl)
+                .foregroundStyle(FoundryTheme.textQuaternary)
             VStack(spacing: 4) {
                 Text("No snippet selected")
-                    .font(FoundryTheme.body(size: 14, weight: .semibold))
-                    .foregroundStyle(FoundryTheme.secondaryText)
+                    .font(FoundryTheme.body)
+                    .foregroundStyle(FoundryTheme.textSecondary)
                 Text("Create a snippet or pick one from the list.")
-                    .font(FoundryTheme.body(size: 12, weight: .regular))
-                    .foregroundStyle(FoundryTheme.mutedText)
+                    .font(FoundryTheme.bodySecondary)
+                    .foregroundStyle(FoundryTheme.textTertiary)
             }
             newSnippetButton
             Spacer()
@@ -240,40 +238,38 @@ struct SnippetsView: View {
         Button(action: state.newSnippet) {
             HStack(spacing: 6) {
                 Image(systemName: "plus")
-                    .font(.system(size: 11, weight: .bold))
+                    .font(FoundryTheme.Glyph.xs)
                 Text("New Snippet")
-                    .font(FoundryTheme.body(size: 12.5, weight: .semibold))
+                    .font(FoundryTheme.body)
             }
-            .foregroundStyle(FoundryTheme.primaryText)
+            .foregroundStyle(FoundryTheme.textPrimary)
             .padding(.horizontal, 14)
             .frame(height: 32)
             .background(
                 RoundedRectangle(cornerRadius: 9, style: .continuous)
-                    .fill(Color.primary.opacity(0.08))
+                    .fill(FoundryTheme.fillTint)
                     .overlay(
                         RoundedRectangle(cornerRadius: 9, style: .continuous)
-                            .strokeBorder(Color.primary.opacity(0.10), lineWidth: 1)
+                            .strokeBorder(FoundryTheme.fillSelected, lineWidth: 1)
                     )
             )
         }
         .buttonStyle(PressableButtonStyle())
-        .pointerCursor()
     }
 
     private func tagChip(label: String, selected: Bool, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Text(label)
-                .font(FoundryTheme.body(size: 10.5, weight: .medium))
-                .foregroundStyle(selected ? FoundryTheme.primaryText : FoundryTheme.secondaryText)
+                .font(FoundryTheme.caption)
+                .foregroundStyle(selected ? FoundryTheme.textPrimary : FoundryTheme.textSecondary)
                 .padding(.horizontal, 8)
                 .frame(height: 22)
                 .background(
                     Capsule(style: .continuous)
-                        .fill(selected ? FoundryTheme.accent.opacity(0.22) : Color.primary.opacity(0.06))
+                        .fill(selected ? FoundryTheme.accentTintFill : FoundryTheme.fillHover)
                 )
         }
         .buttonStyle(.plain)
-        .pointerCursor()
         .accessibilityLabel("Filter by tag \(label)")
     }
 
@@ -291,11 +287,11 @@ struct SnippetsView: View {
 private struct SnippetPanelSurface: ViewModifier {
     func body(content: Content) -> some View {
         content
-            .background(Color.primary.opacity(0.05))
+            .background(FoundryTheme.fillHover)
             .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .strokeBorder(Color.primary.opacity(0.07), lineWidth: 1)
+                    .strokeBorder(FoundryTheme.fillTint, lineWidth: 1)
             )
     }
 }
@@ -303,7 +299,7 @@ private struct SnippetPanelSurface: ViewModifier {
 private struct SnippetIconButton: View {
     let symbol: String
     var help: String = ""
-    var tint: Color = FoundryTheme.secondaryText
+    var tint: Color = FoundryTheme.textSecondary
     var destructive = false
     let action: () -> Void
 
@@ -312,7 +308,7 @@ private struct SnippetIconButton: View {
 
     private var foreground: Color {
         if isHovering {
-            return destructive ? Color(red: 1.0, green: 0.45, blue: 0.45) : FoundryTheme.primaryText
+            return destructive ? FoundryTheme.destructive : FoundryTheme.textPrimary
         }
         return tint
     }
@@ -320,7 +316,7 @@ private struct SnippetIconButton: View {
     var body: some View {
         Button(action: action) {
             Image(systemName: symbol)
-                .font(.system(size: 12.5, weight: .semibold))
+                .font(FoundryTheme.Glyph.sm)
                 .foregroundStyle(foreground)
                 .frame(width: 30, height: 30)
                 .background(
@@ -334,7 +330,7 @@ private struct SnippetIconButton: View {
         .animation(reduceMotion ? nil : .easeOut(duration: 0.12), value: isHovering)
         .onHover { hovering in
             isHovering = hovering
-            if hovering { NSCursor.pointingHand.set() } else { NSCursor.arrow.set() }
+
         }
     }
 }
@@ -353,19 +349,19 @@ private struct SnippetRow: View {
             VStack(alignment: .leading, spacing: 3) {
                 HStack(spacing: 6) {
                     Text(snippet.title.isEmpty ? "Untitled Snippet" : snippet.title)
-                        .font(FoundryTheme.body(size: 14, weight: .medium))
-                        .foregroundStyle(FoundryTheme.primaryText)
+                        .font(FoundryTheme.body)
+                        .foregroundStyle(FoundryTheme.textPrimary)
                         .lineLimit(1)
                     if snippet.isPinned {
                         Image(systemName: "pin.fill")
-                            .font(.system(size: 9, weight: .bold))
-                            .foregroundStyle(FoundryTheme.mutedText)
+                            .font(FoundryTheme.Glyph.xs)
+                            .foregroundStyle(FoundryTheme.textTertiary)
                     }
                 }
                 if subtitle.isEmpty == false {
                     Text(subtitle)
-                        .font(FoundryTheme.body(size: 11.5, weight: .regular))
-                        .foregroundStyle(FoundryTheme.mutedText)
+                        .font(FoundryTheme.caption)
+                        .foregroundStyle(FoundryTheme.textTertiary)
                         .lineLimit(1)
                 }
             }
@@ -385,7 +381,7 @@ private struct SnippetRow: View {
         .animation(reduceMotion ? nil : .easeOut(duration: 0.10), value: isHovering)
         .onHover { hovering in
             isHovering = hovering
-            if hovering { NSCursor.pointingHand.set() } else { NSCursor.arrow.set() }
+
         }
     }
 }
@@ -402,8 +398,8 @@ private struct SnippetEditor: View {
         VStack(alignment: .leading, spacing: 12) {
             TextField("Snippet title", text: $title)
                 .textFieldStyle(.plain)
-                .font(FoundryTheme.body(size: 16, weight: .semibold))
-                .foregroundStyle(FoundryTheme.primaryText)
+                .font(FoundryTheme.body)
+                .foregroundStyle(FoundryTheme.textPrimary)
                 .padding(.horizontal, 13)
                 .frame(height: 40)
                 .background(fieldBackground)
@@ -416,8 +412,8 @@ private struct SnippetEditor: View {
             ZStack(alignment: .topLeading) {
                 if content.isEmpty {
                     Text("Write your snippet…")
-                        .font(FoundryTheme.body(size: 13.5, weight: .regular))
-                        .foregroundStyle(FoundryTheme.faintText)
+                        .font(FoundryTheme.bodySecondary)
+                        .foregroundStyle(FoundryTheme.textQuaternary)
                         .padding(.horizontal, 14)
                         .padding(.vertical, 12)
                         .allowsHitTesting(false)
@@ -444,38 +440,37 @@ private struct SnippetEditor: View {
                 } label: {
                     HStack(spacing: 6) {
                         Image(systemName: "curlybraces")
-                            .font(.system(size: 10, weight: .semibold))
+                            .font(FoundryTheme.Glyph.xs)
                         Text("Insert placeholder")
-                            .font(FoundryTheme.body(size: 11, weight: .semibold))
+                            .font(FoundryTheme.micro)
                         Image(systemName: "chevron.up.chevron.down")
-                            .font(.system(size: 7, weight: .bold))
-                            .foregroundStyle(FoundryTheme.faintText)
+                            .font(FoundryTheme.Glyph.xs)
+                            .foregroundStyle(FoundryTheme.textQuaternary)
                     }
-                    .foregroundStyle(FoundryTheme.secondaryText)
+                    .foregroundStyle(FoundryTheme.textSecondary)
                     .padding(.horizontal, 10)
                     .frame(height: 24)
                     .background(
                         Capsule()
-                            .fill(Color.primary.opacity(0.05))
-                            .overlay(Capsule().strokeBorder(Color.primary.opacity(0.08), lineWidth: 1))
+                            .fill(FoundryTheme.fillHover)
+                            .overlay(Capsule().strokeBorder(FoundryTheme.fillTint, lineWidth: 1))
                     )
                 }
                 .menuStyle(.borderlessButton)
                 .menuIndicator(.hidden)
                 .fixedSize()
-                .pointerCursor()
                 .help("Insert a dynamic placeholder at the cursor")
 
                 Text("Dynamic values fill in when the snippet is pasted")
-                    .font(FoundryTheme.body(size: 10.5, weight: .regular))
-                    .foregroundStyle(FoundryTheme.faintText)
+                    .font(FoundryTheme.caption)
+                    .foregroundStyle(FoundryTheme.textQuaternary)
                     .lineLimit(1)
 
                 Spacer(minLength: 8)
 
                 Text("\(content.count.formatted()) characters")
-                    .font(FoundryTheme.mono(size: 10, weight: .regular))
-                    .foregroundStyle(FoundryTheme.faintText)
+                    .font(FoundryTheme.mono)
+                    .foregroundStyle(FoundryTheme.textQuaternary)
                     .contentTransition(.numericText())
             }
             .padding(.leading, 2)
@@ -484,12 +479,12 @@ private struct SnippetEditor: View {
             if rendered.text != content {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("PREVIEW")
-                        .font(FoundryTheme.body(size: 10, weight: .semibold))
-                        .foregroundStyle(FoundryTheme.faintText)
+                        .font(FoundryTheme.micro)
+                        .foregroundStyle(FoundryTheme.textQuaternary)
                         .tracking(0.6)
                     Text(rendered.text)
-                        .font(FoundryTheme.body(size: 12, weight: .regular))
-                        .foregroundStyle(FoundryTheme.secondaryText)
+                        .font(FoundryTheme.bodySecondary)
+                        .foregroundStyle(FoundryTheme.textSecondary)
                         .lineLimit(3)
                         .truncationMode(.tail)
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -510,12 +505,12 @@ private struct SnippetEditor: View {
     private func labeledField(icon: String, placeholder: String, text: Binding<String>) -> some View {
         HStack(spacing: 8) {
             Image(systemName: icon)
-                .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(FoundryTheme.faintText)
+                .font(FoundryTheme.Glyph.xs)
+                .foregroundStyle(FoundryTheme.textQuaternary)
             TextField(placeholder, text: text)
                 .textFieldStyle(.plain)
-                .font(FoundryTheme.body(size: 13, weight: .medium))
-                .foregroundStyle(FoundryTheme.primaryText)
+                .font(FoundryTheme.body)
+                .foregroundStyle(FoundryTheme.textPrimary)
         }
         .padding(.horizontal, 12)
         .frame(height: 36)
@@ -525,10 +520,10 @@ private struct SnippetEditor: View {
 
     private var fieldBackground: some View {
         RoundedRectangle(cornerRadius: 10, style: .continuous)
-            .fill(Color.primary.opacity(0.06))
+            .fill(FoundryTheme.fillHover)
             .overlay(
                 RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .strokeBorder(Color.primary.opacity(0.07), lineWidth: 1)
+                    .strokeBorder(FoundryTheme.fillTint, lineWidth: 1)
             )
     }
 
@@ -641,22 +636,22 @@ struct SnippetArgumentPrompt: View {
 
     var body: some View {
         ZStack {
-            Color.black.opacity(0.22)
+            FoundryTheme.scrim
                 .onTapGesture(perform: onCancel)
             VStack(alignment: .leading, spacing: 12) {
                 Text(names.count == 1 ? "One placeholder to fill in" : "\(names.count) placeholders to fill in")
-                    .font(FoundryTheme.body(size: 13, weight: .semibold))
-                    .foregroundStyle(FoundryTheme.primaryText)
+                    .font(FoundryTheme.body)
+                    .foregroundStyle(FoundryTheme.textPrimary)
                 ForEach(names, id: \.self) { name in
                     TextField(name, text: binding(for: name))
                         .textFieldStyle(.plain)
-                        .font(FoundryTheme.body(size: 13, weight: .regular))
-                        .foregroundStyle(FoundryTheme.primaryText)
+                        .font(FoundryTheme.bodySecondary)
+                        .foregroundStyle(FoundryTheme.textPrimary)
                         .padding(.horizontal, 13)
                         .frame(height: 36)
                         .background(
                             RoundedRectangle(cornerRadius: 9, style: .continuous)
-                                .fill(Color.primary.opacity(0.06))
+                                .fill(FoundryTheme.fillHover)
                         )
                         .focused($focused, equals: name)
                         .onSubmit(submit)
@@ -677,7 +672,7 @@ struct SnippetArgumentPrompt: View {
                     .fill(Color(nsColor: .windowBackgroundColor))
                     .overlay(
                         RoundedRectangle(cornerRadius: 14, style: .continuous)
-                            .strokeBorder(Color.primary.opacity(0.10), lineWidth: 1)
+                            .strokeBorder(FoundryTheme.fillSelected, lineWidth: 1)
                     )
             )
         }

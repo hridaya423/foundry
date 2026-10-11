@@ -19,14 +19,13 @@ struct EmojiPickerView: View {
                     emojiSection(title: state.query.isEmpty ? "All" : "Results", items: state.visibleEmoji) {
                         Button(action: state.cycleColumns) {
                             Image(systemName: "rectangle.grid.3x2")
-                                .font(.system(size: 11, weight: .semibold))
-                                .foregroundStyle(FoundryTheme.mutedText)
+                                .font(FoundryTheme.Glyph.xs)
+                                .foregroundStyle(FoundryTheme.textTertiary)
                                 .frame(width: 24, height: 24)
-                                .background(Color.primary.opacity(0.06))
+                                .background(FoundryTheme.fillHover)
                                 .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
                         }
                         .buttonStyle(.plain)
-                        .pointerCursor()
                         .help("\(state.columns) columns — click to cycle 10, 12, 14")
                         .accessibilityLabel("Grid columns, \(state.columns)")
                     }
@@ -48,8 +47,8 @@ struct EmojiPickerView: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
             Text(title)
-                .font(FoundryTheme.body(size: 11, weight: .semibold))
-                .foregroundStyle(FoundryTheme.faintText)
+                .font(FoundryTheme.micro)
+                .foregroundStyle(FoundryTheme.textQuaternary)
                 .textCase(.uppercase)
                 .tracking(0.5)
             Spacer()
@@ -58,8 +57,8 @@ struct EmojiPickerView: View {
 
             if items.isEmpty {
                 Text("No matching emoji")
-                    .font(FoundryTheme.body(size: 14, weight: .medium))
-                    .foregroundStyle(FoundryTheme.mutedText)
+                    .font(FoundryTheme.body)
+                    .foregroundStyle(FoundryTheme.textTertiary)
                     .frame(height: 72)
             } else {
                     LazyVGrid(columns: columns, alignment: .leading, spacing: 10) {
@@ -90,20 +89,20 @@ private struct EmojiCell: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var fill: Color {
-        if isSelected { return Color.primary.opacity(0.16) }
-        if isHovering { return Color.primary.opacity(0.08) }
+        if isSelected { return FoundryTheme.stroke }
+        if isHovering { return FoundryTheme.fillTint }
         return Color.clear
     }
 
     var body: some View {
         Text(item.value)
-            .font(.system(size: 26))
+            .font(FoundryTheme.Glyph.lg)
             .frame(width: 44, height: 44)
             .background(fill)
             .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .stroke(isSelected ? Color.primary.opacity(0.18) : Color.clear, lineWidth: 1)
+                    .stroke(isSelected ? FoundryTheme.stroke : Color.clear, lineWidth: 1)
             )
             .scaleEffect(isHovering && isSelected == false ? 1.08 : 1)
             .animation(reduceMotion ? nil : .easeOut(duration: 0.12), value: isHovering)
@@ -112,7 +111,7 @@ private struct EmojiCell: View {
             .accessibilityAddTraits(isSelected ? .isSelected : [])
             .onHover { hovering in
                 isHovering = hovering
-                if hovering { NSCursor.pointingHand.set() } else { NSCursor.arrow.set() }
+
             }
     }
 }

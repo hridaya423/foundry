@@ -12,8 +12,8 @@ struct ScriptsSettingsPane: View {
             Text(
                 "Foundry runs Raycast-compatible Script Commands: executable files with a “# @raycast.title” line. Scripts run as you, so a folder " +
                     "must be trusted before its first run.")
-                .font(FoundryTheme.body(size: 12, weight: .regular))
-                .foregroundStyle(FoundryTheme.mutedText)
+                .font(FoundryTheme.bodySecondary)
+                .foregroundStyle(FoundryTheme.textTertiary)
                 .fixedSize(horizontal: false, vertical: true)
 
             SettingsGroup {

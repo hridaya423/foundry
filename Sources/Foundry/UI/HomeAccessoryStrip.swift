@@ -38,7 +38,7 @@ struct HomeAccessoryStrip: View {
         .background {
             if compactBackground {
                 RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .fill(Color.primary.opacity(0.032))
+                    .fill(FoundryTheme.fillSubtle)
             }
         }
         .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
@@ -56,7 +56,7 @@ struct HomeAccessoryStrip: View {
 
     private var compactDivider: some View {
         Rectangle()
-            .fill(Color.primary.opacity(0.09))
+            .fill(FoundryTheme.fillTint)
             .frame(width: 1, height: 28)
             .accessibilityHidden(true)
     }
@@ -120,38 +120,37 @@ private struct CompactFileShelfWidget: View {
 
                     if shelf.files.count > 3 {
                         Text("+\(shelf.files.count - 3)")
-                            .font(FoundryTheme.mono(size: 9, weight: .bold))
+                            .font(FoundryTheme.mono)
                             .foregroundStyle(FoundryTheme.textOnDarkSurface)
                             .padding(.horizontal, 4)
                             .frame(height: 16)
-                            .background(Color.black.opacity(0.55))
+                            .background(FoundryTheme.scrimStrong)
                             .clipShape(Capsule())
                     }
                 }
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text("File Shelf")
-                        .font(FoundryTheme.body(size: 11, weight: .semibold))
-                        .foregroundStyle(FoundryTheme.primaryText)
+                        .font(FoundryTheme.micro)
+                        .foregroundStyle(FoundryTheme.textPrimary)
                         .lineLimit(1)
                     Text(shelf.compactSummary)
-                        .font(FoundryTheme.body(size: 9.5, weight: .medium))
-                        .foregroundStyle(shelf.isRemovingBackground ? FoundryTheme.accentTint : FoundryTheme.secondaryText)
+                        .font(FoundryTheme.caption)
+                        .foregroundStyle(shelf.isRemovingBackground ? FoundryTheme.accent : FoundryTheme.textSecondary)
                         .lineLimit(1)
                         .truncationMode(.middle)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
 
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 9, weight: .bold))
-                    .foregroundStyle(FoundryTheme.faintText)
+                    .font(FoundryTheme.Glyph.xs)
+                    .foregroundStyle(FoundryTheme.textQuaternary)
             }
             .padding(.horizontal, 0)
             .frame(maxHeight: .infinity)
             .contentShape(Rectangle())
         }
         .buttonStyle(PressableButtonStyle())
-        .pointerCursor()
         .accessibilityLabel("File Shelf")
         .accessibilityValue(shelf.compactSummary)
         .accessibilityHint("Open waiting files")
@@ -167,27 +166,27 @@ private struct StatWidget: View {
     let title: String
     let value: String
     let caption: String
-    var tint: Color = FoundryTheme.secondaryText
+    var tint: Color = FoundryTheme.textSecondary
 
     var body: some View {
         HStack(spacing: 8) {
             Image(systemName: symbol)
-                .font(.system(size: 14, weight: .semibold))
+                .font(FoundryTheme.Glyph.sm)
                 .foregroundStyle(tint)
                 .frame(width: 24, height: 24)
-                .background(tint.opacity(0.12))
+                .background(tint.opacity(FoundryTheme.Alpha.tint))
                 .clipShape(RoundedRectangle(cornerRadius: WidgetChrome.glyphRadius, style: .continuous))
 
             VStack(alignment: .leading, spacing: 1) {
                 Text(value)
-                    .font(FoundryTheme.body(size: 12, weight: .semibold))
-                    .foregroundStyle(FoundryTheme.primaryText)
+                    .font(FoundryTheme.body)
+                    .foregroundStyle(FoundryTheme.textPrimary)
                     .lineLimit(1)
                     .minimumScaleFactor(0.55)
 
                 Text(title)
-                    .font(FoundryTheme.body(size: 9.5, weight: .semibold))
-                    .foregroundStyle(FoundryTheme.faintText)
+                    .font(FoundryTheme.micro)
+                    .foregroundStyle(FoundryTheme.textQuaternary)
                     .lineLimit(1)
             }
 
@@ -249,13 +248,13 @@ private struct AgentWidgetRow: View {
 
                 VStack(alignment: .leading, spacing: 1) {
                     Text(session.title)
-                        .font(FoundryTheme.body(size: 11, weight: .semibold))
-                        .foregroundStyle(FoundryTheme.primaryText)
+                        .font(FoundryTheme.micro)
+                        .foregroundStyle(FoundryTheme.textPrimary)
                         .lineLimit(1)
                         .truncationMode(.tail)
 
                     Text(statusLabel)
-                        .font(FoundryTheme.body(size: 9.5, weight: .medium))
+                        .font(FoundryTheme.caption)
                         .foregroundStyle(statusColor)
                         .lineLimit(1)
                 }
@@ -263,18 +262,18 @@ private struct AgentWidgetRow: View {
 
                 if additionalCount > 0 {
                     Text("+\(additionalCount)")
-                        .font(FoundryTheme.body(size: 9, weight: .bold))
-                        .foregroundStyle(FoundryTheme.secondaryText)
+                        .font(FoundryTheme.micro)
+                        .foregroundStyle(FoundryTheme.textSecondary)
                         .padding(.horizontal, 5)
                         .padding(.vertical, 2)
-                        .background(Color.primary.opacity(0.08))
+                        .background(FoundryTheme.fillTint)
                         .clipShape(Capsule())
                         .fixedSize()
                 }
 
                 Image(systemName: "arrow.up.right")
-                    .font(.system(size: 8, weight: .bold))
-                    .foregroundStyle(FoundryTheme.mutedText)
+                    .font(FoundryTheme.Glyph.xs)
+                    .foregroundStyle(FoundryTheme.textTertiary)
                     .opacity(isHovering ? 0.9 : 0.35)
                     .frame(width: 16)
             }
@@ -284,7 +283,6 @@ private struct AgentWidgetRow: View {
         }
         .buttonStyle(.plain)
         .onHover { isHovering = $0 }
-        .pointerCursor()
         .accessibilityElement(children: .combine)
         .accessibilityLabel(session.title)
         .accessibilityValue(statusLabel)
@@ -316,17 +314,7 @@ private struct AgentWidgetRow: View {
         return formatter
     }()
 
-    private var statusColor: Color {
-        switch session.status {
-        case .working, .running: Color(red: 0.42, green: 0.90, blue: 0.67)
-        case .needsInput: Color(red: 1.0, green: 0.76, blue: 0.35)
-        case .reviewReady: Color(red: 0.52, green: 0.72, blue: 1.0)
-        case .planning: Color(red: 0.70, green: 0.62, blue: 1.0)
-        case .completed: Color(red: 0.44, green: 0.72, blue: 1.0)
-        case .failed: Color(red: 1.0, green: 0.38, blue: 0.38)
-        case .idle, .recent: FoundryTheme.faintText
-        }
-    }
+    private var statusColor: Color { session.status.color }
 }
 
 private struct AgentProviderBadge: View {
@@ -335,7 +323,7 @@ private struct AgentProviderBadge: View {
     var body: some View {
         AgentProviderIcon(provider: provider, size: 23)
             .frame(width: 23, height: 23)
-            .background(Color.primary.opacity(0.055))
+            .background(FoundryTheme.fillHover)
             .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
     }
 }
@@ -369,28 +357,28 @@ private struct SystemWidget: View {
     private func meter(symbol: String, label: String, value: Double, display: String) -> some View {
         HStack(spacing: 7) {
             Image(systemName: symbol)
-                .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(FoundryTheme.secondaryText)
+                .font(FoundryTheme.Glyph.xs)
+                .foregroundStyle(FoundryTheme.textSecondary)
                 .frame(width: 15)
 
             Text(label)
-                .font(FoundryTheme.body(size: 10, weight: .semibold))
-                .foregroundStyle(FoundryTheme.faintText)
+                .font(FoundryTheme.micro)
+                .foregroundStyle(FoundryTheme.textQuaternary)
                 .frame(width: 25, alignment: .leading)
 
             GeometryReader { geometry in
                 ZStack(alignment: .leading) {
-                    Capsule().fill(Color.primary.opacity(0.08))
+                    Capsule().fill(FoundryTheme.fillTint)
                     Capsule()
-                        .fill(Color.primary.opacity(0.55))
+                        .fill(FoundryTheme.textTertiary)
                         .frame(width: max(4, geometry.size.width * min(max(value / 100, 0), 1)))
                 }
             }
             .frame(height: 5)
 
             Text(display)
-                .font(FoundryTheme.mono(size: 10, weight: .semibold))
-                .foregroundStyle(FoundryTheme.secondaryText)
+                .font(FoundryTheme.mono)
+                .foregroundStyle(FoundryTheme.textSecondary)
                 .frame(width: 36, alignment: .trailing)
         }
     }
@@ -405,26 +393,26 @@ private struct WeatherWidget: View {
     var body: some View {
         HStack(spacing: 8) {
             Image(systemName: snapshot?.symbol ?? "cloud")
-                .font(.system(size: 18, weight: .medium))
-                .foregroundStyle(FoundryTheme.primaryText)
+                .font(FoundryTheme.Glyph.md)
+                .foregroundStyle(FoundryTheme.textPrimary)
                 .frame(width: 27)
 
             VStack(alignment: .leading, spacing: 1) {
                 if let snapshot {
                     Text("\(Int(snapshot.temperature.rounded()))°")
-                        .font(FoundryTheme.display(size: 16, weight: .semibold))
-                        .foregroundStyle(FoundryTheme.primaryText)
+                        .font(FoundryTheme.title)
+                        .foregroundStyle(FoundryTheme.textPrimary)
                     Text(isStale ? "Offline · last known" : snapshot.condition)
-                        .font(FoundryTheme.body(size: 10, weight: .regular))
-                        .foregroundStyle(FoundryTheme.mutedText)
+                        .font(FoundryTheme.caption)
+                        .foregroundStyle(FoundryTheme.textTertiary)
                         .lineLimit(1)
                 } else {
                     Text(isLoading ? "Loading" : city.isEmpty ? "Set city" : "Unavailable")
-                        .font(FoundryTheme.body(size: 12, weight: .medium))
-                        .foregroundStyle(FoundryTheme.secondaryText)
+                        .font(FoundryTheme.bodySecondary)
+                        .foregroundStyle(FoundryTheme.textSecondary)
                     Text(city.isEmpty ? "Widget settings" : city)
-                        .font(FoundryTheme.body(size: 10, weight: .regular))
-                        .foregroundStyle(FoundryTheme.mutedText)
+                        .font(FoundryTheme.caption)
+                        .foregroundStyle(FoundryTheme.textTertiary)
                         .lineLimit(1)
                 }
             }
@@ -445,29 +433,29 @@ private struct StockWidget: View {
     let isStale: Bool
 
     private var changeColor: Color {
-        guard let snapshot else { return FoundryTheme.mutedText }
-        return snapshot.changePercent >= 0 ? Color.green.opacity(0.9) : Color.red.opacity(0.9)
+        guard let snapshot else { return FoundryTheme.textTertiary }
+        return snapshot.changePercent >= 0 ? Color.green.opacity(FoundryTheme.Alpha.faint) : Color.red.opacity(FoundryTheme.Alpha.faint)
     }
 
     var body: some View {
         HStack(spacing: 8) {
             Image(systemName: "chart.line.uptrend.xyaxis")
-                .font(.system(size: 15, weight: .medium))
+                .font(FoundryTheme.Glyph.sm)
                 .foregroundStyle(changeColor)
                 .frame(width: 25)
 
             VStack(alignment: .leading, spacing: 1) {
                 Text(snapshot?.symbol ?? symbol)
-                    .font(FoundryTheme.body(size: 12, weight: .semibold))
-                    .foregroundStyle(FoundryTheme.primaryText)
+                    .font(FoundryTheme.body)
+                    .foregroundStyle(FoundryTheme.textPrimary)
                 if let snapshot {
                     Text("\(String(format: "%.2f", snapshot.price)) \(isStale ? "· offline" : snapshot.currency)")
-                        .font(FoundryTheme.body(size: 10, weight: .regular))
-                        .foregroundStyle(FoundryTheme.mutedText)
+                        .font(FoundryTheme.caption)
+                        .foregroundStyle(FoundryTheme.textTertiary)
                 } else {
                     Text(isLoading ? "Loading" : symbol.isEmpty ? "Set symbol" : "Unavailable")
-                        .font(FoundryTheme.body(size: 10, weight: .regular))
-                        .foregroundStyle(FoundryTheme.mutedText)
+                        .font(FoundryTheme.caption)
+                        .foregroundStyle(FoundryTheme.textTertiary)
                 }
             }
 
@@ -475,7 +463,7 @@ private struct StockWidget: View {
 
             if let snapshot {
                 Text(String(format: "%+.1f%%", snapshot.changePercent))
-                    .font(FoundryTheme.mono(size: 10, weight: .semibold))
+                    .font(FoundryTheme.mono)
                     .foregroundStyle(changeColor)
             }
         }
@@ -493,20 +481,20 @@ private struct CompactDateWidget: View {
         TimelineView(.everyMinute) { context in
             HStack(spacing: 8) {
                 Image(systemName: "calendar")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(FoundryTheme.secondaryText)
+                    .font(FoundryTheme.Glyph.sm)
+                    .foregroundStyle(FoundryTheme.textSecondary)
                     .frame(width: 23, height: 23)
-                    .background(Color.primary.opacity(0.09))
+                    .background(FoundryTheme.fillTint)
                     .clipShape(RoundedRectangle(cornerRadius: WidgetChrome.glyphRadius, style: .continuous))
 
                 VStack(alignment: .leading, spacing: 1) {
                     Text(context.date.formatted(.dateTime.day()))
-                        .font(FoundryTheme.display(size: 18, weight: .semibold))
-                        .foregroundStyle(FoundryTheme.primaryText)
+                        .font(FoundryTheme.title)
+                        .foregroundStyle(FoundryTheme.textPrimary)
                         .monospacedDigit()
                     Text(context.date.formatted(.dateTime.weekday(.abbreviated).month(.abbreviated)))
-                        .font(FoundryTheme.body(size: 9.5, weight: .semibold))
-                        .foregroundStyle(FoundryTheme.secondaryText)
+                        .font(FoundryTheme.micro)
+                        .foregroundStyle(FoundryTheme.textSecondary)
                         .lineLimit(1)
                 }
 
@@ -525,19 +513,19 @@ private struct ClockWidget: View {
         TimelineView(.everyMinute) { context in
             HStack(spacing: 8) {
                 Image(systemName: "clock")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(FoundryTheme.secondaryText)
+                    .font(FoundryTheme.Glyph.sm)
+                    .foregroundStyle(FoundryTheme.textSecondary)
                     .frame(width: 23, height: 23)
-                    .background(Color.primary.opacity(0.08))
+                    .background(FoundryTheme.fillTint)
                     .clipShape(RoundedRectangle(cornerRadius: WidgetChrome.glyphRadius, style: .continuous))
 
                 VStack(alignment: .leading, spacing: 1) {
                     Text(Self.time.string(from: context.date))
-                        .font(FoundryTheme.mono(size: 12, weight: .semibold))
-                        .foregroundStyle(FoundryTheme.primaryText)
+                        .font(FoundryTheme.mono)
+                        .foregroundStyle(FoundryTheme.textPrimary)
                     Text(TimeZone.current.localizedName(for: .shortStandard, locale: .current) ?? TimeZone.current.identifier)
-                        .font(FoundryTheme.body(size: 9.5, weight: .semibold))
-                        .foregroundStyle(FoundryTheme.faintText)
+                        .font(FoundryTheme.micro)
+                        .foregroundStyle(FoundryTheme.textQuaternary)
                         .lineLimit(1)
                 }
 

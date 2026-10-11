@@ -90,7 +90,7 @@ struct CommandPanelView: View {
             if let actionFeedback = state.actionFeedback {
                 FoundryGlassSurface(role: .floatingOverlay, shape: Capsule()) {
                     Label(actionFeedback.message, systemImage: actionFeedback.symbolName)
-                        .font(FoundryTheme.body(size: 12, weight: .semibold))
+                        .font(FoundryTheme.body)
                         .foregroundStyle(actionFeedbackColor(actionFeedback))
                         .padding(.horizontal, 12)
                         .frame(minHeight: 30)
@@ -109,7 +109,7 @@ struct CommandPanelView: View {
                             .frame(width: 340)
                             .frame(maxHeight: 320)
                     }
-                    .shadow(color: .black.opacity(0.35), radius: 24, y: 10)
+                    .shadow(color: FoundryTheme.shadow, radius: 24, y: 10)
                     .padding(.trailing, 12)
                     .padding(.bottom, 46)
                     .transition(reduceMotion ? .opacity : .opacity.combined(with: .scale(scale: 0.96, anchor: .bottomTrailing)))
@@ -121,7 +121,7 @@ struct CommandPanelView: View {
                         dropChooserSurface
                             .frame(width: 340)
                     }
-                    .shadow(color: .black.opacity(0.35), radius: 24, y: 10)
+                    .shadow(color: FoundryTheme.shadow, radius: 24, y: 10)
                     .padding(.bottom, 46)
                     .transition(reduceMotion ? .opacity : .opacity.combined(with: .scale(scale: 0.96, anchor: .bottom)))
                 }
@@ -189,7 +189,7 @@ struct CommandPanelView: View {
                 FoundrySmoothedRectangle(cornerRadius: FoundryTheme.Radius.panel, smoothing: 0.75)
                     .strokeBorder(
                         LinearGradient(
-                            colors: [Color.primary.opacity(0.20), Color.primary.opacity(0.08), Color.primary.opacity(0.03)],
+                            colors: [FoundryTheme.stroke, FoundryTheme.fillTint, FoundryTheme.fillSubtle],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
                         ),
@@ -203,7 +203,7 @@ struct CommandPanelView: View {
     }
 
     private var innerHighlight: Color {
-        colorScheme == .dark ? Color.white.opacity(0.12) : Color.black.opacity(0.06)
+        colorScheme == .dark ? FoundryTheme.onDarkFaint : FoundryTheme.scrim
     }
 
     private var surface: FeatureSurface {
@@ -308,8 +308,8 @@ struct CommandPanelView: View {
                 header: {
                     HStack(spacing: 12) {
                         Image(systemName: "magnifyingglass")
-                            .font(.system(size: 16, weight: .medium))
-                            .foregroundStyle(FoundryTheme.mutedText)
+                            .font(FoundryTheme.Glyph.sm)
+                            .foregroundStyle(FoundryTheme.textTertiary)
                         featureSearchField("Search snippets…", text: snippetsQueryBinding) {
                             if state.insertOrCopySelectedSnippet() { dismiss() }
                         }
@@ -393,8 +393,8 @@ struct CommandPanelView: View {
     private func featureSearchField(_ placeholder: String, text: Binding<String>, onSubmit: @escaping () -> Void = {}) -> some View {
         TextField(placeholder, text: text)
             .textFieldStyle(.plain)
-            .font(FoundryTheme.searchFont)
-            .foregroundStyle(FoundryTheme.primaryText)
+            .font(FoundryTheme.title)
+            .foregroundStyle(FoundryTheme.textPrimary)
             .focused($inputFocused)
             .onSubmit(onSubmit)
     }
@@ -421,7 +421,7 @@ struct CommandPanelView: View {
                 FoundryIconButton(
                     systemName: "xmark.circle.fill",
                     accessibilityLabel: "Clear search",
-                    tint: FoundryTheme.faintText
+                    tint: FoundryTheme.textQuaternary
                 ) {
                     state.session.query = ""
                     inputFocused = true
@@ -434,19 +434,18 @@ struct CommandPanelView: View {
             } label: {
                 HStack(spacing: 6) {
                     Image(systemName: "sparkles")
-                        .font(.system(size: 11, weight: .semibold))
+                        .font(FoundryTheme.Glyph.xs)
                     Text("Ask AI")
-                        .font(FoundryTheme.body(size: 12, weight: .semibold))
+                        .font(FoundryTheme.body)
                     Text("Tab")
-                        .font(.system(size: 11, weight: .medium, design: .rounded))
-                        .foregroundStyle(FoundryTheme.faintText)
+                        .font(FoundryTheme.Glyph.xs)
+                        .foregroundStyle(FoundryTheme.textQuaternary)
                 }
-                .foregroundStyle(FoundryTheme.secondaryText)
+                .foregroundStyle(FoundryTheme.textSecondary)
                 .frame(height: 30)
                 .padding(.horizontal, 8)
             }
             .buttonStyle(FoundryQuietButtonStyle())
-            .pointerCursor()
             .accessibilityLabel("Ask AI")
             .help("Ask AI with Tab")
 
@@ -454,7 +453,7 @@ struct CommandPanelView: View {
                 FoundryIconButton(
                     systemName: "xmark.circle.fill",
                     accessibilityLabel: "Cancel current action",
-                    tint: FoundryTheme.faintText,
+                    tint: FoundryTheme.textQuaternary,
                     action: state.cancelCurrentAction
                 )
                 .help("Cancel current action")
@@ -534,7 +533,7 @@ struct CommandPanelView: View {
         )
         .padding(.horizontal, 10)
         .frame(height: 54)
-        .background(Color.primary.opacity(0.032))
+        .background(FoundryTheme.fillSubtle)
         .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
         .padding(.horizontal, 16)
         .padding(.bottom, 4)
@@ -542,23 +541,23 @@ struct CommandPanelView: View {
 
     private var dropOverlay: some View {
         FoundrySmoothedRectangle(cornerRadius: FoundryTheme.Radius.panel, smoothing: 0.75)
-            .fill(isDropTargeted ? Color.primary.opacity(0.10) : Color.clear)
+            .fill(isDropTargeted ? FoundryTheme.fillSelected : Color.clear)
             .overlay(
             FoundrySmoothedRectangle(cornerRadius: FoundryTheme.Radius.panel, smoothing: 0.75)
-                    .strokeBorder(isDropTargeted ? Color.primary.opacity(0.45) : Color.clear, style: StrokeStyle(lineWidth: 1.5, dash: [8, 7]))
+                    .strokeBorder(isDropTargeted ? FoundryTheme.textQuaternary : Color.clear, style: StrokeStyle(lineWidth: 1.5, dash: [8, 7]))
             )
             .overlay {
                 if isDropTargeted {
                     VStack(spacing: 10) {
                         Image(systemName: "tray.and.arrow.down.fill")
-                            .font(.system(size: 30, weight: .semibold))
+                            .font(FoundryTheme.Glyph.xl)
                         Text("Drop files to choose what to do")
-                            .font(FoundryTheme.body(size: 15, weight: .semibold))
+                            .font(FoundryTheme.body)
                     }
-                    .foregroundStyle(FoundryTheme.primaryText)
+                    .foregroundStyle(FoundryTheme.textPrimary)
                     .padding(.horizontal, 22)
                     .padding(.vertical, 16)
-                    .background(Color.black.opacity(0.18))
+                    .background(FoundryTheme.scrim)
                     .clipShape(FoundrySmoothedRectangle(cornerRadius: 18, smoothing: 0.75))
                     .phaseAnimator([false, true], trigger: isDropTargeted) { content, phase in
                         content.scaleEffect(reduceMotion ? 1 : (phase ? 1.035 : 1.0))
@@ -574,11 +573,11 @@ struct CommandPanelView: View {
     private func actionFeedbackColor(_ feedback: ActionFeedback) -> Color {
         switch feedback {
         case .info:
-            FoundryTheme.secondaryText
+            FoundryTheme.textSecondary
         case .success:
             FoundryTheme.success
         case .failure:
-            FoundryTheme.error
+            FoundryTheme.destructive
         }
     }
 
@@ -831,17 +830,17 @@ struct CommandPanelView: View {
         VStack(spacing: 0) {
             HStack(spacing: 8) {
                 Text("Dropped \(state.pendingDropURLs?.count ?? 0) file\((state.pendingDropURLs?.count ?? 0) == 1 ? "" : "s")")
-                    .font(FoundryTheme.sectionHeaderFont)
-                    .foregroundStyle(FoundryTheme.faintText)
+                    .font(FoundryTheme.micro)
+                    .foregroundStyle(FoundryTheme.textQuaternary)
                     .textCase(.uppercase)
                     .tracking(0.4)
                 Spacer()
                 Text("esc")
-                    .font(FoundryTheme.body(size: 10, weight: .semibold))
-                    .foregroundStyle(FoundryTheme.faintText)
+                    .font(FoundryTheme.micro)
+                    .foregroundStyle(FoundryTheme.textQuaternary)
                     .padding(.horizontal, 6)
                     .padding(.vertical, 2)
-                    .background(Color.primary.opacity(0.07))
+                    .background(FoundryTheme.fillTint)
                     .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
             }
             .padding(.horizontal, 20)
@@ -854,24 +853,23 @@ struct CommandPanelView: View {
                     } label: {
                         HStack(spacing: 10) {
                             Image(systemName: choice.systemIcon)
-                                .font(.system(size: 13, weight: .semibold))
-                                .foregroundStyle(FoundryTheme.secondaryText)
+                                .font(FoundryTheme.Glyph.sm)
+                                .foregroundStyle(FoundryTheme.textSecondary)
                                 .frame(width: 20)
                             Text(choice.title)
-                                .font(FoundryTheme.body(size: 13, weight: .medium))
-                                .foregroundStyle(FoundryTheme.primaryText)
+                                .font(FoundryTheme.body)
+                                .foregroundStyle(FoundryTheme.textPrimary)
                             Spacer()
                             Text(index == 0 ? "↵" : "⌘\(index + 1)")
-                                .font(FoundryTheme.body(size: 11, weight: .semibold))
-                                .foregroundStyle(FoundryTheme.faintText)
+                                .font(FoundryTheme.micro)
+                                .foregroundStyle(FoundryTheme.textQuaternary)
                         }
                         .padding(.horizontal, 12)
                         .frame(height: 34)
-                        .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(Color.primary.opacity(0.0001)))
+                        .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(FoundryTheme.fillSubtle))
                         .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
-                    .pointerCursor()
                     .keyboardShortcut(index == 0 ? .defaultAction : KeyboardShortcut(.init(Character(UnicodeScalar(48 + index + 1)!)), modifiers: .command))
                 }
             }
@@ -884,15 +882,15 @@ struct CommandPanelView: View {
         VStack(spacing: 0) {
             HStack(spacing: 8) {
                 Text("Actions")
-                    .font(FoundryTheme.sectionHeaderFont)
-                    .foregroundStyle(FoundryTheme.faintText)
+                    .font(FoundryTheme.micro)
+                    .foregroundStyle(FoundryTheme.textQuaternary)
                     .textCase(.uppercase)
                     .tracking(0.4)
 
                 if let selectedResult = state.session.selectedResult {
                     Text(selectedResult.title)
-                        .font(FoundryTheme.body(size: 12, weight: .regular))
-                        .foregroundStyle(FoundryTheme.mutedText)
+                        .font(FoundryTheme.bodySecondary)
+                        .foregroundStyle(FoundryTheme.textTertiary)
                         .lineLimit(1)
                 }
 
@@ -907,8 +905,8 @@ struct CommandPanelView: View {
                     LazyVStack(spacing: 2) {
                         if state.session.visibleActions.isEmpty {
                             Text("No actions match \u{201C}\(state.session.actionFilter)\u{201D}")
-                                .font(FoundryTheme.body(size: 12, weight: .regular))
-                                .foregroundStyle(FoundryTheme.mutedText)
+                                .font(FoundryTheme.bodySecondary)
+                                .foregroundStyle(FoundryTheme.textTertiary)
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 24)
                         }
@@ -948,14 +946,14 @@ struct CommandPanelView: View {
         if state.mode == .search, state.session.isSearchLoading {
             PanelFooter(actions: actions, openSettings: state.router.openSettings, openWelcomeGuide: state.router.openWelcomeGuide) {
                 Text("Searching…")
-                    .font(FoundryTheme.metaFont)
-                    .foregroundStyle(FoundryTheme.mutedText)
+                    .font(FoundryTheme.caption)
+                    .foregroundStyle(FoundryTheme.textTertiary)
             }
         } else if isWindowLayoutQuery {
             PanelFooter(actions: actions, openSettings: state.router.openSettings, openWelcomeGuide: state.router.openWelcomeGuide) {
                 Text("\(windowLayoutResults.count) layouts")
-                    .font(FoundryTheme.metaFont.monospacedDigit())
-                    .foregroundStyle(FoundryTheme.faintText)
+                    .font(FoundryTheme.caption.monospacedDigit())
+                    .foregroundStyle(FoundryTheme.textQuaternary)
             }
         } else {
             PanelFooter(
@@ -1075,17 +1073,17 @@ private struct ActionRow: View {
     var body: some View {
         HStack(spacing: 12) {
             RoundedRectangle(cornerRadius: 7, style: .continuous)
-                .fill(Color.primary.opacity(0.07))
+                .fill(FoundryTheme.fillTint)
                 .overlay(
                     Image(systemName: iconName)
-                        .font(.system(size: 13, weight: .medium))
-                        .foregroundStyle(FoundryTheme.secondaryText)
+                        .font(FoundryTheme.Glyph.sm)
+                        .foregroundStyle(FoundryTheme.textSecondary)
                 )
                 .frame(width: 28, height: 28)
 
             Text(action.title)
-                .font(FoundryTheme.rowTitleFont)
-                .foregroundStyle(action.isDestructive ? FoundryTheme.error : FoundryTheme.primaryText)
+                .font(FoundryTheme.body)
+                .foregroundStyle(action.isDestructive ? FoundryTheme.destructive : FoundryTheme.textPrimary)
 
             Spacer()
 
@@ -1099,7 +1097,7 @@ private struct ActionRow: View {
         .background(RowBackground(isSelected: isSelected, isHovering: isHovering))
         .onHover { hovering in
             isHovering = hovering
-            if hovering { NSCursor.pointingHand.set() } else { NSCursor.arrow.set() }
+
         }
     }
 

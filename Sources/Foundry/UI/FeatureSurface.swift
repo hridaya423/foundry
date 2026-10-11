@@ -66,7 +66,7 @@ struct FeatureHeader<Content: View, Trailing: View>: View {
         .overlay(alignment: .bottom) {
             if showsHairline {
                 LinearGradient(
-                    colors: [Color.primary.opacity(0.09), Color.primary.opacity(0.02), Color.clear],
+                    colors: [FoundryTheme.fillTint, FoundryTheme.fillSubtle, Color.clear],
                     startPoint: .top,
                     endPoint: .bottom
                 )
@@ -83,11 +83,11 @@ struct FeatureTitle: View {
     var body: some View {
         HStack(spacing: 12) {
             Image(systemName: symbol)
-                .font(.system(size: 16, weight: .regular))
-                .foregroundStyle(FoundryTheme.mutedText)
+                .font(FoundryTheme.Glyph.sm)
+                .foregroundStyle(FoundryTheme.textTertiary)
             Text(title)
-                .font(FoundryTheme.searchFont)
-                .foregroundStyle(FoundryTheme.primaryText)
+                .font(FoundryTheme.title)
+                .foregroundStyle(FoundryTheme.textPrimary)
                 .lineLimit(1)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -125,11 +125,11 @@ struct PanelFooter<Status: View>: View {
             if showsQuickAIChip {
                 HStack(spacing: 8) {
                     Image(systemName: "sparkles")
-                        .font(.system(size: 11, weight: .semibold))
+                        .font(FoundryTheme.Glyph.xs)
                     Text("Quick AI")
-                        .font(FoundryTheme.body(size: 12, weight: .semibold))
+                        .font(FoundryTheme.body)
                 }
-                .foregroundStyle(FoundryTheme.secondaryText)
+                .foregroundStyle(FoundryTheme.textSecondary)
                 .padding(.horizontal, 8)
             } else {
                 FoundryMenuButton(openSettings: openSettings, openWelcomeGuide: openWelcomeGuide)
@@ -176,15 +176,14 @@ struct FoundryMenuButton: View {
                 .keyboardShortcut("q", modifiers: .command)
         } label: {
             Image(systemName: "command")
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(FoundryTheme.secondaryText)
+                .font(FoundryTheme.Glyph.xs)
+                .foregroundStyle(FoundryTheme.textSecondary)
                 .frame(width: 30, height: 30)
         }
         .menuStyle(.button)
         .buttonStyle(FoundryQuietButtonStyle())
         .menuIndicator(.hidden)
         .fixedSize()
-        .pointerCursor()
         .accessibilityLabel("Foundry menu")
         .help("Settings and Quit")
     }
@@ -196,8 +195,8 @@ struct KeycapHint: View {
     var body: some View {
         FoundryGlassSurface(role: .control, shape: RoundedRectangle(cornerRadius: 5, style: .continuous)) {
             Text(text)
-                .font(.system(size: 10.5, weight: .medium, design: .rounded))
-                .foregroundStyle(FoundryTheme.secondaryText)
+                .font(FoundryTheme.caption)
+                .foregroundStyle(FoundryTheme.textSecondary)
                 .multilineTextAlignment(.center)
                 .baselineOffset(-0.5)
                 .padding(.horizontal, 5)
@@ -215,8 +214,8 @@ struct FooterAction: View {
             KeycapHint(text: spec.keys)
 
             Text(spec.label)
-                .font(FoundryTheme.body(size: 11.5, weight: spec.emphasized ? .semibold : .medium))
-                .foregroundStyle(spec.emphasized ? FoundryTheme.secondaryText : FoundryTheme.mutedText)
+                .font(spec.emphasized ? FoundryTheme.micro : FoundryTheme.caption)
+                .foregroundStyle(spec.emphasized ? FoundryTheme.textSecondary : FoundryTheme.textTertiary)
         }
     }
 }
@@ -234,27 +233,27 @@ struct EmptyState: View {
             if isLoading {
                 ProgressView()
                     .controlSize(.small)
-                    .tint(FoundryTheme.secondaryText)
+                    .tint(FoundryTheme.textSecondary)
             } else if let symbol {
                 ZStack {
                     RoundedRectangle(cornerRadius: 18, style: .continuous)
-                        .fill(Color.primary.opacity(0.075))
+                        .fill(FoundryTheme.fillTint)
                         .frame(width: 68, height: 68)
 
                     Image(systemName: symbol)
-                        .font(.system(size: 28, weight: .regular))
-                        .foregroundStyle(FoundryTheme.secondaryText)
+                        .font(FoundryTheme.Glyph.xl)
+                        .foregroundStyle(FoundryTheme.textSecondary)
                 }
             }
 
             Text(title)
-                .font(FoundryTheme.body(size: isLoading ? 15 : 17, weight: .medium))
-                .foregroundStyle(FoundryTheme.primaryText)
+                .font(isLoading ? FoundryTheme.body : FoundryTheme.title)
+                .foregroundStyle(FoundryTheme.textPrimary)
 
             if let message {
                 Text(message)
-                    .font(FoundryTheme.body(size: 13, weight: .regular))
-                    .foregroundStyle(FoundryTheme.secondaryText)
+                    .font(FoundryTheme.bodySecondary)
+                    .foregroundStyle(FoundryTheme.textSecondary)
                     .lineLimit(1)
                     .truncationMode(.middle)
                     .padding(.horizontal, 40)
@@ -273,9 +272,9 @@ struct InlineNotice: View {
 
         var tint: Color {
             switch self {
-            case .info: FoundryTheme.secondaryText
+            case .info: FoundryTheme.textSecondary
             case .warning: FoundryTheme.warning
-            case .error: FoundryTheme.error
+            case .error: FoundryTheme.destructive
             }
         }
 
@@ -296,25 +295,24 @@ struct InlineNotice: View {
     var body: some View {
         HStack(spacing: 9) {
             Label(text, systemImage: symbol ?? level.defaultSymbol)
-                .font(FoundryTheme.body(size: 12, weight: .medium))
+                .font(FoundryTheme.bodySecondary)
                 .foregroundStyle(level.tint)
                 .frame(maxWidth: .infinity, alignment: .leading)
 
             if let actionTitle, let action {
                 Button(actionTitle, action: action)
                     .buttonStyle(.plain)
-                    .font(FoundryTheme.body(size: 11, weight: .semibold))
-                    .foregroundStyle(FoundryTheme.primaryText)
+                    .font(FoundryTheme.micro)
+                    .foregroundStyle(FoundryTheme.textPrimary)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 5)
-                    .background(Color.primary.opacity(0.08))
+                    .background(FoundryTheme.fillTint)
                     .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
-                    .pointerCursor()
             }
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 8)
-        .background(level.tint.opacity(0.10))
+        .background(level.tint.opacity(FoundryTheme.Alpha.subtle))
         .clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
     }
 }

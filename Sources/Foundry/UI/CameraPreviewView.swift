@@ -9,7 +9,7 @@ struct CameraPreviewView: View {
         VStack(alignment: .leading, spacing: 14) {
             ZStack {
                 RoundedRectangle(cornerRadius: 20, style: .continuous)
-                    .fill(Color.primary.opacity(0.05))
+                    .fill(FoundryTheme.fillHover)
 
                 if state.status == .starting || state.status == .active {
                     CameraPreviewSurface(session: state.session)
@@ -23,12 +23,12 @@ struct CameraPreviewView: View {
                                 .controlSize(.large)
                         } else {
                             Image(systemName: "camera")
-                                .font(.system(size: 28, weight: .medium))
-                                .foregroundStyle(FoundryTheme.secondaryText)
+                                .font(FoundryTheme.Glyph.xl)
+                                .foregroundStyle(FoundryTheme.textSecondary)
                         }
                         Text(message)
-                            .font(FoundryTheme.body(size: 15, weight: .semibold))
-                            .foregroundStyle(FoundryTheme.primaryText)
+                            .font(FoundryTheme.body)
+                            .foregroundStyle(FoundryTheme.textPrimary)
 
                         if state.status == .denied {
                             HStack(spacing: 8) {
@@ -36,11 +36,11 @@ struct CameraPreviewView: View {
                                 Button("Retry") { state.retry() }
                             }
                             .buttonStyle(PressableButtonStyle())
-                            .font(FoundryTheme.body(size: 12, weight: .semibold))
+                            .font(FoundryTheme.body)
                         } else if state.status != .requestingPermission && state.status != .starting && state.status != .active && state.status != .idle {
                             Button("Retry") { state.retry() }
                                 .buttonStyle(PressableButtonStyle())
-                                .font(FoundryTheme.body(size: 12, weight: .semibold))
+                                .font(FoundryTheme.body)
                         }
                     }
                     .padding(24)
@@ -48,7 +48,7 @@ struct CameraPreviewView: View {
             }
             .overlay(
                 RoundedRectangle(cornerRadius: 20, style: .continuous)
-                    .stroke(Color.primary.opacity(0.07), lineWidth: 1)
+                    .stroke(FoundryTheme.fillTint, lineWidth: 1)
             )
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .accessibilityLabel("Live camera preview")

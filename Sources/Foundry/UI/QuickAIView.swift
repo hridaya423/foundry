@@ -19,7 +19,7 @@ struct QuickAIHeaderControlsView: View {
             .frame(height: 42)
 
             if quickAI.isQuickAILoading {
-                FoundryIconButton(systemName: "stop.circle.fill", accessibilityLabel: "Stop answering", tint: FoundryTheme.secondaryText) {
+                FoundryIconButton(systemName: "stop.circle.fill", accessibilityLabel: "Stop answering", tint: FoundryTheme.textSecondary) {
                     quickAI.stop()
                 }
                 .help("Stop (⌘.)")
@@ -27,12 +27,11 @@ struct QuickAIHeaderControlsView: View {
 
             Button { isShowingThreads = true } label: {
                  Image(systemName: "text.bubble")
-                     .font(.system(size: 15, weight: .medium))
-                     .foregroundStyle(FoundryTheme.secondaryText)
+                     .font(FoundryTheme.Glyph.sm)
+                     .foregroundStyle(FoundryTheme.textSecondary)
                      .frame(width: 30, height: 30)
              }
              .buttonStyle(.plain)
-             .pointerCursor()
              .help("Chats")
              .accessibilityLabel("Chats")
              .popover(isPresented: $isShowingThreads, arrowEdge: .bottom) {
@@ -73,8 +72,8 @@ struct QuickAISurfaceView: View {
                    quickAI.isQuickAILoading || quickAI.quickAIThreads.first(where: { $0.id
                        == quickAI.activeQuickAIThreadID })?.messages.last?.content != quickAI.quickAIResponse {
                     AIFormattedText(content: quickAI.quickAIResponse)
-                        .font(FoundryTheme.body(size: 15, weight: .regular))
-                        .foregroundStyle(FoundryTheme.primaryText)
+                        .font(FoundryTheme.bodySecondary)
+                        .foregroundStyle(FoundryTheme.textPrimary)
                         .textSelection(.enabled)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
@@ -106,13 +105,13 @@ struct QuickAISurfaceView: View {
         } else {
             HStack(alignment: .firstTextBaseline, spacing: 12) {
                 Image(systemName: message.role == .user ? "person.crop.circle" : "sparkles")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(FoundryTheme.faintText)
+                    .font(FoundryTheme.Glyph.sm)
+                    .foregroundStyle(FoundryTheme.textQuaternary)
                     .frame(width: 20)
 
                 AIFormattedText(content: message.content)
-                    .font(FoundryTheme.body(size: 15, weight: .regular))
-                    .foregroundStyle(message.role == .user ? FoundryTheme.secondaryText : FoundryTheme.primaryText)
+                    .font(FoundryTheme.bodySecondary)
+                    .foregroundStyle(message.role == .user ? FoundryTheme.textSecondary : FoundryTheme.textPrimary)
                     .textSelection(.enabled)
                     .frame(maxWidth: .infinity, alignment: .leading)
 
@@ -136,22 +135,21 @@ private struct QuickAIEmptyState: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Ask anything")
-                .font(FoundryTheme.body(size: 17, weight: .semibold))
-                .foregroundStyle(FoundryTheme.primaryText)
+                .font(FoundryTheme.title)
+                .foregroundStyle(FoundryTheme.textPrimary)
             Text("Answers stream here. Press ⌘N for a new chat, ⌘. to stop.")
-                .font(FoundryTheme.body(size: 12, weight: .regular))
-                .foregroundStyle(FoundryTheme.mutedText)
+                .font(FoundryTheme.bodySecondary)
+                .foregroundStyle(FoundryTheme.textTertiary)
             ForEach(Self.suggestions, id: \.self) { suggestion in
                 Button { ask(suggestion) } label: {
                     Label(suggestion, systemImage: "sparkles")
-                        .font(FoundryTheme.body(size: 13, weight: .medium))
-                        .foregroundStyle(FoundryTheme.secondaryText)
+                        .font(FoundryTheme.body)
+                        .foregroundStyle(FoundryTheme.textSecondary)
                         .padding(.horizontal, 12)
                         .padding(.vertical, 8)
-                        .background(Color.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                        .background(FoundryTheme.fillHover, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
                 }
                 .buttonStyle(PressableButtonStyle())
-                .pointerCursor()
             }
         }
         .padding(.top, 8)
@@ -170,12 +168,11 @@ private struct CopyMessageButton: View {
             Task { try? await Task.sleep(for: .seconds(1.2)); copied = false }
         } label: {
             Image(systemName: copied ? "checkmark" : "doc.on.doc")
-                .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(FoundryTheme.faintText)
+                .font(FoundryTheme.Glyph.xs)
+                .foregroundStyle(FoundryTheme.textQuaternary)
                 .frame(width: 22, height: 22)
         }
         .buttonStyle(.plain)
-        .pointerCursor()
         .accessibilityLabel(copied ? "Copied" : "Copy answer")
         .help("Copy answer")
     }
@@ -188,8 +185,8 @@ private struct QuickAIActivityRow: View {
         let presentation = QuickAIToolPresentation.activity(for: status)
         HStack(spacing: 10) {
             Image(systemName: presentation.icon)
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(FoundryTheme.faintText)
+                .font(FoundryTheme.Glyph.sm)
+                .foregroundStyle(FoundryTheme.textQuaternary)
                 .frame(width: 20)
 
             QuickAIShimmerLabel(text: presentation.label)
@@ -207,26 +204,26 @@ private struct QuickAIToolEventRow: View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 10) {
                 Image(systemName: presentation.icon)
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(FoundryTheme.faintText)
+                    .font(FoundryTheme.Glyph.sm)
+                    .foregroundStyle(FoundryTheme.textQuaternary)
                     .frame(width: 20)
 
                 if isRunning {
                     QuickAIShimmerLabel(text: presentation.label)
                 } else {
                     Text(presentation.label)
-                        .font(FoundryTheme.body(size: 14, weight: .medium))
-                        .foregroundStyle(FoundryTheme.secondaryText)
+                        .font(FoundryTheme.body)
+                        .foregroundStyle(FoundryTheme.textSecondary)
                     Image(systemName: "checkmark")
-                        .font(.system(size: 9, weight: .bold))
-                        .foregroundStyle(FoundryTheme.faintText)
+                        .font(FoundryTheme.Glyph.xs)
+                        .foregroundStyle(FoundryTheme.textQuaternary)
                 }
             }
 
             if let result, result.isEmpty == false {
                 Text(result)
-                    .font(FoundryTheme.body(size: 11, weight: .regular))
-                    .foregroundStyle(FoundryTheme.mutedText)
+                    .font(FoundryTheme.caption)
+                    .foregroundStyle(FoundryTheme.textTertiary)
                     .lineLimit(4)
                     .padding(.leading, 30)
             }
@@ -239,8 +236,8 @@ private struct QuickAIShimmerLabel: View {
 
     var body: some View {
         Text(text)
-            .font(FoundryTheme.body(size: 14, weight: .medium))
-            .foregroundStyle(FoundryTheme.secondaryText)
+            .font(FoundryTheme.body)
+            .foregroundStyle(FoundryTheme.textSecondary)
     }
 }
 
@@ -437,8 +434,8 @@ private struct QuickAIThreadPicker: View {
             Divider()
             if threads.isEmpty {
                 Text(quickAI.quickAIThreads.isEmpty ? "No chats yet" : "No matching chats")
-                    .font(FoundryTheme.body(size: 12, weight: .regular))
-                    .foregroundStyle(FoundryTheme.faintText)
+                    .font(FoundryTheme.bodySecondary)
+                    .foregroundStyle(FoundryTheme.textQuaternary)
                     .frame(maxWidth: .infinity, alignment: .center)
                     .padding(.vertical, 10)
             } else {

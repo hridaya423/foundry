@@ -11,16 +11,7 @@ struct ConfettiBurst: View {
 
     static let duration: TimeInterval = 2.4
     private static let maxDelay: TimeInterval = 0.5
-    static let palette: [Color] = [
-        Color(red: 0.98, green: 0.39, blue: 0.16),
-        Color(red: 1.00, green: 0.62, blue: 0.23),
-        Color(red: 1.00, green: 0.84, blue: 0.35),
-        Color(red: 0.42, green: 0.76, blue: 0.53),
-        Color(red: 0.45, green: 0.62, blue: 0.97),
-        Color(red: 0.80, green: 0.55, blue: 0.97),
-        Color(red: 1.00, green: 0.56, blue: 0.66),
-        .white
-    ]
+    static let palette: [Color] = FoundryTheme.confettiColors + [.white]
 
     var body: some View {
         // Paused while idle — an untriggered TimelineView still ticks a

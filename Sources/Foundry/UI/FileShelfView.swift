@@ -22,15 +22,15 @@ struct FileShelfView: View {
                 HStack(alignment: .center, spacing: 8) {
                     HStack(spacing: 7) {
                         Image(systemName: "tray.full")
-                            .font(.system(size: 11, weight: .semibold))
+                            .font(FoundryTheme.Glyph.xs)
                         Text(state.selectedIDs.isEmpty
                             ? "\(state.files.count) waiting"
                             : "\(state.selectedFiles.count) selected of \(state.files.count)")
-                            .font(FoundryTheme.body(size: 11, weight: .semibold))
+                            .font(FoundryTheme.micro)
                             .textCase(.uppercase)
                             .tracking(0.5)
                     }
-                    .foregroundStyle(FoundryTheme.secondaryText)
+                    .foregroundStyle(FoundryTheme.textSecondary)
 
                     Spacer(minLength: 8)
 
@@ -78,7 +78,7 @@ struct FileShelfView: View {
                         text: state.backgroundRemovalStatus,
                         symbol: state.backgroundRemovalError == nil ? "checkmark.circle" : "exclamationmark.triangle",
                         tint: state.backgroundRemovalError
-                            == nil ? (state.isRemovingBackground ? FoundryTheme.accentTint : FoundryTheme.success) : FoundryTheme.warning,
+                            == nil ? (state.isRemovingBackground ? FoundryTheme.accent : FoundryTheme.success) : FoundryTheme.warning,
                         isLoading: state.isRemovingBackground
                     )
                 }
@@ -186,19 +186,18 @@ struct FileShelfView: View {
         } label: {
             HStack(spacing: FoundryTheme.Spacing.xs) {
                 Image(systemName: "wand.and.stars")
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(FoundryTheme.Glyph.xs)
                 Text("Remove Background")
-                    .font(FoundryTheme.body(size: 12, weight: .semibold))
+                    .font(FoundryTheme.body)
                 Image(systemName: "chevron.down")
-                    .font(.system(size: 9, weight: .bold))
+                    .font(FoundryTheme.Glyph.xs)
             }
-            .foregroundStyle(FoundryTheme.accentTint)
+            .foregroundStyle(FoundryTheme.accent)
             .padding(.horizontal, FoundryTheme.Spacing.md)
             .frame(height: FoundryTheme.Control.compact)
         }
         .menuStyle(.borderlessButton)
         .buttonStyle(FoundryQuietButtonStyle())
-        .pointerCursor()
         .accessibilityLabel("Remove Background")
         .help("Choose a background removal engine")
     }
@@ -232,12 +231,12 @@ struct FileShelfRow: View {
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(file.name)
-                    .font(FoundryTheme.body(size: 14, weight: .medium))
-                    .foregroundStyle(FoundryTheme.primaryText)
+                    .font(FoundryTheme.body)
+                    .foregroundStyle(FoundryTheme.textPrimary)
                     .lineLimit(1)
                 Text(file.location)
-                    .font(FoundryTheme.body(size: 12, weight: .regular))
-                    .foregroundStyle(FoundryTheme.mutedText)
+                    .font(FoundryTheme.bodySecondary)
+                    .foregroundStyle(FoundryTheme.textTertiary)
                     .lineLimit(1)
             }
 
@@ -264,7 +263,7 @@ struct FileShelfRow: View {
         .animation(reduceMotion ? nil : .easeOut(duration: 0.12), value: isHovering)
         .onHover { hovering in
             isHovering = hovering
-            if hovering { NSCursor.pointingHand.set() } else { NSCursor.arrow.set() }
+
         }
         .accessibilityElement(children: .contain)
         .accessibilityHint("Select file")
@@ -310,7 +309,7 @@ struct ShelfIconStack: View {
             ForEach(Array(files.enumerated()), id: \.element.id) { index, file in
                 FileIcon(path: file.url.path) { Color.clear }
                     .frame(width: 34, height: 34)
-                    .background(Color.primary.opacity(0.16))
+                    .background(FoundryTheme.stroke)
                     .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
                     .rotationEffect(.degrees(Double(index - 1) * 5))
                     .offset(x: CGFloat(index) * 13)

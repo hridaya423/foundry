@@ -40,8 +40,8 @@ struct ClipboardHistoryView: View {
                     )
                 } else {
                     Text("Clipboard")
-                        .font(FoundryTheme.body(size: 13, weight: .semibold))
-                        .foregroundStyle(FoundryTheme.secondaryText)
+                        .font(FoundryTheme.body)
+                        .foregroundStyle(FoundryTheme.textSecondary)
                 }
                 Spacer()
                 Button(state.isPaused ? "Resume" : "Pause") { pause(!state.isPaused) }
@@ -151,16 +151,16 @@ private struct ClipboardHistoryRow: View {
                     FileIcon(path: first.path) { Image(systemName: item.systemImage) }
                 } else {
                     Image(systemName: item.systemImage)
-                        .font(.system(size: 13, weight: .medium))
-                        .foregroundStyle(FoundryTheme.secondaryText)
+                        .font(FoundryTheme.Glyph.sm)
+                        .foregroundStyle(FoundryTheme.textSecondary)
                 }
             }
             .frame(width: 22, height: 22)
             .accessibilityHidden(true)
 
             Text(item.title)
-                .font(FoundryTheme.body(size: 13, weight: .medium))
-                .foregroundStyle(FoundryTheme.primaryText)
+                .font(FoundryTheme.body)
+                .foregroundStyle(FoundryTheme.textPrimary)
                 .lineLimit(1)
                 .truncationMode(.middle)
 
@@ -168,8 +168,8 @@ private struct ClipboardHistoryRow: View {
 
             if item.isPinned {
                 Image(systemName: "pin.fill")
-                    .font(.system(size: 9, weight: .semibold))
-                    .foregroundStyle(FoundryTheme.faintText)
+                    .font(FoundryTheme.Glyph.xs)
+                    .foregroundStyle(FoundryTheme.textQuaternary)
                     .accessibilityLabel("Pinned")
             }
             if isHovering {
@@ -183,8 +183,8 @@ private struct ClipboardHistoryRow: View {
                 }
             } else {
                 Text(item.timeLabel)
-                    .font(FoundryTheme.metaFont.monospacedDigit())
-                    .foregroundStyle(FoundryTheme.faintText)
+                    .font(FoundryTheme.caption.monospacedDigit())
+                    .foregroundStyle(FoundryTheme.textQuaternary)
             }
         }
         .padding(.horizontal, 10)
@@ -199,8 +199,8 @@ private struct ClipboardHistoryRow: View {
     private func hoverAction(_ symbol: String, label: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Image(systemName: symbol)
-                .font(.system(size: 10, weight: .semibold))
-                .foregroundStyle(FoundryTheme.secondaryText)
+                .font(FoundryTheme.Glyph.xs)
+                .foregroundStyle(FoundryTheme.textSecondary)
                 .frame(width: 22, height: 22)
                 .contentShape(Rectangle())
         }
@@ -302,8 +302,8 @@ private struct ClipboardPreviewPane: View {
         case let .text(value):
             ScrollView {
                 Text(value.count > 20_000 ? String(value.prefix(20_000)) + "\n…" : value)
-                    .font(monospace ? .system(size: 12, design: .monospaced) : FoundryTheme.body(size: 13, weight: .regular))
-                    .foregroundStyle(FoundryTheme.secondaryText)
+                    .font(monospace ? FoundryTheme.mono : FoundryTheme.bodySecondary)
+                    .foregroundStyle(FoundryTheme.textSecondary)
                     .textSelection(.enabled)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
@@ -321,8 +321,8 @@ private struct ClipboardPreviewPane: View {
                                 FileIcon(path: url.path) { Color.clear }
                                     .frame(width: 18, height: 18)
                                 Text(url.lastPathComponent)
-                                    .font(FoundryTheme.body(size: 12, weight: .medium))
-                                    .foregroundStyle(FoundryTheme.secondaryText)
+                                    .font(FoundryTheme.bodySecondary)
+                                    .foregroundStyle(FoundryTheme.textSecondary)
                                     .lineLimit(1)
                             }
                         }
@@ -341,14 +341,13 @@ private struct ClipboardCardButton: View {
     var body: some View {
         Button(action: action) {
             Image(systemName: symbol)
-                .font(.system(size: 11, weight: .bold))
-                .foregroundStyle(FoundryTheme.mutedText)
+                .font(FoundryTheme.Glyph.xs)
+                .foregroundStyle(FoundryTheme.textTertiary)
                 .frame(width: 24, height: 24)
-                .background(Color.primary.opacity(0.06))
+                .background(FoundryTheme.fillHover)
                 .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
         }
         .buttonStyle(PressableButtonStyle())
-        .pointerCursor()
         .accessibilityLabel(label)
         .help(label)
     }

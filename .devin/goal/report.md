@@ -84,6 +84,13 @@ Quality bar: Raycast. Plan: `docs/plans/2026-10-11-foundry-raycast-bar-audit.md`
 - `UI/` files >500 lines are views (`CommandPanelView`, `FileConversionView`, `WindowLayoutPicker`, `MediaDownloadsView`, `SnippetsView`, `HomeAccessoryStrip`) + `FileConversionState` (596, pre-existing) — all Phase-5 split scope
 - ~90 call sites retargeted (`state.session.*`, `state.settings.*`, `state.router.*`); two perl-migration corruptions recovered line-by-line (literal `$1`/`$2`, feature-state receivers misrouted); tests retargeted + `RecordingShellPort` helper added
 
+### Phase 5.1 — design tokens ✅ (this commit)
+- `FoundryTheme` rebuilt as the whole vocabulary: six-style text ramp (title 20/reg, body 13/med, bodySecondary 13/reg, caption 11/med, micro 11/semibold, mono 12 mono), `Glyph` scale + computed `glyph(_:)` for SF Symbols/emoji, semantic colours (textPrimary…Quaternary, fillSubtle/Hover/Tint/Selected/Emphasis, separator, stroke, destructive/success/warning/accent + accent tints, scrim/scrimStrong/shadow, onDark*, `dark(_:)/light(_:)/primary(_:)` computed-alpha helpers, `Alpha` named constants), spacing 4/8/12/16/24, radii 6/8/10/14/26, brand + confetti palette, `AgentSessionStatus.color` (dedupes two identical status switches)
+- ~560 call sites migrated: `FoundryTheme.body/display/mono(size:weight:)` → ramp tokens by (size,weight,context); raw `.system(size:)` → ramp or `Glyph` by Image/Text receiver; `.primary.opacity(0.x)` → semantic bucket (15 ad-hoc values → 8 tuned fills); `.black/.white.opacity` → scrim/shadow/onDark; `Color(red:` → tokens incl. status palette
+- `pointerCursor()` + every `NSCursor.*.set()` deleted (20 files)
+- New gate `scripts/lint-design.sh`: fails on `.system(size:` / `Color(red:` / `opacity(0.` outside `FoundryTheme.swift` — passes
+- Distinct text sizes: 6 (was 28). Manual fix-ups: ternary/computed sizes → `glyph(_:)`, `Alpha.half`, token ternaries
+
 ### Phase 4.5 — `@unchecked Sendable` audit ✅ (this commit)
 - ~60 sites → **3 justified** (target ≤10). Compiler-driven method per handoff: flip to `Sendable`, let the compiler enumerate violations, consolidate mutable state into `OSAllocatedUnfairLock<State>`.
 - `init(initialState:)` requires `State: Sendable`; SDK/non-Sendable state (`VNRequest`, `OpaquePointer` db handle, `CheckedContinuation`, `DispatchWorkItem`, `URLSession*` types, `NSColorSampler`, `NSObjectProtocol` observer, `ISO8601DateFormatter`) uses `init(uncheckedState:)` + `withLockUnchecked` — the lock still vouches, just not the type system.

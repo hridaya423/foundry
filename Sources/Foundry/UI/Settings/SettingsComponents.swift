@@ -9,11 +9,11 @@ struct SettingsGroup<Content: View>: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0, content: content)
             .padding(.horizontal, 2)
-            .background(Color.primary.opacity(0.035))
+            .background(FoundryTheme.fillSubtle)
             .clipShape(RoundedRectangle(cornerRadius: 11, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: 11, style: .continuous)
-                    .stroke(Color.primary.opacity(0.045), lineWidth: 1)
+                    .stroke(FoundryTheme.fillSubtle, lineWidth: 1)
             )
     }
 }
@@ -30,13 +30,13 @@ struct SettingsSectionLabel: View {
     var body: some View {
         HStack {
             Text(title)
-                .font(FoundryTheme.body(size: 13, weight: .semibold))
-                .foregroundStyle(FoundryTheme.primaryText.opacity(0.78))
+                .font(FoundryTheme.body)
+                .foregroundStyle(FoundryTheme.textSecondary)
             Spacer()
             if let value {
                 Text(value)
-                    .font(FoundryTheme.body(size: 12, weight: .medium))
-                    .foregroundStyle(FoundryTheme.mutedText)
+                    .font(FoundryTheme.bodySecondary)
+                    .foregroundStyle(FoundryTheme.textTertiary)
             }
         }
         .padding(.horizontal, 2)
@@ -46,7 +46,7 @@ struct SettingsSectionLabel: View {
 struct SettingsDivider: View {
     var body: some View {
         Rectangle()
-            .fill(Color.primary.opacity(0.07))
+            .fill(FoundryTheme.fillTint)
             .frame(height: 1)
             .padding(.horizontal, 12)
     }
@@ -59,11 +59,11 @@ struct SettingsLabel: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(title)
-                .font(FoundryTheme.body(size: 14, weight: .medium))
-                .foregroundStyle(FoundryTheme.primaryText)
+                .font(FoundryTheme.body)
+                .foregroundStyle(FoundryTheme.textPrimary)
             Text(subtitle)
-                .font(FoundryTheme.body(size: 12, weight: .regular))
-                .foregroundStyle(FoundryTheme.mutedText)
+                .font(FoundryTheme.bodySecondary)
+                .foregroundStyle(FoundryTheme.textTertiary)
                 .fixedSize(horizontal: false, vertical: true)
         }
     }
@@ -123,22 +123,22 @@ struct SettingsTextFieldRow: View {
         VStack(alignment: .leading, spacing: 5) {
             HStack(spacing: 10) {
                 Text(title)
-                    .font(FoundryTheme.body(size: 13, weight: .medium))
-                    .foregroundStyle(FoundryTheme.primaryText)
+                    .font(FoundryTheme.body)
+                    .foregroundStyle(FoundryTheme.textPrimary)
                     .frame(width: 72, alignment: .leading)
                 VStack(alignment: .leading, spacing: 2) {
                     TextField(placeholder, text: $text)
                         .textFieldStyle(.plain)
-                        .font(FoundryTheme.body(size: 14, weight: .medium))
-                        .foregroundStyle(FoundryTheme.primaryText)
+                        .font(FoundryTheme.body)
+                        .foregroundStyle(FoundryTheme.textPrimary)
                         .onSubmit { commit(text) }
                 }
                 Spacer()
             }
             if let error {
                 Text(error)
-                    .font(FoundryTheme.body(size: 11, weight: .medium))
-                    .foregroundStyle(FoundryTheme.error)
+                    .font(FoundryTheme.caption)
+                    .foregroundStyle(FoundryTheme.destructive)
                     .padding(.leading, 44)
             }
         }
@@ -158,13 +158,13 @@ struct SettingsSecureFieldRow: View {
     var body: some View {
         HStack(spacing: 10) {
             Text(title)
-                .font(FoundryTheme.body(size: 13, weight: .medium))
-                .foregroundStyle(FoundryTheme.primaryText)
+                .font(FoundryTheme.body)
+                .foregroundStyle(FoundryTheme.textPrimary)
                 .frame(width: 72, alignment: .leading)
             SecureField(placeholder, text: $value)
                 .textFieldStyle(.plain)
-                .font(FoundryTheme.body(size: 14, weight: .medium))
-                .foregroundStyle(FoundryTheme.primaryText)
+                .font(FoundryTheme.body)
+                .foregroundStyle(FoundryTheme.textPrimary)
                 .onSubmit { commit(value) }
             Button("Save") {
                 commit(value)
@@ -304,8 +304,8 @@ struct ActiveWidgetRow: View {
     var body: some View {
         HStack(spacing: 10) {
             Image(systemName: kind.symbol)
-                .font(.system(size: 14, weight: .medium))
-                .foregroundStyle(FoundryTheme.secondaryText)
+                .font(FoundryTheme.Glyph.sm)
+                .foregroundStyle(FoundryTheme.textSecondary)
                 .frame(width: 20)
             SettingsLabel(title: kind.title, subtitle: kind.summary)
             Spacer()
@@ -315,7 +315,7 @@ struct ActiveWidgetRow: View {
             SettingsIconButton(symbol: "chevron.down", label: "Move \(kind.title) down", action: moveDown)
                 .disabled(isLast)
                 .opacity(isHovering ? (isLast ? 0.3 : 1) : 0.12)
-            SettingsIconButton(symbol: "minus", label: "Remove \(kind.title)", action: remove, tint: FoundryTheme.error)
+            SettingsIconButton(symbol: "minus", label: "Remove \(kind.title)", action: remove, tint: FoundryTheme.destructive)
                 .opacity(isHovering ? 1 : 0.12)
         }
         .padding(.horizontal, 10)
@@ -333,21 +333,20 @@ struct AvailableWidgetRow: View {
         Button(action: add) {
             HStack(spacing: 10) {
                 Image(systemName: kind.symbol)
-                    .font(.system(size: 14, weight: .medium))
-                    .foregroundStyle(FoundryTheme.secondaryText)
+                    .font(FoundryTheme.Glyph.sm)
+                    .foregroundStyle(FoundryTheme.textSecondary)
                     .frame(width: 20)
                 SettingsLabel(title: kind.title, subtitle: kind.summary)
                 Spacer()
                 Image(systemName: "plus")
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(FoundryTheme.secondaryText)
+                    .font(FoundryTheme.Glyph.sm)
+                    .foregroundStyle(FoundryTheme.textSecondary)
                     .frame(width: 24, height: 24)
             }
             .padding(.horizontal, 10)
             .padding(.vertical, 8)
         }
         .buttonStyle(.plain)
-        .pointerCursor()
     }
 }
 
@@ -355,21 +354,20 @@ struct SettingsIconButton: View {
     let symbol: String
     let label: String
     let action: () -> Void
-    var tint: Color = FoundryTheme.secondaryText
+    var tint: Color = FoundryTheme.textSecondary
 
     var body: some View {
         Button(action: action) {
             Image(systemName: symbol)
-                .font(.system(size: 12, weight: .semibold))
+                .font(FoundryTheme.Glyph.xs)
                 .foregroundStyle(tint)
                 .frame(width: 28, height: 28)
-                .background(Color.primary.opacity(0.07))
+                .background(FoundryTheme.fillTint)
                 .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
         }
         .buttonStyle(.plain)
         .accessibilityLabel(label)
         .help(label)
-        .pointerCursor()
     }
 }
 
@@ -383,13 +381,13 @@ struct ConfigFieldRow: View {
     var body: some View {
         HStack(spacing: 10) {
             Text(title)
-                .font(FoundryTheme.body(size: 13, weight: .medium))
-                .foregroundStyle(FoundryTheme.primaryText)
+                .font(FoundryTheme.body)
+                .foregroundStyle(FoundryTheme.textPrimary)
                 .frame(width: 112, alignment: .leading)
             TextField(placeholder, text: $text)
                 .textFieldStyle(.plain)
-                .font(FoundryTheme.body(size: 14, weight: .medium))
-                .foregroundStyle(FoundryTheme.primaryText)
+                .font(FoundryTheme.body)
+                .foregroundStyle(FoundryTheme.textPrimary)
                 .onSubmit { commit(text) }
             Spacer()
         }
@@ -447,12 +445,12 @@ struct CommandSettingsRow: View {
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(row.title)
-                        .font(FoundryTheme.body(size: 14, weight: .semibold))
-                        .foregroundStyle(row.preference.isEnabled ? FoundryTheme.primaryText : FoundryTheme.mutedText)
+                        .font(FoundryTheme.body)
+                        .foregroundStyle(row.preference.isEnabled ? FoundryTheme.textPrimary : FoundryTheme.textTertiary)
                         .lineLimit(1)
                     Text(row.subtitle)
-                        .font(FoundryTheme.body(size: 11, weight: .regular))
-                        .foregroundStyle(FoundryTheme.mutedText)
+                        .font(FoundryTheme.caption)
+                        .foregroundStyle(FoundryTheme.textTertiary)
                         .lineLimit(1)
                 }
 
@@ -462,8 +460,8 @@ struct CommandSettingsRow: View {
                     setFavorite(row.preference.favoriteRank == nil)
                 } label: {
                     Image(systemName: row.preference.favoriteRank == nil ? "star" : "star.fill")
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(row.preference.favoriteRank == nil ? FoundryTheme.mutedText : FoundryTheme.accent)
+                        .font(FoundryTheme.Glyph.xs)
+                        .foregroundStyle(row.preference.favoriteRank == nil ? FoundryTheme.textTertiary : FoundryTheme.accent)
                         .frame(width: 26, height: 26)
                 }
                 .buttonStyle(.plain)
@@ -482,8 +480,8 @@ struct CommandSettingsRow: View {
                     toggleExpanded()
                 } label: {
                     Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(FoundryTheme.mutedText)
+                        .font(FoundryTheme.Glyph.xs)
+                        .foregroundStyle(FoundryTheme.textTertiary)
                         .frame(width: 26, height: 26)
                 }
                 .buttonStyle(.plain)
@@ -493,28 +491,28 @@ struct CommandSettingsRow: View {
             if isExpanded {
                 HStack(spacing: 8) {
                     Text("Aliases")
-                        .font(FoundryTheme.body(size: 11, weight: .medium))
-                        .foregroundStyle(FoundryTheme.mutedText)
+                        .font(FoundryTheme.caption)
+                        .foregroundStyle(FoundryTheme.textTertiary)
                         .frame(width: 48, alignment: .leading)
                     TextField("comma separated", text: $aliasesText)
                         .textFieldStyle(.plain)
-                        .font(FoundryTheme.body(size: 12, weight: .regular))
-                        .foregroundStyle(FoundryTheme.secondaryText)
+                        .font(FoundryTheme.bodySecondary)
+                        .foregroundStyle(FoundryTheme.textSecondary)
                         .onSubmit { commitAliases(aliasesText) }
                     Spacer()
                     if row.preference.aliases.isEmpty == false || row.preference.favoriteRank != nil || row.preference.isEnabled == false
                         || row.preference.globalHotkey != nil || row.preference.fallbackEligible == false {
                         Button("Reset") { reset() }
                             .buttonStyle(.plain)
-                            .font(FoundryTheme.body(size: 11, weight: .medium))
-                            .foregroundStyle(FoundryTheme.mutedText)
+                            .font(FoundryTheme.caption)
+                            .foregroundStyle(FoundryTheme.textTertiary)
                     }
                 }
 
                 HStack(spacing: 8) {
                     Text("Hotkey")
-                        .font(FoundryTheme.body(size: 11, weight: .medium))
-                        .foregroundStyle(FoundryTheme.mutedText)
+                        .font(FoundryTheme.caption)
+                        .foregroundStyle(FoundryTheme.textTertiary)
                         .frame(width: 48, alignment: .leading)
                     ShortcutRecorder(
                         hotkey: row.preference.globalHotkey.map {
@@ -527,15 +525,15 @@ struct CommandSettingsRow: View {
                     if row.preference.globalHotkey != nil {
                         Button("Clear") { setHotkey(nil) }
                             .buttonStyle(.plain)
-                            .font(FoundryTheme.body(size: 11, weight: .medium))
-                            .foregroundStyle(FoundryTheme.mutedText)
+                            .font(FoundryTheme.caption)
+                            .foregroundStyle(FoundryTheme.textTertiary)
                     } else if let suggested = suggestedHotkey {
                         Button("Use \(suggested.displayName)") {
                             setHotkey(FoundryHotkey(keyCode: suggested.keyCode, modifiers: suggested.modifiers, displayName: suggested.displayName))
                         }
                         .buttonStyle(.plain)
-                        .font(FoundryTheme.body(size: 11, weight: .medium))
-                        .foregroundStyle(FoundryTheme.mutedText)
+                        .font(FoundryTheme.caption)
+                        .foregroundStyle(FoundryTheme.textTertiary)
                         .help("Rectangle-style suggested shortcut")
                     }
                     Spacer()
@@ -546,8 +544,8 @@ struct CommandSettingsRow: View {
                     set: { setFallbackEligible($0) }
                 ))
                 .toggleStyle(.switch)
-                .font(FoundryTheme.body(size: 11, weight: .medium))
-                .foregroundStyle(FoundryTheme.mutedText)
+                .font(FoundryTheme.caption)
+                .foregroundStyle(FoundryTheme.textTertiary)
             }
         }
         .padding(.horizontal, 10)
@@ -575,12 +573,12 @@ struct CommandSettingsIcon: View {
                     .scaledToFit()
             } else if let systemName = icon.systemName {
                 Image(systemName: systemName)
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(FoundryTheme.secondaryText)
+                    .font(FoundryTheme.Glyph.sm)
+                    .foregroundStyle(FoundryTheme.textSecondary)
             } else {
                 Text(icon.fallback)
-                    .font(FoundryTheme.body(size: 10, weight: .bold))
-                    .foregroundStyle(FoundryTheme.secondaryText)
+                    .font(FoundryTheme.micro)
+                    .foregroundStyle(FoundryTheme.textSecondary)
             }
         }
         .frame(width: 28, height: 28)
@@ -610,8 +608,8 @@ struct ExcludedAppsRow: View {
         VStack(alignment: .leading, spacing: 9) {
             HStack(spacing: 10) {
                 Text(title)
-                    .font(FoundryTheme.body(size: 13, weight: .medium))
-                    .foregroundStyle(FoundryTheme.primaryText)
+                    .font(FoundryTheme.body)
+                    .foregroundStyle(FoundryTheme.textPrimary)
                     .frame(width: 112, alignment: .leading)
 
                 Menu {
@@ -641,17 +639,17 @@ struct ExcludedAppsRow: View {
                                 .lineLimit(1)
                             Button { remove(bundleID) } label: {
                                 Image(systemName: "xmark")
-                                    .font(.system(size: 8, weight: .bold))
+                                    .font(FoundryTheme.Glyph.xs)
                             }
                             .buttonStyle(.plain)
                             .accessibilityLabel("Remove \(appName(for: bundleID))")
                         }
-                        .font(FoundryTheme.body(size: 11, weight: .medium))
-                        .foregroundStyle(FoundryTheme.secondaryText)
+                        .font(FoundryTheme.caption)
+                        .foregroundStyle(FoundryTheme.textSecondary)
                         .padding(.horizontal, 9)
                         .frame(height: 24)
                         .background(
-                            Capsule(style: .continuous).fill(Color.primary.opacity(0.07))
+                            Capsule(style: .continuous).fill(FoundryTheme.fillTint)
                         )
                     }
                 }
@@ -659,8 +657,8 @@ struct ExcludedAppsRow: View {
 
             TextField("Or type a bundle ID, e.g. com.example.app", text: $manualID)
                 .textFieldStyle(.plain)
-                .font(FoundryTheme.mono(size: 12, weight: .regular))
-                .foregroundStyle(FoundryTheme.secondaryText)
+                .font(FoundryTheme.mono)
+                .foregroundStyle(FoundryTheme.textSecondary)
                 .onSubmit {
                     let value = manualID.trimmingCharacters(in: .whitespacesAndNewlines)
                     guard value.isEmpty == false else { return }

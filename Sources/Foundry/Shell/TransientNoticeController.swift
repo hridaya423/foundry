@@ -70,8 +70,8 @@ final class TransientNoticeController {
         var body: some View {
             FoundryGlassSurface(role: .floatingOverlay, shape: Capsule()) {
                 Label(message, systemImage: symbol)
-                    .font(FoundryTheme.body(size: 12, weight: .semibold))
-                    .foregroundStyle(FoundryTheme.primaryText)
+                    .font(FoundryTheme.body)
+                    .foregroundStyle(FoundryTheme.textPrimary)
                     .padding(.horizontal, 14)
                     .frame(minHeight: 32)
             }

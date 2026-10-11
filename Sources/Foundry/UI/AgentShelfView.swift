@@ -30,23 +30,22 @@ struct AgentShelfView: View {
                 shelfIcon
                 VStack(alignment: .leading, spacing: 1) {
                     Text("Agent Shelf")
-                        .font(FoundryTheme.body(size: 14, weight: .semibold))
-                        .foregroundStyle(FoundryTheme.primaryText)
+                        .font(FoundryTheme.body)
+                        .foregroundStyle(FoundryTheme.textPrimary)
                     Text("\(active.count) active · \(filteredSessions.count) tracked · \(agents.socketListening ? "live" : "live updates off")")
-                        .font(FoundryTheme.body(size: 11, weight: .medium))
-                        .foregroundStyle(FoundryTheme.mutedText)
+                        .font(FoundryTheme.caption)
+                        .foregroundStyle(FoundryTheme.textTertiary)
                 }
                 Spacer()
                 Button(action: agents.refresh) {
                     Image(systemName: "arrow.clockwise")
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(FoundryTheme.secondaryText)
+                        .font(FoundryTheme.Glyph.xs)
+                        .foregroundStyle(FoundryTheme.textSecondary)
                         .frame(width: 28, height: 28)
-                        .background(Color.primary.opacity(0.06))
+                        .background(FoundryTheme.fillHover)
                         .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
                 }
                 .buttonStyle(.plain)
-                .pointerCursor()
                 .help("Refresh sessions")
                 .accessibilityLabel("Refresh sessions")
             }
@@ -54,7 +53,7 @@ struct AgentShelfView: View {
             .padding(.vertical, 12)
 
             Rectangle()
-                .fill(Color.primary.opacity(0.07))
+                .fill(FoundryTheme.fillTint)
                 .frame(height: 1)
 
             providerTabsView
@@ -75,8 +74,8 @@ struct AgentShelfView: View {
                             HStack(spacing: 8) {
                                 ProgressView().controlSize(.small)
                                 Text("Looking for agent sessions…")
-                                    .font(FoundryTheme.body(size: 12, weight: .medium))
-                                    .foregroundStyle(FoundryTheme.mutedText)
+                                    .font(FoundryTheme.bodySecondary)
+                                    .foregroundStyle(FoundryTheme.textTertiary)
                             }
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 38)
@@ -131,30 +130,29 @@ struct AgentShelfView: View {
                     AgentProviderIcon(provider: provider, size: 16)
                 }
                 Text(title)
-                    .font(FoundryTheme.body(size: 11, weight: .semibold))
+                    .font(FoundryTheme.micro)
                 Text("\(count)")
-                    .font(FoundryTheme.body(size: 10, weight: .bold))
-                    .foregroundStyle(FoundryTheme.faintText)
+                    .font(FoundryTheme.micro)
+                    .foregroundStyle(FoundryTheme.textQuaternary)
             }
-            .foregroundStyle(selectedProvider == provider ? FoundryTheme.primaryText : FoundryTheme.mutedText)
+            .foregroundStyle(selectedProvider == provider ? FoundryTheme.textPrimary : FoundryTheme.textTertiary)
             .padding(.horizontal, 10)
             .frame(height: 28)
-            .background(selectedProvider == provider ? Color.primary.opacity(0.11) : Color.primary.opacity(0.045))
+            .background(selectedProvider == provider ? FoundryTheme.fillSelected : FoundryTheme.fillSubtle)
             .clipShape(Capsule())
             .overlay(
                 Capsule()
-                    .stroke(selectedProvider == provider ? Color.primary.opacity(0.12) : Color.primary.opacity(0.05), lineWidth: 1)
+                    .stroke(selectedProvider == provider ? FoundryTheme.separator : FoundryTheme.fillHover, lineWidth: 1)
             )
         }
         .buttonStyle(.plain)
-        .pointerCursor()
     }
 
     private func section(title: String, sessions: [AgentSessionCard]) -> some View {
         VStack(alignment: .leading, spacing: 7) {
             Text("\(title.uppercased()) · \(sessions.count)")
-                .font(FoundryTheme.body(size: 10, weight: .bold))
-                .foregroundStyle(FoundryTheme.faintText)
+                .font(FoundryTheme.micro)
+                .foregroundStyle(FoundryTheme.textQuaternary)
                 .tracking(0.8)
             VStack(spacing: 0) {
                 ForEach(Array(sessions.enumerated()), id: \.element.id) { index, session in
@@ -164,17 +162,17 @@ struct AgentShelfView: View {
                     }
                     if index < sessions.count - 1 {
                         Rectangle()
-                            .fill(Color.primary.opacity(0.055))
+                            .fill(FoundryTheme.fillHover)
                             .frame(height: 1)
                             .padding(.leading, 48)
                     }
                 }
             }
-            .background(Color.primary.opacity(0.035))
+            .background(FoundryTheme.fillSubtle)
             .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .stroke(Color.primary.opacity(0.05), lineWidth: 1)
+                    .stroke(FoundryTheme.fillHover, lineWidth: 1)
             )
         }
     }
@@ -188,8 +186,8 @@ struct AgentShelfView: View {
             AgentProviderIcon(provider: provider, size: 24)
         } else {
             Image(systemName: "sparkles.rectangle.stack")
-                .font(.system(size: 14, weight: .semibold))
-                .foregroundStyle(FoundryTheme.secondaryText)
+                .font(FoundryTheme.Glyph.sm)
+                .foregroundStyle(FoundryTheme.textSecondary)
         }
     }
 }
@@ -204,32 +202,32 @@ private struct AgentShelfRow: View {
             HStack(spacing: 11) {
                 AgentProviderIcon(provider: session.provider, size: 30)
                     .frame(width: 30, height: 30)
-                    .background(statusColor.opacity(0.10))
+                    .background(statusColor.opacity(FoundryTheme.Alpha.subtle))
                     .clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
                 VStack(alignment: .leading, spacing: 3) {
                     Text(session.title)
-                        .font(FoundryTheme.body(size: 13, weight: .semibold))
-                        .foregroundStyle(FoundryTheme.primaryText)
+                        .font(FoundryTheme.body)
+                        .foregroundStyle(FoundryTheme.textPrimary)
                         .lineLimit(1)
                     Text(detail)
-                        .font(FoundryTheme.body(size: 10.5, weight: .regular))
-                        .foregroundStyle(FoundryTheme.mutedText)
+                        .font(FoundryTheme.caption)
+                        .foregroundStyle(FoundryTheme.textTertiary)
                         .lineLimit(1)
                 }
                 Spacer(minLength: 8)
                 VStack(alignment: .trailing, spacing: 3) {
                     Text(session.status.rawValue)
-                        .font(FoundryTheme.body(size: 10, weight: .semibold))
+                        .font(FoundryTheme.micro)
                         .foregroundStyle(statusColor)
                     if let updatedAt = session.updatedAt {
                         Text(Self.relative.localizedString(for: updatedAt, relativeTo: Date()))
-                            .font(FoundryTheme.body(size: 9.5, weight: .medium))
-                            .foregroundStyle(FoundryTheme.faintText)
+                            .font(FoundryTheme.caption)
+                            .foregroundStyle(FoundryTheme.textQuaternary)
                     }
                 }
                 Image(systemName: "arrow.up.right")
-                    .font(.system(size: 9, weight: .bold))
-                    .foregroundStyle(FoundryTheme.mutedText)
+                    .font(FoundryTheme.Glyph.xs)
+                    .foregroundStyle(FoundryTheme.textTertiary)
                     .opacity(hovering ? 1 : 0.25)
             }
             .padding(.horizontal, 10)
@@ -239,7 +237,6 @@ private struct AgentShelfRow: View {
         .buttonStyle(.plain)
         .disabled(canOpen == false)
         .onHover { hovering = $0 }
-        .pointerCursor()
     }
 
     private var detail: String {
@@ -253,17 +250,7 @@ private struct AgentShelfRow: View {
         session.capabilities.intersection([.jumpApplication, .jumpTerminal, .jumpTask]).isEmpty == false
     }
 
-    private var statusColor: Color {
-        switch session.status {
-        case .working, .running: Color(red: 0.42, green: 0.90, blue: 0.67)
-        case .needsInput: Color(red: 1.0, green: 0.76, blue: 0.35)
-        case .reviewReady: Color(red: 0.52, green: 0.72, blue: 1.0)
-        case .planning: Color(red: 0.70, green: 0.62, blue: 1.0)
-        case .completed: Color(red: 0.44, green: 0.72, blue: 1.0)
-        case .failed: Color(red: 1.0, green: 0.38, blue: 0.38)
-        case .idle, .recent: FoundryTheme.faintText
-        }
-    }
+    private var statusColor: Color { session.status.color }
 
     private static let relative: RelativeDateTimeFormatter = {
         let formatter = RelativeDateTimeFormatter()

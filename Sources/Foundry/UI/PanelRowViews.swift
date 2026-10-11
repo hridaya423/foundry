@@ -9,8 +9,8 @@ struct RowBackground: View {
     @Environment(\.foundryHoverHighlightsArmed) private var hoverHighlightsArmed
 
     private var fill: Color {
-        if isSelected { return FoundryTheme.selection }
-        if isHovering && hoverHighlightsArmed { return FoundryTheme.hover }
+        if isSelected { return FoundryTheme.fillSelected }
+        if isHovering && hoverHighlightsArmed { return FoundryTheme.fillHover }
         return Color.clear
     }
 
@@ -19,7 +19,7 @@ struct RowBackground: View {
             .fill(fill)
             .overlay {
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .strokeBorder(isSelected ? FoundryTheme.selectionBorder : Color.clear, lineWidth: 1)
+                    .strokeBorder(isSelected ? FoundryTheme.stroke : Color.clear, lineWidth: 1)
             }
     }
 }
@@ -42,19 +42,18 @@ struct HomeSectionHeader: View {
     var body: some View {
         HStack {
             Text(title.uppercased())
-                .font(FoundryTheme.sectionHeaderFont)
+                .font(FoundryTheme.micro)
                 .tracking(0.4)
-                .foregroundStyle(FoundryTheme.primaryText.opacity(0.72))
+                .foregroundStyle(FoundryTheme.textSecondary)
             Spacer()
             if let action {
                 Button(action: action) {
                     Image(systemName: "slider.horizontal.3")
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(FoundryTheme.secondaryText)
+                        .font(FoundryTheme.Glyph.xs)
+                        .foregroundStyle(FoundryTheme.textSecondary)
                         .frame(width: 28, height: 28)
                 }
                     .buttonStyle(FoundryQuietButtonStyle())
-                    .pointerCursor()
                     .accessibilityLabel("Customize widgets")
                     .help("Customize widgets")
             }
@@ -77,15 +76,15 @@ struct HomeResultRow: View {
             AppIcon(icon: result.icon, size: 26, cornerRadius: 6)
 
             Text(result.title)
-                .font(FoundryTheme.rowTitleFont)
-                .foregroundStyle(FoundryTheme.primaryText)
+                .font(FoundryTheme.body)
+                .foregroundStyle(FoundryTheme.textPrimary)
                 .lineLimit(1)
 
             Spacer()
 
             Text(label)
-                .font(FoundryTheme.secondaryFont)
-                .foregroundStyle(FoundryTheme.faintText)
+                .font(FoundryTheme.bodySecondary)
+                .foregroundStyle(FoundryTheme.textQuaternary)
                 .lineLimit(1)
         }
         .padding(.horizontal, FoundryTheme.Spacing.sm)
@@ -93,7 +92,7 @@ struct HomeResultRow: View {
         .background(RowBackground(isSelected: isSelected, isHovering: isHovering))
         .onHover { hovering in
             isHovering = hovering
-            if hovering { NSCursor.pointingHand.set() } else { NSCursor.arrow.set() }
+
         }
     }
 }
@@ -125,19 +124,18 @@ private struct FavoriteTile: View {
             VStack(spacing: 5) {
                 AppIcon(icon: result.icon, size: 30, cornerRadius: 8)
                 Text(result.title)
-                    .font(FoundryTheme.body(size: 10, weight: .medium))
-                    .foregroundStyle(FoundryTheme.secondaryText)
+                    .font(FoundryTheme.caption)
+                    .foregroundStyle(FoundryTheme.textSecondary)
                     .lineLimit(1)
             }
             .frame(maxWidth: .infinity)
             .padding(.vertical, 8)
-            .background(isHovering ? FoundryTheme.hover : Color.clear)
+            .background(isHovering ? FoundryTheme.fillHover : Color.clear)
             .clipShape(RoundedRectangle(cornerRadius: FoundryTheme.Radius.row, style: .continuous))
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .onHover { isHovering = $0 }
-        .pointerCursor()
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(result.title)
         .accessibilityAddTraits(.isButton)
@@ -158,23 +156,23 @@ struct MediaResultRow: View {
             VStack(alignment: .leading, spacing: 5) {
                 HStack(spacing: 8) {
                     Text(result.title)
-                        .font(FoundryTheme.body(size: isExpanded ? 20 : 15, weight: .semibold))
-                        .foregroundStyle(FoundryTheme.primaryText)
+                        .font(isExpanded ? FoundryTheme.title : FoundryTheme.body)
+                        .foregroundStyle(FoundryTheme.textPrimary)
                         .lineLimit(isExpanded ? 2 : 1)
 
                     Text("Download")
-                        .font(FoundryTheme.body(size: 10, weight: .semibold))
-                        .foregroundStyle(FoundryTheme.secondaryText)
+                        .font(FoundryTheme.micro)
+                        .foregroundStyle(FoundryTheme.textSecondary)
                         .padding(.horizontal, 7)
                         .frame(height: 18)
-                        .background(Color.primary.opacity(0.08))
+                        .background(FoundryTheme.fillTint)
                         .clipShape(Capsule())
                 }
 
                 if let subtitle = result.subtitle {
                     Text(subtitle)
-                        .font(FoundryTheme.body(size: isExpanded ? 14 : 12, weight: .regular))
-                        .foregroundStyle(FoundryTheme.mutedText)
+                        .font(FoundryTheme.bodySecondary)
+                        .foregroundStyle(FoundryTheme.textTertiary)
                         .lineLimit(isExpanded ? nil : 2)
                         .fixedSize(horizontal: false, vertical: true)
                         .textSelection(.enabled)
@@ -183,26 +181,26 @@ struct MediaResultRow: View {
                 if isExpanded {
                     HStack(spacing: 8) {
                         Image(systemName: "folder")
-                            .font(.system(size: 12, weight: .semibold))
+                            .font(FoundryTheme.Glyph.xs)
                         Text(MediaDownloadDestination.folder.path)
                             .lineLimit(1)
                             .truncationMode(.middle)
                     }
-                    .font(FoundryTheme.body(size: 12, weight: .medium))
-                    .foregroundStyle(FoundryTheme.secondaryText)
+                    .font(FoundryTheme.bodySecondary)
+                    .foregroundStyle(FoundryTheme.textSecondary)
                     .padding(.top, 10)
 
                     Text("Open Actions (⌘K) to change the folder.")
-                        .font(FoundryTheme.body(size: 12, weight: .regular))
-                        .foregroundStyle(FoundryTheme.faintText)
+                        .font(FoundryTheme.bodySecondary)
+                        .foregroundStyle(FoundryTheme.textQuaternary)
                 }
             }
 
             Spacer()
 
             Image(systemName: "arrow.down.circle.fill")
-                .font(.system(size: 20, weight: .semibold))
-                .foregroundStyle(FoundryTheme.secondaryText)
+                .font(FoundryTheme.Glyph.md)
+                .foregroundStyle(FoundryTheme.textSecondary)
         }
         .padding(.horizontal, isExpanded ? 20 : 12)
         .padding(.vertical, isExpanded ? 20 : 0)
@@ -210,7 +208,7 @@ struct MediaResultRow: View {
         .background(RowBackground(isSelected: isSelected, isHovering: isHovering))
         .onHover { hovering in
             isHovering = hovering
-            if hovering { NSCursor.pointingHand.set() } else { NSCursor.arrow.set() }
+
         }
     }
 }
@@ -222,7 +220,7 @@ struct MediaThumbnail: View {
     var body: some View {
         ZStack {
             RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .fill(Color.primary.opacity(0.075))
+                .fill(FoundryTheme.fillTint)
 
             if let url = icon.thumbnailURL {
                 AsyncImage(url: url) { phase in
@@ -248,11 +246,11 @@ struct MediaThumbnail: View {
         .clipShape(RoundedRectangle(cornerRadius: isExpanded ? 18 : 10, style: .continuous))
         .overlay(alignment: .center) {
             Circle()
-                .fill(Color.black.opacity(0.34))
+                .fill(FoundryTheme.shadow)
                 .frame(width: isExpanded ? 44 : 24, height: isExpanded ? 44 : 24)
                 .overlay(
                     Image(systemName: "play.fill")
-                        .font(.system(size: isExpanded ? 17 : 10, weight: .bold))
+                        .font(isExpanded ? FoundryTheme.Glyph.md : FoundryTheme.Glyph.xs)
                         .foregroundStyle(.white)
                         .offset(x: 1)
                 )
@@ -261,8 +259,8 @@ struct MediaThumbnail: View {
 
     private var fallback: some View {
         Image(systemName: icon.systemName ?? "arrow.down.circle")
-            .font(.system(size: 20, weight: .medium))
-            .foregroundStyle(FoundryTheme.secondaryText)
+            .font(FoundryTheme.Glyph.md)
+            .foregroundStyle(FoundryTheme.textSecondary)
     }
 }
 
@@ -291,14 +289,14 @@ struct ResultRow: View {
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(result.title)
-                    .font(FoundryTheme.rowTitleFont)
-                    .foregroundStyle(FoundryTheme.primaryText)
+                    .font(FoundryTheme.body)
+                    .foregroundStyle(FoundryTheme.textPrimary)
                     .lineLimit(1)
 
                 if let subtitle = result.subtitle, ResultSection.of(result) != .commands {
                     Text(subtitle)
-                        .font(FoundryTheme.secondaryFont)
-                        .foregroundStyle(FoundryTheme.mutedText)
+                        .font(FoundryTheme.bodySecondary)
+                        .foregroundStyle(FoundryTheme.textTertiary)
                         .lineLimit(1)
                 }
             }
@@ -320,8 +318,8 @@ struct ResultRow: View {
                 }
                 if let kindLabel {
                     Text(kindLabel)
-                        .font(FoundryTheme.secondaryFont)
-                        .foregroundStyle(FoundryTheme.faintText)
+                        .font(FoundryTheme.bodySecondary)
+                        .foregroundStyle(FoundryTheme.textQuaternary)
                         .lineLimit(1)
                 }
             }
@@ -331,7 +329,7 @@ struct ResultRow: View {
         .background(RowBackground(isSelected: isSelected, isHovering: isHovering))
         .onHover { hovering in
             isHovering = hovering
-            if hovering { NSCursor.pointingHand.set() } else { NSCursor.arrow.set() }
+
         }
     }
 
@@ -346,12 +344,12 @@ private struct ResultBadge: View {
 
     var body: some View {
         Text(text)
-            .font(FoundryTheme.metaFont)
-            .foregroundStyle(FoundryTheme.mutedText)
+            .font(FoundryTheme.caption)
+            .foregroundStyle(FoundryTheme.textTertiary)
             .lineLimit(1)
             .padding(.horizontal, 6)
             .frame(height: 20)
-            .background(Color.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: 5, style: .continuous))
+            .background(FoundryTheme.fillHover, in: RoundedRectangle(cornerRadius: 5, style: .continuous))
     }
 }
 
@@ -376,19 +374,19 @@ struct AppIcon: View {
     @ViewBuilder private var fallback: some View {
         if let systemName = icon.systemName {
             RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                .fill(Color.primary.opacity(0.075))
+                .fill(FoundryTheme.fillTint)
                 .overlay(
                     Image(systemName: systemName)
-                        .font(.system(size: size * 0.47, weight: .medium))
-                        .foregroundStyle(FoundryTheme.secondaryText)
+                        .font(FoundryTheme.glyph(size * 0.47, weight: .medium))
+                        .foregroundStyle(FoundryTheme.textSecondary)
                 )
         } else {
             RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                .fill(Color.primary.opacity(0.075))
+                .fill(FoundryTheme.fillTint)
                 .overlay(
                     Text(icon.fallback)
-                        .font(FoundryTheme.body(size: size * 0.32, weight: .semibold))
-                        .foregroundStyle(FoundryTheme.secondaryText)
+                        .font(FoundryTheme.glyph(size * 0.32))
+                        .foregroundStyle(FoundryTheme.textSecondary)
                 )
         }
     }

@@ -18,13 +18,12 @@ struct TranslatorView: View {
 
                 Button(action: state.swapLanguages) {
                     Image(systemName: "arrow.left.arrow.right")
-                        .font(.system(size: 18, weight: .semibold))
-                        .foregroundStyle(FoundryTheme.secondaryText)
+                        .font(FoundryTheme.Glyph.md)
+                        .foregroundStyle(FoundryTheme.textSecondary)
                         .frame(width: 32, height: 32)
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
-                .pointerCursor()
                 .help("Swap languages (⌘S)")
                 .accessibilityLabel("Swap languages")
 
@@ -38,16 +37,16 @@ struct TranslatorView: View {
                     ProgressView()
                         .controlSize(.small)
                     Text("Translating")
-                        .font(FoundryTheme.body(size: 13, weight: .semibold))
-                        .foregroundStyle(FoundryTheme.secondaryText)
+                        .font(FoundryTheme.body)
+                        .foregroundStyle(FoundryTheme.textSecondary)
                 }
 
                 if let translationError = state.translationError {
                     Image(systemName: "exclamationmark.triangle.fill")
-                        .font(.system(size: 11, weight: .semibold))
+                        .font(FoundryTheme.Glyph.xs)
                         .foregroundStyle(FoundryTheme.warning)
                     Text(translationError)
-                        .font(FoundryTheme.body(size: 12, weight: .medium))
+                        .font(FoundryTheme.bodySecondary)
                         .foregroundStyle(FoundryTheme.warning)
                         .lineLimit(2)
                 }
@@ -93,13 +92,13 @@ struct TranslatorView: View {
             HStack(spacing: 5) {
                 Text(state.targetLanguage)
                 Image(systemName: "chevron.down")
-                    .font(.system(size: 9, weight: .bold))
+                    .font(FoundryTheme.Glyph.xs)
             }
-            .font(FoundryTheme.body(size: 12, weight: .semibold))
-            .foregroundStyle(FoundryTheme.secondaryText)
+            .font(FoundryTheme.body)
+            .foregroundStyle(FoundryTheme.textSecondary)
             .padding(.horizontal, 10)
             .frame(height: 26)
-            .background(Color.primary.opacity(0.07))
+            .background(FoundryTheme.fillTint)
             .clipShape(Capsule())
         }
         .menuStyle(.borderlessButton)
@@ -118,13 +117,13 @@ struct TranslatorView: View {
             HStack(spacing: 5) {
                 Text(state.sourceLanguage)
                 Image(systemName: "chevron.down")
-                    .font(.system(size: 9, weight: .bold))
+                    .font(FoundryTheme.Glyph.xs)
             }
-            .font(FoundryTheme.body(size: 12, weight: .semibold))
-            .foregroundStyle(FoundryTheme.secondaryText)
+            .font(FoundryTheme.body)
+            .foregroundStyle(FoundryTheme.textSecondary)
             .padding(.horizontal, 10)
             .frame(height: 26)
-            .background(Color.primary.opacity(0.07))
+            .background(FoundryTheme.fillTint)
             .clipShape(Capsule())
         }
         .menuStyle(.borderlessButton)
@@ -207,14 +206,13 @@ struct TranslatorPane<Accessory: View>: View {
                     if text.isEmpty == false, let copy {
                         Button(action: copy) {
                             Image(systemName: "doc.on.doc")
-                                .font(.system(size: 12, weight: .semibold))
-                                .foregroundStyle(FoundryTheme.secondaryText)
+                                .font(FoundryTheme.Glyph.xs)
+                                .foregroundStyle(FoundryTheme.textSecondary)
                                 .frame(width: 26, height: 26)
-                                .background(Color.primary.opacity(0.07))
+                                .background(FoundryTheme.fillTint)
                                 .clipShape(Circle())
                         }
                         .buttonStyle(.plain)
-                        .pointerCursor()
                         .accessibilityLabel("Copy translation")
                         .help("Copy translation")
                     }
@@ -225,16 +223,16 @@ struct TranslatorPane<Accessory: View>: View {
             ZStack(alignment: .topLeading) {
                 if text.isEmpty && isEditable == false {
                     Text(placeholder)
-                        .font(FoundryTheme.body(size: 18, weight: .regular))
-                        .foregroundStyle(FoundryTheme.faintText)
+                        .font(FoundryTheme.title)
+                        .foregroundStyle(FoundryTheme.textQuaternary)
                         .padding(.top, 8)
                         .padding(.leading, 4)
                 }
 
                 if isEditable {
                     TextField(placeholder, text: $text, axis: .vertical)
-                        .font(FoundryTheme.body(size: 18, weight: .regular))
-                        .foregroundStyle(FoundryTheme.primaryText)
+                        .font(FoundryTheme.title)
+                        .foregroundStyle(FoundryTheme.textPrimary)
                         .textFieldStyle(.plain)
                         .background(Color.clear)
                         .lineLimit(8...12)
@@ -242,8 +240,8 @@ struct TranslatorPane<Accessory: View>: View {
                         .padding(.leading, 4)
                 } else {
                     Text(text)
-                        .font(FoundryTheme.display(size: 20, weight: .semibold))
-                        .foregroundStyle(FoundryTheme.primaryText)
+                        .font(FoundryTheme.title)
+                        .foregroundStyle(FoundryTheme.textPrimary)
                         .textSelection(.enabled)
                         .padding(.top, 8)
                         .padding(.leading, 4)
@@ -253,11 +251,11 @@ struct TranslatorPane<Accessory: View>: View {
         }
         .padding(18)
         .frame(maxWidth: .infinity, minHeight: 265, maxHeight: .infinity, alignment: .topLeading)
-        .background(Color.primary.opacity(0.055))
+        .background(FoundryTheme.fillHover)
         .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .stroke(Color.primary.opacity(0.07), lineWidth: 1)
+                .stroke(FoundryTheme.fillTint, lineWidth: 1)
         )
     }
 }

@@ -105,12 +105,12 @@ struct MediaDownloadsView: View {
             }
             VStack(alignment: .leading, spacing: 1) {
                 Text(item.progress.title)
-                    .font(FoundryTheme.body(size: 12, weight: .semibold))
-                    .foregroundStyle(FoundryTheme.primaryText)
+                    .font(FoundryTheme.body)
+                    .foregroundStyle(FoundryTheme.textPrimary)
                     .lineLimit(1)
                 Text("Download complete")
-                    .font(FoundryTheme.body(size: 11, weight: .regular))
-                    .foregroundStyle(FoundryTheme.mutedText)
+                    .font(FoundryTheme.caption)
+                    .foregroundStyle(FoundryTheme.textTertiary)
             }
             Spacer(minLength: 8)
             let files = item.progress.outputURLs.filter { FileManager.default.fileExists(atPath: $0.path) }
@@ -124,21 +124,20 @@ struct MediaDownloadsView: View {
             }
             Button { notice = nil } label: {
                 Image(systemName: "xmark")
-                    .font(.system(size: 9, weight: .bold))
-                    .foregroundStyle(FoundryTheme.mutedText)
+                    .font(FoundryTheme.Glyph.xs)
+                    .foregroundStyle(FoundryTheme.textTertiary)
             }
             .buttonStyle(.plain)
             .accessibilityLabel("Dismiss")
-            .pointerCursor()
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 9)
         .background(
             RoundedRectangle(cornerRadius: 13, style: .continuous)
-                .fill(Color.primary.opacity(0.07))
+                .fill(FoundryTheme.fillTint)
                 .overlay(
                     RoundedRectangle(cornerRadius: 13, style: .continuous)
-                        .strokeBorder(Color.primary.opacity(0.12), lineWidth: 1)
+                        .strokeBorder(FoundryTheme.separator, lineWidth: 1)
                 )
         )
         .accessibilityElement(children: .combine)
@@ -150,16 +149,16 @@ struct MediaDownloadsView: View {
         VStack(alignment: .leading, spacing: 7) {
             HStack(spacing: 9) {
                 Image(systemName: "link")
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(composerFocused ? FoundryTheme.accentTint : FoundryTheme.mutedText)
+                    .font(FoundryTheme.Glyph.sm)
+                    .foregroundStyle(composerFocused ? FoundryTheme.accent : FoundryTheme.textTertiary)
                     .frame(width: 30, height: 30)
-                    .background(Color.primary.opacity(0.055))
+                    .background(FoundryTheme.fillHover)
                     .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
 
                 TextField("Paste one or more media links", text: $links, axis: .vertical)
                     .textFieldStyle(.plain)
-                    .font(FoundryTheme.body(size: 13, weight: .regular))
-                    .foregroundStyle(FoundryTheme.primaryText)
+                    .font(FoundryTheme.bodySecondary)
+                    .foregroundStyle(FoundryTheme.textPrimary)
                     .lineLimit(1...3)
                     .focused($composerFocused)
                     .onChange(of: links) { _, _ in validationMessage = nil }
@@ -169,21 +168,20 @@ struct MediaDownloadsView: View {
 
                 if links.isEmpty {
                     Button("Paste", action: pasteLinks)
-                        .font(FoundryTheme.body(size: 11, weight: .semibold))
-                        .foregroundStyle(FoundryTheme.secondaryText)
+                        .font(FoundryTheme.micro)
+                        .foregroundStyle(FoundryTheme.textSecondary)
                         .buttonStyle(FoundryQuietButtonStyle())
                         .transition(.opacity)
-                        .pointerCursor()
                 }
 
                 Button(action: submit) {
                     HStack(spacing: 6) {
                         Text("Download")
                         Image(systemName: "arrow.down")
-                            .font(.system(size: 10, weight: .bold))
+                            .font(FoundryTheme.Glyph.xs)
                     }
-                    .font(FoundryTheme.body(size: 12, weight: .semibold))
-                    .foregroundStyle(FoundryTheme.prominentControlText.opacity(0.82))
+                    .font(FoundryTheme.body)
+                    .foregroundStyle(FoundryTheme.prominentControlText.opacity(FoundryTheme.Alpha.strong))
                     .padding(.horizontal, 13)
                     .frame(height: 32)
                     .background(FoundryTheme.prominentControlFill.opacity(links.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? 0.34 : 0.92))
@@ -191,15 +189,14 @@ struct MediaDownloadsView: View {
                 }
                 .buttonStyle(PressableButtonStyle())
                 .disabled(links.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                .pointerCursor()
             }
             .padding(.horizontal, 9)
             .padding(.vertical, 7)
-            .background(Color.black.opacity(0.13))
+            .background(FoundryTheme.scrim)
             .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .stroke(composerFocused || isDropTargeted ? FoundryTheme.accentTint.opacity(0.48) : Color.primary.opacity(0.09), lineWidth: 1)
+                    .stroke(composerFocused || isDropTargeted ? FoundryTheme.accent.opacity(FoundryTheme.Alpha.half) : FoundryTheme.fillTint, lineWidth: 1)
             )
             .onDrop(of: [.url, .plainText], isTargeted: $isDropTargeted) { providers in
                 receiveDroppedLinks(providers)
@@ -207,7 +204,7 @@ struct MediaDownloadsView: View {
 
             if let validationMessage {
                 Label(validationMessage, systemImage: "exclamationmark.circle.fill")
-                    .font(FoundryTheme.body(size: 11, weight: .medium))
+                    .font(FoundryTheme.caption)
                     .foregroundStyle(FoundryTheme.warning)
                     .transition(.opacity)
                     .padding(.leading, 4)
@@ -216,26 +213,26 @@ struct MediaDownloadsView: View {
                     Text("YouTube, playlists, social video, or direct media")
                     Text("·")
                     Text("↵ to download")
-                        .font(FoundryTheme.mono(size: 10, weight: .medium))
+                        .font(FoundryTheme.mono)
                     Spacer()
                     if linkCount > 1 {
                         Text("\(linkCount) links")
-                            .font(FoundryTheme.body(size: 10, weight: .semibold))
-                            .foregroundStyle(FoundryTheme.accentTint)
+                            .font(FoundryTheme.micro)
+                            .foregroundStyle(FoundryTheme.accent)
                             .padding(.horizontal, 7)
                             .padding(.vertical, 2)
-                            .background(FoundryTheme.accentTint.opacity(0.14))
+                            .background(FoundryTheme.accentTintFill)
                             .clipShape(Capsule())
                             .contentTransition(.numericText())
                     }
                     if manager.activeCount > 0 {
                         Text("\(manager.activeCount) downloading")
-                            .foregroundStyle(FoundryTheme.accentTint)
+                            .foregroundStyle(FoundryTheme.accent)
                             .contentTransition(.numericText())
                     }
                 }
-                .font(FoundryTheme.body(size: 11, weight: .regular))
-                .foregroundStyle(FoundryTheme.faintText)
+                .font(FoundryTheme.caption)
+                .foregroundStyle(FoundryTheme.textQuaternary)
                 .padding(.horizontal, 4)
             }
 
@@ -253,7 +250,7 @@ struct MediaDownloadsView: View {
 
                 if let totalSpeedText {
                     Text(totalSpeedText)
-                        .foregroundStyle(FoundryTheme.accentTint)
+                        .foregroundStyle(FoundryTheme.accent)
                         .contentTransition(.numericText())
                         .help("Combined download speed")
                 }
@@ -270,17 +267,17 @@ struct MediaDownloadsView: View {
                 .menuStyle(.borderlessButton)
                 .fixedSize()
             }
-            .font(FoundryTheme.body(size: 11, weight: .medium))
-            .foregroundStyle(FoundryTheme.secondaryText)
+            .font(FoundryTheme.caption)
+            .foregroundStyle(FoundryTheme.textSecondary)
             .padding(.horizontal, 4)
         }
         .padding(.horizontal, 20)
         .padding(.top, 12)
         .padding(.bottom, 10)
-        .background(Color.primary.opacity(0.035))
+        .background(FoundryTheme.fillSubtle)
         .overlay(alignment: .bottom) {
             Rectangle()
-                .fill(Color.primary.opacity(0.07))
+                .fill(FoundryTheme.fillTint)
                 .frame(height: 1)
         }
     }
@@ -305,22 +302,21 @@ struct MediaDownloadsView: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
                 Text(title)
-                    .font(FoundryTheme.body(size: 10, weight: .semibold))
-                    .foregroundStyle(FoundryTheme.faintText)
+                    .font(FoundryTheme.micro)
+                    .foregroundStyle(FoundryTheme.textQuaternary)
 
                 Text("\(items.count)")
-                    .font(FoundryTheme.mono(size: 10, weight: .medium))
-                    .foregroundStyle(FoundryTheme.faintText)
+                    .font(FoundryTheme.mono)
+                    .foregroundStyle(FoundryTheme.textQuaternary)
 
                 Spacer()
 
                 if canClear {
                     Button("Clear history") { manager.clearFinished() }
-                        .font(FoundryTheme.body(size: 11, weight: .medium))
-                        .foregroundStyle(FoundryTheme.mutedText)
+                        .font(FoundryTheme.caption)
+                        .foregroundStyle(FoundryTheme.textTertiary)
                         .buttonStyle(FoundryQuietButtonStyle())
                         .help("Remove finished downloads from this list without deleting files")
-                        .pointerCursor()
                 }
             }
             .padding(.horizontal, 2)
@@ -332,7 +328,7 @@ struct MediaDownloadsView: View {
                     }
                     .overlay(
                         RoundedRectangle(cornerRadius: 10, style: .continuous)
-                            .strokeBorder(FoundryTheme.accentTint.opacity(0.45), lineWidth: 1.5)
+                            .strokeBorder(FoundryTheme.accent.opacity(FoundryTheme.Alpha.half), lineWidth: 1.5)
                             .padding(.horizontal, 3)
                             .opacity(selectedID == item.id ? 1 : 0)
                     )
@@ -340,17 +336,17 @@ struct MediaDownloadsView: View {
                     .accessibilityHint(item.status == .active ? "" : "Delete removes this row")
                     if index < items.count - 1 {
                         Rectangle()
-                            .fill(Color.primary.opacity(0.065))
+                            .fill(FoundryTheme.fillHover)
                             .frame(height: 1)
                             .padding(.leading, 48)
                     }
                 }
             }
-            .background(Color.primary.opacity(0.052))
+            .background(FoundryTheme.fillHover)
             .clipShape(RoundedRectangle(cornerRadius: 15, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: 15, style: .continuous)
-                    .stroke(Color.primary.opacity(0.075), lineWidth: 1)
+                    .stroke(FoundryTheme.fillTint, lineWidth: 1)
             )
         }
     }
@@ -439,35 +435,35 @@ private struct MediaDownloadRow: View {
             VStack(alignment: .leading, spacing: 7) {
                 HStack(spacing: 8) {
                     Text(item.progress.title)
-                        .font(FoundryTheme.body(size: 13, weight: .semibold))
-                        .foregroundStyle(FoundryTheme.primaryText)
+                        .font(FoundryTheme.body)
+                        .foregroundStyle(FoundryTheme.textPrimary)
                         .lineLimit(1)
                         .truncationMode(.middle)
                         .help(item.progress.title)
 
                     if let current = item.progress.currentItem, let total = item.progress.totalItems {
                         Text("\(current) of \(total)")
-                            .font(FoundryTheme.mono(size: 9, weight: .semibold))
-                            .foregroundStyle(FoundryTheme.secondaryText)
+                            .font(FoundryTheme.mono)
+                            .foregroundStyle(FoundryTheme.textSecondary)
                             .padding(.horizontal, 6)
                             .frame(height: 18)
-                            .background(Color.primary.opacity(0.07))
+                            .background(FoundryTheme.fillTint)
                             .clipShape(Capsule())
                     }
 
                     Spacer(minLength: 4)
 
                     Text(statusLabel)
-                        .font(FoundryTheme.body(size: 10, weight: .semibold))
+                        .font(FoundryTheme.micro)
                         .foregroundStyle(statusColor)
                         .contentTransition(.numericText())
                 }
 
                 if item.status == .active, let fraction = item.progress.fractionCompleted {
                     ZStack(alignment: .leading) {
-                        Capsule().fill(Color.primary.opacity(0.08))
+                        Capsule().fill(FoundryTheme.fillTint)
                         Capsule()
-                            .fill(FoundryTheme.accentTint)
+                            .fill(FoundryTheme.accent)
                             .scaleEffect(x: max(fraction, 0.01), y: 1, anchor: .leading)
                             .animation(reduceMotion ? nil : .linear(duration: 0.18), value: fraction)
                     }
@@ -479,8 +475,8 @@ private struct MediaDownloadRow: View {
 
                 HStack(spacing: 5) {
                     Text(fileError ?? detailText)
-                        .font(FoundryTheme.body(size: 11, weight: .regular))
-                        .foregroundStyle(FoundryTheme.mutedText)
+                        .font(FoundryTheme.caption)
+                        .foregroundStyle(FoundryTheme.textTertiary)
                         .lineLimit(item.status == .failed ? 3 : 1)
                         .textSelection(.enabled)
                         .help(fileError ?? detailText)
@@ -493,7 +489,7 @@ private struct MediaDownloadRow: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 11)
-        .background(isHovering ? Color.primary.opacity(0.035) : .clear)
+        .background(isHovering ? FoundryTheme.fillSubtle : .clear)
         .animation(reduceMotion ? nil : .easeOut(duration: 0.12), value: isHovering)
         .onHover { isHovering = $0 }
         .contextMenu { rowMenu }
@@ -512,7 +508,7 @@ private struct MediaDownloadRow: View {
             .clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: 9, style: .continuous)
-                    .strokeBorder(Color.primary.opacity(0.08), lineWidth: 1)
+                    .strokeBorder(FoundryTheme.fillTint, lineWidth: 1)
             )
 
             if item.status != .active {
@@ -524,7 +520,7 @@ private struct MediaDownloadRow: View {
     private var hostIcon: some View {
         ZStack {
             RoundedRectangle(cornerRadius: 9, style: .continuous)
-                .fill(statusColor.opacity(0.10))
+                .fill(statusColor.opacity(FoundryTheme.Alpha.subtle))
 
             if let faviconURL {
                 RemoteIcon(url: faviconURL) { fallbackGlyph }
@@ -535,7 +531,7 @@ private struct MediaDownloadRow: View {
 
             if item.status == .active, item.progress.fractionCompleted == nil {
                 RoundedRectangle(cornerRadius: 9, style: .continuous)
-                    .fill(Color.black.opacity(0.35))
+                    .fill(FoundryTheme.shadow)
                 ProgressView()
                     .controlSize(.small)
                     .tint(.white)
@@ -546,13 +542,13 @@ private struct MediaDownloadRow: View {
 
     private var fallbackGlyph: some View {
         Image(systemName: "link")
-            .font(.system(size: 13, weight: .semibold))
+            .font(FoundryTheme.Glyph.sm)
             .foregroundStyle(statusColor)
     }
 
     private var statusBadge: some View {
         Image(systemName: badgeSymbol)
-            .font(.system(size: 7, weight: .black))
+            .font(FoundryTheme.Glyph.xs)
             .foregroundStyle(.white)
             .frame(width: 13, height: 13)
             .background(statusColor)
@@ -618,16 +614,16 @@ private struct MediaDownloadRow: View {
                 }
             }
             .buttonStyle(FoundryQuietButtonStyle())
-            .foregroundStyle(FoundryTheme.secondaryText)
+            .foregroundStyle(FoundryTheme.textSecondary)
         } else if item.status == .active {
             Button("Cancel") { cancel(item.id) }
                 .buttonStyle(FoundryQuietButtonStyle())
-                .foregroundStyle(FoundryTheme.secondaryText)
+                .foregroundStyle(FoundryTheme.textSecondary)
                 .help("Cancel download")
         } else if item.status == .failed || item.status == .cancelled {
             Button("Retry") { retry(item) }
                 .buttonStyle(FoundryQuietButtonStyle())
-                .foregroundStyle(FoundryTheme.secondaryText)
+                .foregroundStyle(FoundryTheme.textSecondary)
                 .help("Retry download")
         }
 
@@ -636,7 +632,7 @@ private struct MediaDownloadRow: View {
                 Image(systemName: "xmark")
             }
             .buttonStyle(FoundryQuietButtonStyle())
-            .foregroundStyle(FoundryTheme.mutedText)
+            .foregroundStyle(FoundryTheme.textTertiary)
             .help("Remove from list")
             .accessibilityLabel("Remove \(item.progress.title) from history")
         }
@@ -644,9 +640,9 @@ private struct MediaDownloadRow: View {
 
     private var statusColor: Color {
         switch item.status {
-        case .active: FoundryTheme.accentTint
+        case .active: FoundryTheme.accent
         case .completed: FoundryTheme.success
-        case .failed: FoundryTheme.error
+        case .failed: FoundryTheme.destructive
         case .cancelled: FoundryTheme.warning
         }
     }
