@@ -145,7 +145,10 @@ final class CalculatorProvider: CommandProvider {
     }
 
     private static let symbolCurrencyRegex = try! NSRegularExpression(pattern: #"^([$€£¥₹])\s*([-+]?\d+(?:[\.,]\d+)?)(?:\s*(?:to|in)\s*([a-z]{3}|[$€£¥₹]))?$"#)
-    private static let wordCurrencyRegex = try! NSRegularExpression(pattern: #"^([-+]?\d+(?:[\.,]\d+)?)\s*([a-z]{3}|dollars?|bucks?|usd|euros?|eur|pounds?|gbp|yen|jpy|rupees?|inr|cad|aud|chf|cny)(?:\s*(?:to|in)\s*([a-z]{3}|[$€£¥₹]|dollars?|usd|euros?|eur|pounds?|gbp|yen|jpy|rupees?|inr|cad|aud|chf|cny))?$"#)
+    private static let wordCurrencyRegex = try! NSRegularExpression(
+        pattern: #"^([-+]?\d+(?:[\.,]\d+)?)\s*([a-z]{3}|dollars?|bucks?|usd|euros?|eur|pounds?|gbp|yen|jpy|rupees?|inr|cad|aud|chf|cny)"#
+            + #"(?:\s*(?:to|in)\s*([a-z]{3}|[$€£¥₹]|dollars?|usd|euros?|eur|pounds?|gbp|yen|jpy|rupees?|inr|cad|aud|chf|cny))?$"#
+    )
 
     private static func currencyRequest(from query: String) -> CurrencyRequest? {
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()

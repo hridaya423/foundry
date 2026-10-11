@@ -108,7 +108,22 @@ final class AppleNotesProvider: CommandProvider {
     private func listScriptArguments() -> [String] {
         [
             "-l", "JavaScript",
-            "-e", "function run(argv) { const Notes = Application('Notes'); const strip = s => String(s || '').replace(/<[^>]*>/g, ' ').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/\\s+/g, ' ').trim(); return JSON.stringify(Notes.notes().map(n => ({ id: n.id(), title: n.name(), preview: strip(n.body()).slice(0, 180) })).slice(0, 4000)); }"
+            "-e", """
+            function run(argv) {
+                const Notes = Application('Notes');
+                const strip = s => String(s || '')
+                    .replace(/<[^>]*>/g, ' ')
+                    .replace(/&nbsp;/g, ' ')
+                    .replace(/&amp;/g, '&')
+                    .replace(/\\s+/g, ' ')
+                    .trim();
+                return JSON.stringify(Notes.notes().map(n => ({
+                    id: n.id(),
+                    title: n.name(),
+                    preview: strip(n.body()).slice(0, 180),
+                })).slice(0, 4000));
+            }
+            """
         ]
     }
 

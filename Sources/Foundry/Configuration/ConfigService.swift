@@ -26,7 +26,22 @@ struct FoundryConfig: Codable, Equatable {
     var clipboard: ClipboardConfig = .default
     var snippetExpansion: SnippetExpansionConfig = .default
 
-    init(hotkey: FoundryHotkey = .optionSpace, themeIntensity: Double = 0.72, showAgentShelf: Bool = true, showMenuBarIcon: Bool = true, hapticsEnabled: Bool = true, popToRootAfterSeconds: Double = 90, windowMode: WindowMode = .standard, widgets: WidgetBoardConfig = .default, ai: AIConfig = .default, searchSensitivity: SearchSensitivity = .medium, commandPreferences: [String: CommandPreference] = [:], providerEnabled: [String: Bool] = [:], clipboard: ClipboardConfig = .default, snippetExpansion: SnippetExpansionConfig = .default) {
+    init(
+        hotkey: FoundryHotkey = .optionSpace,
+        themeIntensity: Double = 0.72,
+        showAgentShelf: Bool = true,
+        showMenuBarIcon: Bool = true,
+        hapticsEnabled: Bool = true,
+        popToRootAfterSeconds: Double = 90,
+        windowMode: WindowMode = .standard,
+        widgets: WidgetBoardConfig = .default,
+        ai: AIConfig = .default,
+        searchSensitivity: SearchSensitivity = .medium,
+        commandPreferences: [String: CommandPreference] = [:],
+        providerEnabled: [String: Bool] = [:],
+        clipboard: ClipboardConfig = .default,
+        snippetExpansion: SnippetExpansionConfig = .default
+    ) {
         schemaVersion = Self.currentSchemaVersion
         self.hotkey = hotkey
         self.themeIntensity = themeIntensity

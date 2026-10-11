@@ -61,12 +61,25 @@ private actor BEN2Runtime {
             : .missing
         let plan = SetupPlan(
             commands: [],
-            artifacts: [Artifact(origin: BEN2Artifact.downloadURL.absoluteString + " (Apache-2.0; PramaLLC/BEN2)", destination: model.path, downloadBytes: BEN2Artifact.byteSize, installBytes: BEN2Artifact.byteSize, integrityExpectation: "sha256:\(BEN2Artifact.sha256)")],
+            artifacts: [
+                Artifact(
+                    origin: BEN2Artifact.downloadURL.absoluteString + " (Apache-2.0; PramaLLC/BEN2)",
+                    destination: model.path,
+                    downloadBytes: BEN2Artifact.byteSize,
+                    installBytes: BEN2Artifact.byteSize,
+                    integrityExpectation: "sha256:\(BEN2Artifact.sha256)"
+                )
+            ],
             estimatedDownloadBytes: BEN2Artifact.byteSize,
             estimatedInstallBytes: BEN2Artifact.byteSize + 180_000_000,
             mutationScope: "Application Support/Foundry/BackgroundRemoval only after explicit Set Up BEN2",
             cleanupOwnership: "Foundry; Remove BEN2 Data deletes model and runtime",
-            disclosure: "Pinned BEN2 model is 223 MB from Hugging Face (PramaLLC/BEN2), licensed Apache-2.0, SHA-256 verified, installed at Application Support/Foundry/BackgroundRemoval. Setup creates a Python 3.13 runtime with hash-pinned onnxruntime==1.24.2, numpy==2.5.1, and Pillow==11.3.0; estimated installed size is about 384 MB. uv is required for provisioning."
+            disclosure: """
+                Pinned BEN2 model is 223 MB from Hugging Face (PramaLLC/BEN2), licensed Apache-2.0, \
+                SHA-256 verified, installed at Application Support/Foundry/BackgroundRemoval. Setup \
+                creates a Python 3.13 runtime with hash-pinned onnxruntime==1.24.2, numpy==2.5.1, and \
+                Pillow==11.3.0; estimated installed size is about 384 MB. uv is required for provisioning.
+                """
         )
                 return BEN2Assessment(modelState: modelState, runtimeState: runtimeState, setupPlan: plan)
     }
@@ -101,7 +114,16 @@ private actor BEN2Runtime {
     }
 
     private func performSetup(root: URL, status: (@MainActor @Sendable (String) -> Void)?) async throws {
-        guard let uv = firstExecutable(["/opt/homebrew/bin/uv", "/usr/local/bin/uv", FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".local/bin/uv").path]) else { throw BackgroundRemovalError.modelUnavailable("BEN2 needs uv to install its local runtime. Install uv with Homebrew, then try again.") }
+        let uvCandidates = [
+            "/opt/homebrew/bin/uv",
+            "/usr/local/bin/uv",
+            FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".local/bin/uv").path,
+        ]
+        guard let uv = firstExecutable(uvCandidates) else {
+            throw BackgroundRemovalError.modelUnavailable(
+                "BEN2 needs uv to install its local runtime. Install uv with Homebrew, then try again."
+            )
+        }
         guard Bundle.packagedResources?.url(forResource: "background_removal_worker", withExtension: "py") != nil else { throw BackgroundRemovalError.modelSetupFailed("The bundled background-removal worker script is missing.") }
         let staging = root.deletingLastPathComponent().appendingPathComponent(".foundry-ben2-staging-\(UUID().uuidString)")
         let stagedModel = staging.appendingPathComponent("models/\(BEN2Artifact.filename)")

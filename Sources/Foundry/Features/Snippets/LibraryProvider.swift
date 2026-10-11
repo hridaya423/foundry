@@ -36,7 +36,11 @@ final class LibraryProvider: CommandProvider {
                 return CommandResult(
                     id: "snippet.\(snippet.id)",
                     title: snippet.title,
-                    subtitle: ([snippet.keyword.isEmpty ? nil : snippet.keyword, snippet.tags.isEmpty ? nil : snippet.tags.map { "#\($0)" }.joined(separator: " "), snippet.content.replacingOccurrences(of: "\n", with: " ")].compactMap { $0 }).joined(separator: " • "),
+                    subtitle: [
+                        snippet.keyword.isEmpty ? nil : snippet.keyword,
+                        snippet.tags.isEmpty ? nil : snippet.tags.map { "#\($0)" }.joined(separator: " "),
+                        snippet.content.replacingOccurrences(of: "\n", with: " "),
+                    ].compactMap { $0 }.joined(separator: " • "),
                     icon: CommandIcon(fallback: "SN", systemName: "curlybraces"),
                     searchKeywords: [snippet.keyword] + snippet.tags,
                     primaryAction: insertPrimary ? insertAction : copyAction,

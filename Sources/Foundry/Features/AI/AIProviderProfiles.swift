@@ -150,16 +150,32 @@ struct AIProviderPreset: Identifiable, Hashable, Sendable {
 
     static let all: [AIProviderPreset] = [
         AIProviderPreset(id: "openai", name: "OpenAI", kind: .openAI, authentication: .apiKey, endpoint: "https://api.openai.com/v1", defaultModel: "gpt-4.1-mini", capabilities: .full),
-        AIProviderPreset(id: "anthropic", name: "Anthropic", kind: .anthropic, authentication: .apiKey, endpoint: "https://api.anthropic.com/v1", defaultModel: "claude-3-5-sonnet-latest", capabilities: AIProviderCapabilities(streaming: true, tools: true, vision: true, structuredOutput: false, modelDiscovery: false)),
+        AIProviderPreset(
+            id: "anthropic", name: "Anthropic", kind: .anthropic, authentication: .apiKey,
+            endpoint: "https://api.anthropic.com/v1", defaultModel: "claude-3-5-sonnet-latest",
+            capabilities: AIProviderCapabilities(streaming: true, tools: true, vision: true, structuredOutput: false, modelDiscovery: false)
+        ),
         AIProviderPreset(id: "gemini", name: "Google Gemini", kind: .gemini, authentication: .apiKey, endpoint: "https://generativelanguage.googleapis.com/v1beta", defaultModel: "gemini-2.0-flash", capabilities: .full),
         AIProviderPreset(id: "openrouter", name: "OpenRouter", kind: .openAICompatible, authentication: .apiKey, endpoint: "https://openrouter.ai/api/v1", defaultModel: "openai/gpt-4o-mini", capabilities: .full),
-        AIProviderPreset(id: "groq", name: "Groq", kind: .openAICompatible, authentication: .apiKey, endpoint: "https://api.groq.com/openai/v1", defaultModel: "llama-3.3-70b-versatile", capabilities: AIProviderCapabilities(streaming: true, tools: true, vision: false, structuredOutput: true, modelDiscovery: true)),
+        AIProviderPreset(
+            id: "groq", name: "Groq", kind: .openAICompatible, authentication: .apiKey,
+            endpoint: "https://api.groq.com/openai/v1", defaultModel: "llama-3.3-70b-versatile",
+            capabilities: AIProviderCapabilities(streaming: true, tools: true, vision: false, structuredOutput: true, modelDiscovery: true)
+        ),
         AIProviderPreset(id: "mistral", name: "Mistral", kind: .openAICompatible, authentication: .apiKey, endpoint: "https://api.mistral.ai/v1", defaultModel: "mistral-small-latest", capabilities: .full),
         AIProviderPreset(id: "together", name: "Together AI", kind: .openAICompatible, authentication: .apiKey, endpoint: "https://api.together.xyz/v1", defaultModel: "meta-llama/Llama-3.3-70B-Instruct-Turbo", capabilities: .full),
         AIProviderPreset(id: "xai", name: "xAI", kind: .openAICompatible, authentication: .apiKey, endpoint: "https://api.x.ai/v1", defaultModel: "grok-3-mini", capabilities: .full),
         AIProviderPreset(id: "deepseek", name: "DeepSeek", kind: .openAICompatible, authentication: .apiKey, endpoint: "https://api.deepseek.com/v1", defaultModel: "deepseek-chat", capabilities: .full),
-        AIProviderPreset(id: "fireworks", name: "Fireworks AI", kind: .openAICompatible, authentication: .apiKey, endpoint: "https://api.fireworks.ai/inference/v1", defaultModel: "accounts/fireworks/models/llama-v3p1-8b-instruct", capabilities: .full),
-        AIProviderPreset(id: "perplexity", name: "Perplexity", kind: .openAICompatible, authentication: .apiKey, endpoint: "https://api.perplexity.ai", defaultModel: "sonar", capabilities: AIProviderCapabilities(streaming: true, tools: false, vision: false, structuredOutput: false, modelDiscovery: false)),
+        AIProviderPreset(
+            id: "fireworks", name: "Fireworks AI", kind: .openAICompatible, authentication: .apiKey,
+            endpoint: "https://api.fireworks.ai/inference/v1",
+            defaultModel: "accounts/fireworks/models/llama-v3p1-8b-instruct", capabilities: .full
+        ),
+        AIProviderPreset(
+            id: "perplexity", name: "Perplexity", kind: .openAICompatible, authentication: .apiKey,
+            endpoint: "https://api.perplexity.ai", defaultModel: "sonar",
+            capabilities: AIProviderCapabilities(streaming: true, tools: false, vision: false, structuredOutput: false, modelDiscovery: false)
+        ),
         AIProviderPreset(id: "cerebras", name: "Cerebras", kind: .openAICompatible, authentication: .apiKey, endpoint: "https://api.cerebras.ai/v1", defaultModel: "llama-3.3-70b", capabilities: .full),
         AIProviderPreset(id: "deepinfra", name: "Deep Infra", kind: .openAICompatible, authentication: .apiKey, endpoint: "https://api.deepinfra.com/v1/openai", defaultModel: "meta-llama/Meta-Llama-3.1-70B-Instruct", capabilities: .full),
         AIProviderPreset(id: "huggingface", name: "Hugging Face", kind: .openAICompatible, authentication: .apiKey, endpoint: "https://router.huggingface.co/v1", defaultModel: "meta-llama/Llama-3.1-8B-Instruct", capabilities: .full),
@@ -168,8 +184,16 @@ struct AIProviderPreset: Identifiable, Hashable, Sendable {
         AIProviderPreset(id: "mlx", name: "MLX server", kind: .openAICompatible, authentication: .none, endpoint: "http://127.0.0.1:8080/v1", defaultModel: "local-model", capabilities: .full),
         AIProviderPreset(id: "llamacpp", name: "llama.cpp", kind: .openAICompatible, authentication: .none, endpoint: "http://127.0.0.1:8080/v1", defaultModel: "local-model", capabilities: .full),
         AIProviderPreset(id: "ollama", name: "Ollama", kind: .ollama, authentication: .none, endpoint: "http://127.0.0.1:11434", defaultModel: "llama3.1", capabilities: .full),
-        AIProviderPreset(id: "custom-openai-compatible", name: "Custom OpenAI-compatible endpoint", kind: .openAICompatible, authentication: .optionalAPIKey, endpoint: "http://127.0.0.1:8000/v1", defaultModel: "local-model", capabilities: .full),
-        AIProviderPreset(id: "chatgpt-subscription", name: "ChatGPT subscription", kind: .openAISubscription, authentication: .oauth, endpoint: nil, defaultModel: "gpt-5.6-luna", defaultEnabled: false, capabilities: AIProviderCapabilities(streaming: true, tools: true, vision: false, structuredOutput: false, modelDiscovery: true))
+        AIProviderPreset(
+            id: "custom-openai-compatible", name: "Custom OpenAI-compatible endpoint",
+            kind: .openAICompatible, authentication: .optionalAPIKey,
+            endpoint: "http://127.0.0.1:8000/v1", defaultModel: "local-model", capabilities: .full
+        ),
+        AIProviderPreset(
+            id: "chatgpt-subscription", name: "ChatGPT subscription", kind: .openAISubscription, authentication: .oauth,
+            endpoint: nil, defaultModel: "gpt-5.6-luna", defaultEnabled: false,
+            capabilities: AIProviderCapabilities(streaming: true, tools: true, vision: false, structuredOutput: false, modelDiscovery: true)
+        )
     ]
 
     static func find(_ id: String?) -> AIProviderPreset? {

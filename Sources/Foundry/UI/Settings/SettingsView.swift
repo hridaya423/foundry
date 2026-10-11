@@ -859,19 +859,58 @@ struct SettingsView: View {
                 HStack {
                     SettingsLabel(title: "Retain items", subtitle: "Maximum number of entries")
                     Spacer()
-                    Stepper(value: Binding(get: { state.clipboardHistory.policy.maxItems }, set: { state.setClipboardRetention(maxItems: $0, maxBytes: state.clipboardHistory.policy.maxBytes, maxAgeDays: Int(state.clipboardHistory.policy.maxAge / 86_400)) }), in: 1...ClipboardConfig.maximumMaxItems, step: 50) { Text("\(state.clipboardHistory.policy.maxItems)") }
+                    Stepper(
+                        value: Binding(
+                            get: { state.clipboardHistory.policy.maxItems },
+                            set: {
+                                state.setClipboardRetention(
+                                    maxItems: $0,
+                                    maxBytes: state.clipboardHistory.policy.maxBytes,
+                                    maxAgeDays: Int(state.clipboardHistory.policy.maxAge / 86_400)
+                                )
+                            }
+                        ),
+                        in: 1...ClipboardConfig.maximumMaxItems,
+                        step: 50
+                    ) { Text("\(state.clipboardHistory.policy.maxItems)") }
                 }.padding(.horizontal, 12).padding(.vertical, 10)
                 SettingsDivider()
                 HStack {
                     SettingsLabel(title: "Keep for", subtitle: "Unpinned items older than this are dropped")
                     Spacer()
-                    Stepper(value: Binding(get: { Int(state.clipboardHistory.policy.maxAge / 86_400) }, set: { state.setClipboardRetention(maxItems: state.clipboardHistory.policy.maxItems, maxBytes: state.clipboardHistory.policy.maxBytes, maxAgeDays: $0) }), in: ClipboardConfig.minimumMaxAgeDays...ClipboardConfig.maximumMaxAgeDays, step: 30) { Text("\(Int(state.clipboardHistory.policy.maxAge / 86_400)) days") }
+                    Stepper(
+                        value: Binding(
+                            get: { Int(state.clipboardHistory.policy.maxAge / 86_400) },
+                            set: {
+                                state.setClipboardRetention(
+                                    maxItems: state.clipboardHistory.policy.maxItems,
+                                    maxBytes: state.clipboardHistory.policy.maxBytes,
+                                    maxAgeDays: $0
+                                )
+                            }
+                        ),
+                        in: ClipboardConfig.minimumMaxAgeDays...ClipboardConfig.maximumMaxAgeDays,
+                        step: 30
+                    ) { Text("\(Int(state.clipboardHistory.policy.maxAge / 86_400)) days") }
                 }.padding(.horizontal, 12).padding(.vertical, 10)
                 SettingsDivider()
                 HStack {
                     SettingsLabel(title: "Storage cap", subtitle: "Approximate ceiling for all retained data")
                     Spacer()
-                    Stepper(value: Binding(get: { state.clipboardHistory.policy.maxBytes / (1_024 * 1_024) }, set: { state.setClipboardRetention(maxItems: state.clipboardHistory.policy.maxItems, maxBytes: $0 * 1_024 * 1_024, maxAgeDays: Int(state.clipboardHistory.policy.maxAge / 86_400)) }), in: (ClipboardConfig.minimumMaxBytes / (1_024 * 1_024))...(ClipboardConfig.maximumMaxBytes / (1_024 * 1_024)), step: 256) { Text("\(state.clipboardHistory.policy.maxBytes / (1_024 * 1_024)) MB") }
+                    Stepper(
+                        value: Binding(
+                            get: { state.clipboardHistory.policy.maxBytes / (1_024 * 1_024) },
+                            set: {
+                                state.setClipboardRetention(
+                                    maxItems: state.clipboardHistory.policy.maxItems,
+                                    maxBytes: $0 * 1_024 * 1_024,
+                                    maxAgeDays: Int(state.clipboardHistory.policy.maxAge / 86_400)
+                                )
+                            }
+                        ),
+                        in: (ClipboardConfig.minimumMaxBytes / (1_024 * 1_024))...(ClipboardConfig.maximumMaxBytes / (1_024 * 1_024)),
+                        step: 256
+                    ) { Text("\(state.clipboardHistory.policy.maxBytes / (1_024 * 1_024)) MB") }
                 }.padding(.horizontal, 12).padding(.vertical, 10)
                 SettingsDivider()
                 ExcludedAppsRow(

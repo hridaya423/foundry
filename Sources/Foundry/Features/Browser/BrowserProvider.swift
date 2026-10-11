@@ -99,11 +99,23 @@ final class BrowserProvider: CommandProvider, @unchecked Sendable {
         let query: String
         switch source {
         case .firefox:
-            query = "SELECT moz_places.id, moz_places.title, moz_places.url, moz_historyvisits.visit_date FROM moz_historyvisits JOIN moz_places ON moz_places.id = moz_historyvisits.place_id ORDER BY moz_historyvisits.visit_date DESC LIMIT 100;"
+            query = """
+                SELECT moz_places.id, moz_places.title, moz_places.url, moz_historyvisits.visit_date \
+                FROM moz_historyvisits JOIN moz_places ON moz_places.id = moz_historyvisits.place_id \
+                ORDER BY moz_historyvisits.visit_date DESC LIMIT 100;
+                """
         case .safari:
-            query = "SELECT history_items.id, history_items.title, history_items.url, history_visits.visit_time FROM history_visits JOIN history_items ON history_items.id = history_visits.history_item ORDER BY history_visits.visit_time DESC LIMIT 100;"
+            query = """
+                SELECT history_items.id, history_items.title, history_items.url, history_visits.visit_time \
+                FROM history_visits JOIN history_items ON history_items.id = history_visits.history_item \
+                ORDER BY history_visits.visit_time DESC LIMIT 100;
+                """
         default:
-            query = "SELECT urls.id, urls.title, urls.url, visits.visit_time FROM visits JOIN urls ON urls.id = visits.url ORDER BY visits.visit_time DESC LIMIT 100;"
+            query = """
+                SELECT urls.id, urls.title, urls.url, visits.visit_time \
+                FROM visits JOIN urls ON urls.id = visits.url \
+                ORDER BY visits.visit_time DESC LIMIT 100;
+                """
         }
 
         return source.historyDatabases(in: homeDirectory).flatMap { database in
@@ -243,13 +255,31 @@ final class BrowserProvider: CommandProvider, @unchecked Sendable {
             subtitle: record.subtitle,
             icon: CommandIcon(fallback: record.browser.abbreviation, systemName: record.icon),
             route: route,
-            primaryAction: CommandAction(id: "browser.open.\(record.id)", title: "Open in \(record.browser.displayName)", kind: .runProcess(path: "/usr/bin/open", arguments: ["-a", record.browser.applicationName, record.url.absoluteString])),
+            primaryAction: CommandAction(
+                id: "browser.open.\(record.id)",
+                title: "Open in \(record.browser.displayName)",
+                kind: .runProcess(
+                    path: "/usr/bin/open",
+                    arguments: ["-a", record.browser.applicationName, record.url.absoluteString]
+                )
+            ),
             secondaryActions: [CommandAction(id: "browser.copy.\(record.id)", title: "Copy URL", kind: .copyToClipboard(record.url.absoluteString))]
         )
     }
 
     private func browserLaunchResult(_ browser: BrowserSource) -> CommandResult {
-        CommandResult(id: "foundry.browser.\(browser.rawValue)", title: browser.displayName, subtitle: "Search tabs, history, and bookmarks with: \(browser.rawValue) <text>", icon: CommandIcon(fallback: browser.abbreviation, systemName: "globe"), primaryAction: CommandAction(id: "foundry.browser.launch.\(browser.rawValue)", title: "Open", kind: .runProcess(path: "/usr/bin/open", arguments: ["-a", browser.applicationName])), secondaryActions: [])
+        CommandResult(
+            id: "foundry.browser.\(browser.rawValue)",
+            title: browser.displayName,
+            subtitle: "Search tabs, history, and bookmarks with: \(browser.rawValue) <text>",
+            icon: CommandIcon(fallback: browser.abbreviation, systemName: "globe"),
+            primaryAction: CommandAction(
+                id: "foundry.browser.launch.\(browser.rawValue)",
+                title: "Open",
+                kind: .runProcess(path: "/usr/bin/open", arguments: ["-a", browser.applicationName])
+            ),
+            secondaryActions: []
+        )
     }
 
     private var selectedMainBrowser: BrowserSource {
@@ -682,7 +712,13 @@ enum SafariBookmarkParser {
 
     private static func parseNode(_ object: NSDictionary) -> [ParsedBookmark] {
         var results: [ParsedBookmark] = []
-        if object["WebBookmarkType"] as? String == "WebBookmarkTypeLeaf", let url = object["URLString"] as? String { results.append(ParsedBookmark(title: object["URIDictionary"] is NSDictionary ? ((object["URIDictionary"] as? NSDictionary)?["title"] as? String ?? "") : "", url: url)) }
+        if object["WebBookmarkType"] as? String == "WebBookmarkTypeLeaf",
+           let url = object["URLString"] as? String {
+            let title = object["URIDictionary"] is NSDictionary
+                ? ((object["URIDictionary"] as? NSDictionary)?["title"] as? String ?? "")
+                : ""
+            results.append(ParsedBookmark(title: title, url: url))
+        }
         if let children = object["Children"] as? [NSDictionary] { results += children.flatMap(parseNode) }
         return results
     }

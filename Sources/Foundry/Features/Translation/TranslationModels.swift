@@ -3,7 +3,12 @@ import Foundation
 struct TranslationLanguage: Hashable, Sendable {
     let identifier: String
     let displayName: String
-    private static let values = ["en":"English", "es":"Spanish", "fr":"French", "de":"German", "it":"Italian", "pt":"Portuguese", "ja":"Japanese", "ko":"Korean", "zh":"Chinese", "zh-Hans":"Chinese (Simplified)", "zh-Hant":"Chinese (Traditional)", "ru":"Russian", "ar":"Arabic", "hi":"Hindi"]
+    private static let values = [
+        "en": "English", "es": "Spanish", "fr": "French", "de": "German", "it": "Italian",
+        "pt": "Portuguese", "ja": "Japanese", "ko": "Korean", "zh": "Chinese",
+        "zh-Hans": "Chinese (Simplified)", "zh-Hant": "Chinese (Traditional)",
+        "ru": "Russian", "ar": "Arabic", "hi": "Hindi",
+    ]
     static func parse(_ value: String) -> Self? {
         let input = normalize(value)
         guard let item = values.first(where: { normalize($0.key) == input || normalize($0.value) == input }) else { return nil }
@@ -30,8 +35,18 @@ struct TranslationRequest: Identifiable, Hashable, Sendable {
     }
 }
 
-enum TranslationFailure: Error, Equatable, Hashable, Sendable { case unavailable, unsupportedPair(source: String, target: String), asset, offline, cancelled, backend(String)
-    var message: String { switch self { case .unavailable: "Translation needs macOS 15 or later."; case let .unsupportedPair(s, t): "Translation from \(s) to \(t) is not supported."; case .asset: "Download this language in System Settings › General › Language & Region › Translation Languages."; case .offline: "Connect to the internet to download this language pair."; case .cancelled: "Translation was cancelled."; case let .backend(m): "Translation failed: \(m)" } }
+enum TranslationFailure: Error, Equatable, Hashable, Sendable {
+    case unavailable, unsupportedPair(source: String, target: String), asset, offline, cancelled, backend(String)
+    var message: String {
+        switch self {
+        case .unavailable: "Translation needs macOS 15 or later."
+        case let .unsupportedPair(source, target): "Translation from \(source) to \(target) is not supported."
+        case .asset: "Download this language in System Settings › General › Language & Region › Translation Languages."
+        case .offline: "Connect to the internet to download this language pair."
+        case .cancelled: "Translation was cancelled."
+        case let .backend(message): "Translation failed: \(message)"
+        }
+    }
 }
 enum TranslationOutcome: Sendable { case success(String), sessionRequired, failure(TranslationFailure) }
 

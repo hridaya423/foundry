@@ -380,7 +380,11 @@ struct AgentIntegrationInstaller: Sendable {
     ]
 
     private static let codexHookEvents = ["SessionStart", "UserPromptSubmit", "Stop"]
-    private static let cursorHookEvents = ["sessionStart", "sessionEnd", "subagentStart", "subagentStop", "beforeSubmitPrompt", "preToolUse", "postToolUse", "postToolUseFailure", "afterShellExecution", "afterMCPExecution", "afterFileEdit", "preCompact", "stop", "afterAgentResponse"]
+    private static let cursorHookEvents = [
+        "sessionStart", "sessionEnd", "subagentStart", "subagentStop", "beforeSubmitPrompt",
+        "preToolUse", "postToolUse", "postToolUseFailure", "afterShellExecution",
+        "afterMCPExecution", "afterFileEdit", "preCompact", "stop", "afterAgentResponse",
+    ]
 
     private var codexScriptSource: String {
         """

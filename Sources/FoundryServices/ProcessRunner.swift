@@ -39,8 +39,24 @@ public protocol ProcessRunning: Sendable {
 
 public struct SystemProcessRunner: ProcessRunning, Sendable {
     public init() {}
-    public func run(path: String, arguments: [String], timeout: TimeInterval = 10, outputLimit: Int = 2 * 1024 * 1024, environment: [String: String]? = nil, currentDirectoryURL: URL? = nil, onOutput: (@Sendable (ProcessOutputLine) -> Void)? = nil) async throws -> ProcessResult {
-        try await ProcessRunner.run(path: path, arguments: arguments, timeout: timeout, outputLimit: outputLimit, environment: environment, currentDirectoryURL: currentDirectoryURL, onOutput: onOutput)
+    public func run(
+        path: String,
+        arguments: [String],
+        timeout: TimeInterval = 10,
+        outputLimit: Int = 2 * 1024 * 1024,
+        environment: [String: String]? = nil,
+        currentDirectoryURL: URL? = nil,
+        onOutput: (@Sendable (ProcessOutputLine) -> Void)? = nil
+    ) async throws -> ProcessResult {
+        try await ProcessRunner.run(
+            path: path,
+            arguments: arguments,
+            timeout: timeout,
+            outputLimit: outputLimit,
+            environment: environment,
+            currentDirectoryURL: currentDirectoryURL,
+            onOutput: onOutput
+        )
     }
 }
 

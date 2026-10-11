@@ -342,7 +342,16 @@ final class FileConversionState {
             if target.externalEngines.isEmpty == false, workSources.count > 1 {
                 // External engines (ffmpeg/magick/pandoc/soffice) are
                 // process-based and safe to overlap — cap at 2 concurrent.
-                let completedRun = await self?.runExternalBatch(workSources, target: target, outputFolderURL: outputFolderURL, generation: generation, operationID: operationID, completedBeforeStart: completedBeforeStart, total: total, allSources: sourceURLs) ?? true
+                let completedRun = await self?.runExternalBatch(
+                    workSources,
+                    target: target,
+                    outputFolderURL: outputFolderURL,
+                    generation: generation,
+                    operationID: operationID,
+                    completedBeforeStart: completedBeforeStart,
+                    total: total,
+                    allSources: sourceURLs
+                ) ?? true
                 if completedRun == false { return }
             } else {
                 for (index, sourceURL) in workSources.enumerated() {

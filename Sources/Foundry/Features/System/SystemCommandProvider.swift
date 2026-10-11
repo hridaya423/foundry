@@ -162,7 +162,16 @@ final class SystemCommandProvider: CommandProvider, @unchecked Sendable {
                 systemIcon: "eye.slash.fill",
                 fallback: "HF",
                 actionTitle: "Toggle",
-                actionKind: .runProcess(path: "/bin/zsh", arguments: ["-lc", "/usr/bin/defaults write com.apple.finder AppleShowAllFiles -bool $(/usr/bin/defaults read com.apple.finder AppleShowAllFiles 2>/dev/null | /usr/bin/grep -q true && printf false || printf true); /usr/bin/killall Finder"])
+                actionKind: .runProcess(
+                    path: "/bin/zsh",
+                    arguments: [
+                        "-lc",
+                        "/usr/bin/defaults write com.apple.finder AppleShowAllFiles -bool "
+                            + "$(/usr/bin/defaults read com.apple.finder AppleShowAllFiles 2>/dev/null"
+                            + " | /usr/bin/grep -q true && printf false || printf true);"
+                            + " /usr/bin/killall Finder",
+                    ]
+                )
             ),
             SystemCommand(
                 id: "system.mute-audio",

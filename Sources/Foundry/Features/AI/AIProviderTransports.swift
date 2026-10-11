@@ -215,7 +215,14 @@ enum AnthropicTransport {
 
 enum GeminiTransport {
     static func respond(profile: AIProviderProfile, messages: [[String: Any]], tools: [AgentTool], credentials: AICredentialStore) async -> AgentModelResponse {
-        guard let endpoint = profile.endpoint, let apiKey = try? AITransportSupport.apiKey(profile, store: credentials), let base = URL(string: endpoint), var components = URLComponents(url: base.appendingPathComponent("models/\(profile.model):streamGenerateContent"), resolvingAgainstBaseURL: false) else {
+        guard let endpoint = profile.endpoint,
+              let apiKey = try? AITransportSupport.apiKey(profile, store: credentials),
+              let base = URL(string: endpoint),
+              var components = URLComponents(
+                url: base.appendingPathComponent("models/\(profile.model):streamGenerateContent"),
+                resolvingAgainstBaseURL: false
+              )
+        else {
             return .failure("Add a Gemini API key and valid endpoint before sending requests.", .configuration)
         }
         components.queryItems = [URLQueryItem(name: "alt", value: "sse")]
@@ -266,7 +273,12 @@ enum GeminiTransport {
         for try await line in bytes.lines {
             guard Task.isCancelled == false else { return .failure("Cancelled", .cancelled) }
             let value = line.hasPrefix("data:") ? String(line.dropFirst(5)).trimmingCharacters(in: .whitespaces) : line
-            guard let data = value.data(using: .utf8), let root = try JSONSerialization.jsonObject(with: data) as? [String: Any], let candidate = (root["candidates"] as? [[String: Any]])?.first, let content = candidate["content"] as? [String: Any], let parts = content["parts"] as? [[String: Any]] else { continue }
+            guard let data = value.data(using: .utf8),
+                  let root = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let candidate = (root["candidates"] as? [[String: Any]])?.first,
+                  let content = candidate["content"] as? [String: Any],
+                  let parts = content["parts"] as? [[String: Any]]
+            else { continue }
             for part in parts {
                 if let value = part["text"] as? String { textParts.append(value) }
                 if let call = part["functionCall"] as? [String: Any], let name = call["name"] as? String { toolCall = AgentToolCall.from(json: ["name": name, "arguments": call["args"] as? [String: Any] ?? [:]]) }

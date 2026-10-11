@@ -289,7 +289,13 @@ final class DeveloperToolsProvider: CommandProvider {
     }
 
     private func loremResults(query: String, sensitivity: SearchSensitivity) -> [CommandResult] {
-        guard let payload = SearchScoring.payload(in: query, prefixes: ["lorem", "ipsum"]), payload.isEmpty == false || SearchScoring.match(query: query, title: "Lorem Ipsum", subtitle: nil, keywords: [], aliases: ["lorem", "ipsum"], sensitivity: sensitivity) != nil else { return [] }
+        guard let payload = SearchScoring.payload(in: query, prefixes: ["lorem", "ipsum"]),
+              payload.isEmpty == false
+                || SearchScoring.match(
+                    query: query, title: "Lorem Ipsum", subtitle: nil, keywords: [],
+                    aliases: ["lorem", "ipsum"], sensitivity: sensitivity
+                ) != nil
+        else { return [] }
         let count = min(max(Int(payload.trimmingCharacters(in: .whitespacesAndNewlines)) ?? 24, 1), 200)
         let text = DeveloperToolsEngine.lorem(words: count)
         return [
@@ -306,7 +312,13 @@ final class DeveloperToolsProvider: CommandProvider {
     }
 
     private func randomDataResults(query: String, sensitivity: SearchSensitivity) -> [CommandResult] {
-        guard let payload = SearchScoring.payload(in: query, prefixes: ["random", "faker"]), payload.isEmpty == false || SearchScoring.match(query: query, title: "Random Data", subtitle: nil, keywords: [], aliases: ["random", "faker"], sensitivity: sensitivity) != nil else { return [] }
+        guard let payload = SearchScoring.payload(in: query, prefixes: ["random", "faker"]),
+              payload.isEmpty == false
+                || SearchScoring.match(
+                    query: query, title: "Random Data", subtitle: nil, keywords: [],
+                    aliases: ["random", "faker"], sensitivity: sensitivity
+                ) != nil
+        else { return [] }
         let kind = payload.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         let items = DeveloperToolsEngine.randomItems(matching: kind)
         return items.enumerated().map { index, item in
@@ -347,13 +359,37 @@ final class DeveloperToolsProvider: CommandProvider {
 
     private let staticCommands: [StaticCommand] = [
         StaticCommand(id: "dev.uuid", title: "Generate UUID", subtitle: "Copy a new UUID", aliases: ["uuid", "guid", "identifier"], icon: "number", fallback: "ID",  action: .copyToClipboard(UUID().uuidString)),
-        StaticCommand(id: "dev.base64", title: "Base64 Encode or Decode", subtitle: "Transform text to or from base64", aliases: ["base64", "b64", "encode", "decode"], icon: "lock.doc", fallback: "64",  action: .openDeveloperTools(tool: "base64")),
-        StaticCommand(id: "dev.json", title: "Format JSON", subtitle: "Pretty-print JSON into readable output", aliases: ["json", "pretty json", "format json"], icon: "curlybraces.square", fallback: "JS",  action: .openDeveloperTools(tool: "json")),
-        StaticCommand(id: "dev.case", title: "Change Case", subtitle: "Convert text to camel, snake, kebab, and more", aliases: ["case", "change case", "convert case"], icon: "character.cursor.ibeam", fallback: "Aa",  action: .openDeveloperTools(tool: "case")),
+        StaticCommand(
+            id: "dev.base64", title: "Base64 Encode or Decode", subtitle: "Transform text to or from base64",
+            aliases: ["base64", "b64", "encode", "decode"], icon: "lock.doc", fallback: "64",
+            action: .openDeveloperTools(tool: "base64")
+        ),
+        StaticCommand(
+            id: "dev.json", title: "Format JSON", subtitle: "Pretty-print JSON into readable output",
+            aliases: ["json", "pretty json", "format json"], icon: "curlybraces.square", fallback: "JS",
+            action: .openDeveloperTools(tool: "json")
+        ),
+        StaticCommand(
+            id: "dev.case", title: "Change Case", subtitle: "Convert text to camel, snake, kebab, and more",
+            aliases: ["case", "change case", "convert case"], icon: "character.cursor.ibeam", fallback: "Aa",
+            action: .openDeveloperTools(tool: "case")
+        ),
         StaticCommand(id: "dev.timestamp", title: "Unix Timestamp", subtitle: "Convert timestamps and ISO dates", aliases: ["unix", "timestamp", "epoch"], icon: "clock", fallback: "TS",  action: .openDeveloperTools(tool: "timestamp")),
-        StaticCommand(id: "dev.wordcount", title: "Word Count", subtitle: "Count words, characters, lines, and paragraphs", aliases: ["word count", "count words", "wc"], icon: "textformat.abc", fallback: "WC",  action: .openDeveloperTools(tool: "wordCount")),
-        StaticCommand(id: "dev.lorem", title: "Lorem Ipsum", subtitle: "Generate placeholder copy", aliases: ["lorem", "ipsum", "placeholder text"], icon: "text.alignleft", fallback: "LO",  action: .copyToClipboard(DeveloperToolsEngine.lorem(words: 24))),
-        StaticCommand(id: "dev.random", title: "Random Data", subtitle: "Generate emails, hex colors, numbers, and slugs", aliases: ["random", "faker", "fake data"], icon: "dice", fallback: "RD",  action: .copyToClipboard(DeveloperToolsEngine.randomHexColor()))
+        StaticCommand(
+            id: "dev.wordcount", title: "Word Count", subtitle: "Count words, characters, lines, and paragraphs",
+            aliases: ["word count", "count words", "wc"], icon: "textformat.abc", fallback: "WC",
+            action: .openDeveloperTools(tool: "wordCount")
+        ),
+        StaticCommand(
+            id: "dev.lorem", title: "Lorem Ipsum", subtitle: "Generate placeholder copy",
+            aliases: ["lorem", "ipsum", "placeholder text"], icon: "text.alignleft", fallback: "LO",
+            action: .copyToClipboard(DeveloperToolsEngine.lorem(words: 24))
+        ),
+        StaticCommand(
+            id: "dev.random", title: "Random Data", subtitle: "Generate emails, hex colors, numbers, and slugs",
+            aliases: ["random", "faker", "fake data"], icon: "dice", fallback: "RD",
+            action: .copyToClipboard(DeveloperToolsEngine.randomHexColor())
+        )
     ]
 }
 

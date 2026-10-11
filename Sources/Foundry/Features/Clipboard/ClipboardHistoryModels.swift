@@ -48,8 +48,27 @@ struct ClipboardHistoryItem: Identifiable, Codable, Hashable {
         guard trimmed.contains(where: \.isWhitespace) == false, let url = URL(string: trimmed), let scheme = url.scheme?.lowercased() else { return false }
         return (scheme == "http" || scheme == "https") && url.host != nil
     }
-    var title: String { switch payload { case .text(let v): return v.components(separatedBy: .newlines).first?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false ? (v.components(separatedBy: .newlines).first ?? v) : "Text"; case .files(let v): return v.count == 1 ? v[0].lastPathComponent : "\(v.count) files"; case .image: return "Image" } }
-    var subtitle: String { switch payload { case .text(let v): return "\(v.count) chars"; case .files(let v): return v.first?.deletingLastPathComponent().path ?? "Files"; case .image(let v): return v.isEmpty ? "Image" : ByteCountFormatter.string(fromByteCount: Int64(v.count), countStyle: .file) } }
+    var title: String {
+        switch payload {
+        case .text(let value):
+            let firstLine = value.components(separatedBy: .newlines).first ?? value
+            return firstLine.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false ? firstLine : "Text"
+        case .files(let urls):
+            return urls.count == 1 ? urls[0].lastPathComponent : "\(urls.count) files"
+        case .image:
+            return "Image"
+        }
+    }
+    var subtitle: String {
+        switch payload {
+        case .text(let value):
+            return "\(value.count) chars"
+        case .files(let urls):
+            return urls.first?.deletingLastPathComponent().path ?? "Files"
+        case .image(let data):
+            return data.isEmpty ? "Image" : ByteCountFormatter.string(fromByteCount: Int64(data.count), countStyle: .file)
+        }
+    }
     var kindLabel: String { switch payload { case .text: "Text"; case .files: "Files"; case .image: "Image" } }
     var systemImage: String { switch payload { case .text(let v): Self.isLink(v) ? "link" : "doc.text"; case .files: "doc.on.doc"; case .image: "photo" } }
     var timeLabel: String { timeLabel(relativeTo: Date()) }

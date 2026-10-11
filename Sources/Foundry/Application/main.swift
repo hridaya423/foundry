@@ -1,7 +1,6 @@
 import AppKit
 import Darwin
 import Foundation
-import ServiceManagement
 
 // Vars like ELECTRON_RUN_AS_NODE leak in when Foundry is started from an
 // Electron-hosted shell (e.g. Devin CLI, VS Code terminal). LaunchServices and
@@ -37,8 +36,11 @@ if Bundle.main.bundleIdentifier == "com.hridya.foundry" {
 }
 
 #if DEBUG
-if Bundle.main.bundleURL.pathExtension != "app" {
-    try? SMAppService.mainApp.unregister()
+// Rebuild + install over /Applications only on explicit opt-in — a plain
+// `swift run` must run this binary, never touch the installed app or its
+// login item.
+if Bundle.main.bundleURL.pathExtension != "app",
+   ProcessInfo.processInfo.environment["INSTALL_APP"] == "1" {
     guard let sourceRoot = SourceRootLocator.locate() else {
         fputs("Foundry source root is unavailable\n", stderr)
         exit(EXIT_FAILURE)

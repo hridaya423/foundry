@@ -386,7 +386,19 @@ enum AgentMonitorService {
 
     private static func cursorProcessCards(_ processes: [ProcessInfoRow]) -> [AgentSessionCard] {
         processes.filter { $0.args.hasPrefix("/Applications/Cursor.app/Contents/MacOS/Cursor") || $0.executableName == "cursor-agent" }.prefix(1).map { process in
-            AgentSessionCard(id: "cursor.process", provider: .cursor, title: "Cursor", subtitle: "running", project: nil, model: nil, status: .running, startedAt: process.startedAt, updatedAt: process.startedAt, openTarget: .application(name: "Cursor", path: "/Applications/Cursor.app"), capabilities: [.observe, .jumpApplication])
+            AgentSessionCard(
+                id: "cursor.process",
+                provider: .cursor,
+                title: "Cursor",
+                subtitle: "running",
+                project: nil,
+                model: nil,
+                status: .running,
+                startedAt: process.startedAt,
+                updatedAt: process.startedAt,
+                openTarget: .application(name: "Cursor", path: "/Applications/Cursor.app"),
+                capabilities: [.observe, .jumpApplication]
+            )
         }
     }
 
@@ -538,7 +550,11 @@ private let processAgentDescriptors: [ProcessAgentDescriptor] = [
     ProcessAgentDescriptor(provider: .goose, title: "Goose", commandNames: ["goose"], appPrefixes: ["/Applications/Goose.app/Contents/MacOS/Goose"], openTarget: .application(name: "Goose", path: "/Applications/Goose.app")),
     ProcessAgentDescriptor(provider: .amp, title: "Amp", commandNames: ["amp"], appPrefixes: ["/Applications/Amp.app/Contents/MacOS/Amp"], openTarget: .terminal(command: "amp")),
     ProcessAgentDescriptor(provider: .qwen, title: "Qwen", commandNames: ["qwen", "qwen-code"], appPrefixes: [], openTarget: .terminal(command: "qwen")),
-    ProcessAgentDescriptor(provider: .t3code, title: "T3 Code", commandNames: ["t3", "t3code"], appPrefixes: ["/Applications/T3 Code.app/Contents/MacOS/T3 Code"], openTarget: .application(name: "T3 Code", path: "/Applications/T3 Code.app")),
+    ProcessAgentDescriptor(
+        provider: .t3code, title: "T3 Code", commandNames: ["t3", "t3code"],
+        appPrefixes: ["/Applications/T3 Code.app/Contents/MacOS/T3 Code"],
+        openTarget: .application(name: "T3 Code", path: "/Applications/T3 Code.app")
+    ),
     ProcessAgentDescriptor(provider: .synara, title: "Synara", commandNames: ["synara"], appPrefixes: ["/Applications/Synara.app/Contents/MacOS/Synara"], openTarget: .application(name: "Synara", path: "/Applications/Synara.app")),
     ProcessAgentDescriptor(provider: .devin, title: "Devin", commandNames: ["devin"], appPrefixes: ["/Applications/Devin.app/Contents/MacOS/Devin"], openTarget: .terminal(command: "devin")),
     ProcessAgentDescriptor(provider: .factory, title: "Factory Droid", commandNames: ["droid"], appPrefixes: ["/Applications/Factory.app/Contents/MacOS/Factory"], openTarget: .terminal(command: "droid")),

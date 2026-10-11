@@ -131,22 +131,31 @@ final class PanelController: NSObject, NSWindowDelegate {
             return
         }
         let generation = hideGate.beginHide()
+        let finishHide: @MainActor () -> Void = { [weak self, weak panel] in
+            guard let self, let panel, self.hideGate.allowsCompletion(for: generation) else { return }
+            // Really leave: an alpha-0 ordered-in panel still composites,
+            // counts as onscreen to window-list callers, and can sit on
+            // top of system alerts.
+            panel.orderOut(nil)
+            panel.alphaValue = 0
+            self.hideGate.cancelPendingHide()
+            self.restoreFocusIfNeeded()
+            self.completePendingPaste()
+        }
         NSAnimationContext.runAnimationGroup({ context in
             context.duration = 0.09
             context.timingFunction = CAMediaTimingFunction(name: .easeIn)
             panel.animator().alphaValue = 0
-        }, completionHandler: { [weak self, weak panel] in
-            MainActor.assumeIsolated {
-                guard let self, let panel, self.hideGate.allowsCompletion(for: generation) else { return }
-                // Really leave: an alpha-0 ordered-in panel still composites,
-                // counts as onscreen to window-list callers, and can sit on
-                // top of system alerts.
-                panel.orderOut(nil)
-                panel.alphaValue = 0
-                self.restoreFocusIfNeeded()
-                self.completePendingPaste()
-            }
+        }, completionHandler: {
+            MainActor.assumeIsolated { finishHide() }
         })
+        // Failsafe: when the window can't composite (headless, occluded,
+        // terminating), the group completion never fires and the panel would
+        // leak onscreen. orderOut on a deadline; generation guards a show()
+        // that lands first.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) {
+            MainActor.assumeIsolated { finishHide() }
+        }
     }
 
     /// A launcher owes the previous app its focus back on dismiss. Deactivate

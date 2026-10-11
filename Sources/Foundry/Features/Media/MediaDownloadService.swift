@@ -349,7 +349,15 @@ final class MediaDownloadService: MediaDownloading, @unchecked Sendable {
         defer { try? dependencies.artifactFileSystem.removeItem(at: staging) }
         let result = try await dependencies.processRunner.run(
             path: path,
-            arguments: ["--newline", "--extractor-args", "youtube:player_client=android,web", "-f", "bv*[vcodec^=avc1][height<=1080]+ba[ext=m4a]/b[ext=mp4]/b", "--merge-output-format", "mp4", "-P", staging.path, "-o", "%(title).200B [%(id)s].%(ext)s", url.absoluteString],
+            arguments: [
+                "--newline",
+                "--extractor-args", "youtube:player_client=android,web",
+                "-f", "bv*[vcodec^=avc1][height<=1080]+ba[ext=m4a]/b[ext=mp4]/b",
+                "--merge-output-format", "mp4",
+                "-P", staging.path,
+                "-o", "%(title).200B [%(id)s].%(ext)s",
+                url.absoluteString,
+            ],
             timeout: 30 * 60,
             outputLimit: 8 * 1024 * 1024,
             environment: nil,
@@ -619,7 +627,16 @@ private final class MediaDownloadDelegate: NSObject, URLSessionDownloadDelegate,
     private var certificateHost: String?
     private let trustEvaluator: @Sendable (SecTrust) -> Bool
 
-    init(title: String, progress: (@MainActor @Sendable (MediaDownloadProgress) -> Void)?, policy: MediaNetworkPolicy, fileSystem: any MediaArtifactFileSystem, trustEvaluator: @escaping @Sendable (SecTrust) -> Bool = { trust in var error: CFError?; return SecTrustEvaluateWithError(trust, &error) }) {
+    init(
+        title: String,
+        progress: (@MainActor @Sendable (MediaDownloadProgress) -> Void)?,
+        policy: MediaNetworkPolicy,
+        fileSystem: any MediaArtifactFileSystem,
+        trustEvaluator: @escaping @Sendable (SecTrust) -> Bool = { trust in
+            var error: CFError?
+            return SecTrustEvaluateWithError(trust, &error)
+        }
+    ) {
         self.title = title
         self.progress = progress
         self.policy = policy
@@ -816,7 +833,11 @@ final class YTDLPProgressParser: @unchecked Sendable {
     private static let itemRegex = try! NSRegularExpression(pattern: #"Downloading item\s+(\d+)\s+of\s+(\d+)"#, options: [.caseInsensitive])
     private static let mergingRegex = try! NSRegularExpression(pattern: #"Merging formats into\s+[\"'](.+)[\"']"#, options: [.caseInsensitive])
     private static let downloadedRegex = try! NSRegularExpression(pattern: #"\[download\]\s+(.+)\s+has already been downloaded"#, options: [.caseInsensitive])
-    private static let progressRegex = try! NSRegularExpression(pattern: #"(\d+(?:\.\d+)?)%(?:.*?of\s+(?:~\s*)?([0-9]+(?:\.[0-9]+)?\s*(?:B|KiB|MiB|GiB|TiB)))?(?:.*?at\s+([0-9]+(?:\.[0-9]+)?\s*(?:B|KiB|MiB|GiB|TiB))/s)?(?:.*?ETA\s+([0-9:]+))?"#, options: [.caseInsensitive])
+    private static let progressRegex = try! NSRegularExpression(
+        pattern: #"(\d+(?:\.\d+)?)%(?:.*?of\s+(?:~\s*)?([0-9]+(?:\.[0-9]+)?\s*(?:B|KiB|MiB|GiB|TiB)))?"#
+            + #"(?:.*?at\s+([0-9]+(?:\.[0-9]+)?\s*(?:B|KiB|MiB|GiB|TiB))/s)?(?:.*?ETA\s+([0-9:]+))?"#,
+        options: [.caseInsensitive]
+    )
     private static let totalBytesRegex = try! NSRegularExpression(pattern: #"of\s+(?:~\s*)?([0-9]+(?:\.[0-9]+)?\s*(?:B|KiB|MiB|GiB|TiB))"#, options: [.caseInsensitive])
     private static let speedRegex = try! NSRegularExpression(pattern: #"at\s+([0-9]+(?:\.[0-9]+)?\s*(?:B|KiB|MiB|GiB|TiB))/s"#, options: [.caseInsensitive])
     private static let etaRegex = try! NSRegularExpression(pattern: #"ETA\s+([0-9:]+)"#, options: [.caseInsensitive])

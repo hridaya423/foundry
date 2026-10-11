@@ -12,7 +12,14 @@ struct ClipboardHistoryView: View {
     let extractText: (String) -> Void
     let decodeBarcode: (String) -> Void
 
-    init(state: ClipboardHistoryState, fileShelf: FileShelfState, directPaste: @escaping () -> Bool = { false }, pause: @escaping (Bool) -> Void = { _ in }, extractText: @escaping (String) -> Void = { _ in }, decodeBarcode: @escaping (String) -> Void = { _ in }) {
+    init(
+        state: ClipboardHistoryState,
+        fileShelf: FileShelfState,
+        directPaste: @escaping () -> Bool = { false },
+        pause: @escaping (Bool) -> Void = { _ in },
+        extractText: @escaping (String) -> Void = { _ in },
+        decodeBarcode: @escaping (String) -> Void = { _ in }
+    ) {
         self.state = state
         self.fileShelf = fileShelf
         self.directPaste = directPaste

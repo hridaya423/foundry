@@ -196,7 +196,14 @@ enum DeveloperToolsEngine {
 
     static func randomItems(matching kind: String) -> [RandomItem] {
         let normalized = kind.trimmingCharacters(in: .whitespacesAndNewlines)
-        if normalized.isEmpty || normalized == "email" { return [RandomItem(label: "Random Email", value: randomEmail())] + (normalized.isEmpty ? [RandomItem(label: "Random Hex Color", value: randomHexColor()), RandomItem(label: "Random Integer", value: randomInteger()), RandomItem(label: "Random Slug", value: randomSlug())] : []) }
+        if normalized.isEmpty || normalized == "email" {
+            let extras: [RandomItem] = normalized.isEmpty ? [
+                RandomItem(label: "Random Hex Color", value: randomHexColor()),
+                RandomItem(label: "Random Integer", value: randomInteger()),
+                RandomItem(label: "Random Slug", value: randomSlug()),
+            ] : []
+            return [RandomItem(label: "Random Email", value: randomEmail())] + extras
+        }
         if normalized.contains("hex") || normalized.contains("color") { return [RandomItem(label: "Random Hex Color", value: randomHexColor())] }
         if normalized.contains("int") || normalized.contains("number") { return [RandomItem(label: "Random Integer", value: randomInteger())] }
         if normalized.contains("slug") { return [RandomItem(label: "Random Slug", value: randomSlug())] }
@@ -239,7 +246,11 @@ enum DeveloperToolsEngine {
 
     static func looksLikeBitwiseExpression(_ value: String) -> Bool {
         let text = value.lowercased()
-        return text.contains("&") || text.contains("|") || text.contains("^") || text.contains("<<") || text.contains(">>") || text.contains(" and ") || text.contains(" or ") || text.contains(" xor ") || text.hasPrefix("and ") || text.hasPrefix("or ") || text.hasPrefix("xor ") || text.hasPrefix("not ") || text.contains("shift left") || text.contains("shift right")
+        return text.contains("&") || text.contains("|") || text.contains("^")
+            || text.contains("<<") || text.contains(">>")
+            || text.contains(" and ") || text.contains(" or ") || text.contains(" xor ")
+            || text.hasPrefix("and ") || text.hasPrefix("or ") || text.hasPrefix("xor ")
+            || text.hasPrefix("not ") || text.contains("shift left") || text.contains("shift right")
     }
 
     static func looksLikeRadixValue(_ value: String) -> Bool {

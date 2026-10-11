@@ -21,7 +21,11 @@ struct ScriptCommand: Hashable, Sendable {
 }
 
 enum ScriptDirectives {
-    static let known: Set<String> = ["schemaVersion", "title", "mode", "packageName", "icon", "iconDark", "argument1", "argument2", "argument3", "refreshTime", "currentDirectoryPath", "needsConfirmation", "author", "authorURL", "description"]
+    static let known: Set<String> = [
+        "schemaVersion", "title", "mode", "packageName", "icon", "iconDark",
+        "argument1", "argument2", "argument3", "refreshTime", "currentDirectoryPath",
+        "needsConfirmation", "author", "authorURL", "description",
+    ]
 
     static func parse(_ contents: String, path: String) -> ScriptCommand? {
         var values: [String: String] = [:]

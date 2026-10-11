@@ -6,8 +6,24 @@ final class CameraCommandProvider: CommandProvider {
 
     func search(_ request: CommandSearchRequest) async -> [CommandResult] {
         let aliases = request.customAliases[id] ?? []
-        guard SearchScoring.match(query: request.query, title: "Camera", subtitle: "Live camera preview inside Foundry", keywords: [], aliases: ["camera", "webcam", "preview", "cam"] + aliases, sensitivity: request.sensitivity) != nil else { return [] }
-        return [CommandResult(id: id, title: "Camera", subtitle: "Live camera preview inside Foundry", icon: CommandIcon(fallback: "CM", systemName: "camera"), searchAliases: aliases, searchKeywords: ["camera", "webcam", "preview", "cam"], primaryAction: CommandAction(id: "foundry.camera.open", title: "Open", kind: .openCamera), secondaryActions: [])]
+        guard SearchScoring.match(
+            query: request.query,
+            title: "Camera",
+            subtitle: "Live camera preview inside Foundry",
+            keywords: [],
+            aliases: ["camera", "webcam", "preview", "cam"] + aliases,
+            sensitivity: request.sensitivity
+        ) != nil else { return [] }
+        return [CommandResult(
+            id: id,
+            title: "Camera",
+            subtitle: "Live camera preview inside Foundry",
+            icon: CommandIcon(fallback: "CM", systemName: "camera"),
+            searchAliases: aliases,
+            searchKeywords: ["camera", "webcam", "preview", "cam"],
+            primaryAction: CommandAction(id: "foundry.camera.open", title: "Open", kind: .openCamera),
+            secondaryActions: []
+        )]
     }
 
     func defaultResults() async -> [CommandResult] { await search(CommandSearchRequest(query: "camera")) }
