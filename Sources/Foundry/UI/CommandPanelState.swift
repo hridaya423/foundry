@@ -144,20 +144,118 @@ final class CommandPanelState {
     private var commandCatalogTask: Task<Void, Never>?
     var isPanelOpen = false
     var homeRefreshID = UUID()
+    private var searchKeySpan: DiagnosticsService.Span?
 
     var favoriteResults: [CommandResult] = []
     private(set) var runningAppBundleIDs: Set<String> = []
 
     var selectedResult: CommandResult? {
-        results.first { $0.id == selectedResultID }
+        navigableResults.first { $0.id == selectedResultID } ?? results.first { $0.id == selectedResultID }
+    }
+
+    /// The flat list the view renders in search mode, in render order.
+    /// Arrow-key navigation must walk this — never raw `results`, or rows the
+    /// view filtered out (non-suggestible apps, hidden window layouts,
+    /// suppressed file-shelf entry) steal the selection invisibly.
+    var navigableResults: [CommandResult] {
+        guard mode == .search else { return [] }
+        let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.isEmpty {
+            let sections = homeSections
+            return sections.suggestions + sections.commands
+        }
+        var list = searchListResults
+        if let selectedResultID, Self.isPromotedCalculatorID(selectedResultID) {
+            list += Self.calculatorFallbackResults
+        }
+        return list
+    }
+
+    /// `results` minus rows the view does not paint when a calculator answer
+    /// is promoted to its card, or when the shelf holds files.
+    var searchListResults: [CommandResult] {
+        var list = results
+        if let selectedID = selectedResultID, Self.isPromotedCalculatorID(selectedID) {
+            list = list.filter { $0.id != selectedID && $0.id.hasPrefix("calculator.convert.") == false }
+        }
+        if mode == .search, fileShelf.files.isEmpty == false, query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            list = list.filter { $0.id != "foundry.file-shelf" }
+        }
+        return list
+    }
+
+    struct HomeSections {
+        var suggestions: [CommandResult] = []
+        var commands: [CommandResult] = []
+    }
+
+    var homeSections: HomeSections {
+        var sections = HomeSections()
+        for result in searchListResults {
+            if case .openApp = result.primaryAction.kind {
+                if isSuggestibleApp(result), sections.suggestions.count < 5 {
+                    sections.suggestions.append(result)
+                }
+            } else if isPrimaryWindowLayoutResult(result) == false, sections.commands.count < 5 {
+                sections.commands.append(result)
+            }
+            if sections.suggestions.count >= 5, sections.commands.count >= 5 { break }
+        }
+        return sections
+    }
+
+    private func isPrimaryWindowLayoutResult(_ result: CommandResult) -> Bool {
+        guard case let .tileWindow(placement) = result.primaryAction.kind else { return false }
+        return [FoundryDomain.WindowPlacement.leftHalf, .rightHalf, .topHalf, .bottomHalf, .maximize, .restore].contains(placement)
+    }
+
+    /// `calculator.*` rows promote to the answer card; the `calculator.fallback.*`
+    /// rows offered under it are ordinary list rows, not promotions.
+    static func isPromotedCalculatorID(_ id: String) -> Bool {
+        id.hasPrefix("calculator.") && id.hasPrefix("calculator.fallback.") == false
+    }
+
+    /// Static rows offered under a promoted calculator answer. Real
+    /// CommandResults so arrow keys reach them like anything else.
+    static let calculatorFallbackResults: [CommandResult] = [
+        CommandResult(
+            id: "calculator.fallback.clipboard",
+            title: "Clipboard History",
+            subtitle: "Search copied text, files, and images",
+            icon: CommandIcon(fallback: "CB", systemName: "doc.on.clipboard"),
+            primaryAction: CommandAction(id: "calculator.fallback.clipboard.open", title: "Open", kind: .openClipboardHistory),
+            secondaryActions: []
+        ),
+        CommandResult(
+            id: "calculator.fallback.fileshelf",
+            title: "File Shelf",
+            subtitle: "Hold files for quick actions",
+            icon: CommandIcon(fallback: "FS", systemName: "tray.full"),
+            primaryAction: CommandAction(id: "calculator.fallback.fileshelf.open", title: "Open", kind: .openFileShelf),
+            secondaryActions: []
+        ),
+        CommandResult(
+            id: "calculator.fallback.settings",
+            title: "Open Foundry Settings",
+            subtitle: "Customize Home, commands, and Foundry preferences",
+            icon: CommandIcon(fallback: "ST", systemName: "slider.horizontal.3"),
+            primaryAction: CommandAction(id: "calculator.fallback.settings.open", title: "Open", kind: .openSettings),
+            secondaryActions: []
+        ),
+    ]
+
+    /// Favorites/Reset Ranking/Configure only make sense on durable commands
+    /// and apps — not on ephemeral rows like files, clipboard items,
+    /// calculator answers, or one-shot Ask-AI prompts.
+    private func supportsMetaActions(_ result: CommandResult) -> Bool {
+        ["file.", "clipboard.", "calculator.", "foundry.quick."].contains { result.id.hasPrefix($0) } == false
     }
 
     var selectedActions: [CommandAction] {
         guard let selectedResult else { return [] }
         let isFavorite = commandPreferences[selectedResult.id]?.favoriteRank != nil
-        return orderedActions(for: selectedResult)
-            + openWithActions
-            + [CommandAction(
+        let metaActions = supportsMetaActions(selectedResult)
+            ? [CommandAction(
                 id: "favorite.toggle.\(selectedResult.id)",
                 title: isFavorite ? "Remove from Favorites" : "Add to Favorites",
                 kind: .toggleFavorite(commandID: selectedResult.id)
@@ -170,6 +268,10 @@ final class CommandPanelState {
                 title: "Configure Command",
                 kind: .openCommandSettings(commandID: selectedResult.id)
             )]
+            : [CommandAction]()
+        return orderedActions(for: selectedResult)
+            + openWithActions
+            + metaActions
     }
 
     var selectedAction: CommandAction? {
@@ -335,10 +437,13 @@ final class CommandPanelState {
         snippets.reset()
         query = ""
         quickAI.resetTransientState()
-        results = []
         selectedResultID = nil
         isShowingActions = false
         selectedActionID = nil
+        // Explicit: `query = ""` only re-triggers refreshResults when it
+        // actually changes, so without this an open→close→reopen cycle
+        // stranded Home on an empty "Loading" state.
+        refreshHomeResults()
     }
 
     func panelWillClose() {
@@ -515,11 +620,17 @@ final class CommandPanelState {
             }
             return true
         }
-        if mode != .search {
-            showHome()
+        if mode == .search {
+            // Raycast semantics: Esc clears the query first, then a second
+            // Esc dismisses the panel.
+            guard query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false else {
+                return false
+            }
+            query = ""
             return true
         }
-        return false
+        showHome()
+        return true
     }
 
     func showHome() {
@@ -533,10 +644,10 @@ final class CommandPanelState {
         resetTransientFeatures()
         query = ""
         quickAI.resetTransientState()
-        results = []
         selectedResultID = nil
         isShowingActions = false
         selectedActionID = nil
+        refreshHomeResults()
         widgetBoard.start()
         if isAgentShelfVisible {
             agents.start()
@@ -663,6 +774,13 @@ final class CommandPanelState {
 
     private func preferredAction(for result: CommandResult) -> CommandAction {
         orderedActions(for: result).first ?? result.primaryAction
+    }
+
+    /// What ↵ will actually do to the selection — the footer's label must
+    /// come from here, not from a typed-in string that can drift.
+    var preferredActionTitle: String {
+        guard let selectedResult else { return "Open" }
+        return preferredAction(for: selectedResult).title
     }
 
 
@@ -948,10 +1066,11 @@ final class CommandPanelState {
             return
         }
 
-        guard results.isEmpty == false else { return }
-        let currentIndex = selectedResultID.flatMap { id in results.firstIndex { $0.id == id } } ?? 0
-        let nextIndex = min(max(currentIndex + offset, 0), results.count - 1)
-        selectedResultID = results[nextIndex].id
+        let list = navigableResults
+        guard list.isEmpty == false else { return }
+        let currentIndex = selectedResultID.flatMap { id in list.firstIndex { $0.id == id } } ?? 0
+        let nextIndex = min(max(currentIndex + offset, 0), list.count - 1)
+        selectedResultID = list[nextIndex].id
         selectionScrollToken = UUID()
     }
 
@@ -971,6 +1090,8 @@ final class CommandPanelState {
 
         isHomeLoading = false
         isSearchLoading = true
+        if let span = searchKeySpan { diagnostics.discardSpan(span) }
+        searchKeySpan = diagnostics.startSpan("search.keyToResults")
 
         if AIProvider.request(from: trimmed) != nil {
             isSearchLoading = false
@@ -995,6 +1116,11 @@ final class CommandPanelState {
     }
 
     private func applySearchResults(_ rankedResults: [CommandResult], preserving preferredID: String?) {
+        if let span = searchKeySpan {
+            diagnostics.endSpan(span)
+            searchKeySpan = nil
+            diagnostics.mark("results.committed")
+        }
         let nextResults = ResultSection.ordered(rankedResults)
         results = nextResults
         if MediaDownloadProvider.mediaURLs(in: query).isEmpty == false,
@@ -1009,24 +1135,37 @@ final class CommandPanelState {
     }
 
     func refreshHomeResults() {
+        // Paint the previous snapshot synchronously — opening to an empty or
+        // spinner frame is a miss the user can see. The async load then
+        // reconciles; it only replaces the list while we're still at home.
+        if let snapshot = searchCoordinator.cachedHome() {
+            applyHomeResults(snapshot)
+            isHomeLoading = false
+        } else {
+            isHomeLoading = true
+        }
         let refreshID = UUID()
         homeRefreshID = refreshID
-        isHomeLoading = true
         searchCoordinator.loadHome { [weak self] loadedResults in
             guard let self,
                   self.homeRefreshID == refreshID,
                   self.query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
-            var homeResults = loadedResults
-            if self.fileShelf.files.isEmpty == false {
-                homeResults.removeAll { $0.id == "foundry.file-shelf" }
-            }
-            self.runningAppBundleIDs = Self.regularRunningAppBundleIDs()
-            self.results = homeResults
-            self.selectedResultID = homeResults.first?.id
-            self.selectionScrollToken = UUID()
-            self.isHomeLoading = false
-            self.refreshFavorites()
+            self.applyHomeResults(loadedResults)
         }
+    }
+
+    private func applyHomeResults(_ loadedResults: [CommandResult]) {
+        var homeResults = loadedResults
+        if self.fileShelf.files.isEmpty == false {
+            homeResults.removeAll { $0.id == "foundry.file-shelf" }
+        }
+        self.runningAppBundleIDs = Self.regularRunningAppBundleIDs()
+        self.results = homeResults
+        self.diagnostics.mark("results.committed")
+        self.selectedResultID = homeResults.first?.id
+        self.selectionScrollToken = UUID()
+        self.isHomeLoading = false
+        self.refreshFavorites()
     }
 
 

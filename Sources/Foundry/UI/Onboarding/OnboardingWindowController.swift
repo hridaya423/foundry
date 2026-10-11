@@ -6,6 +6,8 @@ final class OnboardingWindowController: NSObject, NSWindowDelegate {
     private let state: OnboardingState
     private var window: NSWindow?
 
+    var isVisible: Bool { window?.isVisible == true }
+
     init(state: OnboardingState) {
         self.state = state
         super.init()

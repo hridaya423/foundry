@@ -10,6 +10,10 @@ final class CommandSearchCoordinator {
     private var task: Task<Void, Never>?
     private var generation = 0
     private var searchInFlight = false
+    /// Last computed home list. Opening the panel paints this synchronously —
+    /// the async refresh only reconciles it, so the first frame is never
+    /// empty.
+    private var homeSnapshot: [CommandResult]?
     private var immediateSpan: DiagnosticsService.Span?
     private var completeSpan: DiagnosticsService.Span?
 
@@ -67,6 +71,10 @@ final class CommandSearchCoordinator {
         }
     }
 
+    func cachedHome() -> [CommandResult]? {
+        homeSnapshot
+    }
+
     func loadHome(onResults: @escaping ResultsHandler) {
         cancel()
         generation += 1
@@ -79,6 +87,7 @@ final class CommandSearchCoordinator {
             defer { diagnostics.endSpan(span) }
             let results = await registry.homeResults()
             guard let self, Task.isCancelled == false, self.generation == currentGeneration else { return }
+            self.homeSnapshot = results
             onResults(results)
         }
     }

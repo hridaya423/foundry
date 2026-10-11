@@ -7,6 +7,7 @@ final class ShellController {
     private let registry: CommandRegistry
     private let config: ConfigService
     private let diagnostics: DiagnosticsService
+    private let activation: any AppActivation
     private let hotkeyController: HotkeyController
     private let panelController: PanelController
     private let panelState: CommandPanelState
@@ -24,11 +25,13 @@ final class ShellController {
         diagnostics: DiagnosticsService,
         snippetStore: any SnippetStore = FileSnippetStore(),
         mediaDownloadManager: MediaDownloadManager = MediaDownloadManager(),
-        clipboardHistory: ClipboardHistoryState? = nil
+        clipboardHistory: ClipboardHistoryState? = nil,
+        activation: (any AppActivation)? = nil
     ) {
         self.registry = registry
         self.config = config
         self.diagnostics = diagnostics
+        self.activation = activation ?? NSAppActivation()
         self.hotkeyController = HotkeyController()
         let sharedClipboardHistory = clipboardHistory ?? ClipboardHistoryState(configuration: config.current.clipboard)
         self.clipboardHistory = sharedClipboardHistory
@@ -42,7 +45,12 @@ final class ShellController {
             mediaDownloadManager: mediaDownloadManager,
             clipboardHistory: sharedClipboardHistory
         )
-        let panelController = PanelController(state: panelState, diagnostics: diagnostics, directPasteService: actionRunner.directPasteService)
+        let panelController = PanelController(
+            state: panelState,
+            diagnostics: diagnostics,
+            directPasteService: actionRunner.directPasteService,
+            activation: self.activation
+        )
         self.panelController = panelController
         actionRunner.onQuickLook = { [weak panelController] url in
             panelController?.previewFile(url)
@@ -57,6 +65,9 @@ final class ShellController {
         }
         let onboardingController = OnboardingWindowController(state: onboardingState)
         self.onboardingController = onboardingController
+        panelController.otherWindowsVisible = { [weak onboardingController] in
+            onboardingController?.isVisible == true
+        }
         let statusItemController = StatusItemController(state: panelState)
         self.statusItemController = statusItemController
         statusItemController.onTogglePanel = { [weak self] in
@@ -178,7 +189,7 @@ final class ShellController {
 
     func showPanel() {
         let span = diagnostics.startSpan("panel.hotkeyToFront")
-        NSApp.activate(ignoringOtherApps: true)
+        activation.activate()
         panelState.resetForOpen()
         panelController.show()
         DispatchQueue.main.async { [diagnostics] in

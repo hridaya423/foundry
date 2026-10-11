@@ -10,21 +10,35 @@ final class PanelController: NSObject, NSWindowDelegate {
     private let state: CommandPanelState
     private let diagnostics: DiagnosticsService
     private let directPasteService: DirectPasteService
+    private let activation: any AppActivation
+    /// Reports whether another Foundry window (onboarding, settings) is up;
+    /// hides must not tear down those windows. Wired post-init because
+    /// onboarding is constructed after the panel in ShellController.
+    var otherWindowsVisible: () -> Bool
     private let quickLook = QuickLookPanelController()
     private let toast = TransientNoticeController()
     private var panel: FoundryPanel?
 
     private var hideGate = PanelHideGate()
-    private var isSuspended = false
 
     var isVisible: Bool {
-        panel?.isVisible == true && isSuspended == false
+        panel?.isVisible == true
     }
 
-    init(state: CommandPanelState, diagnostics: DiagnosticsService, directPasteService: DirectPasteService = .shared) {
+    init(
+        state: CommandPanelState,
+        diagnostics: DiagnosticsService,
+        directPasteService: DirectPasteService = .shared,
+        activation: (any AppActivation)? = nil,
+        otherWindowsVisible: (() -> Bool)? = nil
+    ) {
         self.state = state
         self.diagnostics = diagnostics
         self.directPasteService = directPasteService
+        self.activation = activation ?? NSAppActivation()
+        self.otherWindowsVisible = otherWindowsVisible ?? {
+            NSApp.windows.contains { $0.isVisible && $0.isKind(of: FoundryPanel.self) == false }
+        }
         super.init()
     }
 
@@ -51,13 +65,13 @@ final class PanelController: NSObject, NSWindowDelegate {
         let span = diagnostics.startSpan("panel.show")
         let panel = panel ?? makePanel()
         self.panel = panel
-        isSuspended = false
 
         state.presentationToken = UUID()
         state.hoverHighlightsArmed = false
         panel.setFrame(frame(for: panel), display: false)
         panel.ignoresMouseEvents = false
         panel.inputEnabled = true
+        panel.alphaValue = 0
 
         let reduceMotion = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
         let contentLayer = panel.contentView?.layer
@@ -68,7 +82,6 @@ final class PanelController: NSObject, NSWindowDelegate {
             // every row renders soft for the duration of the settle.
             contentLayer.transform = CATransform3DMakeTranslation(0, 6, 0)
             CATransaction.commit()
-            panel.alphaValue = 0
         }
         NSAnimationContext.runAnimationGroup { context in
             context.duration = reduceMotion ? 0 : 0.18
@@ -95,6 +108,9 @@ final class PanelController: NSObject, NSWindowDelegate {
         panel.displayIfNeeded()
         panel.makeKeyAndOrderFront(nil)
         panel.orderFrontRegardless()
+        CATransaction.setCompletionBlock { [diagnostics] in
+            diagnostics.mark("panel.firstFrame")
+        }
         CATransaction.flush()
         DispatchQueue.main.async { [weak panel, diagnostics] in
             diagnostics.endSpan(span)
@@ -110,7 +126,10 @@ final class PanelController: NSObject, NSWindowDelegate {
     func hide() {
         quickLook.close()
         state.panelWillClose()
-        guard let panel else { return }
+        guard let panel else {
+            completePendingPaste()
+            return
+        }
         let generation = hideGate.beginHide()
         NSAnimationContext.runAnimationGroup({ context in
             context.duration = 0.09
@@ -119,13 +138,22 @@ final class PanelController: NSObject, NSWindowDelegate {
         }, completionHandler: { [weak self, weak panel] in
             MainActor.assumeIsolated {
                 guard let self, let panel, self.hideGate.allowsCompletion(for: generation) else { return }
-                panel.ignoresMouseEvents = true
+                // Really leave: an alpha-0 ordered-in panel still composites,
+                // counts as onscreen to window-list callers, and can sit on
+                // top of system alerts.
+                panel.orderOut(nil)
                 panel.alphaValue = 0
-                panel.inputEnabled = false
-                self.isSuspended = true
+                self.restoreFocusIfNeeded()
                 self.completePendingPaste()
             }
         })
+    }
+
+    /// A launcher owes the previous app its focus back on dismiss. Deactivate
+    /// unless another Foundry window (onboarding, settings, a modal) is up.
+    private func restoreFocusIfNeeded() {
+        guard activation.isActive, otherWindowsVisible() == false else { return }
+        activation.deactivate()
     }
 
     private func completePendingPaste() {
@@ -169,7 +197,9 @@ final class PanelController: NSObject, NSWindowDelegate {
 
         panel.delegate = self
         panel.isFloatingPanel = true
-        panel.level = .statusBar
+        // .floating sits under modal panels and system sheets; .statusBar
+        // painted the launcher over its own alerts and save panels.
+        panel.level = .floating
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         panel.isReleasedWhenClosed = false
         panel.acceptsMouseMovedEvents = true
@@ -233,8 +263,10 @@ final class PanelController: NSObject, NSWindowDelegate {
             ?? NSScreen.screens.first
 
         guard let visibleFrame = screen?.visibleFrame else { return panel.frame }
-        let topOffsetPixels: CGFloat = 280
-        let topInset = topOffsetPixels / max(screen?.backingScaleFactor ?? 1, 1)
+        // A quarter down the usable height, in points — the launcher slot
+        // Raycast uses. Must not divide by backingScaleFactor or Retina
+        // displays get half the intended inset.
+        let topInset = visibleFrame.height * 0.25
         let height = state.compactCollapsed ? Self.compactHeight : Self.rootSize.height
         let origin = CGPoint(
             x: visibleFrame.midX - Self.rootSize.width / 2,
@@ -294,11 +326,38 @@ final class FoundryPanel: NSPanel {
     }
 
     override func performKeyEquivalent(with event: NSEvent) -> Bool {
+        // Text editing wins over result actions: with a selection, ⌘C copies
+        // the query; without one, it falls through to the Copy action. Same
+        // deal for ⌘⌫ — it clears the field first, trashes files only when
+        // there's no field content to delete.
+        if fieldEditorConsumes(event) {
+            return super.performKeyEquivalent(with: event)
+        }
         if handleShortcut(event) {
             return true
         }
 
         return super.performKeyEquivalent(with: event)
+    }
+
+    /// Whether the focused text field should get this chord instead of the
+    /// action-shortcut layer.
+    private func fieldEditorConsumes(_ event: NSEvent) -> Bool {
+        guard let editor = firstResponder as? NSTextView, editor.isFieldEditor else { return false }
+        let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+        let key = event.charactersIgnoringModifiers?.lowercased()
+        switch (flags, key, event.keyCode) {
+        case (.command, "v", _), (.command, "a", _), (.command, "z", _), (.command, "x", _):
+            return true
+        case ([.command, .shift], "z", _):
+            return true
+        case (.command, "c", _):
+            return editor.selectedRange().length > 0
+        case (.command, _, 51):
+            return editor.string.isEmpty == false
+        default:
+            return false
+        }
     }
 
     override func keyDown(with event: NSEvent) {
@@ -327,9 +386,6 @@ final class FoundryPanel: NSPanel {
             return true
         case ",":
             onCommandComma?()
-            return true
-        case "q":
-            NSApp.terminate(nil)
             return true
         case "v":
             return onCommandV?() ?? false

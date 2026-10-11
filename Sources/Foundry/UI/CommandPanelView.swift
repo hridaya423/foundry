@@ -16,7 +16,7 @@ struct CommandPanelView: View {
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @Environment(\.colorScheme) private var colorScheme
     @State private var isDropTargeted = false
-    @State private var presented = false
+    @State private var visibleResultIDs: Set<String> = []
 
     init(state: CommandPanelState, dismiss: @escaping () -> Void) {
         self.state = state
@@ -27,7 +27,8 @@ struct CommandPanelView: View {
     }
 
     private var selectedCalculatorResult: CommandResult? {
-        guard let selectedResult = state.selectedResult, selectedResult.id.hasPrefix("calculator.") else { return nil }
+        guard let selectedResult = state.selectedResult,
+              CommandPanelState.isPromotedCalculatorID(selectedResult.id) else { return nil }
         return selectedResult
     }
 
@@ -133,16 +134,18 @@ struct CommandPanelView: View {
             .overlay(ConfettiBurst(trigger: state.confettiBurstID))
 
         return animated
-            .scaleEffect(reduceMotion || presented ? 1 : 0.97)
-            .opacity(presented ? 1 : 0)
             .onChange(of: state.mode) { _, _ in
                 inputFocused = true
             }
             .onChange(of: state.focusToken) { _, _ in
                 inputFocused = true
             }
-            .onChange(of: state.presentationToken) { _, _ in
-                replayPresentation()
+            .onChange(of: state.results) { _, _ in
+                // Fires when the commit carrying the new rows reaches the
+                // render server — the closest readable signal to first paint.
+                CATransaction.setCompletionBlock { [state] in
+                    state.diagnostics.mark("results.paintCommitted")
+                }
             }
             .onChange(of: state.compactCollapsed) { _, collapsed in
                 state.onCompactCollapseChanged?(collapsed)
@@ -158,7 +161,6 @@ struct CommandPanelView: View {
             }
             .onAppear {
                 inputFocused = true
-                replayPresentation()
             }
             .onMoveCommand { direction in
                 switch direction {
@@ -202,15 +204,6 @@ struct CommandPanelView: View {
 
     private var innerHighlight: Color {
         colorScheme == .dark ? Color.white.opacity(0.12) : Color.black.opacity(0.06)
-    }
-
-    private func replayPresentation() {
-        presented = false
-        DispatchQueue.main.async {
-            withAnimation(.spring(response: 0.22, dampingFraction: 0.9)) {
-                presented = true
-            }
-        }
     }
 
     private var surface: FeatureSurface {
@@ -600,8 +593,10 @@ struct CommandPanelView: View {
                             CalculatorUseWithHeader(query: state.query)
                                 .padding(.bottom, 4)
                             ForEach(calculatorFallbackResults, id: \.id) { result in
-                                HomeResultRow(result: result, isSelected: false, label: resultKindLabel(for: result))
-                                    .rowActivation(isSelected: false) { execute(result) }
+                                HomeResultRow(result: result, isSelected: state.selectedResultID == result.id, label: resultKindLabel(for: result))
+                                    .id(result.id)
+                                    .trackVisible(result.id, into: $visibleResultIDs)
+                                    .rowActivation(isSelected: state.selectedResultID == result.id) { execute(result) }
                             }
                         }
                     }
@@ -629,6 +624,7 @@ struct CommandPanelView: View {
                             ForEach(Array(suggestionResults.prefix(5)), id: \.id) { result in
                                 HomeResultRow(result: result, isSelected: state.selectedResultID == result.id, label: resultKindLabel(for: result))
                                     .id(result.id)
+                                    .trackVisible(result.id, into: $visibleResultIDs)
                                     .rowActivation(isSelected: state.selectedResultID == result.id) { execute(result) }
                             }
                         }
@@ -639,6 +635,7 @@ struct CommandPanelView: View {
                             ForEach(Array(commandResults.prefix(5)), id: \.id) { result in
                                 HomeResultRow(result: result, isSelected: state.selectedResultID == result.id, label: resultKindLabel(for: result))
                                     .id(result.id)
+                                    .trackVisible(result.id, into: $visibleResultIDs)
                                     .rowActivation(isSelected: state.selectedResultID == result.id) { execute(result) }
                             }
                         }
@@ -663,20 +660,20 @@ struct CommandPanelView: View {
             .background(Color.clear)
             .onChange(of: state.selectionScrollToken) { _, _ in
                 guard let resultID = state.selectedResultID else { return }
-                proxy.scrollTo(resultID, anchor: .center)
+                // Minimal scroll: only move when the target left the
+                // viewport, and only far enough to reveal it — not a
+                // re-center on every arrow press.
+                guard visibleResultIDs.contains(resultID) == false else { return }
+                let order = state.navigableResults.map(\.id)
+                let lastVisibleIndex = order.lastIndex(where: { visibleResultIDs.contains($0) }) ?? -1
+                let targetIndex = order.firstIndex(of: resultID) ?? 0
+                proxy.scrollTo(resultID, anchor: targetIndex > lastVisibleIndex ? .bottom : .top)
             }
         }
     }
 
     private var displayedResults: [CommandResult] {
-        var results = state.results
-        if selectedCalculatorResult != nil {
-            results = results.filter { $0.id != selectedCalculatorResult?.id && $0.id.hasPrefix("calculator.convert.") == false }
-        }
-        if state.mode == .search, state.fileShelf.files.isEmpty == false, state.query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            results = results.filter { $0.id != "foundry.file-shelf" }
-        }
-        return results
+        state.searchListResults
     }
 
     private var calculatorAlternativeResults: [CommandResult] {
@@ -687,32 +684,7 @@ struct CommandPanelView: View {
     }
 
     private var calculatorFallbackResults: [CommandResult] {
-        [
-            CommandResult(
-                id: "calculator.fallback.clipboard",
-                title: "Clipboard History",
-                subtitle: "Search copied text, files, and images",
-                icon: CommandIcon(fallback: "CB", systemName: "doc.on.clipboard"),
-                primaryAction: CommandAction(id: "calculator.fallback.clipboard.open", title: "Open", kind: .openClipboardHistory),
-                secondaryActions: []
-            ),
-            CommandResult(
-                id: "calculator.fallback.fileshelf",
-                title: "File Shelf",
-                subtitle: "Hold files for quick actions",
-                icon: CommandIcon(fallback: "FS", systemName: "tray.full"),
-                primaryAction: CommandAction(id: "calculator.fallback.fileshelf.open", title: "Open", kind: .openFileShelf),
-                secondaryActions: []
-            ),
-            CommandResult(
-                id: "calculator.fallback.settings",
-                title: "Open Foundry Settings",
-                 subtitle: "Customize Home, commands, and Foundry preferences",
-                icon: CommandIcon(fallback: "ST", systemName: "slider.horizontal.3"),
-                primaryAction: CommandAction(id: "calculator.fallback.settings.open", title: "Open", kind: .openSettings),
-                secondaryActions: []
-            )
-        ]
+        CommandPanelState.calculatorFallbackResults
     }
 
     private var isWindowLayoutQuery: Bool {
@@ -736,19 +708,11 @@ struct CommandPanelView: View {
     }
 
     private var suggestionResults: [CommandResult] {
-        displayedResults.filter { result in
-            if case .openApp = result.primaryAction.kind {
-                return state.isSuggestibleApp(result)
-            }
-            return false
-        }
+        state.homeSections.suggestions
     }
 
     private var commandResults: [CommandResult] {
-        displayedResults.filter { result in
-            if case .openApp = result.primaryAction.kind { return false }
-            return isPrimaryWindowLayout(result) == false
-        }
+        state.homeSections.commands
     }
 
     private var homeLayoutResults: [CommandResult] {
@@ -778,11 +742,6 @@ struct CommandPanelView: View {
         }
     }
 
-    private func isPrimaryWindowLayout(_ result: CommandResult) -> Bool {
-        guard case let .tileWindow(placement) = result.primaryAction.kind else { return false }
-        return [FoundryDomain.WindowPlacement.leftHalf, .rightHalf, .topHalf, .bottomHalf, .maximize, .restore].contains(placement)
-    }
-
     private func isMediaDownload(_ result: CommandResult) -> Bool {
         if case .downloadMedia = result.primaryAction.kind { return true }
         return false
@@ -793,6 +752,7 @@ struct CommandPanelView: View {
         if isMediaDownload(result) {
             MediaResultRow(result: result, isSelected: state.selectedResultID == result.id, isExpanded: shouldExpandMediaResult)
                 .id(result.id)
+                .trackVisible(result.id, into: $visibleResultIDs)
                 .rowActivation(isSelected: state.selectedResultID == result.id) { execute(result) }
         } else {
             let preference = state.commandPreferences[result.id]
@@ -806,6 +766,7 @@ struct CommandPanelView: View {
                 compact: state.windowMode == .compact
             )
                 .id(result.id)
+                .trackVisible(result.id, into: $visibleResultIDs)
                 .rowActivation(isSelected: state.selectedResultID == result.id) { execute(result) }
         }
     }
@@ -895,7 +856,7 @@ struct CommandPanelView: View {
             return [.init(label: state.selectedAction?.title ?? "Run", keys: "↵", emphasized: true), .init(label: "Back", keys: "esc")]
         }
         let primary = FooterActionSpec(
-            label: isWindowLayoutQuery ? "Apply" : (selectedCalculatorResult == nil ? "Open" : "Copy Answer"),
+            label: isWindowLayoutQuery ? "Apply" : state.preferredActionTitle,
             keys: "↵",
             emphasized: true
         )

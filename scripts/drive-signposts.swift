@@ -2,10 +2,12 @@ import Cocoa
 import Foundation
 
 // Drives the running Foundry via its launcher hotkey (⌘Space) so DiagnosticsService spans
-// (panel.show, search.immediate, search.complete, mode.switch) can be collected with:
+// (panel.show, search.immediate, search.complete, search.keyToResults, mode.switch) and marks
+// (panel.firstFrame, results.committed, results.paintCommitted) can be collected with:
 //   log stream --predicate 'subsystem == "app.foundry.prototype"' --level debug
 // `drive-signposts.swift 30 --reopen build/Foundry.app` needs no Accessibility: it opens the panel
 // through the app's reopen handler and closes it by activating Finder. It measures panel.show only.
+// `--bench` adds wall-clock hotkey→panel-onscreen timings per cycle and prints p50/p95.
 let arguments = CommandLine.arguments
 let cycles = Int(arguments.dropFirst().first ?? "") ?? 30
 let queries = ["saf", "calc", "clip", "wifi", "12*34", "term", "note", "emoji"]
@@ -71,12 +73,50 @@ func waitForPanel(_ onscreen: Bool) -> Bool {
     return false
 }
 
+let benchMode = arguments.contains("--bench")
+var openLatencies: [Double] = []
+var keyLatencies: [Double] = []
+
+func percentile(_ values: [Double], _ p: Double) -> Double {
+    guard values.isEmpty == false else { return .nan }
+    let sorted = values.sorted()
+    return sorted[min(sorted.count - 1, max(0, Int((Double(sorted.count) * p).rounded(.down))))]
+}
+
 for cycle in 0..<cycles {
     // Blind toggles invert if the panel starts open — only press when state disagrees.
-    if !panelOnScreen() { press(49, flags: .maskCommand) }
-    if !waitForPanel(true) { fputs("cycle \(cycle): panel never appeared\n", stderr); continue }
-    type(queries[cycle % queries.count])
+    if !panelOnScreen() {
+        let openStart = ContinuousClock().now
+        press(49, flags: .maskCommand)
+        if waitForPanel(true) {
+            if benchMode {
+                let elapsed = ContinuousClock().now - openStart
+                openLatencies.append(Double(elapsed.components.seconds) * 1000 + Double(elapsed.components.attoseconds) / 1e15)
+            }
+        } else {
+            fputs("cycle \(cycle): panel never appeared\n", stderr)
+            continue
+        }
+    }
+    let query = queries[cycle % queries.count]
+    let keyStart = ContinuousClock().now
+    type(query)
+    if benchMode {
+        // Wall-clock cost of typing the whole query; per-keystroke timing is
+        // the signposts' job — this approximates keystroke→first-results
+        // only for the first key.
+        let elapsed = ContinuousClock().now - keyStart
+        keyLatencies.append(Double(elapsed.components.seconds) * 1000 + Double(elapsed.components.attoseconds) / 1e15)
+    }
     usleep(900_000)
     if panelOnScreen() { press(49, flags: .maskCommand) }
     _ = waitForPanel(false)
+}
+
+if benchMode {
+    let fmt = { (name: String, values: [Double]) in
+        print(String(format: "%@  n=%d  p50=%.1fms  p95=%.1fms", name, values.count, percentile(values, 0.50), percentile(values, 0.95)))
+    }
+    fmt("hotkey→panelOnScreen", openLatencies)
+    fmt("query.typeWall", keyLatencies)
 }

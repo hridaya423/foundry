@@ -18,6 +18,14 @@ public final class DiagnosticsService: @unchecked Sendable {
         logger.info("\(message, privacy: .public)")
     }
 
+    /// Point-in-time signpost for correlating spans with UI commits
+    /// (e.g. "results.committed", "panel.firstFrame"). Shows in
+    /// `log stream --predicate 'subsystem == "app.foundry.prototype"'`
+    /// and Instruments points-of-interest.
+    public func mark(_ name: String) {
+        os_signpost(.event, log: signpostLog, name: "FoundryMark", "%{public}s", name)
+    }
+
     public func startSpan(_ name: String) -> Span {
         let signpostID = OSSignpostID(log: signpostLog)
         os_signpost(.begin, log: signpostLog, name: "FoundrySpan", signpostID: signpostID, "%{public}s", name)

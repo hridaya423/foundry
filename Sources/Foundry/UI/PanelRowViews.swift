@@ -440,3 +440,12 @@ struct RemoteIcon<Placeholder: View>: View {
         }
     }
 }
+
+extension View {
+    /// Records a result row's visibility in a set so scroll handlers can
+    /// skip re-centering items already on screen.
+    func trackVisible(_ id: String, into set: Binding<Set<String>>) -> some View {
+        onAppear { set.wrappedValue.insert(id) }
+            .onDisappear { set.wrappedValue.remove(id) }
+    }
+}
