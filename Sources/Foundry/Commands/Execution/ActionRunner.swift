@@ -783,7 +783,7 @@ final class ActionRunner {
         do {
             emit(.status("Recognizing text…"))
             let lines = try await VisionText.recognizeText(at: url)
-            guard try presentExtractedText(lines, sourceName: url.deletingPathExtension().lastPathComponent, suffix: "OCR") else {
+            guard try presentExtractedText(lines, sourceName: url.deletingPathExtension().lastPathComponent, suffix: "OCR", emit: emit) else {
                 return .failure(message: "No text found in \(url.lastPathComponent)", retryable: false)
             }
             return onQuickLook == nil ? .success(message: nil) : .stayOpen(message: nil)
@@ -795,7 +795,7 @@ final class ActionRunner {
 
     /// Stage extracted/decoded text as a temp file and present it via Quick
     /// Look (or open it when no panel is wired). Returns false when empty.
-    private func presentExtractedText(_ lines: [String], sourceName: String, suffix: String) throws -> Bool {
+    private func presentExtractedText(_ lines: [String], sourceName: String, suffix: String, emit: @escaping @MainActor @Sendable (CommandExecutionEvent) -> Void) throws -> Bool {
         let text = lines.joined(separator: "\n")
         guard text.isEmpty == false else { return false }
         let preview = try stageTextPreview(text, named: "\(sourceName) — \(suffix)")
@@ -825,7 +825,7 @@ final class ActionRunner {
     func extractTextPreview(fromImageData data: Data, sourceName: String = "Clipboard image") async throws -> Bool {
         guard let image = cgImage(from: data) else { throw FileConversionError.unavailable("Could not decode image data") }
         let lines = try await VisionText.recognizeText(in: image)
-        return try presentExtractedText(lines, sourceName: sourceName, suffix: "OCR")
+        return try presentExtractedText(lines, sourceName: sourceName, suffix: "OCR", emit: { _ in })
     }
 
     /// Barcode/QR decode of a clipboard image payload → stage → Quick Look.
@@ -833,21 +833,21 @@ final class ActionRunner {
     func decodeBarcodePreview(fromImageData data: Data, sourceName: String = "Clipboard image") async throws -> Bool {
         guard let image = cgImage(from: data) else { throw FileConversionError.unavailable("Could not decode image data") }
         let lines = try await VisionText.readBarcodes(in: image)
-        return try presentExtractedText(lines, sourceName: sourceName, suffix: "Barcode")
+        return try presentExtractedText(lines, sourceName: sourceName, suffix: "Barcode", emit: { _ in })
     }
 
     /// Barcode/QR decode of an image file → stage → Quick Look (File Shelf).
     @MainActor
     func decodeBarcodePreview(at url: URL) async throws -> Bool {
         let lines = try await VisionText.readBarcodes(at: url)
-        return try presentExtractedText(lines, sourceName: url.deletingPathExtension().lastPathComponent, suffix: "Barcode")
+        return try presentExtractedText(lines, sourceName: url.deletingPathExtension().lastPathComponent, suffix: "Barcode", emit: { _ in })
     }
 
     /// OCR of an image file → stage → Quick Look (File Shelf).
     @MainActor
     func extractTextPreview(at url: URL) async throws -> Bool {
         let lines = try await VisionText.recognizeText(at: url)
-        return try presentExtractedText(lines, sourceName: url.deletingPathExtension().lastPathComponent, suffix: "OCR")
+        return try presentExtractedText(lines, sourceName: url.deletingPathExtension().lastPathComponent, suffix: "OCR", emit: { _ in })
     }
 
     private func pickColor(emit: @escaping @MainActor @Sendable (CommandExecutionEvent) -> Void) async -> CommandOutcome {
@@ -880,7 +880,7 @@ final class ActionRunner {
     private func chooseColorFormat(hex: String, color: NSColor, formats: [(label: String, value: String)], recents: [String]) -> String? {
         let alert = NSAlert()
         alert.messageText = hex
-        alert.informativeText = "Pick a format to copy."
+        alert.informativeText = "Pick a format to copy.\n\(Self.contrastSummary(for: color))"
         alert.alertStyle = .informational
         let swatch = NSImageView(frame: NSRect(x: 0, y: 0, width: 40, height: 24))
         swatch.wantsLayer = true
@@ -960,6 +960,22 @@ final class ActionRunner {
             ("OKLCH", oklch),
             ("NSColor", String(format: "NSColor(red: %.3f, green: %.3f, blue: %.3f, alpha: %.3f)", rgb.redComponent, rgb.greenComponent, rgb.blueComponent, alpha)),
         ]
+    }
+
+    /// WCAG 2.x contrast summary against white and black text, with the AA
+    /// threshold (4.5:1 normal, 3:1 large) called out.
+    nonisolated static func contrastSummary(for color: NSColor) -> String {
+        guard let rgb = color.usingColorSpace(.sRGB) else { return "" }
+        func luminance(_ c: NSColor) -> CGFloat {
+            func channel(_ v: CGFloat) -> CGFloat { v <= 0.03928 ? v / 12.92 : pow((v + 0.055) / 1.055, 2.4) }
+            return 0.2126 * channel(c.redComponent) + 0.7152 * channel(c.greenComponent) + 0.0722 * channel(c.blueComponent)
+        }
+        func ratio(_ a: CGFloat, _ b: CGFloat) -> CGFloat { (max(a, b) + 0.05) / (min(a, b) + 0.05) }
+        let l = luminance(rgb)
+        let onWhite = ratio(l, luminance(.white))
+        let onBlack = ratio(l, luminance(.black))
+        func verdict(_ r: CGFloat) -> String { r >= 4.5 ? "AA" : (r >= 3 ? "AA large" : "fails") }
+        return String(format: "On white %.1f:1 (%@) · on black %.1f:1 (%@)", onWhite, verdict(onWhite) as NSString, onBlack, verdict(onBlack) as NSString)
     }
 
     nonisolated private static func hslString(hueDegrees: Int, saturation: CGFloat, brightness: CGFloat) -> String {
@@ -1507,9 +1523,8 @@ extension ActionRunner {
     }
 }
 
-@MainActor
 private final class PopupTarget: NSObject {
     private let handler: (Int) -> Void
     init(_ handler: @escaping (Int) -> Void) { self.handler = handler }
-    @objc func changed(_ sender: NSPopUpButton) { handler(sender.indexOfSelectedItem) }
+    @objc @MainActor func changed(_ sender: NSPopUpButton) { handler(sender.indexOfSelectedItem) }
 }

@@ -360,6 +360,29 @@ final class FileConversionTests: XCTestCase {
         XCTAssertEqual(state.itemOutcomes.filter { $0.state == .failed }.count, 1)
     }
 
+    func testInstallToolAndConvertSeedsItemOutcomes() async throws {
+        let ready = ConversionReadyFlag()
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent("Foundry-Conversion-\(UUID().uuidString)")
+        let source = folder.appendingPathComponent("movie.mov")
+        let output = folder.appendingPathComponent("movie.mp4")
+        let state = FileConversionState(
+            assess: { _, _ in await ready.value ? .ready : .setupRequired(testSetupPlan) },
+            provision: { _, _ in await ready.set(true) },
+            convert: { _, _, _, _ in .success(output) }
+        )
+        state.setSource(url: source)
+        await state.refreshCapabilities()
+        state.convert()
+        XCTAssertNotNil(state.dependencySetup)
+        await state.installToolAndConvert()
+        try await waitForConversionToFinish(state)
+
+        XCTAssertEqual(state.itemOutcomes.count, 1)
+        XCTAssertEqual(state.itemOutcomes.first?.state, .completed)
+        XCTAssertEqual(state.outputURLs, [output])
+        XCTAssertEqual(state.phase, .completed)
+    }
+
     private func waitForConversionToFinish(_ state: FileConversionState) async throws {
         for _ in 0..<100 where state.isConverting {
             try await Task.sleep(for: .milliseconds(10))
@@ -628,6 +651,11 @@ private actor BatchConcurrencyProbe {
     }
 
     func exit() { inFlight -= 1 }
+}
+
+private actor ConversionReadyFlag {
+    private(set) var value = false
+    func set(_ newValue: Bool) { value = newValue }
 }
 
 private actor ConversionGate {

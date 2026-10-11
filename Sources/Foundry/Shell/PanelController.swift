@@ -64,12 +64,9 @@ final class PanelController: NSObject, NSWindowDelegate {
         if reduceMotion == false, let contentLayer {
             CATransaction.begin()
             CATransaction.setDisableActions(true)
-            contentLayer.anchorPoint = CGPoint(x: 0.5, y: 0.5)
-            contentLayer.position = CGPoint(x: contentLayer.frame.midX, y: contentLayer.frame.midY)
-            contentLayer.transform = CATransform3DConcat(
-                CATransform3DMakeScale(0.972, 0.972, 1),
-                CATransform3DMakeTranslation(0, 5, 0)
-            )
+            // Translate only — a scale transform resamples the layer and
+            // every row renders soft for the duration of the settle.
+            contentLayer.transform = CATransform3DMakeTranslation(0, 6, 0)
             CATransaction.commit()
             panel.alphaValue = 0
         }

@@ -17,6 +17,7 @@ final class SnippetState {
     private var visibleItemsCache: [StoredSnippet]?
     private var visibleItemsCacheQuery = ""
     private var exportFormatTarget: FormatPickerTarget?
+    private static let lastExportDirectoryKey = "snippets.lastExportDirectory"
     var selectedTag: String? {
         didSet { keepSelectionValid() }
     }
@@ -221,7 +222,11 @@ final class SnippetState {
         formatPicker.frame = NSRect(x: 0, y: 4, width: 180, height: 24)
         accessory.addSubview(formatPicker)
         panel.accessoryView = accessory
+        if let lastDirectory = UserDefaults.standard.string(forKey: Self.lastExportDirectoryKey) {
+            panel.directoryURL = URL(fileURLWithPath: lastDirectory)
+        }
         guard panel.runModal() == .OK, let url = panel.url else { return }
+        UserDefaults.standard.set(url.deletingLastPathComponent().path, forKey: Self.lastExportDirectoryKey)
         do {
             if url.pathExtension.lowercased() == "csv" {
                 try Data(csvExport().utf8).write(to: url, options: .atomic)
@@ -296,9 +301,8 @@ private struct RaycastSnippetFile: Codable {
     let keyword: String?
 }
 
-@MainActor
 private final class FormatPickerTarget: NSObject {
     private let handler: (Int) -> Void
     init(_ handler: @escaping (Int) -> Void) { self.handler = handler }
-    @objc func changed(_ sender: NSPopUpButton) { handler(sender.indexOfSelectedItem) }
+    @objc @MainActor func changed(_ sender: NSPopUpButton) { handler(sender.indexOfSelectedItem) }
 }
