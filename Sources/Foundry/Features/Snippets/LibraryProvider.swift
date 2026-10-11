@@ -45,6 +45,7 @@ final class LibraryProvider: CommandProvider {
                     ].compactMap { $0 }.joined(separator: " • "),
                     icon: CommandIcon(fallback: "SN", systemName: "curlybraces"),
                     searchKeywords: [snippet.keyword] + snippet.tags,
+                    payload: .snippet(id: snippet.id),
                     primaryAction: insertPrimary ? insertAction : copyAction,
                     secondaryActions: [
                         insertPrimary ? copyAction : insertAction,

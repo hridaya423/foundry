@@ -81,6 +81,7 @@ final class FileSearchProvider: CommandProvider, Sendable {
             title: "Search Files for \u{201C}\(term)\u{201D}",
             subtitle: "Spotlight, in your home folder",
             icon: Self.searchFilesCommand.icon,
+            payload: .command,
             primaryAction: CommandAction(id: "\(Self.commandID).fill", title: "Search Files", kind: .fillQuery(Self.prefix + term)),
             secondaryActions: []
         )]
@@ -101,6 +102,7 @@ final class FileSearchProvider: CommandProvider, Sendable {
         title: "Search Files",
         subtitle: "Type f and a file name — filter with kind:folder, kind:image, kind:doc, kind:code",
         icon: CommandIcon(fallback: "FI", systemName: "doc.text.magnifyingglass"),
+        payload: .command,
         primaryAction: CommandAction(id: "\(commandID).fill", title: "Search Files", kind: .fillQuery(prefix)),
         secondaryActions: []
     )
@@ -178,6 +180,7 @@ final class FileSearchProvider: CommandProvider, Sendable {
         title: "Spotlight Search Is Off",
         subtitle: "File search needs Spotlight indexing on your home folder",
         icon: CommandIcon(fallback: "FI", systemName: "magnifyingglass"),
+        payload: .command,
         primaryAction: CommandAction(id: "foundry.files.spotlight-disabled.open", title: "Open Spotlight Settings", kind: .openURL("x-apple.systempreferences:com.apple.Siri-Settings.extension")),
         secondaryActions: []
     )
@@ -228,6 +231,7 @@ final class FileSearchProvider: CommandProvider, Sendable {
             title: url.lastPathComponent,
             subtitle: parent,
             icon: CommandIcon(fallback: "FI", filePath: path),
+            payload: .file(url),
             primaryAction: CommandAction(id: "\(id).open", title: "Open", kind: .openURL(url.absoluteString)),
             secondaryActions: secondary
         )

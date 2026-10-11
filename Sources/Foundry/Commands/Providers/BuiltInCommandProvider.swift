@@ -28,6 +28,7 @@ final class BuiltInCommandProvider: CommandProvider {
                 icon: CommandIcon(fallback: command.fallback, systemName: command.systemIcon),
                 searchAliases: aliases,
                 searchKeywords: command.aliases,
+                payload: .command,
                 primaryAction: command.primaryAction,
                 secondaryActions: []
             )
@@ -41,6 +42,7 @@ final class BuiltInCommandProvider: CommandProvider {
                 title: command.title,
                 subtitle: command.subtitle,
                 icon: CommandIcon(fallback: command.fallback, systemName: command.systemIcon),
+                payload: .command,
                 primaryAction: command.primaryAction,
                 secondaryActions: []
             )

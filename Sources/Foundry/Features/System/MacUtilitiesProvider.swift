@@ -123,6 +123,7 @@ final class MacUtilitiesProvider: CommandProvider {
                     subtitle: "Running",
                     icon: path.isEmpty ? CommandIcon(fallback: "AP", systemName: "app") : CommandIcon(fallback: "AP", filePath: path),
                     route: .macUtility,
+                    payload: .command,
                     primaryAction: CommandAction(id: "mac.running.\(app.processIdentifier).open", title: "Switch To", kind: .openApp(path: path, name: name)),
                     secondaryActions: AppSearchProvider.actions(identity: bundleID, name: name, path: path, bundleID: bundleID, isRunning: true)
                 )
@@ -188,7 +189,16 @@ final class MacUtilitiesProvider: CommandProvider {
     }
 
     private func makeResult(id: String, title: String, subtitle: String, icon: String, fallback: String, route: SearchRoute? = nil, primary: CommandActionKind) -> CommandResult {
-        CommandResult(id: id, title: title, subtitle: subtitle, icon: CommandIcon(fallback: fallback, systemName: icon), route: route, primaryAction: CommandAction(id: id + ".primary", title: "Run", kind: primary), secondaryActions: [])
+        CommandResult(
+            id: id,
+            title: title,
+            subtitle: subtitle,
+            icon: CommandIcon(fallback: fallback, systemName: icon),
+            route: route,
+            payload: .command,
+            primaryAction: CommandAction(id: id + ".primary", title: "Run", kind: primary),
+            secondaryActions: []
+        )
     }
 }
 

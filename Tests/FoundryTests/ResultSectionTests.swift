@@ -4,7 +4,7 @@ import FoundryDomain
 
 final class ResultSectionTests: XCTestCase {
     private func result(_ id: String, _ kind: CommandActionKind) -> CommandResult {
-        CommandResult(id: id, title: id, subtitle: nil, icon: CommandIcon(fallback: "X"), primaryAction: CommandAction(id: "\(id).open", title: "Open", kind: kind), secondaryActions: [])
+        CommandResult(id: id, title: id, subtitle: nil, icon: CommandIcon(fallback: "X"), payload: .command, primaryAction: CommandAction(id: "\(id).open", title: "Open", kind: kind), secondaryActions: [])
     }
 
     func testTopHitLeadsItsNaturalSectionWhichRendersFirst() {

@@ -69,6 +69,7 @@ final class AppSearchProvider: CommandProvider, Sendable {
             icon: CommandIcon(fallback: app.fallbackIcon, filePath: path),
             searchAliases: searchAliases ?? app.normalizedSearchCandidates,
             searchKeywords: searchKeywords ?? app.normalizedSearchCandidates,
+            payload: .app(identity: app.identity),
             primaryAction: CommandAction(id: "app.\(app.identity).open", title: "Open", kind: .openApp(path: path, name: app.name)),
             secondaryActions: actions(identity: app.identity, name: app.name, path: path, bundleID: app.bundleIdentifier, isRunning: isRunning)
         )

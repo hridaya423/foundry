@@ -15,6 +15,47 @@ enum SearchRoute: String, CaseIterable, Hashable, Sendable {
     case developerTool
 }
 
+/// Typed identity of what a result *is*. Dispatch must switch on this —
+/// never on `id` string prefixes. `id` remains a stable string key for
+/// ranking/favorites bookkeeping.
+enum ResultPayload: Hashable, Sendable {
+    case app(identity: String)
+    case file(URL)
+    case snippet(id: String)
+    /// Promotable `calculator.*` answer (live result or history row).
+    case calculation(expression: String, value: String)
+    /// `calculator.convert.*` row — a calculation but never the promoted card.
+    case calculationConversion(expression: String, value: String)
+    /// `calculator.fallback.*` static rows under a promoted answer.
+    case calculatorFallback
+    case quicklink(id: String)
+    case script(path: String)
+    case url(URL)
+    case note(id: String)
+    /// `foundry.quick.*` Ask-AI prompt rows.
+    case aiPrompt
+    /// Feature command rows and transient mode rows with no entity identity.
+    case command
+}
+
+extension ResultPayload {
+    var isCalculatorConversion: Bool {
+        if case .calculationConversion = self { return true }
+        return false
+    }
+
+    /// The evaluated expression behind a `calculator.*` result — replaces
+    /// recovering it by splitting the subtitle on " · ".
+    var calculationExpression: String? {
+        switch self {
+        case let .calculation(expression, _), let .calculationConversion(expression, _):
+            return expression
+        default:
+            return nil
+        }
+    }
+}
+
 struct CommandResult: Identifiable, Hashable, Sendable {
     let id: String
     let title: String
@@ -27,6 +68,7 @@ struct CommandResult: Identifiable, Hashable, Sendable {
     let normalizedSearchAliases: [String]
     let normalizedSearchKeywords: [String]
     let route: SearchRoute?
+    let payload: ResultPayload
     let primaryAction: CommandAction
     let secondaryActions: [CommandAction]
 
@@ -38,6 +80,7 @@ struct CommandResult: Identifiable, Hashable, Sendable {
         searchAliases: [String] = [],
         searchKeywords: [String] = [],
         route: SearchRoute? = nil,
+        payload: ResultPayload,
         primaryAction: CommandAction,
         secondaryActions: [CommandAction]
     ) {
@@ -52,6 +95,7 @@ struct CommandResult: Identifiable, Hashable, Sendable {
         self.normalizedSearchAliases = searchAliases.map(SearchScoring.normalize)
         self.normalizedSearchKeywords = searchKeywords.map(SearchScoring.normalize)
         self.route = route
+        self.payload = payload
         self.primaryAction = primaryAction
         self.secondaryActions = secondaryActions
     }
@@ -138,7 +182,7 @@ enum CommandActionKind: Hashable, Sendable {
     case setAudioDevice(id: UInt32, kind: AudioDeviceKind)
     case resetRanking(commandID: String)
     case toggleFavorite(commandID: String)
-    case openCommandSettings(commandID: String)
+    case openCommandSettings(SettingsDeepLink)
     case rebuildApp
     case runProcess(path: String, arguments: [String])
     case tileWindow(WindowPlacement)
@@ -158,15 +202,31 @@ enum HomeSuggestionRules {
         "com.apple.bootcampassistant"
     ]
 
-    static func appBundleIdentifier(resultID: String) -> String? {
-        guard resultID.hasPrefix("app.") else { return nil }
-        return String(resultID.dropFirst("app.".count))
+    static func appBundleIdentifier(payload: ResultPayload) -> String? {
+        guard case let .app(identity) = payload else { return nil }
+        return identity
     }
 
-    static func isSuggestible(resultID: String, runningBundleIDs: Set<String>, hasUsage: Bool) -> Bool {
-        guard let bundleID = appBundleIdentifier(resultID: resultID) else { return false }
+    static func isSuggestible(payload: ResultPayload, runningBundleIDs: Set<String>, hasUsage: Bool) -> Bool {
+        guard let bundleID = appBundleIdentifier(payload: payload) else { return false }
         guard deniedBundleIdentifiers.contains(bundleID) == false else { return false }
         return hasUsage || runningBundleIDs.contains(bundleID)
+    }
+}
+
+/// Typed target for `.openCommandSettings` — replaces re-parsing result
+/// id prefixes in Settings to pick a pane.
+enum SettingsDeepLink: Hashable, Sendable {
+    case command(id: String)
+    case quicklinks
+    case scripts
+
+    init(result: CommandResult) {
+        switch result.payload {
+        case .quicklink: self = .quicklinks
+        case .script: self = .scripts
+        default: self = .command(id: result.id)
+        }
     }
 }
 

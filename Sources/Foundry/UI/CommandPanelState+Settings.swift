@@ -308,7 +308,7 @@ extension CommandPanelState {
 
     func isSuggestibleApp(_ result: CommandResult) -> Bool {
         HomeSuggestionRules.isSuggestible(
-            resultID: result.id,
+            payload: result.payload,
             runningBundleIDs: runningAppBundleIDs,
             hasUsage: registry.hasUsage(for: result.id)
         )

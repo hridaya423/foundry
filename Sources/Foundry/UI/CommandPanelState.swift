@@ -107,7 +107,7 @@ final class CommandPanelState {
     var onOpenSettings: (() -> Void)?
     var onQuickLook: ((URL) -> Void)?
     var onTransientNotice: ((ActionFeedback) -> Void)?
-    var pendingSettingsCommandID: String?
+    var pendingSettingsDeepLink: SettingsDeepLink?
     var onOpenWelcomeGuide: (() -> Void)?
     var onSnippetExpansionChanged: (() -> Void)?
     var onRequestSnippetAccessibility: (() -> Void)?
@@ -181,7 +181,7 @@ final class CommandPanelState {
             return sections.suggestions + sections.commands
         }
         var list = searchListResults
-        if let selectedResultID, Self.isPromotedCalculatorID(selectedResultID) {
+        if selectedPromotedCalculatorResult != nil {
             list += Self.calculatorFallbackResults
         }
         return list
@@ -191,8 +191,8 @@ final class CommandPanelState {
     /// is promoted to its card, or when the shelf holds files.
     var searchListResults: [CommandResult] {
         var list = results
-        if let selectedID = selectedResultID, Self.isPromotedCalculatorID(selectedID) {
-            list = list.filter { $0.id != selectedID && $0.id.hasPrefix("calculator.convert.") == false }
+        if let selected = selectedPromotedCalculatorResult {
+            list = list.filter { $0.id != selected.id && $0.payload.isCalculatorConversion == false }
         }
         if mode == .search, fileShelf.files.isEmpty == false, query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             list = list.filter { $0.id != "foundry.file-shelf" }
@@ -227,8 +227,21 @@ final class CommandPanelState {
 
     /// `calculator.*` rows promote to the answer card; the `calculator.fallback.*`
     /// rows offered under it are ordinary list rows, not promotions.
-    static func isPromotedCalculatorID(_ id: String) -> Bool {
-        id.hasPrefix("calculator.") && id.hasPrefix("calculator.fallback.") == false
+    static func isPromotedCalculatorResult(_ result: CommandResult) -> Bool {
+        switch result.payload {
+        case .calculation, .calculationConversion: return true
+        default: return false
+        }
+    }
+
+    /// The selected result when it promotes to a calculator card. Reads
+    /// `results` directly — `selectedResult` itself resolves through
+    /// `navigableResults`, which consults this property.
+    private var selectedPromotedCalculatorResult: CommandResult? {
+        guard let selectedResultID,
+              let selected = results.first(where: { $0.id == selectedResultID }),
+              Self.isPromotedCalculatorResult(selected) else { return nil }
+        return selected
     }
 
     /// Static rows offered under a promoted calculator answer. Real
@@ -239,6 +252,7 @@ final class CommandPanelState {
             title: "Clipboard History",
             subtitle: "Search copied text, files, and images",
             icon: CommandIcon(fallback: "CB", systemName: "doc.on.clipboard"),
+            payload: .calculatorFallback,
             primaryAction: CommandAction(id: "calculator.fallback.clipboard.open", title: "Open", kind: .openClipboardHistory),
             secondaryActions: []
         ),
@@ -247,6 +261,7 @@ final class CommandPanelState {
             title: "File Shelf",
             subtitle: "Hold files for quick actions",
             icon: CommandIcon(fallback: "FS", systemName: "tray.full"),
+            payload: .calculatorFallback,
             primaryAction: CommandAction(id: "calculator.fallback.fileshelf.open", title: "Open", kind: .openFileShelf),
             secondaryActions: []
         ),
@@ -255,6 +270,7 @@ final class CommandPanelState {
             title: "Open Foundry Settings",
             subtitle: "Customize Home, commands, and Foundry preferences",
             icon: CommandIcon(fallback: "ST", systemName: "slider.horizontal.3"),
+            payload: .calculatorFallback,
             primaryAction: CommandAction(id: "calculator.fallback.settings.open", title: "Open", kind: .openSettings),
             secondaryActions: []
         ),
@@ -264,7 +280,12 @@ final class CommandPanelState {
     /// and apps — not on ephemeral rows like files, clipboard items,
     /// calculator answers, or one-shot Ask-AI prompts.
     private func supportsMetaActions(_ result: CommandResult) -> Bool {
-        ["file.", "clipboard.", "calculator.", "foundry.quick."].contains { result.id.hasPrefix($0) } == false
+        switch result.payload {
+        case .file, .calculation, .calculationConversion, .calculatorFallback, .aiPrompt:
+            return false
+        default:
+            return true
+        }
     }
 
     var selectedActions: [CommandAction] {
@@ -282,7 +303,7 @@ final class CommandPanelState {
             ), CommandAction(
                 id: "settings.configure.\(selectedResult.id)",
                 title: "Configure Command",
-                kind: .openCommandSettings(commandID: selectedResult.id)
+                kind: .openCommandSettings(SettingsDeepLink(result: selectedResult))
             )]
             : [CommandAction]()
         return orderedActions(for: selectedResult)
@@ -295,11 +316,10 @@ final class CommandPanelState {
     }
 
     private func prepareOpenWithActions() {
-        guard let result = selectedResult, result.id.hasPrefix("file.") else { return }
-        let path = String(result.id.dropFirst("file.".count))
+        guard let result = selectedResult, case let .file(url) = result.payload else { return }
+        let path = url.path
         let resultID = result.id
         openWithTask = Task { [weak self] in
-            let url = URL(fileURLWithPath: path)
             let (apps, defaultApp) = await Task.detached { () -> ([URL], URL?) in
                 let apps = NSWorkspace.shared.urlsForApplications(toOpen: url)
                 return (apps, NSWorkspace.shared.urlForApplication(toOpen: url))
@@ -684,8 +704,8 @@ final class CommandPanelState {
             let nowFavorite = toggleFavorite(commandID: id)
             return .stayOpen(message: nowFavorite ? "Added to Favorites" : "Removed from Favorites")
         }
-        if case let .openCommandSettings(id) = action.kind {
-            pendingSettingsCommandID = id
+        if case let .openCommandSettings(deepLink) = action.kind {
+            pendingSettingsDeepLink = deepLink
             open(.settings)
             return .stayOpen(message: nil)
         }
@@ -833,8 +853,8 @@ final class CommandPanelState {
     func performModeShortcut(_ shortcut: ActionShortcut, dismiss: @escaping @MainActor () -> Void) -> Bool {
         guard shortcut.modifiers == [.command] else { return false }
         if mode == .search, shortcut.key == "y",
-           let id = selectedResult?.id, id.hasPrefix("file.") {
-            onQuickLook?(URL(fileURLWithPath: String(id.dropFirst("file.".count))))
+           case let .file(url)? = selectedResult?.payload {
+            onQuickLook?(url)
             return true
         }
         if mode == .quickAI {
@@ -1229,8 +1249,7 @@ final class CommandPanelState {
             confettiBurstID &+= 1
             performHaptic(.alignment)
         }
-        if case .copied = outcome, result.route == .calculator {
-            let expression = result.subtitle?.components(separatedBy: " · ").first ?? ""
+        if case .copied = outcome, let expression = result.payload.calculationExpression {
             CalculatorHistoryStore.shared.record(expression: expression, result: result.title)
         }
         return outcome

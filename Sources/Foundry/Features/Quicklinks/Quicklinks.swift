@@ -146,7 +146,8 @@ final class QuicklinkProvider: CommandProvider, Sendable {
         title: "Create Quicklink",
         subtitle: "Name, link with {argument}, keyword — edit in Settings",
         icon: CommandIcon(fallback: "QL", systemName: "plus.link"),
-        primaryAction: CommandAction(id: "quicklink.create.open", title: "Create", kind: .openCommandSettings(commandID: "quicklink.create")),
+        payload: .quicklink(id: "create"),
+        primaryAction: CommandAction(id: "quicklink.create.open", title: "Create", kind: .openCommandSettings(.quicklinks)),
         secondaryActions: []
     )
 
@@ -218,6 +219,7 @@ final class QuicklinkProvider: CommandProvider, Sendable {
             icon: CommandIcon(fallback: String(link.name.prefix(2)).uppercased(), systemName: isFileSearch ? "doc.text.magnifyingglass" : "link", remoteIconURL: link.useFavicon == false ? nil : Self.faviconURL(for: link.link)),
             searchAliases: aliases,
             searchKeywords: [link.keyword].filter { !$0.isEmpty },
+            payload: .quicklink(id: link.id),
             primaryAction: primary,
             secondaryActions: [
                 CommandAction(id: "\(id).copy", title: "Copy Link", kind: .copyToClipboard(argument.map { QuicklinkTemplate.expand(link.link, argument: $0, context: context()) } ?? link.link)),

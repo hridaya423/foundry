@@ -336,9 +336,8 @@ struct ResultRow: View {
     }
 
     private var dragProvider: (() -> NSItemProvider)? {
-        guard result.id.hasPrefix("file.") else { return nil }
-        let path = String(result.id.dropFirst(5))
-        return { NSItemProvider(object: NSURL(fileURLWithPath: path)) }
+        guard case let .file(url) = result.payload else { return nil }
+        return { NSItemProvider(object: url as NSURL) }
     }
 }
 

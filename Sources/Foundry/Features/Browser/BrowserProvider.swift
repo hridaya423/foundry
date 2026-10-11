@@ -268,6 +268,7 @@ final class BrowserProvider: CommandProvider, Sendable {
             subtitle: record.subtitle,
             icon: CommandIcon(fallback: record.browser.abbreviation, systemName: record.icon),
             route: route,
+            payload: .url(record.url),
             primaryAction: CommandAction(
                 id: "browser.open.\(record.id)",
                 title: "Open in \(record.browser.displayName)",
@@ -286,6 +287,7 @@ final class BrowserProvider: CommandProvider, Sendable {
             title: browser.displayName,
             subtitle: "Search tabs, history, and bookmarks with: \(browser.rawValue) <text>",
             icon: CommandIcon(fallback: browser.abbreviation, systemName: "globe"),
+            payload: .command,
             primaryAction: CommandAction(
                 id: "foundry.browser.launch.\(browser.rawValue)",
                 title: "Open",

@@ -24,30 +24,29 @@ struct SettingsView: View {
             searchFocused = true
             consumePendingCommandReveal()
         }
-        .onChange(of: state.pendingSettingsCommandID) { _, _ in consumePendingCommandReveal() }
+        .onChange(of: state.pendingSettingsDeepLink) { _, _ in consumePendingCommandReveal() }
     }
 
     private func consumePendingCommandReveal() {
-        guard let id = state.pendingSettingsCommandID else { return }
-        state.pendingSettingsCommandID = nil
-        if id.hasPrefix("quicklink.") {
+        guard let deepLink = state.pendingSettingsDeepLink else { return }
+        state.pendingSettingsDeepLink = nil
+        switch deepLink {
+        case .quicklinks:
             category = .quicklinks
             pendingAnchor = "quicklinks.list"
             highlightedAnchor = "quicklinks.list"
-            return
-        }
-        if id.hasPrefix("script.") {
+        case .scripts:
             category = .scripts
             pendingAnchor = "scripts.folders"
             highlightedAnchor = "scripts.folders"
-            return
+        case let .command(id):
+            category = .commands
+            state.prepareCommandCatalog()
+            state.commandSettingsQuery = ""
+            state.expandedCommandID = id
+            pendingAnchor = "commands.\(id)"
+            highlightedAnchor = "commands.\(id)"
         }
-        category = .commands
-        state.prepareCommandCatalog()
-        state.commandSettingsQuery = ""
-        state.expandedCommandID = id
-        pendingAnchor = "commands.\(id)"
-        highlightedAnchor = "commands.\(id)"
     }
 
     private var searchMatches: [SettingItem] {

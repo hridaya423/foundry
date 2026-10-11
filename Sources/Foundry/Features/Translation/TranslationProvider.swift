@@ -20,6 +20,7 @@ final class TranslationProvider: CommandProvider {
                 subtitle: "Apple Translation • Translate to \(request.target.displayName)",
                 icon: CommandIcon(fallback: "TR", systemName: "globe"),
                 route: .translation,
+                payload: .command,
                 primaryAction: CommandAction(id: "translate.copy", title: "Copy Translation", kind: .copyToClipboard(text)),
                 secondaryActions: [
                     CommandAction(id: "translate.open", title: "Open Translator", kind: .openTranslator(text: request.text, language: request.target.identifier)),
@@ -42,6 +43,7 @@ final class TranslationProvider: CommandProvider {
             subtitle: "Open Translator to try again",
             icon: CommandIcon(fallback: "TR", systemName: "globe"),
             route: .translation,
+            payload: .command,
             primaryAction: CommandAction(id: "translate.open", title: "Open Translator", kind: .openTranslator(text: request.text, language: request.target.identifier)),
             secondaryActions: [
                 CommandAction(id: "translate.copy-source", title: "Copy Source", kind: .copyToClipboard(request.text))
@@ -55,6 +57,7 @@ final class TranslationProvider: CommandProvider {
             subtitle: "Open Translator to complete the request",
             icon: CommandIcon(fallback: "TR", systemName: "globe"),
             route: .translation,
+            payload: .command,
             primaryAction: CommandAction(id: "translate.open", title: "Translate", kind: .openTranslator(text: request.text, language: request.target.identifier)),
             secondaryActions: [
                 CommandAction(id: "translate.copy-source", title: "Copy Source", kind: .copyToClipboard(request.text))

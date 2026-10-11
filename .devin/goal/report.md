@@ -58,6 +58,15 @@ Quality bar: Raycast. Plan: `docs/plans/2026-10-11-foundry-raycast-bar-audit.md`
 - Kept deliberately outside the model: `com.apple.symbolichotkeys` suite (macOS system domain), `SourceRootLocator` (DEBUG non-packaged suite)
 - New tests: migration import/removal/no-rerun, config-init import, bound vs standalone store, legacy-JSON decode, backup round-trip carries localState inside config.json
 
+### Phase 4.1 — typed `ResultPayload` ✅ (this commit)
+- `ResultPayload` enum on `CommandResult` — required init arg so all ~37 construction sites were compiler-enumerated: `.app(identity:)`, `.file(URL)`, `.snippet(id:)`, `.calculation/.calculationConversion(expr:value:)`, `.calculatorFallback`, `.quicklink(id:)`, `.script(path:)`, `.url(URL)`, `.note(id:)`, `.aiPrompt`, `.command`. `id` remains a stable string key for ranking/favorites.
+- Every `result.id.hasPrefix("file."/"snippet."/"calculator."/"quicklink."/"app."/"foundry.quick.")` dispatch + every `id.dropFirst` decode migrated to payload switches: kind labels, ResultSections bucketing, quicklink partition, meta-action gating, promotion filter, Open-With/Quick Look/drag-provider path decode, home-suggestion bundle id.
+- `openCommandSettings(commandID:)` → `openCommandSettings(SettingsDeepLink)`; `pendingSettingsCommandID` → typed `pendingSettingsDeepLink` — Settings pane routing no longer re-parses prefixes.
+- Calculator history record reads `payload.calculationExpression` — kills the subtitle `" · "` split (which also silently broke on expressions containing " · ").
+- `clipboard.`/`systemPane` cases omitted: nothing mints them (dead exclusion) — noted, not cargo.
+- Caught by suite: promotion lookup must read `results` not `selectedResult` (the latter resolves via `navigableResults` → cycle → stack overflow). Fixed via `selectedPromotedCalculatorResult`.
+- Gate: build clean, 631/0, lint PASS. Fixture helpers gained `payload:` params (default `.command`).
+
 ### Phase 4.5 — `@unchecked Sendable` audit ✅ (this commit)
 - ~60 sites → **3 justified** (target ≤10). Compiler-driven method per handoff: flip to `Sendable`, let the compiler enumerate violations, consolidate mutable state into `OSAllocatedUnfairLock<State>`.
 - `init(initialState:)` requires `State: Sendable`; SDK/non-Sendable state (`VNRequest`, `OpaquePointer` db handle, `CheckedContinuation`, `DispatchWorkItem`, `URLSession*` types, `NSColorSampler`, `NSObjectProtocol` observer, `ISO8601DateFormatter`) uses `init(uncheckedState:)` + `withLockUnchecked` — the lock still vouches, just not the type system.

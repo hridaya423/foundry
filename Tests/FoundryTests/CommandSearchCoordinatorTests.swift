@@ -77,6 +77,7 @@ final class CommandSearchCoordinatorTests: XCTestCase {
                 title: request.query,
                 subtitle: nil,
                 icon: CommandIcon(fallback: "Q"),
+                payload: .command,
                 primaryAction: CommandAction(id: "open.\(request.query)", title: "Open", kind: .openHome),
                 secondaryActions: []
             )]
@@ -94,6 +95,7 @@ final class CommandSearchCoordinatorTests: XCTestCase {
                 title: "Slow result",
                 subtitle: nil,
                 icon: CommandIcon(fallback: "S"),
+                payload: .command,
                 primaryAction: CommandAction(id: "slow.result.open", title: "Open", kind: .openHome),
                 secondaryActions: []
             )]

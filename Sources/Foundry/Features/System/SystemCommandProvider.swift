@@ -36,6 +36,7 @@ final class SystemCommandProvider: CommandProvider, Sendable {
                 icon: CommandIcon(fallback: command.fallback, systemName: command.systemIcon),
                 searchAliases: aliases,
                 searchKeywords: command.aliases,
+                payload: .command,
                 primaryAction: CommandAction(id: "\(command.id).perform", title: command.actionTitle, kind: command.actionKind),
                 secondaryActions: []
             )

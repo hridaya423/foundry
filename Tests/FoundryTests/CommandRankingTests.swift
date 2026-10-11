@@ -452,6 +452,7 @@ final class CommandRankingTests: XCTestCase {
             searchAliases: aliases,
             searchKeywords: searchKeywords,
             route: route,
+            payload: .command,
             primaryAction: CommandAction(id: id + ".open", title: "Open", kind: .openHome),
             secondaryActions: []
         )
@@ -543,6 +544,7 @@ final class CommandRankingTests: XCTestCase {
                 title: "Fallback result",
                 subtitle: nil,
                 icon: CommandIcon(fallback: "F"),
+                payload: .command,
                 primaryAction: CommandAction(id: "test.fallback.open", title: "Open", kind: .openHome),
                 secondaryActions: []
             )]

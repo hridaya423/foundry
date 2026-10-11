@@ -35,6 +35,7 @@ final class CalculatorProvider: CommandProvider {
                 subtitle: evaluation.expression,
                 icon: CommandIcon(fallback: "=", systemName: "function"),
                 route: .calculator,
+                payload: .calculation(expression: evaluation.expression, value: result),
                 primaryAction: CommandAction(id: "calculator.\(expression).copy", title: "Copy Result", kind: .copyToClipboard(evaluation.copyValue)),
                 secondaryActions: [
                     CommandAction(id: "calculator.\(expression).copy-expression", title: "Copy Expression", kind: .copyToClipboard(evaluation.expression))
@@ -92,6 +93,7 @@ final class CalculatorProvider: CommandProvider {
                 subtitle: entry.expression,
                 icon: CommandIcon(fallback: "=", systemName: "clock"),
                 route: .calculator,
+                payload: .calculation(expression: entry.expression, value: entry.result),
                 primaryAction: CommandAction(id: "calculator.history.\(index).copy", title: "Copy Result", kind: .copyToClipboard(entry.result)),
                 secondaryActions: [
                     CommandAction(id: "calculator.history.\(index).copy-expression", title: "Copy Expression", kind: .copyToClipboard(entry.expression))
@@ -108,6 +110,7 @@ final class CalculatorProvider: CommandProvider {
                 subtitle: conversion.subtitle,
                 icon: CommandIcon(fallback: "⇄", systemName: "arrow.left.arrow.right"),
                 route: .calculator,
+                payload: .calculationConversion(expression: conversion.expression, value: conversion.result),
                 primaryAction: CommandAction(id: "calculator.convert.\(index).copy", title: "Copy Result", kind: .copyToClipboard(conversion.copyValue)),
                 secondaryActions: [
                     CommandAction(id: "calculator.convert.\(index).copy-expression", title: "Copy Conversion", kind: .copyToClipboard("\(conversion.expression) = \(conversion.result)"))

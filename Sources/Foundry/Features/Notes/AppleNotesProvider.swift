@@ -31,6 +31,7 @@ final class AppleNotesProvider: CommandProvider {
                 subtitle: note.preview,
                 icon: CommandIcon(fallback: "AN", systemName: "note.text"),
                 route: .notesSearch,
+                payload: .note(id: note.id),
                 primaryAction: CommandAction(id: "apple-note.open.\(note.id)", title: "Open in Apple Notes", kind: .runProcess(path: "/usr/bin/osascript", arguments: openScriptArguments(noteID: note.id))),
                 secondaryActions: [
                     CommandAction(id: "apple-note.copy.\(note.id)", title: "Copy Preview", kind: .copyToClipboard(note.preview))
@@ -46,6 +47,7 @@ final class AppleNotesProvider: CommandProvider {
                 title: "Apple Notes",
                 subtitle: "Search with: notes <text>",
                 icon: CommandIcon(fallback: "AN", systemName: "note.text"),
+                payload: .command,
                 primaryAction: CommandAction(id: "foundry.apple-notes.launch", title: "Open", kind: .runProcess(path: "/usr/bin/open", arguments: ["-a", "Notes"])),
                 secondaryActions: []
             )
@@ -99,6 +101,7 @@ final class AppleNotesProvider: CommandProvider {
         title: "Couldn’t search Apple Notes",
         subtitle: "Check Automation access in System Settings › Privacy & Security",
         icon: CommandIcon(fallback: "AN", systemName: "exclamationmark.triangle"),
+        payload: .command,
         primaryAction: CommandAction(
             id: "apple-note.open-privacy",
             title: "Open Privacy Settings",

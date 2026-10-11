@@ -23,6 +23,7 @@ final class WindowManagementProvider: CommandProvider {
                 icon: command.icon,
                 searchAliases: aliases,
                 searchKeywords: command.aliases,
+                payload: .command,
                 primaryAction: command.primaryAction,
                 secondaryActions: []
             )
@@ -75,6 +76,7 @@ private struct WindowCommand {
             title: title,
             subtitle: subtitle,
             icon: icon,
+            payload: .command,
             primaryAction: primaryAction,
             secondaryActions: []
         )

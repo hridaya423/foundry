@@ -47,6 +47,7 @@ final class ShortcutsProvider: CommandProvider, Sendable {
                 icon: CommandIcon(fallback: "SC", systemName: "square.2.layers.3d"),
                 searchAliases: aliases,
                 searchKeywords: ["shortcut"],
+                payload: .command,
                 primaryAction: CommandAction(id: "\(id).run", title: "Run Shortcut", kind: .runProcess(path: Self.cliPath, arguments: ["run", name])),
                 secondaryActions: [CommandAction(id: "\(id).edit", title: "Edit in Shortcuts", kind: .openURL("shortcuts://open-shortcut?name=\(name.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? name)"))]
             )

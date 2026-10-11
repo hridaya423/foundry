@@ -160,6 +160,7 @@ final class CommandPanelStateTests: XCTestCase {
             title: "Download",
             subtitle: nil,
             icon: CommandIcon(fallback: "D"),
+            payload: .command,
             primaryAction: CommandAction(
                 id: "test.background-download.perform",
                 title: "Download",
@@ -334,6 +335,7 @@ final class CommandPanelStateTests: XCTestCase {
             title: "Test",
             subtitle: nil,
             icon: CommandIcon(fallback: "T"),
+            payload: .command,
             primaryAction: CommandAction(id: "test.open", title: "Open", kind: .openSettings),
             secondaryActions: []
         )
@@ -363,7 +365,7 @@ final class CommandPanelStateTests: XCTestCase {
 
         state.resetForOpen()
         state.query = "tes"
-        state.results = [CommandResult(id: "test.result", title: "Test", subtitle: nil, icon: CommandIcon(fallback: "T"), primaryAction: CommandAction(id: "test.open", title: "Open", kind: .openSettings), secondaryActions: [])]
+        state.results = [CommandResult(id: "test.result", title: "Test", subtitle: nil, icon: CommandIcon(fallback: "T"), payload: .command, primaryAction: CommandAction(id: "test.open", title: "Open", kind: .openSettings), secondaryActions: [])]
         state.mode = .translator
         state.panelWillClose()
 
@@ -403,11 +405,11 @@ final class CommandPanelStateTests: XCTestCase {
     func testHomeSuggestionColdStartRules() {
         let running: Set<String> = ["com.apple.Safari"]
 
-        XCTAssertTrue(HomeSuggestionRules.isSuggestible(resultID: "app.com.apple.Safari", runningBundleIDs: running, hasUsage: false))
-        XCTAssertTrue(HomeSuggestionRules.isSuggestible(resultID: "app.com.apple.Terminal", runningBundleIDs: [], hasUsage: true))
-        XCTAssertFalse(HomeSuggestionRules.isSuggestible(resultID: "app.com.apple.Terminal", runningBundleIDs: running, hasUsage: false))
-        XCTAssertFalse(HomeSuggestionRules.isSuggestible(resultID: "app.com.apple.BluetoothFileExchange", runningBundleIDs: ["com.apple.BluetoothFileExchange"], hasUsage: true))
-        XCTAssertFalse(HomeSuggestionRules.isSuggestible(resultID: "foundry.clipboard", runningBundleIDs: running, hasUsage: true))
+        XCTAssertTrue(HomeSuggestionRules.isSuggestible(payload: .app(identity: "com.apple.Safari"), runningBundleIDs: running, hasUsage: false))
+        XCTAssertTrue(HomeSuggestionRules.isSuggestible(payload: .app(identity: "com.apple.Terminal"), runningBundleIDs: [], hasUsage: true))
+        XCTAssertFalse(HomeSuggestionRules.isSuggestible(payload: .app(identity: "com.apple.Terminal"), runningBundleIDs: running, hasUsage: false))
+        XCTAssertFalse(HomeSuggestionRules.isSuggestible(payload: .app(identity: "com.apple.BluetoothFileExchange"), runningBundleIDs: ["com.apple.BluetoothFileExchange"], hasUsage: true))
+        XCTAssertFalse(HomeSuggestionRules.isSuggestible(payload: .command, runningBundleIDs: running, hasUsage: true))
     }
 
     func testActionFilterIsIndependentOfQueryAndEscapeRestoresTheList() {
@@ -420,6 +422,7 @@ final class CommandPanelStateTests: XCTestCase {
             title: "Report",
             subtitle: nil,
             icon: CommandIcon(fallback: "F"),
+            payload: .command,
             primaryAction: CommandAction(id: "open", title: "Open", kind: .log("open")),
             secondaryActions: [
                 CommandAction(id: "copy-file", title: "Copy File", kind: .copyFile(path: "/tmp/report")),
@@ -459,6 +462,7 @@ final class CommandPanelStateTests: XCTestCase {
             title: "Report",
             subtitle: nil,
             icon: CommandIcon(fallback: "F"),
+            payload: .command,
             primaryAction: CommandAction(id: "open", title: "Open", kind: .log("open")),
             secondaryActions: [
                 CommandAction(id: "copy", title: "Copy", kind: .copyToClipboard("a")),
@@ -507,8 +511,8 @@ final class CommandPanelStateTests: XCTestCase {
         var lookedAt: [URL] = []
         state.onQuickLook = { lookedAt.append($0) }
         state.results = [
-            CommandResult(id: "file./tmp/report.pdf", title: "report.pdf", subtitle: nil, icon: CommandIcon(fallback: "F"), primaryAction: CommandAction(id: "open", title: "Open", kind: .log("open")), secondaryActions: []),
-            CommandResult(id: "app.safari", title: "Safari", subtitle: nil, icon: CommandIcon(fallback: "S"), primaryAction: CommandAction(id: "open", title: "Open", kind: .log("open")), secondaryActions: []),
+            CommandResult(id: "file./tmp/report.pdf", title: "report.pdf", subtitle: nil, icon: CommandIcon(fallback: "F"), payload: .file(URL(fileURLWithPath: "/tmp/report.pdf")), primaryAction: CommandAction(id: "open", title: "Open", kind: .log("open")), secondaryActions: []),
+            CommandResult(id: "app.safari", title: "Safari", subtitle: nil, icon: CommandIcon(fallback: "S"), payload: .command, primaryAction: CommandAction(id: "open", title: "Open", kind: .log("open")), secondaryActions: []),
         ]
         state.selectedResultID = "app.safari"
         XCTAssertFalse(state.performModeShortcut(ActionShortcut(key: "y", modifiers: [.command])) {})
@@ -534,6 +538,7 @@ final class CommandPanelStateTests: XCTestCase {
             title: "Favorite Me",
             subtitle: nil,
             icon: CommandIcon(fallback: "F"),
+            payload: .command,
             primaryAction: CommandAction(id: "test.favorite.open", title: "Open", kind: .log("fav")),
             secondaryActions: []
         )
@@ -665,6 +670,7 @@ private struct URLCollisionProvider: CommandProvider {
             title: "Kill Port 127",
             subtitle: "Unrelated immediate result",
             icon: CommandIcon(fallback: "P"),
+            payload: .command,
             primaryAction: CommandAction(id: "test.kill-port.perform", title: "Run", kind: .log("collision")),
             secondaryActions: []
         )]
@@ -682,6 +688,7 @@ private struct FavoriteStubProvider: CommandProvider {
             title: "Favorite Me",
             subtitle: nil,
             icon: CommandIcon(fallback: "F"),
+            payload: .command,
             primaryAction: CommandAction(id: "test.favorite.open", title: "Open", kind: .log("fav")),
             secondaryActions: []
         )]

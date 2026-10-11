@@ -21,6 +21,7 @@ final class CameraCommandProvider: CommandProvider {
             icon: CommandIcon(fallback: "CM", systemName: "camera"),
             searchAliases: aliases,
             searchKeywords: ["camera", "webcam", "preview", "cam"],
+            payload: .command,
             primaryAction: CommandAction(id: "foundry.camera.open", title: "Open", kind: .openCamera),
             secondaryActions: []
         )]

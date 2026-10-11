@@ -29,6 +29,7 @@ final class DeveloperToolsProvider: CommandProvider {
                 searchAliases: result.searchAliases,
                 searchKeywords: result.searchKeywords,
                 route: .developerTool,
+                payload: result.payload,
                 primaryAction: result.primaryAction,
                 secondaryActions: result.secondaryActions
             )
@@ -352,6 +353,7 @@ final class DeveloperToolsProvider: CommandProvider {
             icon: CommandIcon(fallback: fallback, systemName: icon),
             searchAliases: searchAliases,
             searchKeywords: searchKeywords,
+            payload: .command,
             primaryAction: CommandAction(id: id + ".primary", title: "Copy", kind: primary),
             secondaryActions: secondary
         )

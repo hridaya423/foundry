@@ -16,6 +16,7 @@ final class PanelKeyboardTests: XCTestCase {
     private func result(
         _ id: String,
         title: String = "Result",
+        payload: ResultPayload = .command,
         primary: CommandActionKind = .openHome
     ) -> CommandResult {
         CommandResult(
@@ -23,6 +24,7 @@ final class PanelKeyboardTests: XCTestCase {
             title: title,
             subtitle: nil,
             icon: CommandIcon(fallback: "T"),
+            payload: payload,
             primaryAction: CommandAction(id: id + ".primary", title: "Open", kind: primary),
             secondaryActions: []
         )
@@ -34,6 +36,7 @@ final class PanelKeyboardTests: XCTestCase {
             title: title,
             subtitle: nil,
             icon: CommandIcon(fallback: "A"),
+            payload: .command,
             primaryAction: CommandAction(id: id + ".open", title: "Open", kind: .openApp(path: "/Applications/\(title).app", name: title)),
             secondaryActions: []
         )
@@ -102,7 +105,7 @@ final class PanelKeyboardTests: XCTestCase {
 
     func testCalculatorFallbackRowsAreReachableByKeyboard() {
         let state = makeState()
-        let calc = result("calculator.expr", title: "42", primary: .copyToClipboard("42"))
+        let calc = result("calculator.expr", title: "42", payload: .calculation(expression: "6*7", value: "42"), primary: .copyToClipboard("42"))
         state.results = [calc]
         state.query = "6*7"
         state.selectedResultID = calc.id
@@ -131,7 +134,7 @@ final class PanelKeyboardTests: XCTestCase {
 
     func testMetaActionsHiddenForEphemeralResults() {
         let state = makeState()
-        let file = result("file./tmp/doc.pdf", title: "doc.pdf", primary: .openFileWithApp(path: "/tmp/doc.pdf", appPath: ""))
+        let file = result("file./tmp/doc.pdf", title: "doc.pdf", payload: .file(URL(fileURLWithPath: "/tmp/doc.pdf")), primary: .openFileWithApp(path: "/tmp/doc.pdf", appPath: ""))
         state.results = [file]
         state.query = "doc"
         state.selectedResultID = file.id
@@ -165,6 +168,7 @@ final class PanelKeyboardTests: XCTestCase {
             title: "Random Number",
             subtitle: nil,
             icon: CommandIcon(fallback: "T"),
+            payload: .command,
             primaryAction: CommandAction(id: "test.copy.primary", title: "Copy", kind: .copyToClipboard("7")),
             secondaryActions: []
         )

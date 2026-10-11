@@ -130,6 +130,7 @@ final class ScriptCommandProvider: CommandProvider, Sendable {
             icon: CommandIcon(fallback: script.icon.map { String($0.prefix(2)) } ?? "SH", systemName: "terminal"),
             searchAliases: aliases,
             searchKeywords: ["script"],
+            payload: .script(path: script.path),
             primaryAction: primary,
             secondaryActions: []
         )

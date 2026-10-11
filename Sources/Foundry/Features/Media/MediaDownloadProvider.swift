@@ -46,6 +46,7 @@ final class MediaDownloadProvider: CommandProvider {
                 subtitle: "\(url.absoluteString)\n\(detail) · save via \(service) to \(MediaDownloadDestination.folder.lastPathComponent)",
                 icon: CommandIcon(fallback: "DL", systemName: "arrow.down.circle", thumbnailURL: thumbnailURL),
                 route: .mediaDownload,
+                payload: .command,
                 primaryAction: CommandAction(id: "media.download.perform", title: isBatch ? "Download All" : "Download", kind: primaryKind),
                 secondaryActions: [
                     CommandAction(id: "media.download.open-manager", title: "View Downloads", kind: .openMediaDownloads),

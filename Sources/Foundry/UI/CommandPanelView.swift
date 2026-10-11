@@ -28,7 +28,7 @@ struct CommandPanelView: View {
 
     private var selectedCalculatorResult: CommandResult? {
         guard let selectedResult = state.selectedResult,
-              CommandPanelState.isPromotedCalculatorID(selectedResult.id) else { return nil }
+              CommandPanelState.isPromotedCalculatorResult(selectedResult) else { return nil }
         return selectedResult
     }
 
@@ -471,14 +471,14 @@ struct CommandPanelView: View {
             windowLayoutSurface
         } else if state.results.isEmpty {
             searchEmptyState
-        } else if FileSearchProvider.fileQuery(state.query) != nil, let id = state.selectedResult?.id, id.hasPrefix("file.") {
+        } else if FileSearchProvider.fileQuery(state.query) != nil, case let .file(url)? = state.selectedResult?.payload {
             SplitPreviewLayout {
                 resultsSurface
             } preview: {
-                FilePreview(path: String(id.dropFirst("file.".count)))
+                FilePreview(path: url.path)
             }
-        } else if let id = state.selectedResult?.id, id.hasPrefix("snippet."),
-                  let snippet = state.snippets.items.first(where: { "snippet.\($0.id)" == id }) {
+        } else if case let .snippet(snippetID)? = state.selectedResult?.payload,
+                  let snippet = state.snippets.items.first(where: { $0.id == snippetID }) {
             SplitPreviewLayout {
                 resultsSurface
             } preview: {
@@ -675,7 +675,7 @@ struct CommandPanelView: View {
     private var calculatorAlternativeResults: [CommandResult] {
         guard let selectedCalculatorResult else { return [] }
         return state.results.filter { result in
-            result.id.hasPrefix("calculator.convert.") && result.id != selectedCalculatorResult.id
+            result.payload.isCalculatorConversion && result.id != selectedCalculatorResult.id
         }
     }
 
@@ -757,7 +757,7 @@ struct CommandPanelView: View {
                 isSelected: state.selectedResultID == result.id,
                 alias: preference?.aliases.first,
                 hotkey: preference?.globalHotkey?.displayName,
-                isRunning: HomeSuggestionRules.appBundleIdentifier(resultID: result.id).map(state.runningAppBundleIDs.contains) ?? false,
+                isRunning: HomeSuggestionRules.appBundleIdentifier(payload: result.payload).map(state.runningAppBundleIDs.contains) ?? false,
                 kindLabel: showKind ? resultKindLabel(for: result) : nil,
                 compact: state.windowMode == .compact
             )
@@ -784,8 +784,11 @@ struct CommandPanelView: View {
         // Kind labels describe what the result *is* (Raycast: "Application",
         // "File"), not what the default action does — the action title lives
         // in the footer.
-        if result.id.hasPrefix("quicklink.") { return "Quicklink" }
-        if result.id.hasPrefix("file.") { return "File" }
+        switch result.payload {
+        case .quicklink: return "Quicklink"
+        case .file: return "File"
+        default: break
+        }
         switch result.route {
         case .calculator: return "Calculation"
         case .translation: return "Translation"

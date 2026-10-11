@@ -15,7 +15,7 @@ enum ResultSection: String, CaseIterable {
         case .notesSearch: return .notes
         default: break
         }
-        if result.id.hasPrefix("file.") { return .files }
+        if case .file = result.payload { return .files }
         switch result.primaryAction.kind {
         case .openApp: return .applications
         case .openQuickAI: return .fallback

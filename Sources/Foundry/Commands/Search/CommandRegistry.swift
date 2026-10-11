@@ -141,11 +141,12 @@ final class CommandRegistry: Sendable {
             title: "Ask AI about \(prompt)",
             subtitle: "Open the research assistant",
             icon: CommandIcon(fallback: "AI", systemName: "sparkles"),
+            payload: .aiPrompt,
             primaryAction: CommandAction(id: "ai.quick", title: "Ask AI", kind: .openQuickAI(prompt: prompt)),
             secondaryActions: []
         )
-        let web = trailing.filter { $0.id.hasPrefix("quicklink.") }
-        let files = trailing.filter { $0.id.hasPrefix("quicklink.") == false }
+        let web = trailing.filter { if case .quicklink = $0.payload { return true }; return false }
+        let files = trailing.filter { if case .quicklink = $0.payload { return false }; return true }
         return Array((leading.prefix(8) + [askAI] + web + files).prefix(Self.resultLimit(for: query)))
     }
 

@@ -11,6 +11,7 @@ final class CommandContractsTests: XCTestCase {
             title: "Foundry Home",
             subtitle: "Open Foundry Home",
             icon: CommandIcon(fallback: "HM", systemName: "house"),
+            payload: .command,
             primaryAction: CommandAction(id: "foundry.dashboard.open", title: "Open", kind: .openHome),
             secondaryActions: []
         )
@@ -59,6 +60,7 @@ final class CommandContractsTests: XCTestCase {
             title: "Test Command",
             subtitle: nil,
             icon: CommandIcon(fallback: "T"),
+            payload: .command,
             primaryAction: CommandAction(id: "test.command.primary", title: "Primary", kind: .log("primary")),
             secondaryActions: [CommandAction(id: "test.command.secondary", title: "Secondary", kind: .log("secondary"))]
         )
@@ -205,6 +207,7 @@ final class CommandContractsTests: XCTestCase {
             title: "Favorite Command",
             subtitle: "Open the favorite",
             icon: CommandIcon(fallback: "F"),
+            payload: .command,
             primaryAction: CommandAction(id: "favorite.open", title: "Open", kind: .openHome),
             secondaryActions: []
         ).descriptor(providerID: "foundry.builtin")
@@ -213,6 +216,7 @@ final class CommandContractsTests: XCTestCase {
             title: "Other Command",
             subtitle: "Open another command",
             icon: CommandIcon(fallback: "O"),
+            payload: .command,
             primaryAction: CommandAction(id: "other.open", title: "Open", kind: .openHome),
             secondaryActions: []
         ).descriptor(providerID: "foundry.system")
@@ -238,6 +242,7 @@ final class CommandContractsTests: XCTestCase {
                 title: "Test Command",
                 subtitle: nil,
                 icon: CommandIcon(fallback: "T"),
+                    payload: .command,
                     primaryAction: CommandAction(id: "test.command.open", title: "Open", kind: .openHome),
                 secondaryActions: []
             )]
@@ -259,6 +264,7 @@ final class CommandContractsTests: XCTestCase {
                 title: "Conditional Command",
                 subtitle: nil,
                 icon: CommandIcon(fallback: "C"),
+                payload: .command,
                 primaryAction: CommandAction(id: "conditional.command.open", title: "Open", kind: .openHome),
                 secondaryActions: []
             )]
@@ -281,6 +287,7 @@ final class CommandContractsTests: XCTestCase {
                 title: "Cached Result",
                 subtitle: nil,
                 icon: CommandIcon(fallback: "C"),
+                payload: .command,
                 primaryAction: CommandAction(id: "supplemental.cached.open", title: "Open", kind: .openHome),
                 secondaryActions: []
             )]
@@ -316,6 +323,7 @@ final class CommandContractsTests: XCTestCase {
                 title: "Counting Command",
                 subtitle: "Test",
                 icon: CommandIcon(fallback: "C"),
+                    payload: .command,
                     primaryAction: CommandAction(id: "counting.command.open", title: "Open", kind: .openHome),
                 secondaryActions: []
             )]

@@ -49,6 +49,7 @@ final class AIProvider: Sendable, CommandProvider {
             subtitle: "AI agent · \(request.backend.displayName)",
             icon: CommandIcon(fallback: "AI", systemName: "sparkles"),
             route: .aiResponse,
+            payload: .command,
             primaryAction: CommandAction(id: "ai.copy", title: "Copy", kind: .copyToClipboard(response)),
             secondaryActions: [CommandAction(id: "ai.log", title: "Log", kind: .log(response))]
         )]
