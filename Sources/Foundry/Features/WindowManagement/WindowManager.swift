@@ -2,6 +2,7 @@ import AppKit
 @preconcurrency import ApplicationServices
 import Foundation
 import FoundryDomain
+import os
 
 enum WindowOperationResult: Equatable, Sendable {
     case tiled(WindowPlacement)
@@ -85,7 +86,7 @@ final class NativeWindowManager: WindowManaging {
     private var restoreStore = WindowRestoreStore()
     private var lastExternalPID: pid_t?
     private var pendingPID: pid_t?
-    nonisolated(unsafe) private var activationObserver: NSObjectProtocol?
+    private let activationObserver = OSAllocatedUnfairLock<NSObjectProtocol?>(uncheckedState: nil)
 
     init(
         accessibility: any WindowAccessibilityClient = NativeWindowAccessibilityClient(),
@@ -96,7 +97,7 @@ final class NativeWindowManager: WindowManaging {
         self.trustProvider = trustProvider
         self.targetProvider = targetProvider
         let ownPID = ProcessInfo.processInfo.processIdentifier
-        activationObserver = NSWorkspace.shared.notificationCenter.addObserver(
+        let observer = NSWorkspace.shared.notificationCenter.addObserver(
             forName: NSWorkspace.didActivateApplicationNotification,
             object: nil,
             queue: .main
@@ -107,11 +108,12 @@ final class NativeWindowManager: WindowManaging {
                 self?.lastExternalPID = app.processIdentifier
             }
         }
+        activationObserver.withLockUnchecked { $0 = observer }
     }
 
     deinit {
-        if let activationObserver {
-            NSWorkspace.shared.notificationCenter.removeObserver(activationObserver)
+        if let observer = activationObserver.withLockUnchecked({ $0 }) {
+            NSWorkspace.shared.notificationCenter.removeObserver(observer)
         }
     }
 

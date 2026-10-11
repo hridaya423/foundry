@@ -1,4 +1,5 @@
 import Foundation
+import os
 
 public enum ProvisioningError: Error, Equatable {
     case consentRequired, emptyPlan, executionFailed(String), artifactProvisionerUnavailable, receiptMismatch, cancelled
@@ -108,8 +109,8 @@ public struct DependencyProvisioner: Sendable {
         callback?(event)
     }
 }
-private final class ProgressCollector: @unchecked Sendable {
-    private let lock = NSLock()
-    private(set) var values = [OperationProgress]()
-    func append(_ value: OperationProgress) { lock.withLock { values.append(value) } }
+private final class ProgressCollector: Sendable {
+    private let lock = OSAllocatedUnfairLock(initialState: [OperationProgress]())
+    var values: [OperationProgress] { lock.withLock { $0 } }
+    func append(_ value: OperationProgress) { lock.withLock { $0.append(value) } }
 }

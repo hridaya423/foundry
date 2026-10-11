@@ -2,8 +2,9 @@ import AppKit
 import Foundation
 import FoundryDomain
 import FoundryServices
+import os
 
-final class BrowserProvider: CommandProvider, @unchecked Sendable {
+final class BrowserProvider: CommandProvider, Sendable {
     let id = "foundry.browsers"
 
     var searchPolicy: CommandProviderSearchPolicy {
@@ -501,14 +502,13 @@ enum BrowserSource: String, CaseIterable, Sendable, Hashable {
 
 enum BrowserRecordKind: Sendable, Equatable, Hashable { case tab, history, bookmark }
 
-private final class BrowserLiveTabsCache: @unchecked Sendable {
+private final class BrowserLiveTabsCache: Sendable {
     private struct Entry {
         let createdAt: Date
         let records: [BrowserRecord]
     }
 
-    private let lock = NSLock()
-    private var entries: [BrowserSource: Entry] = [:]
+    private let entries = OSAllocatedUnfairLock<[BrowserSource: Entry]>(initialState: [:])
     private let lifetime: TimeInterval
 
     init(lifetime: TimeInterval) {
@@ -516,31 +516,29 @@ private final class BrowserLiveTabsCache: @unchecked Sendable {
     }
 
     func value(for source: BrowserSource) -> [BrowserRecord]? {
-        lock.lock()
-        defer { lock.unlock() }
-        guard let entry = entries[source], Date().timeIntervalSince(entry.createdAt) < lifetime else {
-            entries[source] = nil
-            return nil
+        entries.withLock { entries in
+            guard let entry = entries[source], Date().timeIntervalSince(entry.createdAt) < lifetime else {
+                entries[source] = nil
+                return nil
+            }
+            return entry.records
         }
-        return entry.records
     }
 
     func store(_ records: [BrowserRecord], for source: BrowserSource) {
-        lock.lock()
-        entries[source] = Entry(createdAt: Date(), records: records)
-        lock.unlock()
+        entries.withLock { $0[source] = Entry(createdAt: Date(), records: records) }
     }
 }
 
-final class BrowserRecordsLoadGate: @unchecked Sendable {
-    private let lock = NSLock()
-    private var locks: [BrowserRecordsCache.Key: NSLock] = [:]
+final class BrowserRecordsLoadGate: Sendable {
+    private let locks = OSAllocatedUnfairLock<[BrowserRecordsCache.Key: NSLock]>(initialState: [:])
 
     func withLock<T>(for key: BrowserRecordsCache.Key, _ body: () -> T) -> T {
-        lock.lock()
-        let keyLock = locks[key] ?? NSLock()
-        locks[key] = keyLock
-        lock.unlock()
+        let keyLock = locks.withLock { locks in
+            let keyLock = locks[key] ?? NSLock()
+            locks[key] = keyLock
+            return keyLock
+        }
 
         keyLock.lock()
         defer { keyLock.unlock() }
@@ -548,7 +546,7 @@ final class BrowserRecordsLoadGate: @unchecked Sendable {
     }
 }
 
-final class BrowserRecordsCache: @unchecked Sendable {
+final class BrowserRecordsCache: Sendable {
     struct Key: Hashable, Sendable {
         let source: BrowserSource
         let kind: BrowserRecordKind?
@@ -559,24 +557,21 @@ final class BrowserRecordsCache: @unchecked Sendable {
         let records: [BrowserRecord]
     }
 
-    private let lock = NSLock()
-    private var entries: [Key: Entry] = [:]
+    private let entries = OSAllocatedUnfairLock<[Key: Entry]>(initialState: [:])
     private let lifetime: TimeInterval = 60
 
     func value(for key: Key) -> [BrowserRecord]? {
-        lock.lock()
-        defer { lock.unlock() }
-        guard let entry = entries[key], Date().timeIntervalSince(entry.createdAt) < lifetime else {
-            entries[key] = nil
-            return nil
+        entries.withLock { entries in
+            guard let entry = entries[key], Date().timeIntervalSince(entry.createdAt) < lifetime else {
+                entries[key] = nil
+                return nil
+            }
+            return entry.records
         }
-        return entry.records
     }
 
     func store(_ records: [BrowserRecord], for key: Key) {
-        lock.lock()
-        entries[key] = Entry(createdAt: Date(), records: records)
-        lock.unlock()
+        entries.withLock { $0[key] = Entry(createdAt: Date(), records: records) }
     }
 }
 

@@ -1,12 +1,16 @@
 import Foundation
-public final class OperationCoordinator: @unchecked Sendable {
-    private let lock = NSLock()
-    private var states: [UUID: OperationSnapshot] = [:]
+import os
+public final class OperationCoordinator: Sendable {
+    private struct State {
+        var states: [UUID: OperationSnapshot] = [:]
+    }
+
+    private let state = OSAllocatedUnfairLock(initialState: State())
     public init() {}
     public func start(retryDescriptor: RetryDescriptor? = nil) -> UUID {
         let id = UUID()
-        lock.withLock {
-            states[id] = OperationSnapshot(
+        state.withLock { state in
+            state.states[id] = OperationSnapshot(
                 id: id,
                 phase: .assessing,
                 progress: nil,
@@ -17,8 +21,8 @@ public final class OperationCoordinator: @unchecked Sendable {
         return id
     }
     public func retry(id: UUID) -> OperationSnapshot? {
-        lock.withLock {
-            guard let prior = states[id],
+        state.withLock { state in
+            guard let prior = state.states[id],
                   prior.phase == .failed || prior.phase == .cancelled,
                   let descriptor = prior.retryDescriptor,
                   descriptor.currentAttempt < descriptor.maxAttempts
@@ -37,7 +41,7 @@ public final class OperationCoordinator: @unchecked Sendable {
                 retryDescriptor: next,
                 request: next.request
             )
-            states[snapshot.id] = snapshot
+            state.states[snapshot.id] = snapshot
             return snapshot
         }
     }
@@ -48,8 +52,8 @@ public final class OperationCoordinator: @unchecked Sendable {
         progress: OperationProgress?,
         failure: OperationFailure? = nil
     ) -> Bool {
-        lock.withLock {
-            guard let current = states[id], !current.phase.terminal else { return false }
+        state.withLock { state in
+            guard let current = state.states[id], !current.phase.terminal else { return false }
             let legal: Set<OperationPhase> = {
                 switch current.phase {
                 case .assessing: return [.awaitingConsent, .provisioning, .downloading, .processing, .failed, .cancelled]
@@ -63,7 +67,7 @@ public final class OperationCoordinator: @unchecked Sendable {
                 }
             }()
             guard legal.contains(phase) else { return false }
-            states[id] = OperationSnapshot(
+            state.states[id] = OperationSnapshot(
                 id: id,
                 phase: phase,
                 progress: progress,
@@ -76,9 +80,9 @@ public final class OperationCoordinator: @unchecked Sendable {
     }
     @discardableResult
     public func updateProgress(id: UUID, progress: OperationProgress) -> Bool {
-        lock.withLock {
-            guard let current = states[id], !current.phase.terminal else { return false }
-            states[id] = OperationSnapshot(
+        state.withLock { state in
+            guard let current = state.states[id], !current.phase.terminal else { return false }
+            state.states[id] = OperationSnapshot(
                 id: id,
                 phase: current.phase,
                 progress: progress,
@@ -89,5 +93,5 @@ public final class OperationCoordinator: @unchecked Sendable {
             return true
         }
     }
-    public func snapshot(id: UUID) -> OperationSnapshot? { lock.withLock { states[id] } }
+    public func snapshot(id: UUID) -> OperationSnapshot? { state.withLock { $0.states[id] } }
 }

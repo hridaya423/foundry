@@ -1,7 +1,7 @@
 import Foundation
 import FoundryDomain
 
-final class SystemCommandProvider: CommandProvider, @unchecked Sendable {
+final class SystemCommandProvider: CommandProvider, Sendable {
     let id = "foundry.system"
 
     private let commands: [SystemCommand]

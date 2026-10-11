@@ -1,3 +1,4 @@
+import os
 import XCTest
 @testable import Foundry
 
@@ -29,9 +30,8 @@ final class ShortcutsProviderTests: XCTestCase {
     }
 }
 
-private final class LockedCounter: @unchecked Sendable {
-    private let lock = NSLock()
-    private var count = 0
-    var value: Int { lock.withLock { count } }
-    @discardableResult func increment() -> Int { lock.withLock { count += 1; return count } }
+private final class LockedCounter: Sendable {
+    private let count = OSAllocatedUnfairLock(initialState: 0)
+    var value: Int { count.withLock { $0 } }
+    @discardableResult func increment() -> Int { count.withLock { $0 += 1; return $0 } }
 }

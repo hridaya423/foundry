@@ -1,8 +1,9 @@
 import Foundation
 import FoundryDomain
 import FoundryServices
+import os
 
-final class UsageRankingStore: @unchecked Sendable {
+final class UsageRankingStore: Sendable {
     private struct StoredUsage: Codable {
         var records: [String: UsageRecord] = [:]
         var queryRecords: [String: [String: UsageRecord]] = [:]
@@ -31,16 +32,19 @@ final class UsageRankingStore: @unchecked Sendable {
 
     private let diagnostics: DiagnosticsService
     private let storageURL: URL
-    private let lock = NSLock()
-    private let persistenceLock = NSLock()
-    private var usage: StoredUsage
-    private var revision = 0
-    private var persistedRevision = 0
+    private struct State {
+        var usage: StoredUsage
+        var revision = 0
+    }
+
+    private let state: OSAllocatedUnfairLock<State>
+    private let persistedRevision = OSAllocatedUnfairLock(initialState: 0)
 
     init(diagnostics: DiagnosticsService, url: URL = UsageRankingStore.usageURL) {
         self.diagnostics = diagnostics
         self.storageURL = url
-        self.usage = Self.load(from: url) ?? StoredUsage()
+        let usage = Self.load(from: url) ?? StoredUsage()
+        self.state = OSAllocatedUnfairLock(initialState: State(usage: usage))
         diagnostics.log("Loaded usage ranking for \(usage.records.count) results")
     }
 
@@ -51,13 +55,13 @@ final class UsageRankingStore: @unchecked Sendable {
 
     func recordExecution(resultID: String, query: String? = nil) {
         let now = Date()
-        let snapshot: (StoredUsage, Int) = lock.withLock {
-            var record = usage.records[resultID] ?? UsageRecord(openCount: 0, lastOpenedAt: now)
+        let snapshot: (StoredUsage, Int) = state.withLock { state in
+            var record = state.usage.records[resultID] ?? UsageRecord(openCount: 0, lastOpenedAt: now)
             record.openCount += 1
             record.lastOpenedAt = now
-            usage.records[resultID] = record
+            state.usage.records[resultID] = record
             for queryKey in queryKeys(for: query).map(\.key) {
-                var queryRecords = usage.queryRecords[queryKey] ?? [:]
+                var queryRecords = state.usage.queryRecords[queryKey] ?? [:]
                 var queryRecord = queryRecords[resultID] ?? UsageRecord(openCount: 0, lastOpenedAt: now)
                 queryRecord.openCount += 1
                 queryRecord.lastOpenedAt = now
@@ -69,24 +73,26 @@ final class UsageRankingStore: @unchecked Sendable {
                         .map(\.key)
                     queryRecords = queryRecords.filter { retainedIDs.contains($0.key) }
                 }
-                usage.queryRecords[queryKey] = queryRecords
-                trimQueryRecords()
+                state.usage.queryRecords[queryKey] = queryRecords
+                trimQueryRecords(&state)
             }
-            revision += 1
-            return (usage, revision)
+            state.revision += 1
+            return (state.usage, state.revision)
         }
         save(snapshot.0, revision: snapshot.1)
     }
 
     func usageBoost(for resultID: String, query: String? = nil) -> Double {
-        lock.lock()
-        let globalRecord = usage.records[resultID]
-        let queryBoost = queryKeys(for: query)
-            .compactMap { key, weight in
-                usage.queryRecords[key]?[resultID].map { boost(for: $0, frequencyScale: 0.7, frequencyCap: 2.0, recencyCap: 1.2, recencyDecay: 0.05) * weight }
-            }
-            .max() ?? 0
-        lock.unlock()
+        let (globalRecord, queryBoost) = state.withLock { state in
+            (
+                state.usage.records[resultID],
+                queryKeys(for: query)
+                    .compactMap { key, weight in
+                        state.usage.queryRecords[key]?[resultID].map { boost(for: $0, frequencyScale: 0.7, frequencyCap: 2.0, recencyCap: 1.2, recencyDecay: 0.05) * weight }
+                    }
+                    .max() ?? 0
+            )
+        }
 
         let globalBoost = boost(for: globalRecord, frequencyScale: 0.16, frequencyCap: 0.5, recencyCap: 0.35, recencyDecay: 0.05)
         return globalBoost + queryBoost
@@ -95,10 +101,10 @@ final class UsageRankingStore: @unchecked Sendable {
     func usageBoosts(for resultIDs: [String], query: String?) -> [String: Double] {
         let keys = queryKeys(for: query)
         let now = Date()
-        return lock.withLock {
+        return state.withLock { state in
             Dictionary(resultIDs.map { resultID in
                 let globalBoost = boost(
-                    for: usage.records[resultID],
+                    for: state.usage.records[resultID],
                     now: now,
                     frequencyScale: 0.16,
                     frequencyCap: 0.5,
@@ -106,7 +112,7 @@ final class UsageRankingStore: @unchecked Sendable {
                     recencyDecay: 0.05
                 )
                 let queryBoost = keys.compactMap { key, weight in
-                    usage.queryRecords[key]?[resultID].map {
+                    state.usage.queryRecords[key]?[resultID].map {
                         boost(
                             for: $0,
                             now: now,
@@ -123,30 +129,30 @@ final class UsageRankingStore: @unchecked Sendable {
     }
 
     func hasUsage(for resultID: String) -> Bool {
-        lock.withLock { usage.records[resultID] != nil }
+        state.withLock { $0.usage.records[resultID] != nil }
     }
 
     /// Re-reads the on-disk snapshot — called after a backup restore
     /// replaces the file underneath the running process.
     func reload() {
         let loaded = Self.load(from: storageURL) ?? StoredUsage()
-        lock.withLock {
-            usage = loaded
-            revision += 1
+        state.withLock { state in
+            state.usage = loaded
+            state.revision += 1
         }
     }
 
     func resetRanking(for resultID: String) {
-        let snapshot: (StoredUsage, Int) = lock.withLock {
-            usage.records.removeValue(forKey: resultID)
-            for key in usage.queryRecords.keys {
-                usage.queryRecords[key]?.removeValue(forKey: resultID)
-                if usage.queryRecords[key]?.isEmpty == true {
-                    usage.queryRecords.removeValue(forKey: key)
+        let snapshot: (StoredUsage, Int) = state.withLock { state in
+            state.usage.records.removeValue(forKey: resultID)
+            for key in state.usage.queryRecords.keys {
+                state.usage.queryRecords[key]?.removeValue(forKey: resultID)
+                if state.usage.queryRecords[key]?.isEmpty == true {
+                    state.usage.queryRecords.removeValue(forKey: key)
                 }
             }
-            revision += 1
-            return (usage, revision)
+            state.revision += 1
+            return (state.usage, state.revision)
         }
         save(snapshot.0, revision: snapshot.1)
     }
@@ -171,13 +177,13 @@ final class UsageRankingStore: @unchecked Sendable {
         return frequencyBoost + recencyBoost
     }
 
-    private func trimQueryRecords() {
-        guard usage.queryRecords.count > 256 else { return }
-        let retainedKeys = usage.queryRecords
+    private func trimQueryRecords(_ state: inout State) {
+        guard state.usage.queryRecords.count > 256 else { return }
+        let retainedKeys = state.usage.queryRecords
             .sorted { latestDate(for: $0.value) > latestDate(for: $1.value) }
             .prefix(256)
             .map(\.key)
-        usage.queryRecords = usage.queryRecords.filter { retainedKeys.contains($0.key) }
+        state.usage.queryRecords = state.usage.queryRecords.filter { retainedKeys.contains($0.key) }
     }
 
     private func latestDate(for records: [String: UsageRecord]) -> Date {
@@ -185,17 +191,17 @@ final class UsageRankingStore: @unchecked Sendable {
     }
 
     private func save(_ snapshot: StoredUsage, revision: Int) {
-        persistenceLock.lock()
-        defer { persistenceLock.unlock() }
-        guard revision > persistedRevision else { return }
-        do {
-            let url = storageURL
-            try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
-            let data = try JSONEncoder().encode(snapshot)
-            try data.write(to: url, options: .atomic)
-            persistedRevision = revision
-        } catch {
-            diagnostics.log("Failed to save usage ranking: \(error.localizedDescription)")
+        persistedRevision.withLock { persistedRevision in
+            guard revision > persistedRevision else { return }
+            do {
+                let url = storageURL
+                try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+                let data = try JSONEncoder().encode(snapshot)
+                try data.write(to: url, options: .atomic)
+                persistedRevision = revision
+            } catch {
+                diagnostics.log("Failed to save usage ranking: \(error.localizedDescription)")
+            }
         }
     }
 

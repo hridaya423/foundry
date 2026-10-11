@@ -1,6 +1,7 @@
 import Foundation
 import FoundryDomain
 import FoundryServices
+import os
 
 struct Quicklink: Codable, Identifiable, Hashable, Sendable {
     var id: String = UUID().uuidString
@@ -95,19 +96,18 @@ enum QuicklinkTemplate {
     }
 }
 
-final class QuicklinkStore: @unchecked Sendable {
+final class QuicklinkStore: Sendable {
     static let shared = QuicklinkStore()
 
     let url: URL
-    private let lock = NSLock()
-    private var cached: [Quicklink]?
+    private let cached = OSAllocatedUnfairLock<[Quicklink]?>(initialState: nil)
 
     init(url: URL = ConfigService.configURL.deletingLastPathComponent().appendingPathComponent("quicklinks.json")) {
         self.url = url
     }
 
     func load() -> [Quicklink] {
-        lock.withLock {
+        cached.withLock { cached in
             if let cached { return cached }
             let loaded: [Quicklink]
             if FileManager.default.fileExists(atPath: url.path) {
@@ -127,7 +127,7 @@ final class QuicklinkStore: @unchecked Sendable {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         try encoder.encode(links).write(to: url, options: .atomic)
-        lock.withLock { cached = links }
+        cached.withLock { $0 = links }
     }
 }
 

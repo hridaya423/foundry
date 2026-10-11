@@ -1,3 +1,4 @@
+import os
 import XCTest
 @testable import Foundry
 import FoundryDomain
@@ -302,7 +303,7 @@ final class CommandContractsTests: XCTestCase {
         }
     }
 
-    private final class CountingCommandProvider: CommandProvider, @unchecked Sendable {
+    private final class CountingCommandProvider: CommandProvider, Sendable {
         let id = "counting.provider"
         let counter = CallCounter()
 

@@ -1,5 +1,6 @@
 import Darwin
 import Foundation
+import os
 
 public struct ProcessResult: Sendable {
     public let exitCode: Int32
@@ -214,54 +215,57 @@ public enum ProcessRunner {
     }
 }
 
-private final class ManagedProcessControl: @unchecked Sendable {
+private final class ManagedProcessControl: Sendable {
     struct Flags: Sendable {
         let timedOut: Bool
         let cancelled: Bool
     }
 
-    private let lock = NSLock()
-    private var process: Process?
-    private var processGroupID: Int32 = -1
-    private var timedOut = false
-    private var cancelled = false
+    private struct State {
+        var process: Process?
+        var processGroupID: Int32 = -1
+        var timedOut = false
+        var cancelled = false
+    }
+
+    private let state = OSAllocatedUnfairLock(initialState: State())
 
     var shouldTerminate: Bool {
-        lock.withLock { timedOut || cancelled }
+        state.withLock { $0.timedOut || $0.cancelled }
     }
 
     var flags: Flags {
-        lock.withLock { Flags(timedOut: timedOut, cancelled: cancelled) }
+        state.withLock { Flags(timedOut: $0.timedOut, cancelled: $0.cancelled) }
     }
 
     func attach(_ process: Process) {
-        lock.withLock {
-            self.process = process
+        state.withLock {
+            $0.process = process
         }
     }
 
     func configureProcessGroup() {
-        let pid = lock.withLock {
-            guard let process, process.processIdentifier > 0 else { return Int32(-1) }
+        let pid = state.withLock { state -> Int32 in
+            guard let process = state.process, process.processIdentifier > 0 else { return Int32(-1) }
             return process.processIdentifier
         }
         guard pid > 0 else { return }
         guard setpgid(pid, pid) == 0 else { return }
-        lock.withLock { processGroupID = pid }
+        state.withLock { $0.processGroupID = pid }
     }
 
     func requestTermination(cancelled: Bool) {
-        let process = lock.withLock { () -> Process? in
+        let process = state.withLock { state -> Process? in
             if cancelled {
-                self.cancelled = true
+                state.cancelled = true
             } else {
-                self.timedOut = true
+                state.timedOut = true
             }
-            return self.process
+            return state.process
         }
         guard let process, process.isRunning else { return }
         process.terminate()
-        let groupID = lock.withLock { processGroupID }
+        let groupID = state.withLock { $0.processGroupID }
         if groupID > 0 { kill(-groupID, SIGTERM) }
         DispatchQueue.global(qos: .utility).asyncAfter(deadline: .now() + 0.25) {
             self.forceTerminateIfRunning()
@@ -269,9 +273,9 @@ private final class ManagedProcessControl: @unchecked Sendable {
     }
 
     func forceTerminateIfRunning() {
-        let values: (pid: Int32?, groupID: Int32) = lock.withLock {
-            guard process?.isRunning == true else { return (nil, Int32(-1)) }
-            return (process?.processIdentifier, processGroupID)
+        let values: (pid: Int32?, groupID: Int32) = state.withLock { state in
+            guard state.process?.isRunning == true else { return (nil, Int32(-1)) }
+            return (state.process?.processIdentifier, state.processGroupID)
         }
         if values.groupID > 0 {
             kill(-values.groupID, SIGKILL)
@@ -282,34 +286,36 @@ private final class ManagedProcessControl: @unchecked Sendable {
     }
 }
 
-private final class LimitedDataBuffer: @unchecked Sendable {
-    private let lock = NSLock()
+private final class LimitedDataBuffer: Sendable {
     private let limit: Int
-    private var storage = Data()
+    private let storage = OSAllocatedUnfairLock(initialState: Data())
 
     init(limit: Int) {
         self.limit = max(limit, 1)
     }
 
     var data: Data {
-        lock.withLock { storage }
+        storage.withLock { $0 }
     }
 
     func append(_ data: Data) {
-        lock.lock()
-        defer { lock.unlock() }
-        guard storage.count < limit else { return }
-        storage.append(data.prefix(limit - storage.count))
+        storage.withLock { storage in
+            guard storage.count < limit else { return }
+            storage.append(data.prefix(limit - storage.count))
+        }
     }
 }
 
-private final class ProcessOutputLineBuffer: @unchecked Sendable {
-    private let lock = NSLock()
+private final class ProcessOutputLineBuffer: Sendable {
+    private struct State {
+        var pending = Data()
+        var finished = false
+    }
+
     private let stream: ProcessOutputLine.Stream
     private let limit: Int
     private let handler: (@Sendable (ProcessOutputLine) -> Void)?
-    private var pending = Data()
-    private var finished = false
+    private let state = OSAllocatedUnfairLock(initialState: State())
 
     init(stream: ProcessOutputLine.Stream, limit: Int, handler: (@Sendable (ProcessOutputLine) -> Void)?) {
         self.stream = stream
@@ -318,34 +324,34 @@ private final class ProcessOutputLineBuffer: @unchecked Sendable {
     }
 
     func append(_ data: Data) {
-        lock.withLock {
-            pending.append(data)
-            if pending.count > limit {
-                pending = pending.suffix(limit)
+        state.withLock { state in
+            state.pending.append(data)
+            if state.pending.count > limit {
+                state.pending = state.pending.suffix(limit)
             }
-            emitCompleteLines()
-            if finished { emitRemainder() }
+            emitCompleteLines(&state)
+            if state.finished { emitRemainder(&state) }
         }
     }
 
     func finish() {
-        lock.withLock {
-            finished = true
-            emitRemainder()
+        state.withLock { state in
+            state.finished = true
+            emitRemainder(&state)
         }
     }
 
-    private func emitCompleteLines() {
-        while let newline = pending.firstIndex(of: UInt8(ascii: "\n")) {
-            emitLine(pending[..<newline])
-            pending.removeSubrange(...newline)
+    private func emitCompleteLines(_ state: inout State) {
+        while let newline = state.pending.firstIndex(of: UInt8(ascii: "\n")) {
+            emitLine(state.pending[..<newline])
+            state.pending.removeSubrange(...newline)
         }
     }
 
-    private func emitRemainder() {
-        guard pending.isEmpty == false else { return }
-        emitLine(pending)
-        pending.removeAll()
+    private func emitRemainder(_ state: inout State) {
+        guard state.pending.isEmpty == false else { return }
+        emitLine(state.pending)
+        state.pending.removeAll()
     }
 
     private func emitLine(_ data: Data.SubSequence) {

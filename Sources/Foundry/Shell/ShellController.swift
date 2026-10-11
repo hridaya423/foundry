@@ -126,11 +126,15 @@ final class ShellController {
         let workspaceCenter = NSWorkspace.shared.notificationCenter
         workspaceObservers.append(workspaceCenter.addObserver(forName: NSWorkspace.didActivateApplicationNotification, object: nil, queue: .main) { [weak self] notification in
             let application = notification.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication
-            self?.snippetExpansion.handleApplicationActivation(bundleIdentifier: application?.bundleIdentifier)
+            MainActor.assumeIsolated {
+                self?.snippetExpansion.handleApplicationActivation(bundleIdentifier: application?.bundleIdentifier)
+            }
         })
         snippetExpansion.handleApplicationActivation(bundleIdentifier: NSWorkspace.shared.frontmostApplication?.bundleIdentifier)
         workspaceObservers.append(workspaceCenter.addObserver(forName: NSWorkspace.didWakeNotification, object: nil, queue: .main) { [weak self] _ in
-            self?.snippetExpansion.recoverFromWake()
+            MainActor.assumeIsolated {
+                self?.snippetExpansion.recoverFromWake()
+            }
         })
         hotkeyController.onPressed = { [weak self] in
             MainActor.assumeIsolated {

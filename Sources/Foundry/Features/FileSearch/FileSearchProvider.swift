@@ -4,7 +4,7 @@ import FoundryDomain
 import FoundryServices
 import os
 
-final class FileSearchProvider: CommandProvider, @unchecked Sendable {
+final class FileSearchProvider: CommandProvider, Sendable {
     let id = "foundry.files"
     var searchPolicy: CommandProviderSearchPolicy { CommandProviderSearchPolicy(tier: .deferred) }
     var searchTimeout: Duration? { .milliseconds(3_500) }

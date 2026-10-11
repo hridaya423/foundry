@@ -97,7 +97,7 @@ enum AIConversationContext {
     }
 }
 
-final class AIChatStore: @unchecked Sendable, AIChatStoring {
+final class AIChatStore: Sendable, AIChatStoring {
     private let url: URL
     private let encoder = JSONEncoder()
     private let decoder = JSONDecoder()
@@ -180,7 +180,7 @@ final class AIChatStore: @unchecked Sendable, AIChatStoring {
     }
 }
 
-final class AIChatPersistenceWriter: @unchecked Sendable {
+final class AIChatPersistenceWriter: Sendable {
     private let store: any AIChatStoring
     private let queue = DispatchQueue(label: "com.hridya.foundry.ai-chat-writer", qos: .utility)
 

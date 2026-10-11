@@ -283,7 +283,7 @@ protocol AICredentialStore: Sendable {
     func delete(for profileID: UUID) throws
 }
 
-final class KeychainAICredentialStore: AICredentialStore, @unchecked Sendable {
+final class KeychainAICredentialStore: AICredentialStore, Sendable {
     private let service: String
 
     init(service: String = "com.hridya.foundry.ai") {

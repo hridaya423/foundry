@@ -1,6 +1,7 @@
 import Foundation
 import FoundryDomain
 import FoundryServices
+import os
 
 final class AppleNotesProvider: CommandProvider {
     let id = "foundry.apple-notes"
@@ -60,18 +61,17 @@ final class AppleNotesProvider: CommandProvider {
         return ""
     }
 
-    private final class NotesCacheBox: @unchecked Sendable {
-        private let lock = NSLock()
-        private var cached: (at: Date, notes: [AppleNoteResult])?
+    private final class NotesCacheBox: Sendable {
+        private let cached = OSAllocatedUnfairLock<(at: Date, notes: [AppleNoteResult])?>(initialState: nil)
         private let ttl: TimeInterval = 60
 
         func notes(refresh: () -> [AppleNoteResult]?) -> [AppleNoteResult]? {
-            lock.lock()
-            defer { lock.unlock() }
-            if let cached, Date().timeIntervalSince(cached.at) < ttl { return cached.notes }
-            guard let notes = refresh() else { return cached?.notes }
-            cached = (Date(), notes)
-            return notes
+            cached.withLockUnchecked { cached in
+                if let cached, Date().timeIntervalSince(cached.at) < ttl { return cached.notes }
+                guard let notes = refresh() else { return cached?.notes }
+                cached = (Date(), notes)
+                return notes
+            }
         }
     }
 

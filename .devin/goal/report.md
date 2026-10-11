@@ -58,6 +58,16 @@ Quality bar: Raycast. Plan: `docs/plans/2026-10-11-foundry-raycast-bar-audit.md`
 - Kept deliberately outside the model: `com.apple.symbolichotkeys` suite (macOS system domain), `SourceRootLocator` (DEBUG non-packaged suite)
 - New tests: migration import/removal/no-rerun, config-init import, bound vs standalone store, legacy-JSON decode, backup round-trip carries localState inside config.json
 
+### Phase 4.5 — `@unchecked Sendable` audit ✅ (this commit)
+- ~60 sites → **3 justified** (target ≤10). Compiler-driven method per handoff: flip to `Sendable`, let the compiler enumerate violations, consolidate mutable state into `OSAllocatedUnfairLock<State>`.
+- `init(initialState:)` requires `State: Sendable`; SDK/non-Sendable state (`VNRequest`, `OpaquePointer` db handle, `CheckedContinuation`, `DispatchWorkItem`, `URLSession*` types, `NSColorSampler`, `NSObjectProtocol` observer, `ISO8601DateFormatter`) uses `init(uncheckedState:)` + `withLockUnchecked` — the lock still vouches, just not the type system.
+- Conversions: all lock-guarded classes in FoundryServices (ProcessRunner helpers, OperationCoordinator, ProgressCollector, ArtifactStore/Reservations, KeepAwakeProcessOwner, ContinuationGate), Commands layer (scheduler/race, usage store, installed-app cache), config (`ConfigService`, `LocalStateStore`), feature caches/stores (snippets, calculator, currency, quicklinks, notes, scripts, shortcuts, browser caches, metrics sampler, agents monitor/socket, camera capture, OAuth callback server, keychain store, AI chat store/writer, clipboard SQLite store, media service/delegates/parser/throttle, running-apps snapshot, icon box, developer-tools formatter, window-manager observer)
+- `SnippetExpansionService` → `@MainActor` (state was already main-confined; event tap callback crosses via `assumeIsolated` — `CGEvent` isn't Sendable so the hop collapses the result to `Bool` and rebuilds `Unmanaged.passUnretained` outside)
+- `NativeWindowManager` observer + `deinit` now lock-boxed (replaces `nonisolated(unsafe)` var)
+- 3 kept with justification: `AgentTool` (immutable `[String: Any]` JSON schema), `NSImage`/`FileManager` retroactive SDK backports
+- All 18 test fakes converted the same way (`Sendable` + lock boxes / computed shims where tests mutate fakes)
+- `nonisolated(unsafe)` locals: 3 remain, all commented (event-tap event, translation session, export session)
+
 ### Phase 4.6b — failure visibility (`try?` audit) ✅ (this commit)
 - `try?` in `Sources/`: **204 → 78** (plus 6 inside the helper itself). Every remaining site classified intentional: ~40 cleanup (`removeItem`/`close()`/ROLLBACK), ~12 `Task.sleep` cancellation, ~22 Codable/JSON shape probes over external or protocol data, ~4 binary-capability / reachability probes
 - New `BestEffort` in FoundryServices — `attempt(_:_:)` (sync + `@Sendable` async) keeps `try?` fallback semantics but logs failures at `.error`; `log(_:_:)` for catch sites that can't use it (non-Sendable captures). ~120 load/probe sites converted so corrupt user data is diagnosable instead of silently defaulting

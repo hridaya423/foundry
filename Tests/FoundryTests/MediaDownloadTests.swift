@@ -1,3 +1,4 @@
+import os
 import Foundation
 import XCTest
 @testable import Foundry
@@ -436,29 +437,23 @@ private struct RejectingProcessRunner: ProcessRunning {
     }
 }
 
-private final class ExecutableAvailability: @unchecked Sendable {
-    private let lock = NSLock()
-    private var ytDLPInstalled = false
+private final class ExecutableAvailability: Sendable {
+    private let ytDLPInstalled = OSAllocatedUnfairLock(initialState: false)
 
     func exists(_ path: String) -> Bool {
-        lock.lock()
-        defer { lock.unlock() }
-        return path == "/opt/homebrew/bin/brew" || (path == "/opt/homebrew/bin/yt-dlp" && ytDLPInstalled)
+        let installed = ytDLPInstalled.withLock { $0 }
+        return path == "/opt/homebrew/bin/brew" || (path == "/opt/homebrew/bin/yt-dlp" && installed)
     }
 
     func installYTDLP() {
-        lock.lock()
-        ytDLPInstalled = true
-        lock.unlock()
+        ytDLPInstalled.withLock { $0 = true }
     }
 }
 
-private final class AutoInstallingProcessRunner: ProcessRunning, @unchecked Sendable {
-    private let lock = NSLock()
+private final class AutoInstallingProcessRunner: ProcessRunning, Sendable {
     private let availability: ExecutableAvailability
     private let installDelay: Duration
-    private var recordedPaths: [String] = []
-    private var recordedArguments: [[String]] = []
+    private let recorded = OSAllocatedUnfairLock(uncheckedState: (paths: [String](), arguments: [[String]]()))
 
     init(availability: ExecutableAvailability, installDelay: Duration = .zero) {
         self.availability = availability
@@ -466,15 +461,11 @@ private final class AutoInstallingProcessRunner: ProcessRunning, @unchecked Send
     }
 
     var paths: [String] {
-        lock.lock()
-        defer { lock.unlock() }
-        return recordedPaths
+        recorded.withLockUnchecked { $0.paths }
     }
 
     var arguments: [[String]] {
-        lock.lock()
-        defer { lock.unlock() }
-        return recordedArguments
+        recorded.withLockUnchecked { $0.arguments }
     }
 
     func run(path: String, arguments: [String], timeout _: TimeInterval, outputLimit _: Int, environment _: [String: String]?, currentDirectoryURL _: URL?, onOutput _: (@Sendable (ProcessOutputLine) -> Void)?) async throws -> ProcessResult {
@@ -486,10 +477,10 @@ private final class AutoInstallingProcessRunner: ProcessRunning, @unchecked Send
     }
 
     private func record(_ path: String, arguments: [String]) {
-        lock.lock()
-        recordedPaths.append(path)
-        recordedArguments.append(arguments)
-        lock.unlock()
+        recorded.withLockUnchecked { box in
+            box.paths.append(path)
+            box.arguments.append(arguments)
+        }
     }
 }
 
@@ -541,19 +532,14 @@ private actor RecordingMediaDownloadService: MediaDownloading {
     func urls() -> [String] { recordedURLs }
 }
 
-private final class OutputCollector: @unchecked Sendable {
-    private let lock = NSLock()
-    private var storage: [ProcessOutputLine] = []
+private final class OutputCollector: Sendable {
+    private let storage = OSAllocatedUnfairLock<[ProcessOutputLine]>(initialState: [])
 
     var lines: [ProcessOutputLine] {
-        lock.lock()
-        defer { lock.unlock() }
-        return storage
+        storage.withLock { $0 }
     }
 
     func append(_ line: ProcessOutputLine) {
-        lock.lock()
-        storage.append(line)
-        lock.unlock()
+        storage.withLock { $0.append(line) }
     }
 }

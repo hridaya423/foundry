@@ -6,6 +6,7 @@ import Foundation
 import FoundryDomain
 import FoundryServices
 import UniformTypeIdentifiers
+import os
 
 @MainActor
 final class ActionRunner {
@@ -855,10 +856,12 @@ final class ActionRunner {
 
     private func pickColor(emit: @escaping @MainActor @Sendable (CommandExecutionEvent) -> Void) async -> CommandOutcome {
         let color: NSColor? = await withCheckedContinuation { continuation in
-            let sampler = UncheckedSampler(NSColorSampler())
-            sampler.value.show { color in
-                continuation.resume(returning: color)
-                withExtendedLifetime(sampler) {}
+            let sampler = SamplerBox(NSColorSampler())
+            sampler.value.withLockUnchecked { value in
+                value?.show { color in
+                    continuation.resume(returning: color)
+                    withExtendedLifetime(sampler) {}
+                }
             }
         }
         guard let color else { return .cancelled }
@@ -1301,19 +1304,18 @@ protocol KeepAwakeProcessHandle: AnyObject {
     func stop()
 }
 
-final class KeepAwakeProcessOwner: @unchecked Sendable {
-    private let lock = NSLock()
-    private var process: (any KeepAwakeProcessHandle)?
+final class KeepAwakeProcessOwner: Sendable {
+    private let process = OSAllocatedUnfairLock<(any KeepAwakeProcessHandle)?>(uncheckedState: nil)
 
     var isActive: Bool {
-        lock.withLock { process?.isRunning == true }
+        process.withLockUnchecked { $0?.isRunning == true }
     }
 
     func toggle(launch: () throws -> any KeepAwakeProcessHandle) throws -> Bool {
-        try lock.withLock {
-            if let process, process.isRunning {
-                process.stop()
-                self.process = nil
+        try process.withLockUnchecked { process in
+            if let running = process, running.isRunning {
+                running.stop()
+                process = nil
                 return false
             }
             process = nil
@@ -1324,7 +1326,7 @@ final class KeepAwakeProcessOwner: @unchecked Sendable {
     }
 
     func stop() {
-        lock.withLock {
+        process.withLockUnchecked { process in
             if process?.isRunning == true { process?.stop() }
             process = nil
         }
@@ -1477,9 +1479,12 @@ private enum AudioDeviceController {
     }
 }
 
-private final class UncheckedSampler: @unchecked Sendable {
-    let value: NSColorSampler
-    init(_ value: NSColorSampler) { self.value = value }
+private final class SamplerBox: Sendable {
+    // NSColorSampler is not Sendable on this SDK; the lock-box vouches for
+    // the single hop across the continuation boundary in pickColor.
+    let value = OSAllocatedUnfairLock<NSColorSampler?>(uncheckedState: nil)
+
+    init(_ value: NSColorSampler) { self.value.withLockUnchecked { $0 = value } }
 }
 
 private struct RaycastSnippetImport: Decodable {
@@ -1494,35 +1499,36 @@ private struct RaycastSnippetExport: Encodable {
     let keyword: String?
 }
 
-private final class ContinuationGate<Value: Sendable>: @unchecked Sendable {
-    private let lock = NSLock()
-    private var continuation: CheckedContinuation<Value, Never>?
-    private var result: Value?
+private final class ContinuationGate<Value: Sendable>: Sendable {
+    private struct State {
+        var continuation: CheckedContinuation<Value, Never>?
+        var result: Value?
+    }
+
+    private let state = OSAllocatedUnfairLock(initialState: State())
 
     func install(_ continuation: CheckedContinuation<Value, Never>) {
-        var pending: Value?
-        lock.withLock {
-            if self.result != nil {
-                pending = self.result
-                self.result = nil
-                return
+        let pending: Value? = state.withLock { state in
+            if let result = state.result {
+                state.result = nil
+                return result
             }
-            self.continuation = continuation
+            state.continuation = continuation
+            return nil
         }
         if let pending { continuation.resume(returning: pending) }
     }
 
     @discardableResult
     func resume(_ result: Value) -> Bool {
-        var continuation: CheckedContinuation<Value, Never>?
-        lock.withLock {
-            guard self.result == nil else { return }
-            guard let installed = self.continuation else {
-                self.result = result
-                return
+        let continuation: CheckedContinuation<Value, Never>? = state.withLock { state in
+            guard state.result == nil else { return nil }
+            guard let installed = state.continuation else {
+                state.result = result
+                return nil
             }
-            self.continuation = nil
-            continuation = installed
+            state.continuation = nil
+            return installed
         }
         guard let continuation else { return false }
         continuation.resume(returning: result)

@@ -1,4 +1,5 @@
 import Foundation
+import os
 import FoundryDomain
 import FoundryServices
 
@@ -7,7 +8,7 @@ enum WindowMode: String, Codable, CaseIterable, Equatable {
     case compact
 }
 
-struct FoundryConfig: Codable, Equatable {
+struct FoundryConfig: Codable, Equatable, Sendable {
     static let currentSchemaVersion = 8
 
     var schemaVersion = FoundryConfig.currentSchemaVersion
@@ -339,30 +340,33 @@ enum AIBackend: String, Codable, CaseIterable, Identifiable {
     var id: String { rawValue }
 }
 
-final class ConfigService: @unchecked Sendable {
+final class ConfigService: Sendable {
+    private struct State {
+        var current: FoundryConfig
+        var loadError: String?
+        var pendingPersist: DispatchWorkItem?
+        var pendingSnapshot: FoundryConfig?
+        var persistedWriteCount = 0
+    }
+
     private let diagnostics: DiagnosticsService
     private let url: URL
-    private let lock = NSLock()
-    private var storedCurrent: FoundryConfig
-    private var loadError: String?
+    private let state: OSAllocatedUnfairLock<State>
     private let persistDebounce: TimeInterval
     private let persistQueue = DispatchQueue(label: "foundry.config.persist", qos: .utility)
-    private var pendingPersist: DispatchWorkItem?
-    private var pendingSnapshot: FoundryConfig?
-    private var storedPersistedWriteCount = 0
 
     var current: FoundryConfig {
-        lock.withLock { storedCurrent }
+        state.withLockUnchecked { $0.current }
     }
 
     var loadErrorMessage: String? {
-        lock.withLock { loadError }
+        state.withLockUnchecked { $0.loadError }
     }
 
-    private(set) var existedAtLaunch = false
+    let existedAtLaunch: Bool
 
     /// Disk writes performed so far — surfaced for tests and diagnostics.
-    var persistedWriteCount: Int { lock.withLock { storedPersistedWriteCount } }
+    var persistedWriteCount: Int { state.withLockUnchecked { $0.persistedWriteCount } }
 
     init(
         diagnostics: DiagnosticsService,
@@ -373,27 +377,25 @@ final class ConfigService: @unchecked Sendable {
         self.diagnostics = diagnostics
         self.url = url
         self.persistDebounce = persistDebounce
-        if FileManager.default.fileExists(atPath: url.path) {
-            existedAtLaunch = true
+        var current = FoundryConfig()
+        var loadError: String?
+        existedAtLaunch = FileManager.default.fileExists(atPath: url.path)
+        if existedAtLaunch {
             do {
                 let data = try Data(contentsOf: url)
-                self.storedCurrent = try FoundryConfigMigration.migrate(data)
-                self.loadError = nil
+                current = try FoundryConfigMigration.migrate(data)
             } catch {
-                self.storedCurrent = FoundryConfig()
-                self.loadError = error.localizedDescription
+                loadError = error.localizedDescription
                 diagnostics.log("Could not load config at \(url.path): \(error.localizedDescription)")
             }
-        } else {
-            self.storedCurrent = FoundryConfig()
-            self.loadError = nil
         }
+        var migrated = false
         if loadError == nil, let legacyDefaults {
-            var config = storedCurrent
-            if UserDefaultsMigration.apply(to: &config.localState, defaults: legacyDefaults) {
-                storedCurrent = config
-                schedulePersistLocked(config)
-            }
+            migrated = UserDefaultsMigration.apply(to: &current.localState, defaults: legacyDefaults)
+        }
+        self.state = OSAllocatedUnfairLock(uncheckedState: State(current: current, loadError: loadError))
+        if migrated {
+            schedulePersist(current)
         }
     }
 
@@ -521,12 +523,12 @@ final class ConfigService: @unchecked Sendable {
     func reload() throws {
         let data = try Data(contentsOf: url)
         let loaded = try FoundryConfigMigration.migrate(data)
-        lock.withLock {
-            pendingPersist?.cancel()
-            pendingPersist = nil
-            pendingSnapshot = nil
-            storedCurrent = loaded
-            loadError = nil
+        state.withLockUnchecked {
+            $0.pendingPersist?.cancel()
+            $0.pendingPersist = nil
+            $0.pendingSnapshot = nil
+            $0.current = loaded
+            $0.loadError = nil
         }
     }
 
@@ -537,52 +539,52 @@ final class ConfigService: @unchecked Sendable {
     }
 
     private func update(_ mutate: (inout FoundryConfig) -> Void) throws {
-        lock.lock()
-        defer { lock.unlock() }
+        try state.withLockUnchecked { state in
+            if let loadError = state.loadError {
+                throw ConfigServiceError.readOnly(loadError)
+            }
 
-        if let loadError {
-            throw ConfigServiceError.readOnly(loadError)
+            var candidate = state.current
+            mutate(&candidate)
+            state.current = candidate
+            state.loadError = nil
+            schedulePersist(candidate, in: &state)
         }
-
-        var candidate = storedCurrent
-        mutate(&candidate)
-        storedCurrent = candidate
-        loadError = nil
-        schedulePersistLocked(candidate)
     }
 
     private func write(_ candidate: FoundryConfig) throws {
-        lock.lock()
-        defer { lock.unlock() }
-        storedCurrent = candidate
-        loadError = nil
-        schedulePersistLocked(candidate)
+        state.withLockUnchecked { state in
+            state.current = candidate
+            state.loadError = nil
+            schedulePersist(candidate, in: &state)
+        }
     }
 
     /// Mutations apply in memory synchronously; disk I/O is debounced so a
     /// slider drag or a burst of toggles costs one write, not one per tick.
-    private func schedulePersistLocked(_ candidate: FoundryConfig) {
-        pendingSnapshot = candidate
-        pendingPersist?.cancel()
+    private func schedulePersist(_ candidate: FoundryConfig, in state: inout State) {
+        state.pendingSnapshot = candidate
+        state.pendingPersist?.cancel()
         let work = DispatchWorkItem { [weak self] in self?.persistPending() }
-        pendingPersist = work
+        state.pendingPersist = work
         persistQueue.asyncAfter(deadline: .now() + persistDebounce, execute: work)
     }
 
+    private func schedulePersist(_ candidate: FoundryConfig) {
+        state.withLockUnchecked { schedulePersist(candidate, in: &$0) }
+    }
+
     private func persistPending() {
-        let snapshot = lock.withLock { () -> FoundryConfig? in
-            guard let pendingSnapshot else { return nil }
-            return pendingSnapshot
-        }
+        let snapshot = state.withLockUnchecked { $0.pendingSnapshot }
         guard let snapshot else { return }
         do {
             try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
             let data = try JSONEncoder().encode(snapshot)
             try data.write(to: url, options: .atomic)
-            lock.withLock {
-                if pendingSnapshot == snapshot { pendingSnapshot = nil }
-                if pendingPersist?.isCancelled == false { pendingPersist = nil }
-                storedPersistedWriteCount += 1
+            state.withLockUnchecked {
+                if $0.pendingSnapshot == snapshot { $0.pendingSnapshot = nil }
+                if $0.pendingPersist?.isCancelled == false { $0.pendingPersist = nil }
+                $0.persistedWriteCount += 1
             }
             diagnostics.log("Saved config to \(url.path)")
         } catch {
@@ -593,17 +595,17 @@ final class ConfigService: @unchecked Sendable {
     /// Write any pending snapshot synchronously — termination, tests, and
     /// anywhere the next reader is a fresh process.
     func flush() {
-        lock.withLock { pendingPersist?.cancel(); pendingPersist = nil }
+        state.withLockUnchecked { $0.pendingPersist?.cancel(); $0.pendingPersist = nil }
         persistPending()
     }
 
     /// Drop a scheduled write without persisting — backup restore replaces
     /// the file wholesale, so a stale in-memory snapshot must not land after.
     func discardPending() {
-        lock.withLock {
-            pendingPersist?.cancel()
-            pendingPersist = nil
-            pendingSnapshot = nil
+        state.withLockUnchecked {
+            $0.pendingPersist?.cancel()
+            $0.pendingPersist = nil
+            $0.pendingSnapshot = nil
         }
     }
 }

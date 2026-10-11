@@ -2,6 +2,7 @@ import Darwin
 import Foundation
 import IOKit.ps
 import FoundryServices
+import os
 
 struct SystemMetrics: Sendable, Equatable {
     var cpuPercent: Double
@@ -47,37 +48,41 @@ struct SystemMetricNeeds: OptionSet, Sendable {
     static let all: Self = [.cpu, .memory, .battery, .disk, .network, .loadAverage]
 }
 
-final class SystemMetricsSampler: @unchecked Sendable {
-    private let lock = NSLock()
-    private var previousCPU: SystemCPUTicks?
-    private var lastBatterySample = Date.distantPast
-    private var lastDiskSample = Date.distantPast
-    private var lastNetworkSample = Date.distantPast
-    private var cachedBattery: (percent: Int?, charging: Bool, hasBattery: Bool) = (nil, false, false)
-    private var cachedDisk: (free: Int64, total: Int64) = (0, 0)
-    private var cachedIPAddress: String?
+final class SystemMetricsSampler: Sendable {
+    private struct State {
+        var previousCPU: SystemCPUTicks?
+        var lastBatterySample = Date.distantPast
+        var lastDiskSample = Date.distantPast
+        var lastNetworkSample = Date.distantPast
+        var cachedBattery: (percent: Int?, charging: Bool, hasBattery: Bool) = (nil, false, false)
+        var cachedDisk: (free: Int64, total: Int64) = (0, 0)
+        var cachedIPAddress: String?
+    }
+
+    private let state = OSAllocatedUnfairLock<State>(initialState: State())
 
     init() {
-        previousCPU = readCPUTicks()
+        let ticks = readCPUTicks()
+        state.withLock { $0.previousCPU = ticks }
     }
 
     func sample(needs: SystemMetricNeeds = .all) -> SystemMetrics {
         let memory = needs.contains(.memory) ? memoryUsage() : (used: 0, total: ProcessInfo.processInfo.physicalMemory)
-        let slow = lock.withLock { () -> (battery: (percent: Int?, charging: Bool, hasBattery: Bool), disk: (free: Int64, total: Int64), ip: String?) in
+        let slow = state.withLock { state -> (battery: (percent: Int?, charging: Bool, hasBattery: Bool), disk: (free: Int64, total: Int64), ip: String?) in
             let now = Date()
-            if needs.contains(.battery), now.timeIntervalSince(lastBatterySample) >= 30 {
-                cachedBattery = batteryInfo()
-                lastBatterySample = now
+            if needs.contains(.battery), now.timeIntervalSince(state.lastBatterySample) >= 30 {
+                state.cachedBattery = batteryInfo()
+                state.lastBatterySample = now
             }
-            if needs.contains(.disk), now.timeIntervalSince(lastDiskSample) >= 30 {
-                cachedDisk = diskCapacity()
-                lastDiskSample = now
+            if needs.contains(.disk), now.timeIntervalSince(state.lastDiskSample) >= 30 {
+                state.cachedDisk = diskCapacity()
+                state.lastDiskSample = now
             }
-            if needs.contains(.network), now.timeIntervalSince(lastNetworkSample) >= 30 {
-                cachedIPAddress = localIPAddress()
-                lastNetworkSample = now
+            if needs.contains(.network), now.timeIntervalSince(state.lastNetworkSample) >= 30 {
+                state.cachedIPAddress = localIPAddress()
+                state.lastNetworkSample = now
             }
-            return (cachedBattery, cachedDisk, cachedIPAddress)
+            return (state.cachedBattery, state.cachedDisk, state.cachedIPAddress)
         }
         let memoryPercent = memory.total == 0 ? 0 : Double(memory.used) / Double(memory.total) * 100
 
@@ -100,10 +105,11 @@ final class SystemMetricsSampler: @unchecked Sendable {
 
     private func cpuUsage() -> Double {
         guard let current = readCPUTicks() else { return 0 }
-        lock.lock()
-        defer { lock.unlock() }
-        let previous = previousCPU
-        previousCPU = current
+        let previous = state.withLock { state in
+            let previous = state.previousCPU
+            state.previousCPU = current
+            return previous
+        }
         guard let previous else { return 0 }
         let totalDelta = current.total >= previous.total ? current.total - previous.total : 0
         let idleDelta = current.idle >= previous.idle ? current.idle - previous.idle : 0

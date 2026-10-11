@@ -1,3 +1,4 @@
+import os
 import XCTest
 @testable import Foundry
 import FoundryDomain
@@ -564,12 +565,12 @@ final class ActionRunnerTests: XCTestCase {
         return png
     }
 
-    private final class TestSnippetStore: SnippetStore, @unchecked Sendable {
+    private final class TestSnippetStore: SnippetStore, Sendable {
         let url = URL(fileURLWithPath: "/tmp/test-snippets.json")
-        var snippets: [StoredSnippet]
-        init(snippets: [StoredSnippet]) { self.snippets = snippets }
-        func load() -> [StoredSnippet] { snippets }
-        @discardableResult func save(_ snippets: [StoredSnippet]) -> Result<Void, Error> { self.snippets = snippets; return .success(()) }
+        private let storage: OSAllocatedUnfairLock<[StoredSnippet]>
+        init(snippets: [StoredSnippet]) { storage = OSAllocatedUnfairLock(initialState: snippets) }
+        func load() -> [StoredSnippet] { storage.withLock { $0 } }
+        @discardableResult func save(_ snippets: [StoredSnippet]) -> Result<Void, Error> { storage.withLock { $0 = snippets }; return .success(()) }
     }
 
     @MainActor

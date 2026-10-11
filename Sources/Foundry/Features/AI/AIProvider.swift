@@ -11,7 +11,7 @@ enum AIStreamEvent: Sendable, Equatable {
     case failed(String)
 }
 
-final class AIProvider: @unchecked Sendable, CommandProvider {
+final class AIProvider: Sendable, CommandProvider {
     let id = "foundry.ai"
 
     var searchPolicy: CommandProviderSearchPolicy { CommandProviderSearchPolicy(tier: .deferred) }

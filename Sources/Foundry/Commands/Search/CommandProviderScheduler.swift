@@ -1,11 +1,11 @@
 import Foundation
 import FoundryDomain
 import FoundryServices
+import os
 
-final class CommandProviderScheduler: @unchecked Sendable {
+final class CommandProviderScheduler: Sendable {
     private let diagnostics: DiagnosticsService
-    private let gateLock = NSLock()
-    private var providerGates: [String: ProviderExecutionGate] = [:]
+    private let providerGates = OSAllocatedUnfairLock(initialState: [String: ProviderExecutionGate]())
 
     init(diagnostics: DiagnosticsService) {
         self.diagnostics = diagnostics
@@ -137,12 +137,12 @@ final class CommandProviderScheduler: @unchecked Sendable {
     }
 
     private func executionGate(for providerID: String) -> ProviderExecutionGate {
-        gateLock.withLock {
-            if let gate = providerGates[providerID] {
+        providerGates.withLock {
+            if let gate = $0[providerID] {
                 return gate
             }
             let gate = ProviderExecutionGate()
-            providerGates[providerID] = gate
+            $0[providerID] = gate
             return gate
         }
     }
@@ -192,32 +192,35 @@ struct ProviderSearchTiming: Sendable {
     let status: ProviderCallStatus
 }
 
-final class FirstResultRace<Value: Sendable>: @unchecked Sendable {
-    private let lock = NSLock()
-    private var continuation: CheckedContinuation<Value?, Never>?
-    private var finished = false
-    private var finishedValue: Value?
+final class FirstResultRace<Value: Sendable>: Sendable {
+    private struct State {
+        var continuation: CheckedContinuation<Value?, Never>?
+        var finished = false
+        var finishedValue: Value?
+    }
+
+    private let state = OSAllocatedUnfairLock(initialState: State())
 
     func wait() async -> Value? {
         await withCheckedContinuation { continuation in
-            let state = lock.withLock { () -> (shouldResume: Bool, value: Value?) in
-                if finished { return (true, finishedValue) }
-                self.continuation = continuation
+            let resolved = state.withLock { state -> (shouldResume: Bool, value: Value?) in
+                if state.finished { return (true, state.finishedValue) }
+                state.continuation = continuation
                 return (false, nil)
             }
-            if state.shouldResume {
-                continuation.resume(returning: state.value)
+            if resolved.shouldResume {
+                continuation.resume(returning: resolved.value)
             }
         }
     }
 
     func finish(_ value: Value?) {
-        let continuation = lock.withLock { () -> CheckedContinuation<Value?, Never>? in
-            guard finished == false else { return nil }
-            finished = true
-            finishedValue = value
-            let continuation = self.continuation
-            self.continuation = nil
+        let continuation = state.withLock { state -> CheckedContinuation<Value?, Never>? in
+            guard state.finished == false else { return nil }
+            state.finished = true
+            state.finishedValue = value
+            let continuation = state.continuation
+            state.continuation = nil
             return continuation
         }
         continuation?.resume(returning: value)

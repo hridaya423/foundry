@@ -1,3 +1,4 @@
+import os
 import XCTest
 import FoundryDomain
 @testable import Foundry
@@ -82,13 +83,13 @@ final class SnippetStateTests: XCTestCase {
     }
 }
 
-private final class InMemorySnippetStore: SnippetStore, @unchecked Sendable {
+private final class InMemorySnippetStore: SnippetStore, Sendable {
     let url = URL(fileURLWithPath: "/tmp/foundry-snippet-state-tests.json")
-    var snippets: [StoredSnippet]
-    init(snippets: [StoredSnippet]) { self.snippets = snippets }
-    func load() -> [StoredSnippet] { snippets }
+    private let storage: OSAllocatedUnfairLock<[StoredSnippet]>
+    init(snippets: [StoredSnippet]) { storage = OSAllocatedUnfairLock(initialState: snippets) }
+    func load() -> [StoredSnippet] { storage.withLock { $0 } }
     @discardableResult func save(_ snippets: [StoredSnippet]) -> Result<Void, Error> {
-        self.snippets = snippets
+        storage.withLock { $0 = snippets }
         return .success(())
     }
 }

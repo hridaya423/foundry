@@ -1,6 +1,7 @@
 import Foundation
 import Security
 import FoundryServices
+import os
 
 protocol MediaDownloading: Sendable {
 
@@ -36,7 +37,7 @@ extension MediaDownloading {
     }
 }
 
-final class MediaDownloadService: MediaDownloading, @unchecked Sendable {
+final class MediaDownloadService: MediaDownloading, Sendable {
     struct Dependencies: Sendable {
         let session: URLSession
         let cobaltEndpoint: URL
@@ -478,19 +479,22 @@ struct CobaltMediaResponse: Equatable, Sendable {
     }
 }
 
-private final class CobaltResponseDelegate: NSObject, URLSessionDataDelegate, URLSessionTaskDelegate, @unchecked Sendable {
-    private let lock = NSLock()
+private final class CobaltResponseDelegate: NSObject, URLSessionDataDelegate, URLSessionTaskDelegate, Sendable {
+    private struct State {
+        var body = Data()
+        var continuation: CheckedContinuation<(Data, URLResponse), Error>?
+        var response: URLResponse?
+        var pendingError: Error?
+        var redirectCount = 0
+        var task: URLSessionDataTask?
+        var session: URLSession?
+        var cancelled = false
+    }
+
+    private let state = OSAllocatedUnfairLock<State>(uncheckedState: State())
     private let policy: MediaNetworkPolicy
     private let maxBytes: Int64
     private let trustEvaluator: @Sendable (SecTrust) -> Bool
-    private var body = Data()
-    private var continuation: CheckedContinuation<(Data, URLResponse), Error>?
-    private var response: URLResponse?
-    private var pendingError: Error?
-    private var redirectCount = 0
-    private var task: URLSessionDataTask?
-    private var session: URLSession?
-    private var cancelled = false
 
     init(policy: MediaNetworkPolicy, maxBytes: Int64, trustEvaluator: @escaping @Sendable (SecTrust) -> Bool) {
         self.policy = policy
@@ -501,18 +505,19 @@ private final class CobaltResponseDelegate: NSObject, URLSessionDataDelegate, UR
     func start(_ request: URLRequest, session: URLSession) async throws -> (Data, URLResponse) {
         try await withTaskCancellationHandler {
             try await withCheckedThrowingContinuation { continuation in
-                lock.lock()
-                guard !cancelled else {
-                    lock.unlock()
+                let task = state.withLockUnchecked { state -> URLSessionDataTask? in
+                    guard !state.cancelled else { return nil }
+                    state.continuation = continuation
+                    let delegateSession = URLSession(configuration: session.configuration, delegate: self, delegateQueue: nil)
+                    state.session = delegateSession
+                    let task = delegateSession.dataTask(with: request)
+                    state.task = task
+                    return task
+                }
+                guard let task else {
                     continuation.resume(throwing: CancellationError())
                     return
                 }
-                self.continuation = continuation
-                let delegateSession = URLSession(configuration: session.configuration, delegate: self, delegateQueue: nil)
-                self.session = delegateSession
-                let task = delegateSession.dataTask(with: request)
-                self.task = task
-                lock.unlock()
                 task.resume()
             }
         } onCancel: {
@@ -521,15 +526,16 @@ private final class CobaltResponseDelegate: NSObject, URLSessionDataDelegate, UR
     }
 
     func cancel() {
-        lock.lock()
-        cancelled = true
-        let continuation = self.continuation
-        self.continuation = nil
-        let task = self.task
-        self.task = nil
-        let session = self.session
-        self.session = nil
-        lock.unlock()
+        let (continuation, task, session) = state.withLockUnchecked { state in
+            state.cancelled = true
+            let continuation = state.continuation
+            state.continuation = nil
+            let task = state.task
+            state.task = nil
+            let session = state.session
+            state.session = nil
+            return (continuation, task, session)
+        }
         task?.cancel()
         session?.invalidateAndCancel()
         continuation?.resume(throwing: CancellationError())
@@ -538,16 +544,14 @@ private final class CobaltResponseDelegate: NSObject, URLSessionDataDelegate, UR
     func urlSession(_: URLSession, task _: URLSessionTask, willPerformHTTPRedirection response: HTTPURLResponse, newRequest request: URLRequest, completionHandler: @Sendable @escaping (URLRequest?) -> Void) {
         do {
             guard let url = request.url else { throw MediaNetworkPolicyFailure.blockedDestination }
-            lock.lock()
-            redirectCount += 1
-            let count = redirectCount
-            lock.unlock()
+            let count = state.withLockUnchecked { state in
+                state.redirectCount += 1
+                return state.redirectCount
+            }
             try policy.validateRedirect(from: response.url, to: url, count: count)
             completionHandler(request)
         } catch {
-            lock.lock()
-            pendingError = error
-            lock.unlock()
+            state.withLockUnchecked { $0.pendingError = error }
             completionHandler(nil)
         }
     }
@@ -561,9 +565,7 @@ private final class CobaltResponseDelegate: NSObject, URLSessionDataDelegate, UR
         }
         SecTrustSetPolicies(trust, SecPolicyCreateSSL(true, host as CFString))
         guard trustEvaluator(trust) else {
-            lock.lock()
-            pendingError = MediaNetworkPolicyFailure.blockedDestination
-            lock.unlock()
+            state.withLockUnchecked { $0.pendingError = MediaNetworkPolicyFailure.blockedDestination }
             completionHandler(.cancelAuthenticationChallenge, nil)
             return
         }
@@ -571,32 +573,27 @@ private final class CobaltResponseDelegate: NSObject, URLSessionDataDelegate, UR
     }
 
     func urlSession(_: URLSession, dataTask: URLSessionDataTask, didReceive response: URLResponse, completionHandler: @Sendable @escaping (URLSession.ResponseDisposition) -> Void) {
-        lock.lock()
-        self.response = response
-        lock.unlock()
+        state.withLockUnchecked { $0.response = response }
         completionHandler(.allow)
     }
 
     func urlSession(_: URLSession, dataTask _: URLSessionDataTask, didReceive data: Data) {
-        lock.lock()
-        body.append(data)
-        let tooLarge = Int64(body.count) > maxBytes
-        let task = self.task
-        lock.unlock()
+        let (tooLarge, task) = state.withLockUnchecked { state -> (Bool, URLSessionDataTask?) in
+            state.body.append(data)
+            return (Int64(state.body.count) > maxBytes, state.task)
+        }
         if tooLarge {
-            lock.lock()
-            pendingError = MediaNetworkPolicyFailure.responseTooLarge
-            lock.unlock()
+            state.withLockUnchecked { $0.pendingError = MediaNetworkPolicyFailure.responseTooLarge }
             task?.cancel()
         }
     }
 
     func urlSession(_: URLSession, task _: URLSessionTask, didCompleteWithError error: Error?) {
-        lock.lock()
-        let result = (continuation, body, response, pendingError ?? error)
-        continuation = nil
-        let session = self.session
-        lock.unlock()
+        let (result, session) = state.withLockUnchecked { state in
+            let result = (state.continuation, state.body, state.response, state.pendingError ?? error)
+            state.continuation = nil
+            return (result, state.session)
+        }
         if let error = result.3 {
             result.0?.resume(throwing: error)
         } else if let response = result.2 {
@@ -608,23 +605,26 @@ private final class CobaltResponseDelegate: NSObject, URLSessionDataDelegate, UR
     }
 }
 
-private final class MediaDownloadDelegate: NSObject, URLSessionDownloadDelegate, URLSessionTaskDelegate, @unchecked Sendable {
-    private let lock = NSLock()
+private final class MediaDownloadDelegate: NSObject, URLSessionDownloadDelegate, URLSessionTaskDelegate, Sendable {
+    private struct State {
+        var session: URLSession?
+        var task: URLSessionDownloadTask?
+        var continuation: CheckedContinuation<(URL, URLResponse?), Error>?
+        var temporaryURL: URL?
+        var response: URLResponse?
+        var pendingError: Error?
+        var startedAt = Date()
+        var lastReportedAt = Date.distantPast
+        var didFinish = false
+        var redirectCount = 0
+        var certificateHost: String?
+    }
+
+    private let state = OSAllocatedUnfairLock<State>(uncheckedState: State())
     private let title: String
     private let progress: (@MainActor @Sendable (MediaDownloadProgress) -> Void)?
     private let policy: MediaNetworkPolicy
     private let fileSystem: any MediaArtifactFileSystem
-    private var session: URLSession?
-    private var task: URLSessionDownloadTask?
-    private var continuation: CheckedContinuation<(URL, URLResponse?), Error>?
-    private var temporaryURL: URL?
-    private var response: URLResponse?
-    private var pendingError: Error?
-    private var startedAt = Date()
-    private var lastReportedAt = Date.distantPast
-    private var didFinish = false
-    private var redirectCount = 0
-    private var certificateHost: String?
     private let trustEvaluator: @Sendable (SecTrust) -> Bool
 
     init(
@@ -646,16 +646,14 @@ private final class MediaDownloadDelegate: NSObject, URLSessionDownloadDelegate,
 
     func urlSession(_: URLSession, task _: URLSessionTask, willPerformHTTPRedirection response: HTTPURLResponse, newRequest request: URLRequest, completionHandler: @Sendable @escaping (URLRequest?) -> Void) {
         do {
-            lock.lock()
-            redirectCount += 1
-            let count = redirectCount
-            lock.unlock()
+            let count = state.withLockUnchecked { state in
+                state.redirectCount += 1
+                return state.redirectCount
+            }
             guard let url = request.url else { throw MediaNetworkPolicyFailure.blockedDestination }
             try policy.validateRedirect(from: response.url, to: url, count: count)
             let pinned = try policy.pinnedURL(for: url)
-            lock.lock()
-            certificateHost = url.host
-            lock.unlock()
+            state.withLockUnchecked { $0.certificateHost = url.host }
             var pinnedRequest = request
             pinnedRequest.url = pinned.url
             pinnedRequest.setValue(pinned.host, forHTTPHeaderField: "Host")
@@ -675,22 +673,23 @@ private final class MediaDownloadDelegate: NSObject, URLSessionDownloadDelegate,
             continuation.resume(throwing: error)
             return
         }
-        lock.lock()
-        guard didFinish == false else {
-            lock.unlock()
+        let task = state.withLockUnchecked { state -> URLSessionDownloadTask? in
+            guard state.didFinish == false else { return nil }
+            state.continuation = continuation
+            state.startedAt = Date()
+            let delegateSession = URLSession(configuration: session.configuration, delegate: self, delegateQueue: nil)
+            state.session = delegateSession
+            state.certificateHost = sourceURL.host
+            var request = URLRequest(url: pinned.url)
+            request.setValue(pinned.host, forHTTPHeaderField: "Host")
+            let task = delegateSession.downloadTask(with: request)
+            state.task = task
+            return task
+        }
+        guard let task else {
             continuation.resume(throwing: CancellationError())
             return
         }
-        self.continuation = continuation
-        startedAt = Date()
-        let delegateSession = URLSession(configuration: session.configuration, delegate: self, delegateQueue: nil)
-        self.session = delegateSession
-        certificateHost = sourceURL.host
-        var request = URLRequest(url: pinned.url)
-        request.setValue(pinned.host, forHTTPHeaderField: "Host")
-        let task = delegateSession.downloadTask(with: request)
-        self.task = task
-        lock.unlock()
         task.resume()
     }
 
@@ -701,14 +700,10 @@ private final class MediaDownloadDelegate: NSObject, URLSessionDownloadDelegate,
             completionHandler(.performDefaultHandling, nil)
             return
         }
-        lock.lock()
-        let expectedHost = certificateHost ?? host
-        lock.unlock()
+        let expectedHost = state.withLockUnchecked { $0.certificateHost ?? host }
         SecTrustSetPolicies(trust, SecPolicyCreateSSL(true, expectedHost as CFString))
         guard trustEvaluator(trust) else {
-            lock.lock()
-            pendingError = MediaNetworkPolicyFailure.blockedDestination
-            lock.unlock()
+            state.withLockUnchecked { $0.pendingError = MediaNetworkPolicyFailure.blockedDestination }
             completionHandler(.cancelAuthenticationChallenge, nil)
             return
         }
@@ -717,25 +712,23 @@ private final class MediaDownloadDelegate: NSObject, URLSessionDownloadDelegate,
     }
 
     func cancel(with error: Error = CancellationError()) {
-        lock.lock()
-        guard didFinish == false else {
-            lock.unlock()
-            return
+        let gathered = state.withLockUnchecked { state -> (continuation: CheckedContinuation<(URL, URLResponse?), Error>?, task: URLSessionDownloadTask?, session: URLSession?, temporaryURL: URL?) in
+            guard state.didFinish == false else { return (nil, nil, nil, nil) }
+            state.didFinish = true
+            state.pendingError = error
+            let continuation = state.continuation
+            state.continuation = nil
+            let task = state.task
+            state.task = nil
+            let session = state.session
+            state.session = nil
+            return (continuation, task, session, state.temporaryURL)
         }
-        didFinish = true
-        pendingError = error
-        let continuation = self.continuation
-        self.continuation = nil
-        let task = self.task
-        self.task = nil
-        let session = self.session
-        self.session = nil
-        let temporaryURL = self.temporaryURL
-        lock.unlock()
-        task?.cancel()
-        session?.invalidateAndCancel()
-        if let temporaryURL { try? fileSystem.removeItem(at: temporaryURL) }
-        continuation?.resume(throwing: error)
+        guard gathered.0 != nil || gathered.1 != nil || gathered.2 != nil else { return }
+        gathered.task?.cancel()
+        gathered.session?.invalidateAndCancel()
+        if let temporaryURL = gathered.temporaryURL { try? fileSystem.removeItem(at: temporaryURL) }
+        gathered.continuation?.resume(throwing: error)
     }
 
     func urlSession(
@@ -746,18 +739,16 @@ private final class MediaDownloadDelegate: NSObject, URLSessionDownloadDelegate,
         totalBytesExpectedToWrite totalBytesExpected: Int64
     ) {
         if totalBytesWritten > policy.maxBytes {
-            lock.lock()
-            pendingError = MediaNetworkPolicyFailure.responseTooLarge
-            lock.unlock()
+            state.withLockUnchecked { $0.pendingError = MediaNetworkPolicyFailure.responseTooLarge }
             downloadTask.cancel()
             return
         }
         let now = Date()
-        lock.lock()
-        let shouldReport = now.timeIntervalSince(lastReportedAt) >= 0.1 || totalBytesExpected == totalBytesWritten
-        if shouldReport { lastReportedAt = now }
-        let elapsed = max(now.timeIntervalSince(startedAt), 0.001)
-        lock.unlock()
+        let (shouldReport, elapsed) = state.withLockUnchecked { state -> (Bool, TimeInterval) in
+            let shouldReport = now.timeIntervalSince(state.lastReportedAt) >= 0.1 || totalBytesExpected == totalBytesWritten
+            if shouldReport { state.lastReportedAt = now }
+            return (shouldReport, max(now.timeIntervalSince(state.startedAt), 0.001))
+        }
         guard shouldReport else { return }
 
         let total = totalBytesExpected > 0 ? totalBytesExpected : nil
@@ -775,9 +766,7 @@ private final class MediaDownloadDelegate: NSObject, URLSessionDownloadDelegate,
             currentItem: nil,
             totalItems: nil
         ))
-        lock.lock()
-        response = downloadTask.response
-        lock.unlock()
+        state.withLockUnchecked { $0.response = downloadTask.response }
         _ = bytesWritten
     }
 
@@ -785,31 +774,29 @@ private final class MediaDownloadDelegate: NSObject, URLSessionDownloadDelegate,
         let stagingURL = FileManager.default.temporaryDirectory.appendingPathComponent("foundry-download-\(UUID().uuidString)")
         do {
             try fileSystem.moveItem(at: location, to: stagingURL)
-            lock.lock()
-            temporaryURL = stagingURL
-            response = downloadTask.response
-            lock.unlock()
+            state.withLockUnchecked { state in
+                state.temporaryURL = stagingURL
+                state.response = downloadTask.response
+            }
         } catch {
-            lock.lock()
-            pendingError = error
-            lock.unlock()
+            state.withLockUnchecked { $0.pendingError = error }
         }
     }
 
     func urlSession(_: URLSession, task _: URLSessionTask, didCompleteWithError error: Error?) {
-        lock.lock()
-        guard didFinish == false else {
-            lock.unlock()
-            return
+        let gathered = state.withLockUnchecked { state -> (continuation: CheckedContinuation<(URL, URLResponse?), Error>?, temporaryURL: URL?, response: URLResponse?, pendingError: Error?, session: URLSession?, didFinish: Bool) in
+            guard state.didFinish == false else { return (nil, nil, nil, nil, nil, true) }
+            state.didFinish = true
+            let continuation = state.continuation
+            state.continuation = nil
+            return (continuation, state.temporaryURL, state.response, state.pendingError, state.session, false)
         }
-        didFinish = true
-        let continuation = self.continuation
-        self.continuation = nil
-        let temporaryURL = self.temporaryURL
-        let response = self.response
-        let pendingError = self.pendingError
-        let session = self.session
-        lock.unlock()
+        guard gathered.didFinish == false else { return }
+        let continuation = gathered.continuation
+        let temporaryURL = gathered.temporaryURL
+        let response = gathered.response
+        let pendingError = gathered.pendingError
+        let session = gathered.session
 
         let resultError = pendingError ?? error
         if let resultError {
@@ -829,7 +816,7 @@ private final class MediaDownloadDelegate: NSObject, URLSessionDownloadDelegate,
     }
 }
 
-final class YTDLPProgressParser: @unchecked Sendable {
+final class YTDLPProgressParser: Sendable {
     private static let itemRegex = try! NSRegularExpression(pattern: #"Downloading item\s+(\d+)\s+of\s+(\d+)"#, options: [.caseInsensitive])
     private static let mergingRegex = try! NSRegularExpression(pattern: #"Merging formats into\s+[\"'](.+)[\"']"#, options: [.caseInsensitive])
     private static let downloadedRegex = try! NSRegularExpression(pattern: #"\[download\]\s+(.+)\s+has already been downloaded"#, options: [.caseInsensitive])
@@ -842,35 +829,37 @@ final class YTDLPProgressParser: @unchecked Sendable {
     private static let speedRegex = try! NSRegularExpression(pattern: #"at\s+([0-9]+(?:\.[0-9]+)?\s*(?:B|KiB|MiB|GiB|TiB))/s"#, options: [.caseInsensitive])
     private static let etaRegex = try! NSRegularExpression(pattern: #"ETA\s+([0-9:]+)"#, options: [.caseInsensitive])
     private static let byteValueRegex = try! NSRegularExpression(pattern: #"^\s*([0-9]+(?:\.[0-9]+)?)\s*(B|KiB|MiB|GiB|TiB)\s*$"#, options: [.caseInsensitive])
-    private let lock = NSLock()
-    private var title = "YouTube media"
-    private var currentItem: Int?
-    private var totalItems: Int?
+    private struct State {
+        var title = "YouTube media"
+        var currentItem: Int?
+        var totalItems: Int?
+    }
+
+    private let state = OSAllocatedUnfairLock<State>(initialState: State())
 
     func parse(_ line: String) -> MediaDownloadProgress? {
-        lock.lock()
-        defer { lock.unlock() }
+        state.withLock { state in
 
         if let itemMatch = Self.match(Self.itemRegex, in: line) {
-            currentItem = Int(itemMatch[0])
-            totalItems = Int(itemMatch[1])
-            return makeProgress(message: "Downloading item \(itemMatch[0]) of \(itemMatch[1])")
+            state.currentItem = Int(itemMatch[0])
+            state.totalItems = Int(itemMatch[1])
+            return makeProgress(state, message: "Downloading item \(itemMatch[0]) of \(itemMatch[1])")
         }
 
         if let destinationRange = line.range(of: "Destination:") {
             let nextTitle = line[destinationRange.upperBound...].trimmingCharacters(in: .whitespacesAndNewlines)
-            if nextTitle.isEmpty == false { title = Self.displayName(nextTitle) }
-            return makeProgress(message: "Downloading \(title)")
+            if nextTitle.isEmpty == false { state.title = Self.displayName(nextTitle) }
+            return makeProgress(state, message: "Downloading \(state.title)")
         }
 
         if let merged = Self.match(Self.mergingRegex, in: line)?.first {
-            title = Self.displayName(merged)
-            return makeProgress(message: "Finishing \(title)")
+            state.title = Self.displayName(merged)
+            return makeProgress(state, message: "Finishing \(state.title)")
         }
 
         if let existing = Self.match(Self.downloadedRegex, in: line)?.first {
-            title = Self.displayName(existing)
-            return makeProgress(message: "Already downloaded")
+            state.title = Self.displayName(existing)
+            return makeProgress(state, message: "Already downloaded")
         }
 
         guard let progressMatch = Self.match(Self.progressRegex, in: line),
@@ -885,30 +874,31 @@ final class YTDLPProgressParser: @unchecked Sendable {
             ?? Self.match(Self.etaRegex, in: line).flatMap { Self.duration($0[0]) }
         return MediaDownloadProgress(
             phase: .downloading,
-            title: title,
+            title: state.title,
             message: "Downloading",
             bytesReceived: bytesReceived,
             totalBytes: totalBytes,
             fractionCompletedOverride: min(max(percent / 100, 0), 1),
             speedBytesPerSecond: speed,
             estimatedTimeRemaining: eta,
-            currentItem: currentItem,
-            totalItems: totalItems
+            currentItem: state.currentItem,
+            totalItems: state.totalItems
         )
+        }
     }
 
-    private func makeProgress(message: String) -> MediaDownloadProgress {
+    private func makeProgress(_ state: State, message: String) -> MediaDownloadProgress {
         MediaDownloadProgress(
             phase: .downloading,
-            title: title,
+            title: state.title,
             message: message,
             bytesReceived: 0,
             totalBytes: nil,
             fractionCompletedOverride: nil,
             speedBytesPerSecond: nil,
             estimatedTimeRemaining: nil,
-            currentItem: currentItem,
-            totalItems: totalItems
+            currentItem: state.currentItem,
+            totalItems: state.totalItems
         )
     }
 
@@ -952,25 +942,24 @@ final class YTDLPProgressParser: @unchecked Sendable {
     }
 }
 
-final class MediaProgressThrottle: @unchecked Sendable {
-    private let lock = NSLock()
+final class MediaProgressThrottle: Sendable {
     private let clock = ContinuousClock()
-    private var lastReportedAt: ContinuousClock.Instant?
+    private let lastReportedAt = OSAllocatedUnfairLock<ContinuousClock.Instant?>(initialState: nil)
 
     func shouldReport(_ progress: MediaDownloadProgress) -> Bool {
         let now = clock.now
-        lock.lock()
-        defer { lock.unlock() }
-        let isSignificant = progress.phase != .downloading
-            || progress.message != "Downloading"
-            || progress.fractionCompleted == 1
-        if isSignificant == false,
-           let lastReportedAt,
-           lastReportedAt.duration(to: now) < .milliseconds(100) {
-            return false
+        return lastReportedAt.withLock { lastReportedAt in
+            let isSignificant = progress.phase != .downloading
+                || progress.message != "Downloading"
+                || progress.fractionCompleted == 1
+            if isSignificant == false,
+               let lastReportedAt,
+               lastReportedAt.duration(to: now) < .milliseconds(100) {
+                return false
+            }
+            lastReportedAt = now
+            return true
         }
-        lastReportedAt = now
-        return true
     }
 }
 

@@ -1,3 +1,4 @@
+import os
 import XCTest
 @testable import Foundry
 
@@ -251,38 +252,55 @@ final class ClipboardHistoryTests: XCTestCase {
     }
 }
 
-private final class TestPasteboardClient: PasteboardClient, @unchecked Sendable {
-    var changeCountValue = 0
-    var snapshotValue: PasteboardSnapshot?
-    var written: [ClipboardPayload] = []
+private final class TestPasteboardClient: PasteboardClient, Sendable {
+    private struct Box {
+        var changeCountValue = 0
+        var snapshotValue: PasteboardSnapshot?
+        var written: [ClipboardPayload] = []
+    }
+
+    private let box = OSAllocatedUnfairLock(uncheckedState: Box())
+
+    var changeCountValue: Int {
+        get { box.withLockUnchecked { $0.changeCountValue } }
+        set { box.withLockUnchecked { $0.changeCountValue = newValue } }
+    }
+
+    var snapshotValue: PasteboardSnapshot? {
+        get { box.withLockUnchecked { $0.snapshotValue } }
+        set { box.withLockUnchecked { $0.snapshotValue = newValue } }
+    }
+
+    var written: [ClipboardPayload] {
+        box.withLockUnchecked { $0.written }
+    }
+
     var changeCount: Int { changeCountValue }
     func snapshot() -> PasteboardSnapshot? { snapshotValue }
-    func write(_ payload: ClipboardPayload) { written.append(payload) }
+    func write(_ payload: ClipboardPayload) { box.withLockUnchecked { $0.written.append(payload) } }
 }
 
-private final class RecordingClipboardPersistence: @unchecked Sendable, ClipboardHistoryPersisting {
-    private let lock = NSLock()
-    private var snapshots: [[ClipboardHistoryItem]] = []
+private final class RecordingClipboardPersistence: Sendable, ClipboardHistoryPersisting {
+    private let snapshots = OSAllocatedUnfairLock<[[ClipboardHistoryItem]]>(initialState: [])
 
     func load() throws -> [ClipboardHistoryItem] { [] }
-    func save(_ items: [ClipboardHistoryItem]) throws { lock.withLock { snapshots.append(items) } }
+    func save(_ items: [ClipboardHistoryItem]) throws { snapshots.withLock { $0.append(items) } }
     func imageData(signature _: String) throws -> Data? { nil }
-    func savedSnapshots() -> [[ClipboardHistoryItem]] { lock.withLock { snapshots } }
+    func savedSnapshots() -> [[ClipboardHistoryItem]] { snapshots.withLock { $0 } }
 }
 
-private final class BlockingClipboardPersistence: @unchecked Sendable, ClipboardHistoryPersisting {
+private final class BlockingClipboardPersistence: Sendable, ClipboardHistoryPersisting {
     private let started = DispatchSemaphore(value: 0)
     private let allowed = DispatchSemaphore(value: 0)
     private let recording = RecordingClipboardPersistence()
-    private let lock = NSLock()
-    private var saveCount = 0
+    private let saveCount = OSAllocatedUnfairLock(initialState: 0)
 
     func load() throws -> [ClipboardHistoryItem] { [] }
 
     func save(_ items: [ClipboardHistoryItem]) throws {
-        let shouldBlock = lock.withLock {
-            saveCount += 1
-            return saveCount == 1
+        let shouldBlock = saveCount.withLock { count in
+            count += 1
+            return count == 1
         }
         if shouldBlock {
             started.signal()

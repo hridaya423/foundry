@@ -4,6 +4,7 @@ import ImageIO
 import UniformTypeIdentifiers
 import Vision
 import FoundryServices
+import os
 
 enum BEN2ComponentState: Equatable, Sendable { case missing, ready, invalid }
 struct BEN2Assessment: Equatable, Sendable {
@@ -276,32 +277,35 @@ enum BackgroundRemovalFileSupport {
     }
 }
 
-private final class RequestCancellation: @unchecked Sendable {
-    private let lock = NSLock()
-    private var request: VNRequest?
-    private var cancelled = false
+private final class RequestCancellation: Sendable {
+    private struct State {
+        var request: VNRequest?
+        var cancelled = false
+    }
+
+    private let state = OSAllocatedUnfairLock<State>(uncheckedState: State())
 
     var isCancelled: Bool {
-        lock.withLock { cancelled }
+        state.withLockUnchecked { $0.cancelled }
     }
 
     func register(_ request: VNRequest) {
-        let shouldCancel = lock.withLock {
-            self.request = request
-            return cancelled
+        let shouldCancel = state.withLockUnchecked { state in
+            state.request = request
+            return state.cancelled
         }
         if shouldCancel { request.cancel() }
     }
 
     func cancel() {
-        let request = lock.withLock {
-            cancelled = true
-            return self.request
+        let request = state.withLockUnchecked { state in
+            state.cancelled = true
+            return state.request
         }
         request?.cancel()
     }
 
     func clear() {
-        lock.withLock { request = nil }
+        state.withLockUnchecked { $0.request = nil }
     }
 }

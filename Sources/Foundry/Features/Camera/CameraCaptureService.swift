@@ -1,6 +1,7 @@
 @preconcurrency import AVFoundation
 import Foundation
 import FoundryServices
+import os
 
 enum CameraAuthorization: Equatable, Sendable {
     case authorized, notDetermined, denied, restricted
@@ -28,7 +29,7 @@ protocol CameraCapturing: AnyObject {
     func stop()
 }
 
-final class CameraCaptureService: CameraCapturing, @unchecked Sendable {
+final class CameraCaptureService: CameraCapturing, Sendable {
     private let captureState: CaptureState
 
     nonisolated var session: AVCaptureSession { captureState.session }
@@ -116,14 +117,35 @@ final class CameraCaptureService: CameraCapturing, @unchecked Sendable {
         return .configured
     }
 
-    private final class CaptureState: @unchecked Sendable {
-        let session: AVCaptureSession
-        var configured = false
-        var generation = 0
-        var runningContinuation: CheckedContinuation<Result<Void, CameraCaptureError>, Never>?
+    private final class CaptureState: Sendable {
+        private struct Box {
+            let session: AVCaptureSession
+            var configured = false
+            var generation = 0
+            var runningContinuation: CheckedContinuation<Result<Void, CameraCaptureError>, Never>?
+        }
+
+        private let box: OSAllocatedUnfairLock<Box>
 
         init(session: AVCaptureSession) {
-            self.session = session
+            box = OSAllocatedUnfairLock(initialState: Box(session: session))
+        }
+
+        var session: AVCaptureSession { box.withLock { $0.session } }
+
+        var configured: Bool {
+            get { box.withLock { $0.configured } }
+            set { box.withLock { $0.configured = newValue } }
+        }
+
+        var generation: Int {
+            get { box.withLock { $0.generation } }
+            set { box.withLock { $0.generation = newValue } }
+        }
+
+        var runningContinuation: CheckedContinuation<Result<Void, CameraCaptureError>, Never>? {
+            get { box.withLock { $0.runningContinuation } }
+            set { box.withLock { $0.runningContinuation = newValue } }
         }
     }
 }

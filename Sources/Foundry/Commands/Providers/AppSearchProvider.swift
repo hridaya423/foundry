@@ -2,6 +2,7 @@ import AppKit
 import Foundation
 import FoundryDomain
 import FoundryServices
+import os
 
 final class AppSearchProvider: CommandProvider, Sendable {
     let id = "foundry.apps"
@@ -119,16 +120,19 @@ final class AppSearchProvider: CommandProvider, Sendable {
     }
 }
 
-private final class InstalledAppCache: @unchecked Sendable {
+private final class InstalledAppCache: Sendable {
+    private struct State {
+        var apps: [InstalledApp] = []
+        var rootSignature: [AppRootSignature] = []
+        var hasLoaded = false
+        var refreshTask: Task<[InstalledApp], Never>?
+        var nextRefresh = Date.distantPast
+    }
+
     private let roots: [URL]
     private let extraApps: [URL]
     private let diagnostics: DiagnosticsService
-    private let lock = NSLock()
-    private var apps: [InstalledApp] = []
-    private var rootSignature: [AppRootSignature] = []
-    private var hasLoaded = false
-    private var refreshTask: Task<[InstalledApp], Never>?
-    private var nextRefresh = Date.distantPast
+    private let state = OSAllocatedUnfairLock(initialState: State())
     private let refreshInterval: TimeInterval = 30
 
     init(roots: [URL], extraApps: [URL], diagnostics: DiagnosticsService) {
@@ -141,9 +145,9 @@ private final class InstalledAppCache: @unchecked Sendable {
         let signature = rootSignatures()
         let now = Date()
 
-        let (cached, stale): ([InstalledApp]?, Bool) = withLock {
-            guard hasLoaded, signature == rootSignature else { return (nil, false) }
-            return (apps, now >= nextRefresh)
+        let (cached, stale): ([InstalledApp]?, Bool) = state.withLock { state in
+            guard state.hasLoaded, signature == state.rootSignature else { return (nil, false) }
+            return (state.apps, now >= state.nextRefresh)
         }
         if let cached {
             if stale {
@@ -159,36 +163,30 @@ private final class InstalledAppCache: @unchecked Sendable {
     }
 
     private func loadTask() -> Task<[InstalledApp], Never> {
-        withLock {
-            if let refreshTask {
+        state.withLock { state in
+            if let refreshTask = state.refreshTask {
                 return refreshTask
             }
             let task = Task.detached(priority: .utility) {
                 AppSearchProvider.loadApps(roots: self.roots, extraApps: self.extraApps, diagnostics: self.diagnostics)
             }
-            refreshTask = task
+            state.refreshTask = task
             return task
         }
     }
 
     @discardableResult
     private func finishRefresh(_ discovered: [InstalledApp]) -> [InstalledApp] {
-        withLock {
-            if discovered.isEmpty == false || apps.isEmpty {
-                apps = discovered
+        state.withLock { state in
+            if discovered.isEmpty == false || state.apps.isEmpty {
+                state.apps = discovered
             }
-            rootSignature = rootSignatures()
-            hasLoaded = true
-            nextRefresh = Date().addingTimeInterval(refreshInterval)
-            refreshTask = nil
-            return apps
+            state.rootSignature = rootSignatures()
+            state.hasLoaded = true
+            state.nextRefresh = Date().addingTimeInterval(refreshInterval)
+            state.refreshTask = nil
+            return state.apps
         }
-    }
-
-    private func withLock<T>(_ body: () -> T) -> T {
-        lock.lock()
-        defer { lock.unlock() }
-        return body()
     }
 
     private func rootSignatures() -> [AppRootSignature] {

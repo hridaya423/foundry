@@ -1,4 +1,5 @@
 import Foundation
+import os
 
 public struct StagedArtifact: Sendable, Equatable {
     public let url: URL
@@ -17,10 +18,9 @@ public enum ArtifactStoreError: Error, Equatable {
     case validationFailed
 }
 
-public final class ArtifactStore: @unchecked Sendable {
+public final class ArtifactStore: Sendable {
     private let fileManager: FileManager
-    private static let commitLock = NSLock()
-    private static let reservations = Reservations()
+    private static let reservations = OSAllocatedUnfairLock(initialState: [String: UUID]())
     public init(fileManager: FileManager = .default) { self.fileManager = fileManager }
 
     public func stage(for destination: URL) throws -> StagedArtifact {
@@ -28,13 +28,13 @@ public final class ArtifactStore: @unchecked Sendable {
         try fileManager.createDirectory(at: directory, withIntermediateDirectories: true)
         let url = directory.appendingPathComponent(".\(destination.lastPathComponent).foundry-\(UUID().uuidString)")
         let reservation = UUID()
-        try Self.commitLock.withLock {
+        try Self.reservations.withLock {
             let key = destination.standardizedFileURL.path
-            guard Self.reservations.destinations[key] == nil else { throw ArtifactStoreError.destinationExists }
+            guard $0[key] == nil else { throw ArtifactStoreError.destinationExists }
             guard fileManager.createFile(atPath: url.path, contents: nil) else {
                 throw CocoaError(.fileWriteUnknown)
             }
-            Self.reservations.destinations[key] = reservation
+            $0[key] = reservation
         }
         return StagedArtifact(url: url, destination: destination, reservation: reservation)
     }
@@ -45,7 +45,7 @@ public final class ArtifactStore: @unchecked Sendable {
         guard fileManager.fileExists(atPath: staged.url.path) else { throw CocoaError(.fileNoSuchFile) }
         if let validator, try validator(staged.url) == false { throw ArtifactStoreError.validationFailed }
         do {
-            try Self.commitLock.withLock {
+            try Self.reservations.withLock { _ in
                 try fileManager.moveItem(at: staged.url, to: staged.destination)
             }
         }
@@ -55,14 +55,10 @@ public final class ArtifactStore: @unchecked Sendable {
 
     public func discard(_ staged: StagedArtifact) {
         try? fileManager.removeItem(at: staged.url)
-        Self.commitLock.withLock {
+        Self.reservations.withLock {
             let key = staged.destination.standardizedFileURL.path
-            guard Self.reservations.destinations[key] == staged.reservation else { return }
-            Self.reservations.destinations.removeValue(forKey: key)
+            guard $0[key] == staged.reservation else { return }
+            $0.removeValue(forKey: key)
         }
     }
-}
-
-private final class Reservations: @unchecked Sendable {
-    var destinations: [String: UUID] = [:]
 }

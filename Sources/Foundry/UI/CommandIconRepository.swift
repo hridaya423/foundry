@@ -10,7 +10,8 @@ final class CommandIconRepository {
     private var inFlightRemote: [String: Task<NSImage?, Never>] = [:]
     private let session: URLSession
 
-    private struct IconBox: @unchecked Sendable { let image: NSImage }
+    // NSImage is Sendable via SendableBackports (< 6.2) or the SDK (6.2+).
+    private struct IconBox: Sendable { let image: NSImage }
 
     private init() {
         cache.countLimit = 256

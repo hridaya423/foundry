@@ -1,3 +1,4 @@
+import os
 import XCTest
 @testable import Foundry
 import FoundryServices
@@ -615,12 +616,15 @@ final class AIProviderTests: XCTestCase {
     }
 }
 
-private final class DelayedAIChatStore: @unchecked Sendable, AIChatStoring {
+private final class DelayedAIChatStore: Sendable, AIChatStoring {
+    private struct Box {
+        var continuation: CheckedContinuation<Void, Never>?
+        var canLoad = false
+        var saved: [AIChatThread] = []
+    }
+
     private let threads: [AIChatThread]
-    private let lock = NSLock()
-    private var continuation: CheckedContinuation<Void, Never>?
-    private var canLoad = false
-    private var saved: [AIChatThread] = []
+    private let box = OSAllocatedUnfairLock(uncheckedState: Box())
 
     init(threads: [AIChatThread]) {
         self.threads = threads
@@ -629,56 +633,59 @@ private final class DelayedAIChatStore: @unchecked Sendable, AIChatStoring {
     func load() -> [AIChatThread] { threads }
 
     func loadAsync() async -> [AIChatThread] {
-        let shouldWait = lock.withLock { canLoad == false }
+        let shouldWait = box.withLockUnchecked { $0.canLoad == false }
         if shouldWait {
             await withCheckedContinuation { continuation in
-                lock.withLock { self.continuation = continuation }
+                box.withLockUnchecked { $0.continuation = continuation }
             }
         }
         return threads
     }
 
     func save(_ threads: [AIChatThread]) {
-        lock.withLock { saved = threads }
+        box.withLockUnchecked { $0.saved = threads }
     }
 
     func finishLoading() {
-        let continuation = lock.withLock {
-            canLoad = true
-            defer { self.continuation = nil }
-            return self.continuation
+        let continuation = box.withLockUnchecked { box in
+            box.canLoad = true
+            defer { box.continuation = nil }
+            return box.continuation
         }
         continuation?.resume()
     }
 
     func savedThreads() -> [AIChatThread] {
-        lock.withLock { saved }
+        box.withLockUnchecked { $0.saved }
     }
 }
 
-private final class BlockingAIChatStore: @unchecked Sendable, AIChatStoring {
-    private let lock = NSLock()
+private final class BlockingAIChatStore: Sendable, AIChatStoring {
+    private struct Box {
+        var shouldBlockNextSave = true
+        var hasStartedSave = false
+        var snapshots: [[AIChatThread]] = []
+    }
+
+    private let box = OSAllocatedUnfairLock(uncheckedState: Box())
     private let saveGate = DispatchSemaphore(value: 0)
-    private var shouldBlockNextSave = true
-    private var hasStartedSave = false
-    private var snapshots: [[AIChatThread]] = []
 
     func load() -> [AIChatThread] { [] }
     func loadAsync() async -> [AIChatThread] { [] }
 
     func save(_ threads: [AIChatThread]) {
-        let shouldBlock = lock.withLock {
-            hasStartedSave = true
-            guard shouldBlockNextSave else { return false }
-            shouldBlockNextSave = false
+        let shouldBlock = box.withLockUnchecked { box in
+            box.hasStartedSave = true
+            guard box.shouldBlockNextSave else { return false }
+            box.shouldBlockNextSave = false
             return true
         }
         if shouldBlock { saveGate.wait() }
-        lock.withLock { snapshots.append(threads) }
+        box.withLockUnchecked { $0.snapshots.append(threads) }
     }
 
     func saveStarted() -> Bool {
-        lock.withLock { hasStartedSave }
+        box.withLockUnchecked { $0.hasStartedSave }
     }
 
     func releaseSave() {
@@ -686,6 +693,6 @@ private final class BlockingAIChatStore: @unchecked Sendable, AIChatStoring {
     }
 
     func savedSnapshots() -> [[AIChatThread]] {
-        lock.withLock { snapshots }
+        box.withLockUnchecked { $0.snapshots }
     }
 }

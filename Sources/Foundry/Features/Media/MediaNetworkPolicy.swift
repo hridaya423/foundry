@@ -1,6 +1,7 @@
 import Foundation
 import Darwin
 import FoundryServices
+import os
 
 protocol MediaArtifactFileSystem: Sendable {
     func createDirectory(at url: URL) throws
@@ -13,9 +14,8 @@ protocol MediaArtifactFileSystem: Sendable {
     func regularFiles(in directory: URL) throws -> [URL]
 }
 
-#if !compiler(>=6.2)
-extension FileManager: @retroactive @unchecked Sendable {}
-#endif
+// FileManager's Sendable backport lives in FoundryServices
+// (SendableBackports.swift) so ArtifactStore can be checked Sendable too.
 
 extension FileManager: MediaArtifactFileSystem {
     func createDirectory(at url: URL) throws {
@@ -242,18 +242,17 @@ struct MediaNetworkPolicy: Sendable {
     }
 }
 
-private final class DestinationReservations: @unchecked Sendable {
-    private let lock = NSLock()
-    private var paths = Set<String>()
+private final class DestinationReservations: Sendable {
+    private let paths = OSAllocatedUnfairLock(initialState: Set<String>())
 
-    func reserve(_ path: String, ifAvailable: () -> Bool) -> Bool {
-        lock.withLock {
+    func reserve(_ path: String, ifAvailable: @Sendable () -> Bool) -> Bool {
+        paths.withLock { paths in
             guard ifAvailable() else { return false }
             return paths.insert(path).inserted
         }
     }
 
     func release(_ path: String) {
-        _ = lock.withLock { paths.remove(path) }
+        _ = paths.withLock { $0.remove(path) }
     }
 }

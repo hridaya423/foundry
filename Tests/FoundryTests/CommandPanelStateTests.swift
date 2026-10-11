@@ -1,3 +1,4 @@
+import os
 import XCTest
 @testable import Foundry
 import FoundryDomain
@@ -619,13 +620,32 @@ final class CommandPanelStateTests: XCTestCase {
     }
 }
 
-final class TestClipboardPasteboard: PasteboardClient, @unchecked Sendable {
-    var changeCountValue = 0
-    var snapshotValue: PasteboardSnapshot?
-    var writtenPayloads: [ClipboardPayload] = []
+final class TestClipboardPasteboard: PasteboardClient, Sendable {
+    private struct Box {
+        var changeCountValue = 0
+        var snapshotValue: PasteboardSnapshot?
+        var writtenPayloads: [ClipboardPayload] = []
+    }
+
+    private let box = OSAllocatedUnfairLock(uncheckedState: Box())
+
+    var changeCountValue: Int {
+        get { box.withLockUnchecked { $0.changeCountValue } }
+        set { box.withLockUnchecked { $0.changeCountValue = newValue } }
+    }
+
+    var snapshotValue: PasteboardSnapshot? {
+        get { box.withLockUnchecked { $0.snapshotValue } }
+        set { box.withLockUnchecked { $0.snapshotValue = newValue } }
+    }
+
+    var writtenPayloads: [ClipboardPayload] {
+        box.withLockUnchecked { $0.writtenPayloads }
+    }
+
     var changeCount: Int { changeCountValue }
     func snapshot() -> PasteboardSnapshot? { snapshotValue }
-    func write(_ payload: ClipboardPayload) { writtenPayloads.append(payload) }
+    func write(_ payload: ClipboardPayload) { box.withLockUnchecked { $0.writtenPayloads.append(payload) } }
 }
 
 private final class DirectPasteTestTarget: NSObject, DirectPasteTarget {

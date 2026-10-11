@@ -1,6 +1,7 @@
 import Foundation
 import FoundryDomain
 import FoundryServices
+import os
 
 final class LibraryProvider: CommandProvider {
     let id = "foundry.library"
@@ -57,11 +58,9 @@ final class LibraryProvider: CommandProvider {
     }
 }
 
-private final class StoredSnippetCache: @unchecked Sendable {
+private final class StoredSnippetCache: Sendable {
     private let store: any SnippetStore
-    private let lock = NSLock()
-    private var signature: StoredSnippetFileSignature?
-    private var snippets: [StoredSnippet] = []
+    private let state = OSAllocatedUnfairLock<(signature: StoredSnippetFileSignature?, snippets: [StoredSnippet])>(initialState: (nil, []))
 
     init(store: any SnippetStore) {
         self.store = store
@@ -74,13 +73,13 @@ private final class StoredSnippetCache: @unchecked Sendable {
             modificationDate: values?.contentModificationDate,
             fileSize: values?.fileSize
         )
-        return lock.withLock {
-            if signature == nextSignature {
-                return snippets
+        return state.withLockUnchecked { state in
+            if state.signature == nextSignature {
+                return state.snippets
             }
-            snippets = store.load()
-            signature = nextSignature
-            return snippets
+            state.snippets = store.load()
+            state.signature = nextSignature
+            return state.snippets
         }
     }
 }

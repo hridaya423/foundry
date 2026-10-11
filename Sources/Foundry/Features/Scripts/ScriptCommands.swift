@@ -1,6 +1,7 @@
 import Foundation
 import FoundryDomain
 import FoundryServices
+import os
 
 enum ScriptOutputMode: String, Codable, Hashable, Sendable {
     case silent, compact, fullOutput, inline
@@ -59,7 +60,7 @@ enum ScriptDirectives {
     }
 }
 
-final class ScriptDirectoryStore: @unchecked Sendable {
+final class ScriptDirectoryStore: Sendable {
     static let shared = ScriptDirectoryStore()
     static let defaultDirectory = ConfigService.configURL.deletingLastPathComponent().appendingPathComponent("scripts").path
 
@@ -92,11 +93,10 @@ final class ScriptDirectoryStore: @unchecked Sendable {
     }
 }
 
-final class ScriptCommandProvider: CommandProvider, @unchecked Sendable {
+final class ScriptCommandProvider: CommandProvider, Sendable {
     let id = "foundry.scripts"
     private let store: ScriptDirectoryStore
-    private let lock = NSLock()
-    private var cache: [String: (modified: Date?, scripts: [ScriptCommand])] = [:]
+    private let cache = OSAllocatedUnfairLock<[String: (modified: Date?, scripts: [ScriptCommand])]>(initialState: [:])
 
     init(store: ScriptDirectoryStore = .shared) {
         self.store = store
@@ -138,9 +138,9 @@ final class ScriptCommandProvider: CommandProvider, @unchecked Sendable {
     func scripts() -> [ScriptCommand] {
         store.directories.flatMap { directory -> [ScriptCommand] in
             let modified = FileManager.default.attributesIfPresent(atPath: directory)?[.modificationDate] as? Date
-            if let cached = lock.withLock({ cache[directory] }), cached.modified == modified { return cached.scripts }
+            if let cached = cache.withLock({ $0[directory] }), cached.modified == modified { return cached.scripts }
             let scripts = Self.scan(directory)
-            lock.withLock { cache[directory] = (modified, scripts) }
+            cache.withLock { $0[directory] = (modified, scripts) }
             return scripts
         }
     }

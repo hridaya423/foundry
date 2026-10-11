@@ -152,6 +152,8 @@ struct AppleTranslationTask: View {
                 guard let request = state.activeRequest else { return }
                 let text = request.text
                 do {
+                    // TranslationSession is not Sendable but is only used
+                    // inside this task's serial execution.
                     nonisolated(unsafe) let translationSession = session
                     let response = try await translationSession.translate(text)
                     state.finish(.success(response.targetText), for: request)

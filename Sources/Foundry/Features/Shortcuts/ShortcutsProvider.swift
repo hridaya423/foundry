@@ -1,17 +1,21 @@
 import Foundation
 import FoundryDomain
 import FoundryServices
+import os
 
-final class ShortcutsProvider: CommandProvider, @unchecked Sendable {
+final class ShortcutsProvider: CommandProvider, Sendable {
     let id = "foundry.shortcuts"
     static let cliPath = "/usr/bin/shortcuts"
 
+    private struct State {
+        var names: [String] = []
+        var refreshedAt: Date?
+        var refreshing = false
+    }
+
     private let listShortcuts: @Sendable () -> [String]?
     private let refreshInterval: TimeInterval
-    private let lock = NSLock()
-    private var names: [String] = []
-    private var refreshedAt: Date?
-    private var refreshing = false
+    private let state = OSAllocatedUnfairLock<State>(initialState: State())
 
     init(refreshInterval: TimeInterval = 60, listShortcuts: @escaping @Sendable () -> [String]? = ShortcutsProvider.listWithCLI) {
         self.refreshInterval = refreshInterval
@@ -50,11 +54,11 @@ final class ShortcutsProvider: CommandProvider, @unchecked Sendable {
     }
 
     func cachedNames(now: Date = Date()) -> [String] {
-        let (current, needsRefresh) = lock.withLock { () -> ([String], Bool) in
-            let stale = refreshedAt.map { now.timeIntervalSince($0) >= refreshInterval } ?? true
-            guard stale, refreshing == false else { return (names, false) }
-            refreshing = true
-            return (names, true)
+        let (current, needsRefresh) = state.withLock { state -> ([String], Bool) in
+            let stale = state.refreshedAt.map { now.timeIntervalSince($0) >= refreshInterval } ?? true
+            guard stale, state.refreshing == false else { return (state.names, false) }
+            state.refreshing = true
+            return (state.names, true)
         }
         if needsRefresh {
             Task.detached(priority: .utility) { [weak self] in self?.refresh() }
@@ -64,10 +68,10 @@ final class ShortcutsProvider: CommandProvider, @unchecked Sendable {
 
     func refresh() {
         let listed = listShortcuts()
-        lock.withLock {
-            if let listed { names = listed }
-            refreshedAt = Date()
-            refreshing = false
+        state.withLock { state in
+            if let listed { state.names = listed }
+            state.refreshedAt = Date()
+            state.refreshing = false
         }
     }
 }

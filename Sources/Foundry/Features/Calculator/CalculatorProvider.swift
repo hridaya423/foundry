@@ -1,6 +1,7 @@
 import Foundation
 import FoundryDomain
 import FoundryServices
+import os
 
 final class CalculatorProvider: CommandProvider {
     let id = "foundry.calculator"
@@ -646,7 +647,7 @@ private struct FrankfurterRate: Decodable {
     let date: String?
 }
 
-final class CalculatorHistoryStore: @unchecked Sendable {
+final class CalculatorHistoryStore: Sendable {
     static let shared = CalculatorHistoryStore()
 
     struct Entry: Equatable {
@@ -677,7 +678,7 @@ final class CalculatorHistoryStore: @unchecked Sendable {
     }
 }
 
-private final class CurrencyRateCache: @unchecked Sendable {
+private final class CurrencyRateCache: Sendable {
     static let shared = CurrencyRateCache()
 
     private struct Entry {
@@ -685,25 +686,22 @@ private final class CurrencyRateCache: @unchecked Sendable {
         let rates: [FrankfurterRate]
     }
 
-    private let lock = NSLock()
-    private var entries: [String: Entry] = [:]
+    private let entries = OSAllocatedUnfairLock<[String: Entry]>(initialState: [:])
     private let lifetime: TimeInterval = 5 * 60
 
     func value(for key: String) -> [FrankfurterRate]? {
-        lock.lock()
-        defer { lock.unlock() }
-        guard let entry = entries[key] else { return nil }
-        guard Date().timeIntervalSince(entry.createdAt) < lifetime else {
-            entries[key] = nil
-            return nil
+        entries.withLock { entries in
+            guard let entry = entries[key] else { return nil }
+            guard Date().timeIntervalSince(entry.createdAt) < lifetime else {
+                entries[key] = nil
+                return nil
+            }
+            return entry.rates
         }
-        return entry.rates
     }
 
     func store(_ rates: [FrankfurterRate], for key: String) {
-        lock.lock()
-        entries[key] = Entry(createdAt: Date(), rates: rates)
-        lock.unlock()
+        entries.withLock { $0[key] = Entry(createdAt: Date(), rates: rates) }
     }
 }
 

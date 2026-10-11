@@ -1,8 +1,9 @@
 import Foundation
 import FoundryServices
 import SQLite3
+import os
 
-final class ClipboardHistoryStore: ClipboardHistoryPersisting, @unchecked Sendable {
+final class ClipboardHistoryStore: ClipboardHistoryPersisting, Sendable {
     static var defaultDirectory: URL {
         FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".local/share/foundry")
     }
@@ -10,8 +11,9 @@ final class ClipboardHistoryStore: ClipboardHistoryPersisting, @unchecked Sendab
     let databaseURL: URL
     let imagesURL: URL
     private let legacyURL: URL
-    private let lock = NSLock()
-    private var db: OpaquePointer?
+    /// The SQLite handle is the lock state — every access happens inside
+    /// `withLockUnchecked`, mirroring the previous NSLock discipline.
+    private let lock = OSAllocatedUnfairLock<OpaquePointer?>(uncheckedState: nil)
 
     init(directory: URL = ClipboardHistoryStore.defaultDirectory, legacyURL: URL = ClipboardHistoryPersistence().url) {
         databaseURL = directory.appendingPathComponent("clipboard.sqlite")
@@ -19,31 +21,31 @@ final class ClipboardHistoryStore: ClipboardHistoryPersisting, @unchecked Sendab
         self.legacyURL = legacyURL
     }
 
-    deinit { sqlite3_close(db) }
+    deinit { _ = lock.withLockUnchecked { sqlite3_close($0) } }
 
     func load() throws -> [ClipboardHistoryItem] {
-        try lock.withLock {
-            try openIfNeeded()
-            var items = try selectAll()
+        try lock.withLockUnchecked { db in
+            try openIfNeeded(&db)
+            var items = try selectAll(db)
             if items.isEmpty, FileManager.default.fileExists(atPath: legacyURL.path) {
                 let legacy: [ClipboardHistoryItem]
                 do { legacy = try JSONDecoder().decode([ClipboardHistoryItem].self, from: Data(contentsOf: legacyURL)) }
                 catch { throw ClipboardHistoryPersistenceError.corruptArchive(error) }
-                try write(legacy)
+                try write(legacy, db: db)
                 let migrated = legacyURL.appendingPathExtension("migrated")
                 try? FileManager.default.removeItem(at: migrated)
                 try FileManager.default.moveItem(at: legacyURL, to: migrated)
-                items = try selectAll()
+                items = try selectAll(db)
             }
             return items
         }
     }
 
     func save(_ items: [ClipboardHistoryItem]) throws {
-        try lock.withLock {
+        try lock.withLockUnchecked { db in
             do {
-                try openIfNeeded()
-                try write(items)
+                try openIfNeeded(&db)
+                try write(items, db: db)
             } catch let error as ClipboardHistoryPersistenceError {
                 throw error
             } catch {
@@ -57,7 +59,7 @@ final class ClipboardHistoryStore: ClipboardHistoryPersisting, @unchecked Sendab
         var errorDescription: String? { "Clipboard database: \(message)" }
     }
 
-    private func openIfNeeded() throws {
+    private func openIfNeeded(_ db: inout OpaquePointer?) throws {
         guard db == nil else { return }
         let fileManager = FileManager.default
         try fileManager.createDirectory(at: imagesURL, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
@@ -71,7 +73,7 @@ final class ClipboardHistoryStore: ClipboardHistoryPersisting, @unchecked Sendab
         BestEffort.attempt("chmod clipboard database") {
             try fileManager.setAttributes([.posixPermissions: 0o600], ofItemAtPath: databaseURL.path)
         }
-        try exec("""
+        try exec(db, """
             PRAGMA journal_mode=WAL;
             CREATE TABLE IF NOT EXISTS items (
                 id TEXT PRIMARY KEY, created_at REAL NOT NULL, kind TEXT NOT NULL, text TEXT, files TEXT,
@@ -80,11 +82,11 @@ final class ClipboardHistoryStore: ClipboardHistoryPersisting, @unchecked Sendab
             """)
     }
 
-    private func exec(_ sql: String) throws {
+    private func exec(_ db: OpaquePointer?, _ sql: String) throws {
         guard sqlite3_exec(db, sql, nil, nil, nil) == SQLITE_OK else { throw SQLiteError(message: String(cString: sqlite3_errmsg(db))) }
     }
 
-    private func prepare(_ sql: String) throws -> OpaquePointer? {
+    private func prepare(_ db: OpaquePointer?, _ sql: String) throws -> OpaquePointer? {
         var statement: OpaquePointer?
         guard sqlite3_prepare_v2(db, sql, -1, &statement, nil) == SQLITE_OK else { throw SQLiteError(message: String(cString: sqlite3_errmsg(db))) }
         return statement
@@ -96,18 +98,18 @@ final class ClipboardHistoryStore: ClipboardHistoryPersisting, @unchecked Sendab
         if let text { sqlite3_bind_text(statement, index, text, -1, Self.transient) } else { sqlite3_bind_null(statement, index) }
     }
 
-    private func write(_ items: [ClipboardHistoryItem]) throws {
-        try exec("BEGIN IMMEDIATE")
+    private func write(_ items: [ClipboardHistoryItem], db: OpaquePointer?) throws {
+        try exec(db, "BEGIN IMMEDIATE")
         var deletedRows = 0
         do {
             // Diff against what is already stored — a routine capture touches
             // one row, not the whole history.
-            let existing = try storedStates()
-            let insert = try prepare("""
+            let existing = try storedStates(db)
+            let insert = try prepare(db, """
                 INSERT INTO items (id, created_at, kind, text, files, signature, pinned, source, position) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """)
             defer { sqlite3_finalize(insert) }
-            let updateRow = try prepare("UPDATE items SET pinned = ?, position = ? WHERE id = ?")
+            let updateRow = try prepare(db, "UPDATE items SET pinned = ?, position = ? WHERE id = ?")
             defer { sqlite3_finalize(updateRow) }
             for (position, item) in items.enumerated() {
                 guard let stored = existing[item.id] else {
@@ -150,19 +152,19 @@ final class ClipboardHistoryStore: ClipboardHistoryPersisting, @unchecked Sendab
                     guard sqlite3_step(updateRow) == SQLITE_DONE else { throw SQLiteError(message: String(cString: sqlite3_errmsg(db))) }
                 }
             }
-            try exec("CREATE TEMP TABLE IF NOT EXISTS keep (id TEXT PRIMARY KEY); DELETE FROM keep;")
-            let keep = try prepare("INSERT OR IGNORE INTO keep (id) VALUES (?)")
+            try exec(db, "CREATE TEMP TABLE IF NOT EXISTS keep (id TEXT PRIMARY KEY); DELETE FROM keep;")
+            let keep = try prepare(db, "INSERT OR IGNORE INTO keep (id) VALUES (?)")
             defer { sqlite3_finalize(keep) }
             for item in items {
                 sqlite3_reset(keep)
                 bind(keep, 1, item.id)
                 guard sqlite3_step(keep) == SQLITE_DONE else { throw SQLiteError(message: String(cString: sqlite3_errmsg(db))) }
             }
-            try exec("DELETE FROM items WHERE id NOT IN (SELECT id FROM keep)")
+            try exec(db, "DELETE FROM items WHERE id NOT IN (SELECT id FROM keep)")
             deletedRows = Int(sqlite3_changes(db))
-            try exec("COMMIT")
+            try exec(db, "COMMIT")
         } catch {
-            try? exec("ROLLBACK")
+            try? exec(db, "ROLLBACK")
             throw error
         }
         if deletedRows > 0 {
@@ -170,8 +172,8 @@ final class ClipboardHistoryStore: ClipboardHistoryPersisting, @unchecked Sendab
         }
     }
 
-    private func storedStates() throws -> [String: (pinned: Int, position: Int)] {
-        let statement = try prepare("SELECT id, pinned, position FROM items")
+    private func storedStates(_ db: OpaquePointer?) throws -> [String: (pinned: Int, position: Int)] {
+        let statement = try prepare(db, "SELECT id, pinned, position FROM items")
         defer { sqlite3_finalize(statement) }
         var rows: [String: (pinned: Int, position: Int)] = [:]
         while sqlite3_step(statement) == SQLITE_ROW {
@@ -185,8 +187,8 @@ final class ClipboardHistoryStore: ClipboardHistoryPersisting, @unchecked Sendab
     /// Image bytes live on disk, keyed by content signature — hydrate on
     /// demand instead of holding every screenshot ever copied in memory.
     func imageData(signature: String) throws -> Data? {
-        try lock.withLock {
-            try openIfNeeded()
+        try lock.withLockUnchecked { db in
+            try openIfNeeded(&db)
             return BestEffort.attempt("read clipboard image") {
                 try Data(contentsOf: imagesURL.appendingPathComponent(signature))
             }
@@ -204,8 +206,8 @@ final class ClipboardHistoryStore: ClipboardHistoryPersisting, @unchecked Sendab
     /// an empty placeholder and are read from disk on demand.
     static let eagerImageLimit = 24
 
-    private func selectAll() throws -> [ClipboardHistoryItem] {
-        let statement = try prepare("SELECT id, created_at, kind, text, files, signature, pinned, source FROM items ORDER BY position")
+    private func selectAll(_ db: OpaquePointer?) throws -> [ClipboardHistoryItem] {
+        let statement = try prepare(db, "SELECT id, created_at, kind, text, files, signature, pinned, source FROM items ORDER BY position")
         defer { sqlite3_finalize(statement) }
         func column(_ index: Int32) -> String? { sqlite3_column_text(statement, index).map { String(cString: $0) } }
         var items: [ClipboardHistoryItem] = []

@@ -3,7 +3,11 @@ import ApplicationServices
 import Carbon
 import Foundation
 
-final class SnippetExpansionService: @unchecked Sendable {
+/// All state is main-thread confined: the event tap's runloop source is
+/// added to the main runloop, and every caller (ShellController, tests) is
+/// @MainActor. Actor isolation replaces the previous unchecked conformance.
+@MainActor
+final class SnippetExpansionService {
     static let accessibilitySettingsURL = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")!
 
     private let snippetStore: any SnippetStore
@@ -17,7 +21,7 @@ final class SnippetExpansionService: @unchecked Sendable {
     private var testEventTapRunning = false
     private let accessibilityTrusted: () -> Bool
     private let requestAccessibilityPrompt: () -> Void
-    private let scheduleAccessibilityRetry: (@escaping @Sendable () -> Void) -> (() -> Void)
+    private let scheduleAccessibilityRetry: (@escaping @MainActor @Sendable () -> Void) -> (() -> Void)
     private let startEventTap: (() -> Bool)?
     private(set) var lastError: String?
     var onStatusChanged: ((String?) -> Void)?
@@ -27,7 +31,7 @@ final class SnippetExpansionService: @unchecked Sendable {
         directPaste: DirectPasteService,
         accessibilityTrusted: @escaping () -> Bool = AXIsProcessTrusted,
         requestAccessibilityPrompt: @escaping () -> Void = { _ = AXIsProcessTrustedWithOptions(["AXTrustedCheckOptionPrompt": true] as CFDictionary) },
-        scheduleAccessibilityRetry: @escaping (@escaping @Sendable () -> Void) -> (() -> Void) = SnippetExpansionService.scheduleRetry,
+        scheduleAccessibilityRetry: @escaping (@escaping @MainActor @Sendable () -> Void) -> (() -> Void) = SnippetExpansionService.scheduleRetry,
         startEventTap: (() -> Bool)? = nil
     ) {
         self.snippetStore = snippetStore
@@ -67,7 +71,12 @@ final class SnippetExpansionService: @unchecked Sendable {
         let callback: CGEventTapCallBack = { _, type, event, userInfo in
             guard let userInfo else { return Unmanaged.passUnretained(event) }
             let service = Unmanaged<SnippetExpansionService>.fromOpaque(userInfo).takeUnretainedValue()
-            return service.handle(type: type, event: event)
+            nonisolated(unsafe) let event = event
+            // The tap's runloop source is bound to the main runloop below.
+            let consumed = MainActor.assumeIsolated {
+                service.handle(type: type, event: event) == nil
+            }
+            return consumed ? nil : Unmanaged.passUnretained(event)
         }
         guard let tap = CGEvent.tapCreate(
             tap: .cgSessionEventTap, place: .headInsertEventTap, options: .defaultTap,
@@ -184,9 +193,13 @@ final class SnippetExpansionService: @unchecked Sendable {
 
     private func isDelimiter(_ value: String) -> Bool { activeDelimiters.contains(value) }
 
-    private static func scheduleRetry(_ callback: @escaping @Sendable () -> Void) -> (() -> Void) {
+    nonisolated private static func scheduleRetry(_ callback: @escaping @MainActor @Sendable () -> Void) -> (() -> Void) {
         var timer: Timer?
-        timer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { _ in callback() }
+        // Scheduled from requestAccessibilityAccess (main) — the timer fires
+        // on the main runloop.
+        timer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { _ in
+            MainActor.assumeIsolated { callback() }
+        }
         return {
             timer?.invalidate()
             timer = nil

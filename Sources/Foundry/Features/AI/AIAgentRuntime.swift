@@ -79,13 +79,16 @@ struct OllamaStreamDecoder: Sendable {
     }
 }
 
+/// `parameters` is immutable JSON-schema data; `[String: Any]` cannot
+/// express Sendable, so sharing safety rests on the value never being
+/// mutated after construction.
 struct AgentTool: @unchecked Sendable {
     let name: String
     let description: String
     let parameters: [String: Any]
 }
 
-struct AgentRunner: @unchecked Sendable {
+struct AgentRunner: Sendable {
     let config: ConfigService
     let diagnostics: DiagnosticsService
 

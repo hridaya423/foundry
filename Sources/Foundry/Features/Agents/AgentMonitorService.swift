@@ -1,5 +1,6 @@
 import Foundation
 import FoundryServices
+import os
 
 enum AgentMonitorService {
     private static let recentSessionWindow: TimeInterval = 24 * 60 * 60
@@ -568,19 +569,18 @@ protocol AgentMonitorCollecting: Sendable {
     func collect() -> [AgentSessionCard]
 }
 
-final class AgentMonitorCollector: @unchecked Sendable, AgentMonitorCollecting {
-    private let lock = NSLock()
+final class AgentMonitorCollector: Sendable, AgentMonitorCollecting {
     private let processProvider: any ProcessSnapshotProviding
-    private var cache = AgentMonitorCache()
+    private let cache = OSAllocatedUnfairLock<AgentMonitorCache>(uncheckedState: AgentMonitorCache())
 
     init(processProvider: any ProcessSnapshotProviding = NativeProcessSnapshotProvider()) {
         self.processProvider = processProvider
     }
 
     func collect() -> [AgentSessionCard] {
-        lock.lock()
-        defer { lock.unlock() }
-        return AgentMonitorService.collect(using: &cache, processProvider: processProvider)
+        cache.withLockUnchecked { cache in
+            AgentMonitorService.collect(using: &cache, processProvider: processProvider)
+        }
     }
 }
 
