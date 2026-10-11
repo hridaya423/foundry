@@ -3,7 +3,7 @@ import Foundation
 import FoundryDomain
 import FoundryServices
 
-final class AppSearchProvider: CommandProvider, @unchecked Sendable {
+final class AppSearchProvider: CommandProvider, Sendable {
     let id = "foundry.apps"
 
     private let appCache: InstalledAppCache

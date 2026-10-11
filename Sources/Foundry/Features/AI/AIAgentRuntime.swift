@@ -349,7 +349,7 @@ private enum AgentTools {
 
 #if canImport(FoundationModels)
 @available(macOS 26.0, *)
-private final class AppleToolObserver: @unchecked Sendable {
+private final class AppleToolObserver: Sendable {
     private let continuation: AsyncStream<AIStreamEvent>.Continuation
 
     init(continuation: AsyncStream<AIStreamEvent>.Continuation) {

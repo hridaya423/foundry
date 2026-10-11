@@ -2,7 +2,7 @@ import Foundation
 import FoundryDomain
 import FoundryServices
 
-final class CommandRegistry: @unchecked Sendable {
+final class CommandRegistry: Sendable {
     private let providers: [CommandProvider]
     private let usageRanking: UsageRankingStore
     private let diagnostics: DiagnosticsService

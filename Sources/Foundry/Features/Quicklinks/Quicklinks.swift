@@ -131,7 +131,7 @@ final class QuicklinkStore: @unchecked Sendable {
     }
 }
 
-final class QuicklinkProvider: CommandProvider, @unchecked Sendable {
+final class QuicklinkProvider: CommandProvider, Sendable {
     let id = "foundry.quicklinks"
     private let store: QuicklinkStore
     private let context: @Sendable () -> SnippetRenderContext

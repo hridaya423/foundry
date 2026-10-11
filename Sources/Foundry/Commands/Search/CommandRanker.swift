@@ -1,7 +1,7 @@
 import Foundation
 import FoundryDomain
 
-final class CommandRanker {
+final class CommandRanker: Sendable {
     private let usageRanking: UsageRankingStore
     private let configService: ConfigService?
 

@@ -50,7 +50,7 @@ protocol SnippetStore: Sendable {
     func save(_ snippets: [StoredSnippet]) -> Result<Void, Error>
 }
 
-final class FileSnippetStore: SnippetStore, @unchecked Sendable {
+final class FileSnippetStore: SnippetStore, Sendable {
     let url: URL
 
     init(url: URL = ConfigService.configURL.deletingLastPathComponent().appendingPathComponent("snippets.json")) {

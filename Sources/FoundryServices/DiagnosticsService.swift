@@ -1,7 +1,7 @@
 import Foundation
 import os
 
-public final class DiagnosticsService: @unchecked Sendable {
+public final class DiagnosticsService: Sendable {
     public struct Span: Sendable {
         let name: String
         let start: ContinuousClock.Instant
