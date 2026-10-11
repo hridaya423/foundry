@@ -76,6 +76,14 @@ Quality bar: Raycast. Plan: `docs/plans/2026-10-11-foundry-raycast-bar-audit.md`
 - Collateral cleanup: `runner.onQuickLook` → `panel.onQuickLook` port; `extractTextPreview`/`decodeBarcodePreview`/`shareFile(at:)` moved to `TextPreview`/free funcs.
 - Gate: build clean 0 warnings, 631/0, lint PASS.
 
+### Phase 4.3 — `CommandPanelState` split ✅ (this commit)
+- 1,283-line god object → `CommandPanelState` (296) + focused collaborators: `PanelSession` (474 — query/results/selection/actions-overlay), `PanelRouter` (233 — mode stack + `open*` navigation), `SettingsStore` (457 — all config-backed settings, `ConfigService`-wrapped), `ShellPort` (23 — replaces the 15 `on*` closures; `ShellController` conforms), `PanelFeature` (178 — `handleModeShortcut`/`handleMove`/`pasteText` adopted by 7 feature states)
+- Extensions keep the panel a thin coordinator: `+Lifecycle` (reset/shutdown), `+Input` (⌘-shortcuts/⌘V/arrows dispatch through `feature(for:)`), `+Drop` (drop choice flow), `+Paste` (direct-paste/snippet/Vision), `+Media` (downloads), `+Settings` (restore mirror)
+- `performModeShortcut`, `pasteFromClipboard`, `moveSelection` per-mode `if` chains → `feature(for: mode)` dispatch; search-mode exceptions (⌘Y Quick Look, ⌘+digit action shortcuts) stay at the dispatch layer
+- Delayed agent socket start deleted — `agents.start()` runs from `resetForOpen` only when `settings.isAgentShelfVisible`, and `AgentMonitorState.start()` already owns `startSocket()`
+- `UI/` files >500 lines are views (`CommandPanelView`, `FileConversionView`, `WindowLayoutPicker`, `MediaDownloadsView`, `SnippetsView`, `HomeAccessoryStrip`) + `FileConversionState` (596, pre-existing) — all Phase-5 split scope
+- ~90 call sites retargeted (`state.session.*`, `state.settings.*`, `state.router.*`); two perl-migration corruptions recovered line-by-line (literal `$1`/`$2`, feature-state receivers misrouted); tests retargeted + `RecordingShellPort` helper added
+
 ### Phase 4.5 — `@unchecked Sendable` audit ✅ (this commit)
 - ~60 sites → **3 justified** (target ≤10). Compiler-driven method per handoff: flip to `Sendable`, let the compiler enumerate violations, consolidate mutable state into `OSAllocatedUnfairLock<State>`.
 - `init(initialState:)` requires `State: Sendable`; SDK/non-Sendable state (`VNRequest`, `OpaquePointer` db handle, `CheckedContinuation`, `DispatchWorkItem`, `URLSession*` types, `NSColorSampler`, `NSObjectProtocol` observer, `ISO8601DateFormatter`) uses `init(uncheckedState:)` + `withLockUnchecked` — the lock still vouches, just not the type system.

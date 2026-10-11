@@ -1,5 +1,6 @@
 import AppKit
 import SwiftUI
+import FoundryDomain
 import FoundryServices
 
 @MainActor
@@ -12,6 +13,7 @@ final class ShellController {
     private let panelController: PanelController
     private let panelState: CommandPanelState
     private let statusItemController: StatusItemController
+    private let onboardingState: OnboardingState
     private let onboardingController: OnboardingWindowController
     private let clipboardHistory: ClipboardHistoryState
     private let snippetExpansion: SnippetExpansionService
@@ -70,41 +72,17 @@ final class ShellController {
         }
         let statusItemController = StatusItemController(state: panelState)
         self.statusItemController = statusItemController
+        self.onboardingState = onboardingState
+        self.panelState.shell = self
         statusItemController.onTogglePanel = { [weak self] in
             self?.togglePanel()
         }
         statusItemController.onOpenPanel = { [weak self] in
             self?.showPanel()
         }
-        self.panelState.onMenuBarIconVisibilityChanged = { [weak statusItemController] visible in
-            statusItemController?.setVisible(visible)
-        }
         self.snippetExpansion.onStatusChanged = { [weak panelState] message in
-            Task { @MainActor in panelState?.setSnippetExpansionError(message) }
+            Task { @MainActor in panelState?.settings.setSnippetExpansionError(message) }
         }
-        self.panelState.onHotkeyChanged = { [weak self] hotkey in
-            guard let self else { return }
-            try self.hotkeyController.register(hotkey: hotkey)
-            self.diagnostics.log("Registered global hotkey: \(hotkey.displayName)")
-            self.panelState.setLauncherHotkeyFailed(false)
-        }
-        self.panelState.onCommandPreferencesChanged = { [weak self] in
-            self?.registerCommandHotkeys()
-        }
-        self.panelState.onCompactCollapseChanged = { [weak panelController] collapsed in
-            panelController?.setCompactCollapsed(collapsed)
-        }
-        self.panelState.onOpenSettings = { [weak self] in
-            self?.showPanel()
-        }
-        self.panelState.onOpenWelcomeGuide = { [weak panelController, weak onboardingController, weak onboardingState] in
-            if panelController?.isVisible == true { panelController?.hide() }
-            onboardingState?.restart()
-            onboardingController?.show()
-        }
-        self.panelState.onSnippetExpansionChanged = { [weak self] in self?.configureSnippetExpansion() }
-        self.panelState.onRequestSnippetAccessibility = { [weak self] in self?.snippetExpansion.requestAccessibilityAccess() }
-        self.panelState.onOpenSnippetPrivacySettings = { [weak self] in self?.snippetExpansion.openAccessibilitySettings() }
         statusItemController.onWelcomeGuide = { [weak onboardingController, weak onboardingState] in
             onboardingState?.restart()
             onboardingController?.show()
@@ -143,7 +121,7 @@ final class ShellController {
             }
         }
 
-        statusItemController.setVisible(panelState.showMenuBarIcon)
+        statusItemController.setVisible(panelState.settings.showMenuBarIcon)
         let showsOnboarding = OnboardingState.shouldShowAutomatically(configExistedAtLaunch: config.existedAtLaunch)
 
         do {
@@ -151,7 +129,7 @@ final class ShellController {
             diagnostics.log("Registered global hotkey: \(config.current.hotkey.displayName)")
         } catch {
             diagnostics.log("Failed to register hotkey: \(error.localizedDescription)")
-            panelState.setLauncherHotkeyFailed(true)
+            panelState.settings.setLauncherHotkeyFailed(true)
             if showsOnboarding == false { showPanel() }
         }
         registerCommandHotkeys()
@@ -208,7 +186,7 @@ final class ShellController {
     /// the panel opens straight into the converter with the files loaded.
     func openFileConverter(paths: [String]) {
         showPanel()
-        panelState.openFileConverter(paths: paths)
+        panelState.router.openFileConverter(paths: paths)
     }
     private func runCommandHotkey(commandID: String) async {
         guard let result = await registry.commandResult(for: commandID) else {
@@ -255,5 +233,59 @@ final class ShellController {
         } catch {
             diagnostics.log("Failed to register command hotkeys: \(error.localizedDescription)")
         }
+    }
+}
+
+extension ShellController: ShellPort {
+    func hotkeyChanged(_ hotkey: FoundryHotkey) throws {
+        try hotkeyController.register(hotkey: hotkey)
+        diagnostics.log("Registered global hotkey: \(hotkey.displayName)")
+        panelState.settings.setLauncherHotkeyFailed(false)
+    }
+
+    func commandPreferencesChanged() {
+        registerCommandHotkeys()
+    }
+
+    func menuBarIconVisibilityChanged(_ visible: Bool) {
+        statusItemController.setVisible(visible)
+    }
+
+    func compactCollapseChanged(_ collapsed: Bool) {
+        panelController.setCompactCollapsed(collapsed)
+    }
+
+    func openSettings() {
+        showPanel()
+    }
+
+    func quickLook(_ url: URL) {
+        panelController.toggleQuickLook(url)
+    }
+
+    func showTransientNotice(_ feedback: ActionFeedback) {
+        panelController.showTransientNotice(feedback)
+    }
+
+    func openWelcomeGuide() {
+        if panelController.isVisible { panelController.hide() }
+        onboardingState.restart()
+        onboardingController.show()
+    }
+
+    func snippetExpansionChanged() {
+        configureSnippetExpansion()
+    }
+
+    func requestSnippetAccessibility() {
+        snippetExpansion.requestAccessibilityAccess()
+    }
+
+    func openSnippetPrivacySettings() {
+        snippetExpansion.openAccessibilitySettings()
+    }
+
+    func resultExecuted() {
+        onboardingState.panelDidRunCommand()
     }
 }

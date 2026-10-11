@@ -67,10 +67,10 @@ final class PanelKeyboardTests: XCTestCase {
     func testEscapeClearsQueryBeforeClosing() {
         let state = makeState()
         state.mode = .search
-        state.query = "saf"
+        state.session.query = "saf"
 
         XCTAssertTrue(state.handleEscape(), "first Esc should clear the query, not close")
-        XCTAssertEqual(state.query, "")
+        XCTAssertEqual(state.session.query, "")
         XCTAssertFalse(state.handleEscape(), "second Esc with an empty query closes the panel")
         state.shutdown()
     }
@@ -91,27 +91,27 @@ final class PanelKeyboardTests: XCTestCase {
         // the view; navigation must not land on them.
         let hiddenApp = appResult("app.hidden", title: "HiddenApp")
         let command = result("test.command", title: "Some Command")
-        state.results = [hiddenApp, command]
+        state.session.results = [hiddenApp, command]
 
-        let navigableIDs = state.navigableResults.map(\.id)
+        let navigableIDs = state.session.navigableResults.map(\.id)
         XCTAssertFalse(navigableIDs.contains("app.hidden"), "non-suggestible app should not be navigable")
         XCTAssertTrue(navigableIDs.contains("test.command"))
 
-        state.selectedResultID = nil
+        state.session.selectedResultID = nil
         state.moveSelectionDown()
-        XCTAssertEqual(state.selectedResultID, "test.command")
+        XCTAssertEqual(state.session.selectedResultID, "test.command")
         state.shutdown()
     }
 
     func testCalculatorFallbackRowsAreReachableByKeyboard() {
         let state = makeState()
         let calc = result("calculator.expr", title: "42", payload: .calculation(expression: "6*7", value: "42"), primary: CopyToClipboardAction("42"))
-        state.results = [calc]
-        state.query = "6*7"
-        state.selectedResultID = calc.id
+        state.session.results = [calc]
+        state.session.query = "6*7"
+        state.session.selectedResultID = calc.id
 
-        let navigableIDs = state.navigableResults.map(\.id)
-        for fallback in CommandPanelState.calculatorFallbackResults {
+        let navigableIDs = state.session.navigableResults.map(\.id)
+        for fallback in PanelSession.calculatorFallbackResults {
             XCTAssertTrue(navigableIDs.contains(fallback.id), "fallback \(fallback.id) must be keyboard-reachable")
         }
         state.shutdown()
@@ -119,14 +119,14 @@ final class PanelKeyboardTests: XCTestCase {
 
     func testFileShelfRowIsNotNavigableWhenShelfHoldsFiles() {
         let state = makeState()
-        state.results = [
+        state.session.results = [
             result("foundry.file-shelf", title: "File Shelf"),
             result("test.command", title: "Some Command")
         ]
         state.fileShelf.add(urls: [URL(fileURLWithPath: "/tmp/x.txt")])
-        state.query = ""
+        state.session.query = ""
 
-        XCTAssertFalse(state.navigableResults.map(\.id).contains("foundry.file-shelf"))
+        XCTAssertFalse(state.session.navigableResults.map(\.id).contains("foundry.file-shelf"))
         state.shutdown()
     }
 
@@ -135,11 +135,11 @@ final class PanelKeyboardTests: XCTestCase {
     func testMetaActionsHiddenForEphemeralResults() {
         let state = makeState()
         let file = result("file./tmp/doc.pdf", title: "doc.pdf", payload: .file(URL(fileURLWithPath: "/tmp/doc.pdf")), primary: OpenFileWithAppAction(path: "/tmp/doc.pdf", appPath: ""))
-        state.results = [file]
-        state.query = "doc"
-        state.selectedResultID = file.id
+        state.session.results = [file]
+        state.session.query = "doc"
+        state.session.selectedResultID = file.id
 
-        let behaviors = state.selectedActions.map(\.behavior)
+        let behaviors = state.session.selectedActions.map(\.behavior)
         XCTAssertFalse(behaviors.contains { $0 is ToggleFavoriteAction })
         XCTAssertFalse(behaviors.contains { $0 is OpenCommandSettingsAction })
         XCTAssertFalse(behaviors.contains { $0 is ResetRankingAction })
@@ -149,11 +149,11 @@ final class PanelKeyboardTests: XCTestCase {
     func testMetaActionsPresentForCommands() {
         let state = makeState()
         let command = result("test.command", title: "Some Command")
-        state.results = [command]
-        state.query = "some"
-        state.selectedResultID = command.id
+        state.session.results = [command]
+        state.session.query = "some"
+        state.session.selectedResultID = command.id
 
-        let behaviors = state.selectedActions.map(\.behavior)
+        let behaviors = state.session.selectedActions.map(\.behavior)
         XCTAssertTrue(behaviors.contains { $0 is ToggleFavoriteAction })
         XCTAssertTrue(behaviors.contains { $0 is OpenCommandSettingsAction })
         state.shutdown()
@@ -172,10 +172,10 @@ final class PanelKeyboardTests: XCTestCase {
             primaryAction: CommandAction(id: "test.copy.primary", title: "Copy", behavior: CopyToClipboardAction("7")),
             secondaryActions: []
         )
-        state.results = [copy]
-        state.query = "rand"
-        state.selectedResultID = copy.id
-        XCTAssertEqual(state.preferredActionTitle, "Copy", "the footer must name the action ↵ actually runs")
+        state.session.results = [copy]
+        state.session.query = "rand"
+        state.session.selectedResultID = copy.id
+        XCTAssertEqual(state.session.preferredActionTitle, "Copy", "the footer must name the action ↵ actually runs")
         state.shutdown()
     }
 
@@ -185,15 +185,15 @@ final class PanelKeyboardTests: XCTestCase {
         let command = result("test.homecmd", title: "Home Command")
         let provider = HomeProvider(home: [command])
         let state = makeState(providers: [provider])
-        state.refreshHomeResults()
-        let filled = await waitUntilTrue { state.results.isEmpty == false }
+        state.session.refreshHomeResults()
+        let filled = await waitUntilTrue { state.session.results.isEmpty == false }
         XCTAssertTrue(filled, "home must populate from providers")
-        let snapshotCount = state.results.count
+        let snapshotCount = state.session.results.count
 
         // Simulate open→close→reopen where the query never changed.
-        state.results = []
-        state.refreshHomeResults()
-        XCTAssertEqual(state.results.count, snapshotCount, "the cached snapshot must paint Home synchronously")
+        state.session.results = []
+        state.session.refreshHomeResults()
+        XCTAssertEqual(state.session.results.count, snapshotCount, "the cached snapshot must paint Home synchronously")
         state.shutdown()
     }
 

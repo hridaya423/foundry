@@ -87,7 +87,6 @@ final class OnboardingState {
         self.localState = localState
         self.version = version
         self.step = localState.get(\.onboardingStep).flatMap(OnboardingStep.init(rawValue:)) ?? .welcome
-        panel.onResultExecuted = { [weak self] in self?.panelDidRunCommand() }
     }
 
     static var currentVersion: String {
@@ -156,7 +155,7 @@ final class OnboardingState {
     func useCommandSpace(spotlightEnabled: @escaping @Sendable () -> Bool = SpotlightShortcut.isEnabledOnThisMac, disableSpotlight: () -> Bool = SpotlightShortcut.disableOnThisMac) {
         guard spotlightEnabled() else {
             spotlightHoldsCommandSpace = false
-            panel.setHotkey(.commandSpace)
+            panel.settings.setHotkey(.commandSpace)
             return
         }
         spotlightTicks = 0
@@ -176,7 +175,7 @@ final class OnboardingState {
         guard spotlightEnabled() else {
             spotlightHoldsCommandSpace = false
             stopWaitingForSpotlight()
-            panel.setHotkey(.commandSpace)
+            panel.settings.setHotkey(.commandSpace)
             return
         }
         spotlightTicks += 1
@@ -195,11 +194,11 @@ final class OnboardingState {
         isWaitingForSpotlight = false
     }
 
-    var menuBarIconOn: Bool { panel.showMenuBarIcon }
-    func setMenuBarIcon(_ on: Bool) { panel.setMenuBarIconVisible(on) }
+    var menuBarIconOn: Bool { panel.settings.showMenuBarIcon }
+    func setMenuBarIcon(_ on: Bool) { panel.settings.setMenuBarIconVisible(on) }
 
     var clipboardCaptureOn: Bool { panel.clipboardCaptureEnabled }
-    func setClipboardCapture(_ on: Bool) { panel.setClipboardEnabled(on) }
+    func setClipboardCapture(_ on: Bool) { panel.settings.setClipboardEnabled(on) }
 
     enum AIChoice {
         case appleIntelligence, localModel, later, off
@@ -243,7 +242,7 @@ final class OnboardingState {
         case .later:
             break
         case .off:
-            panel.setCommandEnabled(false, for: "foundry.ai")
+            panel.settings.setCommandEnabled(false, for: "foundry.ai")
         }
         advance()
     }

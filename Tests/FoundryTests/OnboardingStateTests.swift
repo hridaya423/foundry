@@ -75,7 +75,7 @@ final class OnboardingStateTests: XCTestCase {
     func testCommandSpaceAppliesImmediatelyWhenSpotlightIsOff() {
         let state = makeState()
         state.useCommandSpace(spotlightEnabled: { false })
-        XCTAssertEqual(state.panel.hotkey, .commandSpace)
+        XCTAssertEqual(state.panel.settings.hotkey, .commandSpace)
         XCTAssertFalse(state.isWaitingForSpotlight)
     }
 
@@ -85,7 +85,7 @@ final class OnboardingStateTests: XCTestCase {
         XCTAssertTrue(state.isWaitingForSpotlight)
         XCTAssertFalse(state.spotlightHoldsCommandSpace)
         state.spotlightPollTick(spotlightEnabled: { false })
-        XCTAssertEqual(state.panel.hotkey, .commandSpace)
+        XCTAssertEqual(state.panel.settings.hotkey, .commandSpace)
         XCTAssertFalse(state.isWaitingForSpotlight)
     }
 
@@ -94,7 +94,7 @@ final class OnboardingStateTests: XCTestCase {
         state.useCommandSpace(spotlightEnabled: { true }, disableSpotlight: { false })
         XCTAssertTrue(state.spotlightHoldsCommandSpace)
         XCTAssertTrue(state.isWaitingForSpotlight)
-        XCTAssertNotEqual(state.panel.hotkey, .commandSpace)
+        XCTAssertNotEqual(state.panel.settings.hotkey, .commandSpace)
         state.stopWaitingForSpotlight()
         XCTAssertFalse(state.isWaitingForSpotlight)
     }

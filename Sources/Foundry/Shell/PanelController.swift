@@ -1,4 +1,5 @@
 import AppKit
+import FoundryDomain
 import SwiftUI
 import FoundryServices
 
@@ -67,7 +68,7 @@ final class PanelController: NSObject, NSWindowDelegate {
         self.panel = panel
 
         state.presentationToken = UUID()
-        state.hoverHighlightsArmed = false
+        state.session.hoverHighlightsArmed = false
         panel.setFrame(frame(for: panel), display: false)
         panel.ignoresMouseEvents = false
         panel.inputEnabled = true
@@ -117,6 +118,16 @@ final class PanelController: NSObject, NSWindowDelegate {
             guard let panel, panel.isVisible, panel.isKeyWindow == false else { return }
             panel.makeKeyAndOrderFront(nil)
         }
+    }
+
+    /// ⌘Y on a file result toggles the Quick Look panel — `ShellPort.quickLook`.
+    func toggleQuickLook(_ url: URL) {
+        quickLook.toggle(url, relativeTo: panel)
+    }
+
+    /// Post-dismissal success toast — `ShellPort.showTransientNotice`.
+    func showTransientNotice(_ feedback: ActionFeedback) {
+        toast.show(feedback, relativeTo: panel)
     }
 
     func previewFile(_ url: URL) {
@@ -171,7 +182,7 @@ final class PanelController: NSObject, NSWindowDelegate {
             do {
                 try await directPasteService.completePendingPaste()
             } catch {
-                state.setDirectPasteError(error)
+                state.settings.setDirectPasteError(error)
             }
         }
     }
@@ -179,7 +190,7 @@ final class PanelController: NSObject, NSWindowDelegate {
     func windowDidBecomeKey(_ notification: Notification) {
         DispatchQueue.main.async { [weak self] in
             guard let self, self.panel?.isVisible == true else { return }
-            self.state.focusToken = UUID()
+            self.state.session.focusToken = UUID()
         }
     }
 
@@ -218,7 +229,7 @@ final class PanelController: NSObject, NSWindowDelegate {
         panel.titleVisibility = .hidden
         panel.titlebarAppearsTransparent = true
         panel.onCommandK = { [weak self] in
-            self?.state.toggleActions()
+            self?.state.session.toggleActions()
         }
         panel.onActionShortcut = { [weak self] shortcut in
             guard let self else { return false }
@@ -226,7 +237,7 @@ final class PanelController: NSObject, NSWindowDelegate {
             return self.state.performActionShortcut(shortcut, dismiss: dismiss) || self.state.performModeShortcut(shortcut, dismiss: dismiss)
         }
         panel.onCommandComma = { [weak self] in
-            self?.state.openSettings()
+            self?.state.router.openSettings()
         }
         panel.onCommandV = { [weak self] in
             self?.state.pasteFromClipboard() ?? false
@@ -238,17 +249,10 @@ final class PanelController: NSObject, NSWindowDelegate {
             }
         }
         panel.onMouseMoved = { [weak self] in
-            self?.state.hoverHighlightsArmed = true
+            self?.state.session.hoverHighlightsArmed = true
         }
         panel.onKeyDown = { [weak self] in
-            self?.state.hoverHighlightsArmed = false
-        }
-
-        state.onQuickLook = { [weak self] url in
-            self?.quickLook.toggle(url, relativeTo: self?.panel)
-        }
-        state.onTransientNotice = { [weak self] feedback in
-            self?.toast.show(feedback, relativeTo: self?.panel)
+            self?.state.session.hoverHighlightsArmed = false
         }
 
         let rootView = CommandPanelView(state: state) { [weak self] in

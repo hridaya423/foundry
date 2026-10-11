@@ -86,7 +86,7 @@ struct OnboardingView: View {
     private var shortcutStep: some View {
         VStack(spacing: 18) {
             Spacer()
-            Text(panel.hotkey.displayName)
+            Text(panel.settings.hotkey.displayName)
                 .font(.system(size: 34, weight: .medium, design: .rounded))
                 .foregroundStyle(FoundryTheme.primaryText)
                 .padding(.horizontal, 28)
@@ -102,8 +102,8 @@ struct OnboardingView: View {
                 .font(FoundryTheme.body(size: 13, weight: .regular))
                 .foregroundStyle(FoundryTheme.secondaryText)
 
-            ShortcutRecorder(hotkey: panel.hotkey, placeholder: "Record a different shortcut", onChange: { hotkey in
-                if hotkey == .commandSpace { state.useCommandSpace() } else { panel.setHotkey(hotkey) }
+            ShortcutRecorder(hotkey: panel.settings.hotkey, placeholder: "Record a different shortcut", onChange: { hotkey in
+                if hotkey == .commandSpace { state.useCommandSpace() } else { panel.settings.setHotkey(hotkey) }
             })
                 .frame(width: 260, height: 30)
 
@@ -143,10 +143,10 @@ struct OnboardingView: View {
                     .foregroundStyle(FoundryTheme.mutedText)
             }
 
-            if panel.launcherHotkeyFailed {
+            if panel.settings.launcherHotkeyFailed {
                 InlineNotice(
                     level: .error,
-                    text: "\(panel.hotkey.displayName) is in use by another app. Record a different shortcut above."
+                    text: "\(panel.settings.hotkey.displayName) is in use by another app. Record a different shortcut above."
                 )
                 .frame(maxWidth: 400)
             }
@@ -183,7 +183,7 @@ struct OnboardingView: View {
                     .fixedSize(horizontal: false, vertical: true)
             } else {
                 OnboardingReveal(index: 0) {
-                    PulsingKeycap(text: panel.hotkey.displayName)
+                    PulsingKeycap(text: panel.settings.hotkey.displayName)
                 }
                 OnboardingReveal(index: 1) {
                     Text("Press it now")
@@ -221,11 +221,11 @@ struct OnboardingView: View {
 
             OnboardingToggle(
                 title: "Launch at login",
-                detail: panel.launchAtLoginError ?? "Foundry is ready the moment you sign in.",
-                isOn: Binding(get: { panel.launchAtLoginEnabled }, set: { panel.setLaunchAtLogin($0) }),
+                detail: panel.settings.launchAtLoginError ?? "Foundry is ready the moment you sign in.",
+                isOn: Binding(get: { panel.settings.launchAtLoginEnabled }, set: { panel.settings.setLaunchAtLogin($0) }),
                 onChange: nil
             )
-            .disabled(panel.launchAtLoginAvailable == false)
+            .disabled(panel.settings.launchAtLoginAvailable == false)
             OnboardingToggle(
                 title: "Show in menu bar",
                 detail: "Quick access to the panel and clipboard.",
@@ -362,7 +362,7 @@ struct OnboardingView: View {
     }
 
     private var clipboardHotkeyIsSet: Bool {
-        panel.commandPreferences["foundry.clipboard-history"]?.globalHotkey != nil
+        panel.settings.commandPreferences["foundry.clipboard-history"]?.globalHotkey != nil
     }
 
     private var doneStep: some View {
@@ -373,7 +373,7 @@ struct OnboardingView: View {
                 .foregroundStyle(FoundryTheme.primaryText)
 
             VStack(spacing: 0) {
-                cheatRow(panel.hotkey.displayName, "Open Foundry")
+                cheatRow(panel.settings.hotkey.displayName, "Open Foundry")
                 cheatRow("Tab", "Ask AI")
                 cheatRow("⌘K", "Actions on a result")
                 cheatRow("⌘,", "Settings")
@@ -392,7 +392,7 @@ struct OnboardingView: View {
                 let hotkey: FoundryHotkey? = on
                     ? FoundryHotkey(keyCode: UInt32(kVK_ANSI_V), modifiers: UInt32(cmdKey | shiftKey), displayName: "⇧⌘V")
                     : nil
-                panel.setCommandHotkey(hotkey, for: "foundry.clipboard-history")
+                panel.settings.setCommandHotkey(hotkey, for: "foundry.clipboard-history")
             }
             .frame(maxWidth: 400)
             Spacer()

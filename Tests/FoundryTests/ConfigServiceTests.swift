@@ -361,7 +361,7 @@ final class ConfigServiceTests: XCTestCase {
     @MainActor
     func testCommandAliasesNormalizeWhitespaceDuplicatesAndCount() {
         XCTAssertEqual(
-            CommandPanelState.normalizedCommandAliases(" browser, Browser, tabs , , history "),
+            SettingsStore.normalizedCommandAliases(" browser, Browser, tabs , , history "),
             ["browser", "tabs", "history"]
         )
     }

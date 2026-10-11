@@ -27,16 +27,16 @@ struct CommandPanelView: View {
     }
 
     private var selectedCalculatorResult: CommandResult? {
-        guard let selectedResult = state.selectedResult,
-              CommandPanelState.isPromotedCalculatorResult(selectedResult) else { return nil }
+        guard let selectedResult = state.session.selectedResult,
+              PanelSession.isPromotedCalculatorResult(selectedResult) else { return nil }
         return selectedResult
     }
 
     private var isHome: Bool {
         state.mode == .search
-            && state.query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            && state.session.query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
             && selectedCalculatorResult == nil
-            && state.isShowingActions == false
+            && state.session.isShowingActions == false
     }
 
     private var nativeGlassEnabled: Bool {
@@ -45,7 +45,7 @@ struct CommandPanelView: View {
 
     private var shouldShowHomeAccessory: Bool {
         guard state.mode == .search,
-              state.query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return false }
+              state.session.query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return false }
         return fileShelf.files.isEmpty == false
             || agents.visibleSessions.isEmpty == false
             || widgetBoard.homeWidgets.contains { $0 != .agents }
@@ -77,13 +77,13 @@ struct CommandPanelView: View {
         }
 
         let decorated = base
-            .background(FoundryBackdrop(intensity: state.themeIntensity, isOpaque: reduceTransparency))
+            .background(FoundryBackdrop(intensity: state.settings.themeIntensity, isOpaque: reduceTransparency))
             .overlay(shellChrome)
             .clipShape(FoundrySmoothedRectangle(cornerRadius: FoundryTheme.Radius.panel, smoothing: 0.75))
             .frame(maxWidth: .infinity, maxHeight: .infinity)
 
         let highlighted = decorated
-            .environment(\.foundryHoverHighlightsArmed, state.hoverHighlightsArmed)
+            .environment(\.foundryHoverHighlightsArmed, state.session.hoverHighlightsArmed)
             .overlay(dropOverlay)
 
         let feedbackWrapped = highlighted.overlay(alignment: Alignment.bottom) {
@@ -103,7 +103,7 @@ struct CommandPanelView: View {
 
         let animated = feedbackWrapped
             .overlay(alignment: .bottomTrailing) {
-                if state.isShowingActions {
+                if state.session.isShowingActions {
                     FoundryGlassSurface(role: .floatingOverlay, shape: RoundedRectangle(cornerRadius: 16, style: .continuous)) {
                         actionsSurface
                             .frame(width: 340)
@@ -126,7 +126,7 @@ struct CommandPanelView: View {
                     .transition(reduceMotion ? .opacity : .opacity.combined(with: .scale(scale: 0.96, anchor: .bottom)))
                 }
             }
-            .animation(reduceMotion ? nil : Animation.spring(response: 0.28, dampingFraction: 0.82), value: state.isShowingActions)
+            .animation(reduceMotion ? nil : Animation.spring(response: 0.28, dampingFraction: 0.82), value: state.session.isShowingActions)
             .animation(reduceMotion ? nil : Animation.spring(response: 0.28, dampingFraction: 0.82), value: state.pendingDropURLs != nil)
             .animation(reduceMotion ? nil : Animation.easeInOut(duration: 0.12), value: state.mode)
             .animation(reduceMotion ? nil : Animation.easeOut(duration: 0.14), value: fileShelf.files.count)
@@ -137,10 +137,10 @@ struct CommandPanelView: View {
             .onChange(of: state.mode) { _, _ in
                 inputFocused = true
             }
-            .onChange(of: state.focusToken) { _, _ in
+            .onChange(of: state.session.focusToken) { _, _ in
                 inputFocused = true
             }
-            .onChange(of: state.results) { _, _ in
+            .onChange(of: state.session.results) { _, _ in
                 // Fires when the commit carrying the new rows reaches the
                 // render server — the closest readable signal to first paint.
                 CATransaction.setCompletionBlock { [state] in
@@ -148,7 +148,7 @@ struct CommandPanelView: View {
                 }
             }
             .onChange(of: state.compactCollapsed) { _, collapsed in
-                state.onCompactCollapseChanged?(collapsed)
+                state.shell?.compactCollapseChanged(collapsed)
             }
             .onDrop(of: [UTType.fileURL], isTargeted: $isDropTargeted, perform: handleFileDrop)
             .onDeleteCommand {
@@ -220,10 +220,10 @@ struct CommandPanelView: View {
                 id: "quickAI",
                 header: {
                     QuickAIHeaderControlsView(quickAI: state.quickAI, inputFocused: $inputFocused) {
-                        state.openQuickAI()
+                        state.router.openQuickAI()
                     }
                 },
-                content: { QuickAISurfaceView(quickAI: state.quickAI, onOpenAISettings: state.openSettings) },
+                content: { QuickAISurfaceView(quickAI: state.quickAI, onOpenAISettings: state.router.openSettings) },
                 footerActions: state.quickAI.isQuickAILoading
                     ? [.init(label: "Stop", keys: "⌘.", emphasized: true), .init(label: "New Chat", keys: "⌘N"), .home]
                     : [.init(label: "Send", keys: "↵", emphasized: true), .init(label: "New Chat", keys: "⌘N"), .home]
@@ -291,7 +291,7 @@ struct CommandPanelView: View {
                         let staged = state.directPasteSelectedClipboardItem()
                         if staged { dismiss() }
                         return staged
-                    }, pause: state.setClipboardPaused,
+                    }, pause: state.settings.setClipboardPaused,
                         extractText: state.extractTextFromClipboardItem,
                         decodeBarcode: state.decodeBarcodeFromClipboardItem)
                 },
@@ -312,7 +312,7 @@ struct CommandPanelView: View {
                 },
                 content: {
                     ZStack {
-                        SnippetsView(state: state.snippets, expansionEnabled: state.snippetExpansion.isEnabled, setExpansionEnabled: { state.setSnippetExpansionEnabled($0) }, insert: {
+                        SnippetsView(state: state.snippets, expansionEnabled: state.settings.snippetExpansion.isEnabled, setExpansionEnabled: { state.settings.setSnippetExpansionEnabled($0) }, insert: {
                             guard state.insertOrCopySelectedSnippet() else { return false }
                             dismiss()
                             return true
@@ -395,11 +395,11 @@ struct CommandPanelView: View {
 
     private var searchField: some View {
         LauncherSearchField(
-            text: state.isShowingActions ? $state.actionFilter : $state.query,
-            placeholder: state.isShowingActions ? "Search actions…" : "Search for apps and commands…",
+            text: state.session.isShowingActions ? $state.session.actionFilter : $state.session.query,
+            placeholder: state.session.isShowingActions ? "Search actions…" : "Search for apps and commands…",
             onTab: {
-                guard state.isShowingActions == false else { return }
-                state.openQuickAI(initialPrompt: state.query)
+                guard state.session.isShowingActions == false else { return }
+                state.router.openQuickAI(initialPrompt: state.session.query)
             },
             onReturn: {
                 executeSelectedResult()
@@ -411,20 +411,20 @@ struct CommandPanelView: View {
 
     private var searchHeaderControls: some View {
         HStack(spacing: 6) {
-            if state.query.isEmpty == false {
+            if state.session.query.isEmpty == false {
                 FoundryIconButton(
                     systemName: "xmark.circle.fill",
                     accessibilityLabel: "Clear search",
                     tint: FoundryTheme.faintText
                 ) {
-                    state.query = ""
+                    state.session.query = ""
                     inputFocused = true
                 }
                 .transition(reduceMotion ? .opacity : .opacity.combined(with: .scale(scale: 0.7)))
             }
 
             Button {
-                state.openQuickAI(initialPrompt: state.query)
+                state.router.openQuickAI(initialPrompt: state.session.query)
             } label: {
                 HStack(spacing: 6) {
                     Image(systemName: "sparkles")
@@ -460,8 +460,8 @@ struct CommandPanelView: View {
     }
 
     private var searchContentID: String {
-        if state.isShowingActions { return "actions" }
-        if state.results.isEmpty { return "empty" }
+        if state.session.isShowingActions { return "actions" }
+        if state.session.results.isEmpty { return "empty" }
         return "results"
     }
 
@@ -469,15 +469,15 @@ struct CommandPanelView: View {
     private var searchContent: some View {
         if isWindowLayoutQuery {
             windowLayoutSurface
-        } else if state.results.isEmpty {
+        } else if state.session.results.isEmpty {
             searchEmptyState
-        } else if FileSearchProvider.fileQuery(state.query) != nil, case let .file(url)? = state.selectedResult?.payload {
+        } else if FileSearchProvider.fileQuery(state.session.query) != nil, case let .file(url)? = state.session.selectedResult?.payload {
             SplitPreviewLayout {
                 resultsSurface
             } preview: {
                 FilePreview(path: url.path)
             }
-        } else if case let .snippet(snippetID)? = state.selectedResult?.payload,
+        } else if case let .snippet(snippetID)? = state.session.selectedResult?.payload,
                   let snippet = state.snippets.items.first(where: { $0.id == snippetID }) {
             SplitPreviewLayout {
                 resultsSurface
@@ -492,17 +492,17 @@ struct CommandPanelView: View {
     @ViewBuilder
     private var searchEmptyState: some View {
         let hasQuery = trimmedQuery.isEmpty == false
-        if let fileQuery = FileSearchProvider.fileQuery(state.query) {
+        if let fileQuery = FileSearchProvider.fileQuery(state.session.query) {
             if fileQuery.count < 2 {
                 EmptyState(title: "Search Files", message: "Type a file name to search your home folder.", symbol: "doc.text.magnifyingglass")
-            } else if state.isSearchLoading {
+            } else if state.session.isSearchLoading {
                 EmptyState(title: "Searching files", message: "Looking through your home folder with Spotlight.", isLoading: true)
             } else {
                 EmptyState(title: "No files found", message: "No file names contain \u{201C}\(fileQuery)\u{201D}.", symbol: "doc.text.magnifyingglass")
             }
-        } else if state.isHomeLoading && hasQuery == false {
+        } else if state.session.isHomeLoading && hasQuery == false {
             EmptyState(title: "Loading Home", message: "Preparing your recent apps and commands.", isLoading: true)
-        } else if state.isSearchLoading {
+        } else if state.session.isSearchLoading {
             EmptyState(title: "Searching", message: "Looking through apps, commands, and files.", isLoading: true)
         } else {
             EmptyState(
@@ -520,8 +520,8 @@ struct CommandPanelView: View {
             board: widgetBoard,
             agents: agents,
             fileShelf: fileShelf,
-            onAgentOpen: state.openAgents,
-            onShelfOpen: state.openFileShelf,
+            onAgentOpen: state.router.openAgents,
+            onShelfOpen: state.router.openFileShelf,
             compactMaximum: 4,
             compactBackground: false,
             compactHeight: 44
@@ -582,28 +582,28 @@ struct CommandPanelView: View {
                 LazyVStack(spacing: isHome ? 2 : 3) {
                     if let selectedCalculatorResult {
                         CalculatorResultCard(result: selectedCalculatorResult, alternatives: calculatorAlternativeResults) { result in
-                            state.select(resultID: result.id)
+                            state.session.select(resultID: result.id)
                         }
                         .padding(.bottom, 18)
 
                         if displayedResults.isEmpty == false {
-                            CalculatorUseWithHeader(query: state.query)
+                            CalculatorUseWithHeader(query: state.session.query)
                                 .padding(.bottom, 4)
                         } else {
-                            CalculatorUseWithHeader(query: state.query)
+                            CalculatorUseWithHeader(query: state.session.query)
                                 .padding(.bottom, 4)
                             ForEach(calculatorFallbackResults, id: \.id) { result in
-                                HomeResultRow(result: result, isSelected: state.selectedResultID == result.id, label: resultKindLabel(for: result))
+                                HomeResultRow(result: result, isSelected: state.session.selectedResultID == result.id, label: resultKindLabel(for: result))
                                     .id(result.id)
                                     .trackVisible(result.id, into: $visibleResultIDs)
-                                    .rowActivation(isSelected: state.selectedResultID == result.id) { execute(result) }
+                                    .rowActivation(isSelected: state.session.selectedResultID == result.id) { execute(result) }
                             }
                         }
                     }
 
                     if isHome {
-                        if state.favoriteResults.isEmpty == false {
-                            FavoritesRow(results: state.favoriteResults, onSelect: execute)
+                        if state.session.favoriteResults.isEmpty == false {
+                            FavoritesRow(results: state.session.favoriteResults, onSelect: execute)
                                 .padding(.bottom, 14)
                         }
 
@@ -612,7 +612,7 @@ struct CommandPanelView: View {
                                 results: homeLayoutResults,
                                 onSelect: execute,
                                 onMore: {
-                                    state.query = "window"
+                                    state.session.query = "window"
                                     inputFocused = true
                                 }
                             )
@@ -622,10 +622,10 @@ struct CommandPanelView: View {
                         if suggestionResults.isEmpty == false {
                             HomeSectionHeader(title: "Recent")
                             ForEach(Array(suggestionResults.prefix(5)), id: \.id) { result in
-                                HomeResultRow(result: result, isSelected: state.selectedResultID == result.id, label: resultKindLabel(for: result))
+                                HomeResultRow(result: result, isSelected: state.session.selectedResultID == result.id, label: resultKindLabel(for: result))
                                     .id(result.id)
                                     .trackVisible(result.id, into: $visibleResultIDs)
-                                    .rowActivation(isSelected: state.selectedResultID == result.id) { execute(result) }
+                                    .rowActivation(isSelected: state.session.selectedResultID == result.id) { execute(result) }
                             }
                         }
 
@@ -633,10 +633,10 @@ struct CommandPanelView: View {
                             HomeSectionHeader(title: "Commands")
                                 .padding(.top, suggestionResults.isEmpty ? 0 : 12)
                             ForEach(Array(commandResults.prefix(5)), id: \.id) { result in
-                                HomeResultRow(result: result, isSelected: state.selectedResultID == result.id, label: resultKindLabel(for: result))
+                                HomeResultRow(result: result, isSelected: state.session.selectedResultID == result.id, label: resultKindLabel(for: result))
                                     .id(result.id)
                                     .trackVisible(result.id, into: $visibleResultIDs)
-                                    .rowActivation(isSelected: state.selectedResultID == result.id) { execute(result) }
+                                    .rowActivation(isSelected: state.session.selectedResultID == result.id) { execute(result) }
                             }
                         }
 
@@ -654,13 +654,13 @@ struct CommandPanelView: View {
             }
             .scrollIndicators(.never)
             .background(Color.clear)
-            .onChange(of: state.selectionScrollToken) { _, _ in
-                guard let resultID = state.selectedResultID else { return }
+            .onChange(of: state.session.selectionScrollToken) { _, _ in
+                guard let resultID = state.session.selectedResultID else { return }
                 // Minimal scroll: only move when the target left the
                 // viewport, and only far enough to reveal it — not a
                 // re-center on every arrow press.
                 guard visibleResultIDs.contains(resultID) == false else { return }
-                let order = state.navigableResults.map(\.id)
+                let order = state.session.navigableResults.map(\.id)
                 let lastVisibleIndex = order.lastIndex(where: { visibleResultIDs.contains($0) }) ?? -1
                 let targetIndex = order.firstIndex(of: resultID) ?? 0
                 proxy.scrollTo(resultID, anchor: targetIndex > lastVisibleIndex ? .bottom : .top)
@@ -669,32 +669,32 @@ struct CommandPanelView: View {
     }
 
     private var displayedResults: [CommandResult] {
-        state.searchListResults
+        state.session.searchListResults
     }
 
     private var calculatorAlternativeResults: [CommandResult] {
         guard let selectedCalculatorResult else { return [] }
-        return state.results.filter { result in
+        return state.session.results.filter { result in
             result.payload.isCalculatorConversion && result.id != selectedCalculatorResult.id
         }
     }
 
     private var calculatorFallbackResults: [CommandResult] {
-        CommandPanelState.calculatorFallbackResults
+        PanelSession.calculatorFallbackResults
     }
 
     private var isWindowLayoutQuery: Bool {
-        state.mode == .search && FoundryDomain.WindowLayoutQuery.isOverview(state.query)
+        state.mode == .search && FoundryDomain.WindowLayoutQuery.isOverview(state.session.query)
     }
 
     private var windowLayoutSurface: some View {
         WindowLayoutManager(
             results: windowLayoutResults,
-            selectedResultID: state.selectedResultID,
-            isLoading: state.isSearchLoading,
+            selectedResultID: state.session.selectedResultID,
+            isLoading: state.session.isSearchLoading,
             onSelect: execute,
             onHover: { result in
-                state.select(resultID: result.id)
+                state.session.select(resultID: result.id)
             }
         )
     }
@@ -704,11 +704,11 @@ struct CommandPanelView: View {
     }
 
     private var suggestionResults: [CommandResult] {
-        state.homeSections.suggestions
+        state.session.homeSections.suggestions
     }
 
     private var commandResults: [CommandResult] {
-        state.homeSections.commands
+        state.session.homeSections.commands
     }
 
     private var homeLayoutResults: [CommandResult] {
@@ -723,7 +723,7 @@ struct CommandPanelView: View {
 
     private var shouldShowLayoutRow: Bool {
         homeLayoutResults.count > 1
-            && homeLayoutResults.contains { state.hasUsage(for: $0.id) }
+            && homeLayoutResults.contains { state.session.hasUsage(for: $0.id) }
     }
 
     private var windowLayoutResults: [CommandResult] {
@@ -745,29 +745,29 @@ struct CommandPanelView: View {
     @ViewBuilder
     private func resultRow(_ result: CommandResult, showKind: Bool = false) -> some View {
         if isMediaDownload(result) {
-            MediaResultRow(result: result, isSelected: state.selectedResultID == result.id, isExpanded: shouldExpandMediaResult)
+            MediaResultRow(result: result, isSelected: state.session.selectedResultID == result.id, isExpanded: shouldExpandMediaResult)
                 .id(result.id)
                 .trackVisible(result.id, into: $visibleResultIDs)
-                .rowActivation(isSelected: state.selectedResultID == result.id) { execute(result) }
+                .rowActivation(isSelected: state.session.selectedResultID == result.id) { execute(result) }
         } else {
-            let preference = state.commandPreferences[result.id]
+            let preference = state.settings.commandPreferences[result.id]
             ResultRow(
                 result: result,
-                isSelected: state.selectedResultID == result.id,
+                isSelected: state.session.selectedResultID == result.id,
                 alias: preference?.aliases.first,
                 hotkey: preference?.globalHotkey?.displayName,
-                isRunning: HomeSuggestionRules.appBundleIdentifier(payload: result.payload).map(state.runningAppBundleIDs.contains) ?? false,
+                isRunning: HomeSuggestionRules.appBundleIdentifier(payload: result.payload).map(state.session.runningAppBundleIDs.contains) ?? false,
                 kindLabel: showKind ? resultKindLabel(for: result) : nil,
-                compact: state.windowMode == .compact
+                compact: state.settings.windowMode == .compact
             )
                 .id(result.id)
                 .trackVisible(result.id, into: $visibleResultIDs)
-                .rowActivation(isSelected: state.selectedResultID == result.id) { execute(result) }
+                .rowActivation(isSelected: state.session.selectedResultID == result.id) { execute(result) }
         }
     }
 
     private func execute(_ result: CommandResult) {
-        state.select(resultID: result.id)
+        state.session.select(resultID: result.id)
         executeSelectedResult()
     }
 
@@ -810,11 +810,11 @@ struct CommandPanelView: View {
     }
 
     private var searchFooterActions: [FooterActionSpec] {
-        if state.isShowingActions {
-            return [.init(label: state.selectedAction?.title ?? "Run", keys: "↵", emphasized: true), .init(label: "Back", keys: "esc")]
+        if state.session.isShowingActions {
+            return [.init(label: state.session.selectedAction?.title ?? "Run", keys: "↵", emphasized: true), .init(label: "Back", keys: "esc")]
         }
         let primary = FooterActionSpec(
-            label: isWindowLayoutQuery ? "Apply" : state.preferredActionTitle,
+            label: isWindowLayoutQuery ? "Apply" : state.session.preferredActionTitle,
             keys: "↵",
             emphasized: true
         )
@@ -883,7 +883,7 @@ struct CommandPanelView: View {
                     .textCase(.uppercase)
                     .tracking(0.4)
 
-                if let selectedResult = state.selectedResult {
+                if let selectedResult = state.session.selectedResult {
                     Text(selectedResult.title)
                         .font(FoundryTheme.body(size: 12, weight: .regular))
                         .foregroundStyle(FoundryTheme.mutedText)
@@ -899,22 +899,22 @@ struct CommandPanelView: View {
             ScrollViewReader { proxy in
                 ScrollView {
                     LazyVStack(spacing: 2) {
-                        if state.visibleActions.isEmpty {
-                            Text("No actions match \u{201C}\(state.actionFilter)\u{201D}")
+                        if state.session.visibleActions.isEmpty {
+                            Text("No actions match \u{201C}\(state.session.actionFilter)\u{201D}")
                                 .font(FoundryTheme.body(size: 12, weight: .regular))
                                 .foregroundStyle(FoundryTheme.mutedText)
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 24)
                         }
-                        ForEach(state.visibleActions, id: \.id) { action in
+                        ForEach(state.session.visibleActions, id: \.id) { action in
                             ActionRow(
                                 action: action,
-                                shortcut: action.id == state.selectedActions.first?.id ? "↵" : state.actionShortcuts[action.id]?.display,
-                                isSelected: state.selectedActionID == action.id
+                                shortcut: action.id == state.session.selectedActions.first?.id ? "↵" : state.session.actionShortcuts[action.id]?.display,
+                                isSelected: state.session.selectedActionID == action.id
                             )
                             .id(action.id)
-                            .rowActivation(isSelected: state.selectedActionID == action.id) {
-                                state.select(actionID: action.id)
+                            .rowActivation(isSelected: state.session.selectedActionID == action.id) {
+                                state.session.select(actionID: action.id)
                                 executeSelectedResult()
                             }
                         }
@@ -924,7 +924,7 @@ struct CommandPanelView: View {
                 }
                 .scrollIndicators(.never)
                 .background(Color.clear)
-                .onChange(of: state.selectedActionID) { _, actionID in
+                .onChange(of: state.session.selectedActionID) { _, actionID in
                     guard let actionID else { return }
                     proxy.scrollTo(actionID, anchor: .center)
                 }
@@ -933,20 +933,20 @@ struct CommandPanelView: View {
     }
 
     private var trimmedQuery: String {
-        state.query.trimmingCharacters(in: .whitespacesAndNewlines)
+        state.session.query.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     @ViewBuilder
     private var panelFooter: some View {
         let actions = surface.footerActions
-        if state.mode == .search, state.isSearchLoading {
-            PanelFooter(actions: actions, openSettings: state.openSettings, openWelcomeGuide: state.openWelcomeGuide) {
+        if state.mode == .search, state.session.isSearchLoading {
+            PanelFooter(actions: actions, openSettings: state.router.openSettings, openWelcomeGuide: state.router.openWelcomeGuide) {
                 Text("Searching…")
                     .font(FoundryTheme.metaFont)
                     .foregroundStyle(FoundryTheme.mutedText)
             }
         } else if isWindowLayoutQuery {
-            PanelFooter(actions: actions, openSettings: state.openSettings, openWelcomeGuide: state.openWelcomeGuide) {
+            PanelFooter(actions: actions, openSettings: state.router.openSettings, openWelcomeGuide: state.router.openWelcomeGuide) {
                 Text("\(windowLayoutResults.count) layouts")
                     .font(FoundryTheme.metaFont.monospacedDigit())
                     .foregroundStyle(FoundryTheme.faintText)
@@ -955,8 +955,8 @@ struct CommandPanelView: View {
             PanelFooter(
                 actions: actions,
                 showsQuickAIChip: state.mode == .quickAI,
-                openSettings: state.openSettings,
-                openWelcomeGuide: state.openWelcomeGuide
+                openSettings: state.router.openSettings,
+                openWelcomeGuide: state.router.openWelcomeGuide
             )
         }
     }

@@ -31,7 +31,7 @@ final class CommandPanelStateTests: XCTestCase {
         state.showHome()
 
         XCTAssertEqual(state.mode, .search, "Expected Home to use search mode")
-        XCTAssertTrue(state.query.isEmpty)
+        XCTAssertTrue(state.session.query.isEmpty)
         XCTAssertEqual(state.fileShelf.files.map(\.url), [fileURL])
         state.shutdown()
     }
@@ -127,12 +127,12 @@ final class CommandPanelStateTests: XCTestCase {
             config: config
         )
 
-        state.query = "http://127.0.0.1:8765/video.mp4"
-        for _ in 0..<40 where state.selectedResult?.route != .mediaDownload {
+        state.session.query = "http://127.0.0.1:8765/video.mp4"
+        for _ in 0..<40 where state.session.selectedResult?.route != .mediaDownload {
             try await Task.sleep(for: .milliseconds(10))
         }
 
-        XCTAssertEqual(state.selectedResult?.route, .mediaDownload)
+        XCTAssertEqual(state.session.selectedResult?.route, .mediaDownload)
         state.shutdown()
     }
 
@@ -155,7 +155,7 @@ final class CommandPanelStateTests: XCTestCase {
             diagnostics: diagnostics,
             config: config
         )
-        state.results = [CommandResult(
+        state.session.results = [CommandResult(
             id: "test.background-download",
             title: "Download",
             subtitle: nil,
@@ -168,7 +168,7 @@ final class CommandPanelStateTests: XCTestCase {
             ),
             secondaryActions: []
         )]
-        state.selectedResultID = "test.background-download"
+        state.session.selectedResultID = "test.background-download"
 
         let execution = Task { await state.executeSelectedResult() }
         try await Task.sleep(for: .milliseconds(20))
@@ -236,9 +236,9 @@ final class CommandPanelStateTests: XCTestCase {
         let clipboard = ClipboardHistoryState(pasteboard: TestClipboardPasteboard(), persistence: nil, configuration: config.current.clipboard)
         let state = makeState(diagnostics: diagnostics, config: config, clipboard: clipboard)
 
-        state.setClipboardPaused(true)
-        state.setClipboardRetention(maxItems: 12, maxBytes: 2 * 1024 * 1024)
-        state.setClipboardExcludedBundleIdentifiers("com.example, com.example, com.other")
+        state.settings.setClipboardPaused(true)
+        state.settings.setClipboardRetention(maxItems: 12, maxBytes: 2 * 1024 * 1024)
+        state.settings.setClipboardExcludedBundleIdentifiers("com.example, com.example, com.other")
 
         XCTAssertTrue(clipboard.isPaused)
         XCTAssertEqual(config.current.clipboard.maxItems, 12)
@@ -339,9 +339,9 @@ final class CommandPanelStateTests: XCTestCase {
             primaryAction: CommandAction(id: "test.open", title: "Open", behavior: OpenSettingsAction()),
             secondaryActions: []
         )
-        state.query = "tes"
-        state.results = [result]
-        state.selectedResultID = result.id
+        state.session.query = "tes"
+        state.session.results = [result]
+        state.session.selectedResultID = result.id
         state.mode = .translator
         state.panelWillClose()
 
@@ -349,9 +349,9 @@ final class CommandPanelStateTests: XCTestCase {
         state.resetForOpen()
 
         XCTAssertEqual(state.mode, .translator)
-        XCTAssertTrue(state.query.isEmpty)
-        XCTAssertTrue(state.results.isEmpty)
-        XCTAssertNil(state.selectedResultID)
+        XCTAssertTrue(state.session.query.isEmpty)
+        XCTAssertTrue(state.session.results.isEmpty)
+        XCTAssertNil(state.session.selectedResultID)
         state.shutdown()
     }
 
@@ -364,8 +364,8 @@ final class CommandPanelStateTests: XCTestCase {
         state.now = { clock }
 
         state.resetForOpen()
-        state.query = "tes"
-        state.results = [CommandResult(id: "test.result", title: "Test", subtitle: nil, icon: CommandIcon(fallback: "T"), payload: .command, primaryAction: CommandAction(id: "test.open", title: "Open", behavior: OpenSettingsAction()), secondaryActions: [])]
+        state.session.query = "tes"
+        state.session.results = [CommandResult(id: "test.result", title: "Test", subtitle: nil, icon: CommandIcon(fallback: "T"), payload: .command, primaryAction: CommandAction(id: "test.open", title: "Open", behavior: OpenSettingsAction()), secondaryActions: [])]
         state.mode = .translator
         state.panelWillClose()
 
@@ -373,9 +373,9 @@ final class CommandPanelStateTests: XCTestCase {
         state.resetForOpen()
 
         XCTAssertEqual(state.mode, .search)
-        XCTAssertTrue(state.query.isEmpty)
-        XCTAssertTrue(state.results.isEmpty)
-        XCTAssertNil(state.selectedResultID)
+        XCTAssertTrue(state.session.query.isEmpty)
+        XCTAssertTrue(state.session.results.isEmpty)
+        XCTAssertNil(state.session.selectedResultID)
         state.shutdown()
     }
 
@@ -386,17 +386,17 @@ final class CommandPanelStateTests: XCTestCase {
         let state = CommandPanelState(registry: registry, actionRunner: ActionRunner(diagnostics: diagnostics), diagnostics: diagnostics, config: config)
 
         XCTAssertFalse(state.compactCollapsed)
-        state.setWindowMode(.compact)
+        state.settings.setWindowMode(.compact)
         XCTAssertTrue(state.compactCollapsed)
 
-        state.query = "saf"
+        state.session.query = "saf"
         XCTAssertFalse(state.compactCollapsed)
 
-        state.query = ""
-        state.isShowingActions = true
+        state.session.query = ""
+        state.session.isShowingActions = true
         XCTAssertFalse(state.compactCollapsed)
 
-        state.isShowingActions = false
+        state.session.isShowingActions = false
         state.mode = .translator
         XCTAssertFalse(state.compactCollapsed)
         state.shutdown()
@@ -429,26 +429,26 @@ final class CommandPanelStateTests: XCTestCase {
                 CommandAction(id: "copy", title: "Copy Path", behavior: CopyToClipboardAction("/tmp/report"))
             ]
         )
-        state.results = [result]
-        state.selectedResultID = result.id
+        state.session.results = [result]
+        state.session.selectedResultID = result.id
 
-        state.toggleActions()
-        state.actionFilter = "copy pa"
-        XCTAssertEqual(state.visibleActions.map(\.id), ["copy"])
-        XCTAssertEqual(state.selectedActionID, "copy")
-        XCTAssertEqual(state.query, "")
+        state.session.toggleActions()
+        state.session.actionFilter = "copy pa"
+        XCTAssertEqual(state.session.visibleActions.map(\.id), ["copy"])
+        XCTAssertEqual(state.session.selectedActionID, "copy")
+        XCTAssertEqual(state.session.query, "")
 
-        state.actionFilter = "zzz"
-        XCTAssertTrue(state.visibleActions.isEmpty)
-        XCTAssertNil(state.selectedActionID)
+        state.session.actionFilter = "zzz"
+        XCTAssertTrue(state.session.visibleActions.isEmpty)
+        XCTAssertNil(state.session.selectedActionID)
 
         XCTAssertTrue(state.handleEscape())
-        XCTAssertTrue(state.isShowingActions, "first escape clears the filter")
-        XCTAssertEqual(state.visibleActions.count, state.selectedActions.count)
+        XCTAssertTrue(state.session.isShowingActions, "first escape clears the filter")
+        XCTAssertEqual(state.session.visibleActions.count, state.session.selectedActions.count)
         XCTAssertTrue(state.handleEscape())
-        XCTAssertFalse(state.isShowingActions)
-        XCTAssertEqual(state.results.map(\.id), [result.id], "escape keeps the result list")
-        XCTAssertEqual(state.selectedResultID, result.id)
+        XCTAssertFalse(state.session.isShowingActions)
+        XCTAssertEqual(state.session.results.map(\.id), [result.id], "escape keeps the result list")
+        XCTAssertEqual(state.session.selectedResultID, result.id)
         state.shutdown()
     }
 
@@ -470,10 +470,10 @@ final class CommandPanelStateTests: XCTestCase {
                 CommandAction(id: "delete", title: "Delete Snippet", behavior: DeleteSnippetAction(id: "x"))
             ]
         )
-        state.results = [result]
-        state.selectedResultID = result.id
+        state.session.results = [result]
+        state.session.selectedResultID = result.id
 
-        let shortcuts = state.actionShortcuts
+        let shortcuts = state.session.actionShortcuts
         XCTAssertNil(shortcuts["open"])
         XCTAssertEqual(shortcuts["copy"], .secondary)
         XCTAssertEqual(shortcuts["copy2"]?.display, "⇧⌘C")
@@ -483,11 +483,11 @@ final class CommandPanelStateTests: XCTestCase {
 
         XCTAssertFalse(state.performActionShortcut(ActionShortcut(key: "j", modifiers: [.command])) {})
         XCTAssertTrue(state.performActionShortcut(ActionShortcut(key: "d", modifiers: [.command])) {})
-        XCTAssertFalse(state.isShowingActions)
-        for _ in 0..<100 where state.commandPreferences[result.id]?.favoriteRank == nil {
+        XCTAssertFalse(state.session.isShowingActions)
+        for _ in 0..<100 where state.settings.commandPreferences[result.id]?.favoriteRank == nil {
             try await Task.sleep(nanoseconds: 20_000_000)
         }
-        XCTAssertNotNil(state.commandPreferences[result.id]?.favoriteRank)
+        XCTAssertNotNil(state.settings.commandPreferences[result.id]?.favoriteRank)
         state.shutdown()
     }
 
@@ -509,15 +509,17 @@ final class CommandPanelStateTests: XCTestCase {
         let registry = CommandRegistry(providers: [], usageRanking: UsageRankingStore(diagnostics: diagnostics), diagnostics: diagnostics, configService: config)
         let state = CommandPanelState(registry: registry, actionRunner: ActionRunner(diagnostics: diagnostics), diagnostics: diagnostics, config: config)
         var lookedAt: [URL] = []
-        state.onQuickLook = { lookedAt.append($0) }
-        state.results = [
+        let shell = RecordingShellPort()
+        shell.onQuickLook = { lookedAt.append($0) }
+        state.shell = shell
+        state.session.results = [
             CommandResult(id: "file./tmp/report.pdf", title: "report.pdf", subtitle: nil, icon: CommandIcon(fallback: "F"), payload: .file(URL(fileURLWithPath: "/tmp/report.pdf")), primaryAction: CommandAction(id: "open", title: "Open", behavior: LogAction("open")), secondaryActions: []),
             CommandResult(id: "app.safari", title: "Safari", subtitle: nil, icon: CommandIcon(fallback: "S"), payload: .command, primaryAction: CommandAction(id: "open", title: "Open", behavior: LogAction("open")), secondaryActions: []),
         ]
-        state.selectedResultID = "app.safari"
+        state.session.selectedResultID = "app.safari"
         XCTAssertFalse(state.performModeShortcut(ActionShortcut(key: "y", modifiers: [.command])) {})
         XCTAssertTrue(lookedAt.isEmpty)
-        state.selectedResultID = "file./tmp/report.pdf"
+        state.session.selectedResultID = "file./tmp/report.pdf"
         XCTAssertTrue(state.performModeShortcut(ActionShortcut(key: "y", modifiers: [.command])) {})
         XCTAssertEqual(lookedAt, [URL(fileURLWithPath: "/tmp/report.pdf")])
         state.shutdown()
@@ -542,29 +544,29 @@ final class CommandPanelStateTests: XCTestCase {
             primaryAction: CommandAction(id: "test.favorite.open", title: "Open", behavior: LogAction("fav")),
             secondaryActions: []
         )
-        state.results = [result]
-        state.selectedResultID = result.id
+        state.session.results = [result]
+        state.session.selectedResultID = result.id
 
-        let addAction = state.selectedActions.first { action in
+        let addAction = state.session.selectedActions.first { action in
             if action.behavior is ToggleFavoriteAction { return true }
             return false
         }
         XCTAssertEqual(addAction?.title, "Add to Favorites")
 
-        state.toggleFavorite(commandID: result.id)
-        XCTAssertTrue(state.commandPreferences[result.id]?.favoriteRank != nil)
-        XCTAssertEqual(state.selectedActions.first { $0.id == addAction?.id }?.title, "Remove from Favorites")
+        state.settings.toggleFavorite(commandID: result.id)
+        XCTAssertTrue(state.settings.commandPreferences[result.id]?.favoriteRank != nil)
+        XCTAssertEqual(state.session.selectedActions.first { $0.id == addAction?.id }?.title, "Remove from Favorites")
 
-        for _ in 0..<100 where state.favoriteResults.isEmpty {
+        for _ in 0..<100 where state.session.favoriteResults.isEmpty {
             try await Task.sleep(nanoseconds: 20_000_000)
         }
-        XCTAssertEqual(state.favoriteResults.map(\.id), [result.id])
+        XCTAssertEqual(state.session.favoriteResults.map(\.id), [result.id])
 
-        state.toggleFavorite(commandID: result.id)
-        for _ in 0..<100 where state.favoriteResults.isEmpty == false {
+        state.settings.toggleFavorite(commandID: result.id)
+        for _ in 0..<100 where state.session.favoriteResults.isEmpty == false {
             try await Task.sleep(nanoseconds: 20_000_000)
         }
-        XCTAssertTrue(state.favoriteResults.isEmpty)
+        XCTAssertTrue(state.session.favoriteResults.isEmpty)
         state.shutdown()
     }
 
@@ -596,14 +598,14 @@ final class CommandPanelStateTests: XCTestCase {
             config: config
         )
 
-        state.query = "slow"
+        state.session.query = "slow"
         try await Task.sleep(for: .milliseconds(15))
-        XCTAssertTrue(state.isSearchLoading)
+        XCTAssertTrue(state.session.isSearchLoading)
 
-        for _ in 0..<30 where state.isSearchLoading {
+        for _ in 0..<30 where state.session.isSearchLoading {
             try await Task.sleep(for: .milliseconds(10))
         }
-        XCTAssertFalse(state.isSearchLoading)
+        XCTAssertFalse(state.session.isSearchLoading)
         state.shutdown()
     }
 

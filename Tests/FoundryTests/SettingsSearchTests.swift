@@ -31,9 +31,11 @@ final class SettingsSearchTests: XCTestCase {
         let registry = CommandRegistry(providers: [], usageRanking: UsageRankingStore(diagnostics: diagnostics), diagnostics: diagnostics, configService: config)
         let state = CommandPanelState(registry: registry, actionRunner: ActionRunner(diagnostics: diagnostics), diagnostics: diagnostics, config: config)
         var opened = 0
-        state.onOpenSettings = { opened += 1 }
+        let shell = RecordingShellPort()
+        shell.onOpenSettings = { opened += 1 }
+        state.shell = shell
 
-        state.openSettings()
+        state.router.openSettings()
 
         XCTAssertEqual(opened, 1)
         XCTAssert(state.mode == .settings)
@@ -46,10 +48,12 @@ final class SettingsSearchTests: XCTestCase {
         let registry = CommandRegistry(providers: [], usageRanking: UsageRankingStore(diagnostics: diagnostics), diagnostics: diagnostics, configService: config)
         let state = CommandPanelState(registry: registry, actionRunner: ActionRunner(diagnostics: diagnostics), diagnostics: diagnostics, config: config)
         var opened = 0
-        state.onOpenSettings = { opened += 1 }
+        let shell = RecordingShellPort()
+        shell.onOpenSettings = { opened += 1 }
+        state.shell = shell
         state.resetForOpen()
 
-        state.openSettings()
+        state.router.openSettings()
 
         XCTAssertEqual(opened, 0)
         XCTAssert(state.mode == .settings)

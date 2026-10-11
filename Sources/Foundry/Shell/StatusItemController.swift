@@ -92,9 +92,9 @@ final class StatusItemController: NSObject, NSMenuDelegate {
     func menuNeedsUpdate(_ menu: NSMenu) {
         menu.removeAllItems()
         let model = StatusItemMenuModel(
-            hotkey: state.hotkey,
+            hotkey: state.settings.hotkey,
             clipboardPaused: state.clipboardHistory.isPaused,
-            hotkeyFailed: state.launcherHotkeyFailed,
+            hotkeyFailed: state.settings.launcherHotkeyFailed,
             keepAwakeActive: KeepAwakeController.isActive()
         )
         for item in model.items {
@@ -123,15 +123,15 @@ final class StatusItemController: NSObject, NSMenuDelegate {
             onTogglePanel?()
         case .clipboardHistory:
             onOpenPanel?()
-            state.openClipboardHistory()
+            state.router.openClipboardHistory()
         case .clipboardPauseToggle:
-            state.setClipboardPaused(state.clipboardHistory.isPaused == false)
+            state.settings.setClipboardPaused(state.clipboardHistory.isPaused == false)
         case .keepAwake:
             BestEffort.attempt("toggle keep-awake from status item") {
                 try KeepAwakeController.toggle()
             }
         case .settings, .hotkeyWarning:
-            state.openSettings()
+            state.router.openSettings()
         case .welcomeGuide:
             onWelcomeGuide?()
         case .quit:

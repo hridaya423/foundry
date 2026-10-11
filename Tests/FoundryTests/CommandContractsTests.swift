@@ -76,12 +76,12 @@ final class CommandContractsTests: XCTestCase {
             diagnostics: DiagnosticsService(),
             config: config
         )
-        state.results = [result]
-        state.selectedResultID = result.id
+        state.session.results = [result]
+        state.session.selectedResultID = result.id
 
-        XCTAssertEqual(state.selectedActions.first?.id, "test.command.secondary")
+        XCTAssertEqual(state.session.selectedActions.first?.id, "test.command.secondary")
 
-        state.setCommandHotkey(
+        state.settings.setCommandHotkey(
             FoundryHotkey(keyCode: 0, modifiers: 256, displayName: "⌘A"),
             for: result.id
         )
