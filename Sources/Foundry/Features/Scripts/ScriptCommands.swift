@@ -1,5 +1,6 @@
 import Foundation
 import FoundryDomain
+import FoundryServices
 
 enum ScriptOutputMode: String, Codable, Hashable, Sendable {
     case silent, compact, fullOutput, inline
@@ -39,8 +40,11 @@ enum ScriptDirectives {
         }
         guard let title = values["title"], title.isEmpty == false else { return nil }
         let arguments = ["argument1", "argument2", "argument3"].compactMap { key -> ScriptArgument? in
-            guard let json = values[key]?.data(using: .utf8),
-                  let object = try? JSONSerialization.jsonObject(with: json) as? [String: Any] else { return nil }
+            guard let json = values[key]?.data(using: .utf8) else { return nil }
+            let raw = BestEffort.attempt("parse @raycast.\(key) directive") {
+                try JSONSerialization.jsonObject(with: json)
+            }
+            guard let object = raw as? [String: Any] else { return nil }
             return ScriptArgument(placeholder: object["placeholder"] as? String ?? "Argument", optional: object["optional"] as? Bool ?? false)
         }
         return ScriptCommand(
@@ -133,7 +137,7 @@ final class ScriptCommandProvider: CommandProvider, @unchecked Sendable {
 
     func scripts() -> [ScriptCommand] {
         store.directories.flatMap { directory -> [ScriptCommand] in
-            let modified = (try? FileManager.default.attributesOfItem(atPath: directory))?[.modificationDate] as? Date
+            let modified = FileManager.default.attributesIfPresent(atPath: directory)?[.modificationDate] as? Date
             if let cached = lock.withLock({ cache[directory] }), cached.modified == modified { return cached.scripts }
             let scripts = Self.scan(directory)
             lock.withLock { cache[directory] = (modified, scripts) }
@@ -142,7 +146,7 @@ final class ScriptCommandProvider: CommandProvider, @unchecked Sendable {
     }
 
     static func scan(_ directory: String) -> [ScriptCommand] {
-        let files = (try? FileManager.default.contentsOfDirectory(atPath: directory)) ?? []
+        let files = FileManager.default.contentsOfDirectoryIfPresent(atPath: directory) ?? []
         return files.sorted().compactMap { name in
             let path = (directory as NSString).appendingPathComponent(name)
             guard name.hasPrefix(".") == false, FileManager.default.isExecutableFile(atPath: path),

@@ -1,4 +1,5 @@
 import Foundation
+import FoundryServices
 
 struct AgentIntegrationStatus: Equatable, Sendable {
     let path: URL
@@ -63,7 +64,10 @@ struct AgentIntegrationInstaller: Sendable {
             guard FileManager.default.fileExists(atPath: claudeSettingsURL.path) else {
                 return AgentIntegrationStatus(path: claudeSettingsURL, installed: false, detail: nil)
             }
-            guard let root = try? loadJSON(at: claudeSettingsURL), let hooks = root["hooks"] as? [String: Any] else {
+            let root = BestEffort.attempt("inspect claude settings") {
+                try loadJSON(at: claudeSettingsURL)
+            }
+            guard let hooks = root?["hooks"] as? [String: Any] else {
                 return AgentIntegrationStatus(path: claudeSettingsURL, installed: false, detail: "Settings file could not be inspected")
             }
             let installed = Self.claudeHookEvents.allSatisfy { event in
@@ -80,18 +84,29 @@ struct AgentIntegrationInstaller: Sendable {
             }
             return AgentIntegrationStatus(path: claudeSettingsURL, installed: installed, detail: nil)
         case .opencode:
-            guard let data = try? Data(contentsOf: openCodePluginURL), let content = String(data: data, encoding: .utf8) else {
+            let content = BestEffort.attempt("read opencode plugin") {
+                try String(contentsOf: openCodePluginURL, encoding: .utf8)
+            }
+            guard let content else {
                 return AgentIntegrationStatus(path: openCodePluginURL, installed: false, detail: nil)
             }
             let installed = Self.isManagedOpenCodePlugin(content)
             return AgentIntegrationStatus(path: openCodePluginURL, installed: installed, detail: installed ? nil : "An unrelated plugin occupies this path")
         case .codex:
-            let scriptInstalled = (try? String(contentsOf: codexScriptURL, encoding: .utf8))?.contains(Self.managedCodexScriptMarker) == true
-            let hookInstalled = (try? loadJSON(at: codexHooksURL)).map(codexHooksContainManaged) == true
-            let featureEnabled = (try? String(contentsOf: codexConfigURL, encoding: .utf8)).map(Self.codexHooksFeatureEnabled) == true
+            let scriptInstalled = BestEffort.attempt("read codex script") {
+                try String(contentsOf: codexScriptURL, encoding: .utf8)
+            }?.contains(Self.managedCodexScriptMarker) == true
+            let hookInstalled = BestEffort.attempt("read codex hooks") {
+                try loadJSON(at: codexHooksURL)
+            }.map(codexHooksContainManaged) == true
+            let featureEnabled = BestEffort.attempt("read codex config") {
+                try String(contentsOf: codexConfigURL, encoding: .utf8)
+            }.map(Self.codexHooksFeatureEnabled) == true
             return AgentIntegrationStatus(path: codexHooksURL, installed: scriptInstalled && hookInstalled && featureEnabled, detail: nil)
         case .cursor:
-            let installed = (try? loadJSON(at: cursorHooksURL)).map(cursorHooksContainManaged) == true
+            let installed = BestEffort.attempt("read cursor hooks") {
+                try loadJSON(at: cursorHooksURL)
+            }.map(cursorHooksContainManaged) == true
             return AgentIntegrationStatus(path: cursorHooksURL, installed: installed, detail: nil)
         }
     }
@@ -138,7 +153,14 @@ struct AgentIntegrationInstaller: Sendable {
         root["hooks"] = updatedHooks
         try writeJSON(root, to: codexHooksURL)
 
-        let existing = (try? String(contentsOf: codexConfigURL, encoding: .utf8)) ?? ""
+        // A config that exists but won't parse must fail loudly — treating
+        // it as empty would clobber the user's file on the write below.
+        let existing: String
+        if FileManager.default.fileExists(atPath: codexConfigURL.path) {
+            existing = try String(contentsOf: codexConfigURL, encoding: .utf8)
+        } else {
+            existing = ""
+        }
         let updated = Self.upsertCodexHooksFeature(existing)
         try FileManager.default.createDirectory(at: codexConfigURL.deletingLastPathComponent(), withIntermediateDirectories: true)
         try updated.write(to: codexConfigURL, atomically: true, encoding: .utf8)
@@ -256,7 +278,10 @@ struct AgentIntegrationInstaller: Sendable {
         } catch {
             throw AgentIntegrationInstallError.invalidSettingsJSON(url)
         }
-        guard let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+        let parsed = BestEffort.attempt("parse settings JSON \(url.lastPathComponent)") {
+            try JSONSerialization.jsonObject(with: data)
+        }
+        guard let root = parsed as? [String: Any] else {
             throw AgentIntegrationInstallError.invalidSettingsJSON(url)
         }
         return root
@@ -401,7 +426,9 @@ struct AgentIntegrationInstaller: Sendable {
     }
 
     private var openCodePluginSource: String {
-        let executableData = try? JSONSerialization.data(withJSONObject: executableURL.path, options: .fragmentsAllowed)
+        let executableData = BestEffort.attempt("encode executable path") {
+            try JSONSerialization.data(withJSONObject: executableURL.path, options: .fragmentsAllowed)
+        }
         let executable = executableData.flatMap { String(data: $0, encoding: .utf8) } ?? "\"\""
         return """
         import { spawn } from "node:child_process"

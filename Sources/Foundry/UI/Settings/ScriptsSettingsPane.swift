@@ -1,5 +1,6 @@
 import AppKit
 import SwiftUI
+import FoundryServices
 
 struct ScriptsSettingsPane: View {
     var store: ScriptDirectoryStore = .shared
@@ -55,7 +56,9 @@ struct ScriptsSettingsPane: View {
     }
 
     private func createIfNeeded(_ directory: String) {
-        try? FileManager.default.createDirectory(atPath: directory, withIntermediateDirectories: true)
+        BestEffort.attempt("create scripts directory") {
+            try FileManager.default.createDirectory(atPath: directory, withIntermediateDirectories: true)
+        }
     }
 
     private func addFolder() {

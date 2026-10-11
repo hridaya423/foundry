@@ -1,6 +1,7 @@
 import AppKit
 @preconcurrency import QuickLookThumbnailing
 import SwiftUI
+import FoundryServices
 
 struct SplitPreviewLayout<ListContent: View, Preview: View>: View {
     @ViewBuilder var list: ListContent
@@ -125,7 +126,7 @@ struct FilePreview: View {
     private var url: URL { URL(fileURLWithPath: path) }
 
     private var metadata: [(label: String, value: String)] {
-        let values = try? url.resourceValues(forKeys: [.localizedTypeDescriptionKey, .fileSizeKey, .contentModificationDateKey, .isDirectoryKey])
+        let values = url.fileResourceValues([.localizedTypeDescriptionKey, .fileSizeKey, .contentModificationDateKey, .isDirectoryKey])
         var rows: [(String, String)] = [("Kind", values?.localizedTypeDescription ?? "File")]
         if values?.isDirectory != true, let size = values?.fileSize { rows.append(("Size", PreviewMetadata.size(size))) }
         if let modified = values?.contentModificationDate { rows.append(("Modified", PreviewMetadata.date(modified))) }
@@ -165,7 +166,9 @@ struct FilePreview: View {
         .task(id: path) {
             thumbnail = nil
             let request = QLThumbnailGenerator.Request(fileAt: url, size: CGSize(width: 360, height: 240), scale: NSScreen.main?.backingScaleFactor ?? 2, representationTypes: .thumbnail)
-            thumbnail = try? await QLThumbnailGenerator.shared.generateBestRepresentation(for: request).nsImage
+            thumbnail = await BestEffort.attempt("generate thumbnail \(url.lastPathComponent)") {
+                try await QLThumbnailGenerator.shared.generateBestRepresentation(for: request).nsImage
+            }
         }
     }
 }

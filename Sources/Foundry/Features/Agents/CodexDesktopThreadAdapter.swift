@@ -139,9 +139,10 @@ struct CodexDesktopThreadAdapter: Sendable {
         }
         defer { try? handle.close() }
         let byteLimit = 96 * 1_024
-        guard let end = try? handle.seekToEnd() else { return false }
+        let end = BestEffort.attempt("seek codex transcript") { try handle.seekToEnd() }
+        guard let end else { return false }
         let start = end > UInt64(byteLimit) ? end - UInt64(byteLimit) : 0
-        try? handle.seek(toOffset: start)
+        BestEffort.attempt("seek codex transcript") { try handle.seek(toOffset: start) }
         let data = handle.readData(ofLength: Int(end - start))
         guard data.isEmpty == false else { return false }
 
@@ -170,15 +171,15 @@ struct CodexDesktopThreadAdapter: Sendable {
         let root = homeDirectory.appendingPathComponent(".codex", isDirectory: true)
         let roots = [root, root.appendingPathComponent("sqlite", isDirectory: true)]
         let candidates = roots.flatMap { directory -> [URL] in
-            (try? FileManager.default.contentsOfDirectory(
+            FileManager.default.contentsOfDirectoryIfPresent(
                 at: directory,
-                includingPropertiesForKeys: [.contentModificationDateKey, .isRegularFileKey],
+                keys: [.contentModificationDateKey, .isRegularFileKey],
                 options: [.skipsHiddenFiles]
-            ))?.filter { $0.lastPathComponent.hasPrefix("state_") && $0.pathExtension == "sqlite" } ?? []
+            )?.filter { $0.lastPathComponent.hasPrefix("state_") && $0.pathExtension == "sqlite" } ?? []
         }
         return candidates.max { lhs, rhs in
-            let left = (try? lhs.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast
-            let right = (try? rhs.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast
+            let left = lhs.fileResourceValues([.contentModificationDateKey])?.contentModificationDate ?? .distantPast
+            let right = rhs.fileResourceValues([.contentModificationDateKey])?.contentModificationDate ?? .distantPast
             return left < right
         }
     }

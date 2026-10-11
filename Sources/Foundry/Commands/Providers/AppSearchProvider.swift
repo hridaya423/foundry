@@ -193,7 +193,7 @@ private final class InstalledAppCache: @unchecked Sendable {
 
     private func rootSignatures() -> [AppRootSignature] {
         roots.map { root in
-            let attributes = try? FileManager.default.attributesOfItem(atPath: root.path)
+            let attributes = FileManager.default.attributesIfPresent(atPath: root.path)
             return AppRootSignature(modificationDate: attributes?[.modificationDate] as? Date)
         }
     }

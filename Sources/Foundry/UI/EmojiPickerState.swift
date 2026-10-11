@@ -1,6 +1,7 @@
 import AppKit
 import Foundation
 import Observation
+import FoundryServices
 
 @MainActor
 @Observable
@@ -164,8 +165,13 @@ private extension EmojiPickerState {
     }()
 
     static func loadEmojiCatalog() -> [EmojiItem] {
-        guard let url = Bundle.packagedResources?.url(forResource: "emoji", withExtension: "tsv"),
-              let data = try? String(contentsOf: url, encoding: .utf8) else {
+        guard let url = Bundle.packagedResources?.url(forResource: "emoji", withExtension: "tsv") else {
+            return []
+        }
+        let data = BestEffort.attempt("load emoji catalog") {
+            try String(contentsOf: url, encoding: .utf8)
+        }
+        guard let data else {
             return []
         }
 

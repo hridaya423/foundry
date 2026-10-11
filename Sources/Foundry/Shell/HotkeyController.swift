@@ -1,5 +1,6 @@
 import Carbon
 import Foundation
+import FoundryServices
 
 struct FoundryHotkey: Codable, Equatable {
     var keyCode: UInt32
@@ -73,8 +74,10 @@ final class HotkeyController {
                 UnregisterEventHotKey(ref)
             }
             if previousHotkeys.isEmpty == false {
-                try? registerCommandHotkeys(previousHotkeys) { commandID in
-                    previousHandler?(commandID)
+                BestEffort.attempt("restore previous command hotkeys") {
+                    try registerCommandHotkeys(previousHotkeys) { commandID in
+                        previousHandler?(commandID)
+                    }
                 }
             }
             throw error

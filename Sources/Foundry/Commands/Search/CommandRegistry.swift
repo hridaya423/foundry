@@ -130,7 +130,9 @@ final class CommandRegistry: @unchecked Sendable {
         var leading: [CommandResult] = []
         var trailing: [CommandResult] = []
         for provider in enabledProviders {
-            let results = ((try? await provider.fallbackResults(matching: query, sensitivity: sensitivity)) ?? [])
+            let results = (await BestEffort.attempt("\(provider.id) fallback results") {
+                try await provider.fallbackResults(matching: query, sensitivity: sensitivity)
+            } ?? [])
                 .filter { isFallbackEligible(for: $0) && isCommandEnabled($0) }
             if trailingProviderIDs.contains(provider.id) { trailing += results } else { leading += results }
         }

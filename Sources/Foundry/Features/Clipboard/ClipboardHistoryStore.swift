@@ -1,4 +1,5 @@
 import Foundation
+import FoundryServices
 import SQLite3
 
 final class ClipboardHistoryStore: ClipboardHistoryPersisting, @unchecked Sendable {
@@ -67,7 +68,9 @@ final class ClipboardHistoryStore: ClipboardHistoryPersisting, @unchecked Sendab
             throw ClipboardHistoryPersistenceError.corruptArchive(SQLiteError(message: message))
         }
         db = handle
-        try? fileManager.setAttributes([.posixPermissions: 0o600], ofItemAtPath: databaseURL.path)
+        BestEffort.attempt("chmod clipboard database") {
+            try fileManager.setAttributes([.posixPermissions: 0o600], ofItemAtPath: databaseURL.path)
+        }
         try exec("""
             PRAGMA journal_mode=WAL;
             CREATE TABLE IF NOT EXISTS items (
@@ -121,7 +124,9 @@ final class ClipboardHistoryStore: ClipboardHistoryPersisting, @unchecked Sendab
                         let file = imagesURL.appendingPathComponent(item.signature)
                         if data.isEmpty == false, FileManager.default.fileExists(atPath: file.path) == false {
                             try data.write(to: file, options: [.atomic])
-                            try? FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: file.path)
+                            BestEffort.attempt("chmod clipboard image") {
+                                try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: file.path)
+                            }
                         }
                     }
                     sqlite3_reset(insert)
@@ -182,12 +187,14 @@ final class ClipboardHistoryStore: ClipboardHistoryPersisting, @unchecked Sendab
     func imageData(signature: String) throws -> Data? {
         try lock.withLock {
             try openIfNeeded()
-            return try? Data(contentsOf: imagesURL.appendingPathComponent(signature))
+            return BestEffort.attempt("read clipboard image") {
+                try Data(contentsOf: imagesURL.appendingPathComponent(signature))
+            }
         }
     }
 
     private func removeOrphanedImages(keeping signatures: Set<String>) {
-        let files = (try? FileManager.default.contentsOfDirectory(atPath: imagesURL.path)) ?? []
+        let files = FileManager.default.contentsOfDirectoryIfPresent(atPath: imagesURL.path) ?? []
         for name in files where signatures.contains(name) == false {
             try? FileManager.default.removeItem(at: imagesURL.appendingPathComponent(name))
         }
@@ -209,12 +216,16 @@ final class ClipboardHistoryStore: ClipboardHistoryPersisting, @unchecked Sendab
             switch kind {
             case "text": payload = .text(column(3) ?? "")
             case "files":
-                let paths = (try? JSONDecoder().decode([String].self, from: Data((column(4) ?? "[]").utf8))) ?? []
+                let paths = BestEffort.attempt("decode clipboard file paths") {
+                    try JSONDecoder().decode([String].self, from: Data((column(4) ?? "[]").utf8))
+                } ?? []
                 payload = .files(paths.map { URL(fileURLWithPath: $0) })
             default:
                 hydratedImages += 1
                 if hydratedImages <= Self.eagerImageLimit,
-                   let data = try? Data(contentsOf: imagesURL.appendingPathComponent(signature)) {
+                   let data = BestEffort.attempt("hydrate clipboard image", {
+                       try Data(contentsOf: imagesURL.appendingPathComponent(signature))
+                   }) {
                     payload = .image(data)
                 } else {
                     payload = .image(Data())

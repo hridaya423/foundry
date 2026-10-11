@@ -114,8 +114,8 @@ public struct CapabilityRequirement: Equatable, Sendable {
         let pattern = minimum
             ? #"^v?\d+(?:\.\d+){0,2}$"#
             : #"(?<![A-Za-z0-9.])v?\d+(?:\.\d+){0,2}(?![A-Za-z0-9.])"#
-        guard let regex = try? NSRegularExpression(pattern: pattern),
-              let match = regex.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)) else { return nil }
+        let regex = try! NSRegularExpression(pattern: pattern)
+        guard let match = regex.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)) else { return nil }
         let token: Substring
         if let range = Range(match.range, in: text) {
             token = text[range].drop(while: { $0 == "v" })

@@ -691,12 +691,16 @@ enum OllamaAgentClient {
         request.httpMethod = "POST"
         request.timeoutInterval = 60
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.httpBody = try? JSONSerialization.data(withJSONObject: [
-            "model": model,
-            "stream": true,
-            "tools": tools.map { ["type": "function", "function": ["name": $0.name, "description": $0.description, "parameters": $0.parameters]] },
-            "messages": messages
-        ])
+        do {
+            request.httpBody = try JSONSerialization.data(withJSONObject: [
+                "model": model,
+                "stream": true,
+                "tools": tools.map { ["type": "function", "function": ["name": $0.name, "description": $0.description, "parameters": $0.parameters]] },
+                "messages": messages
+            ])
+        } catch {
+            return .failure("Could not encode the Ollama request.", .configuration)
+        }
 
         do {
             let (bytes, response) = try await AITransportSupport.session.bytes(for: request)

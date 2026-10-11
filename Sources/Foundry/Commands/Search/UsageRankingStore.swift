@@ -200,8 +200,10 @@ final class UsageRankingStore: @unchecked Sendable {
     }
 
     private static func load(from url: URL) -> StoredUsage? {
-        guard let data = try? Data(contentsOf: url) else { return nil }
-        return try? JSONDecoder().decode(StoredUsage.self, from: data)
+        guard FileManager.default.fileExists(atPath: url.path) else { return nil }
+        return BestEffort.attempt("load usage ranking") {
+            try JSONDecoder().decode(StoredUsage.self, from: Data(contentsOf: url))
+        }
     }
 
     private func queryKeys(for query: String?) -> [(key: String, weight: Double)] {

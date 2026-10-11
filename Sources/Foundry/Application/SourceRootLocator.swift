@@ -1,5 +1,6 @@
 import Foundation
 import Darwin
+import FoundryServices
 
 #if DEBUG
 enum SourceRootLocator {
@@ -14,7 +15,7 @@ enum SourceRootLocator {
             guard fileManager.fileExists(atPath: root.path, isDirectory: &isDirectory), isDirectory.boolValue else { return false }
             let script = root.appendingPathComponent("scripts/build-app.sh")
             guard fileManager.isReadableFile(atPath: script.path), fileManager.isExecutableFile(atPath: script.path) else { return false }
-            guard let attributes = try? fileManager.attributesOfItem(atPath: root.path),
+            guard let attributes = fileManager.attributesIfPresent(atPath: root.path),
                   let ownerID = attributes[.ownerAccountID] as? NSNumber else { return false }
             return ownerID.uint32Value == getuid()
         }

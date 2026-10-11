@@ -98,10 +98,17 @@ enum FirefoxNativeHost {
     static func run() {
         let home = FileManager.default.homeDirectoryForCurrentUser
         while let message = readMessage() {
-            guard let data = try? JSONSerialization.data(withJSONObject: message, options: []) else { continue }
+            let data = BestEffort.attempt("encode firefox message") {
+                try JSONSerialization.data(withJSONObject: message, options: [])
+            }
+            guard let data else { continue }
             let url = FirefoxNativeTabsStore.url(home: home)
-            try? FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
-            try? data.write(to: url, options: .atomic)
+            BestEffort.attempt("prepare firefox tabs store") {
+                try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+            }
+            BestEffort.attempt("write firefox tabs") {
+                try data.write(to: url, options: .atomic)
+            }
         }
     }
 
@@ -110,7 +117,11 @@ enum FirefoxNativeHost {
         let length = header.enumerated().reduce(UInt32(0)) { result, item in
             result | UInt32(item.element) << UInt32(item.offset * 8)
         }
-        guard length > 0, let payload = readExactly(Int(length)), let object = try? JSONSerialization.jsonObject(with: payload) as? [String: Any] else { return nil }
+        guard length > 0, let payload = readExactly(Int(length)) else { return nil }
+        let raw = BestEffort.attempt("parse firefox message") {
+            try JSONSerialization.jsonObject(with: payload)
+        }
+        guard let object = raw as? [String: Any] else { return nil }
         return object
     }
 

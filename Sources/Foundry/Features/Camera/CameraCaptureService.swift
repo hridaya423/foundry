@@ -1,5 +1,6 @@
 @preconcurrency import AVFoundation
 import Foundation
+import FoundryServices
 
 enum CameraAuthorization: Equatable, Sendable {
     case authorized, notDetermined, denied, restricted
@@ -103,7 +104,10 @@ final class CameraCaptureService: CameraCapturing, @unchecked Sendable {
     private nonisolated func configureIfNeeded() -> ConfigurationResult {
         guard !captureState.configured else { return .configured }
         guard let device = AVCaptureDevice.default(for: .video) else { return .noDevice }
-        guard let input = try? AVCaptureDeviceInput(device: device), captureState.session.canAddInput(input) else { return .configuration }
+        let input = BestEffort.attempt("create camera input") {
+            try AVCaptureDeviceInput(device: device)
+        }
+        guard let input, captureState.session.canAddInput(input) else { return .configuration }
         captureState.session.beginConfiguration()
         defer { captureState.session.commitConfiguration() }
         if captureState.session.canSetSessionPreset(.hd1280x720) { captureState.session.sessionPreset = .hd1280x720 }

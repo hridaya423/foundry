@@ -1,4 +1,5 @@
 import Foundation
+import FoundryServices
 
 struct StoredSnippet: Codable, Identifiable, Hashable {
     var id: String
@@ -57,8 +58,10 @@ final class FileSnippetStore: SnippetStore, @unchecked Sendable {
     }
 
     func load() -> [StoredSnippet] {
-        guard let data = try? Data(contentsOf: url) else { return [] }
-        return (try? JSONDecoder().decode([StoredSnippet].self, from: data)) ?? []
+        guard FileManager.default.fileExists(atPath: url.path) else { return [] }
+        return BestEffort.attempt("load snippets") {
+            try JSONDecoder().decode([StoredSnippet].self, from: Data(contentsOf: url))
+        } ?? []
     }
 
     @discardableResult

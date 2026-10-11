@@ -1,5 +1,6 @@
 import Foundation
 import Darwin
+import FoundryServices
 
 protocol MediaArtifactFileSystem: Sendable {
     func createDirectory(at url: URL) throws
@@ -34,7 +35,7 @@ extension FileManager: MediaArtifactFileSystem {
     }
     func regularFiles(in directory: URL) throws -> [URL] {
         try contentsOfDirectory(at: directory, includingPropertiesForKeys: [.isRegularFileKey], options: [.skipsHiddenFiles])
-            .filter { (try? $0.resourceValues(forKeys: [.isRegularFileKey]).isRegularFile) == true }
+            .filter { $0.fileResourceValues([.isRegularFileKey])?.isRegularFile == true }
     }
 }
 

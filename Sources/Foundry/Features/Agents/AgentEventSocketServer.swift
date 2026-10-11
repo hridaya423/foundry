@@ -1,5 +1,6 @@
 import Darwin
 import Foundation
+import FoundryServices
 
 final class AgentEventSocketServer: @unchecked Sendable {
     typealias Handler = @Sendable (AgentEventEnvelope) async -> AgentEventAck
@@ -135,7 +136,10 @@ final class AgentEventSocketServer: @unchecked Sendable {
             }
         }
 
-        guard let encoded = try? JSONEncoder().encode(ack) else { return }
+        let encoded = BestEffort.attempt("encode agent ack") {
+            try JSONEncoder().encode(ack)
+        }
+        guard let encoded else { return }
         writeAll(encoded, to: client)
     }
 

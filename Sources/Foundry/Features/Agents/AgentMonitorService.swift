@@ -111,8 +111,10 @@ enum AgentMonitorService {
         if let cached = cache.claudeHistory, cached.stamp == stamp {
             return cached.cards.filter { isRecent($0.updatedAt, within: 7 * 24 * 60 * 60) }
         }
-        guard let data = try? Data(contentsOf: historyURL),
-              let text = String(data: data, encoding: .utf8) else { return [] }
+        let data = BestEffort.attempt("read claude history") {
+            try Data(contentsOf: historyURL)
+        }
+        guard let text = data.flatMap({ String(data: $0, encoding: .utf8) }) else { return [] }
         let cards = claudeHistorySessions(from: text)
         cache.claudeHistory = AgentMonitorCachedCards(stamp: stamp, cards: cards)
         return cards
@@ -440,12 +442,14 @@ enum AgentMonitorService {
 
     private static func cursorWorkspaces(root: String) -> [String: String] {
         let root = URL(fileURLWithPath: root)
-        guard let entries = try? FileManager.default.contentsOfDirectory(at: root, includingPropertiesForKeys: nil) else { return [:] }
+        guard let entries = FileManager.default.contentsOfDirectoryIfPresent(at: root) else { return [:] }
         var result: [String: String] = [:]
         for entry in entries {
             let file = entry.appendingPathComponent("workspace.json")
-            guard let data = try? Data(contentsOf: file),
-                  let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+            let raw = BestEffort.attempt("read cursor workspace \(entry.lastPathComponent)") {
+                try JSONSerialization.jsonObject(with: Data(contentsOf: file))
+            }
+            guard let json = raw as? [String: Any],
                   let folder = json["folder"] as? String,
                   let url = URL(string: folder) else { continue }
             result[entry.lastPathComponent] = url.path.removingPercentEncoding ?? url.path
@@ -475,7 +479,7 @@ enum AgentMonitorService {
     private static func sourceStamp(for path: String) -> AgentSourceStamp? {
         let candidatePaths = [path, "\(path)-wal", "\(path)-shm"]
         let attributes = candidatePaths.compactMap { candidate in
-            try? FileManager.default.attributesOfItem(atPath: candidate)
+            FileManager.default.attributesIfPresent(atPath: candidate)
         }
         guard attributes.isEmpty == false,
               let modificationDate = attributes.compactMap({ $0[.modificationDate] as? Date }).max() else { return nil }

@@ -1,5 +1,6 @@
 import Foundation
 import FoundryDomain
+import FoundryServices
 
 final class LibraryProvider: CommandProvider {
     let id = "foundry.library"
@@ -68,7 +69,7 @@ private final class StoredSnippetCache: @unchecked Sendable {
 
     func current() -> [StoredSnippet] {
         let url = store.url
-        let values = try? url.resourceValues(forKeys: [.contentModificationDateKey, .fileSizeKey])
+        let values = url.fileResourceValues([.contentModificationDateKey, .fileSizeKey])
         let nextSignature = StoredSnippetFileSignature(
             modificationDate: values?.contentModificationDate,
             fileSize: values?.fileSize

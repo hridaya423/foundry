@@ -1,5 +1,6 @@
 import Foundation
 import FoundryDomain
+import FoundryServices
 
 struct Quicklink: Codable, Identifiable, Hashable, Sendable {
     var id: String = UUID().uuidString
@@ -109,8 +110,10 @@ final class QuicklinkStore: @unchecked Sendable {
         lock.withLock {
             if let cached { return cached }
             let loaded: [Quicklink]
-            if let data = try? Data(contentsOf: url) {
-                loaded = (try? JSONDecoder().decode([Quicklink].self, from: data)) ?? []
+            if FileManager.default.fileExists(atPath: url.path) {
+                loaded = BestEffort.attempt("load quicklinks") {
+                    try JSONDecoder().decode([Quicklink].self, from: Data(contentsOf: url))
+                } ?? QuicklinkTemplate.defaults
             } else {
                 loaded = QuicklinkTemplate.defaults
             }

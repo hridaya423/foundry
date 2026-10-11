@@ -402,7 +402,11 @@ final class AISettingsState {
     private func persistCodexLoginMethod(_ method: OpenAICodexLoginMethod) {
         var ai = configService.current.ai
         ai.codexLoginMethod = method
-        try? configService.updateAIConfig(ai)
+        do {
+            try configService.updateAIConfig(ai)
+        } catch {
+            showSettingsPersistenceError(error)
+        }
     }
 
     private func updateAIProfile(id: UUID, change: (inout AIProviderProfile) -> Void) {

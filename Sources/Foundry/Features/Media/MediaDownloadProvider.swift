@@ -1,5 +1,6 @@
 import Foundation
 import FoundryDomain
+import FoundryServices
 
 enum MediaDownloadDestination {
     static var folder: URL {
@@ -56,7 +57,7 @@ final class MediaDownloadProvider: CommandProvider {
         ]
     }
 
-    private static let linkDetector = try? NSDataDetector(types: NSTextCheckingResult.CheckingType.link.rawValue)
+    private static let linkDetector = try! NSDataDetector(types: NSTextCheckingResult.CheckingType.link.rawValue)
 
     static func mediaURLs(in value: String) -> [URL] {
         mediaURLsWithStats(in: value).urls
@@ -64,7 +65,7 @@ final class MediaDownloadProvider: CommandProvider {
 
     static func mediaURLsWithStats(in value: String) -> (urls: [URL], duplicates: Int) {
         let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard let detector = linkDetector else { return ([], 0) }
+        let detector = linkDetector
         let range = NSRange(trimmed.startIndex..<trimmed.endIndex, in: trimmed)
         var seen = Set<String>()
         var duplicates = 0

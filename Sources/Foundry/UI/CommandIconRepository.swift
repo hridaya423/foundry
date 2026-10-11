@@ -1,4 +1,5 @@
 import AppKit
+import FoundryServices
 
 @MainActor
 final class CommandIconRepository {
@@ -69,7 +70,9 @@ final class CommandIconRepository {
             return await task.value
         }
         let task = Task.detached(priority: .utility) { [session] () -> NSImage? in
-            guard let (data, response) = try? await session.data(from: url),
+            guard let (data, response) = await BestEffort.attempt("fetch icon \(url.host ?? url.lastPathComponent)", {
+                try await session.data(from: url)
+            }),
                   let http = response as? HTTPURLResponse, http.statusCode == 200,
                   (http.value(forHTTPHeaderField: "Content-Type") ?? "").hasPrefix("image/") else {
                 return nil

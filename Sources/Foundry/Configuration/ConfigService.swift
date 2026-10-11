@@ -671,7 +671,10 @@ enum FoundryConfigMigration {
     }
 
     static func sourceVersion(in data: Data) -> Int {
-        guard let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+        let raw = BestEffort.attempt("read config schema version") {
+            try JSONSerialization.jsonObject(with: data)
+        }
+        guard let object = raw as? [String: Any],
               let version = object["schemaVersion"] as? Int else {
             return 1
         }

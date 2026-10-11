@@ -58,15 +58,26 @@ Quality bar: Raycast. Plan: `docs/plans/2026-10-11-foundry-raycast-bar-audit.md`
 - Kept deliberately outside the model: `com.apple.symbolichotkeys` suite (macOS system domain), `SourceRootLocator` (DEBUG non-packaged suite)
 - New tests: migration import/removal/no-rerun, config-init import, bound vs standalone store, legacy-JSON decode, backup round-trip carries localState inside config.json
 
+### Phase 4.6b — failure visibility (`try?` audit) ✅ (this commit)
+- `try?` in `Sources/`: **204 → 78** (plus 6 inside the helper itself). Every remaining site classified intentional: ~40 cleanup (`removeItem`/`close()`/ROLLBACK), ~12 `Task.sleep` cancellation, ~22 Codable/JSON shape probes over external or protocol data, ~4 binary-capability / reachability probes
+- New `BestEffort` in FoundryServices — `attempt(_:_:)` (sync + `@Sendable` async) keeps `try?` fallback semantics but logs failures at `.error`; `log(_:_:)` for catch sites that can't use it (non-Sendable captures). ~120 load/probe sites converted so corrupt user data is diagnosable instead of silently defaulting
+- Non-throwing probe helpers: `URL.fileResourceValues`, `FileManager.attributesIfPresent`, `contentsOfDirectoryIfPresent` (URL + path variants) for scan-frequency attribute/existence checks
+- Real behavior fixes found by the audit:
+  - QR PNG save failure now alerts instead of silently no-oping (`ActionRunner`)
+  - Corrupt `codex.json` no longer treated as empty and clobbered on write — `AgentIntegrationInstaller` now throws
+  - Ollama request-body encode failure returns a real config error instead of sending an empty body (`AIAgentRuntime`)
+  - `killall cfprefsd` prefs-flush failure logged (`OnboardingState`)
+- Swift 6 notes: async `attempt` takes `@Sendable` closures; sites capturing `var`s use `[capture]` lists; `NSItemProvider` site uses explicit `do/catch` + `BestEffort.log`
+
 ### Verification evidence
-- `swift build`: clean
-- `swift test`: 631 tests, 0 failures, 5 skipped (~20 s; FOUNDRY_SLOW_TESTS-gated Vision cases skipped; CoreData/contactsd noise is environmental)
+- `swift build`: clean, 0 warnings
+- `swift test`: 631 tests, 0 failures, 5 skipped (~57 s; FOUNDRY_SLOW_TESTS-gated Vision cases skipped; CoreData/contactsd noise is environmental)
 - Focused: 143 tests across persistence/config/backup/onboarding/scripts pass
 - `scripts/lint-lines.sh`: PASS
 - `UserDefaults.standard` in `Sources/`: 1 site (ConfigService migration param)
 
 ## Remaining
-- Phase 4: typed `ResultPayload` (79 prefix-check sites), `ResultAction` + ActionRunner generic executor, CommandPanelState split (~70 props), @unchecked Sendable audit (59→≤10), `try?` audit (~200→<60), lint ratchet 240→160
+- Phase 4: typed `ResultPayload` (79 prefix-check sites), `ResultAction` + ActionRunner generic executor, CommandPanelState split (~70 props), @unchecked Sendable audit (60→≤10), lint ratchet 240→160
 - Phase 5: UI/UX — design tokens, row anatomy, alerts→in-panel forms, Settings window, Quick Look, materials/motion, copy, localization groundwork, accessibility
 - Phase 6: platform — window tiling settle, Codex OAuth opt-in, CI snapshots
 - Final: benchmark evidence, HANDOFF + report update, goalctl done

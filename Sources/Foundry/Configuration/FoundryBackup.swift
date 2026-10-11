@@ -1,4 +1,5 @@
 import Foundation
+import FoundryServices
 
 struct FoundryBackup: Codable, Equatable {
     static let formatID = "foundry-backup"
@@ -45,17 +46,32 @@ struct FoundryBackup: Codable, Equatable {
     static func decode(_ data: Data) throws -> FoundryBackup {
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
-        guard let backup = try? decoder.decode(FoundryBackup.self, from: data), backup.format == formatID else { throw BackupError.notABackup }
+        let backup = BestEffort.attempt("decode backup") {
+            try decoder.decode(FoundryBackup.self, from: data)
+        }
+        guard let backup, backup.format == formatID else { throw BackupError.notABackup }
         guard backup.version <= currentVersion else { throw BackupError.newerVersion }
         let known = Set(Locations.standard.byName.keys)
         for (name, contents) in backup.files {
             guard known.contains(name) else { throw BackupError.damaged(name) }
             let valid: Bool
             switch name {
-            case "config.json": valid = (try? FoundryConfigMigration.migrate(contents)) != nil
-            case "snippets.json": valid = (try? JSONDecoder().decode([StoredSnippet].self, from: contents)) != nil
-            case "quicklinks.json": valid = (try? JSONDecoder().decode([Quicklink].self, from: contents)) != nil
-            default: valid = (try? JSONSerialization.jsonObject(with: contents)) is [String: Any]
+            case "config.json":
+                valid = BestEffort.attempt("validate backup config.json") {
+                    try FoundryConfigMigration.migrate(contents)
+                } != nil
+            case "snippets.json":
+                valid = BestEffort.attempt("validate backup snippets.json") {
+                    try JSONDecoder().decode([StoredSnippet].self, from: contents)
+                } != nil
+            case "quicklinks.json":
+                valid = BestEffort.attempt("validate backup quicklinks.json") {
+                    try JSONDecoder().decode([Quicklink].self, from: contents)
+                } != nil
+            default:
+                valid = BestEffort.attempt("validate backup \(name)") {
+                    try JSONSerialization.jsonObject(with: contents)
+                } is [String: Any]
             }
             guard valid else { throw BackupError.damaged(name) }
         }

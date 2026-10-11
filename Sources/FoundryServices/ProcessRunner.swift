@@ -107,14 +107,16 @@ public enum ProcessRunner {
         outputLimit: Int = 2 * 1024 * 1024,
         onOutput: (@Sendable (ProcessOutputLine) -> Void)? = nil
     ) -> ProcessResult? {
-        try? runSynchronously(
-            path: path,
-            arguments: arguments,
-            timeout: timeout,
-            outputLimit: outputLimit,
-            onOutput: onOutput,
-            control: ManagedProcessControl()
-        )
+        BestEffort.attempt("run \(path)") {
+            try runSynchronously(
+                path: path,
+                arguments: arguments,
+                timeout: timeout,
+                outputLimit: outputLimit,
+                onOutput: onOutput,
+                control: ManagedProcessControl()
+            )
+        }
     }
 
     private static func runSynchronously(

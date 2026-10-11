@@ -1,4 +1,5 @@
 import Foundation
+import FoundryServices
 
 final class WeatherService: Sendable {
     func fetch(city: String) async -> WeatherSnapshot? {
@@ -9,13 +10,18 @@ final class WeatherService: Sendable {
             return nil
         }
 
-        guard let geo = try? await fetchJSON(GeocodingResponse.self, from: geoURL),
-              let place = geo.results?.first,
+        let geo = await BestEffort.attempt("fetch weather geocode") {
+            try await fetchJSON(GeocodingResponse.self, from: geoURL)
+        }
+        guard let place = geo?.results?.first,
               let forecastURL = URL(string: "https://api.open-meteo.com/v1/forecast?latitude=\(place.latitude)&longitude=\(place.longitude)&current=temperature_2m,weather_code,is_day") else {
             return nil
         }
 
-        guard let forecast = try? await fetchJSON(ForecastResponse.self, from: forecastURL) else {
+        let forecast = await BestEffort.attempt("fetch weather forecast") {
+            try await fetchJSON(ForecastResponse.self, from: forecastURL)
+        }
+        guard let forecast else {
             return nil
         }
 
@@ -88,9 +94,11 @@ final class StockService: Sendable {
         request.setValue("Mozilla/5.0", forHTTPHeaderField: "User-Agent")
         request.setValue("application/json", forHTTPHeaderField: "Accept")
 
-        guard let (data, _) = try? await URLSession.shared.data(for: request),
-              let response = try? JSONDecoder().decode(ChartResponse.self, from: data),
-              let meta = response.chart.result?.first?.meta,
+        let response = await BestEffort.attempt("fetch stock quote") { [request] in
+            let (data, _) = try await URLSession.shared.data(for: request)
+            return try JSONDecoder().decode(ChartResponse.self, from: data)
+        }
+        guard let meta = response?.chart.result?.first?.meta,
               let price = meta.regularMarketPrice else {
             return nil
         }

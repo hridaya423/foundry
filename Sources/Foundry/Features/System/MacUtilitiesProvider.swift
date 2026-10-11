@@ -223,12 +223,15 @@ private actor PortUtility {
     }
 
     private static func runLookup(port: Int) async -> String? {
-        guard let result = try? await ProcessRunner.run(
-            path: "/usr/sbin/lsof",
-            arguments: ["-nP", "-iTCP:\(port)", "-sTCP:LISTEN"],
-            timeout: 2,
-            outputLimit: 256 * 1024
-        ), result.succeeded else { return nil }
+        let result = await BestEffort.attempt("lookup tcp:\(port)") {
+            try await ProcessRunner.run(
+                path: "/usr/sbin/lsof",
+                arguments: ["-nP", "-iTCP:\(port)", "-sTCP:LISTEN"],
+                timeout: 2,
+                outputLimit: 256 * 1024
+            )
+        }
+        guard let result, result.succeeded else { return nil }
         let text = result.stdout
         let lines = text.split(separator: "\n")
         guard lines.count > 1 else { return nil }

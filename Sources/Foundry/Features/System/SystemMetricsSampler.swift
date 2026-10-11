@@ -1,6 +1,7 @@
 import Darwin
 import Foundation
 import IOKit.ps
+import FoundryServices
 
 struct SystemMetrics: Sendable, Equatable {
     var cpuPercent: Double
@@ -189,12 +190,14 @@ final class SystemMetricsSampler: @unchecked Sendable {
 
     private func diskCapacity() -> (free: Int64, total: Int64) {
         let url = URL(fileURLWithPath: "/")
-        if let values = try? url.resourceValues(forKeys: [.volumeAvailableCapacityForImportantUsageKey, .volumeTotalCapacityKey]) {
+        if let values = url.fileResourceValues([.volumeAvailableCapacityForImportantUsageKey, .volumeTotalCapacityKey]) {
             return (values.volumeAvailableCapacityForImportantUsage ?? 0, Int64(values.volumeTotalCapacity ?? 0))
         }
-        if let attributes = try? FileManager.default.attributesOfFileSystem(forPath: "/"),
-           let free = attributes[.systemFreeSize] as? NSNumber,
-           let total = attributes[.systemSize] as? NSNumber {
+        let attributes = BestEffort.attempt("read filesystem capacity") {
+            try FileManager.default.attributesOfFileSystem(forPath: "/")
+        }
+        if let free = attributes?[.systemFreeSize] as? NSNumber,
+           let total = attributes?[.systemSize] as? NSNumber {
             return (free.int64Value, total.int64Value)
         }
         return (0, 0)

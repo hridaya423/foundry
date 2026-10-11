@@ -171,9 +171,13 @@ public enum FileConversionService {
         let assessor = CapabilityAssessor(locator: locator, versionProbe: VersionProbe(), environment: environment)
         for engine in engines where engine.isNative == false {
             guard let exec = engine.executableName else { continue }
-            let requirement = try? CapabilityRequirement(executableName: exec, explicitPaths: engine.candidatePaths)
+            let requirement = BestEffort.attempt("build capability requirement \(exec)") {
+                try CapabilityRequirement(executableName: exec, explicitPaths: engine.candidatePaths)
+            }
             guard let requirement else { return .unavailable("Missing dependency: \(engine.displayName)") }
-            let state = (try? await assessor.assess(requirement)) ?? .unavailable("Capability assessment failed")
+            let state = await BestEffort.attempt("assess \(exec)") {
+                try await assessor.assess(requirement)
+            } ?? .unavailable("Capability assessment failed")
             switch state {
             case .ready: break
             case .setupRequired: missing.append(engine)
@@ -183,7 +187,10 @@ public enum FileConversionService {
         }
         if let unavailableReason { return .unavailable(unavailableReason) }
         guard missing.isEmpty == false else { return .ready }
-        guard let brew = try? locator.locate(name: "brew", candidates: ["/opt/homebrew/bin/brew", "/usr/local/bin/brew"], environment: environment) else {
+        let brew = BestEffort.attempt("locate homebrew", {
+            try locator.locate(name: "brew", candidates: ["/opt/homebrew/bin/brew", "/usr/local/bin/brew"], environment: environment)
+        }) ?? nil
+        guard let brew else {
             let names = missing.map(\.displayName).joined(separator: ", ")
             return .unavailable("Homebrew is required to install \(names)")
         }
@@ -254,7 +261,7 @@ public enum FileConversionService {
             }
 
             let committed = try artifactStore.commit(staged) { url in
-                (try? FileManager.default.attributesOfItem(atPath: url.path)[.size] as? NSNumber)?.intValue ?? 0 > 0
+                (FileManager.default.attributesIfPresent(atPath: url.path)?[.size] as? NSNumber)?.intValue ?? 0 > 0
             }
             return .success(committed)
         } catch {

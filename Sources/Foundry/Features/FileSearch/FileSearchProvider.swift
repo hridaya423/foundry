@@ -135,8 +135,8 @@ final class FileSearchProvider: CommandProvider, @unchecked Sendable {
     static func recent(_ paths: [String]) -> [String] {
         let fm = FileManager.default
         return paths.sorted { lhs, rhs in
-            let dl = (try? fm.attributesOfItem(atPath: lhs)[.modificationDate] as? Date) ?? .distantPast
-            let dr = (try? fm.attributesOfItem(atPath: rhs)[.modificationDate] as? Date) ?? .distantPast
+            let dl = fm.attributesIfPresent(atPath: lhs)?[.modificationDate] as? Date ?? .distantPast
+            let dr = fm.attributesIfPresent(atPath: rhs)?[.modificationDate] as? Date ?? .distantPast
             return dl > dr
         }.prefix(resultLimit).map { $0 }
     }
@@ -344,12 +344,14 @@ private actor SpotlightProbe {
         if let cached { return cached }
         if let inFlight { return await inFlight.value }
         let task = Task {
-            let result = try? await ProcessRunner.run(
-                path: "/usr/bin/mdfind",
-                arguments: ["-onlyin", scope.path, "kMDItemFSName == '*'"],
-                timeout: 3,
-                outputLimit: 64 * 1024
-            )
+            let result = await BestEffort.attempt("probe spotlight indexing") {
+                try await ProcessRunner.run(
+                    path: "/usr/bin/mdfind",
+                    arguments: ["-onlyin", scope.path, "kMDItemFSName == '*'"],
+                    timeout: 3,
+                    outputLimit: 64 * 1024
+                )
+            }
             guard let result, result.succeeded == false else { return false }
             let stderr = result.stderr.lowercased()
             return stderr.contains("disabled") || stderr.contains("indexing")

@@ -236,7 +236,14 @@ struct FileConversionView: View {
         Task { @MainActor in
             var urls: [URL] = []
             for provider in fileProviders {
-                if let item = try? await provider.loadItem(forTypeIdentifier: UTType.fileURL.identifier) {
+                let item: NSSecureCoding?
+                do {
+                    item = try await provider.loadItem(forTypeIdentifier: UTType.fileURL.identifier)
+                } catch {
+                    BestEffort.log("load dropped item", error)
+                    item = nil
+                }
+                if let item {
                     if let data = item as? Data, let url = URL(dataRepresentation: data, relativeTo: nil) {
                         urls.append(url)
                     } else if let url = item as? URL {
@@ -1002,7 +1009,7 @@ struct FileConversionView: View {
     }
 
     static func byteCount(of url: URL) -> Int64? {
-        (try? url.resourceValues(forKeys: [.fileSizeKey]))?.fileSize.map { Int64($0) }
+        url.fileResourceValues([.fileSizeKey])?.fileSize.map { Int64($0) }
     }
 
     static func fileSize(of url: URL) -> String? {

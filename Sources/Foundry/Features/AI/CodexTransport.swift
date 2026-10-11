@@ -1,4 +1,5 @@
 import Foundation
+import FoundryServices
 
 enum CodexModelPolicy {
     static let models: [AIModel] = [
@@ -76,7 +77,10 @@ struct CodexResponsesStreamDecoder: Sendable {
     mutating func finish() -> CodexResponsesStreamFrame {
         let call: AgentToolCall?
         if let toolName {
-            let arguments = (try? JSONSerialization.jsonObject(with: Data(toolArgumentParts.joined().utf8)) as? [String: Any]) ?? [:]
+            let rawArguments = BestEffort.attempt("decode codex tool arguments") {
+                try JSONSerialization.jsonObject(with: Data(toolArgumentParts.joined().utf8))
+            }
+            let arguments = rawArguments as? [String: Any] ?? [:]
             call = AgentToolCall(id: toolID, name: toolName, arguments: AgentToolCall.from(json: ["name": toolName, "arguments": arguments])?.arguments ?? [:])
         } else {
             call = nil

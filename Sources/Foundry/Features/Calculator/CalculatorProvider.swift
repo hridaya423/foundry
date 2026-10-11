@@ -1,5 +1,6 @@
 import Foundation
 import FoundryDomain
+import FoundryServices
 
 final class CalculatorProvider: CommandProvider {
     let id = "foundry.calculator"
@@ -130,8 +131,11 @@ final class CalculatorProvider: CommandProvider {
         if let cached = CurrencyRateCache.shared.value(for: cacheKey) {
             rates = cached
         } else {
-            guard let (data, _) = try? await URLSession.shared.data(from: url),
-                  let fetched = try? JSONDecoder().decode([FrankfurterRate].self, from: data) else { return [] }
+            let fetched = await BestEffort.attempt("fetch exchange rates") {
+                let (data, _) = try await URLSession.shared.data(from: url)
+                return try JSONDecoder().decode([FrankfurterRate].self, from: data)
+            }
+            guard let fetched else { return [] }
             CurrencyRateCache.shared.store(fetched, for: cacheKey)
             rates = fetched
         }

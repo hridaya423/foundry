@@ -46,7 +46,11 @@ final class WidgetBoardState {
         normalized.enabled = Array(normalized.enabled.prefix(WidgetBoardConfig.maxEnabled))
         self.config = normalized
         if normalized != saved {
-            try? configService.updateWidgets(normalized, showAgentShelf: normalized.enabled.contains(.agents))
+            do {
+                try configService.updateWidgets(normalized, showAgentShelf: normalized.enabled.contains(.agents))
+            } catch {
+                diagnostics.log("Failed to persist normalized widget config: \(error.localizedDescription)")
+            }
         }
     }
 
@@ -222,15 +226,15 @@ final class WidgetBoardState {
         let span = diagnostics.startSpan("home.downloads")
         let snapshot = await Task.detached(priority: .utility) {
             let directory = home.appendingPathComponent("Downloads")
-            let files = (try? FileManager.default.contentsOfDirectory(
+            let files = FileManager.default.contentsOfDirectoryIfPresent(
                 at: directory,
-                includingPropertiesForKeys: [.isRegularFileKey, .contentModificationDateKey],
+                keys: [.isRegularFileKey, .contentModificationDateKey],
                 options: [.skipsHiddenFiles]
-            )) ?? []
+            ) ?? []
             var count = 0
             var newest: (date: Date, name: String)?
             for file in files {
-                guard let values = try? file.resourceValues(forKeys: [.isRegularFileKey, .contentModificationDateKey]),
+                guard let values = file.fileResourceValues([.isRegularFileKey, .contentModificationDateKey]),
                       values.isRegularFile == true else { continue }
                 count += 1
                 if let date = values.contentModificationDate, newest?.date ?? .distantPast < date {

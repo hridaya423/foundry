@@ -4,6 +4,7 @@ import Foundation
 #if canImport(FoundationModels)
 import FoundationModels
 import Observation
+import FoundryServices
 #endif
 
 enum OnboardingStep: Int, CaseIterable {
@@ -54,7 +55,7 @@ enum SpotlightShortcut {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/usr/bin/killall")
         process.arguments = ["cfprefsd"]
-        try? process.run()
+        BestEffort.attempt("reload preference cache (killall cfprefsd)") { try process.run() }
     }
 
     static let keyboardShortcutsURL = URL(string: "x-apple.systempreferences:com.apple.Keyboard-Settings.extension")!

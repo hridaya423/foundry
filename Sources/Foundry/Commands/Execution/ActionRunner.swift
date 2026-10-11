@@ -1039,7 +1039,15 @@ final class ActionRunner {
                let tiff = image.tiffRepresentation,
                let bitmap = NSBitmapImageRep(data: tiff),
                let png = bitmap.representation(using: .png, properties: [:]) {
-                try? png.write(to: destination)
+                do {
+                    try png.write(to: destination)
+                } catch {
+                    let failure = NSAlert()
+                    failure.messageText = "Couldn't save the QR code"
+                    failure.informativeText = error.localizedDescription
+                    failure.alertStyle = .warning
+                    failure.runModal()
+                }
             }
         }
     }
@@ -1164,11 +1172,13 @@ final class ActionRunner {
     }
 
     private func toggleDesktopIcons(emit: @escaping @MainActor @Sendable (CommandExecutionEvent) -> Void) async -> CommandOutcome {
-        let current = try? await ProcessRunner.run(
-            path: "/usr/bin/defaults",
-            arguments: ["read", "com.apple.finder", "CreateDesktop"],
-            timeout: 5
-        )
+        let current = await BestEffort.attempt("read Finder CreateDesktop") {
+            try await ProcessRunner.run(
+                path: "/usr/bin/defaults",
+                arguments: ["read", "com.apple.finder", "CreateDesktop"],
+                timeout: 5
+            )
+        }
         let currentlyShown = current?.stdout.trimmingCharacters(in: .whitespacesAndNewlines) != "0"
         let next = currentlyShown ? "0" : "1"
         do {

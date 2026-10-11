@@ -1,4 +1,5 @@
 import Foundation
+import FoundryServices
 
 enum OpenAICompatibleTransport {
     static func respond(profile: AIProviderProfile, messages: [[String: Any]], tools: [AgentTool], credentials: AICredentialStore) async -> AgentModelResponse {
@@ -98,7 +99,10 @@ enum OpenAICompatibleTransport {
         }
         let text = textParts.joined()
         if let toolName {
-            let arguments = (try? JSONSerialization.jsonObject(with: Data(toolArgumentParts.joined().utf8)) as? [String: Any]) ?? [:]
+            let rawArguments = BestEffort.attempt("decode tool call arguments") {
+                try JSONSerialization.jsonObject(with: Data(toolArgumentParts.joined().utf8))
+            }
+            let arguments = rawArguments as? [String: Any] ?? [:]
             var object: [String: Any] = ["name": toolName, "arguments": arguments]
             object["id"] = toolID
             return .toolCall(AgentToolCall.from(json: object) ?? AgentToolCall(id: toolID, name: toolName, arguments: [:]), assistantText: text)
@@ -160,7 +164,9 @@ enum AnthropicTransport {
     }
 
     static func test(profile: AIProviderProfile, credentials: AICredentialStore) async -> AIConnectionTestResult {
-        guard (try? AITransportSupport.apiKey(profile, store: credentials)) != nil else { return .failure("Add an Anthropic API key before testing this provider.") }
+        guard (BestEffort.attempt("read Anthropic api key") {
+            try AITransportSupport.apiKey(profile, store: credentials)
+        }) != nil else { return .failure("Add an Anthropic API key before testing this provider.") }
         return .success("Anthropic credentials are stored. Send a request to verify model access.")
     }
 
@@ -185,7 +191,10 @@ enum AnthropicTransport {
         }
         let text = textParts.joined()
         if let toolName {
-            let arguments = (try? JSONSerialization.jsonObject(with: Data(toolArgumentParts.joined().utf8)) as? [String: Any]) ?? [:]
+            let rawArguments = BestEffort.attempt("decode tool call arguments") {
+                try JSONSerialization.jsonObject(with: Data(toolArgumentParts.joined().utf8))
+            }
+            let arguments = rawArguments as? [String: Any] ?? [:]
             var object: [String: Any] = ["name": toolName, "arguments": arguments]
             object["id"] = toolID
             return .toolCall(AgentToolCall.from(json: object) ?? AgentToolCall(id: toolID, name: toolName, arguments: [:]), assistantText: text)
@@ -216,7 +225,9 @@ enum AnthropicTransport {
 enum GeminiTransport {
     static func respond(profile: AIProviderProfile, messages: [[String: Any]], tools: [AgentTool], credentials: AICredentialStore) async -> AgentModelResponse {
         guard let endpoint = profile.endpoint,
-              let apiKey = try? AITransportSupport.apiKey(profile, store: credentials),
+              let apiKey = BestEffort.attempt("read Gemini api key", {
+                  try AITransportSupport.apiKey(profile, store: credentials)
+              }),
               let base = URL(string: endpoint),
               var components = URLComponents(
                 url: base.appendingPathComponent("models/\(profile.model):streamGenerateContent"),
@@ -263,7 +274,9 @@ enum GeminiTransport {
     }
 
     static func test(profile: AIProviderProfile, credentials: AICredentialStore) async -> AIConnectionTestResult {
-        guard (try? AITransportSupport.apiKey(profile, store: credentials)) != nil else { return .failure("Add a Gemini API key before testing this provider.") }
+        guard (BestEffort.attempt("read Gemini api key") {
+            try AITransportSupport.apiKey(profile, store: credentials)
+        }) != nil else { return .failure("Add a Gemini API key before testing this provider.") }
         return .success("Gemini credentials are stored. Send a request to verify model access.")
     }
 

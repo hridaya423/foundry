@@ -152,7 +152,10 @@ final class BrowserProvider: CommandProvider, @unchecked Sendable {
             }
         default:
             return source.bookmarkFiles(in: homeDirectory).flatMap { file in
-                guard let data = try? Data(contentsOf: file), let object = try? JSONSerialization.jsonObject(with: data) else { return [BrowserRecord]() }
+                let object = BestEffort.attempt("read bookmarks \(file.lastPathComponent)") {
+                    try JSONSerialization.jsonObject(with: Data(contentsOf: file))
+                }
+                guard let object else { return [BrowserRecord]() }
                 return ChromeBookmarkParser.parse(object).compactMap { makeBookmark($0, source: source) }
             }
         }
@@ -189,7 +192,11 @@ final class BrowserProvider: CommandProvider, @unchecked Sendable {
         default:
             script = "function run() { const app = Application('\(source.applicationName)'); return JSON.stringify(app.windows().flatMap(w => w.tabs().map(t => ({title: t.title(), url: t.url()})))); }"
         }
-        guard let output = runOSAScript(script), let data = output.data(using: .utf8), let tabs = try? JSONDecoder().decode([LiveTab].self, from: data) else { return [] }
+        guard let output = runOSAScript(script), let data = output.data(using: .utf8) else { return [] }
+        let tabs = BestEffort.attempt("decode \(source.rawValue) live tabs") {
+            try JSONDecoder().decode([LiveTab].self, from: data)
+        }
+        guard let tabs else { return [] }
         let records: [BrowserRecord] = tabs.compactMap { tab in
             guard let url = URL(string: tab.url), url.scheme != nil else { return nil }
             return BrowserRecord(id: "tab-\(source.rawValue)-\(tab.url)", kind: .tab, browser: source, title: tab.title.isEmpty ? tab.url : tab.title, subtitle: "Open tab - \(source.displayName)", url: url, icon: "rectangle.on.rectangle")
@@ -203,7 +210,10 @@ final class BrowserProvider: CommandProvider, @unchecked Sendable {
             return liveTabs
         }
         return BrowserSource.firefox.sessionStoreFiles(in: homeDirectory).flatMap { file in
-            guard let data = try? Data(contentsOf: file), let session = FirefoxSessionParser.parse(data) else { return [BrowserRecord]() }
+            let session = BestEffort.attempt("read Firefox session \(file.lastPathComponent)", {
+                FirefoxSessionParser.parse(try Data(contentsOf: file))
+            }) ?? nil
+            guard let session else { return [BrowserRecord]() }
             return session.tabs.enumerated().compactMap { index, tab in
                 guard let url = URL(string: tab.url), url.scheme != nil else { return nil }
                 return BrowserRecord(
@@ -221,11 +231,13 @@ final class BrowserProvider: CommandProvider, @unchecked Sendable {
 
     private func firefoxNativeTabs() -> [BrowserRecord]? {
         let file = FirefoxNativeTabsStore.url(home: homeDirectory)
-        guard let values = try? file.resourceValues(forKeys: [.contentModificationDateKey]),
+        guard let values = file.fileResourceValues([.contentModificationDateKey]),
               let modifiedAt = values.contentModificationDate,
-              Date().timeIntervalSince(modifiedAt) < 600,
-              let data = try? Data(contentsOf: file),
-              let payload = try? JSONDecoder().decode(FirefoxLiveTabs.self, from: data) else { return nil }
+              Date().timeIntervalSince(modifiedAt) < 600 else { return nil }
+        let payload = BestEffort.attempt("read Firefox live tabs") {
+            try JSONDecoder().decode(FirefoxLiveTabs.self, from: Data(contentsOf: file))
+        }
+        guard let payload else { return nil }
         return payload.tabs.enumerated().compactMap { index, tab in
             guard let url = URL(string: tab.url), url.scheme != nil else { return nil }
             return BrowserRecord(id: "tab-firefox-live-\(index)-\(tab.url)", kind: .tab, browser: .firefox, title: tab.title.isEmpty ? tab.url : tab.title, subtitle: "Open tab - Firefox", url: url, icon: "rectangle.on.rectangle")
@@ -452,11 +464,15 @@ enum BrowserSource: String, CaseIterable, Sendable, Hashable {
                 backup.appendingPathComponent("recovery.bak"),
                 backup.appendingPathComponent("previous.js")
             ]
-            let upgradeBackups = (try? FileManager.default.contentsOfDirectory(at: backup, includingPropertiesForKeys: [.contentModificationDateKey], options: [.skipsHiddenFiles]))?
+            let upgradeBackups = (FileManager.default.contentsOfDirectoryIfPresent(
+                at: backup,
+                keys: [.contentModificationDateKey],
+                options: [.skipsHiddenFiles]
+            ))?
                 .filter { $0.lastPathComponent.hasPrefix("upgrade.jsonlz4-") }
                 .sorted { lhs, rhs in
-                    let left = (try? lhs.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast
-                    let right = (try? rhs.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast
+                    let left = lhs.fileResourceValues([.contentModificationDateKey])?.contentModificationDate ?? .distantPast
+                    let right = rhs.fileResourceValues([.contentModificationDateKey])?.contentModificationDate ?? .distantPast
                     return left > right
                 } ?? []
             return (preferred + upgradeBackups).filter { FileManager.default.fileExists(atPath: $0.path) }
@@ -467,8 +483,12 @@ enum BrowserSource: String, CaseIterable, Sendable, Hashable {
         dataRoots.flatMap { root in
             let directory = home.appendingPathComponent(root)
             guard FileManager.default.fileExists(atPath: directory.path) else { return [URL]() }
-            guard let children = try? FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: [.isDirectoryKey], options: [.skipsHiddenFiles]) else { return [URL]() }
-            let profiles = children.filter { (try? $0.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) == true }
+            guard let children = FileManager.default.contentsOfDirectoryIfPresent(
+                at: directory,
+                keys: [.isDirectoryKey],
+                options: [.skipsHiddenFiles]
+            ) else { return [URL]() }
+            let profiles = children.filter { $0.fileResourceValues([.isDirectoryKey])?.isDirectory == true }
             if profiles.isEmpty { return [directory] }
             return profiles
         }
@@ -734,9 +754,13 @@ private enum LocalSQLite {
             try? FileManager.default.removeItem(at: temporary)
             sidecars.forEach { try? FileManager.default.removeItem(at: $0.destination) }
         }
-        guard (try? FileManager.default.copyItem(at: database, to: temporary)) != nil else { return [] }
+        guard (BestEffort.attempt("snapshot \(database.lastPathComponent)") {
+            try FileManager.default.copyItem(at: database, to: temporary)
+        }) != nil else { return [] }
         for sidecar in sidecars where FileManager.default.fileExists(atPath: sidecar.source.path) {
-            try? FileManager.default.copyItem(at: sidecar.source, to: sidecar.destination)
+            BestEffort.attempt("copy sqlite sidecar \(sidecar.source.lastPathComponent)") {
+                try FileManager.default.copyItem(at: sidecar.source, to: sidecar.destination)
+            }
         }
         guard let result = ProcessRunner.runSynchronously(
             path: "/usr/bin/sqlite3",
@@ -745,7 +769,8 @@ private enum LocalSQLite {
             outputLimit: 8 * 1024 * 1024
         ), result.succeeded,
         let data = result.stdout.data(using: .utf8),
-        let objects = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] else { return [] }
+        let raw = BestEffort.attempt("parse sqlite output", { try JSONSerialization.jsonObject(with: data) }),
+        let objects = raw as? [[String: Any]] else { return [] }
         return objects.map { row in row.reduce(into: [String: String]()) { result, item in result[item.key] = String(describing: item.value) } }
     }
 }

@@ -1,5 +1,6 @@
 import Foundation
 import FoundryDomain
+import FoundryServices
 
 enum SearchRoute: String, CaseIterable, Hashable, Sendable {
     case calculator
@@ -197,7 +198,9 @@ extension CommandProvider {
     func fallbackResults(matching _: String, sensitivity _: SearchSensitivity) async throws -> [CommandResult] { [] }
 
     func results(matching query: String) async -> [CommandResult] {
-        (try? await search(CommandSearchRequest(query: query))) ?? []
+        (await BestEffort.attempt("\(id) search") {
+            try await search(CommandSearchRequest(query: query))
+        }) ?? []
     }
 
     func defaultResults() async throws -> [CommandResult] { [] }

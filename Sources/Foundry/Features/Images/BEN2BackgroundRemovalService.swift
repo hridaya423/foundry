@@ -53,7 +53,7 @@ private actor BEN2Runtime {
         let model = root.appendingPathComponent("models/\(BEN2Artifact.filename)")
         let runtime = root.appendingPathComponent("runtime")
         let modelState: BEN2ComponentState = fm.fileExists(atPath: model.path)
-            ? ((try? BEN2Artifact.sha256(at: model)) == BEN2Artifact.sha256 ? .ready : .invalid)
+            ? (BestEffort.attempt("hash BEN2 model") { try BEN2Artifact.sha256(at: model) } == BEN2Artifact.sha256 ? .ready : .invalid)
             : .missing
         let runtimeManifest = runtime.appendingPathComponent("runtime-manifest.json")
         let runtimeState: BEN2ComponentState = fm.fileExists(atPath: runtimeManifest.path)
@@ -212,7 +212,7 @@ private actor BEN2Runtime {
 
     private func verifiedPaths(root: URL) throws -> Paths? {
         guard let script = Bundle.packagedResources?.url(forResource: "background_removal_worker", withExtension: "py"),
-               (try? BEN2Artifact.sha256(at: script)) == BEN2Artifact.workerSHA256 else { return nil }
+              (BestEffort.attempt("hash worker script") { try BEN2Artifact.sha256(at: script) }) == BEN2Artifact.workerSHA256 else { return nil }
         let model = root.appendingPathComponent("models/\(BEN2Artifact.filename)")
         let python = root.appendingPathComponent("runtime/bin/python")
         guard isValidModelSync(at: model), Self.isRuntimeReady(python: python, manifest: root.appendingPathComponent("runtime/runtime-manifest.json")) else { return nil }
@@ -220,9 +220,9 @@ private actor BEN2Runtime {
     }
 
     private func isValidModelSync(at url: URL) -> Bool {
-        guard let size = try? FileManager.default.attributesOfItem(atPath: url.path)[.size] as? NSNumber,
+        guard let size = FileManager.default.attributesIfPresent(atPath: url.path)?[.size] as? NSNumber,
               size.int64Value == BEN2Artifact.byteSize else { return false }
-        return (try? BEN2Artifact.sha256(at: url)) == BEN2Artifact.sha256
+        return BestEffort.attempt("hash BEN2 model") { try BEN2Artifact.sha256(at: url) } == BEN2Artifact.sha256
     }
 
     private func isPNG(at url: URL) -> Bool {
@@ -252,27 +252,33 @@ private actor BEN2Runtime {
     }
 
     private func isValidModel(at url: URL) async -> Bool {
-        guard let attributes = try? FileManager.default.attributesOfItem(atPath: url.path),
+        guard let attributes = FileManager.default.attributesIfPresent(atPath: url.path),
               let size = attributes[.size] as? NSNumber,
               size.int64Value == BEN2Artifact.byteSize else {
             return false
         }
 
-        return (try? await Task.detached {
-            try BEN2Artifact.sha256(at: url) == BEN2Artifact.sha256
-        }.value) ?? false
+        return (await BestEffort.attempt("hash BEN2 model") {
+            try await Task.detached {
+                try BEN2Artifact.sha256(at: url) == BEN2Artifact.sha256
+            }.value
+        }) ?? false
     }
 
     nonisolated static func isRuntimeReady(python: URL, manifest: URL) -> Bool {
-        guard FileManager.default.fileExists(atPath: python.path),
-              let contents = try? String(contentsOf: manifest, encoding: .utf8) else { return false }
-        guard let data = contents.data(using: .utf8),
-              let manifest = try? JSONDecoder().decode(RuntimeManifest.self, from: data),
-               manifest.python == "3.13",
-               manifest.packages == BEN2Artifact.packages,
-               (try? BEN2Artifact.sha256(at: python)) == manifest.pythonSHA256,
-               let inventory = try? runtimeInventory(at: python.deletingLastPathComponent().deletingLastPathComponent()),
-               inventory == manifest.inventory else { return false }
+        guard FileManager.default.fileExists(atPath: python.path) else { return false }
+        let decoded = BestEffort.attempt("decode BEN2 runtime manifest") {
+            try JSONDecoder().decode(RuntimeManifest.self, from: Data(contentsOf: manifest))
+        }
+        let inventory = BestEffort.attempt("read BEN2 runtime inventory") {
+            try runtimeInventory(at: python.deletingLastPathComponent().deletingLastPathComponent())
+        }
+        guard let decoded,
+            decoded.python == "3.13",
+            decoded.packages == BEN2Artifact.packages,
+            (BestEffort.attempt("hash BEN2 python") { try BEN2Artifact.sha256(at: python) }) == decoded.pythonSHA256,
+            let inventory,
+            inventory == decoded.inventory else { return false }
         return inventory.isEmpty == false
     }
 

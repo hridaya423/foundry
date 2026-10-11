@@ -1,5 +1,6 @@
 import AppKit
 import Carbon
+import FoundryServices
 
 struct StatusItemMenuModel: Equatable {
     enum ItemKind: Equatable {
@@ -126,7 +127,9 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         case .clipboardPauseToggle:
             state.setClipboardPaused(state.clipboardHistory.isPaused == false)
         case .keepAwake:
-            _ = try? KeepAwakeController.toggle()
+            BestEffort.attempt("toggle keep-awake from status item") {
+                try KeepAwakeController.toggle()
+            }
         case .settings, .hotkeyWarning:
             state.openSettings()
         case .welcomeGuide:

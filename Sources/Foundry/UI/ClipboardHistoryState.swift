@@ -1,6 +1,7 @@
 import AppKit
 import SwiftUI
 import Observation
+import FoundryServices
 
 actor ClipboardHistoryPersistenceWriter {
     private let persistence: any ClipboardHistoryPersisting
@@ -109,7 +110,9 @@ final class ClipboardHistoryState {
     @discardableResult
     private func hydrated(_ item: ClipboardHistoryItem) -> ClipboardHistoryItem {
         guard case let .image(data) = item.payload, data.isEmpty,
-              let loaded = try? persistence?.imageData(signature: item.signature), loaded.isEmpty == false else { return item }
+              let loaded = BestEffort.attempt("hydrate clipboard image", {
+                  try persistence?.imageData(signature: item.signature) ?? nil
+              }) ?? nil, loaded.isEmpty == false else { return item }
         if let index = items.firstIndex(where: { $0.id == item.id }) {
             items[index].payload = .image(loaded)
             return items[index]

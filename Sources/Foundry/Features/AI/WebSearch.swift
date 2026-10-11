@@ -1,4 +1,5 @@
 import Foundation
+import FoundryServices
 
 enum WebSearch {
     private static let maximumResponseBytes = 1_048_576
@@ -266,7 +267,10 @@ enum WebSearchHTMLParser {
     }
 
     private static func matches(_ pattern: String, in text: String) -> [[String]] {
-        guard let regex = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive, .dotMatchesLineSeparators]) else { return [] }
+        let regex = BestEffort.attempt("compile search pattern") {
+            try NSRegularExpression(pattern: pattern, options: [.caseInsensitive, .dotMatchesLineSeparators])
+        }
+        guard let regex else { return [] }
         let range = NSRange(text.startIndex..., in: text)
         return regex.matches(in: text, range: range).map { match in
             (1..<match.numberOfRanges).compactMap { index in
@@ -302,7 +306,10 @@ enum BraveSearchHTMLParser {
     static func parse(_ data: Data) -> [WebSearchResult] {
         guard let html = String(data: data, encoding: .utf8) else { return [] }
         let pattern = #"\{title:\"((?:\\.|[^\"])*)\",url:\"((?:\\.|[^\"])*)\",full_title:(?:void 0|\"(?:\\.|[^\"])*\"),description:\"((?:\\.|[^\"])*)\""#
-        guard let regex = try? NSRegularExpression(pattern: pattern, options: [.dotMatchesLineSeparators]) else { return [] }
+        let regex = BestEffort.attempt("compile brave results pattern") {
+            try NSRegularExpression(pattern: pattern, options: [.dotMatchesLineSeparators])
+        }
+        guard let regex else { return [] }
         let range = NSRange(html.startIndex..., in: html)
         var seenURLs = Set<String>()
         return regex.matches(in: html, range: range).compactMap { match in

@@ -89,7 +89,9 @@ final class AppleNotesProvider: CommandProvider {
             outputLimit: 4 * 1024 * 1024
         ), result.succeeded,
         let data = result.stdout.data(using: .utf8) else { return nil }
-        return try? JSONDecoder().decode([AppleNoteResult].self, from: data)
+        return BestEffort.attempt("decode notes results") {
+            try JSONDecoder().decode([AppleNoteResult].self, from: data)
+        }
     }
 
     private let unavailableResult = CommandResult(

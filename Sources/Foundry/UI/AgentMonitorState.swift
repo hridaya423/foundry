@@ -211,7 +211,7 @@ final class AgentMonitorState {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")
         process.arguments = ["-e", source]
-        try? process.run()
+        BestEffort.attempt("run osascript") { try process.run() }
     }
 }
 
