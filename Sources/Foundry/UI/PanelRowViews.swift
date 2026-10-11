@@ -17,10 +17,6 @@ struct RowBackground: View {
     var body: some View {
         RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
             .fill(fill)
-            .overlay {
-                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .strokeBorder(isSelected ? FoundryTheme.stroke : Color.clear, lineWidth: 1)
-            }
     }
 }
 
@@ -41,10 +37,9 @@ struct HomeSectionHeader: View {
 
     var body: some View {
         HStack {
-            Text(title.uppercased())
+            Text(title)
                 .font(FoundryTheme.micro)
-                .tracking(0.4)
-                .foregroundStyle(FoundryTheme.textSecondary)
+                .foregroundStyle(FoundryTheme.textTertiary)
             Spacer()
             if let action {
                 Button(action: action) {
@@ -73,7 +68,7 @@ struct HomeResultRow: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            AppIcon(icon: result.icon, size: 26, cornerRadius: 6)
+            AppIcon(icon: result.icon, size: 24, cornerRadius: 6)
 
             Text(result.title)
                 .font(FoundryTheme.body)
@@ -285,30 +280,32 @@ struct ResultRow: View {
 
     private var row: some View {
         HStack(spacing: 12) {
-            AppIcon(icon: result.icon, size: 28, cornerRadius: 7)
+            AppIcon(icon: result.icon, size: 24, cornerRadius: 6)
 
-            VStack(alignment: .leading, spacing: 2) {
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
                 Text(result.title)
                     .font(FoundryTheme.body)
                     .foregroundStyle(FoundryTheme.textPrimary)
                     .lineLimit(1)
+                    .layoutPriority(1)
 
-                if let subtitle = result.subtitle, ResultSection.of(result) != .commands {
+                if let subtitle = result.subtitle {
                     Text(subtitle)
                         .font(FoundryTheme.bodySecondary)
                         .foregroundStyle(FoundryTheme.textTertiary)
                         .lineLimit(1)
+                        .truncationMode(.tail)
                 }
             }
 
-            Spacer()
+            Spacer(minLength: 8)
 
             HStack(spacing: 6) {
                 if let alias {
                     ResultBadge(text: alias)
                 }
                 if let hotkey {
-                    ResultBadge(text: hotkey)
+                    Keycap(text: hotkey)
                 }
                 if isRunning {
                     Circle()
@@ -325,7 +322,7 @@ struct ResultRow: View {
             }
         }
         .padding(.horizontal, FoundryTheme.Spacing.sm)
-        .frame(height: compact ? 38 : 44)
+        .frame(height: compact ? 38 : 40)
         .background(RowBackground(isSelected: isSelected, isHovering: isHovering))
         .onHover { hovering in
             isHovering = hovering
@@ -350,6 +347,29 @@ private struct ResultBadge: View {
             .padding(.horizontal, 6)
             .frame(height: 20)
             .background(FoundryTheme.fillHover, in: RoundedRectangle(cornerRadius: 5, style: .continuous))
+    }
+}
+
+/// Bordered keycap for hotkey chords — reads as hardware, distinct from
+/// the filled alias badge.
+private struct Keycap: View {
+    let text: String
+
+    var body: some View {
+        Text(text)
+            .font(FoundryTheme.caption)
+            .foregroundStyle(FoundryTheme.textTertiary)
+            .lineLimit(1)
+            .padding(.horizontal, 6)
+            .frame(height: 20)
+            .background(
+                RoundedRectangle(cornerRadius: FoundryTheme.Radius.badge, style: .continuous)
+                    .fill(FoundryTheme.fillSubtle)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: FoundryTheme.Radius.badge, style: .continuous)
+                            .strokeBorder(FoundryTheme.stroke, lineWidth: 1)
+                    )
+            )
     }
 }
 

@@ -1,6 +1,7 @@
 import AppKit
 import SwiftUI
 import XCTest
+import FoundryDomain
 import FoundryServices
 @testable import Foundry
 
@@ -37,6 +38,58 @@ final class PreviewSnapshotTests: XCTestCase {
             try render(ClipboardHistoryView(state: clipboard, fileShelf: shelf), name: "clipboard-text", appearance: appearance)
             clipboard.select(id: clipboard.visibleItems[1].id)
             try render(ClipboardHistoryView(state: clipboard, fileShelf: shelf), name: "clipboard-file", appearance: appearance)
+        }
+    }
+
+    /// 5.2 row anatomy: 40pt single-line rows, 24pt icons, inline subtitle,
+    /// alias badge + bordered keycap + kind label, fill-only selection,
+    /// Title Case 11pt semibold section headers.
+    func testRenderRowAnatomy() throws {
+        guard let dir = ProcessInfo.processInfo.environment["FOUNDRY_QA_SNAPSHOT_DIR"] else { throw XCTSkip("snapshot dir not set") }
+
+        func makeResult(_ id: String, _ title: String, subtitle: String? = nil, icon: String = "app") -> CommandResult {
+            CommandResult(
+                id: id,
+                title: title,
+                subtitle: subtitle,
+                icon: CommandIcon(fallback: String(title.prefix(2)).uppercased(), systemName: icon),
+                payload: .command,
+                primaryAction: CommandAction(id: "\(id).open", title: "Open", behavior: OpenHomeAction()),
+                secondaryActions: []
+            )
+        }
+
+        let rows = VStack(alignment: .leading, spacing: 0) {
+            HomeSectionHeader(title: "Recent")
+            HomeResultRow(result: makeResult("r1", "Safari", icon: "safari"), isSelected: false, label: "App")
+            FoundrySectionHeader(title: "Suggestions", count: "4 items")
+            ResultRow(result: makeResult("r2", "Xcode", subtitle: "Developer Tools", icon: "hammer"),
+                      isSelected: true, kindLabel: "App")
+            ResultRow(result: makeResult("r3", "Empty Trash", subtitle: "System", icon: "trash"),
+                      isSelected: false, alias: "trash", hotkey: "⌃⌥⇧T", kindLabel: "Command")
+            ResultRow(result: makeResult("r4", "Terminal", subtitle: "Utilities",
+                                        icon: "chevron.left.forwardslash.chevron.right"),
+                      isSelected: false, isRunning: true, kindLabel: "App")
+            ResultRow(result: makeResult("r5", "A Very Long Result Title That Keeps Going",
+                                        subtitle: "and an equally long subtitle that must truncate on one line",
+                                        icon: "doc"),
+                      isSelected: false, kindLabel: "File")
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 8)
+        .frame(width: 736)
+
+        for appearance in [NSAppearance.Name.aqua, .darkAqua] {
+            let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 736, height: 280), styleMask: [.titled, .fullSizeContentView], backing: .buffered, defer: false)
+            window.appearance = NSAppearance(named: appearance)
+            let host = NSHostingView(rootView: rows.background(Color(nsColor: .windowBackgroundColor)))
+            host.frame = window.contentLayoutRect
+            window.contentView = host
+            RunLoop.main.run(until: Date().addingTimeInterval(0.6))
+            let rep = try XCTUnwrap(host.bitmapImageRepForCachingDisplay(in: host.bounds))
+            host.cacheDisplay(in: host.bounds, to: rep)
+            try XCTUnwrap(rep.representation(using: .png, properties: [:]))
+                .write(to: URL(fileURLWithPath: dir).appendingPathComponent("rows-\(appearance == .aqua ? "light" : "dark").png"))
         }
     }
 }

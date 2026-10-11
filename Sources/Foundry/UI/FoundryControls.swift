@@ -161,10 +161,9 @@ struct FoundrySectionHeader: View {
 
     var body: some View {
         HStack(spacing: 7) {
-            Text(title.uppercased())
+            Text(title)
                 .font(FoundryTheme.micro)
-                .foregroundStyle(FoundryTheme.textQuaternary)
-                .tracking(0.4)
+                .foregroundStyle(FoundryTheme.textTertiary)
 
             if let count {
                 Text(count)
