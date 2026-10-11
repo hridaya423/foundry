@@ -29,7 +29,9 @@
   const MELT0 = TM.meltCmd;                      // ignition is the enter: the drop
   const STALL = TM.stall;
   // the valley: the caret comes on alone, blinks once in the dark, and the line is typed into the silence
-  const CMD0 = { ...TM.cmd0, show: TM.caretAlone, blink: (TM.cmd0.t0 - TM.caretAlone) / 2 + 1e-3 };
+  // the caret alone in the dark is where, and the size, the molten caret will be born from the cast bar (BAR's
+  // text start, line 3's size): the same caret comes back out of the metal
+  const CMD0 = { ...TM.cmd0, show: TM.caretAlone, blink: (TM.cmd0.t0 - TM.caretAlone) / 2 + 1e-3, size: 62, at: [280 + 76, 456 + 84] };
   // ignition delay of set (i, j): ours on the enter, the rest as a wave outward (the same formula is in gl.js TV)
   const ignAt = (i, j) => (i === 0 && j === 0 ? 0 : h21(i + 1.7, j + 1.7) * 0.25 + Math.hypot(i, j) * 0.07);
   const camZoom = (t) => {
@@ -397,7 +399,7 @@
     const KK = Object.fromEntries(TM.kills.map((k) => [k.kind, k]));
     const tileTree = M.splitTree([1, 1, 2, 3, 4].map((k, i) => ({ t: KK.tile.enter + i * 0.09, k })), 61);   // splits on the enter, then holds
     const TILE_CLIPS = ["typists", "operator", "telegraph", "console", "gallop", "aldrin", "arrival", "reels", "ticker", "drawers", "moonface", "crowd", "flag", "capsule"];
-    const barT = { glass: TM.glass, bardown: TM.settle, logo: TM.logo, line3: TM.line3 };
+    const barT = { glass: TM.glass, bardown: TM.settle, logo: TM.logo, line3: TM.line3, rest: KK.translate.enter + 0.45 };
 
     window.L.on((t) => {
       const f = frame(t);

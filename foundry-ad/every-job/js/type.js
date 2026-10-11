@@ -10,6 +10,7 @@
     cmd.style.visibility = "visible";
     cmd.classList.toggle("ink", !!c.ink);
     cmd.style.fontSize = `${c.size || 124}px`;
+    if (c.at) { cmd.style.left = `${c.at[0]}px`; cmd.style.top = `${c.at[1] - 70}px`; }   // text start x, centre y
     const n = Math.floor(clamp((t - c.t0) * c.cps, 0, c.text.length));
     const pasted = c.paste && t >= c.pasteAt;
     if (txt.dataset.k !== `${n}:${pasted}`) {
@@ -169,7 +170,8 @@
     el.style.visibility = "visible";
     const a = ease.inOutCubic(prog(t, TM.glass, TM.glass + 0.14));
     const d = ease.inOutCubic(prog(t, TM.bardown, TM.bardown + 0.34));
-    const out = ease.inCubic(prog(t, TM.logo - 0.05, TM.logo + 0.25));
+    // its last job done, the bar gets out of Armstrong's way (TM.rest), else it leaves with the cut to the logo
+    const out = TM.rest ? ease.inOutCubic(prog(t, TM.rest, TM.rest + 0.5)) : ease.inCubic(prog(t, TM.logo - 0.05, TM.logo + 0.25));
     const w = lerp(1360, 1180, d), h = lerp(168, 124, d), cy = lerp(540, 930, d) + out * 60;
     el.style.width = `${w}px`; el.style.height = `${h}px`; el.style.left = `${960 - w / 2}px`; el.style.top = `${cy - h / 2}px`;
     el.style.borderRadius = `${h / 2}px`; el.style.opacity = String(a * (1 - out));
