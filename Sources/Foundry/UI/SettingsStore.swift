@@ -195,7 +195,9 @@ final class SettingsStore {
         if applySetting(\.mainBrowser, browser, save: { browser in
             try configService.updateLocalState { $0.mainBrowser = browser?.rawValue }
         }), browser == .firefox {
-            FirefoxConnectorInstaller(diagnostics: diagnostics).requestFirefoxConnector()
+            FirefoxConnectorInstaller(diagnostics: diagnostics, requestPrompt: { [weak panel] spec in
+                await panel?.requestPrompt(spec) ?? .cancelled
+            }).requestFirefoxConnector()
         }
     }
 

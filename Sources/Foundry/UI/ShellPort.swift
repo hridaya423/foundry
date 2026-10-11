@@ -12,6 +12,10 @@ protocol ShellPort: AnyObject {
     func commandPreferencesChanged()
     func menuBarIconVisibilityChanged(_ visible: Bool)
     func compactCollapseChanged(_ collapsed: Bool)
+    /// Makes the panel visible without resetting session state — for
+    /// prompts that must surface while the panel is hidden (e.g. a
+    /// destructive action invoked by hotkey).
+    func ensurePanelVisible()
     func openSettings()
     func quickLook(_ url: URL)
     func showTransientNotice(_ feedback: ActionFeedback)

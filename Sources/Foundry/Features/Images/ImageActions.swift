@@ -14,12 +14,6 @@ private final class SamplerBox: Sendable {
     init(_ value: NSColorSampler) { self.value.withLockUnchecked { $0 = value } }
 }
 
-private final class PopupTarget: NSObject {
-    private let handler: (Int) -> Void
-    init(_ handler: @escaping (Int) -> Void) { self.handler = handler }
-    @objc @MainActor func changed(_ sender: NSPopUpButton) { handler(sender.indexOfSelectedItem) }
-}
-
 @MainActor private func pickImageFile(title: String) -> URL? {
     let panel = NSOpenPanel()
     panel.title = title
@@ -159,7 +153,7 @@ struct PickColorAction: ResultAction, Equatable {
         recordRecentColor(hex, in: ctx)
         let formats = Self.colorFormats(for: color)
         let recents = ctx.localState.get(\.colorPickerRecents)
-        if let chosen = chooseColorFormat(hex: hex, color: color, formats: formats, recents: recents) {
+        if let chosen = await chooseColorFormat(hex: hex, color: color, formats: formats, recents: recents, ctx: ctx) {
             ctx.pasteboard.clearContents()
             ctx.pasteboard.setString(chosen, forType: .string)
             ctx.emit(.feedback(.success("Copied \(chosen)")))
@@ -181,49 +175,36 @@ struct PickColorAction: ResultAction, Equatable {
 
     /// Format + recent-colors picker shown after the sampler. Returns the
     /// string to copy, or nil to fall back to hex.
-    @MainActor private func chooseColorFormat(hex: String, color: NSColor, formats: [(label: String, value: String)], recents: [String]) -> String? {
-        let alert = NSAlert()
-        alert.messageText = hex
-        alert.informativeText = "Pick a format to copy.\n\(Self.contrastSummary(for: color))"
-        alert.alertStyle = .informational
-        let swatch = NSImageView(frame: NSRect(x: 0, y: 0, width: 40, height: 24))
-        swatch.wantsLayer = true
-        swatch.layer?.backgroundColor = color.cgColor
-        swatch.layer?.cornerRadius = 5
-        alert.accessoryView = swatch
-        let formatPicker = NSPopUpButton(frame: NSRect(x: 48, y: 0, width: 190, height: 24), pullsDown: false)
-        formatPicker.addItems(withTitles: formats.map(\.label))
-        let container = NSView(frame: NSRect(x: 0, y: 0, width: 238, height: 26))
-        container.addSubview(swatch)
-        container.addSubview(formatPicker)
-        var chosenRecent: String?
-        var retainedTarget: PopupTarget?
-        defer { _ = retainedTarget }
-        if recents.isEmpty == false {
-            let recentPicker = NSPopUpButton(frame: NSRect(x: 0, y: 30, width: 238, height: 24), pullsDown: true)
-            recentPicker.title = "Recent colors"
-            for recent in recents { recentPicker.menu?.addItem(NSMenuItem(title: recent, action: nil, keyEquivalent: "")) }
-            container.frame.size.height = 58
-            swatch.frame.origin.y = 32
-            formatPicker.frame.origin.y = 30
-            container.addSubview(recentPicker)
-            let target = PopupTarget { index in
-                guard index > 0, index - 1 < recents.count else { return }
-                chosenRecent = recents[index - 1]
-            }
-            recentPicker.target = target
-            recentPicker.action = #selector(PopupTarget.changed(_:))
-            retainedTarget = target
+    @MainActor private func chooseColorFormat(
+        hex: String,
+        color: NSColor,
+        formats: [(label: String, value: String)],
+        recents: [String],
+        ctx: ActionContext
+    ) async -> String? {
+        let swatch = NSImage(size: NSSize(width: 40, height: 24), flipped: false) { rect in
+            color.setFill()
+            NSBezierPath(roundedRect: rect, xRadius: 5, yRadius: 5).fill()
+            return true
         }
-        alert.accessoryView = container
-        alert.addButton(withTitle: "Copy")
-        alert.addButton(withTitle: "Cancel")
-        NSApp.activate(ignoringOtherApps: true)
-        guard alert.runModal() == .alertFirstButtonReturn else { return nil }
-        if let chosenRecent { return chosenRecent }
-        let index = formatPicker.indexOfSelectedItem
-        guard formats.indices.contains(index) else { return nil }
-        return formats[index].value
+        let recentOptions = Array(recents.prefix(4))
+        let prompt = await ctx.panel.requestPrompt(PanelPromptSpec(
+            title: hex,
+            message: "Pick a format to copy.\n\(Self.contrastSummary(for: color))",
+            picker: PanelPromptSpec.Picker(
+                id: "format",
+                options: formats.map(\.label) + recentOptions,
+                selected: 0
+            ),
+            image: swatch,
+            confirmLabel: "Copy"
+        ))
+        guard prompt.confirmed else { return nil }
+        let index = prompt.selection
+        if formats.indices.contains(index) { return formats[index].value }
+        let recentIndex = index - formats.count
+        guard recentOptions.indices.contains(recentIndex) else { return nil }
+        return recentOptions[recentIndex]
     }
 
     nonisolated static func colorFormats(for color: NSColor) -> [(label: String, value: String)] {
@@ -316,39 +297,39 @@ struct GenerateQRCodeAction: ResultAction, Equatable {
         ctx.pasteboard.clearContents()
         ctx.pasteboard.writeObjects([image])
         ctx.diagnostics.log("Generated QR code for \(content.count) characters")
-        ctx.offerQRSave(image, content)
+        await Self.presentSaveOffer(image, content: content, ctx: ctx)
         ctx.emit(.feedback(.success("QR code copied to clipboard")))
         return .copied(content: content)
     }
 
-    /// "Copied — save a PNG?" offer after QR generation. Injectable: modal
-    /// UI must never run under tests.
-    @MainActor static func presentSaveOffer(_ image: NSImage, content: String) {
-        let alert = NSAlert()
-        alert.messageText = "QR code copied to clipboard"
-        alert.informativeText = content.count > 120 ? String(content.prefix(120)) + "…" : content
-        alert.addButton(withTitle: "Save as PNG…")
-        alert.addButton(withTitle: "Done")
-        NSApp.activate(ignoringOtherApps: true)
-        if alert.runModal() == .alertFirstButtonReturn {
-            let panel = NSSavePanel()
-            panel.allowedContentTypes = [.png]
-            panel.nameFieldStringValue = "QR Code.png"
-            panel.canCreateDirectories = true
-            if panel.runModal() == .OK, let destination = panel.url,
-               let tiff = image.tiffRepresentation,
-               let bitmap = NSBitmapImageRep(data: tiff),
-               let png = bitmap.representation(using: .png, properties: [:]) {
-                do {
-                    try png.write(to: destination)
-                } catch {
-                    let failure = NSAlert()
-                    failure.messageText = "Couldn't save the QR code"
-                    failure.informativeText = error.localizedDescription
-                    failure.alertStyle = .warning
-                    failure.runModal()
-                }
-            }
+    /// "Copied — save a PNG?" offer after QR generation. Resolves through
+    /// the panel prompt: under tests the default port declines, so modal
+    /// UI never runs.
+    @MainActor static func presentSaveOffer(_ image: NSImage, content: String, ctx: ActionContext) async {
+        let offer = await ctx.panel.requestPrompt(PanelPromptSpec(
+            title: "QR code copied to clipboard",
+            message: content.count > 120 ? String(content.prefix(120)) + "…" : content,
+            confirmLabel: "Save as PNG…",
+            cancelLabel: "Done"
+        ))
+        guard offer.confirmed else { return }
+        let panel = NSSavePanel()
+        panel.allowedContentTypes = [.png]
+        panel.nameFieldStringValue = "QR Code.png"
+        panel.canCreateDirectories = true
+        guard panel.runModal() == .OK, let destination = panel.url,
+              let tiff = image.tiffRepresentation,
+              let bitmap = NSBitmapImageRep(data: tiff),
+              let png = bitmap.representation(using: .png, properties: [:]) else { return }
+        do {
+            try png.write(to: destination)
+        } catch {
+            _ = await ctx.panel.requestPrompt(PanelPromptSpec(
+                title: "Couldn't save the QR code",
+                message: error.localizedDescription,
+                confirmLabel: "OK",
+                cancelLabel: nil
+            ))
         }
     }
 }
@@ -389,29 +370,26 @@ struct GenerateWiFiQRCodeAction: ResultAction, Equatable {
     var icon: String? { "wifi" }
 
     func perform(_ ctx: ActionContext) async -> CommandOutcome {
-        let alert = NSAlert()
-        alert.messageText = "Wi-Fi QR Code"
-        alert.informativeText = "Guests scan the code to join the network."
-        let ssid = NSTextField(frame: NSRect(x: 0, y: 60, width: 260, height: 24))
-        ssid.placeholderString = "Network name (SSID)"
-        let password = NSSecureTextField(frame: NSRect(x: 0, y: 32, width: 260, height: 24))
-        password.placeholderString = "Password"
-        let security = NSPopUpButton(frame: NSRect(x: 0, y: 0, width: 260, height: 24), pullsDown: false)
-        security.addItems(withTitles: ["WPA / WPA2 / WPA3", "WEP", "Open network"])
-        let container = NSView(frame: NSRect(x: 0, y: 0, width: 260, height: 88))
-        container.addSubview(ssid)
-        container.addSubview(password)
-        container.addSubview(security)
-        alert.accessoryView = container
-        alert.addButton(withTitle: "Generate")
-        alert.addButton(withTitle: "Cancel")
-        NSApp.activate(ignoringOtherApps: true)
-        guard alert.runModal() == .alertFirstButtonReturn else { return .cancelled }
-        let network = ssid.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        let prompt = await ctx.panel.requestPrompt(PanelPromptSpec(
+            title: "Wi-Fi QR Code",
+            message: "Guests scan the code to join the network.",
+            fields: [
+                PanelPromptSpec.Field(id: "ssid", placeholder: "Network name (SSID)"),
+                PanelPromptSpec.Field(id: "password", placeholder: "Password", isSecure: true),
+            ],
+            picker: PanelPromptSpec.Picker(
+                id: "security",
+                options: ["WPA / WPA2 / WPA3", "WEP", "Open network"],
+                selected: 0
+            ),
+            confirmLabel: "Generate"
+        ))
+        guard prompt.confirmed else { return .cancelled }
+        let network = (prompt.texts.first ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
         guard network.isEmpty == false else {
             return .failure(message: "Enter a network name", retryable: true)
         }
-        let payload = wifiQRPayload(ssid: network, password: password.stringValue, security: security.indexOfSelectedItem)
+        let payload = wifiQRPayload(ssid: network, password: prompt.texts.dropFirst().first ?? "", security: prompt.selection)
         guard let image = qrImage(for: payload) else {
             return .failure(message: "Could not generate QR code", retryable: false)
         }

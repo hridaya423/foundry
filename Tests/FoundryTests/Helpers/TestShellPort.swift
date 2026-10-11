@@ -18,6 +18,7 @@ final class RecordingShellPort: ShellPort {
     var onRequestSnippetAccessibility: (() -> Void)?
     var onOpenSnippetPrivacySettings: (() -> Void)?
     var onResultExecuted: (() -> Void)?
+    var onEnsurePanelVisible: (() -> Void)?
 
     func hotkeyChanged(_ hotkey: FoundryHotkey) throws { try onHotkeyChanged?(hotkey) }
     func commandPreferencesChanged() { onCommandPreferencesChanged?() }
@@ -31,4 +32,5 @@ final class RecordingShellPort: ShellPort {
     func requestSnippetAccessibility() { onRequestSnippetAccessibility?() }
     func openSnippetPrivacySettings() { onOpenSnippetPrivacySettings?() }
     func resultExecuted() { onResultExecuted?() }
+    func ensurePanelVisible() { onEnsurePanelVisible?() }
 }

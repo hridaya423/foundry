@@ -1,8 +1,8 @@
 import Foundation
 
-#if !compiler(>=6.2)
-// FileManager is thread-safe for the filesystem operations used here, but only
-// gained a Sendable conformance in the macOS 26 SDK. Backport it so services
-// holding a FileManager can be checked Sendable on Swift 6.1.
+#if compiler(<7)
+// FileManager is thread-safe for the filesystem operations used here, but has
+// no Sendable conformance in the SDKs we build against (16.3 → 27.0). Backport
+// it so services holding a FileManager can be checked Sendable.
 extension FileManager: @retroactive @unchecked Sendable {}
 #endif

@@ -25,9 +25,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             resetRanking: { commandID in
                 usageRanking.resetRanking(for: commandID)
             },
-            confirmAction: { action, source in
-                Self.confirm(action: action, source: source)
-            },
             directPasteService: directPasteService
         )
 
@@ -47,9 +44,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         )
 
         self.shellController = shellController
-        DownloadNotice.showIfNeeded()
         shellController.start()
         diagnostics.endSpan(launchSpan)
+
+        Task { @MainActor [weak actionRunner] in
+            await DownloadNotice.showIfNeeded(requestPrompt: { spec in
+                await actionRunner?.panel.requestPrompt(spec) ?? .cancelled
+            })
+        }
 
         if let convertPaths = Self.convertArguments() {
             shellController.openFileConverter(paths: convertPaths)
@@ -102,18 +104,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         guard let index = args.firstIndex(of: "--convert"), index + 1 < args.count else { return nil }
         let paths = args[(index + 1)...].prefix { $0.hasPrefix("--") == false }
         return paths.isEmpty ? nil : Array(paths)
-    }
-
-    private static func confirm(action: CommandActionDescriptor, source: CommandInvocationSource) -> Bool {
-        let alert = NSAlert()
-        alert.alertStyle = .warning
-        alert.messageText = "\(action.title)?"
-        if source == .external {
-            alert.informativeText = "Requested by an external integration."
-        }
-        alert.addButton(withTitle: action.title)
-        alert.addButton(withTitle: "Cancel")
-        return alert.runModal() == .alertFirstButtonReturn
     }
 
     private func configureLoginItem(config: ConfigService, diagnostics: DiagnosticsService) {

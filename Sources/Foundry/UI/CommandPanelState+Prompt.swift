@@ -5,9 +5,11 @@ import Foundation
 // the default PanelPorts prompt returns `.cancelled`.
 extension CommandPanelState {
     /// Presents a prompt and suspends until the user answers or the panel
-    /// lifecycle cancels it.
+    /// lifecycle cancels it. The panel is raised first when hidden — a
+    /// confirmation can arrive from a hotkey-invoked action.
     func requestPrompt(_ spec: PanelPromptSpec) async -> PanelPromptResult {
-        await withCheckedContinuation { continuation in
+        shell?.ensurePanelVisible()
+        return await withCheckedContinuation { continuation in
             pendingPrompt = PendingPrompt(spec: spec) { result in
                 continuation.resume(returning: result)
             }

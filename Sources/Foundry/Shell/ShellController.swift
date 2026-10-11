@@ -257,6 +257,12 @@ extension ShellController: ShellPort {
         panelController.setCompactCollapsed(collapsed)
     }
 
+    func ensurePanelVisible() {
+        guard panelController.isVisible == false else { return }
+        activation.activate()
+        panelController.show()
+    }
+
     func openSettings() {
         showPanel()
     }

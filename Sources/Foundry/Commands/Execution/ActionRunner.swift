@@ -13,7 +13,9 @@ final class ActionRunner {
     private let mediaDownloadService: any MediaDownloading
     private let mediaDownloadManager: MediaDownloadManager
     private let resetRanking: (String) -> Void
-    private let confirmAction: (CommandActionDescriptor, CommandInvocationSource) -> Bool
+    /// nil = confirm through the panel prompt (ConfirmBar). Tests inject a
+    /// closure so confirmations never depend on panel state.
+    private let confirmAction: (@MainActor (CommandActionDescriptor, CommandInvocationSource) async -> Bool)?
     private let windowManager: any WindowManaging
     private let openURL: (URL) -> Bool
     private let openApplication: (URL, NSWorkspace.OpenConfiguration, @escaping @Sendable (NSRunningApplication?, Error?) -> Void) -> Void
@@ -22,8 +24,8 @@ final class ActionRunner {
     let directPasteService: DirectPasteService
     private let scriptDirectories: ScriptDirectoryStore
     private let localState: LocalStateStore
-    private let confirmScriptDirectory: @MainActor (String) -> Bool
-    private let offerQRSave: @MainActor (NSImage, String) -> Void
+    /// nil = confirm through the panel prompt.
+    private let confirmScriptDirectory: (@MainActor (String) async -> Bool)?
     private let scriptTimeout: TimeInterval
     private let scriptOutputLimit: Int
     private var activeExecutionTasks: [UUID: Task<CommandOutcome, Never>] = [:]
@@ -37,7 +39,7 @@ final class ActionRunner {
         mediaDownloadService: any MediaDownloading = MediaDownloadService(),
         mediaDownloadManager: MediaDownloadManager = MediaDownloadManager(),
         resetRanking: @escaping (String) -> Void = { _ in },
-        confirmAction: @escaping (CommandActionDescriptor, CommandInvocationSource) -> Bool = { _, _ in true },
+        confirmAction: (@MainActor (CommandActionDescriptor, CommandInvocationSource) async -> Bool)? = nil,
         windowManager: any WindowManaging = NativeWindowManager(),
         openURL: @escaping (URL) -> Bool = { NSWorkspace.shared.open($0) },
         openApplication: @escaping (URL, NSWorkspace.OpenConfiguration, @escaping @Sendable (NSRunningApplication?, Error?) -> Void) -> Void = { url,
@@ -49,15 +51,13 @@ final class ActionRunner {
         snippetContext: @escaping () -> SnippetRenderContext = { .current() },
         scriptDirectories: ScriptDirectoryStore = .shared,
         localState: LocalStateStore = .shared,
-        confirmScriptDirectory: @escaping @MainActor (String) -> Bool = RunScriptAction.promptToTrustScriptDirectory,
-        offerQRSave: @escaping @MainActor (NSImage, String) -> Void = GenerateQRCodeAction.presentSaveOffer,
+        confirmScriptDirectory: (@MainActor (String) async -> Bool)? = nil,
         scriptTimeout: TimeInterval = 30,
         scriptOutputLimit: Int = 256 * 1024
     ) {
         self.scriptDirectories = scriptDirectories
         self.localState = localState
         self.confirmScriptDirectory = confirmScriptDirectory
-        self.offerQRSave = offerQRSave
         self.scriptTimeout = scriptTimeout
         self.scriptOutputLimit = scriptOutputLimit
         self.diagnostics = diagnostics
@@ -100,10 +100,24 @@ final class ActionRunner {
         _ request: CommandExecutionRequest,
         emit: @escaping @MainActor @Sendable (CommandExecutionEvent) -> Void
     ) async -> CommandOutcome {
-        if request.action.descriptor.confirmation != .never,
-           confirmAction(request.action.descriptor, request.invocation.source) == false {
-            emit(.feedback(.info("Action cancelled")))
-            return .denied(message: "Action cancelled")
+        if request.action.descriptor.confirmation != .never {
+            let confirmed: Bool
+            if let confirmAction {
+                confirmed = await confirmAction(request.action.descriptor, request.invocation.source)
+            } else {
+                confirmed = await panel.requestPrompt(
+                    .confirmation(
+                        title: "\(request.action.descriptor.title)?",
+                        message: request.invocation.source == .external ? "Requested by an external integration." : nil,
+                        confirmLabel: request.action.descriptor.title,
+                        isDestructive: request.action.descriptor.isDestructive
+                    )
+                ).confirmed
+            }
+            if confirmed == false {
+                emit(.feedback(.info("Action cancelled")))
+                return .denied(message: "Action cancelled")
+            }
         }
 
         let ctx = ActionContext(
@@ -119,8 +133,9 @@ final class ActionRunner {
             localState: localState,
             openURL: openURL,
             openApplication: openApplication,
-            confirmScriptDirectory: confirmScriptDirectory,
-            offerQRSave: offerQRSave,
+            confirmScriptDirectory: confirmScriptDirectory ?? { [panel] directory in
+                await panel.requestPrompt(RunScriptAction.trustSpec(for: directory)).confirmed
+            },
             resetRanking: resetRanking,
             scriptTimeout: scriptTimeout,
             scriptOutputLimit: scriptOutputLimit,

@@ -204,15 +204,13 @@ struct EmptyTrashAction: ResultAction, Equatable {
     var icon: String? { "trash.slash" }
 
     func perform(_ ctx: ActionContext) async -> CommandOutcome {
-        let alert = NSAlert()
-        alert.messageText = "Empty the Trash?"
-        alert.informativeText = "Items in the Trash are permanently deleted. This cannot be undone."
-        alert.alertStyle = .warning
-        alert.addButton(withTitle: "Empty Trash")
-        alert.addButton(withTitle: "Cancel")
-        alert.buttons.first?.hasDestructiveAction = true
-        NSApp.activate(ignoringOtherApps: true)
-        guard alert.runModal() == .alertFirstButtonReturn else { return .cancelled }
+        let prompt = await ctx.panel.requestPrompt(.confirmation(
+            title: "Empty the Trash?",
+            message: "Items in the Trash are permanently deleted. This cannot be undone.",
+            confirmLabel: "Empty Trash",
+            isDestructive: true
+        ))
+        guard prompt.confirmed else { return .cancelled }
         do {
             let result = try await ProcessRunner.run(
                 path: "/usr/bin/osascript",

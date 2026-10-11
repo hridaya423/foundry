@@ -13,7 +13,7 @@ struct RunScriptAction: ResultAction, Equatable {
     func perform(_ ctx: ActionContext) async -> CommandOutcome {
         let directory = (path as NSString).deletingLastPathComponent
         if ctx.scriptDirectories.isTrusted(directory) == false {
-            guard ctx.confirmScriptDirectory(directory) else {
+            guard await ctx.confirmScriptDirectory(directory) else {
                 return ctx.finish(.denied(message: "Scripts in this folder are not trusted"), feedback: .info("Script not run"))
             }
             ctx.scriptDirectories.setTrusted(true, for: directory)
@@ -49,14 +49,13 @@ struct RunScriptAction: ResultAction, Equatable {
         }
     }
 
-    /// The default trust prompt — modal, so injectable away under tests.
-    @MainActor static func promptToTrustScriptDirectory(_ directory: String) -> Bool {
-        let alert = NSAlert()
-        alert.messageText = "Run scripts from “\((directory as NSString).lastPathComponent)”?"
-        alert.informativeText = "Scripts in \(directory) can run any command as you. Only trust folders whose scripts you wrote or reviewed. " +
-            "Foundry will not ask again for this folder."
-        alert.addButton(withTitle: "Trust and Run")
-        alert.addButton(withTitle: "Cancel")
-        return alert.runModal() == .alertFirstButtonReturn
+    /// The ConfirmBar spec for first-run trust of a script directory.
+    static func trustSpec(for directory: String) -> PanelPromptSpec {
+        .confirmation(
+            title: "Run scripts from “\((directory as NSString).lastPathComponent)”?",
+            message: "Scripts in \(directory) can run any command as you. Only trust folders whose scripts you wrote or reviewed. " +
+                "Foundry will not ask again for this folder.",
+            confirmLabel: "Trust and Run"
+        )
     }
 }

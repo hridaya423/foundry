@@ -133,6 +133,9 @@ final class CommandPanelState {
             self?.confettiBurstID &+= 1
             self?.performHaptic(.alignment)
         }
+        actionRunner.panel.requestPrompt = { [weak self] spec in
+            await self?.requestPrompt(spec) ?? .cancelled
+        }
         self.widgetBoard.persistenceErrorHandler = { [weak self] error in
             self?.settings.showSettingsPersistenceError(error)
         }

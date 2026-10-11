@@ -112,21 +112,37 @@ Quality bar: Raycast. Plan: `docs/plans/2026-10-11-foundry-raycast-bar-audit.md`
   - `killall cfprefsd` prefs-flush failure logged (`OnboardingState`)
 - Swift 6 notes: async `attempt` takes `@Sendable` closures; sites capturing `var`s use `[capture]` lists; `NSItemProvider` site uses explicit `do/catch` + `BestEffort.log`
 
+### Phases 5.2 / 5.7 / 5.8 — landed on the Mac mini (commits 4094934, 470aef0, 863e6f3)
+- 5.2 row anatomy + QA shots: Raycast-style rows with kind icons, subtitle metadata, shortcut badges
+- 5.7 motion audit: `AnyView` erased-branch pattern removed; transitions standardized
+- 5.8 hotkey formatter (`FoundryHotkey`) + confirmation copy pass
+- Also landed: Phase 4.1 typed `ResultPayload` (4a2aae9), 4.2 feature-owned `ResultAction` — ActionRunner 1551→136 (014803e), 4.3 `CommandPanelState` split (73ae9c4), 4.4 lint ratchet to 160 (672f188)
+
+### Phase 5.3 — in-panel prompts (ConfirmBar/PanelForm) ✅ (this commit)
+- `PanelPromptSpec`/`PanelPromptResult`/`PendingPrompt` (`UI/PanelPrompt.swift`) + `PanelPromptOverlay` rendered at the panel's bottom; `CommandPanelState.requestPrompt` suspends on a continuation, `resolvePrompt`/`cancelPrompt` feed Esc and panel-close
+- `PanelPorts.requestPrompt` added — actions await the user's answer; default resolves `.cancelled` so modal UI never runs under tests (replaces the `offerQRSave` injectable)
+- `ActionRunner`: `confirmAction` + `confirmScriptDirectory` now async; default confirmation builds `.confirmation` specs (destructive + external-source attribution); script trust via `RunScriptAction.trustSpec`
+- `ShellPort.ensurePanelVisible` — raises the panel without `resetForOpen` so a hotkey-invoked destructive action can confirm without wiping session state
+- All 11 `NSAlert` sites migrated: Empty Trash, script trust, file rename (text field), color-format picker (segmented formats + ≤4 recents + swatch image), Wi-Fi QR form (fields + secure + picker), QR save offer + save-failure notice, Firefox connector consent, AppDelegate destructive confirm (deleted — runner default covers it), DownloadNotice translocation/notarization notices (now in-panel, launched after `shellController.start()`)
+- Acceptance: `runModal` in `Sources/` remains only on `NSOpenPanel`/`NSSavePanel`
+- Swift 6.4/macOS 27 SDK fix: `FileManager: @retroactive @unchecked Sendable` backport widened to `#if compiler(<7)` (27 SDK still lacks it); `NSImage` stays `<6.2` (native on 27 SDK)
+
 ### Verification evidence
 - `swift build`: clean, 0 warnings
-- `swift test`: 631 tests, 0 failures, 5 skipped (~57 s; FOUNDRY_SLOW_TESTS-gated Vision cases skipped; CoreData/contactsd noise is environmental)
-- Focused: 143 tests across persistence/config/backup/onboarding/scripts pass
-- `scripts/lint-lines.sh`: PASS
-- `UserDefaults.standard` in `Sources/`: 1 site (ConfigService migration param)
+- `swift test`: 632 tests, 0 failures, 6 skipped (~22 s; FOUNDRY_SLOW_TESTS-gated Vision cases skipped; CoreData/contactsd noise is environmental)
+- `scripts/lint-lines.sh`: PASS · `scripts/lint-design.sh`: PASS
+- `runModal` grep: only `NSOpenPanel`/`NSSavePanel` sites remain
 
 ### Workstream transferred (this commit)
 - Full handoff to the Mac mini agent: repo cloned clean to `~/Honey/anvil` at `cea3608` and verified `swift build` on its Xcode 16.3 / Swift 6.1 toolchain. Handoff brief at `~/foundry-raycast-audit-handoff.md` (mini home dir); `docs/HANDOFF.md` (`61a3918`) repointed to this audit. The mini agent owns all remaining phases and the final sync-back of commits to this checkout.
 - `cea3608` also restored Swift 6.1 compatibility broken by the try? audit: `import FoundryServices` hoisted out of `#if canImport(FoundationModels)` (OnboardingState), `@preconcurrency import Foundation` for `NSItemProvider.loadItem` (FileConversionView), and `SendableBackports.swift` — `NSImage: @retroactive @unchecked Sendable` under `#if compiler(<6.2)`. 95 errors on Xcode 16.3 → build complete.
 
-## Remaining (owned by the Mac mini agent — see `~/foundry-raycast-audit-handoff.md` there)
-- Phase 4: @unchecked Sendable audit (7 done in `31d6760`; ~53 sites → ≤10 justified), typed `ResultPayload` (79 prefix-check sites), `ResultAction` + ActionRunner generic executor, CommandPanelState split (~70 props), lint ratchet 240→160
-- Phase 5: UI/UX — design tokens, row anatomy, alerts→in-panel forms, Settings window, Quick Look, materials/motion, copy, localization groundwork, accessibility
-- Phase 6: platform — window tiling settle, Codex OAuth opt-in, CI snapshots
+## Remaining
+- Phase 5.4 — Settings window (NSWindow, deep links)
+- Phase 5.5 — native `QLPreviewPanel` Quick Look
+- Phase 5.6 — materials/glass polish
+- Phase 5.9 — localization groundwork
+- Phase 6 — platform: window tiling settle, Codex OAuth opt-in, CI snapshots, app indexing
 - Final: benchmark evidence, HANDOFF + report update, goalctl done
 
 ## Manual-only / environment-gated

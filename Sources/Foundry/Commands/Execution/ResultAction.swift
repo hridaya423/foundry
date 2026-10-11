@@ -25,8 +25,7 @@ final class ActionContext {
     let localState: LocalStateStore
     let openURL: (URL) -> Bool
     let openApplication: (URL, NSWorkspace.OpenConfiguration, @escaping @Sendable (NSRunningApplication?, Error?) -> Void) -> Void
-    let confirmScriptDirectory: (String) -> Bool
-    let offerQRSave: (NSImage, String) -> Void
+    let confirmScriptDirectory: (String) async -> Bool
     let resetRanking: (String) -> Void
     let scriptTimeout: TimeInterval
     let scriptOutputLimit: Int
@@ -47,8 +46,7 @@ final class ActionContext {
         localState: LocalStateStore,
         openURL: @escaping (URL) -> Bool,
         openApplication: @escaping (URL, NSWorkspace.OpenConfiguration, @escaping @Sendable (NSRunningApplication?, Error?) -> Void) -> Void,
-        confirmScriptDirectory: @escaping @MainActor (String) -> Bool,
-        offerQRSave: @escaping @MainActor (NSImage, String) -> Void,
+        confirmScriptDirectory: @escaping @MainActor (String) async -> Bool,
         resetRanking: @escaping (String) -> Void,
         scriptTimeout: TimeInterval,
         scriptOutputLimit: Int,
@@ -69,7 +67,6 @@ final class ActionContext {
         self.openURL = openURL
         self.openApplication = openApplication
         self.confirmScriptDirectory = confirmScriptDirectory
-        self.offerQRSave = offerQRSave
         self.resetRanking = resetRanking
         self.scriptTimeout = scriptTimeout
         self.scriptOutputLimit = scriptOutputLimit
@@ -96,6 +93,9 @@ struct PanelPorts: Sendable {
     var presentSettings: @MainActor @Sendable (SettingsDeepLink) -> Void = { _ in }
     var presentMediaDownloads: @MainActor @Sendable () -> Void = {}
     var celebrate: @MainActor @Sendable () -> Void = {}
+    /// Presents a ConfirmBar/PanelForm prompt and suspends for the answer.
+    /// Default resolves `.cancelled` — modal UI never runs under tests.
+    var requestPrompt: @MainActor @Sendable (PanelPromptSpec) async -> PanelPromptResult = { _ in .cancelled }
     /// nil = no Quick Look wiring; actions fall back to opening the file.
     var onQuickLook: (@MainActor @Sendable (URL) -> Void)?
 }

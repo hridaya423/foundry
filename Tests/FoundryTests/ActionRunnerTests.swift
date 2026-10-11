@@ -415,7 +415,7 @@ final class ActionRunnerTests: XCTestCase {
         let pasteboard = NSPasteboard(name: NSPasteboard.Name("ActionRunnerTests.qr"))
         pasteboard.clearContents()
         pasteboard.setString("https://example.com", forType: .string)
-        let runner = ActionRunner(diagnostics: DiagnosticsService(), pasteboard: pasteboard, offerQRSave: { _, _ in })
+        let runner = ActionRunner(diagnostics: DiagnosticsService(), pasteboard: pasteboard)
 
         let outcome = await runner.execute(CommandExecutionRequest(
             commandID: "test.qr",

@@ -96,19 +96,15 @@ struct RenameFileAction: ResultAction, Equatable {
         let icon = await Task.detached(priority: .utility) {
             NSWorkspace.shared.icon(forFile: path)
         }.value
-        let alert = NSAlert()
-        alert.messageText = "Rename \u{201C}\(source.lastPathComponent)\u{201D}"
-        alert.informativeText = "Enter a new name."
-        alert.addButton(withTitle: "Rename")
-        alert.addButton(withTitle: "Cancel")
-        alert.icon = icon
-        let field = NSTextField(frame: NSRect(x: 0, y: 0, width: 280, height: 24))
-        field.stringValue = source.lastPathComponent
-        alert.accessoryView = field
-        alert.window.initialFirstResponder = field
-        NSApp.activate(ignoringOtherApps: true)
-        guard alert.runModal() == .alertFirstButtonReturn else { return .cancelled }
-        let newName = field.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        let prompt = await ctx.panel.requestPrompt(PanelPromptSpec(
+            title: "Rename \u{201C}\(source.lastPathComponent)\u{201D}",
+            message: "Enter a new name.",
+            fields: [PanelPromptSpec.Field(id: "name", placeholder: "New name", initial: source.lastPathComponent)],
+            image: icon,
+            confirmLabel: "Rename"
+        ))
+        guard prompt.confirmed else { return .cancelled }
+        let newName = (prompt.texts.first ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
         guard newName.isEmpty == false, newName != source.lastPathComponent else { return .cancelled }
         guard newName.contains("/") == false, newName.contains(":") == false else {
             ctx.emit(.feedback(.failure("Names can\u{2019}t contain / or :")))
