@@ -1,5 +1,5 @@
 import AppKit
-import Foundation
+@preconcurrency import Foundation
 import FoundryServices
 import SwiftUI
 import UniformTypeIdentifiers

@@ -1,10 +1,10 @@
 import AppKit
 import Combine
 import Foundation
+import FoundryServices
 #if canImport(FoundationModels)
 import FoundationModels
 import Observation
-import FoundryServices
 #endif
 
 enum OnboardingStep: Int, CaseIterable {
