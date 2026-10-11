@@ -149,7 +149,8 @@ struct ForceQuitApplicationAction: ResultAction, Equatable {
     var style: ActionStyle { .destructive }
 
     func perform(_ ctx: ActionContext) async -> CommandOutcome {
-        guard let running = NSWorkspace.shared.runningApplications.first(where: { $0.bundleIdentifier == bundleID && bundleID != nil || $0.localizedName == name }) else {
+        guard let running = NSWorkspace.shared.runningApplications.first(where: { $0.bundleIdentifier == bundleID && bundleID != nil
+            || $0.localizedName == name }) else {
             return .failure(message: "\(name) is not running", retryable: false)
         }
         return running.forceTerminate()
@@ -166,7 +167,8 @@ struct HideApplicationAction: ResultAction, Equatable {
 
     func perform(_ ctx: ActionContext) async -> CommandOutcome {
         let hidden = NSRunningApplication.runningApplications(withBundleIdentifier: bundleID).map { $0.hide() }.contains(true)
-        return hidden ? ctx.finish(.success(message: "Hid \(name)"), feedback: .success("Hid \(name)")) : .failure(message: "\(name) is not running", retryable: false)
+        return hidden ? ctx.finish(.success(message: "Hid \(name)"), feedback: .success("Hid \(name)")) : .failure(message: "\(name) is not running",
+            retryable: false)
     }
 }
 
@@ -189,7 +191,8 @@ struct ToggleKeepAwakeAction: ResultAction, Equatable {
         do {
             let state = try KeepAwakeController.toggle()
             ctx.diagnostics.log(state ? "Keep Awake enabled" : "Keep Awake disabled")
-            return ctx.finish(.success(message: state ? "Keep Awake enabled" : "Keep Awake disabled"), feedback: .success(state ? "Keep Awake enabled" : "Keep Awake disabled"))
+            return ctx.finish(.success(message: state ? "Keep Awake enabled" : "Keep Awake disabled"),
+                feedback: .success(state ? "Keep Awake enabled" : "Keep Awake disabled"))
         } catch {
             ctx.diagnostics.log("Could not update Keep Awake: \(error.localizedDescription)")
             return ctx.finish(.failure(message: "Could not update Keep Awake", retryable: true), feedback: .failure("Could not update Keep Awake"))
@@ -284,13 +287,15 @@ struct TerminatePortAction: ResultAction, Equatable {
             }
             let message = failed ? "Couldn't stop the process on port \(port)" : "Stopped port \(port)"
             ctx.diagnostics.log(message)
-            return ctx.finish(failed ? .failure(message: message, retryable: true) : .success(message: message), feedback: failed ? .failure(message) : .success(message))
+            return ctx.finish(failed ? .failure(message: message, retryable: true) : .success(message: message),
+                feedback: failed ? .failure(message) : .success(message))
         } catch {
             if isExecutionCancellation(error) {
                 return .cancelled
             }
             ctx.diagnostics.log("Failed to stop port \(port): \(error.localizedDescription)")
-            return ctx.finish(.failure(message: "Couldn't stop the process on port \(port)", retryable: true), feedback: .failure("Couldn't stop the process on port \(port)"))
+            return ctx.finish(.failure(message: "Couldn't stop the process on port \(port)", retryable: true),
+                feedback: .failure("Couldn't stop the process on port \(port)"))
         }
     }
 }
@@ -354,7 +359,9 @@ struct RunProcessAction: ResultAction, Equatable {
             let shortcut = path == ShortcutsProvider.cliPath ? arguments.last : nil
             guard result.succeeded else {
                 ctx.diagnostics.log("Failed to run \(path)")
-                return .failure(message: shortcut.map { "“\($0)” failed: \(result.stderr.trimmingCharacters(in: .whitespacesAndNewlines))" } ?? "Failed to run process", retryable: true)
+                return .failure(
+                    message: shortcut.map { "“\($0)” failed: \(result.stderr.trimmingCharacters(in: .whitespacesAndNewlines))" } ?? "Failed to run " +
+                        "process", retryable: true)
             }
             return .success(message: shortcut.map { "Ran “\($0)”" } ?? "Process completed")
         } catch {

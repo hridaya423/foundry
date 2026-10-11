@@ -20,10 +20,12 @@ struct RunScriptAction: ResultAction, Equatable {
         }
         let name = (path as NSString).lastPathComponent
         do {
-            let result = try await ProcessRunner.run(path: path, arguments: arguments, timeout: ctx.scriptTimeout, outputLimit: ctx.scriptOutputLimit, currentDirectoryURL: URL(fileURLWithPath: directory))
+            let result = try await ProcessRunner.run(path: path, arguments: arguments, timeout: ctx.scriptTimeout,
+                outputLimit: ctx.scriptOutputLimit, currentDirectoryURL: URL(fileURLWithPath: directory))
             let lastLine = { (text: String) in text.split(whereSeparator: \.isNewline).last.map(String.init) }
             if result.timedOut {
-                return ctx.finish(.failure(message: "\(name) timed out after \(Int(ctx.scriptTimeout)) s", retryable: true), feedback: .failure("\(name) timed out"))
+                return ctx.finish(.failure(message: "\(name) timed out after \(Int(ctx.scriptTimeout)) s", retryable: true),
+                    feedback: .failure("\(name) timed out"))
             }
             guard result.succeeded else {
                 let message = lastLine(result.stderr) ?? lastLine(result.stdout) ?? "\(name) exited with code \(result.exitCode)"
@@ -42,7 +44,8 @@ struct RunScriptAction: ResultAction, Equatable {
             }
         } catch {
             if isExecutionCancellation(error) { return .cancelled }
-            return ctx.finish(.failure(message: "Could not run \(name): \(error.localizedDescription)", retryable: true), feedback: .failure("Could not run \(name)"))
+            return ctx.finish(.failure(message: "Could not run \(name): \(error.localizedDescription)", retryable: true),
+                feedback: .failure("Could not run \(name)"))
         }
     }
 
@@ -50,7 +53,8 @@ struct RunScriptAction: ResultAction, Equatable {
     @MainActor static func promptToTrustScriptDirectory(_ directory: String) -> Bool {
         let alert = NSAlert()
         alert.messageText = "Run scripts from “\((directory as NSString).lastPathComponent)”?"
-        alert.informativeText = "Scripts in \(directory) can run any command as you. Only trust folders whose scripts you wrote or reviewed. Foundry will not ask again for this folder."
+        alert.informativeText = "Scripts in \(directory) can run any command as you. Only trust folders whose scripts you wrote or reviewed. " +
+            "Foundry will not ask again for this folder."
         alert.addButton(withTitle: "Trust and Run")
         alert.addButton(withTitle: "Cancel")
         return alert.runModal() == .alertFirstButtonReturn

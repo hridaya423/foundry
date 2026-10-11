@@ -142,10 +142,12 @@ final class DeveloperToolsProvider: CommandProvider {
         guard let payload = SearchScoring.payload(in: query, prefixes: ["base64", "b64"]), payload.isEmpty == false else { return [] }
         var results: [CommandResult] = []
         if let encoded = DeveloperToolsEngine.base64Encode(payload) {
-            results.append(makeResult(id: "dev.base64.any.encode.\(encoded.hashValue)", title: encoded, subtitle: "Encoded", icon: "lock.doc", fallback: "64", primary: CopyToClipboardAction(encoded)))
+            results.append(makeResult(id: "dev.base64.any.encode.\(encoded.hashValue)", title: encoded, subtitle: "Encoded", icon: "lock.doc",
+                fallback: "64", primary: CopyToClipboardAction(encoded)))
         }
         if let decoded = DeveloperToolsEngine.base64Decode(payload) {
-            results.append(makeResult(id: "dev.base64.any.decode.\(decoded.hashValue)", title: decoded, subtitle: "Decoded", icon: "lock.open", fallback: "64", primary: CopyToClipboardAction(decoded)))
+            results.append(makeResult(id: "dev.base64.any.decode.\(decoded.hashValue)", title: decoded, subtitle: "Decoded", icon: "lock.open",
+                fallback: "64", primary: CopyToClipboardAction(decoded)))
         }
         return results
     }
@@ -360,7 +362,8 @@ final class DeveloperToolsProvider: CommandProvider {
     }
 
     private let staticCommands: [StaticCommand] = [
-        StaticCommand(id: "dev.uuid", title: "Generate UUID", subtitle: "Copy a new UUID", aliases: ["uuid", "guid", "identifier"], icon: "number", fallback: "ID",  action: CopyToClipboardAction(UUID().uuidString)),
+        StaticCommand(id: "dev.uuid", title: "Generate UUID", subtitle: "Copy a new UUID", aliases: ["uuid", "guid", "identifier"], icon: "number",
+            fallback: "ID",  action: CopyToClipboardAction(UUID().uuidString)),
         StaticCommand(
             id: "dev.base64", title: "Base64 Encode or Decode", subtitle: "Transform text to or from base64",
             aliases: ["base64", "b64", "encode", "decode"], icon: "lock.doc", fallback: "64",
@@ -376,7 +379,8 @@ final class DeveloperToolsProvider: CommandProvider {
             aliases: ["case", "change case", "convert case"], icon: "character.cursor.ibeam", fallback: "Aa",
             action: OpenDeveloperToolsAction(tool: "case")
         ),
-        StaticCommand(id: "dev.timestamp", title: "Unix Timestamp", subtitle: "Convert timestamps and ISO dates", aliases: ["unix", "timestamp", "epoch"], icon: "clock", fallback: "TS",  action: OpenDeveloperToolsAction(tool: "timestamp")),
+        StaticCommand(id: "dev.timestamp", title: "Unix Timestamp", subtitle: "Convert timestamps and ISO dates", aliases: ["unix", "timestamp",
+            "epoch"], icon: "clock", fallback: "TS",  action: OpenDeveloperToolsAction(tool: "timestamp")),
         StaticCommand(
             id: "dev.wordcount", title: "Word Count", subtitle: "Count words, characters, lines, and paragraphs",
             aliases: ["word count", "count words", "wc"], icon: "textformat.abc", fallback: "WC",

@@ -55,13 +55,15 @@ final class AIProvider: Sendable, CommandProvider {
         )]
     }
 
-    func stream(prompt: String, context: String? = nil, backend: AIBackend? = nil, profileID: UUID? = nil, sessionID: String? = nil) -> AsyncStream<AIStreamEvent> {
+    func stream(prompt: String, context: String? = nil, backend: AIBackend? = nil, profileID: UUID? = nil,
+        sessionID: String? = nil) -> AsyncStream<AIStreamEvent> {
         let selectedProfile = profileID.flatMap { id in config.current.ai.profiles.first { $0.id == id && $0.enabled } }
             ?? backend.map { config.current.ai.profile(for: $0) }
             ?? AIProfileResolver.defaultProfile(in: config.current.ai)
         return AsyncStream { continuation in
             let task = Task { [config, diagnostics] in
-                await AgentRunner(config: config, diagnostics: diagnostics).stream(prompt: prompt, context: context, profile: selectedProfile, sessionID: sessionID, continuation: continuation)
+                await AgentRunner(config: config, diagnostics: diagnostics).stream(prompt: prompt, context: context, profile: selectedProfile,
+                    sessionID: sessionID, continuation: continuation)
                 continuation.finish()
             }
             continuation.onTermination = { _ in task.cancel() }

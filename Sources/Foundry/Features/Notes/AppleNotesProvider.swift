@@ -32,7 +32,8 @@ final class AppleNotesProvider: CommandProvider {
                 icon: CommandIcon(fallback: "AN", systemName: "note.text"),
                 route: .notesSearch,
                 payload: .note(id: note.id),
-                primaryAction: CommandAction(id: "apple-note.open.\(note.id)", title: "Open in Apple Notes", behavior: RunProcessAction(path: "/usr/bin/osascript", arguments: openScriptArguments(noteID: note.id))),
+                primaryAction: CommandAction(id: "apple-note.open.\(note.id)", title: "Open in Apple Notes",
+                    behavior: RunProcessAction(path: "/usr/bin/osascript", arguments: openScriptArguments(noteID: note.id))),
                 secondaryActions: [
                     CommandAction(id: "apple-note.copy.\(note.id)", title: "Copy Preview", behavior: CopyToClipboardAction(note.preview))
                 ]
@@ -48,7 +49,8 @@ final class AppleNotesProvider: CommandProvider {
                 subtitle: "Search with: notes <text>",
                 icon: CommandIcon(fallback: "AN", systemName: "note.text"),
                 payload: .command,
-                primaryAction: CommandAction(id: "foundry.apple-notes.launch", title: "Open", behavior: RunProcessAction(path: "/usr/bin/open", arguments: ["-a", "Notes"])),
+                primaryAction: CommandAction(id: "foundry.apple-notes.launch", title: "Open", behavior: RunProcessAction(path: "/usr/bin/open",
+                    arguments: ["-a", "Notes"])),
                 secondaryActions: []
             )
         ]
@@ -135,7 +137,9 @@ final class AppleNotesProvider: CommandProvider {
     private func openScriptArguments(noteID: String) -> [String] {
         [
             "-l", "JavaScript",
-            "-e", "function run(argv) { const target = String(argv[0] || ''); const Notes = Application('Notes'); const note = Notes.notes().find(n => n.id() === target); if (note) { Notes.show(note); Notes.activate(); } }",
+            "-e",
+                "function run(argv) { const target = String(argv[0] || ''); const Notes = Application('Notes'); const note = Notes.notes().find(n " +
+                    "=> n.id() === target); if (note) { Notes.show(note); Notes.activate(); } }",
             noteID
         ]
     }

@@ -22,7 +22,8 @@ final class TranslatorState {
     private var task: Task<Void, Never>?
     private var resetting = false
 
-    init(availability: TranslationAvailability = .current, debounce: Duration = .milliseconds(450), translator: @escaping TranslationProvider.Translator = { await AppleTranslator.translate($0) }) {
+    init(availability: TranslationAvailability = .current, debounce: Duration = .milliseconds(450),
+        translator: @escaping TranslationProvider.Translator = { await AppleTranslator.translate($0) }) {
         self.availability = availability
         self.debounce = debounce
         self.translator = translator

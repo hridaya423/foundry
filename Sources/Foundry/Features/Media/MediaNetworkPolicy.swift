@@ -45,14 +45,16 @@ protocol MediaNetworkAddressLocating: Sendable {
 
 struct SystemMediaNetworkAddressLocator: MediaNetworkAddressLocating {
     func addresses(for host: String) -> [String] {
-        var hints = addrinfo(ai_flags: AI_ADDRCONFIG, ai_family: AF_UNSPEC, ai_socktype: SOCK_STREAM, ai_protocol: IPPROTO_TCP, ai_addrlen: 0, ai_canonname: nil, ai_addr: nil, ai_next: nil)
+        var hints = addrinfo(ai_flags: AI_ADDRCONFIG, ai_family: AF_UNSPEC, ai_socktype: SOCK_STREAM, ai_protocol: IPPROTO_TCP, ai_addrlen: 0,
+            ai_canonname: nil, ai_addr: nil, ai_next: nil)
         var result: UnsafeMutablePointer<addrinfo>?
         guard getaddrinfo(host, nil, &hints, &result) == 0, let result else { return [] }
         defer { freeaddrinfo(result) }
         var addresses: [String] = []
         for pointer in sequence(first: result, next: { $0.pointee.ai_next }) {
             var hostBuffer = [CChar](repeating: 0, count: Int(NI_MAXHOST))
-            guard getnameinfo(pointer.pointee.ai_addr, pointer.pointee.ai_addrlen, &hostBuffer, socklen_t(hostBuffer.count), nil, 0, NI_NUMERICHOST) == 0 else { continue }
+            guard getnameinfo(pointer.pointee.ai_addr, pointer.pointee.ai_addrlen, &hostBuffer, socklen_t(hostBuffer.count), nil, 0,
+                NI_NUMERICHOST) == 0 else { continue }
             let bytes = hostBuffer.prefix { $0 != 0 }.map { UInt8(bitPattern: $0) }
             addresses.append(String(decoding: bytes, as: UTF8.self))
         }
@@ -125,7 +127,8 @@ struct MediaNetworkPolicy: Sendable {
 
     func validate(response: HTTPURLResponse, prefix: Data, receivedBytes: Int64) throws {
         guard (200..<300).contains(response.statusCode) else { throw MediaNetworkPolicyFailure.invalidStatus(response.statusCode) }
-        if let length = response.value(forHTTPHeaderField: "Content-Length"), let length = Int64(length), length > maxBytes { throw MediaNetworkPolicyFailure.responseTooLarge }
+        if let length = response.value(forHTTPHeaderField: "Content-Length"), let length = Int64(length),
+            length > maxBytes { throw MediaNetworkPolicyFailure.responseTooLarge }
         guard receivedBytes <= maxBytes else { throw MediaNetworkPolicyFailure.responseTooLarge }
         guard let mime = response.mimeType?.lowercased(), isMediaMIME(mime) else { throw MediaNetworkPolicyFailure.mimeMismatch }
         guard hasMediaSignature(prefix) else { throw MediaNetworkPolicyFailure.invalidSignature }
@@ -133,7 +136,8 @@ struct MediaNetworkPolicy: Sendable {
 
     func validate(response: HTTPURLResponse, body: Data) throws {
         try validate(response: response, prefix: body.prefix(4096), receivedBytes: Int64(body.count))
-        if let length = response.value(forHTTPHeaderField: "Content-Length"), let length = Int64(length), length > Int64(body.count) { throw MediaNetworkPolicyFailure.truncatedBody }
+        if let length = response.value(forHTTPHeaderField: "Content-Length"), let length = Int64(length),
+            length > Int64(body.count) { throw MediaNetworkPolicyFailure.truncatedBody }
     }
 
     func validateStagedMedia(at url: URL, fileSystem: any MediaArtifactFileSystem) throws {
@@ -182,7 +186,8 @@ struct MediaNetworkPolicy: Sendable {
         var v4 = in_addr()
         if value.withCString({ inet_pton(AF_INET, $0, &v4) }) == 1 {
             let hostOrder = UInt32(bigEndian: v4.s_addr)
-            return IPv4Address(UInt8((hostOrder >> 24) & 255), UInt8((hostOrder >> 16) & 255), UInt8((hostOrder >> 8) & 255), UInt8(hostOrder & 255)).isPublic == false
+            return IPv4Address(UInt8((hostOrder >> 24) & 255), UInt8((hostOrder >> 16) & 255), UInt8((hostOrder >> 8) & 255),
+                UInt8(hostOrder & 255)).isPublic == false
         }
         var v6 = in6_addr()
         if value.withCString({ inet_pton(AF_INET6, $0, &v6) }) == 1 {
@@ -190,7 +195,8 @@ struct MediaNetworkPolicy: Sendable {
             if bytes.prefix(10).allSatisfy({ $0 == 0 }) && bytes[10] == 255 && bytes[11] == 255 {
                 return IPv4Address(bytes[12], bytes[13], bytes[14], bytes[15]).isPublic == false
             }
-            return bytes.allSatisfy { $0 == 0 } || (bytes.dropLast().allSatisfy { $0 == 0 } && bytes.last == 1) || (bytes[0] & 0xfe) == 0xfc || (bytes[0] == 0xfe && (bytes[1] & 0xc0) == 0x80) || (bytes[0] & 0xff) == 0xff
+            return bytes.allSatisfy { $0 == 0 } || (bytes.dropLast().allSatisfy { $0 == 0 } && bytes.last == 1) || (bytes[0] & 0xfe) == 0xfc
+                || (bytes[0] == 0xfe && (bytes[1] & 0xc0) == 0x80) || (bytes[0] & 0xff) == 0xff
         }
         return false
     }
@@ -224,10 +230,13 @@ struct MediaNetworkPolicy: Sendable {
     private func hasMediaSignature(_ data: Data) -> Bool {
         let bytes = [UInt8](data)
         guard bytes.count >= 4 else { return false }
-        if bytes.starts(with: [0x1A, 0x45, 0xDF, 0xA3]) || bytes.starts(with: [0x4F, 0x67, 0x67, 0x53]) || bytes.starts(with: [0x66, 0x4C, 0x61, 0x43]) || bytes.starts(with: [0x49, 0x44, 0x33]) { return true }
+        if bytes.starts(with: [0x1A, 0x45, 0xDF, 0xA3]) || bytes.starts(with: [0x4F, 0x67, 0x67, 0x53]) || bytes.starts(with: [0x66, 0x4C, 0x61,
+            0x43]) || bytes.starts(with: [0x49, 0x44, 0x33]) { return true }
         if bytes.starts(with: [0x52, 0x49, 0x46, 0x46]) && bytes.count >= 12 && String(decoding: bytes[8..<12], as: UTF8.self) == "WAVE" { return true }
-        if bytes.starts(with: [0x46, 0x4F, 0x52, 0x4D]) && bytes.count >= 12 && (String(decoding: bytes[8..<12], as: UTF8.self) == "AIFF" || String(decoding: bytes[8..<12], as: UTF8.self) == "AIFC") { return true }
-        if bytes.starts(with: [0xFF, 0xF1]) || bytes.starts(with: [0xFF, 0xF9]) || (bytes.count >= 2 && bytes[0] == 0xFF && (bytes[1] & 0xE0) == 0xE0) { return true }
+        if bytes.starts(with: [0x46, 0x4F, 0x52, 0x4D]) && bytes.count >= 12 && (String(decoding: bytes[8..<12],
+            as: UTF8.self) == "AIFF" || String(decoding: bytes[8..<12], as: UTF8.self) == "AIFC") { return true }
+        if bytes.starts(with: [0xFF, 0xF1]) || bytes.starts(with: [0xFF,
+            0xF9]) || (bytes.count >= 2 && bytes[0] == 0xFF && (bytes[1] & 0xE0) == 0xE0) { return true }
         return bytes.count >= 8 && String(decoding: bytes[4..<8], as: UTF8.self) == "ftyp"
     }
 

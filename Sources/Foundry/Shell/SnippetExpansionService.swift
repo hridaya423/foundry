@@ -47,7 +47,8 @@ final class SnippetExpansionService {
 
     private var hapticsEnabled = true
 
-    func configure(isEnabled: Bool, excludedBundleIdentifiers: [String], delimiters: [String] = SnippetExpansionConfig.defaultDelimiters, hapticsEnabled: Bool = true) {
+    func configure(isEnabled: Bool, excludedBundleIdentifiers: [String], delimiters: [String] = SnippetExpansionConfig.defaultDelimiters,
+        hapticsEnabled: Bool = true) {
         lastError = nil
         onStatusChanged?(nil)
         activeDelimiters = Set(delimiters)

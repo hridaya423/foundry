@@ -12,7 +12,8 @@ struct StoredSnippet: Codable, Identifiable, Hashable {
     var useCount: Int
     var lastUsedAt: Date?
 
-    init(id: String = UUID().uuidString, title: String = "", content: String = "", keyword: String = "", tags: [String] = [], isPinned: Bool = false, updatedAt: Date = Date(), useCount: Int = 0, lastUsedAt: Date? = nil) {
+    init(id: String = UUID().uuidString, title: String = "", content: String = "", keyword: String = "", tags: [String] = [], isPinned: Bool = false,
+        updatedAt: Date = Date(), useCount: Int = 0, lastUsedAt: Date? = nil) {
         self.id = id
         self.title = title
         self.content = content

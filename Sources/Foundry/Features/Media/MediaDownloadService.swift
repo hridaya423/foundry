@@ -234,7 +234,8 @@ final class MediaDownloadService: MediaDownloading, Sendable {
     }
 
     private func existingYTDLP() throws -> String {
-        if let existing = try dependencies.executableLocator.locate(name: "yt-dlp", candidates: ["/opt/homebrew/bin/yt-dlp", "/usr/local/bin/yt-dlp"], environment: ProcessInfo.processInfo.environment) { return existing.path }
+        if let existing = try dependencies.executableLocator.locate(name: "yt-dlp", candidates: ["/opt/homebrew/bin/yt-dlp",
+            "/usr/local/bin/yt-dlp"], environment: ProcessInfo.processInfo.environment) { return existing.path }
         throw MediaDownloadError.youtubeDependencyMissing
     }
 
@@ -268,7 +269,8 @@ final class MediaDownloadService: MediaDownloading, Sendable {
         guard let brew = firstExistingPath(["/opt/homebrew/bin/brew", "/usr/local/bin/brew"]) else { throw MediaDownloadError.youtubeDependencyMissing }
         return try await ytDLPInstallGate.install {
             try Task.checkCancellation()
-            let result = try await self.dependencies.processRunner.run(path: brew, arguments: ["install", "yt-dlp"], timeout: 30 * 60, outputLimit: 2 * 1024 * 1024, environment: nil, currentDirectoryURL: nil, onOutput: nil)
+            let result = try await self.dependencies.processRunner.run(path: brew, arguments: ["install", "yt-dlp"], timeout: 30 * 60,
+                outputLimit: 2 * 1024 * 1024, environment: nil, currentDirectoryURL: nil, onOutput: nil)
             guard result.succeeded else { throw MediaDownloadError.message(result.stderr.isEmpty ? "Homebrew could not install yt-dlp" : result.stderr) }
             try Task.checkCancellation()
             return try self.existingYTDLP()
@@ -331,7 +333,8 @@ final class MediaDownloadService: MediaDownloading, Sendable {
             if shouldRemoveTemporary { try? dependencies.artifactFileSystem.removeItem(at: temporaryURL) }
         }
         let fallbackName = fileResponse?.suggestedFilename ?? response.filename ?? "media-\(Int(Date().timeIntervalSince1970))"
-        let destination = try dependencies.networkPolicy.reserveDestination(named: fallbackName, in: downloadFolder, fileSystem: dependencies.artifactFileSystem)
+        let destination = try dependencies.networkPolicy.reserveDestination(named: fallbackName, in: downloadFolder,
+            fileSystem: dependencies.artifactFileSystem)
         defer { dependencies.networkPolicy.releaseDestination(destination) }
         try dependencies.artifactFileSystem.moveItem(at: temporaryURL, to: destination)
         shouldRemoveTemporary = false
@@ -370,7 +373,8 @@ final class MediaDownloadService: MediaDownloading, Sendable {
             }
         )
         guard result.succeeded else {
-            throw MediaDownloadError.message(result.stderr.isEmpty ? result.stdout.trimmingCharacters(in: .whitespacesAndNewlines) : result.stderr.trimmingCharacters(in: .whitespacesAndNewlines))
+            throw MediaDownloadError.message(result.stderr.isEmpty ? result.stdout.trimmingCharacters(
+                in: .whitespacesAndNewlines) : result.stderr.trimmingCharacters(in: .whitespacesAndNewlines))
         }
         let outputs = try dependencies.artifactFileSystem.regularFiles(in: staging)
         guard outputs.isEmpty == false else { throw MediaDownloadError.message("yt-dlp produced no media file") }
@@ -379,7 +383,8 @@ final class MediaDownloadService: MediaDownloading, Sendable {
         }
         var files: [URL] = []
         for output in outputs {
-            let destination = try dependencies.networkPolicy.reserveDestination(named: output.lastPathComponent, in: downloadFolder, fileSystem: dependencies.artifactFileSystem)
+            let destination = try dependencies.networkPolicy.reserveDestination(named: output.lastPathComponent, in: downloadFolder,
+                fileSystem: dependencies.artifactFileSystem)
             defer { dependencies.networkPolicy.releaseDestination(destination) }
             try dependencies.artifactFileSystem.moveItem(at: output, to: destination)
             files.append(destination)
@@ -392,7 +397,8 @@ final class MediaDownloadService: MediaDownloading, Sendable {
         title: String,
         progress: (@MainActor @Sendable (MediaDownloadProgress) -> Void)?
     ) async throws -> (URL, URLResponse?) {
-        let delegate = MediaDownloadDelegate(title: title, progress: progress, policy: dependencies.networkPolicy, fileSystem: dependencies.artifactFileSystem, trustEvaluator: dependencies.trustEvaluator)
+        let delegate = MediaDownloadDelegate(title: title, progress: progress, policy: dependencies.networkPolicy,
+            fileSystem: dependencies.artifactFileSystem, trustEvaluator: dependencies.trustEvaluator)
         let result = try await withTaskCancellationHandler {
             try await withCheckedThrowingContinuation { continuation in
             delegate.start(sourceURL, session: dependencies.session, continuation: continuation)
@@ -413,7 +419,8 @@ final class MediaDownloadService: MediaDownloading, Sendable {
     private func cobaltResponseData(_ request: URLRequest) async throws -> (Data, URLResponse) {
         try await withThrowingTaskGroup(of: (Data, URLResponse).self) { group in
             group.addTask {
-                let delegate = CobaltResponseDelegate(policy: self.dependencies.networkPolicy, maxBytes: self.dependencies.cobaltResponseMaxBytes, trustEvaluator: self.dependencies.trustEvaluator)
+                let delegate = CobaltResponseDelegate(policy: self.dependencies.networkPolicy, maxBytes: self.dependencies.cobaltResponseMaxBytes,
+                    trustEvaluator: self.dependencies.trustEvaluator)
                 return try await delegate.start(request, session: self.dependencies.session)
             }
             group.addTask {
@@ -440,7 +447,8 @@ final class MediaDownloadService: MediaDownloading, Sendable {
     }
 
     private func firstExistingPath(_ paths: [String]) -> String? {
-        paths.first { (try? dependencies.executableLocator.locate(name: URL(fileURLWithPath: $0).lastPathComponent, candidates: [$0], environment: [:])) != nil }
+        paths.first { (try? dependencies.executableLocator.locate(name: URL(fileURLWithPath: $0).lastPathComponent, candidates: [$0],
+            environment: [:])) != nil }
     }
 
 }
@@ -541,7 +549,8 @@ private final class CobaltResponseDelegate: NSObject, URLSessionDataDelegate, UR
         continuation?.resume(throwing: CancellationError())
     }
 
-    func urlSession(_: URLSession, task _: URLSessionTask, willPerformHTTPRedirection response: HTTPURLResponse, newRequest request: URLRequest, completionHandler: @Sendable @escaping (URLRequest?) -> Void) {
+    func urlSession(_: URLSession, task _: URLSessionTask, willPerformHTTPRedirection response: HTTPURLResponse, newRequest request: URLRequest,
+        completionHandler: @Sendable @escaping (URLRequest?) -> Void) {
         do {
             guard let url = request.url else { throw MediaNetworkPolicyFailure.blockedDestination }
             let count = state.withLockUnchecked { state in
@@ -556,7 +565,8 @@ private final class CobaltResponseDelegate: NSObject, URLSessionDataDelegate, UR
         }
     }
 
-    func urlSession(_: URLSession, didReceive challenge: URLAuthenticationChallenge, completionHandler: @Sendable @escaping (URLSession.AuthChallengeDisposition, URLCredential?) -> Void) {
+    func urlSession(_: URLSession, didReceive challenge: URLAuthenticationChallenge,
+        completionHandler: @Sendable @escaping (URLSession.AuthChallengeDisposition, URLCredential?) -> Void) {
         guard challenge.protectionSpace.authenticationMethod == NSURLAuthenticationMethodServerTrust,
               let trust = challenge.protectionSpace.serverTrust,
               let host = challenge.protectionSpace.host.isEmpty ? nil : challenge.protectionSpace.host else {
@@ -572,7 +582,8 @@ private final class CobaltResponseDelegate: NSObject, URLSessionDataDelegate, UR
         completionHandler(.useCredential, URLCredential(trust: trust))
     }
 
-    func urlSession(_: URLSession, dataTask: URLSessionDataTask, didReceive response: URLResponse, completionHandler: @Sendable @escaping (URLSession.ResponseDisposition) -> Void) {
+    func urlSession(_: URLSession, dataTask: URLSessionDataTask, didReceive response: URLResponse,
+        completionHandler: @Sendable @escaping (URLSession.ResponseDisposition) -> Void) {
         state.withLockUnchecked { $0.response = response }
         completionHandler(.allow)
     }
@@ -644,7 +655,8 @@ private final class MediaDownloadDelegate: NSObject, URLSessionDownloadDelegate,
         self.trustEvaluator = trustEvaluator
     }
 
-    func urlSession(_: URLSession, task _: URLSessionTask, willPerformHTTPRedirection response: HTTPURLResponse, newRequest request: URLRequest, completionHandler: @Sendable @escaping (URLRequest?) -> Void) {
+    func urlSession(_: URLSession, task _: URLSessionTask, willPerformHTTPRedirection response: HTTPURLResponse, newRequest request: URLRequest,
+        completionHandler: @Sendable @escaping (URLRequest?) -> Void) {
         do {
             let count = state.withLockUnchecked { state in
                 state.redirectCount += 1
@@ -693,7 +705,8 @@ private final class MediaDownloadDelegate: NSObject, URLSessionDownloadDelegate,
         task.resume()
     }
 
-    func urlSession(_ session: URLSession, didReceive challenge: URLAuthenticationChallenge, completionHandler: @Sendable @escaping (URLSession.AuthChallengeDisposition, URLCredential?) -> Void) {
+    func urlSession(_ session: URLSession, didReceive challenge: URLAuthenticationChallenge,
+        completionHandler: @Sendable @escaping (URLSession.AuthChallengeDisposition, URLCredential?) -> Void) {
         guard challenge.protectionSpace.authenticationMethod == NSURLAuthenticationMethodServerTrust,
               let trust = challenge.protectionSpace.serverTrust,
               let host = challenge.protectionSpace.host.isEmpty ? nil : challenge.protectionSpace.host else {
@@ -712,7 +725,8 @@ private final class MediaDownloadDelegate: NSObject, URLSessionDownloadDelegate,
     }
 
     func cancel(with error: Error = CancellationError()) {
-        let gathered = state.withLockUnchecked { state -> (continuation: CheckedContinuation<(URL, URLResponse?), Error>?, task: URLSessionDownloadTask?, session: URLSession?, temporaryURL: URL?) in
+        let gathered = state.withLockUnchecked { state -> (continuation: CheckedContinuation<(URL, URLResponse?), Error>?,
+            task: URLSessionDownloadTask?, session: URLSession?, temporaryURL: URL?) in
             guard state.didFinish == false else { return (nil, nil, nil, nil) }
             state.didFinish = true
             state.pendingError = error
@@ -784,7 +798,8 @@ private final class MediaDownloadDelegate: NSObject, URLSessionDownloadDelegate,
     }
 
     func urlSession(_: URLSession, task _: URLSessionTask, didCompleteWithError error: Error?) {
-        let gathered = state.withLockUnchecked { state -> (continuation: CheckedContinuation<(URL, URLResponse?), Error>?, temporaryURL: URL?, response: URLResponse?, pendingError: Error?, session: URLSession?, didFinish: Bool) in
+        let gathered = state.withLockUnchecked { state -> (continuation: CheckedContinuation<(URL, URLResponse?), Error>?, temporaryURL: URL?,
+            response: URLResponse?, pendingError: Error?, session: URLSession?, didFinish: Bool) in
             guard state.didFinish == false else { return (nil, nil, nil, nil, nil, true) }
             state.didFinish = true
             let continuation = state.continuation
@@ -825,7 +840,8 @@ final class YTDLPProgressParser: Sendable {
             + #"(?:.*?at\s+([0-9]+(?:\.[0-9]+)?\s*(?:B|KiB|MiB|GiB|TiB))/s)?(?:.*?ETA\s+([0-9:]+))?"#,
         options: [.caseInsensitive]
     )
-    private static let totalBytesRegex = try! NSRegularExpression(pattern: #"of\s+(?:~\s*)?([0-9]+(?:\.[0-9]+)?\s*(?:B|KiB|MiB|GiB|TiB))"#, options: [.caseInsensitive])
+    private static let totalBytesRegex = try! NSRegularExpression(pattern: #"of\s+(?:~\s*)?([0-9]+(?:\.[0-9]+)?\s*(?:B|KiB|MiB|GiB|TiB))"#,
+        options: [.caseInsensitive])
     private static let speedRegex = try! NSRegularExpression(pattern: #"at\s+([0-9]+(?:\.[0-9]+)?\s*(?:B|KiB|MiB|GiB|TiB))/s"#, options: [.caseInsensitive])
     private static let etaRegex = try! NSRegularExpression(pattern: #"ETA\s+([0-9:]+)"#, options: [.caseInsensitive])
     private static let byteValueRegex = try! NSRegularExpression(pattern: #"^\s*([0-9]+(?:\.[0-9]+)?)\s*(B|KiB|MiB|GiB|TiB)\s*$"#, options: [.caseInsensitive])

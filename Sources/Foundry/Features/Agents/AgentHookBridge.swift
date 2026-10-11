@@ -28,7 +28,8 @@ enum AgentBridgeProvider: String, CaseIterable, Sendable {
 }
 
 enum AgentHookBridge {
-    static func run(provider: AgentBridgeProvider, input: Data = FileHandle.standardInput.readDataToEndOfFile(), environment: [String: String] = ProcessInfo.processInfo.environment) {
+    static func run(provider: AgentBridgeProvider, input: Data = FileHandle.standardInput.readDataToEndOfFile(),
+        environment: [String: String] = ProcessInfo.processInfo.environment) {
         let raw = BestEffort.attempt("parse \(provider.rawValue) hook input") {
             try JSONSerialization.jsonObject(with: input)
         }
@@ -77,9 +78,11 @@ enum AgentHookBridge {
         case "userpromptsubmit":
             event = .userPrompt(string(object, keys: ["prompt", "message", "user_prompt"]) ?? "")
         case "pretooluse":
-            event = .toolActivity(name: string(object, keys: ["tool_name", "toolName"]) ?? "tool", detail: text(object["tool_input"] ?? object["toolInput"]), running: true)
+            event = .toolActivity(name: string(object, keys: ["tool_name", "toolName"]) ?? "tool",
+                detail: text(object["tool_input"] ?? object["toolInput"]), running: true)
         case "posttooluse", "posttoolusefailure", "posttoolbatch":
-            event = .toolActivity(name: string(object, keys: ["tool_name", "toolName"]) ?? "tool", detail: text(object["tool_response"] ?? object["toolResponse"] ?? object["error"]), running: false)
+            event = .toolActivity(name: string(object, keys: ["tool_name", "toolName"]) ?? "tool",
+                detail: text(object["tool_response"] ?? object["toolResponse"] ?? object["error"]), running: false)
         case "permissionrequest":
             event = .attention(reason: .permission, prompt: string(object, keys: ["prompt", "message", "tool_name"]))
         case "precompact", "postcompact":
@@ -133,9 +136,11 @@ enum AgentHookBridge {
         case "sessionend": event = .sessionEnd
         case "beforesubmitprompt": event = .userPrompt(string(object, keys: ["prompt"]) ?? "")
         case "pretooluse", "subagentstart":
-            event = .toolActivity(name: string(object, keys: ["tool_name", "subagent_type"]) ?? "tool", detail: text(object["tool_input"] ?? object["task"]), running: true)
+            event = .toolActivity(name: string(object, keys: ["tool_name", "subagent_type"]) ?? "tool",
+                detail: text(object["tool_input"] ?? object["task"]), running: true)
         case "posttooluse", "aftershellexecution", "aftermcpexecution", "afterfileedit", "subagentstop":
-            event = .toolActivity(name: string(object, keys: ["tool_name"]) ?? "tool", detail: text(object["output"] ?? object["error_message"]), running: false)
+            event = .toolActivity(name: string(object, keys: ["tool_name"]) ?? "tool", detail: text(object["output"] ?? object["error_message"]),
+                running: false)
         case "posttoolusefailure":
             event = .completion(success: false)
         case "precompact": event = .status(.working)
@@ -176,9 +181,11 @@ enum AgentHookBridge {
         case "message.updated", "message.part.updated":
             event = .assistantMessage(text(properties["text"] ?? properties["content"] ?? nestedValue(properties, path: ["part", "text"])) ?? "")
         case "tool.execute.before":
-            event = .toolActivity(name: string(properties, keys: ["tool", "name"]) ?? "tool", detail: string(properties, keys: ["input", "args"]), running: true)
+            event = .toolActivity(name: string(properties, keys: ["tool", "name"]) ?? "tool", detail: string(properties, keys: ["input", "args"]),
+                running: true)
         case "tool.execute.after":
-            event = .toolActivity(name: string(properties, keys: ["tool", "name"]) ?? "tool", detail: string(properties, keys: ["output", "result"]), running: false)
+            event = .toolActivity(name: string(properties, keys: ["tool", "name"]) ?? "tool", detail: string(properties, keys: ["output", "result"]),
+                running: false)
         case "permission.asked":
             event = .attention(reason: .permission, prompt: string(properties, keys: ["permission", "description", "message"]))
         case "question.asked":
@@ -211,7 +218,8 @@ enum AgentHookBridge {
         )
     }
 
-    private static func commandHookMetadata(provider: AgentProviderKind, object: [String: Any], sessionID: String, environment: [String: String]) -> AgentSessionMetadata {
+    private static func commandHookMetadata(provider: AgentProviderKind, object: [String: Any], sessionID: String,
+        environment: [String: String]) -> AgentSessionMetadata {
         let cwd = string(object, keys: ["cwd", "working_directory"]) ?? environment["PWD"]
         let command = provider == .codex ? "codex resume \(sessionID)" : "claude --resume \(sessionID)"
         return AgentSessionMetadata(
@@ -342,7 +350,8 @@ enum AgentHookBridge {
 
     private static func date(_ object: [String: Any], keys: [String]) -> Date? {
         for key in keys {
-            if let number = object[key] as? NSNumber { return Date(timeIntervalSince1970: number.doubleValue > 10_000_000_000 ? number.doubleValue / 1_000 : number.doubleValue) }
+            if let number = object[key] as? NSNumber { return Date(
+                timeIntervalSince1970: number.doubleValue > 10_000_000_000 ? number.doubleValue / 1_000 : number.doubleValue) }
             if let string = object[key] as? String, let date = ISO8601DateFormatter().date(from: string) { return date }
         }
         return nil

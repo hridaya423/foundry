@@ -18,7 +18,8 @@ final class FirefoxConnectorInstaller {
 
         let alert = NSAlert()
         alert.messageText = "Connect Foundry to Firefox?"
-        alert.informativeText = "Foundry can connect to your open Firefox tabs. Firefox will open its Add-ons Debugging page and Finder will show the local connector package for you to load. Foundry only receives tab titles and URLs."
+        alert.informativeText = "Foundry can connect to your open Firefox tabs. Firefox will open its Add-ons Debugging page and Finder will show " +
+            "the local connector package for you to load. Foundry only receives tab titles and URLs."
         alert.addButton(withTitle: "Install Connector")
         alert.addButton(withTitle: "Not Now")
         localState.set(\.firefoxConnectorPromptShown, true)

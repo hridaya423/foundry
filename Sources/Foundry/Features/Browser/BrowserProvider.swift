@@ -144,7 +144,8 @@ final class BrowserProvider: CommandProvider, Sendable {
                 return SafariBookmarkParser.parse(object).compactMap { makeBookmark($0, source: source) }
             }
         case .firefox:
-            let query = "SELECT moz_bookmarks.id, moz_bookmarks.title, moz_places.url FROM moz_bookmarks JOIN moz_places ON moz_places.id = moz_bookmarks.fk WHERE moz_bookmarks.type = 1 AND moz_places.url IS NOT NULL LIMIT 500;"
+            let query = "SELECT moz_bookmarks.id, moz_bookmarks.title, moz_places.url FROM moz_bookmarks JOIN moz_places ON moz_places.id = " +
+                "moz_bookmarks.fk WHERE moz_bookmarks.type = 1 AND moz_places.url IS NOT NULL LIMIT 500;"
             return source.bookmarkFiles(in: homeDirectory).flatMap { file in
                 LocalSQLite.rows(database: file, query: query).compactMap { row in
                     guard let url = row["url"] else { return nil }
@@ -189,9 +190,11 @@ final class BrowserProvider: CommandProvider, Sendable {
         let script: String
         switch source {
         case .safari:
-            script = "function run() { const app = Application('Safari'); return JSON.stringify(app.windows().flatMap(w => w.tabs().map(t => ({title: t.name(), url: t.url()})))); }"
+            script = "function run() { const app = Application('Safari'); return JSON.stringify(app.windows().flatMap(w => w.tabs().map(t => " +
+                "({title: t.name(), url: t.url()})))); }"
         default:
-            script = "function run() { const app = Application('\(source.applicationName)'); return JSON.stringify(app.windows().flatMap(w => w.tabs().map(t => ({title: t.title(), url: t.url()})))); }"
+            script = "function run() { const app = Application('\(source.applicationName)'); return JSON.stringify(app.windows().flatMap(w => " +
+                "w.tabs().map(t => ({title: t.title(), url: t.url()})))); }"
         }
         guard let output = runOSAScript(script), let data = output.data(using: .utf8) else { return [] }
         let tabs = BestEffort.attempt("decode \(source.rawValue) live tabs") {
@@ -200,7 +203,8 @@ final class BrowserProvider: CommandProvider, Sendable {
         guard let tabs else { return [] }
         let records: [BrowserRecord] = tabs.compactMap { tab in
             guard let url = URL(string: tab.url), url.scheme != nil else { return nil }
-            return BrowserRecord(id: "tab-\(source.rawValue)-\(tab.url)", kind: .tab, browser: source, title: tab.title.isEmpty ? tab.url : tab.title, subtitle: "Open tab - \(source.displayName)", url: url, icon: "rectangle.on.rectangle")
+            return BrowserRecord(id: "tab-\(source.rawValue)-\(tab.url)", kind: .tab, browser: source,
+                title: tab.title.isEmpty ? tab.url : tab.title, subtitle: "Open tab - \(source.displayName)", url: url, icon: "rectangle.on.rectangle")
         }
         liveTabsCache.store(records, for: source)
         return records
@@ -241,7 +245,8 @@ final class BrowserProvider: CommandProvider, Sendable {
         guard let payload else { return nil }
         return payload.tabs.enumerated().compactMap { index, tab in
             guard let url = URL(string: tab.url), url.scheme != nil else { return nil }
-            return BrowserRecord(id: "tab-firefox-live-\(index)-\(tab.url)", kind: .tab, browser: .firefox, title: tab.title.isEmpty ? tab.url : tab.title, subtitle: "Open tab - Firefox", url: url, icon: "rectangle.on.rectangle")
+            return BrowserRecord(id: "tab-firefox-live-\(index)-\(tab.url)", kind: .tab, browser: .firefox,
+                title: tab.title.isEmpty ? tab.url : tab.title, subtitle: "Open tab - Firefox", url: url, icon: "rectangle.on.rectangle")
         }
     }
 
@@ -441,7 +446,8 @@ enum BrowserSource: String, CaseIterable, Sendable, Hashable {
 
     func historyDatabases(in home: URL) -> [URL] {
         if self == .safari { return existing([home.appendingPathComponent("Library/Safari/History.db")]) }
-        return profileDirectories(in: home).map { $0.appendingPathComponent("places.sqlite") }.filter { FileManager.default.fileExists(atPath: $0.path) || self != .firefox }.compactMap { file in
+        return profileDirectories(in: home).map { $0.appendingPathComponent("places.sqlite") }.filter { FileManager.default.fileExists(
+            atPath: $0.path) || self != .firefox }.compactMap { file in
             let history = self == .firefox ? file : file.deletingLastPathComponent().appendingPathComponent("History")
             return FileManager.default.fileExists(atPath: history.path) ? history : nil
         }

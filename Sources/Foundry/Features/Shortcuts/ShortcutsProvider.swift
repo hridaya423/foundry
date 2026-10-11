@@ -39,7 +39,8 @@ final class ShortcutsProvider: CommandProvider, Sendable {
         return cachedNames().compactMap { name in
             let id = "shortcut.\(name)"
             let aliases = request.customAliases[id] ?? []
-            guard SearchScoring.match(query: query, title: name, subtitle: nil, keywords: ["shortcut"], aliases: aliases, sensitivity: request.sensitivity) != nil else { return nil }
+            guard SearchScoring.match(query: query, title: name, subtitle: nil, keywords: ["shortcut"], aliases: aliases,
+                sensitivity: request.sensitivity) != nil else { return nil }
             return CommandResult(
                 id: id,
                 title: name,
@@ -49,7 +50,8 @@ final class ShortcutsProvider: CommandProvider, Sendable {
                 searchKeywords: ["shortcut"],
                 payload: .command,
                 primaryAction: CommandAction(id: "\(id).run", title: "Run Shortcut", behavior: RunProcessAction(path: Self.cliPath, arguments: ["run", name])),
-                secondaryActions: [CommandAction(id: "\(id).edit", title: "Edit in Shortcuts", behavior: OpenURLAction("shortcuts://open-shortcut?name=\(name.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? name)"))]
+                secondaryActions: [CommandAction(id: "\(id).edit", title: "Edit in Shortcuts",
+                    behavior: OpenURLAction("shortcuts://open-shortcut?name=\(name.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? name)"))]
             )
         }
     }

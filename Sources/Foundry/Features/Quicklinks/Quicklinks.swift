@@ -14,7 +14,8 @@ struct Quicklink: Codable, Identifiable, Hashable, Sendable {
 
     var takesArgument: Bool { QuicklinkTemplate.argumentRange(in: link) != nil }
 
-    init(id: String = UUID().uuidString, name: String, link: String, keyword: String = "", openWithBundleID: String? = nil, useFavicon: Bool? = nil, isEnabled: Bool = true) {
+    init(id: String = UUID().uuidString, name: String, link: String, keyword: String = "", openWithBundleID: String? = nil, useFavicon: Bool? = nil,
+        isEnabled: Bool = true) {
         self.id = id
         self.name = name
         self.link = link
@@ -68,7 +69,8 @@ enum QuicklinkTemplate {
         Quicklink(id: "translate", name: "Google Translate", link: "https://translate.google.com/?sl=auto&text={argument}", keyword: "gt"),
         Quicklink(id: "search-files", name: "Search Files", link: "foundry://files/{argument}", keyword: "sf"),
         Quicklink(id: "duckduckgo", name: "Search DuckDuckGo", link: "https://duckduckgo.com/?q={argument}", keyword: "ddg", isEnabled: false),
-        Quicklink(id: "wikipedia", name: "Search Wikipedia", link: "https://en.wikipedia.org/wiki/Special:Search?search={argument}", keyword: "wiki", isEnabled: false)
+        Quicklink(id: "wikipedia", name: "Search Wikipedia", link: "https://en.wikipedia.org/wiki/Special:Search?search={argument}", keyword: "wiki",
+            isEnabled: false)
     ]
 
     static func importRaycast(_ data: Data) throws -> [Quicklink] {
@@ -154,13 +156,15 @@ final class QuicklinkProvider: CommandProvider, Sendable {
     func search(_ request: CommandSearchRequest) async -> [CommandResult] {
         let query = request.query.trimmingCharacters(in: .whitespaces)
         guard query.isEmpty == false else { return [] }
-        let create = SearchScoring.match(query: query, title: Self.createCommand.title, subtitle: nil, keywords: ["new quicklink", "add quicklink"], aliases: [], sensitivity: request.sensitivity) != nil ? [Self.createCommand] : []
+        let create = SearchScoring.match(query: query, title: Self.createCommand.title, subtitle: nil, keywords: ["new quicklink", "add quicklink"],
+            aliases: [], sensitivity: request.sensitivity) != nil ? [Self.createCommand] : []
         return create + store.load().filter(\.isEnabled).compactMap { link in
             if link.takesArgument, let argument = argument(in: query, for: link) {
                 return result(for: link, argument: argument, aliases: request.customAliases["quicklink.\(link.id)"] ?? [])
             }
             let aliases = request.customAliases["quicklink.\(link.id)"] ?? []
-            guard SearchScoring.match(query: query, title: link.name, subtitle: nil, keywords: [], aliases: aliases + [link.keyword].filter { !$0.isEmpty }, sensitivity: request.sensitivity) != nil else { return nil }
+            guard SearchScoring.match(query: query, title: link.name, subtitle: nil, keywords: [],
+                aliases: aliases + [link.keyword].filter { !$0.isEmpty }, sensitivity: request.sensitivity) != nil else { return nil }
             return result(for: link, argument: nil, aliases: aliases)
         }
     }
@@ -215,14 +219,17 @@ final class QuicklinkProvider: CommandProvider, Sendable {
         return CommandResult(
             id: id,
             title: title,
-            subtitle: isFileSearch ? "Spotlight file search" : (link.takesArgument && argument == nil ? "Type \(prefix) then your query" : Self.displayURL(link.link, argument: argument)),
-            icon: CommandIcon(fallback: String(link.name.prefix(2)).uppercased(), systemName: isFileSearch ? "doc.text.magnifyingglass" : "link", remoteIconURL: link.useFavicon == false ? nil : Self.faviconURL(for: link.link)),
+            subtitle: isFileSearch ? "Spotlight file search" : (link.takesArgument && argument
+                == nil ? "Type \(prefix) then your query" : Self.displayURL(link.link, argument: argument)),
+            icon: CommandIcon(fallback: String(link.name.prefix(2)).uppercased(), systemName: isFileSearch ? "doc.text.magnifyingglass" : "link",
+                remoteIconURL: link.useFavicon == false ? nil : Self.faviconURL(for: link.link)),
             searchAliases: aliases,
             searchKeywords: [link.keyword].filter { !$0.isEmpty },
             payload: .quicklink(id: link.id),
             primaryAction: primary,
             secondaryActions: [
-                CommandAction(id: "\(id).copy", title: "Copy Link", behavior: CopyToClipboardAction(argument.map { QuicklinkTemplate.expand(link.link, argument: $0, context: context()) } ?? link.link)),
+                CommandAction(id: "\(id).copy", title: "Copy Link",
+                    behavior: CopyToClipboardAction(argument.map { QuicklinkTemplate.expand(link.link, argument: $0, context: context()) } ?? link.link)),
                 CommandAction(id: "\(id).delete", title: "Delete Quicklink", behavior: DeleteQuicklinkAction(id: link.id))
             ]
         )

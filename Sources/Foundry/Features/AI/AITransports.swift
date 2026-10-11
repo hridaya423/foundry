@@ -1,8 +1,10 @@
 import Foundation
 
 final class AIProviderSessionDelegate: NSObject, URLSessionTaskDelegate {
-    func urlSession(_ session: URLSession, task: URLSessionTask, willPerformHTTPRedirection response: HTTPURLResponse, newRequest request: URLRequest, completionHandler: @Sendable @escaping (URLRequest?) -> Void) {
-        guard let sourceHost = task.currentRequest?.url?.host?.lowercased(), let destinationHost = request.url?.host?.lowercased(), sourceHost == destinationHost else {
+    func urlSession(_ session: URLSession, task: URLSessionTask, willPerformHTTPRedirection response: HTTPURLResponse,
+        newRequest request: URLRequest, completionHandler: @Sendable @escaping (URLRequest?) -> Void) {
+        guard let sourceHost = task.currentRequest?.url?.host?.lowercased(), let destinationHost = request.url?.host?.lowercased(),
+            sourceHost == destinationHost else {
             completionHandler(nil)
             return
         }

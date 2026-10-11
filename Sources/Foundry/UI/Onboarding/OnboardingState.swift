@@ -81,7 +81,8 @@ final class OnboardingState {
     private let version: String
     private var spotlightPoll: Timer?
 
-    init(panel: CommandPanelState, permissions: PermissionHealthState, localState: LocalStateStore = .shared, version: String = OnboardingState.currentVersion) {
+    init(panel: CommandPanelState, permissions: PermissionHealthState, localState: LocalStateStore = .shared,
+        version: String = OnboardingState.currentVersion) {
         self.panel = panel
         self.permissions = permissions
         self.localState = localState
@@ -152,7 +153,8 @@ final class OnboardingState {
 
     private var spotlightTicks = 0
 
-    func useCommandSpace(spotlightEnabled: @escaping @Sendable () -> Bool = SpotlightShortcut.isEnabledOnThisMac, disableSpotlight: () -> Bool = SpotlightShortcut.disableOnThisMac) {
+    func useCommandSpace(spotlightEnabled: @escaping @Sendable () -> Bool = SpotlightShortcut.isEnabledOnThisMac,
+        disableSpotlight: () -> Bool = SpotlightShortcut.disableOnThisMac) {
         guard spotlightEnabled() else {
             spotlightHoldsCommandSpace = false
             panel.settings.setHotkey(.commandSpace)

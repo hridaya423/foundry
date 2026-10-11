@@ -389,7 +389,8 @@ final class FoundryPanel: NSPanel {
     private func handleShortcut(_ event: NSEvent) -> Bool {
         let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
         if flags.contains(.command), let key = event.charactersIgnoringModifiers?.lowercased(), key.isEmpty == false {
-            let modifiers = Set(zip([NSEvent.ModifierFlags.control, .option, .shift, .command], ActionShortcut.Modifier.allCases).compactMap { flags.contains($0) ? $1 : nil })
+            let modifiers = Set(zip([NSEvent.ModifierFlags.control, .option, .shift, .command],
+                ActionShortcut.Modifier.allCases).compactMap { flags.contains($0) ? $1 : nil })
             if onActionShortcut?(ActionShortcut(key: key, modifiers: modifiers)) == true { return true }
         }
         guard flags == .command else { return false }

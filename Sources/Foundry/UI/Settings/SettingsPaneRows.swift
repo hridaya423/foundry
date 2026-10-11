@@ -168,7 +168,8 @@ struct AISettingsSection: View {
                         HStack(spacing: 10) {
                             SettingsLabel(
                                 title: "Models",
-                                subtitle: profile.kind == .openAISubscription ? "Choose a model available through ChatGPT" : "Discover models from this endpoint"
+                                subtitle: profile.kind
+                                    == .openAISubscription ? "Choose a model available through ChatGPT" : "Discover models from this endpoint"
                             )
                             Spacer()
                             if profile.kind != .openAISubscription {
@@ -213,7 +214,9 @@ struct AISettingsSection: View {
                         SettingsDivider()
                         VStack(alignment: .leading, spacing: 10) {
                             SettingsLabel(title: "ChatGPT subscription", subtitle: "Uses the private Codex backend with OAuth PKCE")
-                            Text("This integration may change or stop working without notice. Foundry stores OAuth credentials only in macOS Keychain and does not use browser cookies.")
+                            Text(
+                                "This integration may change or stop working without notice. Foundry stores OAuth credentials only in macOS " +
+                                    "Keychain and does not use browser cookies.")
                                 .font(FoundryTheme.body(size: 11, weight: .regular))
                                 .foregroundStyle(FoundryTheme.mutedText)
                                 .fixedSize(horizontal: false, vertical: true)

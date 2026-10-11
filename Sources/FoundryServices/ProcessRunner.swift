@@ -35,7 +35,8 @@ public enum ProcessRunnerError: Error, Equatable {
 }
 
 public protocol ProcessRunning: Sendable {
-    func run(path: String, arguments: [String], timeout: TimeInterval, outputLimit: Int, environment: [String: String]?, currentDirectoryURL: URL?, onOutput: (@Sendable (ProcessOutputLine) -> Void)?) async throws -> ProcessResult
+    func run(path: String, arguments: [String], timeout: TimeInterval, outputLimit: Int, environment: [String: String]?, currentDirectoryURL: URL?,
+        onOutput: (@Sendable (ProcessOutputLine) -> Void)?) async throws -> ProcessResult
 }
 
 public struct SystemProcessRunner: ProcessRunning, Sendable {

@@ -112,7 +112,8 @@ final class ScriptCommandProvider: CommandProvider, Sendable {
                 let argument = query.dropFirst(script.title.count).trimmingCharacters(in: .whitespaces)
                 return result(script, id: id, aliases: aliases, argument: argument)
             }
-            guard SearchScoring.match(query: query, title: script.title, subtitle: script.packageName, keywords: ["script"], aliases: aliases, sensitivity: request.sensitivity) != nil else { return nil }
+            guard SearchScoring.match(query: query, title: script.title, subtitle: script.packageName, keywords: ["script"], aliases: aliases,
+                sensitivity: request.sensitivity) != nil else { return nil }
             return result(script, id: id, aliases: aliases, argument: nil)
         }
     }
@@ -121,7 +122,8 @@ final class ScriptCommandProvider: CommandProvider, Sendable {
         let needsArgument = script.arguments.contains { $0.optional == false } && (argument ?? "").isEmpty
         let primary = needsArgument
             ? CommandAction(id: "\(id).fill", title: "Enter \(script.arguments[0].placeholder)", behavior: FillQueryAction("\(script.title) "))
-            : CommandAction(id: "\(id).run", title: "Run Script", behavior: RunScriptAction(path: script.path, arguments: argument.map { [$0] } ?? [], mode: script.mode))
+            : CommandAction(id: "\(id).run", title: "Run Script", behavior: RunScriptAction(path: script.path,
+                arguments: argument.map { [$0] } ?? [], mode: script.mode))
         let subtitle = needsArgument ? "Type \(script.arguments.map(\.placeholder).joined(separator: ", "))" : (script.packageName ?? "Script Command")
         return CommandResult(
             id: id,

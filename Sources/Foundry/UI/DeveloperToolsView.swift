@@ -99,7 +99,8 @@ struct DeveloperToolsView: View {
                 if state.bitOperation == .not {
                     DeveloperInputField(title: "Mask Width", placeholder: "8", text: $state.bitWidthInput)
                 } else {
-                    DeveloperInputField(title: state.bitOperation == .shiftLeft || state.bitOperation == .shiftRight ? "Shift" : "Right", placeholder: "3", text: $state.bitRightInput)
+                    DeveloperInputField(title: state.bitOperation == .shiftLeft || state.bitOperation == .shiftRight ? "Shift" : "Right",
+                        placeholder: "3", text: $state.bitRightInput)
                 }
             }
 

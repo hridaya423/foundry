@@ -88,7 +88,8 @@ final class UsageRankingStore: Sendable {
                 state.usage.records[resultID],
                 queryKeys(for: query)
                     .compactMap { key, weight in
-                        state.usage.queryRecords[key]?[resultID].map { boost(for: $0, frequencyScale: 0.7, frequencyCap: 2.0, recencyCap: 1.2, recencyDecay: 0.05) * weight }
+                        state.usage.queryRecords[key]?[resultID].map { boost(for: $0, frequencyScale: 0.7, frequencyCap: 2.0, recencyCap: 1.2,
+                            recencyDecay: 0.05) * weight }
                     }
                     .max() ?? 0
             )

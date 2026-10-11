@@ -250,10 +250,13 @@ public enum SearchScoring {
     ) -> SearchMatch? {
         let queryTokens = query.tokens
         guard queryTokens.isEmpty == false else { return nil }
-        let aliasMatches = aliases.compactMap { aliasMatch(query: query.normalized, queryTokenCount: queryTokens.count, alias: valuesAreNormalized ? $0 : normalize($0)) }
-        let titleMatches = [textMatch(query: query, candidate: title, field: .title, sensitivity: sensitivity, allowFuzzy: allowFuzzy, isNormalized: valuesAreNormalized)].compactMap { $0 }
+        let aliasMatches = aliases.compactMap { aliasMatch(query: query.normalized, queryTokenCount: queryTokens.count,
+            alias: valuesAreNormalized ? $0 : normalize($0)) }
+        let titleMatches = [textMatch(query: query, candidate: title, field: .title, sensitivity: sensitivity, allowFuzzy: allowFuzzy,
+            isNormalized: valuesAreNormalized)].compactMap { $0 }
         let subtitleMatches = [subtitle].compactMap { value in
-            value.flatMap { textMatch(query: query, candidate: $0, field: .subtitle, sensitivity: sensitivity, allowFuzzy: allowFuzzy, isNormalized: valuesAreNormalized) }
+            value.flatMap { textMatch(query: query, candidate: $0, field: .subtitle, sensitivity: sensitivity, allowFuzzy: allowFuzzy,
+                isNormalized: valuesAreNormalized) }
         }
         let keywordMatches = keywords.compactMap { keyword in
             textMatch(query: query, candidate: keyword, field: .keyword, sensitivity: sensitivity, allowFuzzy: allowFuzzy, isNormalized: valuesAreNormalized)
@@ -289,7 +292,8 @@ public enum SearchScoring {
         )
     }
 
-    private static func textMatch(query: PreparedQuery, candidate: String, field: SearchMatchField, sensitivity: SearchSensitivity, allowFuzzy: Bool, isNormalized: Bool = false) -> SearchMatch? {
+    private static func textMatch(query: PreparedQuery, candidate: String, field: SearchMatchField, sensitivity: SearchSensitivity, allowFuzzy: Bool,
+        isNormalized: Bool = false) -> SearchMatch? {
         let normalizedCandidate = isNormalized ? candidate : normalize(candidate)
         guard normalizedCandidate.isEmpty == false else { return nil }
         let queryString = query.normalized
@@ -302,7 +306,8 @@ public enum SearchScoring {
         if normalizedCandidate == queryString {
             details = MatchDetails(kind: .exact, matchedTokenCount: queryTokens.count, exactTokenCount: queryTokens.count, editDistance: 0, fuzzyScore: nil)
         } else if normalizedCandidate.hasPrefix(queryString + " ") || normalizedCandidate.hasPrefix(queryString) {
-            details = MatchDetails(kind: .phrasePrefix, matchedTokenCount: queryTokens.count, exactTokenCount: queryTokens.count, editDistance: nil, fuzzyScore: nil)
+            details = MatchDetails(kind: .phrasePrefix, matchedTokenCount: queryTokens.count, exactTokenCount: queryTokens.count, editDistance: nil,
+                fuzzyScore: nil)
         } else if let tokenDetails = tokenMatchDetails(queryTokens: queryTokens, candidateTokens: candidateTokens) {
             details = tokenDetails
         } else if let compactTokenDetails = compactTokenMatchDetails(queryTokens: queryTokens, candidateTokens: candidateTokens) {
@@ -315,7 +320,8 @@ public enum SearchScoring {
                 details = MatchDetails(kind: .contains, matchedTokenCount: queryTokens.count, exactTokenCount: 0, editDistance: nil, fuzzyScore: nil)
             } else {
                 guard allowFuzzy,
-                      let fuzzy = fuzzyDetails(queryTokens: queryTokens, queryTokenCharacters: query.tokenCharacters, candidateTokens: candidateTokens, sensitivity: sensitivity) else {
+                      let fuzzy = fuzzyDetails(queryTokens: queryTokens, queryTokenCharacters: query.tokenCharacters,
+                          candidateTokens: candidateTokens, sensitivity: sensitivity) else {
                     return nil
                 }
                 details = fuzzy
@@ -350,7 +356,8 @@ public enum SearchScoring {
         }
     }
 
-    private static func fuzzyDetails(queryTokens: [String], queryTokenCharacters: [[Character]], candidateTokens: [String], sensitivity: SearchSensitivity) -> MatchDetails? {
+    private static func fuzzyDetails(queryTokens: [String], queryTokenCharacters: [[Character]], candidateTokens: [String],
+        sensitivity: SearchSensitivity) -> MatchDetails? {
         let minimumQueryLength: Int
         let densityThreshold: Double
         switch sensitivity {

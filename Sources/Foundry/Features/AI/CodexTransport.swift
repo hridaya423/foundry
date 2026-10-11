@@ -66,7 +66,8 @@ struct CodexResponsesStreamDecoder: Sendable {
         case "response.completed", "response.incomplete":
             return finish()
         default:
-            if let choices = root["choices"] as? [[String: Any]], let delta = choices.first?["delta"] as? [String: Any], let content = delta["content"] as? String {
+            if let choices = root["choices"] as? [[String: Any]], let delta = choices.first?["delta"] as? [String: Any],
+                let content = delta["content"] as? String {
                 textParts.append(content)
                 return CodexResponsesStreamFrame(contentDelta: content, toolCall: nil, isDone: false, failureMessage: nil)
             }
@@ -93,7 +94,8 @@ enum OpenAICodexTransport {
     private static let tokenManager = OpenAICodexTokenManager.shared
 
     static func respond(profile: AIProviderProfile, messages: [[String: Any]], tools: [AgentTool], sessionID: String?) async -> AgentModelResponse {
-        guard CodexModelPolicy.contains(profile.model) else { return .failure("The selected model is not available through the ChatGPT subscription connection.", .configuration) }
+        guard CodexModelPolicy.contains(profile.model) else { return .failure(
+            "The selected model is not available through the ChatGPT subscription connection.", .configuration) }
         do {
             var credential = try await tokenManager.validCredential(profileID: profile.id)
             for attempt in 0...1 {
@@ -172,7 +174,8 @@ enum OpenAICodexTransport {
             if role == "assistant", let calls = message["tool_calls"] as? [[String: Any]] {
                 for call in calls {
                     guard let function = call["function"] as? [String: Any], let name = function["name"] as? String else { continue }
-                    let arguments = (try? JSONSerialization.data(withJSONObject: function["arguments"] as? [String: String] ?? [:])).flatMap { String(data: $0, encoding: .utf8) } ?? "{}"
+                    let arguments = (try? JSONSerialization.data(
+                        withJSONObject: function["arguments"] as? [String: String] ?? [:])).flatMap { String(data: $0, encoding: .utf8) } ?? "{}"
                     let callID = call["id"] as? String ?? "foundry-\(name)"
                     input.append(["type": "function_call", "call_id": callID, "name": name, "arguments": arguments])
                 }

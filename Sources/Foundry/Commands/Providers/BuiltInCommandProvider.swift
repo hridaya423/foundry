@@ -112,7 +112,8 @@ final class BuiltInCommandProvider: CommandProvider {
                 aliases: ["new snippet", "create snippet", "clipboard snippet", "save snippet"],
                 systemIcon: "plus.rectangle.on.rectangle",
                 fallback: "SN",
-                primaryAction: CommandAction(id: "foundry.snippets.create-from-clipboard.perform", title: "Create", behavior: CreateSnippetFromClipboardAction())
+                primaryAction: CommandAction(id: "foundry.snippets.create-from-clipboard.perform", title: "Create",
+                    behavior: CreateSnippetFromClipboardAction())
             ),
             BuiltInCommand(
                 id: "foundry.snippets.import",

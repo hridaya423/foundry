@@ -89,7 +89,8 @@ final class SnippetState {
     }
 
     var duplicateKeywords: [String] {
-        Dictionary(grouping: items.filter { !$0.keyword.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }, by: { $0.keyword.trimmingCharacters(in: .whitespacesAndNewlines) })
+        Dictionary(grouping: items.filter { !$0.keyword.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty },
+            by: { $0.keyword.trimmingCharacters(in: .whitespacesAndNewlines) })
             .filter { $0.value.count > 1 }
             .keys.sorted()
     }

@@ -28,16 +28,19 @@ struct StatusItemMenuModel: Equatable {
     init(hotkey: FoundryHotkey, clipboardPaused: Bool, hotkeyFailed: Bool, keepAwakeActive: Bool = false) {
         var items: [Item] = []
         if hotkeyFailed {
-            items.append(Item(kind: .hotkeyWarning, title: "\(hotkey.displayName) is unavailable — Choose Another Shortcut…", keyEquivalent: "", keyEquivalentModifierMask: []))
+            items.append(Item(kind: .hotkeyWarning, title: "\(hotkey.displayName) is unavailable — Choose Another Shortcut…", keyEquivalent: "",
+                keyEquivalentModifierMask: []))
             items.append(Item(kind: .separator, title: "", keyEquivalent: "", keyEquivalentModifierMask: []))
         }
         if hotkey.keyCode == UInt32(kVK_Space) {
-            items.append(Item(kind: .openFoundry, title: "Open Foundry", keyEquivalent: " ", keyEquivalentModifierMask: Self.menuModifiers(for: hotkey.modifiers)))
+            items.append(Item(kind: .openFoundry, title: "Open Foundry", keyEquivalent: " ",
+                keyEquivalentModifierMask: Self.menuModifiers(for: hotkey.modifiers)))
         } else {
             items.append(Item(kind: .openFoundry, title: "Open Foundry (\(hotkey.displayName))", keyEquivalent: "", keyEquivalentModifierMask: []))
         }
         items.append(Item(kind: .clipboardHistory, title: "Clipboard History", keyEquivalent: "", keyEquivalentModifierMask: []))
-        items.append(Item(kind: .clipboardPauseToggle, title: clipboardPaused ? "Resume Clipboard" : "Pause Clipboard", keyEquivalent: "", keyEquivalentModifierMask: []))
+        items.append(Item(kind: .clipboardPauseToggle, title: clipboardPaused ? "Resume Clipboard" : "Pause Clipboard", keyEquivalent: "",
+            keyEquivalentModifierMask: []))
         items.append(Item(kind: .keepAwake, title: "Keep Awake", keyEquivalent: "", keyEquivalentModifierMask: [], isOn: keepAwakeActive))
         items.append(Item(kind: .separator, title: "", keyEquivalent: "", keyEquivalentModifierMask: []))
         items.append(Item(kind: .settings, title: "Settings…", keyEquivalent: ",", keyEquivalentModifierMask: .command))

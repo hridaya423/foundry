@@ -38,7 +38,8 @@ final class CalculatorProvider: CommandProvider {
                 payload: .calculation(expression: evaluation.expression, value: result),
                 primaryAction: CommandAction(id: "calculator.\(expression).copy", title: "Copy Result", behavior: CopyToClipboardAction(evaluation.copyValue)),
                 secondaryActions: [
-                    CommandAction(id: "calculator.\(expression).copy-expression", title: "Copy Expression", behavior: CopyToClipboardAction(evaluation.expression))
+                    CommandAction(id: "calculator.\(expression).copy-expression", title: "Copy Expression",
+                        behavior: CopyToClipboardAction(evaluation.expression))
                 ]
             )
         ]
@@ -96,7 +97,8 @@ final class CalculatorProvider: CommandProvider {
                 payload: .calculation(expression: entry.expression, value: entry.result),
                 primaryAction: CommandAction(id: "calculator.history.\(index).copy", title: "Copy Result", behavior: CopyToClipboardAction(entry.result)),
                 secondaryActions: [
-                    CommandAction(id: "calculator.history.\(index).copy-expression", title: "Copy Expression", behavior: CopyToClipboardAction(entry.expression))
+                    CommandAction(id: "calculator.history.\(index).copy-expression", title: "Copy Expression",
+                        behavior: CopyToClipboardAction(entry.expression))
                 ]
             )
         }
@@ -111,9 +113,11 @@ final class CalculatorProvider: CommandProvider {
                 icon: CommandIcon(fallback: "⇄", systemName: "arrow.left.arrow.right"),
                 route: .calculator,
                 payload: .calculationConversion(expression: conversion.expression, value: conversion.result),
-                primaryAction: CommandAction(id: "calculator.convert.\(index).copy", title: "Copy Result", behavior: CopyToClipboardAction(conversion.copyValue)),
+                primaryAction: CommandAction(id: "calculator.convert.\(index).copy", title: "Copy Result",
+                    behavior: CopyToClipboardAction(conversion.copyValue)),
                 secondaryActions: [
-                    CommandAction(id: "calculator.convert.\(index).copy-expression", title: "Copy Conversion", behavior: CopyToClipboardAction("\(conversion.expression) = \(conversion.result)"))
+                    CommandAction(id: "calculator.convert.\(index).copy-expression", title: "Copy Conversion",
+                        behavior: CopyToClipboardAction("\(conversion.expression) = \(conversion.result)"))
                 ]
             )
         }
@@ -152,7 +156,9 @@ final class CalculatorProvider: CommandProvider {
         }
     }
 
-    private static let symbolCurrencyRegex = try! NSRegularExpression(pattern: #"^([$€£¥₹])\s*([-+]?\d+(?:[\.,]\d+)?)(?:\s*(?:to|in)\s*([a-z]{3}|[$€£¥₹]))?$"#)
+    private static let symbolCurrencyRegex = try! NSRegularExpression(
+        pattern: #"^([$€£¥₹])\s*([-+]?\d+(?:[\.,]\d+)?)(?:\s*(?:to|in)\s*([a-z]{3}|[$€£¥₹]))?$"#
+    )
     private static let wordCurrencyRegex = try! NSRegularExpression(
         pattern: #"^([-+]?\d+(?:[\.,]\d+)?)\s*([a-z]{3}|dollars?|bucks?|usd|euros?|eur|pounds?|gbp|yen|jpy|rupees?|inr|cad|aud|chf|cny)"#
             + #"(?:\s*(?:to|in)\s*([a-z]{3}|[$€£¥₹]|dollars?|usd|euros?|eur|pounds?|gbp|yen|jpy|rupees?|inr|cad|aud|chf|cny))?$"#

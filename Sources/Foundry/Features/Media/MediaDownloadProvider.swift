@@ -34,7 +34,8 @@ final class MediaDownloadProvider: CommandProvider {
         let dedupeNote = duplicates > 0 ? " (\(duplicates) duplicate\(duplicates == 1 ? "" : "s") skipped)" : ""
         let title = isBatch ? "Download \(urls.count) Media Links\(dedupeNote)" : (isPlaylist ? "Download Playlist" : "Download Media")
         let detail = isBatch ? "add all links to the download queue" : (isPlaylist ? "all videos in this playlist" : url.lastPathComponent)
-        let service = isBatch ? "parallel downloads" : (isYouTube ? "YouTube · yt-dlp (automatic setup)" : (isDirectFile ? "Direct link · stays on this Mac" : "supported media · yt-dlp"))
+        let service = isBatch ? "parallel downloads" : (isYouTube ? "YouTube · yt-dlp (automatic setup)" : (
+            isDirectFile ? "Direct link · stays on this Mac" : "supported media · yt-dlp"))
         let primaryBehavior: any ResultAction = isBatch
             ? DownloadMediaBatchAction(urls: urls.map(\.absoluteString))
             : DownloadMediaAction(url: url.absoluteString)
@@ -50,7 +51,8 @@ final class MediaDownloadProvider: CommandProvider {
                 primaryAction: CommandAction(id: "media.download.perform", title: isBatch ? "Download All" : "Download", behavior: primaryBehavior),
                 secondaryActions: [
                     CommandAction(id: "media.download.open-manager", title: "View Downloads", behavior: OpenMediaDownloadsAction()),
-                    CommandAction(id: "media.download.open-folder", title: "Open Download Folder", behavior: OpenURLAction(MediaDownloadDestination.folder.absoluteString)),
+                    CommandAction(id: "media.download.open-folder", title: "Open Download Folder",
+                        behavior: OpenURLAction(MediaDownloadDestination.folder.absoluteString)),
                     CommandAction(id: "media.download.choose-folder", title: "Change Download Folder", behavior: ChooseMediaDownloadFolderAction()),
                     CommandAction(id: "media.download.copy-url", title: "Copy URL", behavior: CopyToClipboardAction(url.absoluteString))
                 ]

@@ -750,7 +750,8 @@ private extension FoundryDomain.WindowPlacement {
             return frames.enumerated().map { index, frame in
                 LayoutPreviewWindow(frame: frame, isActive: index == activeIndex)
             }
-        case .leftTwoThirds, .centerTwoThirds, .rightTwoThirds, .firstFourth, .secondFourth, .thirdFourth, .lastFourth, .firstThreeFourths, .lastThreeFourths, .centerHalf:
+        case .leftTwoThirds, .centerTwoThirds, .rightTwoThirds, .firstFourth, .secondFourth, .thirdFourth, .lastFourth, .firstThreeFourths,
+            .lastThreeFourths, .centerHalf:
             guard let (start, fraction) = columnSpan else { return [] }
             let active = CGRect(x: frame.minX + frame.width * start, y: frame.minY, width: frame.width * fraction, height: frame.height)
             let leading = CGRect(x: frame.minX, y: frame.minY, width: active.minX - frame.minX - gap, height: frame.height)

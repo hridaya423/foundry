@@ -295,7 +295,12 @@ struct CommandPanelView: View {
                         extractText: state.extractTextFromClipboardItem,
                         decodeBarcode: state.decodeBarcodeFromClipboardItem)
                 },
-                footerActions: [.init(label: "Paste", keys: "↵", emphasized: true), .init(label: "Copy", keys: "⌘↵"), .init(label: "Pin", keys: "⌘P"), .home]
+                footerActions: [
+                    .init(label: "Paste", keys: "↵", emphasized: true),
+                    .init(label: "Copy", keys: "⌘↵"),
+                    .init(label: "Pin", keys: "⌘P"),
+                    .home,
+                ]
             )
         case .snippets:
             FeatureSurface(
@@ -312,7 +317,8 @@ struct CommandPanelView: View {
                 },
                 content: {
                     ZStack {
-                        SnippetsView(state: state.snippets, expansionEnabled: state.settings.snippetExpansion.isEnabled, setExpansionEnabled: { state.settings.setSnippetExpansionEnabled($0) }, insert: {
+                        SnippetsView(state: state.snippets, expansionEnabled: state.settings.snippetExpansion.isEnabled,
+                            setExpansionEnabled: { state.settings.setSnippetExpansionEnabled($0) }, insert: {
                             guard state.insertOrCopySelectedSnippet() else { return false }
                             dismiss()
                             return true
@@ -1034,13 +1040,17 @@ struct FoundrySmoothedRectangle: InsettableShape {
 
         path.move(to: CGPoint(x: rect.minX + radius, y: rect.minY))
         path.addLine(to: CGPoint(x: rect.maxX - radius, y: rect.minY))
-        addSuperellipseCorner(to: &path, center: CGPoint(x: rect.maxX - radius, y: rect.minY + radius), startAngle: -.pi / 2, exponent: exponent, radius: radius, segments: segments)
+        addSuperellipseCorner(to: &path, center: CGPoint(x: rect.maxX - radius, y: rect.minY + radius), startAngle: -.pi / 2, exponent: exponent,
+            radius: radius, segments: segments)
         path.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY - radius))
-        addSuperellipseCorner(to: &path, center: CGPoint(x: rect.maxX - radius, y: rect.maxY - radius), startAngle: 0, exponent: exponent, radius: radius, segments: segments)
+        addSuperellipseCorner(to: &path, center: CGPoint(x: rect.maxX - radius, y: rect.maxY - radius), startAngle: 0, exponent: exponent,
+            radius: radius, segments: segments)
         path.addLine(to: CGPoint(x: rect.minX + radius, y: rect.maxY))
-        addSuperellipseCorner(to: &path, center: CGPoint(x: rect.minX + radius, y: rect.maxY - radius), startAngle: .pi / 2, exponent: exponent, radius: radius, segments: segments)
+        addSuperellipseCorner(to: &path, center: CGPoint(x: rect.minX + radius, y: rect.maxY - radius), startAngle: .pi / 2, exponent: exponent,
+            radius: radius, segments: segments)
         path.addLine(to: CGPoint(x: rect.minX, y: rect.minY + radius))
-        addSuperellipseCorner(to: &path, center: CGPoint(x: rect.minX + radius, y: rect.minY + radius), startAngle: .pi, exponent: exponent, radius: radius, segments: segments)
+        addSuperellipseCorner(to: &path, center: CGPoint(x: rect.minX + radius, y: rect.minY + radius), startAngle: .pi, exponent: exponent,
+            radius: radius, segments: segments)
         path.closeSubpath()
         return path
     }

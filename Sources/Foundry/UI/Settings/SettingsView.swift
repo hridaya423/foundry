@@ -230,7 +230,8 @@ struct SettingsView: View {
 
             SettingsGroup {
                 HStack(spacing: 12) {
-                    SettingsLabel(title: "Backup", subtitle: "Settings, snippets, quicklinks and script folders. Clipboard history and API keys are not included.")
+                    SettingsLabel(title: "Backup",
+                        subtitle: "Settings, snippets, quicklinks and script folders. Clipboard history and API keys are not included.")
                     Spacer()
                     Button("Export…", action: exportBackup)
                         .controlSize(.small)
@@ -241,7 +242,8 @@ struct SettingsView: View {
                 .padding(.vertical, 11)
             }
             .modifier(anchor("advanced.backup"))
-            .confirmationDialog("Replace your Foundry settings?", isPresented: Binding(get: { pendingBackup != nil }, set: { if $0 == false { pendingBackup = nil } })) {
+            .confirmationDialog("Replace your Foundry settings?", isPresented: Binding(get: { pendingBackup != nil },
+                set: { if $0 == false { pendingBackup = nil } })) {
                 Button("Import and Quit", role: .destructive) {
                     if let pendingBackup { state.settings.restoreBackup(pendingBackup) }
                 }
@@ -357,7 +359,8 @@ struct SettingsView: View {
                     SettingsDivider()
                     SettingsToggleRow(
                         title: "Launch at login",
-                        subtitle: state.settings.launchAtLoginAvailable ? "Start Foundry automatically when you sign in" : "Available in the installed Foundry app",
+                        subtitle: state.settings.launchAtLoginAvailable ? "Start Foundry automatically when you sign in" : "Available in the " +
+                            "installed Foundry app",
                         isOn: state.settings.launchAtLoginEnabled,
                         set: state.settings.setLaunchAtLogin
                     )
@@ -477,19 +480,23 @@ struct SettingsView: View {
                     HStack(spacing: 8) {
                         ForEach(snippetDelimiterOptions, id: \.delimiter) { option in
                             Button {
-                                state.settings.setSnippetExpansionDelimiter(option.delimiter, enabled: !state.settings.snippetExpansion.delimiters.contains(option.delimiter))
+                                state.settings.setSnippetExpansionDelimiter(option.delimiter,
+                                    enabled: !state.settings.snippetExpansion.delimiters.contains(option.delimiter))
                             } label: {
                                 Text(option.label)
                                     .font(FoundryTheme.body(size: 11.5, weight: .semibold))
-                                    .foregroundStyle(state.settings.snippetExpansion.delimiters.contains(option.delimiter) ? FoundryTheme.primaryText : FoundryTheme.mutedText)
+                                    .foregroundStyle(state.settings.snippetExpansion.delimiters.contains(
+                                        option.delimiter) ? FoundryTheme.primaryText : FoundryTheme.mutedText)
                                     .padding(.horizontal, 11)
                                     .frame(height: 26)
                                     .background(
                                         Capsule()
-                                            .fill(state.settings.snippetExpansion.delimiters.contains(option.delimiter) ? FoundryTheme.accentTint.opacity(0.18) : Color.primary.opacity(0.05))
+                                            .fill(state.settings.snippetExpansion.delimiters.contains(
+                                                option.delimiter) ? FoundryTheme.accentTint.opacity(0.18) : Color.primary.opacity(0.05))
                                             .overlay(
                                                 Capsule()
-                                                    .strokeBorder(state.settings.snippetExpansion.delimiters.contains(option.delimiter) ? FoundryTheme.accentTint.opacity(0.4) : Color.primary.opacity(0.08), lineWidth: 1)
+                                                    .strokeBorder(state.settings.snippetExpansion.delimiters.contains(
+                                                        option.delimiter) ? FoundryTheme.accentTint.opacity(0.4) : Color.primary.opacity(0.08), lineWidth: 1)
                                             )
                                     )
                             }
@@ -512,15 +519,18 @@ struct SettingsView: View {
                             } label: {
                                 Text(option.label)
                                     .font(FoundryTheme.body(size: 11.5, weight: .semibold))
-                                    .foregroundStyle(state.settings.snippetExpansion.insertAsPrimary == option.insert ? FoundryTheme.primaryText : FoundryTheme.mutedText)
+                                    .foregroundStyle(state.settings.snippetExpansion.insertAsPrimary
+                                        == option.insert ? FoundryTheme.primaryText : FoundryTheme.mutedText)
                                     .padding(.horizontal, 11)
                                     .frame(height: 26)
                                     .background(
                                         Capsule()
-                                            .fill(state.settings.snippetExpansion.insertAsPrimary == option.insert ? FoundryTheme.accentTint.opacity(0.18) : Color.primary.opacity(0.05))
+                                            .fill(state.settings.snippetExpansion.insertAsPrimary
+                                                == option.insert ? FoundryTheme.accentTint.opacity(0.18) : Color.primary.opacity(0.05))
                                             .overlay(
                                                 Capsule()
-                                                    .strokeBorder(state.settings.snippetExpansion.insertAsPrimary == option.insert ? FoundryTheme.accentTint.opacity(0.4) : Color.primary.opacity(0.08), lineWidth: 1)
+                                                    .strokeBorder(state.settings.snippetExpansion.insertAsPrimary
+                                                        == option.insert ? FoundryTheme.accentTint.opacity(0.4) : Color.primary.opacity(0.08), lineWidth: 1)
                                             )
                                     )
                             }
@@ -705,7 +715,9 @@ struct SettingsView: View {
                         .foregroundStyle(FoundryTheme.faintText)
                         .lineLimit(1)
                         .truncationMode(.middle)
-                    Text("Foundry shows sessions from your coding agents. Approvals and replies happen in each agent's own app unless it supports replying from Foundry.")
+                    Text(
+                        "Foundry shows sessions from your coding agents. Approvals and replies happen in each agent's own app unless it supports " +
+                            "replying from Foundry.")
                         .font(FoundryTheme.body(size: 11, weight: .regular))
                         .foregroundStyle(FoundryTheme.mutedText)
                         .fixedSize(horizontal: false, vertical: true)
@@ -853,7 +865,8 @@ struct SettingsView: View {
         VStack(alignment: .leading, spacing: 10) {
             SettingsSectionLabel(title: "Clipboard history")
             SettingsGroup {
-                SettingsToggleRow(title: "Pause capture", subtitle: "Keep existing items but stop recording new copies", isOn: state.clipboardHistory.isPaused, set: state.settings.setClipboardPaused)
+                SettingsToggleRow(title: "Pause capture", subtitle: "Keep existing items but stop recording new copies",
+                    isOn: state.clipboardHistory.isPaused, set: state.settings.setClipboardPaused)
                 SettingsDivider()
                 HStack {
                     SettingsLabel(title: "Retain items", subtitle: "Maximum number of entries")

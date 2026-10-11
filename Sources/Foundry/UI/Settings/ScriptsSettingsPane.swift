@@ -9,7 +9,9 @@ struct ScriptsSettingsPane: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Foundry runs Raycast-compatible Script Commands: executable files with a “# @raycast.title” line. Scripts run as you, so a folder must be trusted before its first run.")
+            Text(
+                "Foundry runs Raycast-compatible Script Commands: executable files with a “# @raycast.title” line. Scripts run as you, so a folder " +
+                    "must be trusted before its first run.")
                 .font(FoundryTheme.body(size: 12, weight: .regular))
                 .foregroundStyle(FoundryTheme.mutedText)
                 .fixedSize(horizontal: false, vertical: true)
@@ -17,7 +19,8 @@ struct ScriptsSettingsPane: View {
             SettingsGroup {
                 ForEach(directories, id: \.self) { directory in
                     HStack(spacing: 10) {
-                        SettingsLabel(title: (directory as NSString).lastPathComponent, subtitle: "\(ScriptCommandProvider.scan(directory).count) scripts · \(directory)")
+                        SettingsLabel(title: (directory as NSString).lastPathComponent,
+                            subtitle: "\(ScriptCommandProvider.scan(directory).count) scripts · \(directory)")
                         Spacer()
                         Toggle("Trusted", isOn: Binding(
                             get: { trusted.contains(directory) },

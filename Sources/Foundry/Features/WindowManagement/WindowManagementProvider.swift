@@ -57,7 +57,8 @@ final class WindowManagementProvider: CommandProvider {
     }
 
     private static func matches(_ command: WindowCommand, query: String, aliases: [String], sensitivity: SearchSensitivity) -> Bool {
-        SearchScoring.match(query: query, title: command.title, subtitle: command.subtitle, keywords: [], aliases: command.aliases + aliases, sensitivity: sensitivity) != nil
+        SearchScoring.match(query: query, title: command.title, subtitle: command.subtitle, keywords: [], aliases: command.aliases + aliases,
+            sensitivity: sensitivity) != nil
     }
 }
 

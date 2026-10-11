@@ -502,7 +502,8 @@ struct CommandSettingsRow: View {
                         .foregroundStyle(FoundryTheme.secondaryText)
                         .onSubmit { commitAliases(aliasesText) }
                     Spacer()
-                    if row.preference.aliases.isEmpty == false || row.preference.favoriteRank != nil || row.preference.isEnabled == false || row.preference.globalHotkey != nil || row.preference.fallbackEligible == false {
+                    if row.preference.aliases.isEmpty == false || row.preference.favoriteRank != nil || row.preference.isEnabled == false
+                        || row.preference.globalHotkey != nil || row.preference.fallbackEligible == false {
                         Button("Reset") { reset() }
                             .buttonStyle(.plain)
                             .font(FoundryTheme.body(size: 11, weight: .medium))

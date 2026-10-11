@@ -127,7 +127,8 @@ private enum WebSearchError: Error {
 }
 
 private final class WebSearchSessionDelegate: NSObject, URLSessionTaskDelegate {
-    func urlSession(_ session: URLSession, task: URLSessionTask, willPerformHTTPRedirection response: HTTPURLResponse, newRequest request: URLRequest, completionHandler: @Sendable @escaping (URLRequest?) -> Void) {
+    func urlSession(_ session: URLSession, task: URLSessionTask, willPerformHTTPRedirection response: HTTPURLResponse,
+        newRequest request: URLRequest, completionHandler: @Sendable @escaping (URLRequest?) -> Void) {
         completionHandler(nil)
     }
 }
@@ -149,7 +150,8 @@ enum WebSearchURLPolicy {
     }
 
     static func isAllowed(_ value: String) -> Bool {
-        guard let url = URL(string: value), let scheme = url.scheme?.lowercased(), scheme == "http" || scheme == "https", let host = url.host?.lowercased() else { return false }
+        guard let url = URL(string: value), let scheme = url.scheme?.lowercased(), scheme == "http" || scheme == "https",
+            let host = url.host?.lowercased() else { return false }
         guard host != "localhost", host.hasSuffix(".localhost") == false, host.hasSuffix(".local") == false else { return false }
         if let ipv4 = IPv4Address(host) {
             return ipv4.isPublic
@@ -216,7 +218,8 @@ enum GroundedListFormatter {
             let name = item.name.trimmingCharacters(in: .whitespacesAndNewlines)
             guard let result = resultsByURL[item.sourceURL], name.isEmpty == false else { return nil }
             let normalizedName = name.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: .current)
-            let evidence = "\(result.title) \(result.summary) \(pageTextByURL[result.url] ?? "")".folding(options: [.caseInsensitive, .diacriticInsensitive], locale: .current)
+            let evidence = "\(result.title) \(result.summary) \(pageTextByURL[result.url] ?? "")".folding(options: [.caseInsensitive,
+                .diacriticInsensitive], locale: .current)
             guard evidence.contains(normalizedName), seenNames.insert(normalizedName).inserted else { return nil }
             return GroundedListItem(name: name, sourceURL: item.sourceURL)
         }.prefix(limit)

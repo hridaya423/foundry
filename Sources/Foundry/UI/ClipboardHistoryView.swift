@@ -256,7 +256,8 @@ private struct ClipboardPreviewPane: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 7) {
                 if case .text = item.payload {
-                    ClipboardCardButton(symbol: monospace ? "textformat" : "chevron.left.forwardslash.chevron.right", label: monospace ? "Show proportional text" : "Show monospaced text") { monospace.toggle() }
+                    ClipboardCardButton(symbol: monospace ? "textformat" : "chevron.left.forwardslash.chevron.right",
+                        label: monospace ? "Show proportional text" : "Show monospaced text") { monospace.toggle() }
                 }
                 Spacer(minLength: 0)
                 if case let .text(value) = item.payload, let url = linkURL(in: value) {

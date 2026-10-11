@@ -102,7 +102,8 @@ final class ShellController {
         clipboardHistory.captureIfChanged()
         configureSnippetExpansion()
         let workspaceCenter = NSWorkspace.shared.notificationCenter
-        workspaceObservers.append(workspaceCenter.addObserver(forName: NSWorkspace.didActivateApplicationNotification, object: nil, queue: .main) { [weak self] notification in
+        workspaceObservers.append(workspaceCenter.addObserver(forName: NSWorkspace.didActivateApplicationNotification, object: nil,
+            queue: .main) { [weak self] notification in
             let application = notification.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication
             MainActor.assumeIsolated {
                 self?.snippetExpansion.handleApplicationActivation(bundleIdentifier: application?.bundleIdentifier)
@@ -159,7 +160,8 @@ final class ShellController {
 
     private func configureSnippetExpansion() {
         let settings = config.current.snippetExpansion
-        snippetExpansion.configure(isEnabled: settings.isEnabled, excludedBundleIdentifiers: settings.excludedBundleIdentifiers, delimiters: settings.delimiters, hapticsEnabled: config.current.hapticsEnabled)
+        snippetExpansion.configure(isEnabled: settings.isEnabled, excludedBundleIdentifiers: settings.excludedBundleIdentifiers,
+            delimiters: settings.delimiters, hapticsEnabled: config.current.hapticsEnabled)
     }
 
     private func togglePanel() {

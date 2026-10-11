@@ -124,7 +124,8 @@ private actor BEN2Runtime {
                 "BEN2 needs uv to install its local runtime. Install uv with Homebrew, then try again."
             )
         }
-        guard Bundle.packagedResources?.url(forResource: "background_removal_worker", withExtension: "py") != nil else { throw BackgroundRemovalError.modelSetupFailed("The bundled background-removal worker script is missing.") }
+        guard Bundle.packagedResources?.url(forResource: "background_removal_worker",
+            withExtension: "py") != nil else { throw BackgroundRemovalError.modelSetupFailed("The bundled background-removal worker script is missing.") }
         let staging = root.deletingLastPathComponent().appendingPathComponent(".foundry-ben2-staging-\(UUID().uuidString)")
         let stagedModel = staging.appendingPathComponent("models/\(BEN2Artifact.filename)")
         let stagedRuntime = staging.appendingPathComponent("runtime")
@@ -141,7 +142,9 @@ private actor BEN2Runtime {
             "numpy==2.5.1", "--hash=sha256:30b44a6b53a7ae63c54c089a8726e5563ed302716c5b7ccc85afade40b0e7ff6",
             "Pillow==11.3.0", "--hash=sha256:7db51d222548ccfd274e4572fdbf3e810a5e66b00608862f947b163e613b67dd"])
         try writeManifest(runtime: stagedRuntime)
-        guard Self.isRuntimeReady(python: python, manifest: stagedRuntime.appendingPathComponent("runtime-manifest.json")) else { throw BackgroundRemovalError.modelSetupFailed("Runtime manifest verification failed.") }
+        guard Self.isRuntimeReady(python: python,
+            manifest: stagedRuntime.appendingPathComponent("runtime-manifest.json")) else { throw BackgroundRemovalError.modelSetupFailed(
+                "Runtime manifest verification failed.") }
         try Task.checkCancellation()
         try promote(staging: staging, destination: root)
         try Task.checkCancellation()
@@ -215,7 +218,8 @@ private actor BEN2Runtime {
               (BestEffort.attempt("hash worker script") { try BEN2Artifact.sha256(at: script) }) == BEN2Artifact.workerSHA256 else { return nil }
         let model = root.appendingPathComponent("models/\(BEN2Artifact.filename)")
         let python = root.appendingPathComponent("runtime/bin/python")
-        guard isValidModelSync(at: model), Self.isRuntimeReady(python: python, manifest: root.appendingPathComponent("runtime/runtime-manifest.json")) else { return nil }
+        guard isValidModelSync(at: model), Self.isRuntimeReady(python: python,
+            manifest: root.appendingPathComponent("runtime/runtime-manifest.json")) else { return nil }
         return Paths(python: python, model: model, script: script)
     }
 
@@ -284,7 +288,8 @@ private actor BEN2Runtime {
 
     private func writeManifest(runtime: URL) throws {
         let python = runtime.appendingPathComponent("bin/python")
-        let manifest = RuntimeManifest(python: "3.13", pythonSHA256: try BEN2Artifact.sha256(at: python), packages: BEN2Artifact.packages, inventory: try Self.runtimeInventory(at: runtime))
+        let manifest = RuntimeManifest(python: "3.13", pythonSHA256: try BEN2Artifact.sha256(at: python), packages: BEN2Artifact.packages,
+            inventory: try Self.runtimeInventory(at: runtime))
         try JSONEncoder().encode(manifest).write(to: runtime.appendingPathComponent("runtime-manifest.json"), options: .atomic)
     }
 

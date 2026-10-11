@@ -33,7 +33,8 @@ struct FoundryBackup: Codable, Equatable {
         for (name, url) in locations.byName where FileManager.default.fileExists(atPath: url.path) {
             files[name] = try Data(contentsOf: url)
         }
-        return FoundryBackup(format: formatID, version: currentVersion, createdAt: now, appVersion: appVersion, files: files, scriptDirectories: scriptDirectories)
+        return FoundryBackup(format: formatID, version: currentVersion, createdAt: now, appVersion: appVersion, files: files,
+            scriptDirectories: scriptDirectories)
     }
 
     func encoded() throws -> Data {

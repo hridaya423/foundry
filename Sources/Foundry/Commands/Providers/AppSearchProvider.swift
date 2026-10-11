@@ -10,7 +10,8 @@ final class AppSearchProvider: CommandProvider, Sendable {
     private let appCache: InstalledAppCache
 
     init(diagnostics: DiagnosticsService, roots: [URL]? = nil, extraApps: [URL]? = nil) {
-        self.appCache = InstalledAppCache(roots: roots ?? Self.appSearchRoots(), extraApps: extraApps ?? (roots == nil ? Self.coreServicesApps : []), diagnostics: diagnostics)
+        self.appCache = InstalledAppCache(roots: roots ?? Self.appSearchRoots(), extraApps: extraApps ?? (roots == nil ? Self.coreServicesApps : []),
+            diagnostics: diagnostics)
     }
 
     static let coreServicesApps: [URL] = [
@@ -36,7 +37,8 @@ final class AppSearchProvider: CommandProvider, Sendable {
                 sensitivity: request.sensitivity
             ) != nil else { return nil }
 
-            return Self.result(for: app, isRunning: running.contains(app.bundleIdentifier), searchAliases: aliases, searchKeywords: app.normalizedSearchCandidates)
+            return Self.result(for: app, isRunning: running.contains(app.bundleIdentifier), searchAliases: aliases,
+                searchKeywords: app.normalizedSearchCandidates)
         }
     }
 

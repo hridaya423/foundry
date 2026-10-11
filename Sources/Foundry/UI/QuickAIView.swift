@@ -70,7 +70,8 @@ struct QuickAISurfaceView: View {
                 }
 
                 if quickAI.quickAIResponse.isEmpty == false,
-                   quickAI.isQuickAILoading || quickAI.quickAIThreads.first(where: { $0.id == quickAI.activeQuickAIThreadID })?.messages.last?.content != quickAI.quickAIResponse {
+                   quickAI.isQuickAILoading || quickAI.quickAIThreads.first(where: { $0.id
+                       == quickAI.activeQuickAIThreadID })?.messages.last?.content != quickAI.quickAIResponse {
                     AIFormattedText(content: quickAI.quickAIResponse)
                         .font(FoundryTheme.body(size: 15, weight: .regular))
                         .foregroundStyle(FoundryTheme.primaryText)

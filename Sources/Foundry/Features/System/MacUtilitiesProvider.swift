@@ -39,13 +39,16 @@ final class MacUtilitiesProvider: CommandProvider {
                 fallback: "ZZ",
                 primary: ToggleKeepAwakeAction()
             ),
-            makeResult(id: "mac.audio.output", title: "Switch Audio Output", subtitle: "Choose a playback device", icon: "speaker.wave.2.fill", fallback: "AU", primary: LogAction("Search for an output device by name")),
-            makeResult(id: "mac.port", title: "Kill Port", subtitle: "Stop the process listening on a TCP port", icon: "network", fallback: "PT", primary: LogAction("Search with a port number, e.g. port 3000"))
+            makeResult(id: "mac.audio.output", title: "Switch Audio Output", subtitle: "Choose a playback device", icon: "speaker.wave.2.fill",
+                fallback: "AU", primary: LogAction("Search for an output device by name")),
+            makeResult(id: "mac.port", title: "Kill Port", subtitle: "Stop the process listening on a TCP port", icon: "network", fallback: "PT",
+                primary: LogAction("Search with a port number, e.g. port 3000"))
         ]
     }
 
     private func keepAwakeResults(query: String, sensitivity: SearchSensitivity) -> [CommandResult] {
-        guard SearchScoring.match(query: query, title: "Keep Awake", subtitle: nil, keywords: [], aliases: ["coffee", "caffeinate", "awake", "sleep off"], sensitivity: sensitivity) != nil else { return [] }
+        guard SearchScoring.match(query: query, title: "Keep Awake", subtitle: nil, keywords: [], aliases: ["coffee", "caffeinate", "awake",
+            "sleep off"], sensitivity: sensitivity) != nil else { return [] }
         let active = KeepAwakeController.isActive()
         return [makeResult(
             id: "mac.keepawake.toggle",
@@ -59,7 +62,8 @@ final class MacUtilitiesProvider: CommandProvider {
     }
 
     private func killProcessResults(query: String) -> [CommandResult] {
-        guard let needle = SearchScoring.payload(in: query, prefixes: ["kill", "terminate", "kill process", "stop process"]), needle.isEmpty == false else { return [] }
+        guard let needle = SearchScoring.payload(in: query, prefixes: ["kill", "terminate", "kill process", "stop process"]),
+            needle.isEmpty == false else { return [] }
         let normalizedNeedle = SearchScoring.normalize(needle)
         let snapshot = processSnapshotProvider.capture()
         return snapshot
@@ -83,7 +87,8 @@ final class MacUtilitiesProvider: CommandProvider {
     }
 
     private func quitAppResults(query: String) -> [CommandResult] {
-        guard let needle = SearchScoring.payload(in: query, prefixes: ["quit", "close app", "quit app", "quit application"]), needle.isEmpty == false else { return [] }
+        guard let needle = SearchScoring.payload(in: query, prefixes: ["quit", "close app", "quit app", "quit application"]),
+            needle.isEmpty == false else { return [] }
         return NSWorkspace.shared.runningApplications
             .filter { app in
                 guard let name = app.localizedName, app.activationPolicy != .prohibited else { return false }
@@ -124,15 +129,18 @@ final class MacUtilitiesProvider: CommandProvider {
                     icon: path.isEmpty ? CommandIcon(fallback: "AP", systemName: "app") : CommandIcon(fallback: "AP", filePath: path),
                     route: .macUtility,
                     payload: .command,
-                    primaryAction: CommandAction(id: "mac.running.\(app.processIdentifier).open", title: "Switch To", behavior: OpenAppAction(path: path, name: name)),
+                    primaryAction: CommandAction(id: "mac.running.\(app.processIdentifier).open", title: "Switch To",
+                        behavior: OpenAppAction(path: path, name: name)),
                     secondaryActions: AppSearchProvider.actions(identity: bundleID, name: name, path: path, bundleID: bundleID, isRunning: true)
                 )
             }
     }
 
     private func quitAllResults(query: String, sensitivity: SearchSensitivity) -> [CommandResult] {
-        guard SearchScoring.match(query: query, title: "Quit All Apps", subtitle: nil, keywords: [], aliases: ["close all apps", "quit everything"], sensitivity: sensitivity) != nil else { return [] }
-        return [makeResult(id: "mac.quit-all", title: "Quit All Apps", subtitle: "Quit every open app except Finder and Foundry", icon: "xmark.rectangle.portrait", fallback: "QA", route: .macUtility, primary: QuitAllApplicationsAction())]
+        guard SearchScoring.match(query: query, title: "Quit All Apps", subtitle: nil, keywords: [], aliases: ["close all apps", "quit everything"],
+            sensitivity: sensitivity) != nil else { return [] }
+        return [makeResult(id: "mac.quit-all", title: "Quit All Apps", subtitle: "Quit every open app except Finder and Foundry",
+            icon: "xmark.rectangle.portrait", fallback: "QA", route: .macUtility, primary: QuitAllApplicationsAction())]
     }
 
     private func portResults(query: String) async -> [CommandResult] {
@@ -188,7 +196,8 @@ final class MacUtilitiesProvider: CommandProvider {
         }
     }
 
-    private func makeResult(id: String, title: String, subtitle: String, icon: String, fallback: String, route: SearchRoute? = nil, primary: any ResultAction) -> CommandResult {
+    private func makeResult(id: String, title: String, subtitle: String, icon: String, fallback: String, route: SearchRoute? = nil,
+        primary: any ResultAction) -> CommandResult {
         CommandResult(
             id: id,
             title: title,
@@ -275,11 +284,13 @@ private enum AudioDevicesUtility {
 
     private static func device(id: AudioDeviceID) -> Device? {
         guard let name = name(id: id) else { return nil }
-        return Device(id: id, name: name, hasOutput: hasStreams(id: id, scope: kAudioDevicePropertyScopeOutput), hasInput: hasStreams(id: id, scope: kAudioDevicePropertyScopeInput))
+        return Device(id: id, name: name, hasOutput: hasStreams(id: id, scope: kAudioDevicePropertyScopeOutput), hasInput: hasStreams(id: id,
+            scope: kAudioDevicePropertyScopeInput))
     }
 
     private static func name(id: AudioDeviceID) -> String? {
-        var address = AudioObjectPropertyAddress(mSelector: kAudioObjectPropertyName, mScope: kAudioObjectPropertyScopeGlobal, mElement: kAudioObjectPropertyElementMain)
+        var address = AudioObjectPropertyAddress(mSelector: kAudioObjectPropertyName, mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain)
         var cfName: Unmanaged<CFString>?
         var size = UInt32(MemoryLayout<Unmanaged<CFString>?>.size)
         guard AudioObjectGetPropertyData(id, &address, 0, nil, &size, &cfName) == noErr else { return nil }

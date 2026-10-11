@@ -165,7 +165,8 @@ struct FilePreview: View {
         .padding(16)
         .task(id: path) {
             thumbnail = nil
-            let request = QLThumbnailGenerator.Request(fileAt: url, size: CGSize(width: 360, height: 240), scale: NSScreen.main?.backingScaleFactor ?? 2, representationTypes: .thumbnail)
+            let request = QLThumbnailGenerator.Request(fileAt: url, size: CGSize(width: 360, height: 240),
+                scale: NSScreen.main?.backingScaleFactor ?? 2, representationTypes: .thumbnail)
             thumbnail = await BestEffort.attempt("generate thumbnail \(url.lastPathComponent)") {
                 try await QLThumbnailGenerator.shared.generateBestRepresentation(for: request).nsImage
             }

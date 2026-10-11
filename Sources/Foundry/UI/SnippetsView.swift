@@ -181,7 +181,11 @@ struct SnippetsView: View {
                 .frame(height: 30)
                 SnippetEditor(state: state)
                 if state.duplicateKeywords.isEmpty == false {
-                    Label("Duplicate keywords: \(state.duplicateKeywords.joined(separator: ", ")). Save is allowed, but auto-expansion is disabled until resolved.", systemImage: "exclamationmark.triangle")
+                    Label(
+                        "Duplicate keywords: \(state.duplicateKeywords.joined(separator: ", ")). "
+                            + "Save is allowed, but auto-expansion is disabled until resolved.",
+                        systemImage: "exclamationmark.triangle"
+                    )
                         .font(FoundryTheme.body(size: 11, weight: .medium))
                         .foregroundStyle(FoundryTheme.error)
                         .lineLimit(2)
@@ -536,7 +540,8 @@ private struct SnippetEditor: View {
     }
 
     private func persist() {
-        state.updateSelected(title: title, content: content, keyword: keyword, tags: tags.split(separator: ",").map { $0.trimmingCharacters(in: .whitespacesAndNewlines) })
+        state.updateSelected(title: title, content: content, keyword: keyword,
+            tags: tags.split(separator: ",").map { $0.trimmingCharacters(in: .whitespacesAndNewlines) })
     }
 }
 

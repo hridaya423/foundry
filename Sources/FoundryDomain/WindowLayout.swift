@@ -104,7 +104,8 @@ public enum WindowLayoutEngine {
         case .rightThird:
             let width = usable.width / 3
             return CGRect(x: usable.maxX - width, y: usable.minY, width: width, height: usable.height)
-        case .leftTwoThirds, .centerTwoThirds, .rightTwoThirds, .firstFourth, .secondFourth, .thirdFourth, .lastFourth, .firstThreeFourths, .lastThreeFourths, .centerHalf:
+        case .leftTwoThirds, .centerTwoThirds, .rightTwoThirds, .firstFourth, .secondFourth, .thirdFourth, .lastFourth, .firstThreeFourths,
+            .lastThreeFourths, .centerHalf:
             guard let (start, fraction) = placement.columnSpan else { return nil }
             return CGRect(x: usable.minX + usable.width * start, y: usable.minY, width: usable.width * fraction, height: usable.height)
         case .maximize:

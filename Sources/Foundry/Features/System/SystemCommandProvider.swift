@@ -153,7 +153,8 @@ final class SystemCommandProvider: CommandProvider, Sendable {
                 systemIcon: "circle.lefthalf.filled",
                 fallback: "DM",
                 actionTitle: "Toggle",
-                action: RunProcessAction(path: "/usr/bin/osascript", arguments: ["-e", "tell application \"System Events\" to tell appearance preferences to set dark mode to not dark mode"])
+                action: RunProcessAction(path: "/usr/bin/osascript", arguments: ["-e",
+                    "tell application \"System Events\" to tell appearance preferences to set dark mode to not dark mode"])
             ),
             SystemCommand(
                 id: "system.toggle-hidden-files",
@@ -192,7 +193,8 @@ final class SystemCommandProvider: CommandProvider, Sendable {
                 systemIcon: "speaker.wave.3.fill",
                 fallback: "VU",
                 actionTitle: "Increase",
-                action: RunProcessAction(path: "/usr/bin/osascript", arguments: ["-e", "set volume output volume ((output volume of (get volume settings)) + 6)"])
+                action: RunProcessAction(path: "/usr/bin/osascript", arguments: ["-e",
+                    "set volume output volume ((output volume of (get volume settings)) + 6)"])
             ),
             SystemCommand(
                 id: "system.volume-down",
@@ -202,7 +204,8 @@ final class SystemCommandProvider: CommandProvider, Sendable {
                 systemIcon: "speaker.wave.1.fill",
                 fallback: "VD",
                 actionTitle: "Decrease",
-                action: RunProcessAction(path: "/usr/bin/osascript", arguments: ["-e", "set volume output volume ((output volume of (get volume settings)) - 6)"])
+                action: RunProcessAction(path: "/usr/bin/osascript", arguments: ["-e",
+                    "set volume output volume ((output volume of (get volume settings)) - 6)"])
             ),
             SystemCommand(
                 id: "system.clear-clipboard",
@@ -222,7 +225,8 @@ final class SystemCommandProvider: CommandProvider, Sendable {
                 systemIcon: "eject.fill",
                 fallback: "EJ",
                 actionTitle: "Eject",
-                action: RunProcessAction(path: "/usr/bin/osascript", arguments: ["-e", "tell application \"Finder\" to eject (every disk whose ejectable is true)"])
+                action: RunProcessAction(path: "/usr/bin/osascript", arguments: ["-e",
+                    "tell application \"Finder\" to eject (every disk whose ejectable is true)"])
             ),
             SystemCommand(
                 id: "system.screen-saver",

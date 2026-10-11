@@ -73,7 +73,8 @@ struct HomeAccessoryStrip: View {
         case .system:
             SystemWidget(metrics: board.metrics)
         case .battery:
-            StatWidget(symbol: board.metrics.batterySymbol, title: "Battery", value: board.metrics.batteryDisplay, caption: board.metrics.batteryStateLabel, tint: board.metrics.batteryTint)
+            StatWidget(symbol: board.metrics.batterySymbol, title: "Battery", value: board.metrics.batteryDisplay,
+                caption: board.metrics.batteryStateLabel, tint: board.metrics.batteryTint)
         case .disk:
             StatWidget(symbol: "internaldrive", title: "Storage", value: board.metrics.diskDisplay, caption: "free")
         case .uptime:
@@ -97,7 +98,8 @@ struct HomeAccessoryStrip: View {
         case .clipboard:
             DynamicStatWidget(symbol: "doc.on.clipboard", title: "Clipboard", caption: WidgetSystemInfo.clipboardCaption) { WidgetSystemInfo.clipboardValue }
         case .downloads:
-            StatWidget(symbol: "arrow.down.circle", title: "Downloads", value: "\(board.downloads.count) files", caption: board.downloads.newestName ?? "Downloads")
+            StatWidget(symbol: "arrow.down.circle", title: "Downloads", value: "\(board.downloads.count) files",
+                caption: board.downloads.newestName ?? "Downloads")
         }
     }
 }
@@ -345,7 +347,8 @@ private enum WidgetSystemInfo {
     }
 
     static var clipboardCaption: String {
-        NSPasteboard.general.string(forType: .string)?.components(separatedBy: .newlines).first?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false ? "text" : "no text"
+        NSPasteboard.general.string(forType: .string)?.components(separatedBy: .newlines).first?.trimmingCharacters(
+            in: .whitespacesAndNewlines).isEmpty == false ? "text" : "no text"
     }
 }
 
@@ -479,7 +482,9 @@ private struct StockWidget: View {
         .frame(maxHeight: .infinity)
         .accessibilityElement(children: .combine)
         .accessibilityLabel("Stock")
-        .accessibilityValue(snapshot.map { "\($0.symbol), \(String(format: "%.2f", $0.price)), \(String(format: "%+.1f", $0.changePercent)) percent" } ?? (symbol.isEmpty ? "Not configured" : symbol))
+        .accessibilityValue(
+            snapshot.map { "\($0.symbol), \(String(format: "%.2f", $0.price)), \(String(format: "%+.1f", $0.changePercent)) percent" } ?? (
+                symbol.isEmpty ? "Not configured" : symbol))
     }
 }
 

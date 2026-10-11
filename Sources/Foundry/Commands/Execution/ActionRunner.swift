@@ -40,7 +40,8 @@ final class ActionRunner {
         confirmAction: @escaping (CommandActionDescriptor, CommandInvocationSource) -> Bool = { _, _ in true },
         windowManager: any WindowManaging = NativeWindowManager(),
         openURL: @escaping (URL) -> Bool = { NSWorkspace.shared.open($0) },
-        openApplication: @escaping (URL, NSWorkspace.OpenConfiguration, @escaping @Sendable (NSRunningApplication?, Error?) -> Void) -> Void = { url, configuration, completion in
+        openApplication: @escaping (URL, NSWorkspace.OpenConfiguration, @escaping @Sendable (NSRunningApplication?, Error?) -> Void) -> Void = { url,
+            configuration, completion in
             NSWorkspace.shared.openApplication(at: url, configuration: configuration, completionHandler: completion)
         },
         directPasteService: DirectPasteService = .shared,

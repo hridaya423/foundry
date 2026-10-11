@@ -20,8 +20,10 @@ final class FileSearchProvider: CommandProvider, Sendable {
         "image": "kMDItemContentTypeTree == 'public.image'",
         "photo": "kMDItemContentTypeTree == 'public.image'",
         "folder": "kMDItemContentType == 'public.folder'",
-        "doc": "(kMDItemContentTypeTree == 'public.text' || kMDItemContentType == 'com.adobe.pdf' || kMDItemContentTypeTree == 'public.presentation' || kMDItemContentTypeTree == 'public.spreadsheet')",
-        "document": "(kMDItemContentTypeTree == 'public.text' || kMDItemContentType == 'com.adobe.pdf' || kMDItemContentTypeTree == 'public.presentation' || kMDItemContentTypeTree == 'public.spreadsheet')",
+        "doc": "(kMDItemContentTypeTree == 'public.text' || kMDItemContentType == 'com.adobe.pdf' || kMDItemContentTypeTree == " +
+            "'public.presentation' || kMDItemContentTypeTree == 'public.spreadsheet')",
+        "document": "(kMDItemContentTypeTree == 'public.text' || kMDItemContentType == 'com.adobe.pdf' || kMDItemContentTypeTree == " +
+            "'public.presentation' || kMDItemContentTypeTree == 'public.spreadsheet')",
         "code": "kMDItemContentTypeTree == 'public.source-code'",
         "audio": "kMDItemContentTypeTree == 'public.audio'",
         "music": "kMDItemContentTypeTree == 'public.audio'",
@@ -37,7 +39,8 @@ final class FileSearchProvider: CommandProvider, Sendable {
     private let find: @Sendable (_ predicate: String, _ scope: URL) async throws -> [String]
     private let spotlightProbe = SpotlightProbe()
 
-    init(scope: URL = FileManager.default.homeDirectoryForCurrentUser, find: @escaping @Sendable (String, URL) async throws -> [String] = FileSearchProvider.spotlight) {
+    init(scope: URL = FileManager.default.homeDirectoryForCurrentUser, find: @escaping @Sendable (String,
+        URL) async throws -> [String] = FileSearchProvider.spotlight) {
         self.scope = scope
         self.find = find
     }
@@ -181,7 +184,8 @@ final class FileSearchProvider: CommandProvider, Sendable {
         subtitle: "File search needs Spotlight indexing on your home folder",
         icon: CommandIcon(fallback: "FI", systemName: "magnifyingglass"),
         payload: .command,
-        primaryAction: CommandAction(id: "foundry.files.spotlight-disabled.open", title: "Open Spotlight Settings", behavior: OpenURLAction("x-apple.systempreferences:com.apple.Siri-Settings.extension")),
+        primaryAction: CommandAction(id: "foundry.files.spotlight-disabled.open", title: "Open Spotlight Settings",
+            behavior: OpenURLAction("x-apple.systempreferences:com.apple.Siri-Settings.extension")),
         secondaryActions: []
     )
 

@@ -185,7 +185,8 @@ struct TranslatorPane<Accessory: View>: View {
     var copy: (() -> Void)? = nil
     @ViewBuilder var accessory: () -> Accessory
 
-    init(placeholder: String, text: Binding<String>, isEditable: Bool, copy: (() -> Void)? = nil, @ViewBuilder accessory: @escaping () -> Accessory = { EmptyView() }) {
+    init(placeholder: String, text: Binding<String>, isEditable: Bool, copy: (() -> Void)? = nil,
+        @ViewBuilder accessory: @escaping () -> Accessory = { EmptyView() }) {
         self.placeholder = placeholder
         self._text = text
         self.isEditable = isEditable

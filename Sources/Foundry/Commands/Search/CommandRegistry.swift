@@ -62,7 +62,8 @@ final class CommandRegistry: Sendable {
         let activeProviders = enabledProviders.filter {
             $0.searchPolicy.tier == .immediate && $0.isActive(for: query)
         }
-        let (providerCandidates, timings) = await collectCandidates(query: query, providers: activeProviders, aliases: customAliases, timeout: .milliseconds(80))
+        let (providerCandidates, timings) = await collectCandidates(query: query, providers: activeProviders, aliases: customAliases,
+            timeout: .milliseconds(80))
         var candidates = providerCandidates.filter { isCommandEnabled($0.result) }
         let sensitivity = configService?.current.searchSensitivity ?? .medium
 

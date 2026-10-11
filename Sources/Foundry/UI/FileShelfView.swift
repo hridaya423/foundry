@@ -77,7 +77,8 @@ struct FileShelfView: View {
                     FoundryStatusBanner(
                         text: state.backgroundRemovalStatus,
                         symbol: state.backgroundRemovalError == nil ? "checkmark.circle" : "exclamationmark.triangle",
-                        tint: state.backgroundRemovalError == nil ? (state.isRemovingBackground ? FoundryTheme.accentTint : FoundryTheme.success) : FoundryTheme.warning,
+                        tint: state.backgroundRemovalError
+                            == nil ? (state.isRemovingBackground ? FoundryTheme.accentTint : FoundryTheme.success) : FoundryTheme.warning,
                         isLoading: state.isRemovingBackground
                     )
                 }

@@ -79,8 +79,10 @@ final class ClipboardHistoryState {
     private var visibleItemsCacheQuery = ""
     var isMonitoring: Bool { timer != nil }
 
-    init(pasteboard: PasteboardClient = SystemPasteboardClient(), persistence: (any ClipboardHistoryPersisting)? = ClipboardHistoryStore(), configuration: ClipboardConfig = .default) {
-        self.pasteboard = pasteboard; self.persistence = persistence; persistenceWriter = persistence.map(ClipboardHistoryPersistenceWriter.init); lastChangeCount = pasteboard.changeCount
+    init(pasteboard: PasteboardClient = SystemPasteboardClient(), persistence: (any ClipboardHistoryPersisting)? = ClipboardHistoryStore(),
+        configuration: ClipboardConfig = .default) {
+        self.pasteboard = pasteboard; self.persistence = persistence; persistenceWriter = persistence.map(
+            ClipboardHistoryPersistenceWriter.init); lastChangeCount = pasteboard.changeCount
         self.policy = Self.policy(for: configuration)
         self.isPaused = configuration.isPaused
         self.excludedBundleIdentifiers = configuration.excludedBundleIdentifiers
@@ -196,7 +198,8 @@ final class ClipboardHistoryState {
         ClipboardHistoryPolicy(maxItems: configuration.maxItems, maxBytes: configuration.maxBytes, maxAge: TimeInterval(configuration.maxAgeDays) * 86_400)
     }
     func addSelectedFiles(to fileShelf: FileShelfState) { if let urls = selectedItem?.payload, case .files(let urls) = urls { fileShelf.add(urls: urls) } }
-    func captureIfChanged() { guard pasteboard.changeCount != lastChangeCount else { return }; lastChangeCount = pasteboard.changeCount; captureCurrentPasteboard() }
+    func captureIfChanged() { guard pasteboard.changeCount
+        != lastChangeCount else { return }; lastChangeCount = pasteboard.changeCount; captureCurrentPasteboard() }
     func waitForPersistenceForTesting() async { await persistenceTask?.value }
     func shutdown() async {
         stop()

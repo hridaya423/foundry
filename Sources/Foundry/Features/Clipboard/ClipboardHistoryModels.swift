@@ -24,10 +24,12 @@ enum ClipboardPayload: Codable, Hashable {
         case .image(let value): try c.encode(Kind.image, forKey: .kind); try c.encode(value, forKey: .image)
         }
     }
-    var byteCount: Int { switch self { case .text(let v): v.utf8.count; case .files(let v): v.reduce(0) { $0 + $1.path.utf8.count }; case .image(let v): v.count } }
+    var byteCount: Int { switch self { case .text(let v): v.utf8.count; case .files(let v): v.reduce(0) { $0 + $1.path.utf8.count }; case .image(
+        let v): v.count } }
     var signature: String {
         let bytes: Data
-        switch self { case .text(let v): bytes = Data(v.utf8); case .files(let v): bytes = Data(v.map(\.path).joined(separator: "\0").utf8); case .image(let v): bytes = v }
+        switch self { case .text(let v): bytes = Data(v.utf8); case .files(let v): bytes = Data(v.map(\.path).joined(
+            separator: "\0").utf8); case .image(let v): bytes = v }
         return SHA256.hash(data: bytes).map { String(format: "%02x", $0) }.joined()
     }
 }
@@ -39,8 +41,10 @@ struct ClipboardHistoryItem: Identifiable, Codable, Hashable {
     let signature: String
     var isPinned: Bool
     let sourceBundleIdentifier: String?
-    init(id: String = UUID().uuidString, payload: ClipboardPayload, createdAt: Date = Date(), sourceBundleIdentifier: String? = nil, isPinned: Bool = false, signature: String? = nil) {
-        self.id = id; self.createdAt = createdAt; self.payload = payload; self.signature = signature ?? payload.signature; self.sourceBundleIdentifier = sourceBundleIdentifier; self.isPinned = isPinned
+    init(id: String = UUID().uuidString, payload: ClipboardPayload, createdAt: Date = Date(), sourceBundleIdentifier: String? = nil,
+        isPinned: Bool = false, signature: String? = nil) {
+        self.id = id; self.createdAt = createdAt; self.payload = payload; self.signature = signature ?? payload.signature;
+            self.sourceBundleIdentifier = sourceBundleIdentifier; self.isPinned = isPinned
     }
     var memoryCost: Int { payload.byteCount }
     static func isLink(_ text: String) -> Bool {

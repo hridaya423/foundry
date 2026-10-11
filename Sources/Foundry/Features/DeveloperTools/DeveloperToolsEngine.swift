@@ -56,7 +56,8 @@ enum DeveloperToolsEngine {
         do {
             object = try JSONSerialization.jsonObject(with: data)
         } catch {
-            if let decoded = base64Decode(input), let decodedData = decoded.data(using: .utf8), let nested = try? JSONSerialization.jsonObject(with: decodedData) {
+            if let decoded = base64Decode(input), let decodedData = decoded.data(using: .utf8),
+                let nested = try? JSONSerialization.jsonObject(with: decodedData) {
                 object = nested
             } else {
                 return nil

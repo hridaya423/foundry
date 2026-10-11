@@ -129,7 +129,8 @@ struct PreviewExtractedTextAction: ResultAction, Equatable {
         do {
             ctx.emit(.status("Recognizing text…"))
             let lines = try await VisionText.recognizeText(at: url)
-            guard try presentExtractedText(lines, sourceName: url.deletingPathExtension().lastPathComponent, suffix: "OCR", onQuickLook: ctx.panel.onQuickLook) else {
+            guard try presentExtractedText(lines, sourceName: url.deletingPathExtension().lastPathComponent, suffix: "OCR",
+                onQuickLook: ctx.panel.onQuickLook) else {
                 return .failure(message: "No text found in \(url.lastPathComponent)", retryable: false)
             }
             return ctx.panel.onQuickLook == nil ? .success(message: nil) : .stayOpen(message: nil)
@@ -249,7 +250,8 @@ struct PickColorAction: ResultAction, Equatable {
             ("HSL", hsl),
             ("HSV", hsv),
             ("OKLCH", oklch),
-            ("NSColor", String(format: "NSColor(red: %.3f, green: %.3f, blue: %.3f, alpha: %.3f)", rgb.redComponent, rgb.greenComponent, rgb.blueComponent, alpha)),
+            ("NSColor", String(format: "NSColor(red: %.3f, green: %.3f, blue: %.3f, alpha: %.3f)", rgb.redComponent, rgb.greenComponent,
+                rgb.blueComponent, alpha)),
         ]
     }
 
