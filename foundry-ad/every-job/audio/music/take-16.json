@@ -1,0 +1,147 @@
+{
+ "seed": 16,
+ "song_id": "UJ22tzmAdchiSzH1dtwN",
+ "body": {
+  "composition_plan": {
+   "chunks": [
+    {
+     "text": "[Lineage] {instrumental}{solo felt piano plays the three-note motif from the very first beat}",
+     "duration_ms": 3000,
+     "positive_styles": [
+      "cinematic hybrid orchestral score for a premium tech launch film",
+      "120 BPM, 4/4, in B-flat minor",
+      "one simple memorable three-note motif (B-flat, C, F) that every section is built on",
+      "industrial percussion: anvil strikes, metallic impacts, typewriter rhythm",
+      "deep clean sub bass",
+      "minimal, modern, restrained, emotional",
+      "great production quality, wide stereo, clean mix",
+      "intimate",
+      "the motif on a single felt piano, one note on each beat",
+      "soft low string drone",
+      "warm, nostalgic, proud",
+      "very sparse"
+     ],
+     "negative_styles": [
+      "vocals",
+      "singing",
+      "choir with words",
+      "EDM",
+      "dubstep",
+      "cheesy",
+      "comedic",
+      "lo-fi",
+      "guitar solo",
+      "ukulele"
+     ],
+     "context_adherence": "high"
+    },
+    {
+     "text": "[Weight] {instrumental}{tension rises relentlessly to the last beat}",
+     "duration_ms": 4000,
+     "positive_styles": [
+      "the same motif repeated faster and higher, tightening",
+      "string ostinato building pressure",
+      "dissonant clusters creeping in",
+      "ticking percussion accelerating",
+      "anxious, claustrophobic crescendo",
+      "everything piling up",
+      "great production quality"
+     ],
+     "negative_styles": [
+      "vocals",
+      "singing",
+      "choir with words",
+      "EDM",
+      "dubstep",
+      "cheesy",
+      "comedic",
+      "lo-fi",
+      "guitar solo",
+      "ukulele"
+     ],
+     "context_adherence": "high"
+    },
+    {
+     "text": "[Drop] {instrumental}{enormous orchestral impact on the very first beat, no ramp, no build-up}",
+     "duration_ms": 5000,
+     "positive_styles": [
+      "massive drop exactly on the first beat",
+      "huge low brass and distorted sub impact",
+      "full orchestra with taiko and anvil hits",
+      "the motif in full power on brass",
+      "after three seconds it settles into one long sustained low note with shimmering high strings",
+      "relief",
+      "great production quality"
+     ],
+     "negative_styles": [
+      "vocals",
+      "singing",
+      "choir with words",
+      "EDM",
+      "dubstep",
+      "cheesy",
+      "comedic",
+      "lo-fi",
+      "guitar solo",
+      "ukulele"
+     ],
+     "context_adherence": "high"
+    },
+    {
+     "text": "[Build] {instrumental}{full driving rhythm from the very first beat}",
+     "duration_ms": 6750,
+     "positive_styles": [
+      "driving propulsive rhythm, sixteenth-note pulse",
+      "the motif on strings, confident and joyful",
+      "percussion building bar by bar",
+      "steadily rising energy",
+      "momentum",
+      "great production quality"
+     ],
+     "negative_styles": [
+      "vocals",
+      "singing",
+      "choir with words",
+      "EDM",
+      "dubstep",
+      "cheesy",
+      "comedic",
+      "lo-fi",
+      "guitar solo",
+      "ukulele"
+     ],
+     "context_adherence": "high"
+    },
+    {
+     "text": "[Leap] {instrumental}{near silence for four seconds}{then a slow swell}{the final chord rings out to the very end, no fade-out}",
+     "duration_ms": 7270,
+     "positive_styles": [
+      "drops to near silence",
+      "a single sustained high string note and the soft piano motif",
+      "spacious, awe, wonder",
+      "slow swell in the final four seconds",
+      "resolves on a warm B-flat major chord",
+      "ends cleanly with a ringing tail",
+      "great production quality"
+     ],
+     "negative_styles": [
+      "vocals",
+      "singing",
+      "choir with words",
+      "EDM",
+      "dubstep",
+      "cheesy",
+      "comedic",
+      "lo-fi",
+      "guitar solo",
+      "ukulele",
+      "fade out"
+     ],
+     "context_adherence": "high"
+    }
+   ]
+  },
+  "model_id": "music_v2_5",
+  "seed": 16
+ }
+}

@@ -22,15 +22,20 @@ HEROES = 3.3                     # the first three apps, big enough to read
 BURST0, BURST1 = 4.2, 5.25       # then everything else
 HEAT0 = 4.3                      # the set starts to struggle
 WALL0, WALL1 = 5.0, 5.7          # pull back: a wall of sets, then hold on it
-MELT_CMD = 6.2                   # enter on `melt them down` (3 frames of silence, then ignition)
-RIVER0, RIVER1 = 6.95, 8.6       # the camera falls with the river
-CAST = 8.6
+# the valley: everything stalls (picture freezes, the music tape-stops into a ringing), one caret blinks alone,
+# `melt them down` is typed into the silence, and its enter is the drop, on beat 14
+STALL = 5.75
+CARET_ALONE = 6.1
+MELT_CMD = 7.0
+D_MELT = MELT_CMD - 6.2          # how far everything after the melt moved when the valley went in
+RIVER0, RIVER1 = 6.95 + D_MELT, 8.6 + D_MELT       # the camera falls with the river
+CAST = 8.6 + D_MELT
 # the casting cools from the rim in; its last heat retreats to where the cursor lives and becomes the caret
 COOL = {"fill": 0.0, "core0": 0.55, "core1": 1.45, "gap0": 0.9, "gap1": 1.45, "sweep0": 1.12, "sweep1": 1.45,
         "knock0": 1.4, "knock1": 1.78, "flake0": 1.45, "flake1": 1.82, "point": 1.82}
 GLASS = CAST + 1.8
 LINE3 = {"text": "One for every job.", "t0": GLASS + 0.16, "cps": 54}
-SETTLE = 11.0                    # the bar settles low and stays there
+SETTLE = 11.0 + D_MELT           # the bar settles low and stays there
 
 # ---------------------------------------------------------------- the kills: app -> command -> result
 KILL_APPS = {
@@ -41,20 +46,20 @@ KILL_APPS = {
     "tile": "Window Snap",
     "download": "YouTube Downloader MP4 (No Virus)",
 }
-KILLS = [  # (kind, flash, text, paste, enter, end): one even cadence; translate last, so Armstrong is never interrupted
-    ("gif", 11.15, "convert to gif", None, 11.65, 12.4),
-    ("rmbg", 12.4, "remove background", None, 12.85, 13.55),
-    ("currency", 13.55, "100 usd in eur", None, 14.0, 14.65),
-    ("tile", 14.65, "tile windows", None, 15.1, 15.85),
-    ("download", 15.85, "download ", "youtu.be/lumiere-1895", 16.3, 17.25),
-    ("translate", 17.25, "translate to japanese", None, 17.7, None),     # runs into the logo
+KILLS = [  # (kind, flash, text, paste, enter, end): enters on the grid, each sooner than the last (1.5, 1.25, 1, 0.75 s)
+    ("gif", 12.0, "convert to gif", None, 12.5, 13.55),                  # until the train releases it; translate last,
+    ("rmbg", 13.55, "remove background", None, 14.0, 14.8),              # so Armstrong is never interrupted
+    ("currency", 14.8, "100 usd in eur", None, 15.25, 15.8),
+    ("tile", 15.8, "tile windows", None, 16.25, 16.55),
+    ("download", 16.55, "download ", "youtu.be/lumiere-1895", 17.0, 18.3),
+    ("translate", 18.3, "translate to japanese", None, 18.75, None),     # runs into the logo
 ]
 
 # ---------------------------------------------------------------- Armstrong, whole: "That's one small step for man, one giant leap for mankind."
 SEG_A = (15.40, 17.75)
 SEG_B = [(20.72, 21.02, 0.2), (21.80, 23.72, 0.0)]
-A_GAP = 0.5                      # his pause, tightened; the line turns Japanese in it
-VO_A = 17.7 + 0.32            # translate's enter is the Quindar intro tone; then him
+A_GAP = 0.7                      # his pause, tightened (but a breath); the line turns Japanese in it
+VO_A = KILLS[-1][4] + 0.32       # translate's enter is the Quindar intro tone; then him
 VO_B = VO_A + (SEG_A[1] - SEG_A[0]) + A_GAP
 FOR_SRC, MANKIND_SRC, END_SRC = 22.60, 22.78, 23.72
 
@@ -67,7 +72,9 @@ def b_at(src):
 LOGO = b_at(FOR_SRC)             # cut to the logo on "for" in "...leap for mankind."
 MANKIND_AT, VO_END = b_at(MANKIND_SRC), b_at(END_SRC)
 QUINDAR = VO_END + 0.14          # end of transmission
-END = round(LOGO + 2.15, 2)
+END = round(LOGO + 2.6, 2)       # the cast, the caret's last blink, then the room
+# the score (tools/music.py): one composition, five sections; boundaries on the bar grid where they can be
+MUSIC = [("lineage", 0.0), ("weight", 3.0), ("drop", MELT_CMD), ("build", 12.0), ("leap", KILLS[-1][4])]
 WORDS_B = [("one", 20.80), ("giant", 21.88), ("leap", 22.18)]
 WORDS_A = [("That's", 15.48), ("one", 15.82), ("small", 16.30), ("step", 16.78), ("for", 17.18), ("man,", 17.40)]
 
@@ -97,7 +104,8 @@ TM = {
     "beat": BEAT, "words1": WORDS1, "act2": ACT2, "line2": LINE2, "heroes": HEROES, "burst": [BURST0, BURST1], "heat0": HEAT0,
     "wall": [WALL0, WALL1], "meltCmd": MELT_CMD, "river": [RIVER0, RIVER1], "cast": CAST, "glass": GLASS, "line3": LINE3,
     "settle": SETTLE, "logo": LOGO, "end": END, "apps": APPS, "appT": APP_T,
-    "cmd0": {"text": "melt them down", "t0": MELT_CMD - 0.42, "cps": 50, "enter": MELT_CMD, "out": MELT_CMD + 0.06, "dim": 0.3},
+    "stall": STALL, "caretAlone": CARET_ALONE, "music": MUSIC,
+    "cmd0": {"text": "melt them down", "t0": CARET_ALONE + 0.35, "cps": 50, "enter": MELT_CMD, "out": MELT_CMD + 0.06, "dim": 0.3},
     "kills": [kill_cmd(k) for k in KILLS],
     "vo": {"a": VO_A, "segA": SEG_A, "b": round(VO_B, 4), "segB": SEG_B, "mankind": round(MANKIND_AT, 4), "end": round(VO_END, 4), "quindar": round(QUINDAR, 4)},
     "cool": COOL, "rate": "89.25",

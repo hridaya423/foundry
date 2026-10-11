@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
-"""The music and voice stems for "Every job.": one breathing B-flat drone, a sub kick, a little bass and the typewriter
-as hi-hat, the 1860 phonautograph, and Armstrong. Every sound effect lives in tools/cues.py (real recordings, placed
-by sound-layer/scripts/mix.py), so nothing here is a hit, a click or a whoosh.
+"""The music and voice stems for "Every job.": the score (an ElevenLabs take, tools/music.py, edited to picture here:
+the valley cut out of it, the drop put on the enter, its own ending crested on "mankind"), the 1860 phonautograph,
+the roar beds, and Armstrong. Every sound effect lives in tools/cues.py (real recordings, placed by
+sound-layer/scripts/mix.py), so nothing here is a hit, a click or a whoosh.
 
-usage: uv run tools/score.py        -> audio/music.wav, audio/voice.wav (48 kHz stereo float)
+usage: uv run tools/score.py                      -> audio/music.wav, audio/voice.wav (48 kHz stereo float)
+       uv run tools/score.py preview TAKE END SKIP -> audio/music/preview-TAKE-END.wav (the edited score alone)
 """
 # /// script
 # dependencies = ["numpy", "scipy", "soundfile"]
@@ -120,45 +122,69 @@ def reverb(x, secs=1.6, mix=0.25):
     wet = signal.fftconvolve(x, ir)[: len(x)]
     return x * (1 - mix) + wet * mix
 
-# key: B-flat minor (the anvil rings ~A#6)
-ROOTS = [46, 42, 49, 44]
-def bar_root(t): return ROOTS[int(t // 2) % 4]
+# ------------------------------------------------------------------ the score, edited to picture
+# chosen by ear from audio/lab/musictakes.py's shortlist; SKIP is how far into its ending the leap starts, so the
+# ending's crest lands on "mankind"
+TAKE, END, SKIP = "take-16", "end-16-3", 1.6
+if len(sys.argv) > 1 and sys.argv[1] == "preview":
+    TAKE, END, SKIP = sys.argv[2], sys.argv[3], float(sys.argv[4])
 
-# ------------------------------------------------------------------ Act I: a kick under every typewriter strike, the drone breathing in
+def stereo(name):
+    raw = subprocess.run(["ffmpeg", "-v", "error", "-i", os.path.join(ROOT, "audio", "music", name + ".mp3"), "-ac", "2", "-ar", str(SR), "-f", "f32le", "-"],
+                         capture_output=True, check=True).stdout
+    return np.frombuffer(raw, np.float32).astype(np.float64).reshape(-1, 2)
+
+def score():
+    take, end = stereo(TAKE), stereo(END)
+    LEAP, STALL, MC = dict(TM["music"])["leap"], TM["stall"], TM["meltCmd"]
+    out = np.zeros((N, 2))
+    out[:t2i(STALL)] = take[:t2i(STALL)]
+    # the valley: the music tape-stops at the stall (speed falls to nothing over 0.45 s), then only a ringing in the ears
+    n = int(0.45 * SR); pos = t2i(STALL) + np.cumsum(np.linspace(1, 0, n) ** 1.6)
+    stop = np.stack([np.interp(pos, np.arange(len(take)), take[:, c]) for c in (0, 1)], axis=1) * np.linspace(1, 0, n)[:, None] ** 0.5
+    out[t2i(STALL):t2i(STALL) + n] = stop
+    ring = sine(3950, MC - STALL - 0.2) * 0.012 * adsr(MC - STALL - 0.2, 0.35, 0.0)
+    out[t2i(STALL + 0.2):t2i(STALL + 0.2) + len(ring)] += ring[:, None] * [1, 0.85]                  # cut dead by the drop
+    # the drop: the take's own downbeat (its biggest 100 ms energy rise near the planned drop, then the sharpest
+    # attack inside that rise), put on the enter
+    h = SR // 200; e = np.log(np.add.reduceat(take.mean(1) ** 2, np.arange(0, len(take), h)) + 1e-9)
+    a_, b_ = int((MC - 0.3) * 200), int((MC + 1.4) * 200)
+    i_ = a_ + int(np.argmax(e[a_ + 20:b_ + 20] - e[a_:b_]))
+    DROP = (i_ + int(np.argmax(np.diff(e[i_:i_ + 21])))) / 200 - 0.004
+    print(f"{TAKE}: drop found at {DROP:.3f} s, moved to {MC}")
+    d = take[t2i(DROP):t2i(DROP) + t2i(LEAP - MC) + t2i(0.3)].copy(); d[:96] *= np.linspace(0, 1, 96)[:, None]
+    out[t2i(MC):t2i(MC) + len(d)] += d[:N - t2i(MC)]
+    # ride the build: the take dips under the first kills and fades after its peak, so a fader climbs it steadily
+    # from -9 dB (re the drop) to -2 dB into the hush; within +9/-6 dB and slow enough never to pump
+    B0, B1 = t2i(dict(TM["music"])["build"]), t2i(LEAP - 0.25)
+    w = t2i(0.4); p = np.convolve(out[:, 0] ** 2 + out[:, 1] ** 2, np.ones(w) / w, "same")
+    ref = 10 * np.log10(p[t2i(MC):t2i(MC + 0.5)].max() + 1e-12)
+    have = 10 * np.log10(p[B0:B1] + 1e-12) - ref
+    gdb = np.clip(np.linspace(-9, -2, B1 - B0) - have, -6, 9)
+    g = np.zeros(N); g[B0:B1] = gdb; g[B1:] = gdb[-1] * 0
+    g = lp(lp(g, 1.5, 1)[::-1], 1.5, 1)[::-1]                                                           # zero-phase, slow
+    out *= 10 ** (g / 20)[:, None]
+    # the leap: the ending, in the take's voice, crossfaded in over a quarter second
+    xf = t2i(0.3); i0 = t2i(LEAP)
+    out[i0:i0 + xf] *= np.linspace(1, 0, xf)[:, None]; out[i0 + xf:] = 0
+    e = end[t2i(SKIP):][:N - i0].copy(); e[:xf] *= np.linspace(0, 1, xf)[:, None]
+    out[i0:i0 + len(e)] += e
+    f = t2i(0.4); out[-f:] *= np.linspace(1, 0, f)[:, None]
+    return out
+
+SCORE = score()
+if len(sys.argv) > 1 and sys.argv[1] == "preview":
+    p = os.path.join(ROOT, "audio", "music", f"preview-{TAKE}-{END}.wav")
+    sf.write(p, (SCORE / np.abs(SCORE).max() * 0.7).astype(np.float32), SR); print("wrote", p); sys.exit()
+music.L += SCORE[:, 0]; music.R += SCORE[:, 1]
+
+# the 1860 voice, faint, under the first strikes; the room
 room = lp(noise(DUR), 300) * 0.015
 music.add(room * adsr(DUR, 0.05, 0.6), 0.0, width=0.02)
-music.add(norm(bp(cut(PHONO_SRC, 3.70, 1.4, 0.01, 0.4), 250, 3200), 0.16), 0.0)        # the 1860 voice, faint, under the first strikes
-for w, t0, clip in TM["words1"][:-1]:                         # "job." is the ignition hit (tools/cues.py), not a kick
-    music.add(kick(0.95), t0)
-dr = drone(TM["meltCmd"]); music.add(dr * np.linspace(0.25, 0.75, len(dr)) * 0.45, 0.0, width=0.02)
-
-# ------------------------------------------------------------------ Act II: the groove under the pile of apps
-t = TM["act2"]
-while t < TM["meltCmd"] - 0.4:
-    music.add(kick(0.7), t); music.add(bass_note(bar_root(t) - 12, BEAT / 2 - 0.01) * 0.42, t + BEAT / 2); t += BEAT
-
-# ------------------------------------------------------------------ the melt: the drone opens up under the fire
-MELT0, CAST = TM["meltCmd"] + 0.05, TM["cast"]
-d_ = CAST - MELT0 - 0.15; dr = drone(d_, bright=2.0); ev = adsr(d_, 0.4, 0.4); n_ = min(len(dr), len(ev))
-music.add(dr[:n_] * ev[:n_] * 0.55, MELT0 + 0.15, width=0.02)                                     # swells in after the blast
-# the casting: the drone darkens as the iron cools and hands over to the groove
-d_ = TM["settle"] + 0.3 - CAST; dr = drone(d_, bright=0.6); ev = adsr(d_, 0.3, 0.4); n_ = min(len(dr), len(ev)); music.add(dr[:n_] * ev[:n_] * 0.6, CAST - 0.2, width=0.02)
-
-# ------------------------------------------------------------------ the kills: the groove returns, a kick on every enter
+music.add(norm(bp(cut(PHONO_SRC, 3.70, 1.4, 0.01, 0.4), 250, 3200), 0.05), 0.0)
+MELT0, CAST = TM["meltCmd"], TM["cast"]                          # the drop is the enter: the fire catches on it
 K = TM["kills"]
 KK = {k["kind"]: k for k in K}
-def groove(t0, t1, g=1.0):
-    t = t0
-    while t < t1 - 1e-6:
-        b = round(t / BEAT); music.add(kick(0.9 * g), t)
-        music.add(bass_note(bar_root(t) - 12, BEAT / 2 - 0.01) * 0.5 * g, t + BEAT / 2)
-        for o in (0.125, 0.375): music.add(key(b + 1) * 0.18 * g, t + o, pan=-0.3)
-        if b % 2 == 1: music.add(clap(), t, 0.28 * g)
-        t += BEAT
-groove(TM["settle"], KK["translate"]["flash"])
-for k in K:
-    if k["kind"] != "translate": music.add(kick(0.9), k["enter"])                          # translate's enter is the Quindar tone
-dr = drone(TM["end"] - KK["translate"]["flash"]); music.add(dr * 1.05, KK["translate"]["flash"], width=0.03)         # mix.py ducks it under him
 
 # ------------------------------------------------------------------ the beds: continuous roars are scenery, not events, so they live
 # under the sound effects at a level set against the kill groove (real recordings cut by tools/sources.sh)
@@ -167,7 +193,7 @@ def own(name):
                          capture_output=True, check=True).stdout
     return np.frombuffer(raw, np.float32).astype(np.float64)
 s0, s1 = t2i(TM["settle"]), t2i(KK["translate"]["flash"])
-GROOVE_RMS = np.sqrt(np.mean(music.L[s0:s1] ** 2))
+GROOVE_RMS = np.sqrt(np.mean(music.L[s0:s1] ** 2))                # the score under the kills: what the beds sit against
 def bed(name, t, db, ramp_db=0.0, pan=0.0):
     x = own(name); x = x / (np.sqrt(np.mean(x ** 2)) + 1e-12) * GROOVE_RMS * 10 ** (db / 20)
     beds.add(x * 10 ** (np.linspace(ramp_db, 0, len(x)) / 20), t, pan=pan, width=0.015)
@@ -202,29 +228,19 @@ vb = np.tanh(vb / pk * gb * 1.1) / 1.1 * pk
 voice.add(va / pk * 0.92, TM["vo"]["a"]); voice.add(vb / pk * 0.92, TM["vo"]["b"])
 
 # ------------------------------------------------------------------ stems (mix.py levels, ducks under Armstrong and masters)
-def duck_curve():
+def duck_curve(floor):
     g = np.ones(N)
-    for c in [TM["cmd0"]] + TM["kills"]:  # the world waits while a command is typed
+    for c in TM["kills"]:  # the world waits while a command is typed
         a_, b_ = t2i(c["t0"] - 0.1), t2i(c["enter"])
-        g[a_:b_] = np.minimum(g[a_:b_], np.linspace(1, 0.45, b_ - a_) ** 0.5)
-    a_, b_ = t2i(TM["meltCmd"]), t2i(TM["meltCmd"] + 0.05)  # three frames of nothing
-    g[a_:b_] = 0.0
+        g[a_:b_] = np.minimum(g[a_:b_], np.linspace(1, floor, b_ - a_) ** 0.5)
     return lp(g, 40, 1)
 
-def sidechain():
-    g = np.ones(N)
-    for t in list(np.arange(TM["act2"], TM["meltCmd"] - 0.4, BEAT)) + list(np.arange(TM["settle"], KK["translate"]["flash"], BEAT)):
-        i = t2i(t); n = int(0.2 * SR)
-        g[i:i + n] = np.minimum(g[i:i + n], 1 - 0.55 * np.exp(-np.arange(n) / (0.05 * SR)))
-    return g
-
-dk, sc = duck_curve(), sidechain()
-sil = np.ones(N); sil[t2i(TM["meltCmd"]):t2i(TM["meltCmd"] + 0.05)] = 0.0
-q0 = t2i(TM["vo"]["end"]); sil[q0:] = np.minimum(sil[q0:], np.exp(-np.arange(N - q0) / (0.25 * SR)))   # after "mankind." the music lets go
-sil = lp(sil, 30, 1)
-room_ = lp(noise(DUR), 260) * 0.012
-mus = np.stack([(reverb(music.L * dk * sc, 1.8, 0.22) + reverb(beds.L * dk, 1.2, 0.12)) * sil + room_,
-                (reverb(music.R * dk * sc, 1.8, 0.22) + reverb(beds.R * dk, 1.2, 0.12)) * sil + room_[::-1]], axis=1)
+# the score only leans back while a kill is typed (the build must keep building); the roars wait properly
+dm, db_ = duck_curve(0.75), duck_curve(0.45)
+room_ = lp(noise(DUR), 260) * 0.012 * np.where(np.arange(N) < t2i(TM["stall"] + 0.3), 1.0, 0.0)[:]   # the room dies with the stall
+room_ = lp(room_, 20, 1) + lp(noise(DUR), 260) * 0.012 * (np.arange(N) >= t2i(TM["meltCmd"]))
+mus = np.stack([music.L * dm + reverb(beds.L * db_, 1.2, 0.12) + room_,
+                music.R * dm + reverb(beds.R * db_, 1.2, 0.12) + room_[::-1]], axis=1)
 mus = np.tanh(mus * 1.1) / np.tanh(1.1)
 mus[-int(0.25 * SR):] *= np.linspace(1, 0, int(0.25 * SR))[:, None]
 os.makedirs(os.path.join(ROOT, "audio"), exist_ok=True)

@@ -1,0 +1,90 @@
+{
+ "seed": 3,
+ "song_id": "1SIBtyNeYnwe04sXj0TP",
+ "body": {
+  "composition_plan": {
+   "chunks": [
+    {
+     "text": "[Hush] {instrumental}{near silence}{one high string note and the piano motif}",
+     "duration_ms": 3370,
+     "positive_styles": [
+      "drops to near silence",
+      "a single sustained high string note",
+      "the soft felt piano motif, slow",
+      "awe, wonder, spacious",
+      "great production quality"
+     ],
+     "negative_styles": [
+      "vocals",
+      "singing",
+      "choir with words",
+      "EDM",
+      "dubstep",
+      "cheesy",
+      "comedic",
+      "lo-fi",
+      "guitar solo",
+      "ukulele"
+     ],
+     "context_adherence": "high",
+     "conditioning_ref": {
+      "song_id": "UJ22tzmAdchiSzH1dtwN",
+      "range": {
+       "start_ms": 12000,
+       "end_ms": 18750
+      }
+     },
+     "condition_strength": "high"
+    },
+    {
+     "text": "[Swell] {instrumental}{the swell crests}{arrives on a warm B-flat major chord}",
+     "duration_ms": 3000,
+     "positive_styles": [
+      "a slow, enormous orchestral swell",
+      "the motif on full strings and brass",
+      "rising to a warm triumphant B-flat major chord",
+      "great production quality"
+     ],
+     "negative_styles": [
+      "vocals",
+      "singing",
+      "choir with words",
+      "EDM",
+      "dubstep",
+      "cheesy",
+      "comedic",
+      "lo-fi",
+      "guitar solo",
+      "ukulele"
+     ],
+     "context_adherence": "high"
+    },
+    {
+     "text": "[Ring] {instrumental}{the last chord rings}",
+     "duration_ms": 4400,
+     "positive_styles": [
+      "the final B-flat major chord rings out",
+      "long natural reverb tail",
+      "calm, resolved",
+      "great production quality"
+     ],
+     "negative_styles": [
+      "vocals",
+      "singing",
+      "choir with words",
+      "EDM",
+      "dubstep",
+      "cheesy",
+      "comedic",
+      "lo-fi",
+      "guitar solo",
+      "ukulele"
+     ],
+     "context_adherence": "high"
+    }
+   ]
+  },
+  "model_id": "music_v2_5",
+  "seed": 3
+ }
+}

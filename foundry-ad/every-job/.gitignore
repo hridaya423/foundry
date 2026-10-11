@@ -12,3 +12,8 @@ audio/own/
 audio/stems/
 audio/browse/
 audio/*.wav
+# the score: only the chosen take and ending (tools/score.py TAKE/END) are kept; other takes and previews are local
+audio/music/*
+!audio/music/take-16.*
+!audio/music/end-16-3.*
+!audio/music/takes.png
