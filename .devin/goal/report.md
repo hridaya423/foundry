@@ -76,8 +76,12 @@ Quality bar: Raycast. Plan: `docs/plans/2026-10-11-foundry-raycast-bar-audit.md`
 - `scripts/lint-lines.sh`: PASS
 - `UserDefaults.standard` in `Sources/`: 1 site (ConfigService migration param)
 
-## Remaining
-- Phase 4: typed `ResultPayload` (79 prefix-check sites), `ResultAction` + ActionRunner generic executor, CommandPanelState split (~70 props), @unchecked Sendable audit (60→≤10), lint ratchet 240→160
+### Workstream transferred (this commit)
+- Full handoff to the Mac mini agent: repo cloned clean to `~/Honey/anvil` at `cea3608` and verified `swift build` on its Xcode 16.3 / Swift 6.1 toolchain. Handoff brief at `~/foundry-raycast-audit-handoff.md` (mini home dir); `docs/HANDOFF.md` (`61a3918`) repointed to this audit. The mini agent owns all remaining phases and the final sync-back of commits to this checkout.
+- `cea3608` also restored Swift 6.1 compatibility broken by the try? audit: `import FoundryServices` hoisted out of `#if canImport(FoundationModels)` (OnboardingState), `@preconcurrency import Foundation` for `NSItemProvider.loadItem` (FileConversionView), and `SendableBackports.swift` — `NSImage: @retroactive @unchecked Sendable` under `#if compiler(<6.2)`. 95 errors on Xcode 16.3 → build complete.
+
+## Remaining (owned by the Mac mini agent — see `~/foundry-raycast-audit-handoff.md` there)
+- Phase 4: @unchecked Sendable audit (7 done in `31d6760`; ~53 sites → ≤10 justified), typed `ResultPayload` (79 prefix-check sites), `ResultAction` + ActionRunner generic executor, CommandPanelState split (~70 props), lint ratchet 240→160
 - Phase 5: UI/UX — design tokens, row anatomy, alerts→in-panel forms, Settings window, Quick Look, materials/motion, copy, localization groundwork, accessibility
 - Phase 6: platform — window tiling settle, Codex OAuth opt-in, CI snapshots
 - Final: benchmark evidence, HANDOFF + report update, goalctl done
