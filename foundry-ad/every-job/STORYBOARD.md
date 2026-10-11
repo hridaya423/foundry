@@ -19,9 +19,16 @@ wordmark.
   little off the line, the tube jolts); an I-beam types line 2 in a note app; Foundry's molten caret types
   line 3 in the cast bar.
 - **Past** in an amber tube on a Blender set; **present** full frame and crisp; heat is the only colour.
-- **The wall**: the set tiled into an endless wall (`uBox`), other screens from a live 48-slot atlas.
-- **Metal**: red = in the picture, blue = in the room (drips, the river), green = emission. The bar cools
-  physically to cast iron, one band of light, then glass.
+- **The wall**: the set tiled into an endless wall (`uBox`), other screens from a live 48-slot atlas. It sits in
+  perspective and falls into fog; out-of-focus sets blur, and ignition is a wave that burns each screen through
+  from its edges.
+- **Metal**: red = in the picture, blue = in the room (drips, the river), green = emission. Every hot thing —
+  melt, cast, caret, logo — shares one blackbody ramp (≈650–2600 K), so the film's heat is one physical thing.
+  The bar cools physically to cast iron, one band of light, then glass that frosts and refracts what is behind
+  it; its caret is a light on the picture.
+- **The grade**: halation (wide, red, highlights only), a shadow toe, edge chromatic aberration, gate weave and
+  grain on everything; Act I's footage also gets projector flicker, dust and hairline scratches — inside the
+  tube, never on the frame. The camera breathes and pushes in and out on Act I's words.
 
 # Beats
 
@@ -29,9 +36,9 @@ wordmark.
 |---|---|
 | 0.0–2.8 | **A machine / for every / job.** struck by a typewriter, one word per beat, each word a hard cut to its machine: typing pool, switchboard, telegraph, 1957 computer, Saturn V ignition. |
 | 2.8–5.0 | **An app for every job.** typed with an I-beam; *YouTube Downloader MP4 (No Virus)*, *Background Eraser Online*, *GIF Maker Pro* land big and readable, then twenty more. The set overheats: the picture rolls and tears, the glass glows. |
-| 5.0–5.7 | The camera pulls back: an endless wall of sets, every one a pile of apps. It holds there half a second while every set pings. |
+| 5.0–5.7 | The camera pulls back: an endless wall of sets tilting away into fog, every one a pile of apps. It holds there half a second while every set pings. |
 | 6.2 | `melt them down`. Three frames of nothing. |
-| 6.25–8.6 | Every screen in the wall ignites in its own time; the drips run down the wall and braid into one river; the camera falls with it. |
+| 6.25–8.6 | Ignition travels out from our set and every screen burns through from a molten edge; the drips run down the wall and braid into one river under a drift of embers; the camera falls with it. |
 | 8.6–10.4 | The river fills a mould: Foundry's bar. It cools from the rim in: the skin crusts and cracks, the casting shrinks from the mould wall, smoke lifts, a few sparks pop. The heat retreats to where the cursor lives. A band of light runs along the iron; the sand mould is knocked out; the iron shell flakes away to the glass bar. |
 | 10.4–11.0 | The last molten point is the caret. **One for every job.** types out of it. |
 | 11.15–17.25 | **The kills**, on one even cadence. Each is just its line typed in the bar while the picture waits, then enter: `convert to gif` (Muybridge's plate gallops), `remove background`, `100 usd in eur` (89.25, ECB rate on 2026-10-05), `tile windows`, `download youtu.be/lumiere-1895` (the clip opens out of the bar; the train comes through). |
