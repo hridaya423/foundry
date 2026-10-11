@@ -1,11 +1,11 @@
 #!/bin/bash
 # Fast dev stills: seek the composition in a plain browser and save 1920x1080 frames + a contact sheet.
-# usage: tools/shots.sh out_dir t1 t2 ...   (needs `python3 -m http.server 8769` in melt/)
+# usage: tools/shots.sh out_dir t1 t2 ...   (needs `tools/serve.py 8769` running here)
 set -e
 OUT="$1"; shift
 mkdir -p "$OUT"
 agent-browser set viewport 1920 1080 >/dev/null
-agent-browser open "http://localhost:8769/index.html?$(date +%s)" >/dev/null
+agent-browser open "http://127.0.0.1:8769/index.html?$(date +%s)" >/dev/null 2>&1 || true   # open can time out while ~2000 frames load; readiness is polled below
 for i in $(seq 1 300); do
   r=$(agent-browser eval "!!window.__ready" 2>/dev/null | tail -1)
   [ "$r" = "true" ] && break; sleep 0.5

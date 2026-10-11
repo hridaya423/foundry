@@ -33,7 +33,14 @@
     return seg(t, [[WALL1, 0.15], [RIV0, 0.138], [RIV1, 0.5, ease.inCubic]]);
   };
   const camY = (t) => seg(t, [[RIV0, 0.5], [RIV1, 3.1, ease.inCubic]]);
-  const camAt = (t) => ({ cx: 0.5, cy: camY(t), zoom: camZoom(t) });
+  // a hand on the camera while it looks at one set (a few px of drift); locked once it pulls back
+  const hand = (t) => t >= WALL0 ? [0, 0] : [0.0008 * (Math.sin(t * 1.7) + 0.6 * Math.sin(t * 4.3 + 1.3)), 0.0006 * (Math.sin(t * 1.3 + 0.7) + 0.5 * Math.sin(t * 3.7 + 2.1))];
+  const camAt = (t) => { const [hx, hy] = hand(t); return { cx: 0.5 + hx, cy: camY(t) + hy, zoom: camZoom(t) }; };
+  // the wall tilts away as the camera pulls back, and flattens again as it falls with the river into the mould
+  const perspAt = (t) => ease.inOutCubic(prog(t, WALL0 + 0.1, WALL1)) * (1 - ease.inOutCubic(prog(t, RIV0 + 0.5, RIV1 - 0.1)));
+  // hot air: the overheating set shimmers a little, the burning wall a lot, the casting less as it cools
+  const hazeAt = (t, overheat) => t < MELT0 ? 0.35 * overheat : t < TM.cast ? 0.4 + 0.6 * prog(t, MELT0, MELT0 + 0.6) : 0.45 * (1 - prog(t, TM.cast, TM.glass));
+  const embersAt = (t) => ease.inOutCubic(prog(t, MELT0 + 0.15, MELT0 + 0.55)) * (1 - ease.inOutCubic(prog(t, TM.cast + 0.8, TM.cast + 1.3)));
   const toOut = (c, x, y) => ({ x: ((x - c.cx) * c.zoom + 0.5) * W, y: ((y - c.cy) * c.zoom + 0.5) * H });
 
   function tubeText(ctx, str, x, y, size, align = "left", alpha = 1, weight = 600) {
@@ -48,7 +55,9 @@
     const W1 = TM.words1;
     let k = 0; for (let i = 0; i < W1.length; i++) if (t >= W1[i][1]) k = i;
     const [, t0, clip] = W1[k], u = t - t0;
-    M.drawCover(ctx, M.frameAt(clip, u, 0, "hold"), PIC, 1.06 + u * 0.12, 0.5, 0.5);
+    // every cut changes the move: push in, pull out, push in..., each framed a little off the last
+    const [ax, ay] = [[0.5, 0.5], [0.46, 0.53], [0.55, 0.47], [0.5, 0.44], [0.5, 0.5]][k];
+    M.drawCover(ctx, M.frameAt(clip, u, 0, "hold"), PIC, k % 2 ? 1.2 - u * 0.14 : 1.05 + u * 0.14, ax, ay);
     ctx.fillStyle = "rgba(0,0,0,0.42)"; ctx.fillRect(PIC.x, 0, PIC.w, PIC.h);
     // the words: each strikes whole; every letter sits a little off, the way type bars land
     const size = 196;
@@ -146,7 +155,7 @@
     mctx.save(); mctx.strokeStyle = "rgb(0,0,255)"; mctx.lineCap = "round"; mctx.globalCompositeOperation = "lighter";
     const px = (v) => Math.max(2.5, v * cam.zoom * W);
     for (let j = Math.max(j0, -6); j <= Math.min(j1, 5); j++) for (let i = i0; i <= i1; i++) {
-      const dl = h21(i + 1.7, j + 1.7) * 0.5 + Math.hypot(i, j) * 0.025;
+      const dl = h21(i + 1.7, j + 1.7) * 0.25 + Math.hypot(i, j) * 0.07;   // the ignition wave (same as gl.js)
       for (let d = 0; d < 2; d++) {
         const r = hash((i + 50) * 977 + (j + 50) * 131 + d);
         const v = u - dl - 0.3 - r * 0.25;
@@ -278,6 +287,7 @@
     const atlas = M.canvas(), actx = atlas.getContext("2d");
     const mc = M.metalCanvas();
     const els = { capA: document.getElementById("capA"), capB: document.getElementById("capB"), bar: document.getElementById("bar"), calc: document.getElementById("calc"), small: document.getElementById("calcsmall") };
+    els.caret = els.bar.querySelector(".caret");
     const KK = Object.fromEntries(TM.kills.map((k) => [k.kind, k]));
     const tileTree = M.splitTree([1, 1, 2, 3, 4].map((k, i) => ({ t: KK.tile.enter + i * 0.09, k })), 61);   // splits on the enter, then holds
     const TILE_CLIPS = ["typists", "operator", "telegraph", "console", "gallop", "aldrin", "arrival", "reels", "ticker", "drawers", "moonface", "crowd", "flag", "capsule"];
@@ -306,6 +316,8 @@
       const jolt = t < TM.act2 ? strikeJolt(t) : 0;
       let tv = { cx: cam.cx, cy: cam.cy - jolt * 0.0025, zoom: cam.zoom, scr, rad: RAD, barrel: 0.045, on: [0, 1, 1], amber: 0,
         overheat: ease.inCubic(prog(t, TM.heat0, WALL0 + 0.3)) * (1 - prog(t, WALL1, TM.meltCmd)) };
+      tv.persp = perspAt(t);
+      Object.assign(g, { archive: t < TM.act2 ? 1 : 0, haze: hazeAt(t, tv.overheat), embers: embersAt(t) });
 
       if (t < TM.act2) act1(ctx, t);
       else if (t < TM.cast) {
@@ -377,6 +389,13 @@
       }
 
       g.tv = tv;
+      // the bar is glass over the results (gl.js frosts what is behind it); its caret is a light
+      const bs = els.bar.style;
+      if (!tv && t >= TM.settle && bs.visibility === "visible" && parseFloat(bs.opacity) > 0.5) {
+        const cr = els.caret.getBoundingClientRect(), h = parseFloat(bs.height);
+        g.bar = { x: parseFloat(bs.left), y: parseFloat(bs.top), w: parseFloat(bs.width), h, r: h / 2,
+          cx: cr.x + cr.width / 2, cy: cr.y + cr.height / 2, con: parseFloat(els.caret.style.opacity || "0") };
+      }
       g.metal = M.metalEnd(mc);
       window.GL.draw(g);
     });

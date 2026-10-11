@@ -19,6 +19,17 @@
   float vnoise(vec2 p){ vec2 i=floor(p), f=fract(p); vec2 u=f*f*(3.-2.*f);
     return mix(mix(h21(i),h21(i+vec2(1,0)),u.x), mix(h21(i+vec2(0,1)),h21(i+vec2(1,1)),u.x), u.y); }
   float fbm(vec2 p){ float s=0., a=.5; for(int i=0;i<5;i++){ s+=a*vnoise(p); p=p*2.03+17.1; a*=.5; } return s; }
+  // heat: brightness follows the film's tuned ramp (the bloom thresholds are set to it); colour is a blackbody's
+  // at the matching temperature (Helland's fit, deepened below 1000 K where hot metal is a dim red), so everything
+  // hot in the film cools along one physical curve
+  vec3 kelvin(float K){
+    float t = K/100.0;
+    float r = t <= 66.0 ? 1.0 : 1.29293618606*pow(t - 60.0, -0.1332047592);
+    float g = t <= 66.0 ? 0.390081578769*log(t) - 0.631841443788 : 1.12989086089*pow(t - 60.0, -0.0755148492);
+    float b = t >= 66.0 ? 1.0 : (t <= 19.0 ? 0.0 : 0.543206789110*log(t - 10.0) - 1.19625408914);
+    g *= smoothstep(6.0, 11.0, t)*0.75 + 0.25;
+    return clamp(vec3(r, g, b), 0.0, 1.0);
+  }
   vec3 body(float T){
     T = max(T, 0.);
     vec3 c = vec3(0.);
@@ -27,7 +38,9 @@
     c = mix(c, vec3(1.9,0.62,0.08), smoothstep(0.45,0.8,T));
     c = mix(c, vec3(2.8,1.7,0.55), smoothstep(0.75,1.1,T));
     c = mix(c, vec3(3.6,3.2,2.6), smoothstep(1.05,1.5,T));
-    return c;
+    vec3 bb = kelvin(650.0 + 700.0*T + 900.0*T*T*T);   // ~1100 K at T .5, ~2600 K at 1.1: white heat only at the top
+    const vec3 Y = vec3(.2126,.7152,.0722);
+    return bb*dot(c, Y)/max(dot(bb, Y), 1e-4);
   }
   uniform vec2 uRes;
   // ---------------------------------------------------------------- lava
@@ -54,7 +67,7 @@
 
   const SCENE = COMMON + `
   uniform sampler2D uScene, uEdge, uMetal;
-  uniform float uT, uHeat, uFlow, uPinch, uTilt, uSeed, uZoom, uLumHeat, uEmber, uMetalOn, uSat, uRaw, uIsolate, uFlowSpd, uContrast, uAmberS, uHeatMask;
+  uniform float uT, uHeat, uFlow, uPinch, uTilt, uSeed, uZoom, uLumHeat, uEmber, uMetalOn, uSat, uRaw, uIsolate, uFlowSpd, uContrast, uAmberS, uHeatMask, uArchive;
   uniform vec2 uPan;
   // cast
   uniform sampler2D uLogo;
@@ -238,13 +251,20 @@
     float col = smoothstep(0.45, 0.75, fbm(vec2(px.x*0.006 + 7.0, uCastT*0.3)));
     float wisp = fbm(vec2(px.x*0.009 + sin(px.y*0.01 + uCastT*2.0)*0.6, px.y*0.006 + uCastT*1.1) + 2.0);
     c += vec3(0.1, 0.096, 0.092)*smoothstep(0.42, 0.75, wisp)*col*above*uSmoke;
-    for (int k = 0; k < 7; k++) {
-      float fk = float(k), t0 = 0.6 + h21(vec2(fk, 2.0))*0.7, u = uCastT - t0;
-      if (u < 0.0 || u > 0.45) continue;
-      vec2 o = vec2((0.2 + 0.6*h21(vec2(fk, 5.0)))*uRes.x, uImp.y*uRes.y - 20.0);
-      vec2 v = vec2((h21(vec2(fk, 7.0)) - 0.5)*500.0, -600.0 - 500.0*h21(vec2(fk, 9.0)));
-      vec2 sp_ = o + v*u + vec2(0.0, 1800.0)*u*u;
-      c += body(1.2)*exp(-dot(px - sp_, px - sp_)/12.0)*(1.0 - u/0.45)*2.0;
+    // sparks: a burst off the impact as the river lands, then a few popping off the skin as it sets
+    for (int k = 0; k < 22; k++) {
+      float fk = float(k), burst = step(fk, 13.5);
+      float t0 = burst > 0.5 ? 0.01 + 0.06*h21(vec2(fk, 2.0)) : 0.6 + h21(vec2(fk, 2.0))*0.7, u = uCastT - t0;
+      float life = burst > 0.5 ? 0.55 : 0.45;
+      if (u < 0.0 || u > life) continue;
+      vec2 o = burst > 0.5 ? uImp.xy*uRes + vec2((h21(vec2(fk, 3.0)) - 0.5)*60.0, -10.0)
+                           : vec2((0.2 + 0.6*h21(vec2(fk, 5.0)))*uRes.x, uImp.y*uRes.y - 20.0);
+      vec2 v = burst > 0.5 ? vec2((h21(vec2(fk, 7.0)) - 0.5)*1500.0, -500.0 - 900.0*h21(vec2(fk, 9.0)))
+                           : vec2((h21(vec2(fk, 7.0)) - 0.5)*500.0, -600.0 - 500.0*h21(vec2(fk, 9.0)));
+      vec2 sp_ = o + v*u + vec2(0.0, 1800.0)*u*u, vl = v + vec2(0.0, 3600.0)*u;
+      vec2 a_ = sp_ - vl/60.0, pa = px - a_, ba = sp_ - a_;
+      float dd = length(pa - ba*clamp(dot(pa, ba)/dot(ba, ba), 0.0, 1.0));
+      c += body(1.2)*exp(-dd*dd/3.0)*(1.0 - u/life)*2.0;
     }
     // the river feeding it, and its splash
     if (uStream.z > 0.0 && s.y >= uStream.x && s.y <= uImp.y) {
@@ -332,6 +352,20 @@
     c = mix(c, metal, bodyM*uMetalOn);
     c += body(0.5)*smoothstep(0.16, 0.30, fld)*(1.0 - bodyM)*0.25*uMetalOn;
     c += body(0.85 + 0.6*mt.y)*smoothstep(0.0, 0.5, mt.y)*2.4*uMetalOn;   // sparks: emission only
+    // archive print (Act I footage, inside the tube): 18 fps flicker, dust that lives one frame, a hairline scratch
+    if (uArchive > 0.0) {
+      vec2 sp = vec2(vUv.x, 1.0 - vUv.y)*uRes;
+      float fr = floor(uT*18.0);
+      c *= 1.0 + (h21(vec2(fr, 3.1)) - 0.5)*0.10*uArchive;
+      vec2 dc = floor(sp/96.0);
+      if (h21(dc + fr*1.37) > 0.982) {
+        vec2 cp = (dc + vec2(h21(dc + fr + 0.3), h21(dc + fr + 0.7)))*96.0;
+        float rad = 1.2 + 3.2*h21(dc + fr + 0.9);
+        c *= mix(1.0, 0.18, smoothstep(rad, rad*0.35, length((sp - cp)*vec2(1.0, 0.7)))*uArchive);
+      }
+      float xs = h21(vec2(fr, 8.2))*uRes.x + sin(sp.y*0.008 + fr)*4.0;
+      c *= 1.0 - step(0.72, h21(vec2(fr, 9.4)))*uArchive*0.3*exp(-pow((sp.x - xs)/0.9, 2.0));
+    }
     fragColor = vec4(c, 1.0);
   }`;
 
@@ -346,53 +380,102 @@
   uniform vec4 uScr;          // screen opening in plate fractions
   uniform vec3 uOn;           // dot, openX, openY
   uniform vec4 uFlat;         // the picture pulled out of the tube: rect in output fractions
+  uniform float uPersp, uHaze, uEmbers, uBarOn, uBarR;
+  uniform vec4 uBar;          // the command bar, output px: x, y, w, h
+  uniform vec3 uCaret;        // the caret, output px: x, y, on
   float sdBox(vec2 p, vec2 b, float r){ vec2 q = abs(p) - b + r; return length(max(q, 0.)) + min(max(q.x, q.y), 0.) - r; }
-  vec3 pic(vec2 u){           // picture-space sample (u in 0..1 over the 4:3 picture)
-    return texture(uPic, vec2(0.5 + (u.x - 0.5)*uPicW, 1.0 - u.y)).rgb;
+  vec3 pic(vec2 u, float lb){ // picture-space sample (u in 0..1 over the 4:3 picture); lb: blur (mip bias)
+    return texture(uPic, vec2(0.5 + (u.x - 0.5)*uPicW, 1.0 - u.y), lb).rgb;
   }
+  vec3 pic(vec2 u){ return pic(u, 0.0); }
   void main(){
     vec2 uv = vec2(vUv.x, 1.0 - vUv.y);
+    float asp = uRes.x/uRes.y;
+    // heat haze: hot air rising off the metal bends whatever is behind it
+    if (uHaze > 0.0) {
+      vec2 hq = uv*vec2(6.0, 3.5) + vec2(0.0, uT*1.3);
+      uv += (vec2(fbm(hq), fbm(hq + vec2(5.2, 3.1))) - 0.5)*uHaze*vec2(0.0035, 0.006);
+    }
+    // the wall in depth: the plane of sets tilts away as the camera pulls out (top recedes, a little yaw);
+    // z is distance relative to the frame centre, which stays where it was
+    float z = 1.0;
+    if (uPersp > 0.0) {
+      vec2 pc = (uv - 0.5)*vec2(asp, 1.0);
+      z = 1.0/max(0.25, 1.0 + 1.1*uPersp*pc.y + 0.2*uPersp*pc.x);
+      pc *= z; pc.y *= 1.0 + 0.3*uPersp;
+      uv = pc/vec2(asp, 1.0) + 0.5;
+    }
+    float dof = uPersp*abs(log(z))*5.5;                     // focus on our set's distance; mip bias away from it
     vec3 c;
     if (uTV < 0.5) {
       c = texture(uPic, vec2(uv.x, 1.0 - uv.y)).rgb;
+      // the bar is glass: it frosts and lenses the picture behind it; the caret lights the glass around it
+      if (uBarOn > 0.5) {
+        vec2 px = uv*uRes, bc = uBar.xy + uBar.zw*0.5, hb = uBar.zw*0.5;
+        float bd = sdBox(px - bc, hb, uBarR);
+        if (bd < 0.0) {
+          vec2 e = vec2(1.5, 0.0);
+          vec2 nrm = normalize(vec2(sdBox(px - bc + e, hb, uBarR) - sdBox(px - bc - e, hb, uBarR),
+                                    sdBox(px - bc + e.yx, hb, uBarR) - sdBox(px - bc - e.yx, hb, uBarR)) + 1e-5);
+          float rim = smoothstep(-34.0, 0.0, bd);
+          vec2 q = uv - nrm*rim*rim*vec2(1.0, asp)*0.010 - (uv - bc/uRes)*0.035;
+          vec3 frost = texture(uPic, vec2(q.x, 1.0 - q.y), 3.2 + 1.5*rim).rgb;
+          c = frost*0.85 + vec3(0.9, 0.92, 1.0)*rim*rim*0.05;
+        }
+        float cd = length((px - uCaret.xy)*vec2(1.0, 1.6));
+        c += body(0.9)*uCaret.z*(exp(-cd/120.0)*0.10 + exp(-cd/26.0)*0.10)*smoothstep(40.0, -10.0, bd);
+      }
     } else {
       vec2 w = uCam.xy + (uv - 0.5)/uCam.z;                 // plate coords
+      // footprint from the continuous coordinates, so the wall's tile seams don't jump mip levels; scaled for blur
+      vec2 gx = dFdx(w)*exp2(dof), gy = dFdy(w)*exp2(dof);
       // a wall of sets: every tile of the plane is the same set; the one at (0,0) is ours
       vec2 cell = vec2(0.0);
       if (uWall > 0.5) { vec2 r = (w - uBox.xy)/uBox.zw; cell = floor(r); w = uBox.xy + fract(r)*uBox.zw; }
       float ours = 1.0 - step(0.5, abs(cell.x) + abs(cell.y));
+      float vary = mix(0.45 + 0.9*h21(cell + 9.1), 1.0, ours);  // no two sets in the wall are lit alike
       vec2 pr = vec2(3840.0, 2160.0);
       vec2 sc = uScr.xy + uScr.zw*0.5;
       float d = sdBox((w - sc)*pr, uScr.zw*pr*0.5, uRad*pr.y);
-      vec3 off = texture(uOff, w).rgb, lit = texture(uLit, w).rgb;
+      vec3 off = textureGrad(uOff, w, gx, gy).rgb, lit = textureGrad(uLit, w, gx, gy).rgb;
       float inb = step(0.0, w.x)*step(w.x, 1.0)*step(0.0, w.y)*step(w.y, 1.0);
       float avg = dot(textureLod(uPic, vec2(0.5), 11.0).rgb, vec3(0.3, 0.55, 0.15));
-      float spill = mix(0.45, clamp(avg*1.6, 0.0, 1.2), ours)*uOn.z + uOn.x*0.06;
+      float spill = mix(0.45, clamp(avg*1.6, 0.0, 1.2), ours)*uOn.z*vary + uOn.x*0.06;
+      // the melt ignites as a wave from our set outward, each set a little early or late
       float hc = 0.0;
-      if (uMeltT > 0.0) { float dl = h21(cell + 1.7)*0.5 + length(cell)*0.025; hc = smoothstep(dl, dl + 0.35, uMeltT); spill += hc*1.5; }
+      if (uMeltT > 0.0) { float dl = h21(cell + 1.7)*0.25 + length(cell)*0.07; hc = smoothstep(dl, dl + 0.35, uMeltT); spill += hc*1.5; }
       c = (off + max(lit - off, 0.0)*spill)*inb;
-      if (d < 1.0) {
-        vec2 sl = (w - uScr.xy)/uScr.zw;
+      vec2 sl = (w - uScr.xy)/uScr.zw;
+      // the tube's light falls on the cabinet around the glass
+      float glow = exp(-max(d, 0.0)/70.0)*step(0.0, d)*uOn.y*uOn.z*(1.0 - uScrDim);
+      c += (ours > 0.5 ? pic(clamp(sl, 0.0, 1.0), 5.0) : vec3(0.9, 0.55, 0.25)*0.25*vary + body(0.8)*hc)*glow*0.22;
+      float soft = 1.0 + dof*10.0;                           // out of focus, the glass edge softens too
+      if (d < soft) {
         vec2 q = sl*2.0 - 1.0;
         float bar_ = uBarrel*(1.0 + 1.8*uOverheat*ours);
         q *= (1.0 + bar_*dot(q, q))/(1.0 + bar_);
         vec2 u = q*0.5 + 0.5;
-        // an overheating set: the picture rolls and tears
+        // an overheating set: the picture rolls and tears, and the guns drift out of convergence
         u.y += ours*uOverheat*0.035*sin(uT*31.0)*step(0.6, fract(uT*3.7));
         u.x += ours*uOverheat*0.02*step(0.93, fract(u.y*13.0 + uT*7.0))*sin(uT*90.0);
-        vec2 ca = (u - 0.5)*0.0035;
-        vec3 img = vec3(pic(u + ca).r, pic(u).g, pic(u - ca).b);
+        vec2 ca = (u - 0.5)*0.0035*(1.0 + 3.5*uOverheat*ours);
+        vec3 img = vec3(pic(u + ca, dof).r, pic(u, dof).g, pic(u - ca, dof).b);
         if (ours < 0.5) { // other sets show other desktops, burnt amber
           float sl_ = floor(h21(cell + 0.37)*uAtlasGrid.x*uAtlasGrid.y);
           vec2 slot = vec2(mod(sl_, uAtlasGrid.x), floor(sl_/uAtlasGrid.x));
-          vec3 a_ = texture(uAtlas, (slot + clamp(u, 0.0, 1.0))/uAtlasGrid).rgb;
-          float al = dot(a_, vec3(0.3, 0.55, 0.15));
+          vec3 a_ = texture(uAtlas, (slot + clamp(u, 0.0, 1.0))/uAtlasGrid, dof).rgb;
+          float al = dot(a_, vec3(0.3, 0.55, 0.15))*vary;
           img = vec3(1.0, 0.60, 0.24)*pow(al, 0.92) + vec3(0.0, 0.22, 0.36)*pow(al, 2.6);
         }
-        // the melt: every screen goes molten, in its own time
+        // the melt: each screen burns through from a ragged front that glows as it passes, charring ahead of it
         float fl = fbm(vec2(u.x*4.0, u.y*2.2 - uT*1.6) + cell*3.1);
         vec3 hot = body(0.42 + 0.5*hc + 0.55*(fl - 0.5) + 0.25*(1.0 - abs(q.y)));
-        img = mix(img, hot, hc*0.96);
+        float nb = fbm(u*vec2(3.2, 2.4) + cell*1.7)*0.85 + 0.08 + u.y*0.12;
+        float hb = hc*1.3;
+        float burnt = smoothstep(nb - 0.025, nb + 0.025, hb);
+        float front = smoothstep(0.06, 0.0, abs(hb - nb))*step(0.001, hc)*(1.0 - step(0.999, hc));
+        img = mix(img*(1.0 - 0.75*smoothstep(nb - 0.16, nb, hb)), hot, burnt*0.96);
+        img += body(1.15)*front*1.6;
         float ok = step(0.0, u.x)*step(u.x, 1.0)*step(0.0, u.y)*step(u.y, 1.0);
         // amber phosphor: the tube sees only brightness, and burns it warm
         float pl = dot(img, vec3(0.3, 0.55, 0.15));
@@ -402,6 +485,11 @@
         float lum = dot(img, vec3(0.3, 0.55, 0.15));
         float sl2 = 0.5 + 0.5*cos(u.y*3.14159*2.0*300.0);
         img *= mix(0.72, 1.0, mix(sl2, 1.0, clamp(lum*0.6, 0.0, 0.85)));
+        // a monochrome tube's phosphor has no colour triads, only a fine pitch; shown where it can't alias
+        float period = uScr.z*uCam.z*uRes.x/max(z, 0.25)/320.0;
+        img *= 1.0 + (cos(6.28318*u.x*320.0))*smoothstep(2.2, 4.0, period)*0.14;
+        // overheat: a hum bar rolls up the picture
+        img *= 1.0 - ours*uOverheat*0.3*exp(-pow((fract(u.y + uT*0.7) - 0.5)/0.07, 2.0));
         float edge = smoothstep(0.0, 0.16, min(min(u.x, 1.0 - u.x), min(u.y, 1.0 - u.y)));
         img *= mix(0.55, 1.0, edge)*ok;
         // power-on: the dot (the caret), the line, then the raster opens
@@ -415,7 +503,7 @@
         // glass: a dark tube face, a soft reflection, a bevel at the opening
         vec3 glass = vec3(0.012, 0.014, 0.016) + vec3(0.06, 0.065, 0.07)*smoothstep(0.9, 0.0, length((sl - vec2(0.28, 0.22))*vec2(1.0, 1.6)))*0.6;
         glass += body(0.45 + 0.3*uOverheat)*uOverheat*ours*0.35*smoothstep(0.2, 1.0, length(q));
-        c = mix(c, glass + img, smoothstep(1.0, -1.5, d));
+        c = mix(c, glass + img, smoothstep(soft, -1.5*soft, d));
       }
       // the picture pulled out of the tube: flat, crisp, with a shadow on the set
       if (uFlatOn > 0.5) {
@@ -435,6 +523,27 @@
     float fb = texture(uMetal, vec2(uv.x, uv.y/3.0)).b;
     float bm; vec3 lv = lava(fb, vec2(uv.x*uRes.x/14.0, uv.y*9.0 - uT*uFlowSpd2), 0.92, bm);
     c = mix(c, lv, bm) + body(0.5)*smoothstep(0.16, 0.30, fb)*(1.0 - bm)*0.25;
+    // the far wall falls off into the dark; once it burns, into a hot haze
+    if (uPersp > 0.0) {
+      float fog = exp(-max(z - 1.0, 0.0)*1.2);
+      c = c*mix(1.0, fog, uPersp) + body(0.5)*(1.0 - fog)*0.08*uPersp*smoothstep(0.0, 0.8, uMeltT);
+    }
+    // embers: thrown up off the metal, each one smeared over the shutter
+    if (uEmbers > 0.0) {
+      vec2 px = vec2(vUv.x, 1.0 - vUv.y)*uRes;
+      for (int k = 0; k < 40; k++) {
+        float fk = float(k), life = 0.8 + 0.8*h21(vec2(fk, 1.3)), off_ = h21(vec2(fk, 2.7));
+        float cyc = floor(uT/life + off_), ph = fract(uT/life + off_), tt = ph*life;
+        vec2 o = vec2(h21(vec2(fk, cyc + 4.1))*uRes.x, uRes.y*1.02);
+        vec2 v = vec2((h21(vec2(fk, cyc + 5.3)) - 0.5)*280.0, -(480.0 + 760.0*h21(vec2(fk, cyc + 6.7))));
+        vec2 pos = o + v*tt + vec2(sin(tt*6.0 + fk)*16.0, 220.0*tt*tt);
+        vec2 vel = v + vec2(cos(tt*6.0 + fk)*96.0, 440.0*tt);
+        vec2 a = pos - vel/60.0, pa = px - a, ba = pos - a;
+        float dd = length(pa - ba*clamp(dot(pa, ba)/dot(ba, ba), 0.0, 1.0));
+        float sz = 1.1 + 1.7*h21(vec2(fk, cyc + 8.9));
+        c += body(0.95 + 0.45*h21(vec2(fk, cyc + 9.9)))*exp(-dd*dd/(sz*sz))*smoothstep(0.0, 0.08, ph)*(1.0 - ph)*uEmbers*1.5;
+      }
+    }
     fragColor = vec4(c, 1.0);
   }`;
 
@@ -456,15 +565,23 @@
   vec3 shoulder(vec3 x){ vec3 k = vec3(0.78); return mix(x, k + (1.0-k)*(1.0 - exp(-(x-k)/(1.0-k))), step(k, x)); }
   void main(){
     vec2 uv = vUv + uWeave/uRes;
-    vec3 c = vec3(0.), b = vec3(0.);
+    vec3 c = vec3(0.), b1 = vec3(0.), b2 = vec3(0.);
+    // lens: lateral chromatic aberration grows toward the edges (red out, blue in), ~1.6 px in the corners
+    vec2 rc = (vUv - 0.5)*vec2(uRes.x/uRes.y, 1.0);
+    vec2 ca = (vUv - 0.5)*dot(rc, rc)*1.6/uRes.y*2.0;
     // directional shutter blur for whips (uBlur in px); 1 tap when still
     int n = length(uBlur) > 0.5 ? 16 : 1;
     for(int i=0;i<16;i++){ if(i>=n) break;
       vec2 q = uv + uBlur/uRes*(n > 1 ? float(i)/15.0 - 0.5 : 0.0);
-      c += texture(uHdr, q).rgb; b += texture(uB1, q).rgb*0.35 + texture(uB2, q).rgb*0.6; }
-    c /= float(n); b /= float(n);
-    c += b*vec3(1.0,0.45,0.22);
+      c += vec3(texture(uHdr, q + ca).r, texture(uHdr, q).g, texture(uHdr, q - ca).b);
+      b1 += texture(uB1, q).rgb; b2 += texture(uB2, q).rgb; }
+    c /= float(n); b1 /= float(n); b2 /= float(n);
+    // bloom close to the source stays near its colour; halation (light scattered back off the film base) is wide
+    // and red, because red is recorded deepest in the emulsion
+    c += b1*vec3(1.0, 0.72, 0.5)*0.32;
+    c += b2*vec3(1.0, 0.32, 0.12)*0.62 + vec3(b2.r*0.18, 0.0, 0.0);
     c = shoulder(c*uExposure);
+    c = c*(c + 0.012)/(c + 0.03)*1.018;   // toe: blacks sit down, mids barely move
     vec2 q = vUv - 0.5; c *= 1.0 - dot(q*vec2(1.0,0.8), q)*0.9;
     uvec3 q3 = uvec3(uvec2(vUv*uRes), uint(uFrame));
     q3 = q3*1664525u + 1013904223u; q3.x += q3.y*q3.z; q3.y += q3.z*q3.x; q3.z += q3.x*q3.y;
@@ -506,10 +623,11 @@
   gl.bindTexture(gl.TEXTURE_2D, RT.pic.t); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
   const T = { scene: tex(W, H, false), edge: tex(W, H, false), metal: tex(W / 2, H * 1.5, false), logo: tex(W * 2, H * 2, false), off: tex(8, 8, false), lit: tex(8, 8, false), atlas: tex(W, H, false) };
 
-  for (const t of [T.scene, T.logo, T.off, T.lit]) { gl.bindTexture(gl.TEXTURE_2D, t); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR); }
+  const MIPPED = [T.scene, T.logo, T.off, T.lit, T.atlas];   // the atlas too: sets out of focus sample its mips
+  for (const t of MIPPED) { gl.bindTexture(gl.TEXTURE_2D, t); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR); }
   function upload(t, source) {
     gl.bindTexture(gl.TEXTURE_2D, t); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, source);
-    if (t === T.scene || t === T.logo || t === T.off || t === T.lit) gl.generateMipmap(gl.TEXTURE_2D);
+    if (MIPPED.includes(t)) gl.generateMipmap(gl.TEXTURE_2D);
   }
   function pass(pr, rt, set) {
     gl.useProgram(pr.p); gl.bindFramebuffer(gl.FRAMEBUFFER, rt ? rt.f : null);
@@ -530,6 +648,7 @@
       gl.uniform1f(u.uEmber, s.ember == null ? 1 : s.ember); gl.uniform1f(u.uMetalOn, s.metal ? 1 : 0);
       gl.uniform1f(u.uSat, s.sat == null ? 0.22 : s.sat); gl.uniform1f(u.uRaw, s.raw || 0);
       gl.uniform2f(u.uPan, s.panX || 0, s.panY || 0);
+      gl.uniform1f(u.uArchive, s.archive || 0);
       gl.uniform1f(u.uIsolate, s.isolate || 0); gl.uniform1f(u.uContrast, s.contrast || 1); gl.uniform1f(u.uAmberS, s.amber || 0); gl.uniform1f(u.uHeatMask, s.heatMask || 0); gl.uniform1f(u.uFlowSpd, s.flowSpd == null ? 4 : s.flowSpd);
       bind(3, T.logo, u.uLogo);
       const c = s.cast;
@@ -550,6 +669,10 @@
       bind(0, RT.pic.t, u.uPic); bind(1, T.off, u.uOff); bind(2, T.lit, u.uLit); bind(3, T.metal, u.uMetal);
       gl.uniform2f(u.uRes, W, H); gl.uniform1f(u.uT, s.t); gl.uniform1f(u.uFlowSpd2, s.flowSpd2 == null ? 7 : s.flowSpd2);
       gl.uniform1f(u.uTV, v ? 1 : 0);
+      gl.uniform1f(u.uPersp, (v && v.persp) || 0); gl.uniform1f(u.uHaze, s.haze || 0); gl.uniform1f(u.uEmbers, s.embers || 0);
+      const b = s.bar;
+      gl.uniform1f(u.uBarOn, b ? 1 : 0);
+      if (b) { gl.uniform4f(u.uBar, b.x, b.y, b.w, b.h); gl.uniform1f(u.uBarR, b.r); gl.uniform3f(u.uCaret, b.cx, b.cy, b.con); }
       if (v) {
         gl.uniform3f(u.uCam, v.cx, v.cy, v.zoom); gl.uniform4f(u.uScr, ...v.scr); gl.uniform1f(u.uRad, v.rad);
         gl.uniform1f(u.uBarrel, v.barrel); gl.uniform3f(u.uOn, ...v.on); gl.uniform1f(u.uScrDim, v.dim || 0);
