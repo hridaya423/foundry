@@ -1334,8 +1334,8 @@
    ],
    "weight": "support",
    "align": "start",
-   "cue_s": 22.79,
-   "peak_s": 22.9985,
+   "cue_s": 22.69,
+   "peak_s": 22.8985,
    "pan": 0.0,
    "gain_db": -24.53,
    "limited_by": "best-band target",
@@ -1344,8 +1344,8 @@
     16000
    ],
    "win_s": [
-    22.9885,
-    23.1485
+    22.8885,
+    23.0485
    ],
    "visual": null
   },

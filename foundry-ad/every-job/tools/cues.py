@@ -174,7 +174,7 @@ cue("translate-quindar", ktr["enter"], own("quindar-in"), visual="cut", align="s
 # ------------------------------------------------------------------ the logo: back through the tiles, "...mankind.", end of transmission
 LOGO_MOVE = TM["logo"] + 0.45                                  # peak speed of the pull-back through the tiles
 cue("logo", LOGO_MOVE, "reverse/fs-244837-rev-cymb-23-wav-1+boom/fs-268608-juno-sub-wav-1", weight="hero", visual="move")
-cue("logo-cool", TM["logo"] + 0.62, own("quench"), align="start")                            # the wave cools the tiles; peaks 0.21 s in
+cue("logo-cool", TM["logo"] + 0.52, own("quench"), align="start")                            # the first tiles go white-hot (film.js logo ign); peaks 0.21 s in
 cue("quindar-out", TM["vo"]["quindar"], own("quindar-out"), align="start")
 
 sheet = {

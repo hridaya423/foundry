@@ -704,7 +704,7 @@
   {
    "check": "audible logo-cool",
    "status": "pass",
-   "detail": "stands out by 2.4 dB in 8000-16000 Hz over music+voice"
+   "detail": "stands out by 3.3 dB in 8000-16000 Hz over music+voice"
   },
   {
    "check": "audible quindar-out",

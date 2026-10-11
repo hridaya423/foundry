@@ -43,7 +43,7 @@ wordmark.
 | 10.4–11.0 | The last molten point is the caret. **One for every job.** types out of it. |
 | 11.15–17.25 | **The kills**, on one even cadence. Each is just its line typed in the bar while the picture waits, then enter: `convert to gif` (Muybridge's plate gallops), `remove background`, `100 usd in eur` (89.25, ECB rate on 2026-10-05), `tile windows`, `download youtu.be/lumiere-1895` (the clip opens out of the bar; the train comes through). |
 | 17.25–22.17 | `translate to japanese`, last. Its enter is the Quindar tone, and then Armstrong, whole and uninterrupted: "That's one small step for man," builds and turns Japanese in his pause; "one giant leap" builds under it. |
-| 22.17–24.3 | Cut on "for": back through tiles holding the flag planting until they are the wordmark; **"...mankind."** as it resolves; one wave cools the tiles to bone. The Quindar beep (end of transmission). Then only the room. |
+| 22.17–24.3 | Cut on "for": back through tiles holding the flag planting until they are the wordmark; **"...mankind."** as it resolves. The wordmark is the last casting: a wave sends each tile white-hot, thin strokes cool first through orange and cracked oxide, the cores hold heat longest, and it settles as pale iron that one band of light runs along. The molten caret after the name blinks through the Quindar beep (end of transmission) and goes out with it. Then only the room, the camera still creeping in. |
 
 # Sound
 

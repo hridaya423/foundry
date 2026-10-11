@@ -75,6 +75,9 @@
   uniform vec4 uImp;      // impacts (screen fractions): x1, y1, x2, y2
   uniform vec4 uStream;   // per stream: top y (fraction, 0 = frame top) s1, s2; widths px w1, w2
   uniform vec2 uImpT;     // contact times (cast seconds)
+  // the wordmark, cast last (uLogo holds its tiles: r mask, g/r ignition time, b/r per-tile random)
+  uniform float uLogoOn, uLogoT, uLogoBand, uLogoCaretOn;
+  uniform vec4 uLogoCaret;  // px: centre x, y, w, h
   vec2 voro(vec2 p){
     vec2 i=floor(p), f=fract(p); float d1=8., d2=8.;
     for(int y=-1;y<=1;y++) for(int x=-1;x<=1;x++){
@@ -352,6 +355,36 @@
     c = mix(c, metal, bodyM*uMetalOn);
     c += body(0.5)*smoothstep(0.16, 0.30, fld)*(1.0 - bodyM)*0.25*uMetalOn;
     c += body(0.85 + 0.6*mt.y)*smoothstep(0.0, 0.5, mt.y)*2.4*uMetalOn;   // sparks: emission only
+    // the wordmark is the last casting: each tile goes white-hot as the wave passes; thin strokes cool first, the
+    // cores hold their heat; the oxide gives way to the iron, and one band of light runs along it
+    if (uLogoOn > 0.5) {
+      vec4 L = texture(uLogo, p);
+      float b1 = textureLod(uLogo, p, 1.6).r;
+      float bev = dot(vec2(dFdx(b1), dFdy(b1))*5.0, vec2(0.7, -0.7));
+      float m = L.r;
+      if (m > 0.002) {
+        float th = 0.5 + 0.5*L.g/m, rn = L.b/m;
+        float thick = textureLod(uLogo, p, 4.5).r;
+        float age = uLogoT - th;
+        float T = 1.6*exp(-max(age, 0.0)/(0.16 + 0.2*thick + 0.04*rn));
+        vec2 lq = p*vec2(asp, 1.0);
+        float gr = fbm(lq*260.0)*0.4 + fbm(lq*48.0 + rn*7.0)*0.6;
+        vec3 iron = vec3(0.86, 0.84, 0.80)*(0.93 + 0.12*gr)*(0.98 + 0.04*rn) + vec3(0.3)*max(bev, 0.0) - vec3(0.35)*max(-bev, 0.0);
+        float hot = smoothstep(0.08, 0.5, T);
+        vec3 oxide = vec3(0.05, 0.045, 0.04)*(0.6 + 0.8*gr);
+        vec2 vr = voro(lq*38.0 + rn*3.0);
+        float crack = (1.0 - smoothstep(0.0, 0.05, vr.y))*smoothstep(0.2, 0.5, T)*(1.0 - smoothstep(0.9, 1.3, T));
+        vec3 lc = mix(iron, oxide, hot) + body(T)*hot + body(T + 0.25)*crack*0.8;
+        float d = p.x - mix(-0.15, 1.15, uLogoBand) + (p.y - 0.5)*0.35;
+        lc += vec3(0.55, 0.53, 0.5)*exp(-d*d/0.0016)*(1.0 - hot)*step(0.001, uLogoBand)*step(uLogoBand, 0.999);
+        c = mix(c, lc, m*smoothstep(0.0, 0.05, age));
+      }
+      // the caret: the last molten point, after the name
+      vec2 cq = abs(p*uRes - uLogoCaret.xy) - uLogoCaret.zw*0.5;
+      float cd = length(max(cq, 0.0)) + min(max(cq.x, cq.y), 0.0);
+      c = mix(c, body(0.5)*(0.5 + 0.9*uLogoCaretOn), smoothstep(1.0, -1.0, cd)*min(1.0, uLogoCaretOn*4.0));   // the bar's molten orange
+      c += body(0.55)*exp(-max(cd, 0.0)/22.0)*0.22*uLogoCaretOn;
+    }
     // archive print (Act I footage, inside the tube): 18 fps flicker, dust that lives one frame, a hairline scratch
     if (uArchive > 0.0) {
       vec2 sp = vec2(vUv.x, 1.0 - vUv.y)*uRes;
@@ -640,7 +673,7 @@
     upload(T.scene, s.scene);
     if (s.edge && s.edge !== draw._edge) { upload(T.edge, s.edge); draw._edge = s.edge; }
     if (s.metal) upload(T.metal, s.metal);
-    if (s.logo && s.logo !== draw._logo) { upload(T.logo, s.logo); draw._logo = s.logo; }
+    if (s.logo && (s.logo !== draw._logo || s.logoLive)) { upload(T.logo, s.logo); draw._logo = s.logo; }
     if (s.atlas) upload(T.atlas, s.atlas);
     if (s.plates && s.plates !== draw._plates) { upload(T.off, s.plates.off); upload(T.lit, s.plates.lit); draw._plates = s.plates; }
     pass(P.scene, RT.pic, (u) => {
@@ -651,6 +684,9 @@
       gl.uniform1f(u.uArchive, s.archive || 0);
       gl.uniform1f(u.uIsolate, s.isolate || 0); gl.uniform1f(u.uContrast, s.contrast || 1); gl.uniform1f(u.uAmberS, s.amber || 0); gl.uniform1f(u.uHeatMask, s.heatMask || 0); gl.uniform1f(u.uFlowSpd, s.flowSpd == null ? 4 : s.flowSpd);
       bind(3, T.logo, u.uLogo);
+      const lg = s.logoCast;
+      gl.uniform1f(u.uLogoOn, lg ? 1 : 0);
+      if (lg) { gl.uniform1f(u.uLogoT, lg.t); gl.uniform1f(u.uLogoBand, lg.band); gl.uniform1f(u.uLogoCaretOn, lg.caretOn); gl.uniform4f(u.uLogoCaret, ...lg.caret); }
       const c = s.cast;
       gl.uniform1f(u.uCast, c ? 1 : 0);
       if (c) {

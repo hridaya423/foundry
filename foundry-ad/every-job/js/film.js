@@ -250,12 +250,22 @@
     "drawers", "teleprinter", "moonface", "crowd", "flag", "smith", "cards", "capsule", "card"];
   const focus = (() => { let best = CELLS[0], bd = 1e9; for (const c of CELLS) { const d = Math.abs(c.cx - (LCX + 60)) + Math.abs(c.cy - LCY) * 2; if (d < bd && c.p[0].length <= 5) { bd = d; best = c; } } return best; })();
   const cellPath = (ctx, cell) => { for (const poly of cell.p) { poly.forEach(([a, b], j) => (j ? ctx.lineTo(a, b) : ctx.moveTo(a, b))); ctx.closePath(); } };
-  function logo(ctx, t) {
+  const LOGO_H = maxY - minY;
+  // the caret blinks with the bar's rhythm, is lit through the Quindar out-tone, and dies with it
+  const caretAt = (u) => {
+    const q = TM.vo.quindar - TM.logo;
+    if (u < 0.88) return 0;
+    if (u < q + 0.25) return Math.floor((u - q) / 0.25) % 2 === 0 ? 1 : 0.12;
+    return 0.6 * Math.exp(-(u - q - 0.25) / 0.12);
+  };
+  function logo(ctx, mk, t) {
     const u = t - TM.logo;
     const e = ease.inOutCubic(prog(u, 0.0, 0.82));
-    const z = Math.exp(lerp(Math.log(46), 0, e));
+    // back through the tiles, then a slow push in while the metal cools
+    const z = Math.exp(lerp(Math.log(46), 0, e)) * (1 + 0.025 * ease.inOutCubic(prog(u, 0.82, TM.end - TM.logo)));
     const fx = lerp(focus.cx, LCX, e), fy = lerp(focus.cy, LCY, e), s = LS * z;
     const TX = (x) => (x - fx) * s + W / 2, TY = (y) => (y - fy) * s + H / 2;
+    mk.setTransform(1, 0, 0, 1, 0, 0); mk.fillStyle = "#000"; mk.fillRect(0, 0, W, H);
     for (const c of CELLS) {
       const bx0 = TX(c.x0), bx1 = TX(c.x1), by0 = TY(c.y0), by1 = TY(c.y1);
       if (bx1 < 0 || bx0 > W || by1 < 0 || by0 > H) continue;
@@ -263,13 +273,17 @@
       ctx.setTransform(s, 0, 0, s, W / 2 - fx * s, H / 2 - fy * s);
       ctx.beginPath(); cellPath(ctx, c); ctx.clip();
       ctx.setTransform(1, 0, 0, 1, 0, 0);
-      // every tile holds the moon as he finishes the line; then one wave cools them to bone, left to right
+      // every tile holds the moon as he finishes the line, until the wave reaches it (gl.js casts it from uLogo)
       moon(ctx, t);
-      const fx_ = (c.cx - minX) / (maxX - minX);
-      const k = ease.inOutCubic(prog(u, 0.62 + fx_ * 0.42, 0.86 + fx_ * 0.42));
-      if (k > 0) { ctx.fillStyle = `rgba(241,239,234,${k.toFixed(3)})`; ctx.fillRect(bx0 - 1, by0 - 1, bx1 - bx0 + 2, by1 - by0 + 2); }
       ctx.restore();
+      const ign = 0.52 + ((c.cx - minX) / (maxX - minX)) * 0.26 + c.r * 0.05;   // seconds after the cut
+      mk.setTransform(s, 0, 0, s, W / 2 - fx * s, H / 2 - fy * s);
+      mk.fillStyle = `rgb(255,${Math.round(clamp((ign - 0.5) / 0.5, 0, 1) * 255)},${Math.round(c.r * 255)})`;
+      mk.beginPath(); cellPath(mk, c); mk.fill();
     }
+    const ch = LOGO_H * s * 0.95, cw = ch * 0.1;
+    return { t: u, band: ease.inOutQuint(prog(u, 1.35, 2.12)) * 0.5 + prog(u, 1.35, 2.12) * 0.5, caretOn: caretAt(u),
+      caret: [TX(maxX) + LOGO_H * s * 0.06 + cw / 2, TY((minY + maxY) / 2), cw, ch] };
   }
 
   // ------------------------------------------------------------------ build
@@ -285,6 +299,7 @@
     const barTex = barCanvas();
     const sc = M.canvas(), ctx = sc.getContext("2d");
     const atlas = M.canvas(), actx = atlas.getContext("2d");
+    const lmask = M.canvas(), lmk = lmask.getContext("2d");
     const mc = M.metalCanvas();
     const els = { capA: document.getElementById("capA"), capB: document.getElementById("capB"), bar: document.getElementById("bar"), calc: document.getElementById("calc"), small: document.getElementById("calcsmall") };
     els.caret = els.bar.querySelector(".caret");
@@ -385,7 +400,8 @@
         }
       } else {
         tv = null; g.amber = 0; g.contrast = 1.15; g.sat = 0.35;
-        logo(ctx, t);
+        g.logoCast = logo(ctx, lmk, t); g.logo = lmask; g.logoLive = true;
+        g.embers = ease.inOutCubic(prog(t - TM.logo, 0.6, 0.9)) * (1 - ease.inOutCubic(prog(t - TM.logo, 1.3, 2.0))) * 0.6;
       }
 
       g.tv = tv;
