@@ -1,6 +1,6 @@
 # Sources and licenses
 
-Footage and stills are public domain; fonts are OFL. The score (`tools/score.py`) combines synthesis with the recordings below.
+Footage and stills are public domain; fonts are OFL. The music (`tools/score.py`) is a synthesized drone, kick and bass with the recordings below; every sound effect is a real recording (`tools/cues.py`, `audio/CREDITS.md`).
 
 | Asset | Source | License |
 | --- | --- | --- |
@@ -35,7 +35,8 @@ Footage and stills are public domain; fonts are OFL. The score (`tools/score.py`
 | Armstrong, "That's one small step..." | Wikimedia Commons, "Armstrong Small Step.ogg" (NASA) | Public domain |
 | Anvil | Wikimedia Commons, "WWS Blacksmith8217sanvil.ogg" (World Wide Sounds) | CC BY 4.0 |
 | Typewriter | Wikimedia Commons, "WWS Typewriter.ogg" (World Wide Sounds) | CC BY 4.0 |
-| Projector | Wikimedia Commons, "WWS CinemeccanicaprojectorVictoria9running.ogg" (World Wide Sounds) | CC BY 4.0 |
 | Teleprinter | Wikimedia Commons, "WWS Teleprintertyping.ogg" (World Wide Sounds) | CC BY 4.0 |
 | Steam whistle | Wikimedia Commons, "WWS SteamWhistle.ogg" (World Wide Sounds) | CC BY 4.0 |
 | Horses | Wikimedia Commons, "Six Horses Galloping By.ogg" | CC0 |
+| Every other sound effect and roar | Freesound and Kenney recordings via [opus-sound-layer](https://github.com/Bodila51/opus-sound-layer); one line per file in `audio/CREDITS.md` | CC0 |
+| Quindar tones | Generated pure sines (2525 / 2475 Hz, 250 ms), as NASA's were; the Commons recordings are CC BY-SA and would make the film a ShareAlike adaptation | — |

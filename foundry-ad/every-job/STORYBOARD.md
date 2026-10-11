@@ -42,3 +42,19 @@ wordmark.
 
 Percussion and texture only: the machines themselves, a sub, and one breathing drone in B-flat. Every pad,
 pluck and bell run is gone. The ending is the voice, the Quindar tone and silence.
+
+Every sound effect is a real recording placed from `tools/timing.py` (`tools/cues.py`, mixed and checked by
+[opus-sound-layer](https://github.com/Bodila51/opus-sound-layer)); the music and the roars are `tools/score.py`.
+
+- **Act I**: each word is a 1940s typewriter strike with its machine on it: the typing pool, a phone bell, Morse, a
+  1957 computer's blips. "job." is the Saturn V: a hit and sub, then the shuttle's roar, dead on the Act II cut.
+- **Act II**: a modern keyboard for the I-beam; the apps land as glass ticks rising in pitch; the set's static tears
+  as it overheats; one whoosh on the pull-back, the whole wall pings once.
+- **Melt**: the music stops dead under `melt them down`; the enter and a riser land with the blast; then lava and
+  furnace roar, growing as the camera falls with the river.
+- **Cast**: the river slams into the mould (metal, sub, the fall's whoosh) and the roar stops; then it sizzles,
+  pings as it contracts, the light sweeps, the mould is knocked out (thud and sand), the shell flakes, the caret ticks.
+- **Kills**: the bar is summoned, one typing take per command, enter is an anvil. Each job sounds like itself: the
+  gallop, a wipe and the horse bolting, ratchet reels landing on a till, latches on the window seams, the steam
+  whistle and train; the train passes into the moon.
+- **Logo**: a reverse cymbal and a sub on the pull-back through the tiles, the tiles quench, then the Quindar out-tone.

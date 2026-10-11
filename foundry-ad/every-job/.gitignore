@@ -1,6 +1,14 @@
-# regenerable media: tools/seq.py, tools/cutout.py, tools/score.py, tools/final.sh
+# regenerable media: tools/seq.py, tools/cutout.py, tools/final.sh (sound: see AGENTS.md)
 renders/
 assets/seq/
 assets/audio/
 snapshots/
 __pycache__/
+out/
+# sound layer: the kit (sfx.py kit), search downloads (sfx.py search), cuts, stems and mixes
+audio/kit/
+audio/candidates/
+audio/own/
+audio/stems/
+audio/browse/
+audio/*.wav

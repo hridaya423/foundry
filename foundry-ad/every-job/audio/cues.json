@@ -1,0 +1,525 @@
+{
+ "fps": 60,
+ "duration_s": 24.32,
+ "energy": "punchy",
+ "kit": "audio/kit",
+ "music": {
+  "file": "audio/music.wav",
+  "start_s": 0,
+  "loop": false,
+  "fade_out_s": 0.25
+ },
+ "voice": [
+  {
+   "file": "audio/voice.wav",
+   "start_s": 0
+  }
+ ],
+ "duck_db": 6,
+ "silence_ok": [
+  [
+   23.53,
+   24.32
+  ]
+ ],
+ "cues": [
+  {
+   "id": "strike-A",
+   "t": 0.0,
+   "sound": "audio/own/typewriter-1.wav+audio/own/typing-pool.wav+thump/fs-264879-three-dull-thumps-with-hamme-1",
+   "weight": "support",
+   "align": "peak",
+   "pan": 0.0
+  },
+  {
+   "id": "strike-machine",
+   "t": 0.5,
+   "sound": "audio/own/typewriter-2.wav+audio/own/phone-bell.wav+thump/fs-264879-three-dull-thumps-with-hamme-1",
+   "weight": "support",
+   "align": "peak",
+   "pan": -0.25,
+   "visual": "cut"
+  },
+  {
+   "id": "strike-for",
+   "t": 1.0,
+   "sound": "audio/own/typewriter-3.wav+audio/own/morse.wav+thump/fs-264879-three-dull-thumps-with-hamme-1",
+   "weight": "support",
+   "align": "peak",
+   "pan": 0.25,
+   "visual": "cut"
+  },
+  {
+   "id": "strike-every",
+   "t": 1.5,
+   "sound": "audio/own/typewriter-4.wav+audio/own/computer.wav+thump/fs-264879-three-dull-thumps-with-hamme-1",
+   "weight": "support",
+   "align": "peak",
+   "pan": -0.15,
+   "visual": "cut"
+  },
+  {
+   "id": "ignition",
+   "t": 2.0,
+   "sound": "audio/own/ignition-punch.wav+audio/own/ignition-boom.wav+audio/own/typewriter-5.wav",
+   "weight": "hero",
+   "align": "peak",
+   "pan": 0.0,
+   "stop_before": true,
+   "build": true,
+   "visual": "cut"
+  },
+  {
+   "id": "carriage-bell",
+   "t": 2.45,
+   "sound": "chime/fs-159011-ding2-wav-1",
+   "weight": "support",
+   "align": "peak",
+   "pan": 0.4
+  },
+  {
+   "id": "act2",
+   "t": 2.8,
+   "sound": "audio/own/act2-thunk.wav",
+   "weight": "support",
+   "align": "peak",
+   "pan": 0.0,
+   "visual": "cut"
+  },
+  {
+   "id": "line2-typing",
+   "t": 3.0331,
+   "sound": "audio/own/take-line2.wav",
+   "weight": "support",
+   "align": "peak",
+   "pan": 0.0
+  },
+  {
+   "id": "app-0",
+   "t": 3.3,
+   "sound": "tap/kenney-impact-impact-glass-light-001+ui/kenney-interface-select-003",
+   "weight": "support",
+   "align": "peak",
+   "pan": -0.3,
+   "visual": "cut"
+  },
+  {
+   "id": "app-1",
+   "t": 3.6,
+   "sound": "tap/kenney-impact-impact-glass-light-002+ui/kenney-interface-select-004",
+   "weight": "support",
+   "align": "peak",
+   "pan": 0.3,
+   "visual": "cut"
+  },
+  {
+   "id": "app-2",
+   "t": 3.9,
+   "sound": "tap/kenney-impact-impact-glass-light-004+ui/kenney-interface-select-007",
+   "weight": "support",
+   "align": "peak",
+   "pan": 0.0,
+   "visual": "cut"
+  },
+  {
+   "id": "overheat",
+   "t": 4.3,
+   "sound": "audio/own/overheat.wav",
+   "weight": "support",
+   "align": "start",
+   "pan": 0.1
+  },
+  {
+   "id": "pile-0",
+   "t": 4.2,
+   "sound": "ui/kenney-interface-select-001",
+   "weight": "support",
+   "align": "peak",
+   "pan": -0.5,
+   "pitch": 0.0
+  },
+  {
+   "id": "pile-1",
+   "t": 4.3722,
+   "sound": "ui/kenney-interface-select-003",
+   "weight": "support",
+   "align": "peak",
+   "pan": 0.5,
+   "pitch": 1.5
+  },
+  {
+   "id": "pile-2",
+   "t": 4.5315,
+   "sound": "ui/kenney-interface-select-004",
+   "weight": "support",
+   "align": "peak",
+   "pan": -0.5,
+   "pitch": 3.0
+  },
+  {
+   "id": "pile-3",
+   "t": 5.0288,
+   "sound": "ui/kenney-interface-select-007",
+   "weight": "support",
+   "align": "peak",
+   "pan": 0.5,
+   "pitch": 4.5
+  },
+  {
+   "id": "wall-pullback",
+   "t": 5.367,
+   "sound": "whoosh/fs-30240-swoop1-flac-1",
+   "weight": "support",
+   "align": "peak",
+   "pan": 0.0,
+   "pitch": -2,
+   "visual": "move"
+  },
+  {
+   "id": "wall-ping",
+   "t": 5.557,
+   "sound": "chime/fs-404104-glass-ding-3+chime/fs-127149-ding-wav-1+chime/fs-243701-correct-1",
+   "weight": "support",
+   "align": "peak",
+   "pan": 0.0
+  },
+  {
+   "id": "melt-typing",
+   "t": 5.9,
+   "sound": "audio/own/take-melt.wav",
+   "weight": "support",
+   "align": "peak",
+   "pan": 0.0
+  },
+  {
+   "id": "melt",
+   "t": 6.25,
+   "sound": "hit/fs-113747-kl-ex1bb-wav-2+boom/fs-105351-backfire-ogg-1+riser/fs-503801-reverse-fx-3-wav-1+key/fs-180997-enter-key-2",
+   "weight": "hero",
+   "align": "peak",
+   "pan": 0.0,
+   "stop_before": true,
+   "build": true,
+   "visual": "cut"
+  },
+  {
+   "id": "cast",
+   "t": 8.597,
+   "sound": "audio/own/cast-hit.wav+audio/own/cast-sub.wav+audio/own/river-fall.wav",
+   "weight": "hero",
+   "align": "peak",
+   "pan": 0.0,
+   "visual": "move"
+  },
+  {
+   "id": "cast-sizzle",
+   "t": 9.05,
+   "sound": "audio/own/sizzle.wav",
+   "weight": "support",
+   "align": "start",
+   "pan": 0.0
+  },
+  {
+   "id": "cast-ping",
+   "t": 9.5,
+   "sound": "tick/fs-185611-metal-tick-1-1",
+   "weight": "support",
+   "align": "peak",
+   "pan": -0.4
+  },
+  {
+   "id": "cast-sweep",
+   "t": 9.72,
+   "sound": "swish/fs-14176-28-wav-3",
+   "weight": "support",
+   "align": "peak",
+   "pan": -0.3
+  },
+  {
+   "id": "knockout",
+   "t": 10.0,
+   "sound": "thump/fs-342535-medium-thud-1-2+audio/own/sand.wav",
+   "weight": "support",
+   "align": "peak",
+   "pan": 0.0
+  },
+  {
+   "id": "flake-0",
+   "t": 10.17,
+   "sound": "tap/kenney-impact-impact-metal-light-001",
+   "weight": "support",
+   "align": "peak",
+   "pan": 0.45
+  },
+  {
+   "id": "flake-1",
+   "t": 10.32,
+   "sound": "tap/kenney-impact-impact-metal-light-002",
+   "weight": "support",
+   "align": "peak",
+   "pan": -0.3
+  },
+  {
+   "id": "caret",
+   "t": 10.48,
+   "sound": "click/kenney-interface-switch-002",
+   "weight": "support",
+   "align": "peak",
+   "pan": 0.0
+  },
+  {
+   "id": "line3-typing",
+   "t": 10.7822,
+   "sound": "audio/own/take-line3.wav",
+   "weight": "support",
+   "align": "peak",
+   "pan": 0.0
+  },
+  {
+   "id": "plate",
+   "t": 11.067,
+   "sound": "boom/fs-13875-23-wav-1",
+   "weight": "support",
+   "align": "peak",
+   "pan": 0.0,
+   "visual": "cut"
+  },
+  {
+   "id": "gif-typing",
+   "t": 11.3468,
+   "sound": "audio/own/take-gif.wav",
+   "weight": "support",
+   "align": "peak",
+   "pan": 0.1
+  },
+  {
+   "id": "gif-enter",
+   "t": 11.65,
+   "sound": "audio/own/anvil-1.wav+boom/fs-13862-10-wav-1+key/fs-180997-enter-key-2",
+   "weight": "hero",
+   "align": "peak",
+   "pan": 0.0,
+   "visual": "cut"
+  },
+  {
+   "id": "gif-gallop",
+   "t": 11.725,
+   "sound": "audio/own/horses.wav",
+   "weight": "support",
+   "align": "start",
+   "pan": -0.1
+  },
+  {
+   "id": "gif-push",
+   "t": 12.033,
+   "sound": "whoosh/fs-30240-swoop1-flac-1",
+   "weight": "support",
+   "align": "peak",
+   "pan": 0.0,
+   "visual": "move"
+  },
+  {
+   "id": "rmbg-summon",
+   "t": 12.4,
+   "sound": "ui/kenney-interface-select-006",
+   "weight": "support",
+   "align": "peak",
+   "pan": 0.0,
+   "visual": "cut"
+  },
+  {
+   "id": "rmbg-typing",
+   "t": 12.6452,
+   "sound": "audio/own/take-rmbg.wav",
+   "weight": "support",
+   "align": "peak",
+   "pan": 0.1
+  },
+  {
+   "id": "rmbg-enter",
+   "t": 12.85,
+   "sound": "audio/own/anvil-2.wav+key/fs-180997-enter-key-2",
+   "weight": "support",
+   "align": "peak",
+   "pan": 0.0,
+   "visual": "cut"
+  },
+  {
+   "id": "rmbg-wipe",
+   "t": 12.875,
+   "sound": "whoosh/fs-449988-whoosh-med-high-1",
+   "weight": "support",
+   "align": "start",
+   "pan": -0.3
+  },
+  {
+   "id": "currency-summon",
+   "t": 13.55,
+   "sound": "whoosh/fs-449992-whoosh-short-low-wav-1+ui/kenney-interface-select-006",
+   "weight": "support",
+   "align": "peak",
+   "pan": 0.3,
+   "visual": "cut"
+  },
+  {
+   "id": "currency-typing",
+   "t": 13.7952,
+   "sound": "audio/own/take-currency.wav",
+   "weight": "support",
+   "align": "peak",
+   "pan": 0.1
+  },
+  {
+   "id": "currency-enter",
+   "t": 14.0,
+   "sound": "audio/own/anvil-3.wav+key/fs-180997-enter-key-2",
+   "weight": "support",
+   "align": "peak",
+   "pan": 0.0,
+   "visual": "appear"
+  },
+  {
+   "id": "currency-reels",
+   "t": 14.17,
+   "sound": "tick/fs-386206-ratchet-stahlwille-tighten-1-3",
+   "weight": "support",
+   "align": "peak",
+   "pan": -0.2
+  },
+  {
+   "id": "currency-land",
+   "t": 14.34,
+   "sound": "key/fs-348240-cashier-register-keyboard-be-1",
+   "weight": "support",
+   "align": "peak",
+   "pan": 0.0
+  },
+  {
+   "id": "tile-summon",
+   "t": 14.65,
+   "sound": "ui/kenney-interface-select-006",
+   "weight": "support",
+   "align": "peak",
+   "pan": 0.0,
+   "visual": "cut"
+  },
+  {
+   "id": "tile-typing",
+   "t": 14.8952,
+   "sound": "audio/own/take-tile.wav",
+   "weight": "support",
+   "align": "peak",
+   "pan": 0.1
+  },
+  {
+   "id": "tile-enter",
+   "t": 15.1,
+   "sound": "audio/own/anvil-4.wav+key/fs-180997-enter-key-2",
+   "weight": "support",
+   "align": "peak",
+   "pan": 0.0,
+   "visual": "move"
+  },
+  {
+   "id": "tile-snap-2",
+   "t": 15.28,
+   "sound": "click/kenney-rpg-metal-latch",
+   "weight": "support",
+   "align": "peak",
+   "pan": 0.4
+  },
+  {
+   "id": "tile-snap-4",
+   "t": 15.46,
+   "sound": "click/kenney-rpg-metal-click",
+   "weight": "support",
+   "align": "peak",
+   "pan": -0.4
+  },
+  {
+   "id": "download-summon",
+   "t": 15.85,
+   "sound": "ui/kenney-interface-select-006",
+   "weight": "support",
+   "align": "peak",
+   "pan": 0.0,
+   "visual": "cut"
+  },
+  {
+   "id": "download-typing",
+   "t": 16.079,
+   "sound": "audio/own/take-download.wav",
+   "weight": "support",
+   "align": "peak",
+   "pan": 0.1
+  },
+  {
+   "id": "download-enter",
+   "t": 16.3,
+   "sound": "audio/own/anvil-1.wav+boom/fs-13875-23-wav-1+key/fs-180997-enter-key-2",
+   "weight": "hero",
+   "align": "peak",
+   "pan": 0.0,
+   "visual": "move"
+  },
+  {
+   "id": "download-whistle",
+   "t": 16.35,
+   "sound": "audio/own/whistle.wav",
+   "weight": "support",
+   "align": "start",
+   "pan": 0.2
+  },
+  {
+   "id": "translate-summon",
+   "t": 17.25,
+   "sound": "audio/own/pass-by.wav+ui/kenney-interface-select-006",
+   "weight": "support",
+   "align": "peak",
+   "pan": 0.0,
+   "visual": "cut"
+  },
+  {
+   "id": "translate-typing",
+   "t": 17.4952,
+   "sound": "audio/own/take-translate.wav",
+   "weight": "support",
+   "align": "peak",
+   "pan": 0.1
+  },
+  {
+   "id": "translate-quindar",
+   "t": 17.7,
+   "sound": "audio/own/quindar-in.wav",
+   "weight": "support",
+   "align": "start",
+   "pan": 0.0,
+   "visual": "cut"
+  },
+  {
+   "id": "logo",
+   "t": 22.62,
+   "sound": "reverse/fs-244837-rev-cymb-23-wav-1+boom/fs-268608-juno-sub-wav-1",
+   "weight": "hero",
+   "align": "peak",
+   "pan": 0.0,
+   "visual": "move"
+  },
+  {
+   "id": "logo-cool",
+   "t": 22.79,
+   "sound": "audio/own/quench.wav",
+   "weight": "support",
+   "align": "start",
+   "pan": 0.0
+  },
+  {
+   "id": "quindar-out",
+   "t": 23.43,
+   "sound": "audio/own/quindar-out.wav",
+   "weight": "support",
+   "align": "start",
+   "pan": 0.0
+  }
+ ]
+}
