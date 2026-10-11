@@ -175,10 +175,14 @@ final class PanelRouter {
         panel.quickAI.startNewThread(initialPrompt: initialPrompt, selectedAIProfileID: panel.aiSettings.defaultAIProfileID)
     }
 
-    /// Esc: pending drop choice → actions overlay → clear query → mode back
-    /// to search → false lets the caller dismiss the panel.
+    /// Esc: pending prompt → pending drop choice → actions overlay → clear
+    /// query → mode back to search → false lets the caller dismiss the panel.
     func handleEscape() -> Bool {
         guard let panel else { return false }
+        if panel.pendingPrompt != nil {
+            panel.cancelPrompt()
+            return true
+        }
         if panel.pendingDropURLs != nil {
             panel.pendingDropURLs = nil
             return true

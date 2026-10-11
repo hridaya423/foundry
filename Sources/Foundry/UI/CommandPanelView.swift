@@ -122,6 +122,21 @@ struct CommandPanelView: View {
             }
             .overlay(alignment: .bottom) {
                 Group {
+                    if let prompt = state.pendingPrompt {
+                        FoundryGlassSurface(role: .floatingOverlay, shape: RoundedRectangle(cornerRadius: 16, style: .continuous)) {
+                            PanelPromptOverlay(spec: prompt.spec) { result in
+                                state.resolvePrompt(result)
+                            }
+                        }
+                        .shadow(color: FoundryTheme.shadow, radius: 24, y: 10)
+                        .padding(.bottom, 46)
+                        .transition(reduceMotion ? .opacity : .opacity.combined(with: .scale(scale: 0.96, anchor: .bottom)))
+                    }
+                }
+                .animation(reduceMotion ? nil : Animation.spring(response: 0.28, dampingFraction: 0.82), value: state.pendingPrompt != nil)
+            }
+            .overlay(alignment: .bottom) {
+                Group {
                     if state.pendingDropURLs != nil {
                         FoundryGlassSurface(role: .floatingOverlay, shape: RoundedRectangle(cornerRadius: 16, style: .continuous)) {
                             dropChooserSurface
@@ -776,6 +791,9 @@ struct CommandPanelView: View {
     }
 
     private func executeSelectedResult() {
+        // A pending prompt owns Return — the field's onSubmit or the
+        // Confirm button's .defaultAction resolves it.
+        guard state.pendingPrompt == nil else { return }
         Task { @MainActor in
             if await state.executeSelectedResult() {
                 dismiss()

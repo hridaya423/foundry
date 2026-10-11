@@ -85,6 +85,7 @@ final class CommandPanelState {
 
     /// Files dropped on the panel surface pending the user's choice of action.
     var pendingDropURLs: [URL]?
+    var pendingPrompt: PendingPrompt?
     var pendingSnippetArguments: [String]?
     private(set) var confettiBurstID = 0
 

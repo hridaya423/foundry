@@ -47,6 +47,7 @@ extension CommandPanelState {
 
     func panelWillClose() {
         detachActiveAction()
+        cancelPrompt()
         isPanelOpen = false
         lastClosedAt = now()
         session.homeRefreshID = UUID()
