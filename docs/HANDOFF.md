@@ -4,7 +4,9 @@ Read this first if you are picking this work up (a new session, another machine,
 
 ## Goal
 
-`docs/plans/2026-09-25-foundry-premium-plan.md` — take Foundry (the macOS launcher app in this repo, NOT `launch-film/` and NOT `anvil/` the website) to a premium Raycast/TinyCast-grade product: polish, onboarding, feature parity, performance, deslop. Bump `VERSION` to `1.1.0` at the end.
+**Current workstream (2026-10-11):** `docs/plans/2026-10-11-foundry-raycast-bar-audit.md` — a harsh 56-finding audit of Foundry measured against **Raycast**. Phases 0–6: measurement lab → window/keyboard correctness → search quality → performance/data → architecture → UI/UX polish → platform. Work lands in **phased commits**; the goal ends when every phase is implemented. The user's bar: "every little detail to feel as polished as possible."
+
+The earlier premium plan (`docs/plans/2026-09-25-foundry-premium-plan.md`) is fully implemented and shipped as 1.2.0 — see "Prior state" below.
 
 **Explicitly out of scope for now (user's call): signing, notarization, Sparkle/autoupdate, DMG, Homebrew.** Do not work on distribution.
 
@@ -12,13 +14,40 @@ Read this first if you are picking this work up (a new session, another machine,
 
 | File | Role |
 | --- | --- |
-| `docs/plans/2026-09-25-foundry-premium-plan.md` | Live plan (budgets filled in). The untouched original is `2026-09-25-foundry-premium-plan.ORIGINAL.md`. |
-| `.devin/goal/report.md` | Progress ledger. Update after every completed unit. |
+| `docs/plans/2026-10-11-foundry-raycast-bar-audit.md` | Live plan — the audit with per-finding files, fixes, and acceptance criteria. |
+| `docs/benchmarks/2026-10-11-latency-budgets.md` | Latency budgets from Phase 0 instrumentation. |
+| `.devin/goal/report.md` | Progress ledger (tracked in git). Update after every completed unit. |
 | This file | Orientation + how to work. |
 
 All work lands as small commits on `main`. `git log --oneline` is the record of what is done. Stage exact files only — `launch-film/` (the film project) and `anvil/` (the marketing site) are tracked but separate concerns; don't include their changes in Foundry commits. `.devin/` is untracked goal state.
 
-## Where things stand (1.2.0, 2026-10-08)
+## Where things stand (2026-10-11 — Raycast-bar audit, mid-Phase 4)
+
+Commits on `main` tell the story — newest first:
+
+- `31d6760` **4.5 checkpoint (in flight):** first `@unchecked Sendable` batch flipped to checked `Sendable` (7 sites: AppSearchProvider, CommandRegistry, CommandRanker, AppleToolObserver, QuicklinkProvider, FileSnippetStore, DiagnosticsService). **The audit is mid-flight — pick up here.**
+- `ac45bed` **4.6 failure visibility:** `try?` 204 → 78, all remaining classified intentional. `BestEffort.attempt`/`log` in FoundryServices logs best-effort failures at `.error`; `URL.fileResourceValues`, `FileManager.attributesIfPresent`/`contentsOfDirectoryIfPresent` non-throwing probe helpers. Fixed QR save (now alerts), corrupt `codex.json` clobber, empty-body Ollama requests.
+- `0d835d6` **4.6 one persistence model:** all 20 `UserDefaults` app-state keys → `FoundryConfig.localState` + `UserDefaultsMigration` + `LocalStateStore` facade; backup restore applies live.
+- `be79921` **4.7+4.8:** golfed files reformatted; `scripts/lint-lines.sh` gates at 240 (ratchet to 160 is tracked debt); `swift run` no longer unregisters/touches the installed app (`INSTALL_APP=1` opt-in).
+- `7778f1c` **Phase 3:** idle burn (clipboard poll gated to panel-open, ConfettiBurst TimelineView paused when done), incremental SQLite clipboard writes, lazy clipboard images + `resolvedPayload` hydration, paste-restore hold window, debounced `ConfigService` writes + `flush`/`discardPending`, icon cache+prewarm, 35 s OCR test gated behind `FOUNDRY_SLOW_TESTS`.
+- `9f64945` **Phase 2:** scalar `CommandRanker` (single score, stable order, golden fixtures incl. the `als` case), flat result list, simplified scheduler, `NSMetadataQuery` file search, kind labels.
+- (earlier) **Phase 0+1:** `DiagnosticsService` signposts + `drive-signposts.swift` timing, nonactivating panel show, real hide on dismiss + focus return, Esc=clear-then-dismiss, ⌘C/⌘V/⌘⌫ text-editing correctness, footer verb honesty, minimal scrolling, navigable-list fix. `PanelController.hide` 120 ms failsafe.
+
+**Baseline:** `swift build` clean, 0 warnings. `swift test`: **631 tests, 0 failures**, 5 skipped (~57 s). `scripts/lint-lines.sh` PASS at 240.
+
+### Phase 4.5 — where the Sendable audit stands
+
+60 `@unchecked Sendable` sites → target ≤ 10, each kept site gets a one-line justification comment (per audit plan §4.5). Method is compiler-driven: flip to checked `Sendable`, let the compiler enumerate violations, fix each via `OSAllocatedUnfairLock<State>` (precedent: `FileSearchProvider.swift:243`, `import os`) or revert with justification. **Done:** 7 flips landed in `31d6760`. **Remaining:** 53 sites — most `var` counts in a quick survey were locals/computed, not stored; stored-var sites need the lock-box refactor. Definite keeps: `CobaltResponseDelegate`, `MediaDownloadDelegate` (NSObject URLSession delegates), `IconBox` (wraps `NSImage`), `FileManager` retroactive conformance, `CodexOAuthCallbackServer` internals. `SnippetExpansionService` has ~10 vars and no lock — possible real race, inspect before converting.
+
+### Remaining Phase 4 after 4.5
+
+- **4.1 typed `ResultPayload`** — 79 `id`-prefix dispatch sites → typed payloads.
+- **4.2 feature-owned actions** — `ActionRunner` (1,530 lines) shrinks to a generic executor; features own behavior.
+- **4.3 split `CommandPanelState`** — ~70 props → focused sub-states.
+- **Lint ratchet** — `lint-lines.sh` 240 → 160 (~290 lines to fix).
+- Then Phase 5 (UI/UX: tokens, row anatomy, alerts→in-panel forms, Settings window, Quick Look) and Phase 6 (tiling settle, Codex OAuth opt-in, CI snapshots) per the plan.
+
+## Prior state (1.2.0, 2026-10-08)
 
 - The megaplan (`~/.devin/plans/plan-2b52c0932c2a6746.md`) is implemented: P0 brand (custom `.icns` + designed DMG with Finder layout), P1 conversion graph/router over native+brew engines, P2 conversion UX + Finder-style file actions + `--convert`, P3 Downloads/Snippets/Clipboard facelift, P4 parity commands (OCR, color picker, QR gen/decode, plain paste, confetti), P5 onboarding motion + panel entrance, P6 perf (18 MB → 7.8 MB via pre-sign strip, icons off-main, async `lsof`, `CommandPanelState` split 1463 → 923+357+216, external-engine batch conversions parallelized at cap 2 with native engines staying sequential, markdown parse cache tightened to 50), P7 release docs.
 - `VERSION` is `1.2.0`; release notes are in `docs/release-notes/1.2.0.md`.
