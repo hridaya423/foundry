@@ -302,6 +302,94 @@ final class CommandRankingTests: XCTestCase {
         XCTAssertEqual(results.first?.id, "test.calculator")
     }
 
+    /// The audit's golden case: typing "als" surfaced Tailscale (a mid-word
+    /// fuzzy) above "Almost Maximize Window" (a word-boundary fuzzy — 'a'
+    /// starts a word). With one flat scalar order the boundary-aware match
+    /// wins; bucketing can no longer lift a weaker provider's result past it.
+    func testWordBoundaryFuzzyBeatsMidWordAppFuzzy() async {
+        let registry = CommandRegistry(
+            providers: [
+                TestProvider(results: [command(id: "app.com.tailscale", title: "Tailscale")], id: "test.apps"),
+                TestProvider(results: [command(id: "command.window.almost-maximize", title: "Almost Maximize Window")], id: "test.commands"),
+            ],
+            usageRanking: UsageRankingStore(diagnostics: DiagnosticsService()),
+            diagnostics: DiagnosticsService()
+        )
+
+        let results = await registry.fullResults(matching: "als")
+
+        XCTAssertEqual(results.first?.id, "command.window.almost-maximize")
+    }
+
+    /// A weak app match must not outrank a strong command match — the old
+    /// section bucketing put every app ahead of every command.
+    func testStrongCommandMatchBeatsWeakAppMatch() async {
+        let registry = CommandRegistry(
+            providers: [
+                TestProvider(results: [command(id: "app.com.fanimax", title: "Fanimax Pro")], id: "test.apps"),
+                TestProvider(results: [command(id: "command.window.maximize", title: "Maximize Window")], id: "test.commands"),
+            ],
+            usageRanking: UsageRankingStore(diagnostics: DiagnosticsService()),
+            diagnostics: DiagnosticsService()
+        )
+
+        let results = await registry.fullResults(matching: "max")
+
+        XCTAssertEqual(results.first?.id, "command.window.maximize")
+    }
+
+    /// Provider return order must not leak into the final order — the score
+    /// plus deterministic tie-breaks is a total order.
+    func testOrderingIsDeterministicAcrossProviderOrder() async {
+        let app = command(id: "app.example.bravo", title: "Bravo")
+        let cmd = command(id: "command.alpha", title: "Alpha Command")
+        let ordered = CommandRegistry(
+            providers: [
+                TestProvider(results: [app], id: "test.a"),
+                TestProvider(results: [cmd], id: "test.b"),
+            ],
+            usageRanking: UsageRankingStore(diagnostics: DiagnosticsService()),
+            diagnostics: DiagnosticsService()
+        )
+        let reversed = CommandRegistry(
+            providers: [
+                TestProvider(results: [cmd], id: "test.b"),
+                TestProvider(results: [app], id: "test.a"),
+            ],
+            usageRanking: UsageRankingStore(diagnostics: DiagnosticsService()),
+            diagnostics: DiagnosticsService()
+        )
+        let query = "zzz no lexical match"
+
+        let first = await ordered.fullResults(matching: query).map(\.id)
+        let second = await reversed.fullResults(matching: query).map(\.id)
+
+        XCTAssertEqual(first, second)
+    }
+
+    /// A heavily-used result may pass an equally-tiered match, but frecency
+    /// must not vault it over a clearly stronger lexical match.
+    func testHeavyUsageStillCannotCrossTierBoundaries() async {
+        let usageURL = temporaryURL()
+        defer { try? FileManager.default.removeItem(at: usageURL) }
+        let usageRanking = UsageRankingStore(diagnostics: DiagnosticsService(), url: usageURL)
+        let registry = CommandRegistry(
+            providers: [TestProvider(results: [
+                command(id: "test.exact", title: "Terminal"),
+                command(id: "test.keyword", title: "Unrelated Helper", searchKeywords: ["terminal"]),
+            ])],
+            usageRanking: usageRanking,
+            diagnostics: DiagnosticsService()
+        )
+
+        for _ in 0..<50 {
+            usageRanking.recordExecution(resultID: "test.keyword", query: "terminal")
+        }
+        let results = await registry.fullResults(matching: "terminal")
+
+        XCTAssertEqual(results.first?.id, "test.exact")
+    }
+
     func testEquivalentResultsUseStableIDTieBreakers() async {
         let registry = CommandRegistry(
             providers: [TestProvider(results: [
@@ -374,10 +462,11 @@ final class CommandRankingTests: XCTestCase {
     }
 
     private struct TestProvider: CommandProvider {
-        let id = "test.provider"
+        let id: String
         let resultsToReturn: [CommandResult]
 
-        init(results: [CommandResult]) {
+        init(results: [CommandResult], id: String = "test.provider") {
+            self.id = id
             resultsToReturn = results
         }
 

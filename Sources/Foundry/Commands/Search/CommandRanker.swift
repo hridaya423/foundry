@@ -34,18 +34,32 @@ final class CommandRanker {
                         sensitivity: sensitivity
                     )
                 }
+                let base: Double
+                if query == nil {
+                    base = 0
+                } else {
+                    // Results a provider matched through channels we don't
+                    // re-score (file contents, process tables) sit below the
+                    // weakest real text match.
+                    base = match?.score ?? 0.10
+                }
+                // Frecency contribution is capped below the smallest tier
+                // gap (0.15): it reorders within a tier, never across one.
+                let usage = min(usageBoosts[candidate.result.id] ?? 0, 3.2) * 0.04
                 return RankedResult(
                     candidate: candidate,
                     preference: preference,
                     match: match,
+                    score: base + usage + (preference?.favoriteRank == nil ? 0 : 0.01),
                     usageBoost: usageBoosts[candidate.result.id] ?? 0
                 )
             }
             .sorted { lhs, rhs in
-                if query == nil, lhs.preference?.favoriteRank != rhs.preference?.favoriteRank {
+                // Home has no query score — favorites first by rank.
+                if query == nil {
                     switch (lhs.preference?.favoriteRank, rhs.preference?.favoriteRank) {
-                    case let (lhsRank?, rhsRank?):
-                        if lhsRank != rhsRank { return lhsRank < rhsRank }
+                    case let (lhsRank?, rhsRank?) where lhsRank != rhsRank:
+                        return lhsRank < rhsRank
                     case (_?, nil):
                         return true
                     case (nil, _?):
@@ -53,29 +67,19 @@ final class CommandRanker {
                     default:
                         break
                     }
+                    if lhs.usageBoost != rhs.usageBoost { return lhs.usageBoost > rhs.usageBoost }
+                } else if lhs.score != rhs.score {
+                    return lhs.score > rhs.score
                 }
 
-                if let lhsMatch = lhs.match, let rhsMatch = rhs.match, lhsMatch != rhsMatch {
-                    let lhsIsBetter = SearchScoring.isBetter(lhsMatch, than: rhsMatch)
-                    let rhsIsBetter = SearchScoring.isBetter(rhsMatch, than: lhsMatch)
-                    if SearchScoring.areComparable(lhsMatch, rhsMatch), lhs.usageBoost != rhs.usageBoost {
-                        return lhs.usageBoost > rhs.usageBoost
-                    }
-                    if lhsIsBetter || rhsIsBetter {
-                        return lhsIsBetter
-                    }
-                } else if lhs.match != nil, rhs.match == nil {
-                    return true
-                } else if lhs.match == nil, rhs.match != nil {
-                    return false
-                }
-
-                if lhs.usageBoost != rhs.usageBoost {
-                    return lhs.usageBoost > rhs.usageBoost
-                }
-                if lhs.candidate.providerID != rhs.candidate.providerID {
-                    return lhs.candidate.providerID < rhs.candidate.providerID
-                }
+                // Deterministic tie-breaks — a strict weak ordering, so the
+                // sort is stable and repeatable.
+                let lhsExact = lhs.match?.exactTokenCount ?? 0
+                let rhsExact = rhs.match?.exactTokenCount ?? 0
+                if lhsExact != rhsExact { return lhsExact > rhsExact }
+                let lhsLength = lhs.match?.candidateLength ?? .max
+                let rhsLength = rhs.match?.candidateLength ?? .max
+                if lhsLength != rhsLength { return lhsLength < rhsLength }
                 let titleComparison = lhs.candidate.result.title.localizedCaseInsensitiveCompare(rhs.candidate.result.title)
                 if titleComparison != .orderedSame {
                     return titleComparison == .orderedAscending
@@ -93,5 +97,6 @@ private struct RankedResult {
     let candidate: RankCandidate
     let preference: CommandPreference?
     let match: SearchMatch?
+    let score: Double
     let usageBoost: Double
 }

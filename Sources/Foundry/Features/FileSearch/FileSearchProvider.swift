@@ -35,8 +35,9 @@ final class FileSearchProvider: CommandProvider, @unchecked Sendable {
 
     private let scope: URL
     private let find: @Sendable (_ predicate: String, _ scope: URL) async throws -> [String]
+    private let spotlightProbe = SpotlightProbe()
 
-    init(scope: URL = FileManager.default.homeDirectoryForCurrentUser, find: @escaping @Sendable (String, URL) async throws -> [String] = FileSearchProvider.mdfind) {
+    init(scope: URL = FileManager.default.homeDirectoryForCurrentUser, find: @escaping @Sendable (String, URL) async throws -> [String] = FileSearchProvider.spotlight) {
         self.scope = scope
         self.find = find
     }
@@ -61,7 +62,12 @@ final class FileSearchProvider: CommandProvider, @unchecked Sendable {
         }
         guard Task.isCancelled == false else { return [] }
         let usable = Self.filter(paths, scope: scope)
-        let ranked = parsed.term.isEmpty ? Self.recent(usable) : Array(usable.prefix(Self.resultLimit))
+        // NSMetadataQuery can't tell "no matches" from "indexing off" —
+        // probe once per launch only when a search comes back empty.
+        if usable.isEmpty, await spotlightProbe.isDisabled(scope: scope) {
+            return [Self.spotlightDisabledResult]
+        }
+        let ranked = parsed.term.isEmpty ? Self.recent(usable) : Self.rank(usable, term: parsed.term)
         return ranked.map(Self.result)
     }
 
@@ -135,6 +141,29 @@ final class FileSearchProvider: CommandProvider, @unchecked Sendable {
         }.prefix(resultLimit).map { $0 }
     }
 
+    /// Spotlight returns index order, which is meaningless to the user —
+    /// score each path's basename against the term and take the best.
+    static func rank(_ paths: [String], term: String) -> [String] {
+        let query = SearchScoring.PreparedQuery(query: term)
+        return paths
+            .map { path in
+                (path, SearchScoring.matchPrepared(
+                    query: query,
+                    normalizedTitle: SearchScoring.normalize(URL(fileURLWithPath: path).lastPathComponent),
+                    normalizedSubtitle: nil,
+                    normalizedKeywords: [],
+                    normalizedAliases: [],
+                    sensitivity: .high
+                )?.score ?? 0)
+            }
+            .sorted { lhs, rhs in
+                if lhs.1 != rhs.1 { return lhs.1 > rhs.1 }
+                return lhs.0.localizedCaseInsensitiveCompare(rhs.0) == .orderedAscending
+            }
+            .prefix(resultLimit)
+            .map(\.0)
+    }
+
     static func filter(_ paths: [String], scope: URL) -> [String] {
         let root = scope.standardizedFileURL.path
         return paths.filter { path in
@@ -153,30 +182,15 @@ final class FileSearchProvider: CommandProvider, @unchecked Sendable {
         secondaryActions: []
     )
 
-    static func mdfind(_ predicate: String, scope: URL) async throws -> [String] {
-        let state = OSAllocatedUnfairLock(initialState: (paths: [String](), disabled: false, run: Task<Void, Never>?.none))
-        let run = Task {
-            let result = try? await ProcessRunner.run(path: "/usr/bin/mdfind", arguments: ["-onlyin", scope.path, predicate], timeout: 3, outputLimit: 64 * 1024) { output in
-                guard output.stream == .stdout, filter([output.line], scope: scope).isEmpty == false else { return }
-                let full = state.withLock { state -> Task<Void, Never>? in
-                    guard state.paths.count < streamLimit else { return nil }
-                    state.paths.append(output.line)
-                    return state.paths.count == streamLimit ? state.run : nil
-                }
-                full?.cancel()
-            }
-            if let result, result.succeeded == false {
-                let stderr = result.stderr.lowercased()
-                if stderr.contains("disabled") || stderr.contains("indexing") {
-                    state.withLock { $0.disabled = true }
-                }
-            }
-        }
-        if state.withLock({ $0.run = run; return $0.paths.count >= streamLimit }) { run.cancel() }
-        await withTaskCancellationHandler { await run.value } onCancel: { run.cancel() }
-        let outcome = state.withLock { ($0.paths, $0.disabled) }
-        if outcome.1 { throw FileSearchError.spotlightDisabled }
-        return outcome.0
+    /// In-process Spotlight search — the same index `mdfind` reads, without
+    /// spawning a process per keystroke.
+    static func spotlight(_ predicate: String, scope: URL) async throws -> [String] {
+        await SpotlightQuery.run(
+            predicate: NSPredicate(format: predicate),
+            scope: scope,
+            limit: streamLimit,
+            timeout: .seconds(3)
+        )
     }
 
     static func result(_ path: String) -> CommandResult {
@@ -241,4 +255,109 @@ enum FileAppResolver {
 
 enum FileSearchError: Error {
     case spotlightDisabled
+}
+
+/// One-shot NSMetadataQuery bridge: streams result paths as Spotlight
+/// gathers them, finishes early at the limit, and cleans up on timeout or
+/// cancellation. Lives on the main actor — metadata queries are runloop-based.
+@MainActor
+private final class SpotlightQuery: NSObject {
+    private var query: NSMetadataQuery?
+    private var continuation: CheckedContinuation<[String], Never>?
+    private var observers: [NSObjectProtocol] = []
+    private var timeoutTask: Task<Void, Never>?
+    private var paths: [String] = []
+    private var seen: Set<String> = []
+    private var limit = 0
+
+    static func run(predicate: NSPredicate, scope: URL, limit: Int, timeout: Duration) async -> [String] {
+        await SpotlightQuery().collect(predicate: predicate, scope: scope, limit: limit, timeout: timeout)
+    }
+
+    private func collect(predicate: NSPredicate, scope: URL, limit: Int, timeout: Duration) async -> [String] {
+        let query = NSMetadataQuery()
+        query.predicate = predicate
+        query.searchScopes = [scope]
+        query.notificationBatchingInterval = 0.05
+        self.query = query
+        self.limit = limit
+        observers = [
+            NotificationCenter.default.addObserver(forName: .NSMetadataQueryDidUpdate, object: query, queue: .main) { [weak self] _ in
+                MainActor.assumeIsolated { self?.drain() }
+            },
+            NotificationCenter.default.addObserver(forName: .NSMetadataQueryDidFinishGathering, object: query, queue: .main) { [weak self] _ in
+                MainActor.assumeIsolated { self?.finish() }
+            },
+        ]
+        return await withTaskCancellationHandler {
+            await withCheckedContinuation { continuation in
+                self.continuation = continuation
+                timeoutTask = Task { [weak self] in
+                    try? await Task.sleep(for: timeout)
+                    guard Task.isCancelled == false else { return }
+                    self?.finish()
+                }
+                query.start()
+            }
+        } onCancel: {
+            Task { @MainActor [weak self] in self?.finish() }
+        }
+    }
+
+    private func drain() {
+        guard let query else { return }
+        query.disableUpdates()
+        defer { query.enableUpdates() }
+        for index in 0..<query.resultCount {
+            guard let item = query.result(at: index) as? NSMetadataItem,
+                  let path = item.value(forAttribute: NSMetadataItemPathKey) as? String,
+                  seen.insert(path).inserted else { continue }
+            paths.append(path)
+            if paths.count >= limit {
+                finish()
+                return
+            }
+        }
+    }
+
+    private func finish() {
+        guard continuation != nil else { return }
+        observers.forEach { NotificationCenter.default.removeObserver($0) }
+        observers = []
+        timeoutTask?.cancel()
+        query?.stop()
+        query = nil
+        let result = paths
+        continuation?.resume(returning: result)
+        continuation = nil
+    }
+}
+
+/// `NSMetadataQuery` silently returns nothing when Spotlight indexing is
+/// off, so distinguish "no matches" from "disabled" with a single `mdfind`
+/// probe — cached for the life of the provider, run at most once per launch.
+private actor SpotlightProbe {
+    private var cached: Bool?
+    private var inFlight: Task<Bool, Never>?
+
+    func isDisabled(scope: URL) async -> Bool {
+        if let cached { return cached }
+        if let inFlight { return await inFlight.value }
+        let task = Task {
+            let result = try? await ProcessRunner.run(
+                path: "/usr/bin/mdfind",
+                arguments: ["-onlyin", scope.path, "kMDItemFSName == '*'"],
+                timeout: 3,
+                outputLimit: 64 * 1024
+            )
+            guard let result, result.succeeded == false else { return false }
+            let stderr = result.stderr.lowercased()
+            return stderr.contains("disabled") || stderr.contains("indexing")
+        }
+        inFlight = task
+        let value = await task.value
+        cached = value
+        inFlight = nil
+        return value
+    }
 }

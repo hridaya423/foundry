@@ -641,15 +641,11 @@ struct CommandPanelView: View {
                         }
 
                     } else {
-                        let sections = ResultSection.group(displayedResults)
-                        ForEach(sections, id: \.section) { group in
-                            if sections.count > 1 {
-                                HomeSectionHeader(title: group.section.rawValue)
-                                    .padding(.top, group.section == sections.first?.section ? 0 : 6)
-                            }
-                            ForEach(group.results, id: \.id) { result in
-                                resultRow(result, showKind: sections.count > 1)
-                            }
+                        // One ranked list — Raycast's root search is flat;
+                        // kind is carried on the row, not by section headers
+                        // that reorder whole buckets past better matches.
+                        ForEach(displayedResults, id: \.id) { result in
+                            resultRow(result, showKind: true)
                         }
                     }
                 }
@@ -785,69 +781,29 @@ struct CommandPanelView: View {
     }
 
     private func resultKindLabel(for result: CommandResult) -> String {
-        switch result.primaryAction.kind {
-        case .openQuickAI:
-            "AI"
-        case .openApp:
-            "Application"
-        case .openEmojiPicker, .openFileShelf, .openClipboardHistory, .openSnippets, .openFileConverter, .openCamera, .openTranslator, .openDeveloperTools, .openConfigFolder, .openSettings, .openCommandSettings, .openWelcomeGuide, .openHome, .openMediaDownloads, .quit:
-            "Command"
-        case .openFileWithApp:
-            "Application"
-        case .copyToClipboard, .copySnippet, .copyFile:
-            "Copy"
-        case .revealFile:
-            "Finder"
-        case .compressFile:
-            "Archive"
-        case .shareFile:
-            "Share"
-        case .renameFile:
-            "Rename"
-        case .moveToTrash:
-            "Delete"
-        case .deleteSnippet, .deleteQuicklink:
-            "Delete"
-        case .addToFileShelf:
-            "File Shelf"
-        case .pasteText, .pasteSnippet:
-            "Insert"
-        case .createSnippetFromClipboard, .importSnippets, .exportSnippets:
-            "Snippet"
-        case .extractTextFromImage, .previewExtractedText:
-            "OCR"
-        case .pickColor:
-            "Color"
-        case .generateQRCode, .generateWiFiQRCode, .readQRCode:
-            "QR Code"
-        case .recognizeScreenText:
-            "OCR"
-        case .emptyTrash:
-            "Trash"
-        case .toggleDesktopIcons:
-            "Desktop"
-        case .pasteClipboardAsPlainText:
-            "Paste"
-        case .celebrate:
-            "Celebrate"
-        case .downloadMedia, .downloadMediaBatch:
-            "Download"
-        case .chooseMediaDownloadFolder:
-            "Folder"
-        case .openURL, .openURLWithApp:
-            result.id.hasPrefix("quicklink.") ? "Quicklink" : "URL"
-        case .fillQuery:
-            "Quicklink"
-        case .terminateProcess, .quitApplication, .forceQuitApplication, .hideApplication, .quitAllApplications, .terminatePort, .toggleKeepAwake, .setAudioDevice, .rebuildApp:
-            "Utility"
-        case .resetRanking, .toggleFavorite:
-            "Command"
-        case .runProcess, .runScript:
-            "Script"
-        case .tileWindow:
-            "Window"
-        case .log:
-            "Action"
+        // Kind labels describe what the result *is* (Raycast: "Application",
+        // "File"), not what the default action does — the action title lives
+        // in the footer.
+        if result.id.hasPrefix("quicklink.") { return "Quicklink" }
+        if result.id.hasPrefix("file.") { return "File" }
+        switch result.route {
+        case .calculator: return "Calculation"
+        case .translation: return "Translation"
+        case .mediaDownload: return "Download"
+        case .notesSearch: return "Note"
+        case .aiResponse: return "AI"
+        case .macUtility: return "Utility"
+        case .browserTab, .browserBookmark, .browserHistory: return "Browser"
+        case .developerTool: return "Developer Tool"
+        case nil: break
+        }
+        return switch ResultSection.of(result) {
+        case .applications: "Application"
+        case .files: "File"
+        case .notes: "Note"
+        case .snippets: "Snippet"
+        case .browser: "Browser"
+        case .commands, .fallback: "Command"
         }
     }
 

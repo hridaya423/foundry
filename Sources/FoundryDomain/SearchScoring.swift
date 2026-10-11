@@ -58,6 +58,35 @@ extension SearchMatchTier: Comparable {
         guard let lhsIndex = allCases.firstIndex(of: lhs), let rhsIndex = allCases.firstIndex(of: rhs) else { return false }
         return lhsIndex < rhsIndex
     }
+
+    /// Scalar rank weight: the single number that decides result order.
+    /// Word-boundary and prefix matches dominate mid-word substrings, which
+    /// dominate fuzzy/keyword hits. Adjacent tiers are at least 0.15 apart
+    /// so bounded usage frecency (< 0.15) can reorder within a tier but can
+    /// never vault a weaker match over a stronger one.
+    public var score: Double {
+        switch self {
+        case .aliasExact: 1.90
+        case .titleExact: 1.70
+        case .aliasPrefix: 1.50
+        case .titlePrefix: 1.30
+        case .titleToken: 1.10
+        case .titleAcronym: 0.95
+        case .titleContains: 0.75
+        case .subtitle: 0.60
+        case .titleFuzzy: 0.42
+        case .keyword: 0.25
+        }
+    }
+}
+
+extension SearchMatch {
+    /// Scalar rank value: tier sets the band, fuzzy alignment quality
+    /// (word-boundary bonuses) nudges within the band — always under the
+    /// 0.15 minimum tier gap, so it can never cross a tier boundary.
+    public var score: Double {
+        tier.score + Double(min(fuzzyScore ?? 0, 200)) / 200 * 0.10
+    }
 }
 
 public struct SearchMatch: Equatable, Sendable {

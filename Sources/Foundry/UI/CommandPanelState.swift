@@ -55,6 +55,11 @@ final class CommandPanelState {
     var focusToken = UUID()
     var presentationToken = UUID()
     var isSearchLoading = false
+    /// Immediate-phase head results, so the complete phase can merge under
+    /// them instead of reordering rows the user may already be reading.
+    private var immediatePrefixIDs: [String] = []
+    private var immediateAppliedAt: ContinuousClock.Instant?
+    private var selectionAfterImmediate: String?
     var isHomeLoading = false
     var hoverHighlightsArmed = true
     private(set) var actionFeedback: ActionFeedback? = nil
@@ -1106,22 +1111,40 @@ final class CommandPanelState {
                 guard let self else { return }
                 self.selectedResultID = nil
                 self.applySearchResults(immediateResults, preserving: nil)
+                self.immediatePrefixIDs = Array(immediateResults.map(\.id).prefix(8))
+                self.immediateAppliedAt = ContinuousClock.now
+                self.selectionAfterImmediate = self.selectedResultID
             },
             onComplete: { [weak self] completeResults in
                 guard let self else { return }
                 self.isSearchLoading = false
-                self.applySearchResults(completeResults, preserving: self.selectedResultID)
+                // Reordering the head after the user has seen (or touched) it
+                // reads as rows jumping. Reorder only while the completion
+                // lands inside the glance window and the selection is
+                // untouched; otherwise the immediate head stays put and the
+                // deferred results merge below it.
+                let glanceWindowOpen = self.immediateAppliedAt.map {
+                    ContinuousClock.now - $0 < .milliseconds(120)
+                } ?? true
+                let selectionUntouched = self.selectedResultID == self.selectionAfterImmediate
+                let stablePrefix = (glanceWindowOpen && selectionUntouched) ? [] : self.immediatePrefixIDs
+                self.applySearchResults(completeResults, preserving: self.selectedResultID, stablePrefixIDs: stablePrefix)
             }
         )
     }
 
-    private func applySearchResults(_ rankedResults: [CommandResult], preserving preferredID: String?) {
+    private func applySearchResults(_ rankedResults: [CommandResult], preserving preferredID: String?, stablePrefixIDs: [String] = []) {
         if let span = searchKeySpan {
             diagnostics.endSpan(span)
             searchKeySpan = nil
             diagnostics.mark("results.committed")
         }
-        let nextResults = ResultSection.ordered(rankedResults)
+        var nextResults = rankedResults
+        if stablePrefixIDs.isEmpty == false {
+            let head = stablePrefixIDs.compactMap { id in rankedResults.first { $0.id == id } }
+            let headIDs = Set(head.map(\.id))
+            nextResults = head + rankedResults.filter { headIDs.contains($0.id) == false }
+        }
         results = nextResults
         if MediaDownloadProvider.mediaURLs(in: query).isEmpty == false,
            let mediaResult = nextResults.first(where: { $0.route == .mediaDownload }) {

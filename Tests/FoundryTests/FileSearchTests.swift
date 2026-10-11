@@ -153,6 +153,21 @@ final class FileSearchTests: XCTestCase {
         XCTAssertEqual(results.map(\.title), ["newer.txt", "older.txt"])
     }
 
+    /// Spotlight index order is meaningless — name-match quality decides.
+    func testRankScoresBasenameMatchQuality() async {
+        let provider = FileSearchProvider(scope: home) { _, _ in
+            [
+                "/Users/test/code/displays/notes.txt",
+                "/Users/test/Documents/Display Settings.pdf",
+                "/Users/test/Downloads/old-display-photo.png",
+            ]
+        }
+        let results = await provider.results(matching: "f display")
+        // "Display Settings.pdf" (word-boundary prefix) beats the
+        // mid-word/fuzzy "display-photo" and the non-matching "notes".
+        XCTAssertEqual(results.map(\.title).first, "Display Settings.pdf")
+    }
+
     func testCameraCommandIsHiddenByDefaultUntilEnabled() async throws {
         let diagnostics = DiagnosticsService()
         let config = ConfigService(diagnostics: diagnostics, url: FileManager.default.temporaryDirectory.appendingPathComponent("\(UUID()).json"))
