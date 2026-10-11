@@ -400,6 +400,21 @@ final class SettingsStore {
         updateCommandPreference(preference, for: commandID)
     }
 
+    /// Who already owns a chord: `"launcher"` for the main hotkey, or the
+    /// commandID holding it. Used to hide suggestions that would collide.
+    func commandHotkeyOwner(keyCode: UInt32, modifiers: UInt32, excluding commandID: String? = nil) -> String? {
+        if hotkey.keyCode == keyCode, hotkey.modifiers == modifiers {
+            return "launcher"
+        }
+        for (id, preference) in commandPreferences where id != commandID {
+            if let existing = preference.globalHotkey,
+               existing.keyCode == keyCode, existing.modifiers == modifiers {
+                return id
+            }
+        }
+        return nil
+    }
+
     func setCommandHotkey(_ hotkey: FoundryHotkey?, for commandID: String) {
         var preference = commandPreference(for: commandID)
         preference.globalHotkey = hotkey.map {

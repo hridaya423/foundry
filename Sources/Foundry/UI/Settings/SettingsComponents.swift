@@ -241,20 +241,15 @@ final class ShortcutRecorderView: NSView {
             NSSound.beep()
             return
         }
-        guard let keyName = keyName(for: event) else {
+        let keyName = HotkeyFormatter.keyName(UInt32(event.keyCode)) ?? fallbackKeyName(for: event)
+        guard let keyName else {
             NSSound.beep()
             return
         }
 
-        var parts: [String] = []
-        if modifiers & UInt32(cmdKey) != 0 { parts.append("⌘") }
-        if modifiers & UInt32(optionKey) != 0 { parts.append("⌥") }
-        if modifiers & UInt32(controlKey) != 0 { parts.append("⌃") }
-        if modifiers & UInt32(shiftKey) != 0 { parts.append("⇧") }
-        parts.append(keyName)
-
         isRecording = false
-        onHotkey?(FoundryHotkey(keyCode: UInt32(event.keyCode), modifiers: modifiers, displayName: parts.joined()))
+        let displayName = HotkeyFormatter.modifierString(modifiers) + keyName
+        onHotkey?(FoundryHotkey(keyCode: UInt32(event.keyCode), modifiers: modifiers, displayName: displayName))
         window?.makeFirstResponder(nil)
     }
 
@@ -272,20 +267,11 @@ final class ShortcutRecorderView: NSView {
         return modifiers
     }
 
-    private func keyName(for event: NSEvent) -> String? {
-        let names: [UInt16: String] = [
-            UInt16(kVK_Return): "↩",
-            UInt16(kVK_Tab): "⇥",
-            UInt16(kVK_Space): "Space",
-            UInt16(kVK_Delete): "⌫",
-            UInt16(kVK_Escape): "Esc",
-            UInt16(kVK_LeftArrow): "←",
-            UInt16(kVK_RightArrow): "→",
-            UInt16(kVK_UpArrow): "↑",
-            UInt16(kVK_DownArrow): "↓"
-        ]
-        if let name = names[event.keyCode] { return name }
-        guard let characters = event.charactersIgnoringModifiers?.trimmingCharacters(in: .whitespacesAndNewlines), characters.isEmpty == false else {
+    /// Layout-aware name for keys outside the formatter's ANSI table
+    /// (e.g. ISO punctuation keys).
+    private func fallbackKeyName(for event: NSEvent) -> String? {
+        guard let characters = event.charactersIgnoringModifiers?.trimmingCharacters(in: .whitespacesAndNewlines),
+              characters.isEmpty == false else {
             return nil
         }
         return characters.uppercased()
@@ -407,6 +393,8 @@ struct CommandSettingsRow: View {
     let setFallbackEligible: (Bool) -> Void
     let reset: () -> Void
     let toggleExpanded: () -> Void
+    /// Owner of a chord (`launcher`/commandID) or nil when free.
+    let hotkeyConflict: (UInt32, UInt32) -> String?
 
     @State private var aliasesText: String
 
@@ -419,7 +407,8 @@ struct CommandSettingsRow: View {
         setHotkey: @escaping (FoundryHotkey?) -> Void,
         setFallbackEligible: @escaping (Bool) -> Void,
         reset: @escaping () -> Void,
-        toggleExpanded: @escaping () -> Void
+        toggleExpanded: @escaping () -> Void,
+        hotkeyConflict: @escaping (UInt32, UInt32) -> String?
     ) {
         self.row = row
         self.isExpanded = isExpanded
@@ -430,12 +419,18 @@ struct CommandSettingsRow: View {
         self.setFallbackEligible = setFallbackEligible
         self.reset = reset
         self.toggleExpanded = toggleExpanded
+        self.hotkeyConflict = hotkeyConflict
         _aliasesText = State(initialValue: row.preference.aliases.joined(separator: ", "))
     }
 
     private var suggestedHotkey: CommandHotkey? {
         guard row.id.hasPrefix("window.") else { return nil }
-        return WindowPlacement(rawValue: String(row.id.dropFirst(7)))?.suggestedHotkey
+        guard let suggested = WindowPlacement(rawValue: String(row.id.dropFirst(7)))?.suggestedHotkey else {
+            return nil
+        }
+        // Never offer a chord that's already bound elsewhere.
+        guard hotkeyConflict(suggested.keyCode, suggested.modifiers) == nil else { return nil }
+        return suggested
     }
 
     var body: some View {

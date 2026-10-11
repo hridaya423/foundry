@@ -16,7 +16,7 @@ final class StatusItemMenuTests: XCTestCase {
 
         let paused = StatusItemMenuModel(hotkey: .optionSpace, clipboardPaused: true, hotkeyFailed: true)
         XCTAssertEqual(paused.items.first?.kind, .hotkeyWarning)
-        XCTAssertEqual(paused.items.first?.title, "⌥ Space is unavailable — Choose Another Shortcut…")
+        XCTAssertEqual(paused.items.first?.title, "⌥Space is unavailable — Choose Another Shortcut…")
         XCTAssertTrue(paused.items.contains { $0.kind == .clipboardPauseToggle && $0.title == "Resume Clipboard" })
 
         let awake = StatusItemMenuModel(hotkey: .optionSpace, clipboardPaused: false, hotkeyFailed: false, keepAwakeActive: true)

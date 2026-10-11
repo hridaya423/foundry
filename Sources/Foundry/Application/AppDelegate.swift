@@ -107,11 +107,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private static func confirm(action: CommandActionDescriptor, source: CommandInvocationSource) -> Bool {
         let alert = NSAlert()
         alert.alertStyle = .warning
-        alert.messageText = "Confirm \(action.title)"
-        alert.informativeText = source == .external
-            ? "An external integration requested this destructive action. Continue?"
-            : "This action can change or terminate system state. Continue?"
-        alert.addButton(withTitle: "Continue")
+        alert.messageText = "\(action.title)?"
+        if source == .external {
+            alert.informativeText = "Requested by an external integration."
+        }
+        alert.addButton(withTitle: action.title)
         alert.addButton(withTitle: "Cancel")
         return alert.runModal() == .alertFirstButtonReturn
     }

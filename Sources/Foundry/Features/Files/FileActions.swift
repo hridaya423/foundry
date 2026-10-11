@@ -98,7 +98,7 @@ struct RenameFileAction: ResultAction, Equatable {
         }.value
         let alert = NSAlert()
         alert.messageText = "Rename \u{201C}\(source.lastPathComponent)\u{201D}"
-        alert.informativeText = "Enter a new name. The file stays in the same folder."
+        alert.informativeText = "Enter a new name."
         alert.addButton(withTitle: "Rename")
         alert.addButton(withTitle: "Cancel")
         alert.icon = icon

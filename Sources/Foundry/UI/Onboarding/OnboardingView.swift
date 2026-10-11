@@ -1,5 +1,6 @@
 import AppKit
 import Carbon
+import FoundryDomain
 import SwiftUI
 
 struct OnboardingView: View {
@@ -384,9 +385,19 @@ struct OnboardingView: View {
             .toggleStyle(.switch)
             .controlSize(.small)
             .onChange(of: clipboardHotkeyOn) { _, on in
-                let hotkey: FoundryHotkey? = on
-                    ? FoundryHotkey(keyCode: UInt32(kVK_ANSI_V), modifiers: UInt32(cmdKey | shiftKey), displayName: "⇧⌘V")
-                    : nil
+                var hotkey: FoundryHotkey?
+                if on,
+                   panel.settings.commandHotkeyOwner(
+                       keyCode: UInt32(kVK_ANSI_V),
+                       modifiers: UInt32(cmdKey | shiftKey),
+                       excluding: "foundry.clipboard-history"
+                   ) == nil {
+                    hotkey = FoundryHotkey(
+                        keyCode: UInt32(kVK_ANSI_V),
+                        modifiers: UInt32(cmdKey | shiftKey),
+                        displayName: HotkeyFormatter.displayName(keyCode: UInt32(kVK_ANSI_V), modifiers: UInt32(cmdKey | shiftKey))
+                    )
+                }
                 panel.settings.setCommandHotkey(hotkey, for: "foundry.clipboard-history")
             }
             .frame(maxWidth: 400)

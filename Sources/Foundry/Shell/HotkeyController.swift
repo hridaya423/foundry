@@ -1,5 +1,6 @@
 import Carbon
 import Foundation
+import FoundryDomain
 import FoundryServices
 
 struct FoundryHotkey: Codable, Equatable {
@@ -10,13 +11,13 @@ struct FoundryHotkey: Codable, Equatable {
     static let commandSpace = FoundryHotkey(
         keyCode: UInt32(kVK_Space),
         modifiers: UInt32(cmdKey),
-        displayName: "⌘ Space"
+        displayName: HotkeyFormatter.displayName(keyCode: UInt32(kVK_Space), modifiers: UInt32(cmdKey))
     )
 
     static let optionSpace = FoundryHotkey(
         keyCode: UInt32(kVK_Space),
         modifiers: UInt32(optionKey),
-        displayName: "⌥ Space"
+        displayName: HotkeyFormatter.displayName(keyCode: UInt32(kVK_Space), modifiers: UInt32(optionKey))
     )
 }
 

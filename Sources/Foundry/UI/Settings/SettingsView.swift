@@ -679,7 +679,12 @@ struct SettingsView: View {
                                  setHotkey: { state.settings.setCommandHotkey($0, for: row.id) },
                                  setFallbackEligible: { state.settings.setCommandFallbackEligible($0, for: row.id) },
                                  reset: { state.settings.resetCommandPreference(for: row.id) },
-                                toggleExpanded: { state.settings.toggleCommandExpansion(row.id) }
+                                toggleExpanded: { state.settings.toggleCommandExpansion(row.id) },
+                                hotkeyConflict: { keyCode, modifiers in
+                                    state.settings.commandHotkeyOwner(
+                                        keyCode: keyCode, modifiers: modifiers, excluding: row.id
+                                    )
+                                }
                             )
                             .modifier(anchor("commands.\(row.id)"))
                             .overlay(alignment: .bottom) {
