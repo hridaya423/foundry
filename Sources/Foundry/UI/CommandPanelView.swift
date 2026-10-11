@@ -52,14 +52,13 @@ struct CommandPanelView: View {
     }
 
     var body: some View {
-        let surface = self.surface
         let base = VStack(spacing: 0) {
             FeatureHeader(
                 showBack: state.mode != .search,
                 onBack: state.showHome,
                 showsHairline: nativeGlassEnabled == false,
-                content: { surface.header },
-                trailing: { surface.headerTrailing }
+                content: { surfaceHeader },
+                trailing: { surfaceHeaderTrailing }
             )
 
             if state.compactCollapsed == false {
@@ -68,9 +67,12 @@ struct CommandPanelView: View {
                         .transition(reduceMotion ? .opacity : .opacity.combined(with: .move(edge: .top)))
                 }
 
-                surface.content
-                    .id(surface.id)
-                    .transition(.opacity)
+                ZStack {
+                    surfaceContent
+                        .id(surfaceSpec.id)
+                        .transition(.opacity)
+                }
+                .animation(reduceMotion ? nil : Animation.easeInOut(duration: 0.12), value: state.mode)
 
                 panelFooter
             }
@@ -103,34 +105,35 @@ struct CommandPanelView: View {
 
         let animated = feedbackWrapped
             .overlay(alignment: .bottomTrailing) {
-                if state.session.isShowingActions {
-                    FoundryGlassSurface(role: .floatingOverlay, shape: RoundedRectangle(cornerRadius: 16, style: .continuous)) {
-                        actionsSurface
-                            .frame(width: 340)
-                            .frame(maxHeight: 320)
+                Group {
+                    if state.session.isShowingActions {
+                        FoundryGlassSurface(role: .floatingOverlay, shape: RoundedRectangle(cornerRadius: 16, style: .continuous)) {
+                            actionsSurface
+                                .frame(width: 340)
+                                .frame(maxHeight: 320)
+                        }
+                        .shadow(color: FoundryTheme.shadow, radius: 24, y: 10)
+                        .padding(.trailing, 12)
+                        .padding(.bottom, 46)
+                        .transition(reduceMotion ? .opacity : .opacity.combined(with: .scale(scale: 0.96, anchor: .bottomTrailing)))
                     }
-                    .shadow(color: FoundryTheme.shadow, radius: 24, y: 10)
-                    .padding(.trailing, 12)
-                    .padding(.bottom, 46)
-                    .transition(reduceMotion ? .opacity : .opacity.combined(with: .scale(scale: 0.96, anchor: .bottomTrailing)))
                 }
+                .animation(reduceMotion ? nil : Animation.spring(response: 0.28, dampingFraction: 0.82), value: state.session.isShowingActions)
             }
             .overlay(alignment: .bottom) {
-                if state.pendingDropURLs != nil {
-                    FoundryGlassSurface(role: .floatingOverlay, shape: RoundedRectangle(cornerRadius: 16, style: .continuous)) {
-                        dropChooserSurface
-                            .frame(width: 340)
+                Group {
+                    if state.pendingDropURLs != nil {
+                        FoundryGlassSurface(role: .floatingOverlay, shape: RoundedRectangle(cornerRadius: 16, style: .continuous)) {
+                            dropChooserSurface
+                                .frame(width: 340)
+                        }
+                        .shadow(color: FoundryTheme.shadow, radius: 24, y: 10)
+                        .padding(.bottom, 46)
+                        .transition(reduceMotion ? .opacity : .opacity.combined(with: .scale(scale: 0.96, anchor: .bottom)))
                     }
-                    .shadow(color: FoundryTheme.shadow, radius: 24, y: 10)
-                    .padding(.bottom, 46)
-                    .transition(reduceMotion ? .opacity : .opacity.combined(with: .scale(scale: 0.96, anchor: .bottom)))
                 }
+                .animation(reduceMotion ? nil : Animation.spring(response: 0.28, dampingFraction: 0.82), value: state.pendingDropURLs != nil)
             }
-            .animation(reduceMotion ? nil : Animation.spring(response: 0.28, dampingFraction: 0.82), value: state.session.isShowingActions)
-            .animation(reduceMotion ? nil : Animation.spring(response: 0.28, dampingFraction: 0.82), value: state.pendingDropURLs != nil)
-            .animation(reduceMotion ? nil : Animation.easeInOut(duration: 0.12), value: state.mode)
-            .animation(reduceMotion ? nil : Animation.easeOut(duration: 0.14), value: fileShelf.files.count)
-            .animation(reduceMotion ? nil : Animation.easeOut(duration: 0.14), value: agents.sessions.count)
             .overlay(ConfettiBurst(trigger: state.confettiBurstID))
 
         return animated
@@ -206,187 +209,181 @@ struct CommandPanelView: View {
         colorScheme == .dark ? FoundryTheme.onDarkFaint : FoundryTheme.scrim
     }
 
-    private var surface: FeatureSurface {
+    /// Per-mode metadata that isn't a view: the transition identity and the
+    /// footer's action hints.
+    private var surfaceSpec: (id: String, actions: [FooterActionSpec]) {
         switch state.mode {
         case .agents:
-            FeatureSurface(
-                id: "agents",
-                header: { FeatureTitle(symbol: "sparkles.rectangle.stack", title: "Agents") },
-                content: { AgentShelfView(agents: state.agents, dismiss: dismiss) },
-                footerActions: [.init(label: "Open", keys: "Click", emphasized: true), .home]
-            )
+            (id: "agents",
+             actions: [.init(label: "Open", keys: "Click", emphasized: true), .home])
         case .quickAI:
-            FeatureSurface(
-                id: "quickAI",
-                header: {
-                    QuickAIHeaderControlsView(quickAI: state.quickAI, inputFocused: $inputFocused) {
-                        state.router.openQuickAI()
-                    }
-                },
-                content: { QuickAISurfaceView(quickAI: state.quickAI, onOpenAISettings: state.router.openSettings) },
-                footerActions: state.quickAI.isQuickAILoading
-                    ? [.init(label: "Stop", keys: "⌘.", emphasized: true), .init(label: "New Chat", keys: "⌘N"), .home]
-                    : [.init(label: "Send", keys: "↵", emphasized: true), .init(label: "New Chat", keys: "⌘N"), .home]
-            )
+            (id: "quickAI",
+             actions: state.quickAI.isQuickAILoading
+                ? [.init(label: "Stop", keys: "⌘.", emphasized: true), .init(label: "New Chat", keys: "⌘N"), .home]
+                : [.init(label: "Send", keys: "↵", emphasized: true), .init(label: "New Chat", keys: "⌘N"), .home])
         case .emojiPicker:
-            FeatureSurface(
-                id: "emoji",
-                header: {
-                    featureSearchField("Search emoji and symbols…", text: emojiQueryBinding) {
-                        if state.emojiPicker.copySelectedEmoji() { dismiss() }
-                    }
-                },
-                content: {
-                    EmojiPickerView(state: state.emojiPicker) {
-                        if state.emojiPicker.copySelectedEmoji() { dismiss() }
-                    }
-                },
-                footerActions: [
-                    .init(label: "Copy", keys: "↵"),
-                    .init(label: "Tone \(state.emojiPicker.skinTone.isEmpty ? "·" : state.emojiPicker.skinTone)", keys: "⌘T"),
-                    .home
-                ]
-            )
+            (id: "emoji",
+             actions: [
+                .init(label: "Copy", keys: "↵"),
+                .init(label: "Tone \(state.emojiPicker.skinTone.isEmpty ? "·" : state.emojiPicker.skinTone)", keys: "⌘T"),
+                .home,
+             ])
         case .fileConversion:
-            FeatureSurface(
-                id: "fileConversion",
-                header: {
-                    FeatureTitle(symbol: "arrow.triangle.2.circlepath",
-                                 title: state.fileConversion.sourceURLs.count > 1 ? "Convert Files" : "Convert File")
-                },
-                content: { FileConversionView(state: state.fileConversion) },
-                footerActions: [.init(label: "Convert", keys: "↵", emphasized: true), .home]
-            )
+            (id: "fileConversion",
+             actions: [.init(label: "Convert", keys: "↵", emphasized: true), .home])
         case .camera:
-            FeatureSurface(
-                id: "camera",
-                header: { FeatureTitle(symbol: "camera", title: "Camera") },
-                content: { CameraPreviewView(state: state.camera) },
-                footerActions: [.home]
-            )
+            (id: "camera", actions: [.home])
         case .fileShelf:
-            FeatureSurface(
-                id: "shelf",
-                header: { FeatureTitle(symbol: "tray.full", title: "File Shelf") },
-                content: {
-                    FileShelfView(state: state.fileShelf, convertSelected: { selectedFiles in
-                        guard selectedFiles.isEmpty == false else { return }
-                        state.fileConversion.setSources(urls: selectedFiles.map(\.url))
-                        state.mode = .fileConversion
-                    }, extractText: state.extractTextFromShelfFile, decodeBarcode: state.decodeBarcodeFromShelfFile)
-                },
-                footerActions: [.init(label: "Remove", keys: "⌫"), .home]
-            )
+            (id: "shelf",
+             actions: [.init(label: "Remove", keys: "⌫"), .home])
         case .clipboardHistory:
-            FeatureSurface(
-                id: "clipboard",
-                header: {
-                    featureSearchField("Search clipboard history…", text: clipboardQueryBinding) {
-                        state.pasteOrCopySelectedClipboardItem()
-                        dismiss()
-                    }
-                },
-                content: {
-                    ClipboardHistoryView(state: state.clipboardHistory, fileShelf: state.fileShelf, directPaste: {
-                        let staged = state.directPasteSelectedClipboardItem()
-                        if staged { dismiss() }
-                        return staged
-                    }, pause: state.settings.setClipboardPaused,
-                        extractText: state.extractTextFromClipboardItem,
-                        decodeBarcode: state.decodeBarcodeFromClipboardItem)
-                },
-                footerActions: [
-                    .init(label: "Paste", keys: "↵", emphasized: true),
-                    .init(label: "Copy", keys: "⌘↵"),
-                    .init(label: "Pin", keys: "⌘P"),
-                    .home,
-                ]
-            )
+            (id: "clipboard",
+             actions: [
+                .init(label: "Paste", keys: "↵", emphasized: true),
+                .init(label: "Copy", keys: "⌘↵"),
+                .init(label: "Pin", keys: "⌘P"),
+                .home,
+             ])
         case .snippets:
-            FeatureSurface(
-                id: "snippets",
-                header: {
-                    HStack(spacing: 12) {
-                        Image(systemName: "magnifyingglass")
-                            .font(FoundryTheme.Glyph.sm)
-                            .foregroundStyle(FoundryTheme.textTertiary)
-                        featureSearchField("Search snippets…", text: snippetsQueryBinding) {
-                            if state.insertOrCopySelectedSnippet() { dismiss() }
-                        }
-                    }
-                },
-                content: {
-                    ZStack {
-                        SnippetsView(state: state.snippets, expansionEnabled: state.settings.snippetExpansion.isEnabled,
-                            setExpansionEnabled: { state.settings.setSnippetExpansionEnabled($0) }, insert: {
-                            guard state.insertOrCopySelectedSnippet() else { return false }
-                            dismiss()
-                            return true
-                        })
-                        if let names = state.pendingSnippetArguments {
-                            SnippetArgumentPrompt(
-                                names: names,
-                                onCancel: state.cancelSnippetArguments,
-                                onSubmit: { values in
-                                    if state.submitSnippetArguments(values) { dismiss() }
-                                }
-                            )
-                        }
-                    }
-                },
-                footerActions: [.init(label: "Insert", keys: "↵", emphasized: true), .init(label: "Copy", keys: "⌘↵"), .home]
-            )
+            (id: "snippets",
+             actions: [.init(label: "Insert", keys: "↵", emphasized: true), .init(label: "Copy", keys: "⌘↵"), .home])
         case .translator:
-            FeatureSurface(
-                id: "translator",
-                header: { FeatureTitle(symbol: "globe", title: "Translate") },
-                content: {
-                    TranslatorView(state: state.translator, insert: {
-                        guard state.insertTranslation() else { return false }
-                        dismiss()
-                        return true
-                    })
-                },
-                footerActions: [.home]
-            )
+            (id: "translator", actions: [.home])
         case .developerTools:
-            FeatureSurface(
-                id: "developerTools",
-                header: { FeatureTitle(symbol: "hammer", title: state.developerTools.selectedTool.rawValue) },
-                content: { DeveloperToolsView(state: state.developerTools) },
-                footerActions: [.init(label: "Copy Value", keys: "Click"), .home]
-            )
+            (id: "developerTools",
+             actions: [.init(label: "Copy Value", keys: "Click"), .home])
         case .mediaDownloads:
-            FeatureSurface(
-                id: "mediaDownloads",
-                header: { FeatureTitle(symbol: "arrow.down.circle", title: "Downloads") },
-                content: {
-                    MediaDownloadsView(
-                        manager: state.mediaDownloads,
-                        start: state.startMediaDownloads,
-                        cancel: state.cancelDownload,
-                        retry: state.retryDownload,
-                        changeDestination: state.changeMediaDownloadFolder,
-                        performHaptic: { state.performHaptic(.levelChange) }
+            (id: "mediaDownloads", actions: [.home])
+        case .settings:
+            (id: "settings", actions: [.home])
+        case .search:
+            (id: searchContentID, actions: searchFooterActions)
+        }
+    }
+
+    @ViewBuilder
+    private var surfaceHeader: some View {
+        switch state.mode {
+        case .agents:
+            FeatureTitle(symbol: "sparkles.rectangle.stack", title: "Agents")
+        case .quickAI:
+            QuickAIHeaderControlsView(quickAI: state.quickAI, inputFocused: $inputFocused) {
+                state.router.openQuickAI()
+            }
+        case .emojiPicker:
+            featureSearchField("Search emoji and symbols…", text: emojiQueryBinding) {
+                if state.emojiPicker.copySelectedEmoji() { dismiss() }
+            }
+        case .fileConversion:
+            FeatureTitle(symbol: "arrow.triangle.2.circlepath",
+                         title: state.fileConversion.sourceURLs.count > 1 ? "Convert Files" : "Convert File")
+        case .camera:
+            FeatureTitle(symbol: "camera", title: "Camera")
+        case .fileShelf:
+            FeatureTitle(symbol: "tray.full", title: "File Shelf")
+        case .clipboardHistory:
+            featureSearchField("Search clipboard history…", text: clipboardQueryBinding) {
+                state.pasteOrCopySelectedClipboardItem()
+                dismiss()
+            }
+        case .snippets:
+            HStack(spacing: 12) {
+                Image(systemName: "magnifyingglass")
+                    .font(FoundryTheme.Glyph.sm)
+                    .foregroundStyle(FoundryTheme.textTertiary)
+                featureSearchField("Search snippets…", text: snippetsQueryBinding) {
+                    if state.insertOrCopySelectedSnippet() { dismiss() }
+                }
+            }
+        case .translator:
+            FeatureTitle(symbol: "globe", title: "Translate")
+        case .developerTools:
+            FeatureTitle(symbol: "hammer", title: state.developerTools.selectedTool.rawValue)
+        case .mediaDownloads:
+            FeatureTitle(symbol: "arrow.down.circle", title: "Downloads")
+        case .settings:
+            FeatureTitle(symbol: "gearshape", title: "Settings")
+        case .search:
+            searchField
+        }
+    }
+
+    @ViewBuilder
+    private var surfaceHeaderTrailing: some View {
+        switch state.mode {
+        case .search: searchHeaderControls
+        default: EmptyView()
+        }
+    }
+
+    @ViewBuilder
+    private var surfaceContent: some View {
+        switch state.mode {
+        case .agents:
+            AgentShelfView(agents: state.agents, dismiss: dismiss)
+        case .quickAI:
+            QuickAISurfaceView(quickAI: state.quickAI, onOpenAISettings: state.router.openSettings)
+        case .emojiPicker:
+            EmojiPickerView(state: state.emojiPicker) {
+                if state.emojiPicker.copySelectedEmoji() { dismiss() }
+            }
+        case .fileConversion:
+            FileConversionView(state: state.fileConversion)
+        case .camera:
+            CameraPreviewView(state: state.camera)
+        case .fileShelf:
+            FileShelfView(state: state.fileShelf, convertSelected: { selectedFiles in
+                guard selectedFiles.isEmpty == false else { return }
+                state.fileConversion.setSources(urls: selectedFiles.map(\.url))
+                state.mode = .fileConversion
+            }, extractText: state.extractTextFromShelfFile, decodeBarcode: state.decodeBarcodeFromShelfFile)
+        case .clipboardHistory:
+            ClipboardHistoryView(state: state.clipboardHistory, fileShelf: state.fileShelf, directPaste: {
+                let staged = state.directPasteSelectedClipboardItem()
+                if staged { dismiss() }
+                return staged
+            }, pause: state.settings.setClipboardPaused,
+                extractText: state.extractTextFromClipboardItem,
+                decodeBarcode: state.decodeBarcodeFromClipboardItem)
+        case .snippets:
+            ZStack {
+                SnippetsView(state: state.snippets, expansionEnabled: state.settings.snippetExpansion.isEnabled,
+                    setExpansionEnabled: { state.settings.setSnippetExpansionEnabled($0) }, insert: {
+                    guard state.insertOrCopySelectedSnippet() else { return false }
+                    dismiss()
+                    return true
+                })
+                if let names = state.pendingSnippetArguments {
+                    SnippetArgumentPrompt(
+                        names: names,
+                        onCancel: state.cancelSnippetArguments,
+                        onSubmit: { values in
+                            if state.submitSnippetArguments(values) { dismiss() }
+                        }
                     )
-                },
-                footerActions: [.home]
+                }
+            }
+        case .translator:
+            TranslatorView(state: state.translator, insert: {
+                guard state.insertTranslation() else { return false }
+                dismiss()
+                return true
+            })
+        case .developerTools:
+            DeveloperToolsView(state: state.developerTools)
+        case .mediaDownloads:
+            MediaDownloadsView(
+                manager: state.mediaDownloads,
+                start: state.startMediaDownloads,
+                cancel: state.cancelDownload,
+                retry: state.retryDownload,
+                changeDestination: state.changeMediaDownloadFolder,
+                performHaptic: { state.performHaptic(.levelChange) }
             )
         case .settings:
-            FeatureSurface(
-                id: "settings",
-                header: { FeatureTitle(symbol: "gearshape", title: "Settings") },
-                content: { SettingsView(state: state) },
-                footerActions: [.home]
-            )
+            SettingsView(state: state)
         case .search:
-            FeatureSurface(
-                id: searchContentID,
-                header: { searchField },
-                headerTrailing: { searchHeaderControls },
-                content: { searchContent },
-                footerActions: searchFooterActions
-            )
+            searchContent
         }
     }
 
@@ -537,6 +534,8 @@ struct CommandPanelView: View {
         .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
         .padding(.horizontal, 16)
         .padding(.bottom, 4)
+        .animation(reduceMotion ? nil : Animation.easeOut(duration: 0.14), value: fileShelf.files.count)
+        .animation(reduceMotion ? nil : Animation.easeOut(duration: 0.14), value: agents.sessions.count)
     }
 
     private var dropOverlay: some View {
@@ -942,7 +941,7 @@ struct CommandPanelView: View {
 
     @ViewBuilder
     private var panelFooter: some View {
-        let actions = surface.footerActions
+        let actions = surfaceSpec.actions
         if state.mode == .search, state.session.isSearchLoading {
             PanelFooter(actions: actions, openSettings: state.router.openSettings, openWelcomeGuide: state.router.openWelcomeGuide) {
                 Text("Searching…")

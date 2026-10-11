@@ -1,36 +1,6 @@
 import AppKit
 import SwiftUI
 
-struct FeatureSurface {
-    let id: String
-    let header: AnyView
-    let headerTrailing: AnyView
-    let content: AnyView
-    let footerActions: [FooterActionSpec]
-
-    init<Header: View, Trailing: View, Content: View>(
-        id: String,
-        @ViewBuilder header: () -> Header,
-        @ViewBuilder headerTrailing: () -> Trailing,
-        @ViewBuilder content: () -> Content,
-        footerActions: [FooterActionSpec]
-    ) {
-        self.id = id
-        self.header = AnyView(header())
-        self.headerTrailing = AnyView(headerTrailing())
-        self.content = AnyView(content())
-        self.footerActions = footerActions
-    }
-
-    init<Header: View, Content: View>(
-        id: String,
-        @ViewBuilder header: () -> Header,
-        @ViewBuilder content: () -> Content,
-        footerActions: [FooterActionSpec]
-    ) {
-        self.init(id: id, header: header, headerTrailing: { EmptyView() }, content: content, footerActions: footerActions)
-    }
-}
 
 struct FeatureHeader<Content: View, Trailing: View>: View {
     let showBack: Bool
