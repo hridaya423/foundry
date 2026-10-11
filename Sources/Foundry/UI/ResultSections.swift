@@ -16,12 +16,7 @@ enum ResultSection: String, CaseIterable {
         default: break
         }
         if case .file = result.payload { return .files }
-        switch result.primaryAction.kind {
-        case .openApp: return .applications
-        case .openQuickAI: return .fallback
-        case .copySnippet, .pasteSnippet, .pasteText, .createSnippetFromClipboard, .importSnippets, .exportSnippets: return .snippets
-        default: return .commands
-        }
+        return result.primaryAction.behavior.resultSection ?? .commands
     }
 
     static func group(_ results: [CommandResult]) -> [(section: ResultSection, results: [CommandResult])] {

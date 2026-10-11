@@ -147,7 +147,7 @@ final class QuicklinkProvider: CommandProvider, Sendable {
         subtitle: "Name, link with {argument}, keyword — edit in Settings",
         icon: CommandIcon(fallback: "QL", systemName: "plus.link"),
         payload: .quicklink(id: "create"),
-        primaryAction: CommandAction(id: "quicklink.create.open", title: "Create", kind: .openCommandSettings(.quicklinks)),
+        primaryAction: CommandAction(id: "quicklink.create.open", title: "Create", behavior: OpenCommandSettingsAction(.quicklinks)),
         secondaryActions: []
     )
 
@@ -197,20 +197,20 @@ final class QuicklinkProvider: CommandProvider, Sendable {
         let title: String
         if isFileSearch {
             title = argument.map { "\(link.name) for “\($0)”" } ?? link.name
-            primary = CommandAction(id: "\(id).open", title: "Search Files", kind: .fillQuery(FileSearchProvider.prefix + (argument ?? "")))
+            primary = CommandAction(id: "\(id).open", title: "Search Files", behavior: FillQueryAction(FileSearchProvider.prefix + (argument ?? "")))
         } else if let argument {
             title = "\(link.name) for “\(argument)”"
             let expanded = QuicklinkTemplate.expand(link.link, argument: argument, context: context())
-            let kind: CommandActionKind = link.openWithBundleID.map { .openURLWithApp(url: expanded, bundleID: $0) } ?? .openURL(expanded)
-            primary = CommandAction(id: "\(id).open", title: "Open", kind: kind)
+            let behavior: any ResultAction = link.openWithBundleID.map { OpenURLWithAppAction(url: expanded, bundleID: $0) } ?? OpenURLAction(expanded)
+            primary = CommandAction(id: "\(id).open", title: "Open", behavior: behavior)
         } else if link.takesArgument {
             title = link.name
-            primary = CommandAction(id: "\(id).fill", title: "Enter Query", kind: .fillQuery("\(prefix) "))
+            primary = CommandAction(id: "\(id).fill", title: "Enter Query", behavior: FillQueryAction("\(prefix) "))
         } else {
             title = link.name
             let expanded = QuicklinkTemplate.expand(link.link, argument: "", context: context())
-            let kind: CommandActionKind = link.openWithBundleID.map { .openURLWithApp(url: expanded, bundleID: $0) } ?? .openURL(expanded)
-            primary = CommandAction(id: "\(id).open", title: "Open", kind: kind)
+            let behavior: any ResultAction = link.openWithBundleID.map { OpenURLWithAppAction(url: expanded, bundleID: $0) } ?? OpenURLAction(expanded)
+            primary = CommandAction(id: "\(id).open", title: "Open", behavior: behavior)
         }
         return CommandResult(
             id: id,
@@ -222,8 +222,8 @@ final class QuicklinkProvider: CommandProvider, Sendable {
             payload: .quicklink(id: link.id),
             primaryAction: primary,
             secondaryActions: [
-                CommandAction(id: "\(id).copy", title: "Copy Link", kind: .copyToClipboard(argument.map { QuicklinkTemplate.expand(link.link, argument: $0, context: context()) } ?? link.link)),
-                CommandAction(id: "\(id).delete", title: "Delete Quicklink", kind: .deleteQuicklink(id: link.id))
+                CommandAction(id: "\(id).copy", title: "Copy Link", behavior: CopyToClipboardAction(argument.map { QuicklinkTemplate.expand(link.link, argument: $0, context: context()) } ?? link.link)),
+                CommandAction(id: "\(id).delete", title: "Delete Quicklink", behavior: DeleteQuicklinkAction(id: link.id))
             ]
         )
     }

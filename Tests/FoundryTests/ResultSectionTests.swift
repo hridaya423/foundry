@@ -3,16 +3,16 @@ import XCTest
 import FoundryDomain
 
 final class ResultSectionTests: XCTestCase {
-    private func result(_ id: String, _ kind: CommandActionKind) -> CommandResult {
-        CommandResult(id: id, title: id, subtitle: nil, icon: CommandIcon(fallback: "X"), payload: .command, primaryAction: CommandAction(id: "\(id).open", title: "Open", kind: kind), secondaryActions: [])
+    private func result(_ id: String, _ behavior: any ResultAction) -> CommandResult {
+        CommandResult(id: id, title: id, subtitle: nil, icon: CommandIcon(fallback: "X"), payload: .command, primaryAction: CommandAction(id: "\(id).open", title: "Open", behavior: behavior), secondaryActions: [])
     }
 
     func testTopHitLeadsItsNaturalSectionWhichRendersFirst() {
         let ranked = [
-            result("cmd.clipboard", .openClipboardHistory),
-            result("app.com.apple.Safari", .openApp(path: "/Applications/Safari.app", name: "Safari")),
-            result("cmd.shelf", .openFileShelf),
-            result("app.com.apple.Notes", .openApp(path: "/Applications/Notes.app", name: "Notes"))
+            result("cmd.clipboard", OpenClipboardHistoryAction()),
+            result("app.com.apple.Safari", OpenAppAction(path: "/Applications/Safari.app", name: "Safari")),
+            result("cmd.shelf", OpenFileShelfAction()),
+            result("app.com.apple.Notes", OpenAppAction(path: "/Applications/Notes.app", name: "Notes"))
         ]
 
         let groups = ResultSection.group(ranked)
@@ -24,8 +24,8 @@ final class ResultSectionTests: XCTestCase {
 
     func testAIFallbackNeverBecomesTopHitWhenRealResultsExist() {
         let ranked = [
-            result("ai", .openQuickAI(prompt: "saf")),
-            result("app.com.apple.Safari", .openApp(path: "/Applications/Safari.app", name: "Safari"))
+            result("ai", OpenQuickAIAction(prompt: "saf")),
+            result("app.com.apple.Safari", OpenAppAction(path: "/Applications/Safari.app", name: "Safari"))
         ]
 
         XCTAssertEqual(ResultSection.ordered(ranked).map(\.id), ["app.com.apple.Safari", "ai"])
@@ -33,10 +33,10 @@ final class ResultSectionTests: XCTestCase {
 
     func testOrderingIsStableWhenReappliedSoNavigationMatchesTheRenderedSections() {
         let ranked = [
-            result("ai", .openQuickAI(prompt: "x")),
-            result("cmd.a", .openFileShelf),
-            result("app.a", .openApp(path: "/a.app", name: "A")),
-            result("cmd.b", .openCamera)
+            result("ai", OpenQuickAIAction(prompt: "x")),
+            result("cmd.a", OpenFileShelfAction()),
+            result("app.a", OpenAppAction(path: "/a.app", name: "A")),
+            result("cmd.b", OpenCameraAction())
         ]
         let ordered = ResultSection.ordered(ranked)
 
@@ -46,6 +46,6 @@ final class ResultSectionTests: XCTestCase {
 
     func testSingleResultHasOneSectionAndEmptyHasNone() {
         XCTAssertTrue(ResultSection.group([]).isEmpty)
-        XCTAssertEqual(ResultSection.group([result("ai", .openQuickAI(prompt: "x"))]).count, 1)
+        XCTAssertEqual(ResultSection.group([result("ai", OpenQuickAIAction(prompt: "x"))]).count, 1)
     }
 }

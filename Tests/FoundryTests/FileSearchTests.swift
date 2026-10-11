@@ -33,7 +33,7 @@ final class FileSearchTests: XCTestCase {
     func testSearchFilesCommandFillsThePrefix() async {
         let provider = FileSearchProvider(scope: home) { _, _ in [] }
         let results = await provider.results(matching: "search fi")
-        XCTAssertEqual(results.map(\.primaryAction.kind), [.fillQuery("f ")])
+        XCTAssertEqual(results.map { $0.primaryAction.behavior as? FillQueryAction }, [FillQueryAction("f ")])
     }
 
     func testResultsOpenTheFileAndSitInTheFilesSection() async throws {
@@ -46,24 +46,24 @@ final class FileSearchTests: XCTestCase {
         XCTAssertEqual(results.count, FileSearchProvider.resultLimit)
         let first = try XCTUnwrap(results.first)
         XCTAssertEqual(first.title, "report-1.txt")
-        XCTAssertEqual(first.primaryAction.kind, .openURL("file:///Users/test/Documents/report-1.txt"))
+        XCTAssertEqual(first.primaryAction.behavior as? OpenURLAction, OpenURLAction("file:///Users/test/Documents/report-1.txt"))
         XCTAssertEqual(ResultSection.of(first), .files)
     }
 
     func testFileResultExposesFinderStyleActions() {
         let path = "/Users/test/Documents/report-1.txt"
         let result = FileSearchProvider.result(path)
-        let kinds = result.secondaryActions.map(\.kind)
+        let behaviors = result.secondaryActions.map(\.behavior)
 
-        XCTAssertTrue(kinds.contains(.revealFile(path: path)))
-        XCTAssertTrue(kinds.contains(.copyFile(path: path)))
-        XCTAssertTrue(kinds.contains(.copyToClipboard(path)))
-        XCTAssertTrue(kinds.contains(.addToFileShelf(path: path)))
-        XCTAssertTrue(kinds.contains(.openFileConverter(path: path)))
-        XCTAssertTrue(kinds.contains(.compressFile(path: path)))
-        XCTAssertTrue(kinds.contains(.renameFile(path: path)))
-        XCTAssertTrue(kinds.contains(.moveToTrash(path: path)))
-        XCTAssertTrue(result.secondaryActions.contains { $0.kind.isDestructive })
+        XCTAssertTrue(behaviors.contains { $0 as? RevealFileAction == RevealFileAction(path: path) })
+        XCTAssertTrue(behaviors.contains { $0 as? CopyFileAction == CopyFileAction(path: path) })
+        XCTAssertTrue(behaviors.contains { $0 as? CopyToClipboardAction == CopyToClipboardAction(path) })
+        XCTAssertTrue(behaviors.contains { $0 as? AddToFileShelfAction == AddToFileShelfAction(path: path) })
+        XCTAssertTrue(behaviors.contains { $0 as? OpenFileConverterAction == OpenFileConverterAction(path: path) })
+        XCTAssertTrue(behaviors.contains { $0 as? CompressFileAction == CompressFileAction(path: path) })
+        XCTAssertTrue(behaviors.contains { $0 as? RenameFileAction == RenameFileAction(path: path) })
+        XCTAssertTrue(behaviors.contains { $0 as? MoveToTrashAction == MoveToTrashAction(path: path) })
+        XCTAssertTrue(result.secondaryActions.contains { $0.isDestructive })
     }
 
     func testCancelledSearchPublishesNothing() async {
@@ -85,11 +85,9 @@ final class FileSearchTests: XCTestCase {
         let registry = CommandRegistry(providers: providers, usageRanking: UsageRankingStore(diagnostics: diagnostics), diagnostics: diagnostics, configService: config)
 
         let results = await registry.completeResults(matching: "zzqx plover", initialResults: [])
-        XCTAssertEqual(results.map(\.primaryAction.kind), [
-            .openQuickAI(prompt: "zzqx plover"),
-            .openURL("https://www.google.com/search?q=zzqx%20plover"),
-            .fillQuery("f zzqx plover")
-        ])
+        XCTAssertEqual(results[0].primaryAction.behavior as? OpenQuickAIAction, OpenQuickAIAction(prompt: "zzqx plover"))
+        XCTAssertEqual(results[1].primaryAction.behavior as? OpenURLAction, OpenURLAction("https://www.google.com/search?q=zzqx%20plover"))
+        XCTAssertEqual(results[2].primaryAction.behavior as? FillQueryAction, FillQueryAction("f zzqx plover"))
 
         var preference = CommandPreference()
         preference.fallbackEligible = false

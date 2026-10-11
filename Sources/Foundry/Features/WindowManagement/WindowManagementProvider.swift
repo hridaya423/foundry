@@ -50,7 +50,7 @@ final class WindowManagementProvider: CommandProvider {
                 primaryAction: CommandAction(
                     id: "\(id).perform",
                     title: "Tile",
-                    kind: .tileWindow(placement)
+                    behavior: TileWindowAction(placement)
                 )
             )
         }

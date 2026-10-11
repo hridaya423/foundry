@@ -12,7 +12,7 @@ final class CommandContractsTests: XCTestCase {
             subtitle: "Open Foundry Home",
             icon: CommandIcon(fallback: "HM", systemName: "house"),
             payload: .command,
-            primaryAction: CommandAction(id: "foundry.dashboard.open", title: "Open", kind: .openHome),
+            primaryAction: CommandAction(id: "foundry.dashboard.open", title: "Open", behavior: OpenHomeAction()),
             secondaryActions: []
         )
 
@@ -61,8 +61,8 @@ final class CommandContractsTests: XCTestCase {
             subtitle: nil,
             icon: CommandIcon(fallback: "T"),
             payload: .command,
-            primaryAction: CommandAction(id: "test.command.primary", title: "Primary", kind: .log("primary")),
-            secondaryActions: [CommandAction(id: "test.command.secondary", title: "Secondary", kind: .log("secondary"))]
+            primaryAction: CommandAction(id: "test.command.primary", title: "Primary", behavior: LogAction("primary")),
+            secondaryActions: [CommandAction(id: "test.command.secondary", title: "Secondary", behavior: LogAction("secondary"))]
         )
         let registry = CommandRegistry(
             providers: [],
@@ -92,7 +92,7 @@ final class CommandContractsTests: XCTestCase {
     func testExecutionRequestPreservesInvocationContext() {
         let request = CommandExecutionRequest(
             commandID: "foundry.test",
-            action: CommandAction(id: "foundry.test.open", title: "Open", kind: .openHome),
+            action: CommandAction(id: "foundry.test.open", title: "Open", behavior: OpenHomeAction()),
             source: .external,
             arguments: ["path": "/tmp/example"],
             context: ["frontmostApplication": "Terminal"]
@@ -117,7 +117,7 @@ final class CommandContractsTests: XCTestCase {
     }
 
     func testActionDescriptorMarksDestructiveActions() {
-        let action = CommandAction(id: "foundry.quit.perform", title: "Quit", kind: .quit)
+        let action = CommandAction(id: "foundry.quit.perform", title: "Quit", behavior: QuitAction())
 
         XCTAssertTrue(action.descriptor.isDestructive)
         XCTAssertEqual(action.descriptor.confirmation, .destructive)
@@ -208,7 +208,7 @@ final class CommandContractsTests: XCTestCase {
             subtitle: "Open the favorite",
             icon: CommandIcon(fallback: "F"),
             payload: .command,
-            primaryAction: CommandAction(id: "favorite.open", title: "Open", kind: .openHome),
+            primaryAction: CommandAction(id: "favorite.open", title: "Open", behavior: OpenHomeAction()),
             secondaryActions: []
         ).descriptor(providerID: "foundry.builtin")
         let other = CommandResult(
@@ -217,7 +217,7 @@ final class CommandContractsTests: XCTestCase {
             subtitle: "Open another command",
             icon: CommandIcon(fallback: "O"),
             payload: .command,
-            primaryAction: CommandAction(id: "other.open", title: "Open", kind: .openHome),
+            primaryAction: CommandAction(id: "other.open", title: "Open", behavior: OpenHomeAction()),
             secondaryActions: []
         ).descriptor(providerID: "foundry.system")
         var preference = CommandPreference()
@@ -243,7 +243,7 @@ final class CommandContractsTests: XCTestCase {
                 subtitle: nil,
                 icon: CommandIcon(fallback: "T"),
                     payload: .command,
-                    primaryAction: CommandAction(id: "test.command.open", title: "Open", kind: .openHome),
+                    primaryAction: CommandAction(id: "test.command.open", title: "Open", behavior: OpenHomeAction()),
                 secondaryActions: []
             )]
         }
@@ -265,7 +265,7 @@ final class CommandContractsTests: XCTestCase {
                 subtitle: nil,
                 icon: CommandIcon(fallback: "C"),
                 payload: .command,
-                primaryAction: CommandAction(id: "conditional.command.open", title: "Open", kind: .openHome),
+                primaryAction: CommandAction(id: "conditional.command.open", title: "Open", behavior: OpenHomeAction()),
                 secondaryActions: []
             )]
         }
@@ -288,7 +288,7 @@ final class CommandContractsTests: XCTestCase {
                 subtitle: nil,
                 icon: CommandIcon(fallback: "C"),
                 payload: .command,
-                primaryAction: CommandAction(id: "supplemental.cached.open", title: "Open", kind: .openHome),
+                primaryAction: CommandAction(id: "supplemental.cached.open", title: "Open", behavior: OpenHomeAction()),
                 secondaryActions: []
             )]
         }
@@ -324,7 +324,7 @@ final class CommandContractsTests: XCTestCase {
                 subtitle: "Test",
                 icon: CommandIcon(fallback: "C"),
                     payload: .command,
-                    primaryAction: CommandAction(id: "counting.command.open", title: "Open", kind: .openHome),
+                    primaryAction: CommandAction(id: "counting.command.open", title: "Open", behavior: OpenHomeAction()),
                 secondaryActions: []
             )]
         }

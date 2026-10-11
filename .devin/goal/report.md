@@ -67,6 +67,15 @@ Quality bar: Raycast. Plan: `docs/plans/2026-10-11-foundry-raycast-bar-audit.md`
 - Caught by suite: promotion lookup must read `results` not `selectedResult` (the latter resolves via `navigableResults` → cycle → stack overflow). Fixed via `selectedPromotedCalculatorResult`.
 - Gate: build clean, 631/0, lint PASS. Fixture helpers gained `payload:` params (default `.command`).
 
+### Phase 4.2 — feature-owned `ResultAction` ✅ (this commit)
+- `CommandActionKind` (68 cases) deleted; `CommandAction.behavior: any ResultAction` replaces `kind`. `ResultAction` carries `icon`, `shortcut`, `style` (.normal/.destructive), `hidesPanelForHotkey`, `resultSection`, `@MainActor perform(_ ctx:) async -> CommandOutcome`.
+- `ActionContext` (class, implicitly Sendable) holds every former runner dependency + `emit`, `invocation`, and `PanelPorts` (toggleFavorite / presentSettings / presentMediaDownloads / celebrate / onQuickLook) — wired by `CommandPanelState` at init. State's `toggleFavorite`/`openCommandSettings`/`downloadMedia`/`celebrate` intercepts are gone; the actions own that behaviour.
+- `ActionRunner.swift`: **1551 → 136 lines** — init, `execute` task tracking + cancellation, `perform` = confirmation policy + context build + `behavior.perform`. All feature logic moved to feature folders: `App/AppActions`, `Clipboard/ClipboardActions`, `Files/FileActions`, `Snippets/SnippetActions`, `Quicklinks/QuicklinkActions`, `Media/MediaActions`, `Commands/Execution/PanelActions` (routes + meta), `Images/ImageActions` (OCR/color/QR + `TextPreview` entry points), `System/SystemActions` (+ KeepAwake/AudioDeviceController), `Scripts/ScriptActions`, `WindowManagement/WindowActions`.
+- UI dispatch eliminated: icon switch → `behavior.icon`; destructive → `behavior.style`; section bucketing → `behavior.resultSection`; tile-window checks → `as? TileWindowAction`; app detection → `.app` payload; hotkey-hide → `hidesPanelForHotkey`. Adding a command now touches only its feature folder.
+- All actions `Equatable` (members are Hashable) — tests assert `behavior as? XAction`.
+- Collateral cleanup: `runner.onQuickLook` → `panel.onQuickLook` port; `extractTextPreview`/`decodeBarcodePreview`/`shareFile(at:)` moved to `TextPreview`/free funcs.
+- Gate: build clean 0 warnings, 631/0, lint PASS.
+
 ### Phase 4.5 — `@unchecked Sendable` audit ✅ (this commit)
 - ~60 sites → **3 justified** (target ≤10). Compiler-driven method per handoff: flip to `Sendable`, let the compiler enumerate violations, consolidate mutable state into `OSAllocatedUnfairLock<State>`.
 - `init(initialState:)` requires `State: Sendable`; SDK/non-Sendable state (`VNRequest`, `OpaquePointer` db handle, `CheckedContinuation`, `DispatchWorkItem`, `URLSession*` types, `NSColorSampler`, `NSObjectProtocol` observer, `ISO8601DateFormatter`) uses `init(uncheckedState:)` + `withLockUnchecked` — the lock still vouches, just not the type system.

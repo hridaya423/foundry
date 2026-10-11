@@ -54,9 +54,9 @@ final class AppSearchProvider: CommandProvider, Sendable {
     static func actions(identity: String, name: String, path: String, bundleID: String, isRunning: Bool) -> [CommandAction] {
         guard isRunning, bundleID.isEmpty == false else { return [] }
         return [
-            CommandAction(id: "app.\(identity).quit", title: "Quit", kind: .quitApplication(bundleID: bundleID, name: name)),
-            CommandAction(id: "app.\(identity).hide", title: "Hide", kind: .hideApplication(bundleID: bundleID, name: name)),
-            CommandAction(id: "app.\(identity).force-quit", title: "Force Quit", kind: .forceQuitApplication(bundleID: bundleID, name: name))
+            CommandAction(id: "app.\(identity).quit", title: "Quit", behavior: QuitApplicationAction(bundleID: bundleID, name: name)),
+            CommandAction(id: "app.\(identity).hide", title: "Hide", behavior: HideApplicationAction(bundleID: bundleID, name: name)),
+            CommandAction(id: "app.\(identity).force-quit", title: "Force Quit", behavior: ForceQuitApplicationAction(bundleID: bundleID, name: name))
         ]
     }
 
@@ -70,7 +70,7 @@ final class AppSearchProvider: CommandProvider, Sendable {
             searchAliases: searchAliases ?? app.normalizedSearchCandidates,
             searchKeywords: searchKeywords ?? app.normalizedSearchCandidates,
             payload: .app(identity: app.identity),
-            primaryAction: CommandAction(id: "app.\(app.identity).open", title: "Open", kind: .openApp(path: path, name: app.name)),
+            primaryAction: CommandAction(id: "app.\(app.identity).open", title: "Open", behavior: OpenAppAction(path: path, name: app.name)),
             secondaryActions: actions(identity: app.identity, name: app.name, path: path, bundleID: app.bundleIdentifier, isRunning: isRunning)
         )
     }

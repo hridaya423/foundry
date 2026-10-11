@@ -52,7 +52,7 @@ final class ShellController {
             activation: self.activation
         )
         self.panelController = panelController
-        actionRunner.onQuickLook = { [weak panelController] url in
+        actionRunner.panel.onQuickLook = { [weak panelController] url in
             panelController?.previewFile(url)
         }
         let permissionHealth = PermissionHealthState()
@@ -217,7 +217,7 @@ final class ShellController {
             return
         }
 
-        guard result.primaryAction.kind.shouldHidePanelForHotkey else {
+        guard result.primaryAction.behavior.hidesPanelForHotkey else {
             showPanel()
             await panelState.executeResult(result)
             return

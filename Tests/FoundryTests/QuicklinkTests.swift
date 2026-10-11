@@ -44,7 +44,7 @@ final class QuicklinkTests: XCTestCase {
 
         let results = await provider.results(matching: "d closures")
         let result = try XCTUnwrap(results.first)
-        XCTAssertEqual(result.primaryAction.kind, .openURLWithApp(url: "https://docs.dev/?q=closures", bundleID: "com.apple.Safari"))
+        XCTAssertEqual(result.primaryAction.behavior as? OpenURLWithAppAction, OpenURLWithAppAction(url: "https://docs.dev/?q=closures", bundleID: "com.apple.Safari"))
     }
 
     func testFileSearchQuicklinkFillsTheFileQuery() async throws {
@@ -55,7 +55,7 @@ final class QuicklinkTests: XCTestCase {
         let results = await provider.results(matching: "sf invoice")
         let result = try XCTUnwrap(results.first)
         XCTAssertEqual(result.id, "quicklink.search-files")
-        XCTAssertEqual(result.primaryAction.kind, .fillQuery("f invoice"))
+        XCTAssertEqual(result.primaryAction.behavior as? FillQueryAction, FillQueryAction("f invoice"))
     }
 
     func testFaviconOptOutSkipsTheRemoteIcon() async throws {
@@ -82,11 +82,11 @@ final class QuicklinkTests: XCTestCase {
 
         let bareResults = await provider.results(matching: "search google")
         let bare = try XCTUnwrap(bareResults.first { $0.id == "quicklink.google" })
-        XCTAssertEqual(bare.primaryAction.kind, .fillQuery("g "))
+        XCTAssertEqual(bare.primaryAction.behavior as? FillQueryAction, FillQueryAction("g "))
 
         let argumentResults = await provider.results(matching: "g swift actors")
         let withArgument = try XCTUnwrap(argumentResults.first)
-        XCTAssertEqual(withArgument.primaryAction.kind, .openURL("https://www.google.com/search?q=swift%20actors"))
+        XCTAssertEqual(withArgument.primaryAction.behavior as? OpenURLAction, OpenURLAction("https://www.google.com/search?q=swift%20actors"))
         XCTAssertEqual(withArgument.title, "Search Google for “swift actors”")
     }
 

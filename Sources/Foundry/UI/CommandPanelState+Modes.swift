@@ -40,7 +40,7 @@ extension CommandPanelState {
         let action = CommandAction(
             id: "media.download.retry.\(UUID().uuidString)",
             title: "Retry Download",
-            kind: .downloadMedia(url: item.sourceURL)
+            behavior: DownloadMediaAction(url: item.sourceURL)
         )
         openMediaDownloads()
         Task { @MainActor [weak self] in
@@ -53,7 +53,7 @@ extension CommandPanelState {
         let action = CommandAction(
             id: "media.download.choose-folder.\(UUID().uuidString)",
             title: "Change Download Folder",
-            kind: .chooseMediaDownloadFolder
+            behavior: ChooseMediaDownloadFolderAction()
         )
         Task { @MainActor [weak self] in
             guard let self else { return }
@@ -89,7 +89,7 @@ extension CommandPanelState {
         CommandAction(
             id: "media.download.batch.\(UUID().uuidString)",
             title: "Download",
-            kind: .downloadMedia(url: url.absoluteString)
+            behavior: DownloadMediaAction(url: url.absoluteString)
         )
     }
 

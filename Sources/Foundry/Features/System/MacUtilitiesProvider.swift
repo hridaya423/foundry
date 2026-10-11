@@ -37,10 +37,10 @@ final class MacUtilitiesProvider: CommandProvider {
                 subtitle: "Prevent the Mac from sleeping",
                 icon: "cup.and.saucer.fill",
                 fallback: "ZZ",
-                primary: .toggleKeepAwake
+                primary: ToggleKeepAwakeAction()
             ),
-            makeResult(id: "mac.audio.output", title: "Switch Audio Output", subtitle: "Choose a playback device", icon: "speaker.wave.2.fill", fallback: "AU", primary: .log("Search for an output device by name")),
-            makeResult(id: "mac.port", title: "Kill Port", subtitle: "Stop the process listening on a TCP port", icon: "network", fallback: "PT", primary: .log("Search with a port number, e.g. port 3000"))
+            makeResult(id: "mac.audio.output", title: "Switch Audio Output", subtitle: "Choose a playback device", icon: "speaker.wave.2.fill", fallback: "AU", primary: LogAction("Search for an output device by name")),
+            makeResult(id: "mac.port", title: "Kill Port", subtitle: "Stop the process listening on a TCP port", icon: "network", fallback: "PT", primary: LogAction("Search with a port number, e.g. port 3000"))
         ]
     }
 
@@ -54,7 +54,7 @@ final class MacUtilitiesProvider: CommandProvider {
             icon: "cup.and.saucer.fill",
             fallback: "ZZ",
             route: .macUtility,
-            primary: .toggleKeepAwake
+            primary: ToggleKeepAwakeAction()
         )]
     }
 
@@ -77,7 +77,7 @@ final class MacUtilitiesProvider: CommandProvider {
                     icon: "xmark.app.fill",
                     fallback: "KP",
                     route: .macUtility,
-                    primary: .terminateProcess(pid: Int32(process.pid) ?? 0)
+                    primary: TerminateProcessAction(pid: Int32(process.pid) ?? 0)
                 )
             }
     }
@@ -99,7 +99,7 @@ final class MacUtilitiesProvider: CommandProvider {
                     icon: "app.badge.xmark",
                     fallback: "QA",
                     route: .macUtility,
-                    primary: .quitApplication(bundleID: app.bundleIdentifier, name: name)
+                    primary: QuitApplicationAction(bundleID: app.bundleIdentifier, name: name)
                 )
             }
     }
@@ -124,7 +124,7 @@ final class MacUtilitiesProvider: CommandProvider {
                     icon: path.isEmpty ? CommandIcon(fallback: "AP", systemName: "app") : CommandIcon(fallback: "AP", filePath: path),
                     route: .macUtility,
                     payload: .command,
-                    primaryAction: CommandAction(id: "mac.running.\(app.processIdentifier).open", title: "Switch To", kind: .openApp(path: path, name: name)),
+                    primaryAction: CommandAction(id: "mac.running.\(app.processIdentifier).open", title: "Switch To", behavior: OpenAppAction(path: path, name: name)),
                     secondaryActions: AppSearchProvider.actions(identity: bundleID, name: name, path: path, bundleID: bundleID, isRunning: true)
                 )
             }
@@ -132,7 +132,7 @@ final class MacUtilitiesProvider: CommandProvider {
 
     private func quitAllResults(query: String, sensitivity: SearchSensitivity) -> [CommandResult] {
         guard SearchScoring.match(query: query, title: "Quit All Apps", subtitle: nil, keywords: [], aliases: ["close all apps", "quit everything"], sensitivity: sensitivity) != nil else { return [] }
-        return [makeResult(id: "mac.quit-all", title: "Quit All Apps", subtitle: "Quit every open app except Finder and Foundry", icon: "xmark.rectangle.portrait", fallback: "QA", route: .macUtility, primary: .quitAllApplications)]
+        return [makeResult(id: "mac.quit-all", title: "Quit All Apps", subtitle: "Quit every open app except Finder and Foundry", icon: "xmark.rectangle.portrait", fallback: "QA", route: .macUtility, primary: QuitAllApplicationsAction())]
     }
 
     private func portResults(query: String) async -> [CommandResult] {
@@ -148,7 +148,7 @@ final class MacUtilitiesProvider: CommandProvider {
                 icon: "network",
                 fallback: "PT",
                 route: .macUtility,
-                primary: .terminatePort(port)
+                primary: TerminatePortAction(port)
             )
         ]
     }
@@ -183,12 +183,12 @@ final class MacUtilitiesProvider: CommandProvider {
                 icon: kind == .output ? "speaker.wave.2.fill" : "mic.fill",
                 fallback: "AU",
                 route: .macUtility,
-                primary: .setAudioDevice(id: device.id, kind: kind)
+                primary: SetAudioDeviceAction(id: device.id, kind: kind)
             )
         }
     }
 
-    private func makeResult(id: String, title: String, subtitle: String, icon: String, fallback: String, route: SearchRoute? = nil, primary: CommandActionKind) -> CommandResult {
+    private func makeResult(id: String, title: String, subtitle: String, icon: String, fallback: String, route: SearchRoute? = nil, primary: any ResultAction) -> CommandResult {
         CommandResult(
             id: id,
             title: title,
@@ -196,7 +196,7 @@ final class MacUtilitiesProvider: CommandProvider {
             icon: CommandIcon(fallback: fallback, systemName: icon),
             route: route,
             payload: .command,
-            primaryAction: CommandAction(id: id + ".primary", title: "Run", kind: primary),
+            primaryAction: CommandAction(id: id + ".primary", title: "Run", behavior: primary),
             secondaryActions: []
         )
     }

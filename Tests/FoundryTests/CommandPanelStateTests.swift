@@ -164,7 +164,7 @@ final class CommandPanelStateTests: XCTestCase {
             primaryAction: CommandAction(
                 id: "test.background-download.perform",
                 title: "Download",
-                kind: .downloadMedia(url: "https://example.com/file.mp4")
+                behavior: DownloadMediaAction(url: "https://example.com/file.mp4")
             ),
             secondaryActions: []
         )]
@@ -336,7 +336,7 @@ final class CommandPanelStateTests: XCTestCase {
             subtitle: nil,
             icon: CommandIcon(fallback: "T"),
             payload: .command,
-            primaryAction: CommandAction(id: "test.open", title: "Open", kind: .openSettings),
+            primaryAction: CommandAction(id: "test.open", title: "Open", behavior: OpenSettingsAction()),
             secondaryActions: []
         )
         state.query = "tes"
@@ -365,7 +365,7 @@ final class CommandPanelStateTests: XCTestCase {
 
         state.resetForOpen()
         state.query = "tes"
-        state.results = [CommandResult(id: "test.result", title: "Test", subtitle: nil, icon: CommandIcon(fallback: "T"), payload: .command, primaryAction: CommandAction(id: "test.open", title: "Open", kind: .openSettings), secondaryActions: [])]
+        state.results = [CommandResult(id: "test.result", title: "Test", subtitle: nil, icon: CommandIcon(fallback: "T"), payload: .command, primaryAction: CommandAction(id: "test.open", title: "Open", behavior: OpenSettingsAction()), secondaryActions: [])]
         state.mode = .translator
         state.panelWillClose()
 
@@ -423,10 +423,10 @@ final class CommandPanelStateTests: XCTestCase {
             subtitle: nil,
             icon: CommandIcon(fallback: "F"),
             payload: .command,
-            primaryAction: CommandAction(id: "open", title: "Open", kind: .log("open")),
+            primaryAction: CommandAction(id: "open", title: "Open", behavior: LogAction("open")),
             secondaryActions: [
-                CommandAction(id: "copy-file", title: "Copy File", kind: .copyFile(path: "/tmp/report")),
-                CommandAction(id: "copy", title: "Copy Path", kind: .copyToClipboard("/tmp/report"))
+                CommandAction(id: "copy-file", title: "Copy File", behavior: CopyFileAction(path: "/tmp/report")),
+                CommandAction(id: "copy", title: "Copy Path", behavior: CopyToClipboardAction("/tmp/report"))
             ]
         )
         state.results = [result]
@@ -463,11 +463,11 @@ final class CommandPanelStateTests: XCTestCase {
             subtitle: nil,
             icon: CommandIcon(fallback: "F"),
             payload: .command,
-            primaryAction: CommandAction(id: "open", title: "Open", kind: .log("open")),
+            primaryAction: CommandAction(id: "open", title: "Open", behavior: LogAction("open")),
             secondaryActions: [
-                CommandAction(id: "copy", title: "Copy", kind: .copyToClipboard("a")),
-                CommandAction(id: "copy2", title: "Copy Path", kind: .copyToClipboard("b")),
-                CommandAction(id: "delete", title: "Delete Snippet", kind: .deleteSnippet(id: "x"))
+                CommandAction(id: "copy", title: "Copy", behavior: CopyToClipboardAction("a")),
+                CommandAction(id: "copy2", title: "Copy Path", behavior: CopyToClipboardAction("b")),
+                CommandAction(id: "delete", title: "Delete Snippet", behavior: DeleteSnippetAction(id: "x"))
             ]
         )
         state.results = [result]
@@ -511,8 +511,8 @@ final class CommandPanelStateTests: XCTestCase {
         var lookedAt: [URL] = []
         state.onQuickLook = { lookedAt.append($0) }
         state.results = [
-            CommandResult(id: "file./tmp/report.pdf", title: "report.pdf", subtitle: nil, icon: CommandIcon(fallback: "F"), payload: .file(URL(fileURLWithPath: "/tmp/report.pdf")), primaryAction: CommandAction(id: "open", title: "Open", kind: .log("open")), secondaryActions: []),
-            CommandResult(id: "app.safari", title: "Safari", subtitle: nil, icon: CommandIcon(fallback: "S"), payload: .command, primaryAction: CommandAction(id: "open", title: "Open", kind: .log("open")), secondaryActions: []),
+            CommandResult(id: "file./tmp/report.pdf", title: "report.pdf", subtitle: nil, icon: CommandIcon(fallback: "F"), payload: .file(URL(fileURLWithPath: "/tmp/report.pdf")), primaryAction: CommandAction(id: "open", title: "Open", behavior: LogAction("open")), secondaryActions: []),
+            CommandResult(id: "app.safari", title: "Safari", subtitle: nil, icon: CommandIcon(fallback: "S"), payload: .command, primaryAction: CommandAction(id: "open", title: "Open", behavior: LogAction("open")), secondaryActions: []),
         ]
         state.selectedResultID = "app.safari"
         XCTAssertFalse(state.performModeShortcut(ActionShortcut(key: "y", modifiers: [.command])) {})
@@ -539,14 +539,14 @@ final class CommandPanelStateTests: XCTestCase {
             subtitle: nil,
             icon: CommandIcon(fallback: "F"),
             payload: .command,
-            primaryAction: CommandAction(id: "test.favorite.open", title: "Open", kind: .log("fav")),
+            primaryAction: CommandAction(id: "test.favorite.open", title: "Open", behavior: LogAction("fav")),
             secondaryActions: []
         )
         state.results = [result]
         state.selectedResultID = result.id
 
         let addAction = state.selectedActions.first { action in
-            if case .toggleFavorite = action.kind { return true }
+            if action.behavior is ToggleFavoriteAction { return true }
             return false
         }
         XCTAssertEqual(addAction?.title, "Add to Favorites")
@@ -671,7 +671,7 @@ private struct URLCollisionProvider: CommandProvider {
             subtitle: "Unrelated immediate result",
             icon: CommandIcon(fallback: "P"),
             payload: .command,
-            primaryAction: CommandAction(id: "test.kill-port.perform", title: "Run", kind: .log("collision")),
+            primaryAction: CommandAction(id: "test.kill-port.perform", title: "Run", behavior: LogAction("collision")),
             secondaryActions: []
         )]
     }
@@ -689,7 +689,7 @@ private struct FavoriteStubProvider: CommandProvider {
             subtitle: nil,
             icon: CommandIcon(fallback: "F"),
             payload: .command,
-            primaryAction: CommandAction(id: "test.favorite.open", title: "Open", kind: .log("fav")),
+            primaryAction: CommandAction(id: "test.favorite.open", title: "Open", behavior: LogAction("fav")),
             secondaryActions: []
         )]
     }

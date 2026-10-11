@@ -715,8 +715,8 @@ struct CommandPanelView: View {
         let order: [FoundryDomain.WindowPlacement] = [.leftHalf, .rightHalf, .maximize, .center]
         return order.compactMap { placement in
             displayedResults.first { result in
-                guard case let .tileWindow(resultPlacement) = result.primaryAction.kind else { return false }
-                return resultPlacement == placement
+                guard let action = result.primaryAction.behavior as? TileWindowAction else { return false }
+                return action.placement == placement
             }
         }
     }
@@ -732,15 +732,14 @@ struct CommandPanelView: View {
             : FoundryDomain.WindowPlacement.homeDefaults
         return order.compactMap { placement in
             displayedResults.first { result in
-                guard case let .tileWindow(resultPlacement) = result.primaryAction.kind else { return false }
-                return resultPlacement == placement
+                guard let action = result.primaryAction.behavior as? TileWindowAction else { return false }
+                return action.placement == placement
             }
         }
     }
 
     private func isMediaDownload(_ result: CommandResult) -> Bool {
-        if case .downloadMedia = result.primaryAction.kind { return true }
-        return false
+        result.primaryAction.behavior is DownloadMediaAction
     }
 
     @ViewBuilder
@@ -1076,7 +1075,7 @@ private struct ActionRow: View {
 
             Text(action.title)
                 .font(FoundryTheme.rowTitleFont)
-                .foregroundStyle(action.kind.isDestructive ? FoundryTheme.error : FoundryTheme.primaryText)
+                .foregroundStyle(action.isDestructive ? FoundryTheme.error : FoundryTheme.primaryText)
 
             Spacer()
 
@@ -1095,120 +1094,7 @@ private struct ActionRow: View {
     }
 
     private var iconName: String {
-        switch action.kind {
-        case .openQuickAI:
-            "sparkles"
-        case .openApp, .openURL, .openURLWithApp, .openConfigFolder:
-            "arrow.up.right.square"
-        case .openSettings, .openCommandSettings:
-            "slider.horizontal.3"
-        case .openFileWithApp:
-            "arrow.up.right.square"
-        case .openWelcomeGuide:
-            "sparkles.rectangle.stack"
-        case .fillQuery:
-            "text.cursor"
-        case .runScript:
-            "terminal"
-        case .openHome:
-            "house"
-        case .openMediaDownloads:
-            "arrow.down.circle"
-        case .copyToClipboard, .copySnippet, .copyFile:
-            "doc.on.doc"
-        case .revealFile:
-            "folder"
-        case .compressFile:
-            "archivebox"
-        case .shareFile:
-            "square.and.arrow.up"
-        case .renameFile:
-            "pencil"
-        case .moveToTrash:
-            "trash"
-        case .deleteSnippet, .deleteQuicklink:
-            "trash"
-        case .addToFileShelf:
-            "tray.and.arrow.down"
-        case .pasteText, .pasteSnippet:
-            "text.insert"
-        case .createSnippetFromClipboard:
-            "plus.rectangle.on.rectangle"
-        case .importSnippets:
-            "square.and.arrow.down"
-        case .exportSnippets:
-            "square.and.arrow.up"
-        case .extractTextFromImage:
-            "text.viewfinder"
-        case .previewExtractedText:
-            "eye"
-        case .pickColor:
-            "eyedropper.halffull"
-        case .generateQRCode:
-            "qrcode"
-        case .generateWiFiQRCode:
-            "wifi"
-        case .readQRCode:
-            "qrcode.viewfinder"
-        case .recognizeScreenText:
-            "text.viewfinder"
-        case .emptyTrash:
-            "trash.slash"
-        case .toggleDesktopIcons:
-            "macwindow.on.rectangle"
-        case .pasteClipboardAsPlainText:
-            "doc.plaintext"
-        case .celebrate:
-            "party.popper.fill"
-        case .downloadMedia, .downloadMediaBatch:
-            "arrow.down.circle"
-        case .chooseMediaDownloadFolder:
-            "folder.badge.gearshape"
-        case .openEmojiPicker:
-            "face.smiling"
-        case .openFileShelf:
-            "tray.full"
-        case .openClipboardHistory:
-            "doc.on.clipboard"
-        case .openSnippets:
-            "curlybraces"
-        case .openFileConverter:
-            "arrow.triangle.2.circlepath"
-        case .openCamera:
-            "camera"
-        case .openTranslator:
-            "globe"
-        case .openDeveloperTools:
-            "hammer"
-        case .terminateProcess:
-            "xmark.circle"
-        case .quitApplication, .quitAllApplications:
-            "app.badge.xmark"
-        case .forceQuitApplication:
-            "exclamationmark.octagon"
-        case .hideApplication:
-            "eye.slash"
-        case .toggleKeepAwake:
-            "cup.and.saucer.fill"
-        case .terminatePort:
-            "network"
-        case .setAudioDevice:
-            "speaker.wave.2.fill"
-        case .resetRanking:
-            "arrow.counterclockwise"
-        case .toggleFavorite:
-            "star"
-        case .rebuildApp:
-            "hammer.fill"
-        case .runProcess:
-            "terminal"
-        case .tileWindow:
-            "rectangle.split.2x1"
-        case .quit:
-            "power"
-        case .log:
-            "text.bubble"
-        }
+        action.behavior.icon ?? "bolt"
     }
 }
 

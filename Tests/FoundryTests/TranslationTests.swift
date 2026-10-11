@@ -89,7 +89,7 @@ final class TranslationTests: XCTestCase {
         let results = await provider.search(CommandSearchRequest(query: "translate hello to es"))
         let result = try XCTUnwrap(results.first)
 
-        XCTAssertEqual(result.primaryAction.kind, .openTranslator(text: "hello", language: "es"))
+        XCTAssertEqual(result.primaryAction.behavior as? OpenTranslatorAction, OpenTranslatorAction(text: "hello", language: "es"))
         XCTAssertFalse(result.title.contains("failed"))
         XCTAssertFalse(result.title.contains("unavailable"))
     }
@@ -129,8 +129,8 @@ final class TranslationTests: XCTestCase {
         let provider = TranslationProvider(translator: { _ in .failure(.offline) })
         let results = await provider.search(CommandSearchRequest(query: "translate hello to es"))
         XCTAssertEqual(results.count, 1)
-        XCTAssertEqual(results[0].primaryAction.kind, CommandActionKind.openTranslator(text: "hello", language: "es"))
-        XCTAssertFalse(results[0].secondaryActions.contains { $0.kind == CommandActionKind.copyToClipboard("Translation failed") })
+        XCTAssertEqual(results[0].primaryAction.behavior as? OpenTranslatorAction, OpenTranslatorAction(text: "hello", language: "es"))
+        XCTAssertFalse(results[0].secondaryActions.contains { ($0.behavior as? CopyToClipboardAction) == CopyToClipboardAction("Translation failed") })
     }
 
     @MainActor

@@ -82,7 +82,7 @@ final class FileSearchProvider: CommandProvider, Sendable {
             subtitle: "Spotlight, in your home folder",
             icon: Self.searchFilesCommand.icon,
             payload: .command,
-            primaryAction: CommandAction(id: "\(Self.commandID).fill", title: "Search Files", kind: .fillQuery(Self.prefix + term)),
+            primaryAction: CommandAction(id: "\(Self.commandID).fill", title: "Search Files", behavior: FillQueryAction(Self.prefix + term)),
             secondaryActions: []
         )]
     }
@@ -103,7 +103,7 @@ final class FileSearchProvider: CommandProvider, Sendable {
         subtitle: "Type f and a file name — filter with kind:folder, kind:image, kind:doc, kind:code",
         icon: CommandIcon(fallback: "FI", systemName: "doc.text.magnifyingglass"),
         payload: .command,
-        primaryAction: CommandAction(id: "\(commandID).fill", title: "Search Files", kind: .fillQuery(prefix)),
+        primaryAction: CommandAction(id: "\(commandID).fill", title: "Search Files", behavior: FillQueryAction(prefix)),
         secondaryActions: []
     )
 
@@ -181,7 +181,7 @@ final class FileSearchProvider: CommandProvider, Sendable {
         subtitle: "File search needs Spotlight indexing on your home folder",
         icon: CommandIcon(fallback: "FI", systemName: "magnifyingglass"),
         payload: .command,
-        primaryAction: CommandAction(id: "foundry.files.spotlight-disabled.open", title: "Open Spotlight Settings", kind: .openURL("x-apple.systempreferences:com.apple.Siri-Settings.extension")),
+        primaryAction: CommandAction(id: "foundry.files.spotlight-disabled.open", title: "Open Spotlight Settings", behavior: OpenURLAction("x-apple.systempreferences:com.apple.Siri-Settings.extension")),
         secondaryActions: []
     )
 
@@ -201,30 +201,30 @@ final class FileSearchProvider: CommandProvider, Sendable {
         let parent = (url.deletingLastPathComponent().path as NSString).abbreviatingWithTildeInPath
         let id = "file.\(path)"
         var secondary: [CommandAction] = [
-            CommandAction(id: "\(id).reveal", title: "Reveal in Finder", kind: .revealFile(path: path)),
-            CommandAction(id: "\(id).copy-file", title: "Copy File", kind: .copyFile(path: path)),
-            CommandAction(id: "\(id).copy-path", title: "Copy Path", kind: .copyToClipboard(path)),
+            CommandAction(id: "\(id).reveal", title: "Reveal in Finder", behavior: RevealFileAction(path: path)),
+            CommandAction(id: "\(id).copy-file", title: "Copy File", behavior: CopyFileAction(path: path)),
+            CommandAction(id: "\(id).copy-path", title: "Copy Path", behavior: CopyToClipboardAction(path)),
         ]
         for app in FileAppResolver.apps(for: url) {
             secondary.append(CommandAction(
                 id: "\(id).open-with.\(app.path)",
                 title: "Open With \(app.name)",
-                kind: .openFileWithApp(path: path, appPath: app.path)
+                behavior: OpenFileWithAppAction(path: path, appPath: app.path)
             ))
         }
         secondary += [
-            CommandAction(id: "\(id).shelf", title: "Add to File Shelf", kind: .addToFileShelf(path: path)),
-            CommandAction(id: "\(id).convert", title: "Convert…", kind: .openFileConverter(path: path)),
+            CommandAction(id: "\(id).shelf", title: "Add to File Shelf", behavior: AddToFileShelfAction(path: path)),
+            CommandAction(id: "\(id).convert", title: "Convert…", behavior: OpenFileConverterAction(path: path)),
         ]
         if ConversionGraph.visionReadExts.contains(ConversionGraph.normalizedExtension(of: url)) {
-            secondary.append(CommandAction(id: "\(id).ocr", title: "Extract Text", kind: .extractTextFromImage(path: path)))
-            secondary.append(CommandAction(id: "\(id).ocr.preview", title: "Preview Extracted Text", kind: .previewExtractedText(path: path)))
+            secondary.append(CommandAction(id: "\(id).ocr", title: "Extract Text", behavior: ExtractTextFromImageAction(path: path)))
+            secondary.append(CommandAction(id: "\(id).ocr.preview", title: "Preview Extracted Text", behavior: PreviewExtractedTextAction(path: path)))
         }
         secondary += [
-            CommandAction(id: "\(id).compress", title: "Compress", kind: .compressFile(path: path)),
-            CommandAction(id: "\(id).share", title: "Share…", kind: .shareFile(path: path)),
-            CommandAction(id: "\(id).rename", title: "Rename…", kind: .renameFile(path: path)),
-            CommandAction(id: "\(id).trash", title: "Move to Trash", kind: .moveToTrash(path: path)),
+            CommandAction(id: "\(id).compress", title: "Compress", behavior: CompressFileAction(path: path)),
+            CommandAction(id: "\(id).share", title: "Share…", behavior: ShareFileAction(path: path)),
+            CommandAction(id: "\(id).rename", title: "Rename…", behavior: RenameFileAction(path: path)),
+            CommandAction(id: "\(id).trash", title: "Move to Trash", behavior: MoveToTrashAction(path: path)),
         ]
         return CommandResult(
             id: id,
@@ -232,7 +232,7 @@ final class FileSearchProvider: CommandProvider, Sendable {
             subtitle: parent,
             icon: CommandIcon(fallback: "FI", filePath: path),
             payload: .file(url),
-            primaryAction: CommandAction(id: "\(id).open", title: "Open", kind: .openURL(url.absoluteString)),
+            primaryAction: CommandAction(id: "\(id).open", title: "Open", behavior: OpenURLAction(url.absoluteString)),
             secondaryActions: secondary
         )
     }

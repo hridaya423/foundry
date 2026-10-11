@@ -8,7 +8,7 @@ final class ResourcePackagingTests: XCTestCase {
         let results = await CameraCommandProvider().results(matching: "camera")
 
         XCTAssertEqual(results.map(\.id), ["foundry.camera"])
-        XCTAssertEqual(results.first?.primaryAction.kind, .openCamera)
+        XCTAssertEqual(results.first?.primaryAction.behavior as? OpenCameraAction, OpenCameraAction())
     }
 
     func testBuildPackagingDeclaresCameraPurposeAndEntitlement() throws {

@@ -21,11 +21,11 @@ final class TranslationProvider: CommandProvider {
                 icon: CommandIcon(fallback: "TR", systemName: "globe"),
                 route: .translation,
                 payload: .command,
-                primaryAction: CommandAction(id: "translate.copy", title: "Copy Translation", kind: .copyToClipboard(text)),
+                primaryAction: CommandAction(id: "translate.copy", title: "Copy Translation", behavior: CopyToClipboardAction(text)),
                 secondaryActions: [
-                    CommandAction(id: "translate.open", title: "Open Translator", kind: .openTranslator(text: request.text, language: request.target.identifier)),
-                    CommandAction(id: "translate.copy-source", title: "Copy Source", kind: .copyToClipboard(request.text)),
-                    CommandAction(id: "translate.ai", title: "Try Apple Intelligence", kind: .openTranslator(text: request.text, language: request.target.identifier)),
+                    CommandAction(id: "translate.open", title: "Open Translator", behavior: OpenTranslatorAction(text: request.text, language: request.target.identifier)),
+                    CommandAction(id: "translate.copy-source", title: "Copy Source", behavior: CopyToClipboardAction(request.text)),
+                    CommandAction(id: "translate.ai", title: "Try Apple Intelligence", behavior: OpenTranslatorAction(text: request.text, language: request.target.identifier)),
                 ]
             )]
         }
@@ -44,9 +44,9 @@ final class TranslationProvider: CommandProvider {
             icon: CommandIcon(fallback: "TR", systemName: "globe"),
             route: .translation,
             payload: .command,
-            primaryAction: CommandAction(id: "translate.open", title: "Open Translator", kind: .openTranslator(text: request.text, language: request.target.identifier)),
+            primaryAction: CommandAction(id: "translate.open", title: "Open Translator", behavior: OpenTranslatorAction(text: request.text, language: request.target.identifier)),
             secondaryActions: [
-                CommandAction(id: "translate.copy-source", title: "Copy Source", kind: .copyToClipboard(request.text))
+                CommandAction(id: "translate.copy-source", title: "Copy Source", behavior: CopyToClipboardAction(request.text))
             ]
         )
     }
@@ -58,9 +58,9 @@ final class TranslationProvider: CommandProvider {
             icon: CommandIcon(fallback: "TR", systemName: "globe"),
             route: .translation,
             payload: .command,
-            primaryAction: CommandAction(id: "translate.open", title: "Translate", kind: .openTranslator(text: request.text, language: request.target.identifier)),
+            primaryAction: CommandAction(id: "translate.open", title: "Translate", behavior: OpenTranslatorAction(text: request.text, language: request.target.identifier)),
             secondaryActions: [
-                CommandAction(id: "translate.copy-source", title: "Copy Source", kind: .copyToClipboard(request.text))
+                CommandAction(id: "translate.copy-source", title: "Copy Source", behavior: CopyToClipboardAction(request.text))
             ]
         )
     }

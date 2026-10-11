@@ -32,9 +32,9 @@ final class AppleNotesProvider: CommandProvider {
                 icon: CommandIcon(fallback: "AN", systemName: "note.text"),
                 route: .notesSearch,
                 payload: .note(id: note.id),
-                primaryAction: CommandAction(id: "apple-note.open.\(note.id)", title: "Open in Apple Notes", kind: .runProcess(path: "/usr/bin/osascript", arguments: openScriptArguments(noteID: note.id))),
+                primaryAction: CommandAction(id: "apple-note.open.\(note.id)", title: "Open in Apple Notes", behavior: RunProcessAction(path: "/usr/bin/osascript", arguments: openScriptArguments(noteID: note.id))),
                 secondaryActions: [
-                    CommandAction(id: "apple-note.copy.\(note.id)", title: "Copy Preview", kind: .copyToClipboard(note.preview))
+                    CommandAction(id: "apple-note.copy.\(note.id)", title: "Copy Preview", behavior: CopyToClipboardAction(note.preview))
                 ]
             )
         }
@@ -48,7 +48,7 @@ final class AppleNotesProvider: CommandProvider {
                 subtitle: "Search with: notes <text>",
                 icon: CommandIcon(fallback: "AN", systemName: "note.text"),
                 payload: .command,
-                primaryAction: CommandAction(id: "foundry.apple-notes.launch", title: "Open", kind: .runProcess(path: "/usr/bin/open", arguments: ["-a", "Notes"])),
+                primaryAction: CommandAction(id: "foundry.apple-notes.launch", title: "Open", behavior: RunProcessAction(path: "/usr/bin/open", arguments: ["-a", "Notes"])),
                 secondaryActions: []
             )
         ]
@@ -105,7 +105,7 @@ final class AppleNotesProvider: CommandProvider {
         primaryAction: CommandAction(
             id: "apple-note.open-privacy",
             title: "Open Privacy Settings",
-            kind: .openURL("x-apple.systempreferences:com.apple.preference.security?Privacy_Automation")
+            behavior: OpenURLAction("x-apple.systempreferences:com.apple.preference.security?Privacy_Automation")
         ),
         secondaryActions: []
     )

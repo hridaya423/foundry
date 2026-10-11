@@ -22,7 +22,7 @@ final class CameraCommandProvider: CommandProvider {
             searchAliases: aliases,
             searchKeywords: ["camera", "webcam", "preview", "cam"],
             payload: .command,
-            primaryAction: CommandAction(id: "foundry.camera.open", title: "Open", kind: .openCamera),
+            primaryAction: CommandAction(id: "foundry.camera.open", title: "Open", behavior: OpenCameraAction()),
             secondaryActions: []
         )]
     }

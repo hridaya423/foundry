@@ -75,11 +75,11 @@ final class SnippetStateTests: XCTestCase {
         ]))
 
         let insertFirst = await provider.search(CommandSearchRequest(query: "Addr", snippetInsertAsPrimary: true))
-        XCTAssertEqual(insertFirst.first?.primaryAction.kind, .pasteSnippet(id: "a"))
+        XCTAssertEqual(insertFirst.first?.primaryAction.behavior as? PasteSnippetAction, PasteSnippetAction(id: "a"))
 
         let copyFirst = await provider.search(CommandSearchRequest(query: "Addr", snippetInsertAsPrimary: false))
-        XCTAssertEqual(copyFirst.first?.primaryAction.kind, .copySnippet(id: "a"))
-        XCTAssertEqual(copyFirst.first?.secondaryActions.first?.kind, .pasteSnippet(id: "a"))
+        XCTAssertEqual(copyFirst.first?.primaryAction.behavior as? CopySnippetAction, CopySnippetAction(id: "a"))
+        XCTAssertEqual(copyFirst.first?.secondaryActions.first?.behavior as? PasteSnippetAction, PasteSnippetAction(id: "a"))
     }
 }
 

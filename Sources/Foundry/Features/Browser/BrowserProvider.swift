@@ -272,12 +272,12 @@ final class BrowserProvider: CommandProvider, Sendable {
             primaryAction: CommandAction(
                 id: "browser.open.\(record.id)",
                 title: "Open in \(record.browser.displayName)",
-                kind: .runProcess(
+                behavior: RunProcessAction(
                     path: "/usr/bin/open",
                     arguments: ["-a", record.browser.applicationName, record.url.absoluteString]
                 )
             ),
-            secondaryActions: [CommandAction(id: "browser.copy.\(record.id)", title: "Copy URL", kind: .copyToClipboard(record.url.absoluteString))]
+            secondaryActions: [CommandAction(id: "browser.copy.\(record.id)", title: "Copy URL", behavior: CopyToClipboardAction(record.url.absoluteString))]
         )
     }
 
@@ -291,7 +291,7 @@ final class BrowserProvider: CommandProvider, Sendable {
             primaryAction: CommandAction(
                 id: "foundry.browser.launch.\(browser.rawValue)",
                 title: "Open",
-                kind: .runProcess(path: "/usr/bin/open", arguments: ["-a", browser.applicationName])
+                behavior: RunProcessAction(path: "/usr/bin/open", arguments: ["-a", browser.applicationName])
             ),
             secondaryActions: []
         )

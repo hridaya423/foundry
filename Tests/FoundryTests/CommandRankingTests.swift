@@ -453,7 +453,7 @@ final class CommandRankingTests: XCTestCase {
             searchKeywords: searchKeywords,
             route: route,
             payload: .command,
-            primaryAction: CommandAction(id: id + ".open", title: "Open", kind: .openHome),
+            primaryAction: CommandAction(id: id + ".open", title: "Open", behavior: OpenHomeAction()),
             secondaryActions: []
         )
     }
@@ -545,7 +545,7 @@ final class CommandRankingTests: XCTestCase {
                 subtitle: nil,
                 icon: CommandIcon(fallback: "F"),
                 payload: .command,
-                primaryAction: CommandAction(id: "test.fallback.open", title: "Open", kind: .openHome),
+                primaryAction: CommandAction(id: "test.fallback.open", title: "Open", behavior: OpenHomeAction()),
                 secondaryActions: []
             )]
         }

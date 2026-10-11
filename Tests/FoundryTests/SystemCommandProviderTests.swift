@@ -18,7 +18,7 @@ final class SystemCommandProviderTests: XCTestCase {
         for shortcut in shortcuts {
             let results = await provider.results(matching: shortcut.query)
             let result = try XCTUnwrap(results.first { $0.id == shortcut.id })
-            XCTAssertEqual(result.primaryAction.kind, .openURL(shortcut.url))
+            XCTAssertEqual(result.primaryAction.behavior as? OpenURLAction, OpenURLAction(shortcut.url))
         }
     }
 

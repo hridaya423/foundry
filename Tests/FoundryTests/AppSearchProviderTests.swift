@@ -32,7 +32,7 @@ final class AppSearchProviderTests: XCTestCase {
         XCTAssertTrue(idle.isEmpty)
         let running = AppSearchProvider.actions(identity: "x", name: "X", path: "/Applications/X.app", bundleID: "com.x", isRunning: true).map(\.title)
         XCTAssertEqual(running, ["Quit", "Hide", "Force Quit"])
-        XCTAssertTrue(CommandActionKind.forceQuitApplication(bundleID: "com.x", name: "X").isDestructive)
+        XCTAssertTrue(ForceQuitApplicationAction(bundleID: "com.x", name: "X").style == .destructive)
     }
 
     private func writeApp(named name: String, to root: URL) throws {

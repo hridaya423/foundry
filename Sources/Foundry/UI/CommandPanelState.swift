@@ -132,10 +132,10 @@ final class CommandPanelState {
             self?.performHaptic(.levelChange)
         }
         state.onQuickLookOutput = { [weak self] url in
-            self?.actionRunner.onQuickLook?(url)
+            self?.actionRunner.panel.onQuickLook?(url)
         }
-        state.onShareOutput = { [weak self] url in
-            self?.actionRunner.shareFile(at: url)
+        state.onShareOutput = { url in
+            shareFile(at: url)
         }
         return state
     }()
@@ -208,7 +208,7 @@ final class CommandPanelState {
     var homeSections: HomeSections {
         var sections = HomeSections()
         for result in searchListResults {
-            if case .openApp = result.primaryAction.kind {
+            if case .app = result.payload {
                 if isSuggestibleApp(result), sections.suggestions.count < 5 {
                     sections.suggestions.append(result)
                 }
@@ -221,8 +221,8 @@ final class CommandPanelState {
     }
 
     private func isPrimaryWindowLayoutResult(_ result: CommandResult) -> Bool {
-        guard case let .tileWindow(placement) = result.primaryAction.kind else { return false }
-        return [FoundryDomain.WindowPlacement.leftHalf, .rightHalf, .topHalf, .bottomHalf, .maximize, .restore].contains(placement)
+        guard let action = result.primaryAction.behavior as? TileWindowAction else { return false }
+        return [FoundryDomain.WindowPlacement.leftHalf, .rightHalf, .topHalf, .bottomHalf, .maximize, .restore].contains(action.placement)
     }
 
     /// `calculator.*` rows promote to the answer card; the `calculator.fallback.*`
@@ -253,7 +253,7 @@ final class CommandPanelState {
             subtitle: "Search copied text, files, and images",
             icon: CommandIcon(fallback: "CB", systemName: "doc.on.clipboard"),
             payload: .calculatorFallback,
-            primaryAction: CommandAction(id: "calculator.fallback.clipboard.open", title: "Open", kind: .openClipboardHistory),
+            primaryAction: CommandAction(id: "calculator.fallback.clipboard.open", title: "Open", behavior: OpenClipboardHistoryAction()),
             secondaryActions: []
         ),
         CommandResult(
@@ -262,7 +262,7 @@ final class CommandPanelState {
             subtitle: "Hold files for quick actions",
             icon: CommandIcon(fallback: "FS", systemName: "tray.full"),
             payload: .calculatorFallback,
-            primaryAction: CommandAction(id: "calculator.fallback.fileshelf.open", title: "Open", kind: .openFileShelf),
+            primaryAction: CommandAction(id: "calculator.fallback.fileshelf.open", title: "Open", behavior: OpenFileShelfAction()),
             secondaryActions: []
         ),
         CommandResult(
@@ -271,7 +271,7 @@ final class CommandPanelState {
             subtitle: "Customize Home, commands, and Foundry preferences",
             icon: CommandIcon(fallback: "ST", systemName: "slider.horizontal.3"),
             payload: .calculatorFallback,
-            primaryAction: CommandAction(id: "calculator.fallback.settings.open", title: "Open", kind: .openSettings),
+            primaryAction: CommandAction(id: "calculator.fallback.settings.open", title: "Open", behavior: OpenSettingsAction()),
             secondaryActions: []
         ),
     ]
@@ -295,15 +295,15 @@ final class CommandPanelState {
             ? [CommandAction(
                 id: "favorite.toggle.\(selectedResult.id)",
                 title: isFavorite ? "Remove from Favorites" : "Add to Favorites",
-                kind: .toggleFavorite(commandID: selectedResult.id)
+                behavior: ToggleFavoriteAction(commandID: selectedResult.id)
             ), CommandAction(
                 id: "ranking.reset.\(selectedResult.id)",
                 title: "Reset Ranking",
-                kind: .resetRanking(commandID: selectedResult.id)
+                behavior: ResetRankingAction(commandID: selectedResult.id)
             ), CommandAction(
                 id: "settings.configure.\(selectedResult.id)",
                 title: "Configure Command",
-                kind: .openCommandSettings(SettingsDeepLink(result: selectedResult))
+                behavior: OpenCommandSettingsAction(SettingsDeepLink(result: selectedResult))
             )]
             : [CommandAction]()
         return orderedActions(for: selectedResult)
@@ -337,7 +337,7 @@ final class CommandPanelState {
                 actions.append(CommandAction(
                     id: "openwith.\(resultID).\(bundle?.bundleIdentifier ?? appURL.path)",
                     title: "Open with \(name)\(isDefault ? " — Default" : "")",
-                    kind: .openFileWithApp(path: path, appPath: appURL.path)
+                    behavior: OpenFileWithAppAction(path: path, appPath: appURL.path)
                 ))
             }
             guard let self, Task.isCancelled == false else { return }
@@ -385,6 +385,20 @@ final class CommandPanelState {
         self.quickAI = QuickAIState(aiProvider: AIProvider(config: config, diagnostics: diagnostics))
         self.mediaDownloads = mediaDownloadManager
         apply(config: config.current)
+        actionRunner.panel.toggleFavorite = { [weak self] id in
+            self?.toggleFavorite(commandID: id) ?? false
+        }
+        actionRunner.panel.presentSettings = { [weak self] link in
+            self?.pendingSettingsDeepLink = link
+            self?.open(.settings)
+        }
+        actionRunner.panel.presentMediaDownloads = { [weak self] in
+            self?.openMediaDownloads()
+        }
+        actionRunner.panel.celebrate = { [weak self] in
+            self?.confettiBurstID &+= 1
+            self?.performHaptic(.alignment)
+        }
         self.widgetBoard.persistenceErrorHandler = { [weak self] error in
             self?.showSettingsPersistenceError(error)
         }
@@ -591,7 +605,7 @@ final class CommandPanelState {
               case let .image(data) = payload else { return }
         Task {
             do {
-                if try await actionRunner.extractTextPreview(fromImageData: data) == false {
+                if try await TextPreview.extractText(fromImageData: data, onQuickLook: actionRunner.panel.onQuickLook) == false {
                     clipboardHistory.report(ClipboardVisionError.noTextFound)
                 }
             } catch {
@@ -607,7 +621,7 @@ final class CommandPanelState {
               case let .image(data) = payload else { return }
         Task {
             do {
-                if try await actionRunner.decodeBarcodePreview(fromImageData: data) == false {
+                if try await TextPreview.decodeBarcode(fromImageData: data, onQuickLook: actionRunner.panel.onQuickLook) == false {
                     clipboardHistory.report(ClipboardVisionError.noBarcodeFound)
                 }
             } catch {
@@ -620,7 +634,7 @@ final class CommandPanelState {
     /// File Shelf image → OCR → staged text → Quick Look.
     func extractTextFromShelfFile(_ url: URL) {
         Task {
-            do { _ = try await actionRunner.extractTextPreview(at: url) }
+            do { _ = try await TextPreview.extractText(at: url, onQuickLook: actionRunner.panel.onQuickLook) }
             catch { diagnostics.log("Shelf OCR failed: \(error.localizedDescription)") }
         }
     }
@@ -628,7 +642,7 @@ final class CommandPanelState {
     /// File Shelf image → barcode/QR decode → staged text → Quick Look.
     func decodeBarcodeFromShelfFile(_ url: URL) {
         Task {
-            do { _ = try await actionRunner.decodeBarcodePreview(at: url) }
+            do { _ = try await TextPreview.decodeBarcode(at: url, onQuickLook: actionRunner.panel.onQuickLook) }
             catch { diagnostics.log("Shelf barcode decode failed: \(error.localizedDescription)") }
         }
     }
@@ -700,15 +714,6 @@ final class CommandPanelState {
     }
 
     func execute(_ action: CommandAction, commandID: String) async -> CommandOutcome {
-        if case let .toggleFavorite(id) = action.kind {
-            let nowFavorite = toggleFavorite(commandID: id)
-            return .stayOpen(message: nowFavorite ? "Added to Favorites" : "Removed from Favorites")
-        }
-        if case let .openCommandSettings(deepLink) = action.kind {
-            pendingSettingsDeepLink = deepLink
-            open(.settings)
-            return .stayOpen(message: nil)
-        }
         let request = CommandExecutionRequest(commandID: commandID, action: action)
         let generation = actionGeneration
         activeActionCancellationID = request.invocation.cancellationID
@@ -1027,7 +1032,7 @@ final class CommandPanelState {
                     _ = await self?.execute(CommandAction(
                         id: "drop.ocr.\(UUID().uuidString)",
                         title: DropChoice.extractText.title,
-                        kind: .extractTextFromImage(path: url.path)
+                        behavior: ExtractTextFromImageAction(path: url.path)
                     ), commandID: "foundry.files")
                 }
             }
@@ -1037,7 +1042,7 @@ final class CommandPanelState {
                     _ = await self?.execute(CommandAction(
                         id: "drop.compress.\(UUID().uuidString)",
                         title: DropChoice.compress.title,
-                        kind: .compressFile(path: url.path)
+                        behavior: CompressFileAction(path: url.path)
                     ), commandID: "foundry.files")
                 }
             }
@@ -1236,19 +1241,10 @@ final class CommandPanelState {
     func executeResult(_ result: CommandResult, action override: CommandAction? = nil) async -> CommandOutcome {
         guard isActionInProgress == false else { return .cancelled }
         let action = override ?? preferredAction(for: result)
-        if case .downloadMedia = action.kind {
-            openMediaDownloads()
-        } else if case .downloadMediaBatch = action.kind {
-            openMediaDownloads()
-        }
         diagnostics.log("Executing action \(action.id) for result \(result.id)")
         registry.recordExecution(resultID: result.id, query: query)
         onResultExecuted?()
         let outcome = await execute(action, commandID: result.id)
-        if case .celebrate = action.kind, case .stayOpen = outcome {
-            confettiBurstID &+= 1
-            performHaptic(.alignment)
-        }
         if case .copied = outcome, let expression = result.payload.calculationExpression {
             CalculatorHistoryStore.shared.record(expression: expression, result: result.title)
         }

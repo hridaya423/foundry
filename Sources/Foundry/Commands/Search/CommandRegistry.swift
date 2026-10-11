@@ -142,7 +142,7 @@ final class CommandRegistry: Sendable {
             subtitle: "Open the research assistant",
             icon: CommandIcon(fallback: "AI", systemName: "sparkles"),
             payload: .aiPrompt,
-            primaryAction: CommandAction(id: "ai.quick", title: "Ask AI", kind: .openQuickAI(prompt: prompt)),
+            primaryAction: CommandAction(id: "ai.quick", title: "Ask AI", behavior: OpenQuickAIAction(prompt: prompt)),
             secondaryActions: []
         )
         let web = trailing.filter { if case .quicklink = $0.payload { return true }; return false }
@@ -174,11 +174,11 @@ final class CommandRegistry: Sendable {
         let sorted = ranker.ordered(allCandidates.filter { isCommandEnabled($0.result) }, query: nil)
 
         let apps = sorted.filter { result in
-            if case .openApp = result.primaryAction.kind { return true }
+            if case .app = result.payload { return true }
             return false
         }
         let commands = sorted.filter { result in
-            if case .openApp = result.primaryAction.kind { return false }
+            if case .app = result.payload { return false }
             return true
         }
 

@@ -49,9 +49,9 @@ final class ScriptCommandTests: XCTestCase {
         store.directories = [directory.path]
         let provider = ScriptCommandProvider(store: store)
         let bare = await provider.results(matching: "greet")
-        XCTAssertEqual(bare.first?.primaryAction.kind, .fillQuery("Greet "))
+        XCTAssertEqual(bare.first?.primaryAction.behavior as? FillQueryAction, FillQueryAction("Greet "))
         let filled = await provider.results(matching: "Greet Ada")
-        XCTAssertEqual(filled.first?.primaryAction.kind, .runScript(path: directory.appendingPathComponent("greet.sh").path, arguments: ["Ada"], mode: .compact))
+        XCTAssertEqual(filled.first?.primaryAction.behavior as? RunScriptAction, RunScriptAction(path: directory.appendingPathComponent("greet.sh").path, arguments: ["Ada"], mode: .compact))
     }
 
     func testUntrustedFolderAsksOnceAndDenialBlocksTheRun() async throws {
@@ -102,7 +102,7 @@ final class ScriptCommandTests: XCTestCase {
     }
 
     private func run(_ runner: ActionRunner, path: String, mode: ScriptOutputMode) async -> CommandOutcome {
-        await runner.execute(CommandExecutionRequest(commandID: "script", action: CommandAction(id: "script.run", title: "Run", kind: .runScript(path: path, arguments: [], mode: mode)), cancellationID: UUID())) { _ in }
+        await runner.execute(CommandExecutionRequest(commandID: "script", action: CommandAction(id: "script.run", title: "Run", behavior: RunScriptAction(path: path, arguments: [], mode: mode)), cancellationID: UUID())) { _ in }
     }
 
     @discardableResult

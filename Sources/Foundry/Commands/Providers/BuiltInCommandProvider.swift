@@ -58,7 +58,7 @@ final class BuiltInCommandProvider: CommandProvider {
                 aliases: ["emoji", "emojis", "symbols", "characters", "reaction", "smiley", "unicode"],
                 systemIcon: "face.smiling",
                 fallback: "EM",
-                primaryAction: CommandAction(id: "foundry.emoji-picker.open", title: "Open", kind: .openEmojiPicker)
+                primaryAction: CommandAction(id: "foundry.emoji-picker.open", title: "Open", behavior: OpenEmojiPickerAction())
             ),
             BuiltInCommand(
                 id: "foundry.downloads",
@@ -67,7 +67,7 @@ final class BuiltInCommandProvider: CommandProvider {
                 aliases: ["download", "downloads", "media downloads", "download queue", "media queue", "download manager"],
                 systemIcon: "arrow.down.circle",
                 fallback: "DL",
-                primaryAction: CommandAction(id: "foundry.downloads.open", title: "Open", kind: .openMediaDownloads)
+                primaryAction: CommandAction(id: "foundry.downloads.open", title: "Open", behavior: OpenMediaDownloadsAction())
             ),
             BuiltInCommand(
                 id: "foundry.file-shelf",
@@ -76,7 +76,7 @@ final class BuiltInCommandProvider: CommandProvider {
                 aliases: ["shelf", "files", "drop", "drag", "temporary files"],
                 systemIcon: "tray.full",
                 fallback: "FS",
-                primaryAction: CommandAction(id: "foundry.file-shelf.open", title: "Open", kind: .openFileShelf)
+                primaryAction: CommandAction(id: "foundry.file-shelf.open", title: "Open", behavior: OpenFileShelfAction())
             ),
             BuiltInCommand(
                 id: "foundry.file-convert",
@@ -85,7 +85,7 @@ final class BuiltInCommandProvider: CommandProvider {
                 aliases: ["convert", "converter", "file convert", "transcode", "reformat"],
                 systemIcon: "arrow.triangle.2.circlepath",
                 fallback: "CV",
-                primaryAction: CommandAction(id: "foundry.file-convert.open", title: "Open", kind: .openFileConverter())
+                primaryAction: CommandAction(id: "foundry.file-convert.open", title: "Open", behavior: OpenFileConverterAction())
             ),
             BuiltInCommand(
                 id: "foundry.clipboard-history",
@@ -94,7 +94,7 @@ final class BuiltInCommandProvider: CommandProvider {
                 aliases: ["clipboard", "copyboard", "copy history", "pasteboard", "paste history", "history"],
                 systemIcon: "doc.on.clipboard",
                 fallback: "CB",
-                primaryAction: CommandAction(id: "foundry.clipboard-history.open", title: "Open", kind: .openClipboardHistory)
+                primaryAction: CommandAction(id: "foundry.clipboard-history.open", title: "Open", behavior: OpenClipboardHistoryAction())
             ),
             BuiltInCommand(
                 id: "foundry.snippets",
@@ -103,7 +103,7 @@ final class BuiltInCommandProvider: CommandProvider {
                 aliases: ["snippets", "snippet", "search snippets", "code snippets", "templates"],
                 systemIcon: "curlybraces",
                 fallback: "SN",
-                primaryAction: CommandAction(id: "foundry.snippets.open", title: "Open", kind: .openSnippets)
+                primaryAction: CommandAction(id: "foundry.snippets.open", title: "Open", behavior: OpenSnippetsAction())
             ),
             BuiltInCommand(
                 id: "foundry.snippets.create-from-clipboard",
@@ -112,7 +112,7 @@ final class BuiltInCommandProvider: CommandProvider {
                 aliases: ["new snippet", "create snippet", "clipboard snippet", "save snippet"],
                 systemIcon: "plus.rectangle.on.rectangle",
                 fallback: "SN",
-                primaryAction: CommandAction(id: "foundry.snippets.create-from-clipboard.perform", title: "Create", kind: .createSnippetFromClipboard)
+                primaryAction: CommandAction(id: "foundry.snippets.create-from-clipboard.perform", title: "Create", behavior: CreateSnippetFromClipboardAction())
             ),
             BuiltInCommand(
                 id: "foundry.snippets.import",
@@ -121,7 +121,7 @@ final class BuiltInCommandProvider: CommandProvider {
                 aliases: ["import snippets", "raycast snippets", "snippets json"],
                 systemIcon: "square.and.arrow.down",
                 fallback: "SN",
-                primaryAction: CommandAction(id: "foundry.snippets.import.perform", title: "Import", kind: .importSnippets)
+                primaryAction: CommandAction(id: "foundry.snippets.import.perform", title: "Import", behavior: ImportSnippetsAction())
             ),
             BuiltInCommand(
                 id: "foundry.snippets.export",
@@ -130,7 +130,7 @@ final class BuiltInCommandProvider: CommandProvider {
                 aliases: ["export snippets", "backup snippets", "snippets backup"],
                 systemIcon: "square.and.arrow.up",
                 fallback: "SN",
-                primaryAction: CommandAction(id: "foundry.snippets.export.perform", title: "Export", kind: .exportSnippets)
+                primaryAction: CommandAction(id: "foundry.snippets.export.perform", title: "Export", behavior: ExportSnippetsAction())
             ),
             BuiltInCommand(
                 id: "foundry.translate",
@@ -139,7 +139,7 @@ final class BuiltInCommandProvider: CommandProvider {
                 aliases: ["translate", "translator", "translation", "language"],
                 systemIcon: "globe",
                 fallback: "TR",
-                primaryAction: CommandAction(id: "foundry.translate.open", title: "Open", kind: .openTranslator())
+                primaryAction: CommandAction(id: "foundry.translate.open", title: "Open", behavior: OpenTranslatorAction())
             ),
             BuiltInCommand(
                 id: "foundry.ai",
@@ -148,7 +148,7 @@ final class BuiltInCommandProvider: CommandProvider {
                 aliases: ["ask ai", "ai", "plan", "draft"],
                 systemIcon: "sparkles",
                 fallback: "AI",
-                primaryAction: CommandAction(id: "foundry.ai.open", title: "Open", kind: .openQuickAI(prompt: ""))
+                primaryAction: CommandAction(id: "foundry.ai.open", title: "Open", behavior: OpenQuickAIAction(prompt: ""))
             ),
             BuiltInCommand(
                 id: "foundry.developer-tools",
@@ -157,7 +157,7 @@ final class BuiltInCommandProvider: CommandProvider {
                 aliases: ["developer tools", "base convert", "bitwise", "radix", "binary", "hex"],
                 systemIcon: "hammer",
                 fallback: "DT",
-                primaryAction: CommandAction(id: "foundry.developer-tools.open", title: "Open", kind: .openDeveloperTools())
+                primaryAction: CommandAction(id: "foundry.developer-tools.open", title: "Open", behavior: OpenDeveloperToolsAction())
             ),
             BuiltInCommand(
                 id: "foundry.extract-text",
@@ -166,7 +166,7 @@ final class BuiltInCommandProvider: CommandProvider {
                 aliases: ["ocr", "recognize text", "read text", "text from image", "vision"],
                 systemIcon: "text.viewfinder",
                 fallback: "OCR",
-                primaryAction: CommandAction(id: "foundry.extract-text.perform", title: "Choose Image", kind: .extractTextFromImage(path: nil))
+                primaryAction: CommandAction(id: "foundry.extract-text.perform", title: "Choose Image", behavior: ExtractTextFromImageAction(path: nil))
             ),
             BuiltInCommand(
                 id: "foundry.pick-color",
@@ -175,7 +175,7 @@ final class BuiltInCommandProvider: CommandProvider {
                 aliases: ["color picker", "eyedropper", "hex color", "sample color"],
                 systemIcon: "eyedropper.halffull",
                 fallback: "CL",
-                primaryAction: CommandAction(id: "foundry.pick-color.perform", title: "Pick Color", kind: .pickColor)
+                primaryAction: CommandAction(id: "foundry.pick-color.perform", title: "Pick Color", behavior: PickColorAction())
             ),
             BuiltInCommand(
                 id: "foundry.qr-generate",
@@ -184,7 +184,7 @@ final class BuiltInCommandProvider: CommandProvider {
                 aliases: ["qr code", "qr generate", "make qr", "barcode"],
                 systemIcon: "qrcode",
                 fallback: "QR",
-                primaryAction: CommandAction(id: "foundry.qr-generate.perform", title: "Generate", kind: .generateQRCode)
+                primaryAction: CommandAction(id: "foundry.qr-generate.perform", title: "Generate", behavior: GenerateQRCodeAction())
             ),
             BuiltInCommand(
                 id: "foundry.qr-read",
@@ -193,7 +193,7 @@ final class BuiltInCommandProvider: CommandProvider {
                 aliases: ["qr scan", "decode qr", "read barcode", "scan code"],
                 systemIcon: "qrcode.viewfinder",
                 fallback: "QR",
-                primaryAction: CommandAction(id: "foundry.qr-read.perform", title: "Choose Image", kind: .readQRCode)
+                primaryAction: CommandAction(id: "foundry.qr-read.perform", title: "Choose Image", behavior: ReadQRCodeAction())
             ),
             BuiltInCommand(
                 id: "foundry.qr-wifi",
@@ -202,7 +202,7 @@ final class BuiltInCommandProvider: CommandProvider {
                 aliases: ["wifi qr", "wifi code", "share wifi", "network qr"],
                 systemIcon: "wifi",
                 fallback: "WF",
-                primaryAction: CommandAction(id: "foundry.qr-wifi.perform", title: "Generate", kind: .generateWiFiQRCode)
+                primaryAction: CommandAction(id: "foundry.qr-wifi.perform", title: "Generate", behavior: GenerateWiFiQRCodeAction())
             ),
             BuiltInCommand(
                 id: "foundry.screen-ocr",
@@ -211,7 +211,7 @@ final class BuiltInCommandProvider: CommandProvider {
                 aliases: ["screen ocr", "screenshot text", "grab text", "capture text", "screen capture ocr"],
                 systemIcon: "text.viewfinder",
                 fallback: "SO",
-                primaryAction: CommandAction(id: "foundry.screen-ocr.perform", title: "Capture", kind: .recognizeScreenText)
+                primaryAction: CommandAction(id: "foundry.screen-ocr.perform", title: "Capture", behavior: RecognizeScreenTextAction())
             ),
             BuiltInCommand(
                 id: "foundry.empty-trash",
@@ -220,7 +220,7 @@ final class BuiltInCommandProvider: CommandProvider {
                 aliases: ["trash", "empty bin", "delete trash"],
                 systemIcon: "trash.slash",
                 fallback: "TR",
-                primaryAction: CommandAction(id: "foundry.empty-trash.perform", title: "Empty Trash", kind: .emptyTrash)
+                primaryAction: CommandAction(id: "foundry.empty-trash.perform", title: "Empty Trash", behavior: EmptyTrashAction())
             ),
             BuiltInCommand(
                 id: "foundry.desktop-icons",
@@ -229,7 +229,7 @@ final class BuiltInCommandProvider: CommandProvider {
                 aliases: ["desktop icons", "hide desktop", "show desktop", "clean desktop"],
                 systemIcon: "macwindow.on.rectangle",
                 fallback: "DI",
-                primaryAction: CommandAction(id: "foundry.desktop-icons.perform", title: "Toggle", kind: .toggleDesktopIcons)
+                primaryAction: CommandAction(id: "foundry.desktop-icons.perform", title: "Toggle", behavior: ToggleDesktopIconsAction())
             ),
             BuiltInCommand(
                 id: "foundry.paste-plain",
@@ -238,7 +238,7 @@ final class BuiltInCommandProvider: CommandProvider {
                 aliases: ["paste plain", "paste without formatting", "plain paste", "strip formatting"],
                 systemIcon: "doc.plaintext",
                 fallback: "PP",
-                primaryAction: CommandAction(id: "foundry.paste-plain.perform", title: "Paste", kind: .pasteClipboardAsPlainText)
+                primaryAction: CommandAction(id: "foundry.paste-plain.perform", title: "Paste", behavior: PasteClipboardAsPlainTextAction())
             ),
             BuiltInCommand(
                 id: "foundry.confetti",
@@ -247,7 +247,7 @@ final class BuiltInCommandProvider: CommandProvider {
                 aliases: ["confetti", "celebrate", "party"],
                 systemIcon: "party.popper.fill",
                 fallback: "🎉",
-                primaryAction: CommandAction(id: "foundry.confetti.perform", title: "Celebrate", kind: .celebrate)
+                primaryAction: CommandAction(id: "foundry.confetti.perform", title: "Celebrate", behavior: CelebrateAction())
             ),
             BuiltInCommand(
                 id: "foundry.settings",
@@ -256,7 +256,7 @@ final class BuiltInCommandProvider: CommandProvider {
                 aliases: ["foundry config", "config", "preferences"],
                 systemIcon: "slider.horizontal.3",
                 fallback: "ST",
-                primaryAction: CommandAction(id: "foundry.settings.open", title: "Open", kind: .openSettings)
+                primaryAction: CommandAction(id: "foundry.settings.open", title: "Open", behavior: OpenSettingsAction())
             ),
             BuiltInCommand(
                 id: "foundry.welcome",
@@ -265,7 +265,7 @@ final class BuiltInCommandProvider: CommandProvider {
                 aliases: ["welcome", "onboarding", "setup", "guide", "getting started", "tutorial"],
                 systemIcon: "sparkles.rectangle.stack",
                 fallback: "WG",
-                primaryAction: CommandAction(id: "foundry.welcome.open", title: "Open", kind: .openWelcomeGuide)
+                primaryAction: CommandAction(id: "foundry.welcome.open", title: "Open", behavior: OpenWelcomeGuideAction())
             ),
             BuiltInCommand(
                 id: "foundry.quit",
@@ -274,7 +274,7 @@ final class BuiltInCommandProvider: CommandProvider {
                 aliases: ["exit", "close foundry"],
                 systemIcon: "power",
                 fallback: "QT",
-                primaryAction: CommandAction(id: "foundry.quit.perform", title: "Quit", kind: .quit)
+                primaryAction: CommandAction(id: "foundry.quit.perform", title: "Quit", behavior: QuitAction())
             )
         ]
     }

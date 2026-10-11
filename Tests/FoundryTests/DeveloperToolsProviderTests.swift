@@ -14,7 +14,7 @@ final class DeveloperToolsProviderTests: XCTestCase {
         for command in commands {
             let results = await DeveloperToolsProvider().results(matching: command.query)
             let result = try? XCTUnwrap(results.first { $0.id == command.id })
-            XCTAssertEqual(result?.primaryAction.kind, .openDeveloperTools(tool: command.tool))
+            XCTAssertEqual(result?.primaryAction.behavior as? OpenDeveloperToolsAction, OpenDeveloperToolsAction(tool: command.tool))
         }
     }
 

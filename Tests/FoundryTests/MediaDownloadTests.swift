@@ -350,7 +350,7 @@ final class MediaDownloadTests: XCTestCase {
             action: CommandAction(
                 id: "test.media.progress.perform",
                 title: "Download",
-                kind: .downloadMedia(url: "https://example.com/video.mp4")
+                behavior: DownloadMediaAction(url: "https://example.com/video.mp4")
             )
         )
 
@@ -376,7 +376,7 @@ final class MediaDownloadTests: XCTestCase {
         let urls = ["https://example.com/one.mp4", "https://example.com/two.mp4"]
         let request = CommandExecutionRequest(
             commandID: "test.media.batch",
-            action: CommandAction(id: "test.media.batch.perform", title: "Download All", kind: .downloadMediaBatch(urls: urls))
+            action: CommandAction(id: "test.media.batch.perform", title: "Download All", behavior: DownloadMediaBatchAction(urls: urls))
         )
 
         let outcome = await runner.execute(request) { _ in }

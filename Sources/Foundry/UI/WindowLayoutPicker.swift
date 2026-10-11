@@ -645,8 +645,7 @@ private struct LayoutPreviewWindow {
 
 private extension CommandResult {
     var windowPlacement: FoundryDomain.WindowPlacement? {
-        guard case let .tileWindow(placement) = primaryAction.kind else { return nil }
-        return placement
+        (primaryAction.behavior as? TileWindowAction)?.placement
     }
 }
 

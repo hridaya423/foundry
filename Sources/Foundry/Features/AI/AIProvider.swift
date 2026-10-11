@@ -50,8 +50,8 @@ final class AIProvider: Sendable, CommandProvider {
             icon: CommandIcon(fallback: "AI", systemName: "sparkles"),
             route: .aiResponse,
             payload: .command,
-            primaryAction: CommandAction(id: "ai.copy", title: "Copy", kind: .copyToClipboard(response)),
-            secondaryActions: [CommandAction(id: "ai.log", title: "Log", kind: .log(response))]
+            primaryAction: CommandAction(id: "ai.copy", title: "Copy", behavior: CopyToClipboardAction(response)),
+            secondaryActions: [CommandAction(id: "ai.log", title: "Log", behavior: LogAction(response))]
         )]
     }
 

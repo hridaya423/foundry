@@ -44,7 +44,7 @@ final class DeveloperToolsProvider: CommandProvider {
                 subtitle: "Copy a new UUID",
                 icon: "number",
                 fallback: "ID",
-                primary: .copyToClipboard(UUID().uuidString)
+                primary: CopyToClipboardAction(UUID().uuidString)
             ),
             makeResult(
                 id: "dev.lorem.default",
@@ -52,7 +52,7 @@ final class DeveloperToolsProvider: CommandProvider {
                 subtitle: "Copy 24 placeholder words",
                 icon: "text.alignleft",
                 fallback: "LO",
-                primary: .copyToClipboard(DeveloperToolsEngine.lorem(words: 24))
+                primary: CopyToClipboardAction(DeveloperToolsEngine.lorem(words: 24))
             ),
             makeResult(
                 id: "dev.random-email.default",
@@ -60,7 +60,7 @@ final class DeveloperToolsProvider: CommandProvider {
                 subtitle: "Copy a disposable-looking email address",
                 icon: "at",
                 fallback: "RD",
-                primary: .copyToClipboard(DeveloperToolsEngine.randomEmail())
+                primary: CopyToClipboardAction(DeveloperToolsEngine.randomEmail())
             )
         ]
     }
@@ -100,7 +100,7 @@ final class DeveloperToolsProvider: CommandProvider {
                 subtitle: count == 1 ? "UUID" : "UUID \(index + 1) of \(count)",
                 icon: "number",
                 fallback: "ID",
-                primary: .copyToClipboard(value)
+                primary: CopyToClipboardAction(value)
             )
         }
     }
@@ -118,8 +118,8 @@ final class DeveloperToolsProvider: CommandProvider {
                     subtitle: "Base64 encoded",
                     icon: "lock.doc",
                     fallback: "64",
-                    primary: .copyToClipboard(encoded),
-                    secondary: [CommandAction(id: "dev.base64.encode.paste", title: "Paste", kind: .pasteText(encoded))]
+                    primary: CopyToClipboardAction(encoded),
+                    secondary: [CommandAction(id: "dev.base64.encode.paste", title: "Paste", behavior: PasteTextAction(encoded))]
                 )
             ]
         }
@@ -133,8 +133,8 @@ final class DeveloperToolsProvider: CommandProvider {
                     subtitle: "Base64 decoded",
                     icon: "lock.open",
                     fallback: "64",
-                    primary: .copyToClipboard(decoded),
-                    secondary: [CommandAction(id: "dev.base64.decode.paste", title: "Paste", kind: .pasteText(decoded))]
+                    primary: CopyToClipboardAction(decoded),
+                    secondary: [CommandAction(id: "dev.base64.decode.paste", title: "Paste", behavior: PasteTextAction(decoded))]
                 )
             ]
         }
@@ -142,10 +142,10 @@ final class DeveloperToolsProvider: CommandProvider {
         guard let payload = SearchScoring.payload(in: query, prefixes: ["base64", "b64"]), payload.isEmpty == false else { return [] }
         var results: [CommandResult] = []
         if let encoded = DeveloperToolsEngine.base64Encode(payload) {
-            results.append(makeResult(id: "dev.base64.any.encode.\(encoded.hashValue)", title: encoded, subtitle: "Encoded", icon: "lock.doc", fallback: "64", primary: .copyToClipboard(encoded)))
+            results.append(makeResult(id: "dev.base64.any.encode.\(encoded.hashValue)", title: encoded, subtitle: "Encoded", icon: "lock.doc", fallback: "64", primary: CopyToClipboardAction(encoded)))
         }
         if let decoded = DeveloperToolsEngine.base64Decode(payload) {
-            results.append(makeResult(id: "dev.base64.any.decode.\(decoded.hashValue)", title: decoded, subtitle: "Decoded", icon: "lock.open", fallback: "64", primary: .copyToClipboard(decoded)))
+            results.append(makeResult(id: "dev.base64.any.decode.\(decoded.hashValue)", title: decoded, subtitle: "Decoded", icon: "lock.open", fallback: "64", primary: CopyToClipboardAction(decoded)))
         }
         return results
     }
@@ -160,8 +160,8 @@ final class DeveloperToolsProvider: CommandProvider {
                 subtitle: DeveloperToolsEngine.compactPreview(formatted),
                 icon: "curlybraces.square",
                 fallback: "JS",
-                primary: .copyToClipboard(formatted),
-                secondary: [CommandAction(id: "dev.json.paste", title: "Paste", kind: .pasteText(formatted))]
+                primary: CopyToClipboardAction(formatted),
+                secondary: [CommandAction(id: "dev.json.paste", title: "Paste", behavior: PasteTextAction(formatted))]
             )
         ]
     }
@@ -175,8 +175,8 @@ final class DeveloperToolsProvider: CommandProvider {
                 subtitle: variant.style,
                 icon: "character.cursor.ibeam",
                 fallback: "Aa",
-                primary: .copyToClipboard(variant.value),
-                secondary: [CommandAction(id: "dev.case.\(variant.style).paste", title: "Paste", kind: .pasteText(variant.value))]
+                primary: CopyToClipboardAction(variant.value),
+                secondary: [CommandAction(id: "dev.case.\(variant.style).paste", title: "Paste", behavior: PasteTextAction(variant.value))]
             )
         }
     }
@@ -190,7 +190,7 @@ final class DeveloperToolsProvider: CommandProvider {
                 subtitle: conversion.label,
                 icon: "clock",
                 fallback: "TS",
-                primary: .copyToClipboard(conversion.value)
+                primary: CopyToClipboardAction(conversion.value)
             )
         }
     }
@@ -242,7 +242,7 @@ final class DeveloperToolsProvider: CommandProvider {
             subtitle: subtitle,
             icon: "candybarphone",
             fallback: "01",
-            primary: .copyToClipboard(title)
+            primary: CopyToClipboardAction(title)
         )
     }
 
@@ -263,7 +263,7 @@ final class DeveloperToolsProvider: CommandProvider {
                 subtitle: item.label == "Decimal" ? "Base conversion" : item.label,
                 icon: "number",
                 fallback: "10",
-                primary: .copyToClipboard(item.value)
+                primary: CopyToClipboardAction(item.value)
             )
         }
     }
@@ -280,10 +280,10 @@ final class DeveloperToolsProvider: CommandProvider {
                 subtitle: subtitle,
                 icon: "textformat.abc",
                 fallback: "WC",
-                primary: .copyToClipboard(String(stats.words)),
+                primary: CopyToClipboardAction(String(stats.words)),
                 secondary: [
-                    CommandAction(id: "dev.wordcount.characters", title: "Copy Characters", kind: .copyToClipboard(String(stats.characters))),
-                    CommandAction(id: "dev.wordcount.summary", title: "Copy Summary", kind: .copyToClipboard("\(title) · \(subtitle)"))
+                    CommandAction(id: "dev.wordcount.characters", title: "Copy Characters", behavior: CopyToClipboardAction(String(stats.characters))),
+                    CommandAction(id: "dev.wordcount.summary", title: "Copy Summary", behavior: CopyToClipboardAction("\(title) · \(subtitle)"))
                 ]
             )
         ]
@@ -306,8 +306,8 @@ final class DeveloperToolsProvider: CommandProvider {
                 subtitle: DeveloperToolsEngine.compactPreview(text),
                 icon: "text.alignleft",
                 fallback: "LO",
-                primary: .copyToClipboard(text),
-                secondary: [CommandAction(id: "dev.lorem.paste", title: "Paste", kind: .pasteText(text))]
+                primary: CopyToClipboardAction(text),
+                secondary: [CommandAction(id: "dev.lorem.paste", title: "Paste", behavior: PasteTextAction(text))]
             )
         ]
     }
@@ -329,8 +329,8 @@ final class DeveloperToolsProvider: CommandProvider {
                 subtitle: item.label,
                 icon: "dice",
                 fallback: "RD",
-                primary: .copyToClipboard(item.value),
-                secondary: [CommandAction(id: "dev.random.\(item.label).paste", title: "Paste", kind: .pasteText(item.value))]
+                primary: CopyToClipboardAction(item.value),
+                secondary: [CommandAction(id: "dev.random.\(item.label).paste", title: "Paste", behavior: PasteTextAction(item.value))]
             )
         }
     }
@@ -343,7 +343,7 @@ final class DeveloperToolsProvider: CommandProvider {
         fallback: String,
         searchAliases: [String] = [],
         searchKeywords: [String] = [],
-        primary: CommandActionKind,
+        primary: any ResultAction,
         secondary: [CommandAction] = []
     ) -> CommandResult {
         CommandResult(
@@ -354,43 +354,43 @@ final class DeveloperToolsProvider: CommandProvider {
             searchAliases: searchAliases,
             searchKeywords: searchKeywords,
             payload: .command,
-            primaryAction: CommandAction(id: id + ".primary", title: "Copy", kind: primary),
+            primaryAction: CommandAction(id: id + ".primary", title: "Copy", behavior: primary),
             secondaryActions: secondary
         )
     }
 
     private let staticCommands: [StaticCommand] = [
-        StaticCommand(id: "dev.uuid", title: "Generate UUID", subtitle: "Copy a new UUID", aliases: ["uuid", "guid", "identifier"], icon: "number", fallback: "ID",  action: .copyToClipboard(UUID().uuidString)),
+        StaticCommand(id: "dev.uuid", title: "Generate UUID", subtitle: "Copy a new UUID", aliases: ["uuid", "guid", "identifier"], icon: "number", fallback: "ID",  action: CopyToClipboardAction(UUID().uuidString)),
         StaticCommand(
             id: "dev.base64", title: "Base64 Encode or Decode", subtitle: "Transform text to or from base64",
             aliases: ["base64", "b64", "encode", "decode"], icon: "lock.doc", fallback: "64",
-            action: .openDeveloperTools(tool: "base64")
+            action: OpenDeveloperToolsAction(tool: "base64")
         ),
         StaticCommand(
             id: "dev.json", title: "Format JSON", subtitle: "Pretty-print JSON into readable output",
             aliases: ["json", "pretty json", "format json"], icon: "curlybraces.square", fallback: "JS",
-            action: .openDeveloperTools(tool: "json")
+            action: OpenDeveloperToolsAction(tool: "json")
         ),
         StaticCommand(
             id: "dev.case", title: "Change Case", subtitle: "Convert text to camel, snake, kebab, and more",
             aliases: ["case", "change case", "convert case"], icon: "character.cursor.ibeam", fallback: "Aa",
-            action: .openDeveloperTools(tool: "case")
+            action: OpenDeveloperToolsAction(tool: "case")
         ),
-        StaticCommand(id: "dev.timestamp", title: "Unix Timestamp", subtitle: "Convert timestamps and ISO dates", aliases: ["unix", "timestamp", "epoch"], icon: "clock", fallback: "TS",  action: .openDeveloperTools(tool: "timestamp")),
+        StaticCommand(id: "dev.timestamp", title: "Unix Timestamp", subtitle: "Convert timestamps and ISO dates", aliases: ["unix", "timestamp", "epoch"], icon: "clock", fallback: "TS",  action: OpenDeveloperToolsAction(tool: "timestamp")),
         StaticCommand(
             id: "dev.wordcount", title: "Word Count", subtitle: "Count words, characters, lines, and paragraphs",
             aliases: ["word count", "count words", "wc"], icon: "textformat.abc", fallback: "WC",
-            action: .openDeveloperTools(tool: "wordCount")
+            action: OpenDeveloperToolsAction(tool: "wordCount")
         ),
         StaticCommand(
             id: "dev.lorem", title: "Lorem Ipsum", subtitle: "Generate placeholder copy",
             aliases: ["lorem", "ipsum", "placeholder text"], icon: "text.alignleft", fallback: "LO",
-            action: .copyToClipboard(DeveloperToolsEngine.lorem(words: 24))
+            action: CopyToClipboardAction(DeveloperToolsEngine.lorem(words: 24))
         ),
         StaticCommand(
             id: "dev.random", title: "Random Data", subtitle: "Generate emails, hex colors, numbers, and slugs",
             aliases: ["random", "faker", "fake data"], icon: "dice", fallback: "RD",
-            action: .copyToClipboard(DeveloperToolsEngine.randomHexColor())
+            action: CopyToClipboardAction(DeveloperToolsEngine.randomHexColor())
         )
     ]
 }
@@ -402,5 +402,5 @@ private struct StaticCommand {
     let aliases: [String]
     let icon: String
     let fallback: String
-    let action: CommandActionKind
+    let action: any ResultAction
 }

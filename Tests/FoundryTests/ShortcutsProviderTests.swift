@@ -15,7 +15,7 @@ final class ShortcutsProviderTests: XCTestCase {
         let results = await provider.results(matching: "resize")
         let result = try XCTUnwrap(results.first)
         XCTAssertEqual(result.title, "Resize Image")
-        XCTAssertEqual(result.primaryAction.kind, .runProcess(path: "/usr/bin/shortcuts", arguments: ["run", "Resize Image"]))
+        XCTAssertEqual(result.primaryAction.behavior as? RunProcessAction, RunProcessAction(path: "/usr/bin/shortcuts", arguments: ["run", "Resize Image"]))
         _ = await provider.results(matching: "morning")
         XCTAssertEqual(calls.value, 1, "fresh cache must not re-run the CLI per keystroke")
     }

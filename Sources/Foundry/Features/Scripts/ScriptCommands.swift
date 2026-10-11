@@ -120,8 +120,8 @@ final class ScriptCommandProvider: CommandProvider, Sendable {
     private func result(_ script: ScriptCommand, id: String, aliases: [String], argument: String?) -> CommandResult {
         let needsArgument = script.arguments.contains { $0.optional == false } && (argument ?? "").isEmpty
         let primary = needsArgument
-            ? CommandAction(id: "\(id).fill", title: "Enter \(script.arguments[0].placeholder)", kind: .fillQuery("\(script.title) "))
-            : CommandAction(id: "\(id).run", title: "Run Script", kind: .runScript(path: script.path, arguments: argument.map { [$0] } ?? [], mode: script.mode))
+            ? CommandAction(id: "\(id).fill", title: "Enter \(script.arguments[0].placeholder)", behavior: FillQueryAction("\(script.title) "))
+            : CommandAction(id: "\(id).run", title: "Run Script", behavior: RunScriptAction(path: script.path, arguments: argument.map { [$0] } ?? [], mode: script.mode))
         let subtitle = needsArgument ? "Type \(script.arguments.map(\.placeholder).joined(separator: ", "))" : (script.packageName ?? "Script Command")
         return CommandResult(
             id: id,

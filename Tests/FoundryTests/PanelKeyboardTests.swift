@@ -17,7 +17,7 @@ final class PanelKeyboardTests: XCTestCase {
         _ id: String,
         title: String = "Result",
         payload: ResultPayload = .command,
-        primary: CommandActionKind = .openHome
+        primary: any ResultAction = OpenHomeAction()
     ) -> CommandResult {
         CommandResult(
             id: id,
@@ -25,7 +25,7 @@ final class PanelKeyboardTests: XCTestCase {
             subtitle: nil,
             icon: CommandIcon(fallback: "T"),
             payload: payload,
-            primaryAction: CommandAction(id: id + ".primary", title: "Open", kind: primary),
+            primaryAction: CommandAction(id: id + ".primary", title: "Open", behavior: primary),
             secondaryActions: []
         )
     }
@@ -36,8 +36,8 @@ final class PanelKeyboardTests: XCTestCase {
             title: title,
             subtitle: nil,
             icon: CommandIcon(fallback: "A"),
-            payload: .command,
-            primaryAction: CommandAction(id: id + ".open", title: "Open", kind: .openApp(path: "/Applications/\(title).app", name: title)),
+            payload: .app(identity: id),
+            primaryAction: CommandAction(id: id + ".open", title: "Open", behavior: OpenAppAction(path: "/Applications/\(title).app", name: title)),
             secondaryActions: []
         )
     }
@@ -105,7 +105,7 @@ final class PanelKeyboardTests: XCTestCase {
 
     func testCalculatorFallbackRowsAreReachableByKeyboard() {
         let state = makeState()
-        let calc = result("calculator.expr", title: "42", payload: .calculation(expression: "6*7", value: "42"), primary: .copyToClipboard("42"))
+        let calc = result("calculator.expr", title: "42", payload: .calculation(expression: "6*7", value: "42"), primary: CopyToClipboardAction("42"))
         state.results = [calc]
         state.query = "6*7"
         state.selectedResultID = calc.id
@@ -134,15 +134,15 @@ final class PanelKeyboardTests: XCTestCase {
 
     func testMetaActionsHiddenForEphemeralResults() {
         let state = makeState()
-        let file = result("file./tmp/doc.pdf", title: "doc.pdf", payload: .file(URL(fileURLWithPath: "/tmp/doc.pdf")), primary: .openFileWithApp(path: "/tmp/doc.pdf", appPath: ""))
+        let file = result("file./tmp/doc.pdf", title: "doc.pdf", payload: .file(URL(fileURLWithPath: "/tmp/doc.pdf")), primary: OpenFileWithAppAction(path: "/tmp/doc.pdf", appPath: ""))
         state.results = [file]
         state.query = "doc"
         state.selectedResultID = file.id
 
-        let kinds = state.selectedActions.map(\.kind)
-        XCTAssertFalse(kinds.contains { if case .toggleFavorite = $0 { return true }; return false })
-        XCTAssertFalse(kinds.contains { if case .openCommandSettings = $0 { return true }; return false })
-        XCTAssertFalse(kinds.contains { if case .resetRanking = $0 { return true }; return false })
+        let behaviors = state.selectedActions.map(\.behavior)
+        XCTAssertFalse(behaviors.contains { $0 is ToggleFavoriteAction })
+        XCTAssertFalse(behaviors.contains { $0 is OpenCommandSettingsAction })
+        XCTAssertFalse(behaviors.contains { $0 is ResetRankingAction })
         state.shutdown()
     }
 
@@ -153,9 +153,9 @@ final class PanelKeyboardTests: XCTestCase {
         state.query = "some"
         state.selectedResultID = command.id
 
-        let kinds = state.selectedActions.map(\.kind)
-        XCTAssertTrue(kinds.contains { if case .toggleFavorite = $0 { return true }; return false })
-        XCTAssertTrue(kinds.contains { if case .openCommandSettings = $0 { return true }; return false })
+        let behaviors = state.selectedActions.map(\.behavior)
+        XCTAssertTrue(behaviors.contains { $0 is ToggleFavoriteAction })
+        XCTAssertTrue(behaviors.contains { $0 is OpenCommandSettingsAction })
         state.shutdown()
     }
 
@@ -169,7 +169,7 @@ final class PanelKeyboardTests: XCTestCase {
             subtitle: nil,
             icon: CommandIcon(fallback: "T"),
             payload: .command,
-            primaryAction: CommandAction(id: "test.copy.primary", title: "Copy", kind: .copyToClipboard("7")),
+            primaryAction: CommandAction(id: "test.copy.primary", title: "Copy", behavior: CopyToClipboardAction("7")),
             secondaryActions: []
         )
         state.results = [copy]
