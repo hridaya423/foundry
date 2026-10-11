@@ -19,6 +19,39 @@ final class ClipboardHistoryTests: XCTestCase {
         XCTAssertEqual(ClipboardHistoryState.pollInterval(secondsSinceInput: 60), 5)
     }
 
+    @MainActor
+    func testMonitoringOnlyRunsBetweenStartAndStop() {
+        let state = ClipboardHistoryState(pasteboard: TestPasteboardClient(), persistence: nil)
+        XCTAssertFalse(state.isMonitoring)
+
+        state.start()
+        XCTAssertTrue(state.isMonitoring)
+        state.start()
+        XCTAssertTrue(state.isMonitoring, "start is idempotent")
+
+        state.stop()
+        XCTAssertFalse(state.isMonitoring)
+    }
+
+    @MainActor
+    func testResolvedPayloadHydratesLazilyLoadedImages() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent("clip-lazy-\(UUID())")
+        defer { try? FileManager.default.removeItem(at: root) }
+        let store = ClipboardHistoryStore(directory: root.appendingPathComponent("data"), legacyURL: root.appendingPathComponent("legacy.json"))
+        let images = (0..<26).map { ClipboardHistoryItem(payload: .image(Data(repeating: UInt8($0), count: 32))) }
+        try store.save(images)
+
+        let state = ClipboardHistoryState(pasteboard: TestPasteboardClient(), persistence: store)
+        let tail = state.items[25]
+        guard case let .image(staged) = tail.payload else { return XCTFail("expected image") }
+        XCTAssertTrue(staged.isEmpty)
+
+        guard case let .image(resolved) = state.resolvedPayload(for: tail.id) else { return XCTFail("expected image") }
+        XCTAssertEqual(resolved, Data(repeating: 25, count: 32))
+        guard case let .image(cached) = state.items[25].payload else { return XCTFail("expected image") }
+        XCTAssertFalse(cached.isEmpty, "hydration caches back into items")
+    }
+
     func testPersistedClipboardAgeIsNotAlwaysNow() {
         let now = Date(timeIntervalSince1970: 10_000)
         let recent = ClipboardHistoryItem(payload: .text("recent"), createdAt: now)
@@ -233,6 +266,7 @@ private final class RecordingClipboardPersistence: @unchecked Sendable, Clipboar
 
     func load() throws -> [ClipboardHistoryItem] { [] }
     func save(_ items: [ClipboardHistoryItem]) throws { lock.withLock { snapshots.append(items) } }
+    func imageData(signature _: String) throws -> Data? { nil }
     func savedSnapshots() -> [[ClipboardHistoryItem]] { lock.withLock { snapshots } }
 }
 
@@ -257,6 +291,7 @@ private final class BlockingClipboardPersistence: @unchecked Sendable, Clipboard
         try recording.save(items)
     }
 
+    func imageData(signature _: String) throws -> Data? { nil }
     func waitUntilSaving() { started.wait() }
     func allowSave() { allowed.signal() }
     func savedSnapshots() -> [[ClipboardHistoryItem]] { recording.savedSnapshots() }

@@ -7,8 +7,10 @@ struct ConfettiBurst: View {
     @State private var start = Date.distantPast
     @State private var particles: [Particle] = []
     @State private var seededTrigger = 0
+    @State private var isActive = false
 
     static let duration: TimeInterval = 2.4
+    private static let maxDelay: TimeInterval = 0.5
     static let palette: [Color] = [
         Color(red: 0.98, green: 0.39, blue: 0.16),
         Color(red: 1.00, green: 0.62, blue: 0.23),
@@ -21,7 +23,9 @@ struct ConfettiBurst: View {
     ]
 
     var body: some View {
-        TimelineView(.animation(minimumInterval: 1.0 / 60)) { context in
+        // Paused while idle — an untriggered TimelineView still ticks a
+        // 60 fps Canvas for the entire life of the panel.
+        TimelineView(.animation(minimumInterval: 1.0 / 60, paused: isActive == false)) { context in
             let elapsed = context.date.timeIntervalSince(start)
             Canvas { canvas, size in
                 for particle in particles {
@@ -47,6 +51,14 @@ struct ConfettiBurst: View {
             seededTrigger = newTrigger
             start = Date()
             particles = Self.seed(count: reduceMotion ? 0 : 90)
+            isActive = particles.isEmpty == false
+        }
+        .task(id: seededTrigger) {
+            guard seededTrigger > 0, isActive else { return }
+            try? await Task.sleep(for: .seconds(Self.duration + Self.maxDelay))
+            guard Task.isCancelled == false else { return }
+            isActive = false
+            particles = []
         }
     }
 

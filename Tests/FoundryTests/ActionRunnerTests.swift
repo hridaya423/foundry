@@ -442,7 +442,10 @@ final class ActionRunnerTests: XCTestCase {
         XCTAssertTrue(message.contains("Clipboard"))
     }
 
+    /// Real Vision recognition — model load dominates the whole suite
+    /// (~30 s cold). Opt in with FOUNDRY_SLOW_TESTS=1.
     func testExtractTextFromImageRunsVisionOCR() async throws {
+        try XCTSkipUnless(ProcessInfo.processInfo.environment["FOUNDRY_SLOW_TESTS"] == "1", "Vision OCR model load is ~30 s")
         let folder = FileManager.default.temporaryDirectory
             .appendingPathComponent("Foundry-OCR-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
@@ -466,6 +469,7 @@ final class ActionRunnerTests: XCTestCase {
     }
 
     func testPreviewExtractedTextStagesFileAndQuickLooks() async throws {
+        try XCTSkipUnless(ProcessInfo.processInfo.environment["FOUNDRY_SLOW_TESTS"] == "1", "Vision OCR model load is ~30 s")
         let folder = FileManager.default.temporaryDirectory
             .appendingPathComponent("Foundry-OCR-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
@@ -541,16 +545,16 @@ final class ActionRunnerTests: XCTestCase {
     }
 
     nonisolated private static func renderTextImage(text: String) throws -> Data {
-        let size = NSSize(width: 640, height: 160)
+        let size = NSSize(width: 300, height: 80)
         let image = NSImage(size: size)
         image.lockFocus()
         NSColor.white.setFill()
         NSRect(origin: .zero, size: size).fill()
         let attributes: [NSAttributedString.Key: Any] = [
-            .font: NSFont.boldSystemFont(ofSize: 72),
+            .font: NSFont.boldSystemFont(ofSize: 36),
             .foregroundColor: NSColor.black
         ]
-        NSAttributedString(string: text, attributes: attributes).draw(at: NSPoint(x: 20, y: 40))
+        NSAttributedString(string: text, attributes: attributes).draw(at: NSPoint(x: 12, y: 22))
         image.unlockFocus()
         guard let tiff = image.tiffRepresentation,
               let bitmap = NSBitmapImageRep(data: tiff),

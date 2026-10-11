@@ -28,7 +28,17 @@ final class CommandPanelState {
     var query = "" {
         didSet { refreshResults() }
     }
-    var results: [CommandResult] = []
+    var results: [CommandResult] = [] {
+        didSet {
+            // Warm the icon cache for the visible head of the list so rows
+            // render the real icon on their first frame, not a placeholder.
+            let head = results.prefix(12)
+            CommandIconRepository.shared.prewarm(
+                paths: head.compactMap(\.icon.filePath),
+                remoteURLs: head.compactMap(\.icon.remoteIconURL)
+            )
+        }
+    }
     var selectedResultID: String?
     private(set) var selectionScrollToken = UUID()
     var isShowingActions = false {
@@ -419,7 +429,7 @@ final class CommandPanelState {
         ensureAgentsSocket()
         let shouldRestore = lastClosedAt.map { now().timeIntervalSince($0) < popToRootAfterSeconds } ?? false
         isSearchLoading = false
-        clipboardHistory.captureIfChanged()
+        clipboardHistory.start()
         widgetBoard.start()
         if isAgentShelfVisible {
             agents.start()
@@ -461,6 +471,7 @@ final class CommandPanelState {
         searchCoordinator.cancel()
         widgetBoard.stop()
         resetTransientFeatures()
+        clipboardHistory.stop()
         clipboardHistory.reset()
         snippets.reset()
         agents.stopPolling()
@@ -547,8 +558,8 @@ final class CommandPanelState {
 
     /// Clipboard image item → Vision OCR → staged text file → Quick Look.
     func extractTextFromClipboardItem(id: String) {
-        guard let item = clipboardHistory.items.first(where: { $0.id == id }),
-              case let .image(data) = item.payload else { return }
+        guard let payload = clipboardHistory.resolvedPayload(for: id),
+              case let .image(data) = payload else { return }
         Task {
             do {
                 if try await actionRunner.extractTextPreview(fromImageData: data) == false {
@@ -563,8 +574,8 @@ final class CommandPanelState {
 
     /// Clipboard image item → barcode/QR decode → staged text → Quick Look.
     func decodeBarcodeFromClipboardItem(id: String) {
-        guard let item = clipboardHistory.items.first(where: { $0.id == id }),
-              case let .image(data) = item.payload else { return }
+        guard let payload = clipboardHistory.resolvedPayload(for: id),
+              case let .image(data) = payload else { return }
         Task {
             do {
                 if try await actionRunner.decodeBarcodePreview(fromImageData: data) == false {

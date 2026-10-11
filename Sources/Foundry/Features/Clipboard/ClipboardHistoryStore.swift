@@ -95,38 +95,55 @@ final class ClipboardHistoryStore: ClipboardHistoryPersisting, @unchecked Sendab
 
     private func write(_ items: [ClipboardHistoryItem]) throws {
         try exec("BEGIN IMMEDIATE")
+        var deletedRows = 0
         do {
+            // Diff against what is already stored — a routine capture touches
+            // one row, not the whole history.
+            let existing = try storedStates()
             let insert = try prepare("""
                 INSERT INTO items (id, created_at, kind, text, files, signature, pinned, source, position) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                ON CONFLICT(id) DO UPDATE SET pinned = excluded.pinned, position = excluded.position
                 """)
             defer { sqlite3_finalize(insert) }
+            let updateRow = try prepare("UPDATE items SET pinned = ?, position = ? WHERE id = ?")
+            defer { sqlite3_finalize(updateRow) }
             for (position, item) in items.enumerated() {
-                var kind = "text", text: String?, files: String?
-                switch item.payload {
-                case let .text(value): text = value
-                case let .files(urls):
-                    kind = "files"
-                    files = String(decoding: try JSONEncoder().encode(urls.map(\.path)), as: UTF8.self)
-                case let .image(data):
-                    kind = "image"
-                    let file = imagesURL.appendingPathComponent(item.signature)
-                    if FileManager.default.fileExists(atPath: file.path) == false {
-                        try data.write(to: file, options: [.atomic])
-                        try? FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: file.path)
+                guard let stored = existing[item.id] else {
+                    var kind = "text", text: String?, files: String?
+                    switch item.payload {
+                    case let .text(value): text = value
+                    case let .files(urls):
+                        kind = "files"
+                        files = String(decoding: try JSONEncoder().encode(urls.map(\.path)), as: UTF8.self)
+                    case let .image(data):
+                        kind = "image"
+                        // Lazily-loaded rows carry no bytes — the file on
+                        // disk is the data. Write it only when it is new.
+                        let file = imagesURL.appendingPathComponent(item.signature)
+                        if data.isEmpty == false, FileManager.default.fileExists(atPath: file.path) == false {
+                            try data.write(to: file, options: [.atomic])
+                            try? FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: file.path)
+                        }
                     }
+                    sqlite3_reset(insert)
+                    bind(insert, 1, item.id)
+                    sqlite3_bind_double(insert, 2, item.createdAt.timeIntervalSinceReferenceDate)
+                    bind(insert, 3, kind)
+                    bind(insert, 4, text)
+                    bind(insert, 5, files)
+                    bind(insert, 6, item.signature)
+                    sqlite3_bind_int(insert, 7, item.isPinned ? 1 : 0)
+                    bind(insert, 8, item.sourceBundleIdentifier)
+                    sqlite3_bind_int(insert, 9, Int32(position))
+                    guard sqlite3_step(insert) == SQLITE_DONE else { throw SQLiteError(message: String(cString: sqlite3_errmsg(db))) }
+                    continue
                 }
-                sqlite3_reset(insert)
-                bind(insert, 1, item.id)
-                sqlite3_bind_double(insert, 2, item.createdAt.timeIntervalSinceReferenceDate)
-                bind(insert, 3, kind)
-                bind(insert, 4, text)
-                bind(insert, 5, files)
-                bind(insert, 6, item.signature)
-                sqlite3_bind_int(insert, 7, item.isPinned ? 1 : 0)
-                bind(insert, 8, item.sourceBundleIdentifier)
-                sqlite3_bind_int(insert, 9, Int32(position))
-                guard sqlite3_step(insert) == SQLITE_DONE else { throw SQLiteError(message: String(cString: sqlite3_errmsg(db))) }
+                if stored.pinned != (item.isPinned ? 1 : 0) || stored.position != position {
+                    sqlite3_reset(updateRow)
+                    sqlite3_bind_int(updateRow, 1, item.isPinned ? 1 : 0)
+                    sqlite3_bind_int(updateRow, 2, Int32(position))
+                    bind(updateRow, 3, item.id)
+                    guard sqlite3_step(updateRow) == SQLITE_DONE else { throw SQLiteError(message: String(cString: sqlite3_errmsg(db))) }
+                }
             }
             try exec("CREATE TEMP TABLE IF NOT EXISTS keep (id TEXT PRIMARY KEY); DELETE FROM keep;")
             let keep = try prepare("INSERT OR IGNORE INTO keep (id) VALUES (?)")
@@ -137,12 +154,36 @@ final class ClipboardHistoryStore: ClipboardHistoryPersisting, @unchecked Sendab
                 guard sqlite3_step(keep) == SQLITE_DONE else { throw SQLiteError(message: String(cString: sqlite3_errmsg(db))) }
             }
             try exec("DELETE FROM items WHERE id NOT IN (SELECT id FROM keep)")
+            deletedRows = Int(sqlite3_changes(db))
             try exec("COMMIT")
         } catch {
             try? exec("ROLLBACK")
             throw error
         }
-        removeOrphanedImages(keeping: Set(items.compactMap { if case .image = $0.payload { $0.signature } else { nil } }))
+        if deletedRows > 0 {
+            removeOrphanedImages(keeping: Set(items.compactMap { if case .image = $0.payload { $0.signature } else { nil } }))
+        }
+    }
+
+    private func storedStates() throws -> [String: (pinned: Int, position: Int)] {
+        let statement = try prepare("SELECT id, pinned, position FROM items")
+        defer { sqlite3_finalize(statement) }
+        var rows: [String: (pinned: Int, position: Int)] = [:]
+        while sqlite3_step(statement) == SQLITE_ROW {
+            if let text = sqlite3_column_text(statement, 0) {
+                rows[String(cString: text)] = (Int(sqlite3_column_int(statement, 1)), Int(sqlite3_column_int(statement, 2)))
+            }
+        }
+        return rows
+    }
+
+    /// Image bytes live on disk, keyed by content signature — hydrate on
+    /// demand instead of holding every screenshot ever copied in memory.
+    func imageData(signature: String) throws -> Data? {
+        try lock.withLock {
+            try openIfNeeded()
+            return try? Data(contentsOf: imagesURL.appendingPathComponent(signature))
+        }
     }
 
     private func removeOrphanedImages(keeping signatures: Set<String>) {
@@ -152,11 +193,16 @@ final class ClipboardHistoryStore: ClipboardHistoryPersisting, @unchecked Sendab
         }
     }
 
+    /// Number of image payloads hydrated eagerly on load — the rest carry
+    /// an empty placeholder and are read from disk on demand.
+    static let eagerImageLimit = 24
+
     private func selectAll() throws -> [ClipboardHistoryItem] {
         let statement = try prepare("SELECT id, created_at, kind, text, files, signature, pinned, source FROM items ORDER BY position")
         defer { sqlite3_finalize(statement) }
         func column(_ index: Int32) -> String? { sqlite3_column_text(statement, index).map { String(cString: $0) } }
         var items: [ClipboardHistoryItem] = []
+        var hydratedImages = 0
         while sqlite3_step(statement) == SQLITE_ROW {
             guard let id = column(0), let kind = column(2), let signature = column(5) else { continue }
             let payload: ClipboardPayload
@@ -166,15 +212,21 @@ final class ClipboardHistoryStore: ClipboardHistoryPersisting, @unchecked Sendab
                 let paths = (try? JSONDecoder().decode([String].self, from: Data((column(4) ?? "[]").utf8))) ?? []
                 payload = .files(paths.map { URL(fileURLWithPath: $0) })
             default:
-                guard let data = try? Data(contentsOf: imagesURL.appendingPathComponent(signature)) else { continue }
-                payload = .image(data)
+                hydratedImages += 1
+                if hydratedImages <= Self.eagerImageLimit,
+                   let data = try? Data(contentsOf: imagesURL.appendingPathComponent(signature)) {
+                    payload = .image(data)
+                } else {
+                    payload = .image(Data())
+                }
             }
             items.append(ClipboardHistoryItem(
                 id: id,
                 payload: payload,
                 createdAt: Date(timeIntervalSinceReferenceDate: sqlite3_column_double(statement, 1)),
                 sourceBundleIdentifier: column(7),
-                isPinned: sqlite3_column_int(statement, 6) != 0
+                isPinned: sqlite3_column_int(statement, 6) != 0,
+                signature: signature
             ))
         }
         return items

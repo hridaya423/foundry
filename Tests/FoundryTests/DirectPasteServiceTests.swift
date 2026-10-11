@@ -146,6 +146,36 @@ final class DirectPasteServiceTests: XCTestCase {
         XCTAssertEqual(events, [.staged, .targetActivated, .pasted, .cursorMoved(count: 2), .pasteboardRestored])
     }
 
+    /// ⌘V is delivered asynchronously — the target reads the pasteboard
+    /// after the event lands. Restoring immediately would race a slow app
+    /// into pasting the old clipboard, so the staged payload must survive
+    /// a short window after the event is sent.
+    func testPasteboardStaysStagedWhileTargetReadsIt() async throws {
+        let pasteboard = NSPasteboard(name: NSPasteboard.Name("DirectPasteServiceTests.hold"))
+        pasteboard.setString("before", forType: .string)
+        let target = FakeTarget(processIdentifier: 42)
+        var events: [DirectPasteEvent] = []
+        let pasteSent = expectation(description: "paste event sent")
+        let service = DirectPasteService(
+            pasteboard: pasteboard,
+            targetProvider: { target },
+            accessibilityTrusted: { true },
+            record: { events.append($0) },
+            sendPaste: { pasteSent.fulfill(); return true }
+        )
+        service.captureTarget()
+        try service.stage(.text("hello"))
+
+        let task = Task { @MainActor in try await service.completePendingPaste(after: .zero, restoreDelay: .milliseconds(600)) }
+        await fulfillment(of: [pasteSent], timeout: 2)
+        XCTAssertEqual(pasteboard.string(forType: .string), "hello")
+        XCTAssertFalse(events.contains(.pasteboardRestored))
+
+        try await task.value
+        XCTAssertEqual(pasteboard.string(forType: .string), "before")
+        XCTAssertEqual(events, [.staged, .targetActivated, .pasted, .pasteboardRestored])
+    }
+
     private final class FakeTarget: NSObject, DirectPasteTarget {
         let processIdentifier: pid_t
         private(set) var activationCount = 0

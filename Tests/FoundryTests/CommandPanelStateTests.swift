@@ -180,23 +180,29 @@ final class CommandPanelStateTests: XCTestCase {
         state.shutdown()
     }
 
-    func testClipboardMonitoringSurvivesPanelCloseAndModeChanges() {
+    /// The clipboard poll only runs while the panel is open — a wake every
+    /// 0.7 s forever was the launcher's biggest idle CPU cost.
+    func testClipboardMonitoringStopsWhenThePanelCloses() {
         let diagnostics = DiagnosticsService()
         let config = ConfigService(diagnostics: diagnostics, url: temporaryURL())
         let pasteboardClient = TestClipboardPasteboard()
         let clipboard = ClipboardHistoryState(pasteboard: pasteboardClient, persistence: nil, configuration: config.current.clipboard)
         let state = makeState(diagnostics: diagnostics, config: config, clipboard: clipboard)
 
-        clipboard.start()
+        XCTAssertFalse(clipboard.isMonitoring)
+        state.resetForOpen()
+        XCTAssertTrue(clipboard.isMonitoring)
         state.mode = .translator
         state.panelWillClose()
 
-        XCTAssertTrue(clipboard.isMonitoring)
+        XCTAssertFalse(clipboard.isMonitoring)
         state.shutdown()
         XCTAssertFalse(clipboard.isMonitoring)
     }
 
-    func testShellCompositionStartsClipboardOnceAndReloadsArchive() {
+    /// Launch does a one-shot capture, not a running poll — the timer arms
+    /// only when the panel opens.
+    func testShellCompositionCapturesClipboardOnceAtLaunchAndReloadsArchive() {
         let diagnostics = DiagnosticsService()
         let archiveURL = temporaryURL()
         let config = ConfigService(diagnostics: diagnostics, url: temporaryURL())
@@ -206,10 +212,13 @@ final class CommandPanelStateTests: XCTestCase {
         let registry = CommandRegistry(providers: [], usageRanking: UsageRankingStore(diagnostics: diagnostics), diagnostics: diagnostics, configService: config)
         let actionRunner = ActionRunner(diagnostics: diagnostics)
         let shell = ShellController(registry: registry, actionRunner: actionRunner, config: config, diagnostics: diagnostics, clipboardHistory: clipboard)
+        pasteboard.snapshotValue = PasteboardSnapshot(types: [.string], payload: .text("captured at launch"), sourceBundleIdentifier: "com.example")
+        pasteboard.changeCountValue += 1
 
         shell.start()
         shell.start()
-        XCTAssertTrue(clipboard.isMonitoring)
+        XCTAssertFalse(clipboard.isMonitoring)
+        XCTAssertEqual(clipboard.items.map(\.payload), [.text("captured at launch")])
         shell.stop()
         XCTAssertFalse(clipboard.isMonitoring)
 

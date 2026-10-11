@@ -119,7 +119,9 @@ final class ShellController {
         guard hasStarted == false else { return }
         hasStarted = true
         diagnostics.log("Foundry shell starting")
-        clipboardHistory.start()
+        // Capture once at launch; the repeating poll is armed by
+        // CommandPanelState while the panel is open and stopped on close.
+        clipboardHistory.captureIfChanged()
         configureSnippetExpansion()
         let workspaceCenter = NSWorkspace.shared.notificationCenter
         workspaceObservers.append(workspaceCenter.addObserver(forName: NSWorkspace.didActivateApplicationNotification, object: nil, queue: .main) { [weak self] notification in
@@ -169,6 +171,7 @@ final class ShellController {
 
     func prepareForTermination() async {
         await panelState.prepareForTermination()
+        config.flush()
         stop()
     }
 

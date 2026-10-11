@@ -119,6 +119,8 @@ extension CommandPanelState {
 
     func exportBackup(to url: URL) {
         do {
+            // Land any debounced write first — the export reads the file.
+            configService.flush()
             let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "dev"
             try FoundryBackup.make(scriptDirectories: ScriptDirectoryStore.shared.directories, appVersion: version).encoded().write(to: url, options: .atomic)
         } catch {
@@ -138,6 +140,9 @@ extension CommandPanelState {
 
     func restoreBackup(_ backup: FoundryBackup) {
         do {
+            // The restore replaces config.json wholesale — a debounced write
+            // of the pre-restore snapshot must not land on top of it.
+            configService.discardPending()
             try backup.restore()
             NSApp.terminate(nil)
         } catch {

@@ -7,12 +7,38 @@ final class CommandIconRepository {
     private let cache = NSCache<NSString, NSImage>()
     private var inFlight: [String: Task<IconBox, Never>] = [:]
     private var inFlightRemote: [String: Task<NSImage?, Never>] = [:]
+    private let session: URLSession
 
     private struct IconBox: @unchecked Sendable { let image: NSImage }
 
     private init() {
         cache.countLimit = 256
         cache.totalCostLimit = 256 * 64 * 64 * 4
+        let configuration = URLSessionConfiguration.default
+        configuration.timeoutIntervalForRequest = 5
+        configuration.urlCache = URLCache(memoryCapacity: 8 * 1024 * 1024, diskCapacity: 32 * 1024 * 1024)
+        session = URLSession(configuration: configuration)
+    }
+
+    /// Already-loaded icon — the row can render it without a placeholder
+    /// flash. Misses return nil; callers then go through the async path.
+    func cachedImage(for path: String) -> NSImage? {
+        cache.object(forKey: path as NSString)
+    }
+
+    func cachedImage(forRemoteURL url: URL) -> NSImage? {
+        cache.object(forKey: url.absoluteString as NSString)
+    }
+
+    /// Fetch icons the panel is about to show so the async path is already
+    /// warm — cheap: cache hits and in-flight dedup do the work.
+    func prewarm(paths: [String], remoteURLs: [URL]) {
+        for path in paths where cache.object(forKey: path as NSString) == nil {
+            Task { _ = await image(for: path) }
+        }
+        for url in remoteURLs where cache.object(forKey: url.absoluteString as NSString) == nil {
+            Task { _ = await image(forRemoteURL: url) }
+        }
     }
 
     func image(for path: String) async -> NSImage {
@@ -42,10 +68,7 @@ final class CommandIconRepository {
         if let task = inFlightRemote[key] {
             return await task.value
         }
-        let task = Task.detached(priority: .utility) { () -> NSImage? in
-            let configuration = URLSessionConfiguration.ephemeral
-            configuration.timeoutIntervalForRequest = 5
-            let session = URLSession(configuration: configuration)
+        let task = Task.detached(priority: .utility) { [session] () -> NSImage? in
             guard let (data, response) = try? await session.data(from: url),
                   let http = response as? HTTPURLResponse, http.statusCode == 200,
                   (http.value(forHTTPHeaderField: "Content-Type") ?? "").hasPrefix("image/") else {

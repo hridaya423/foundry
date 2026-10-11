@@ -144,6 +144,7 @@ final class ConfigServiceTests: XCTestCase {
         try service.updateWidgets(widgets)
         try service.updateAIConfig(ai)
         try service.updateSearchSensitivity(.high)
+        service.flush()
 
         let loaded = ConfigService(diagnostics: DiagnosticsService(), url: url)
         XCTAssertEqual(loaded.current.hotkey, hotkey)
@@ -219,6 +220,7 @@ final class ConfigServiceTests: XCTestCase {
             }
             try await group.waitForAll()
         }
+        service.flush()
 
         let saved = try Data(contentsOf: url)
         let decoded = try JSONDecoder().decode(FoundryConfig.self, from: saved)
@@ -238,6 +240,7 @@ final class ConfigServiceTests: XCTestCase {
         try service.updateCommandPreference(preference, for: " foundry.dashboard ")
         try service.updateProviderEnabled(false, for: "foundry.builtin")
         try service.updateCommandPreference(preference, for: "   ")
+        service.flush()
 
         let loaded = ConfigService(diagnostics: DiagnosticsService(), url: url)
         XCTAssertEqual(loaded.current.commandPreferences["foundry.dashboard"], preference)
@@ -306,14 +309,34 @@ final class ConfigServiceTests: XCTestCase {
         XCTAssertNotEqual(service.current.ai.defaultProfileID, profile.id)
     }
 
-    func testFailedWriteLeavesCurrentConfigUnchanged() throws {
-        let url = temporaryDirectory.appendingPathComponent("blocked", isDirectory: true)
-        try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
-        let service = ConfigService(diagnostics: DiagnosticsService(), url: url)
-        let previous = service.current
+    /// Writes are debounced off the caller's thread, so a failing destination
+    /// can't throw from `update` — the in-memory config still applies and the
+    /// failed persist is logged, not surfaced.
+    func testFailedPersistLeavesCurrentConfigApplied() throws {
+        let folder = temporaryDirectory.appendingPathComponent("readonly", isDirectory: true)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        try FileManager.default.setAttributes([.posixPermissions: 0o500], ofItemAtPath: folder.path)
+        defer { try? FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: folder.path) }
+        let service = ConfigService(diagnostics: DiagnosticsService(), url: folder.appendingPathComponent("config.json"))
 
-        XCTAssertThrowsError(try service.updateThemeIntensity(0.31))
-        XCTAssertEqual(service.current, previous)
+        try service.updateThemeIntensity(0.31)
+        service.flush()
+
+        XCTAssertEqual(service.current.themeIntensity, 0.31)
+        XCTAssertEqual(service.persistedWriteCount, 0)
+    }
+
+    func testRapidUpdatesCoalesceIntoASinglePersist() throws {
+        let url = temporaryDirectory.appendingPathComponent("config.json")
+        let service = ConfigService(diagnostics: DiagnosticsService(), url: url)
+
+        for index in 0..<100 {
+            try service.updateThemeIntensity(Double(index) / 200)
+        }
+        service.flush()
+
+        XCTAssertLessThanOrEqual(service.persistedWriteCount, 2)
+        XCTAssertEqual(try JSONDecoder().decode(FoundryConfig.self, from: Data(contentsOf: url)), service.current)
     }
 
     @MainActor

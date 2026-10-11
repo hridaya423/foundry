@@ -278,6 +278,11 @@ final class ConfigService: @unchecked Sendable {
     private let lock = NSLock()
     private var storedCurrent: FoundryConfig
     private var loadError: String?
+    private let persistDebounce: TimeInterval
+    private let persistQueue = DispatchQueue(label: "foundry.config.persist", qos: .utility)
+    private var pendingPersist: DispatchWorkItem?
+    private var pendingSnapshot: FoundryConfig?
+    private var storedPersistedWriteCount = 0
 
     var current: FoundryConfig {
         lock.withLock { storedCurrent }
@@ -289,9 +294,13 @@ final class ConfigService: @unchecked Sendable {
 
     private(set) var existedAtLaunch = false
 
-    init(diagnostics: DiagnosticsService, url: URL = ConfigService.configURL) {
+    /// Disk writes performed so far — surfaced for tests and diagnostics.
+    var persistedWriteCount: Int { lock.withLock { storedPersistedWriteCount } }
+
+    init(diagnostics: DiagnosticsService, url: URL = ConfigService.configURL, persistDebounce: TimeInterval = 0.3) {
         self.diagnostics = diagnostics
         self.url = url
+        self.persistDebounce = persistDebounce
         if FileManager.default.fileExists(atPath: url.path) {
             existedAtLaunch = true
             do {
@@ -426,6 +435,7 @@ final class ConfigService: @unchecked Sendable {
     func resetToDefaults() throws {
         let defaults = FoundryConfig()
         try write(defaults)
+        flush()
     }
 
     private func update(_ mutate: (inout FoundryConfig) -> Void) throws {
@@ -438,27 +448,64 @@ final class ConfigService: @unchecked Sendable {
 
         var candidate = storedCurrent
         mutate(&candidate)
-        try writeLocked(candidate)
+        storedCurrent = candidate
+        loadError = nil
+        schedulePersistLocked(candidate)
     }
 
     private func write(_ candidate: FoundryConfig) throws {
         lock.lock()
         defer { lock.unlock() }
-        try writeLocked(candidate)
+        storedCurrent = candidate
+        loadError = nil
+        schedulePersistLocked(candidate)
     }
 
-    private func writeLocked(_ candidate: FoundryConfig) throws {
+    /// Mutations apply in memory synchronously; disk I/O is debounced so a
+    /// slider drag or a burst of toggles costs one write, not one per tick.
+    private func schedulePersistLocked(_ candidate: FoundryConfig) {
+        pendingSnapshot = candidate
+        pendingPersist?.cancel()
+        let work = DispatchWorkItem { [weak self] in self?.persistPending() }
+        pendingPersist = work
+        persistQueue.asyncAfter(deadline: .now() + persistDebounce, execute: work)
+    }
 
+    private func persistPending() {
+        let snapshot = lock.withLock { () -> FoundryConfig? in
+            guard let pendingSnapshot else { return nil }
+            return pendingSnapshot
+        }
+        guard let snapshot else { return }
         do {
             try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
-            let data = try JSONEncoder().encode(candidate)
+            let data = try JSONEncoder().encode(snapshot)
             try data.write(to: url, options: .atomic)
-            storedCurrent = candidate
-            loadError = nil
+            lock.withLock {
+                if pendingSnapshot == snapshot { pendingSnapshot = nil }
+                if pendingPersist?.isCancelled == false { pendingPersist = nil }
+                storedPersistedWriteCount += 1
+            }
             diagnostics.log("Saved config to \(url.path)")
         } catch {
             diagnostics.log("Failed to save config: \(error.localizedDescription)")
-            throw error
+        }
+    }
+
+    /// Write any pending snapshot synchronously — termination, tests, and
+    /// anywhere the next reader is a fresh process.
+    func flush() {
+        lock.withLock { pendingPersist?.cancel(); pendingPersist = nil }
+        persistPending()
+    }
+
+    /// Drop a scheduled write without persisting — backup restore replaces
+    /// the file wholesale, so a stale in-memory snapshot must not land after.
+    func discardPending() {
+        lock.withLock {
+            pendingPersist?.cancel()
+            pendingPersist = nil
+            pendingSnapshot = nil
         }
     }
 }

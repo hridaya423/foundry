@@ -35,12 +35,12 @@ enum ClipboardPayload: Codable, Hashable {
 struct ClipboardHistoryItem: Identifiable, Codable, Hashable {
     let id: String
     let createdAt: Date
-    let payload: ClipboardPayload
+    var payload: ClipboardPayload
     let signature: String
     var isPinned: Bool
     let sourceBundleIdentifier: String?
-    init(id: String = UUID().uuidString, payload: ClipboardPayload, createdAt: Date = Date(), sourceBundleIdentifier: String? = nil, isPinned: Bool = false) {
-        self.id = id; self.createdAt = createdAt; self.payload = payload; signature = payload.signature; self.sourceBundleIdentifier = sourceBundleIdentifier; self.isPinned = isPinned
+    init(id: String = UUID().uuidString, payload: ClipboardPayload, createdAt: Date = Date(), sourceBundleIdentifier: String? = nil, isPinned: Bool = false, signature: String? = nil) {
+        self.id = id; self.createdAt = createdAt; self.payload = payload; self.signature = signature ?? payload.signature; self.sourceBundleIdentifier = sourceBundleIdentifier; self.isPinned = isPinned
     }
     var memoryCost: Int { payload.byteCount }
     static func isLink(_ text: String) -> Bool {
@@ -49,7 +49,7 @@ struct ClipboardHistoryItem: Identifiable, Codable, Hashable {
         return (scheme == "http" || scheme == "https") && url.host != nil
     }
     var title: String { switch payload { case .text(let v): return v.components(separatedBy: .newlines).first?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false ? (v.components(separatedBy: .newlines).first ?? v) : "Text"; case .files(let v): return v.count == 1 ? v[0].lastPathComponent : "\(v.count) files"; case .image: return "Image" } }
-    var subtitle: String { switch payload { case .text(let v): return "\(v.count) chars"; case .files(let v): return v.first?.deletingLastPathComponent().path ?? "Files"; case .image(let v): return ByteCountFormatter.string(fromByteCount: Int64(v.count), countStyle: .file) } }
+    var subtitle: String { switch payload { case .text(let v): return "\(v.count) chars"; case .files(let v): return v.first?.deletingLastPathComponent().path ?? "Files"; case .image(let v): return v.isEmpty ? "Image" : ByteCountFormatter.string(fromByteCount: Int64(v.count), countStyle: .file) } }
     var kindLabel: String { switch payload { case .text: "Text"; case .files: "Files"; case .image: "Image" } }
     var systemImage: String { switch payload { case .text(let v): Self.isLink(v) ? "link" : "doc.text"; case .files: "doc.on.doc"; case .image: "photo" } }
     var timeLabel: String { timeLabel(relativeTo: Date()) }
@@ -69,19 +69,30 @@ struct ClipboardHistoryPolicy: Equatable {
     var maxImageBytes: Int = 4 * 1024 * 1024
     var maxAge: TimeInterval = 90 * 86_400
     func bounded(_ input: [ClipboardHistoryItem], relativeTo now: Date = Date()) -> [ClipboardHistoryItem] {
+        var seen = Set<String>()
         var result: [ClipboardHistoryItem] = []
-        for item in input where result.contains(where: { $0.signature == item.signature }) == false { result.append(item) }
+        result.reserveCapacity(min(input.count, maxItems))
+        for item in input where seen.insert(item.signature).inserted { result.append(item) }
         let cutoff = now.addingTimeInterval(-maxAge)
-        result = result.filter { $0.isPinned || $0.createdAt >= cutoff }
-        var unpinnedBudget = max(maxItems - result.filter(\.isPinned).count, 0)
+        result.removeAll { $0.isPinned == false && $0.createdAt < cutoff }
+        var unpinnedBudget = max(maxItems - result.reduce(into: 0) { $0 += $1.isPinned ? 1 : 0 }, 0)
         result = result.filter { item in
             if item.isPinned { return true }
             guard unpinnedBudget > 0 else { return false }
             unpinnedBudget -= 1
             return true
         }
-        while result.reduce(0, { $0 + $1.memoryCost }) > maxBytes, !result.isEmpty {
-            if let index = result.lastIndex(where: { !$0.isPinned }) { result.remove(at: index) } else { result.removeLast() }
+        var total = result.reduce(0) { $0 + $1.memoryCost }
+        // Drop oldest unpinned, then oldest pinned, until under budget.
+        for phase in 0..<2 where total > maxBytes {
+            var index = result.count - 1
+            while index >= 0, total > maxBytes {
+                if phase == 1 || result[index].isPinned == false {
+                    total -= result[index].memoryCost
+                    result.remove(at: index)
+                }
+                index -= 1
+            }
         }
         return result
     }

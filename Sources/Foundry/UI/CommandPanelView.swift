@@ -1070,7 +1070,6 @@ private struct ActionRow: View {
                         .foregroundStyle(FoundryTheme.secondaryText)
                 )
                 .frame(width: 28, height: 28)
-                .scaleEffect(isSelected ? 1.04 : 1)
 
             Text(action.title)
                 .font(FoundryTheme.rowTitleFont)

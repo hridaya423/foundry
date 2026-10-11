@@ -100,7 +100,7 @@ struct ClipboardHistoryView: View {
                         }
                     }
                 } preview: {
-                    if let item = state.visibleItems.first(where: { $0.id == state.selectedID }) ?? state.visibleItems.first {
+                    if let item = state.selectedItem {
                         ClipboardPreviewPane(
                             item: item,
                             copy: { state.copy(item) },

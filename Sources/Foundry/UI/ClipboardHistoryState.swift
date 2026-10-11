@@ -69,6 +69,7 @@ final class ClipboardHistoryState {
     private(set) var policy: ClipboardHistoryPolicy
     private(set) var excludedBundleIdentifiers: [String] = []
     private let pasteboard: PasteboardClient
+    private let persistence: (any ClipboardHistoryPersisting)?
     private let persistenceWriter: ClipboardHistoryPersistenceWriter?
     private var timer: Timer?
     private var lastChangeCount: Int
@@ -78,7 +79,7 @@ final class ClipboardHistoryState {
     var isMonitoring: Bool { timer != nil }
 
     init(pasteboard: PasteboardClient = SystemPasteboardClient(), persistence: (any ClipboardHistoryPersisting)? = ClipboardHistoryStore(), configuration: ClipboardConfig = .default) {
-        self.pasteboard = pasteboard; persistenceWriter = persistence.map(ClipboardHistoryPersistenceWriter.init); lastChangeCount = pasteboard.changeCount
+        self.pasteboard = pasteboard; self.persistence = persistence; persistenceWriter = persistence.map(ClipboardHistoryPersistenceWriter.init); lastChangeCount = pasteboard.changeCount
         self.policy = Self.policy(for: configuration)
         self.isPaused = configuration.isPaused
         self.excludedBundleIdentifiers = configuration.excludedBundleIdentifiers
@@ -98,8 +99,34 @@ final class ClipboardHistoryState {
         visibleItemsCache = visibleItems
         return visibleItems
     }
-    var selectedItem: ClipboardHistoryItem? { visibleItems.first { $0.id == selectedID } ?? visibleItems.first }
+    var selectedItem: ClipboardHistoryItem? {
+        guard let item = visibleItems.first(where: { $0.id == selectedID }) ?? visibleItems.first else { return nil }
+        return hydrated(item)
+    }
+
+    /// Loads image bytes for lazily-loaded rows on demand, writing them back
+    /// into `items` so later reads are free.
+    @discardableResult
+    private func hydrated(_ item: ClipboardHistoryItem) -> ClipboardHistoryItem {
+        guard case let .image(data) = item.payload, data.isEmpty,
+              let loaded = try? persistence?.imageData(signature: item.signature), loaded.isEmpty == false else { return item }
+        if let index = items.firstIndex(where: { $0.id == item.id }) {
+            items[index].payload = .image(loaded)
+            return items[index]
+        }
+        return item
+    }
+
+    /// Item payload by id, hydrating lazily-loaded images. Action paths
+    /// (paste, OCR, barcode) must go through this rather than `items`.
+    func resolvedPayload(for id: String) -> ClipboardPayload? {
+        items.first(where: { $0.id == id }).map(hydrated)?.payload
+    }
     nonisolated static func pollInterval(secondsSinceInput: TimeInterval) -> TimeInterval { secondsSinceInput < 60 ? 0.7 : 5 }
+    /// Polling runs only while the panel is open — copies made while it's
+    /// closed are caught by the `captureIfChanged()` on open, and the
+    /// pasteboard only ever holds the latest item anyway. That removes the
+    /// launcher's biggest idle CPU cost: a runloop wake every 0.7 s forever.
     func start() {
         guard timer == nil else { return }
         captureIfChanged()
@@ -116,7 +143,7 @@ final class ClipboardHistoryState {
     func select(id: String) { selectedID = id }
     func moveSelection(offset: Int) { guard !visibleItems.isEmpty else { return }; let i = selectedID.flatMap { id in visibleItems.firstIndex { $0.id == id } } ?? 0; selectedID = visibleItems[min(max(i + offset, 0), visibleItems.count - 1)].id }
     func copySelected() { if let item = selectedItem { copy(item) } }
-    func copy(_ item: ClipboardHistoryItem) { pasteboard.write(item.payload); lastChangeCount = pasteboard.changeCount }
+    func copy(_ item: ClipboardHistoryItem) { pasteboard.write(hydrated(item).payload); lastChangeCount = pasteboard.changeCount }
 
     /// Copies the selected text merged with the entry copied after it (the
     /// row above it in history). Returns false when either side isn't text.

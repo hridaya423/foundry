@@ -106,7 +106,7 @@ final class DirectPasteService {
         record(.staged)
     }
 
-    func completePendingPaste(after delay: Duration = .milliseconds(80)) async throws {
+    func completePendingPaste(after delay: Duration = .milliseconds(80), restoreDelay: Duration = .milliseconds(750)) async throws {
         defer {
             restorePasteboardIfUnchanged()
             self.pending = nil
@@ -133,6 +133,12 @@ final class DirectPasteService {
             }
             record(.cursorMoved(count: pending.cursorOffset))
         }
+        // The target reads the pasteboard asynchronously once ⌘V lands —
+        // restoring here would race it, and a slow app would paste the old
+        // clipboard. Hold the staged contents briefly; the guard in
+        // restorePasteboardIfUnchanged still skips if the user copied
+        // something else meanwhile.
+        try? await Task.sleep(for: restoreDelay)
     }
 
     private func restorePasteboardIfUnchanged() {

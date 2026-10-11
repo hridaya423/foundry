@@ -45,6 +45,32 @@ final class ClipboardHistoryStoreTests: XCTestCase {
         XCTAssertEqual(try FileManager.default.contentsOfDirectory(atPath: store.imagesURL.path), [])
     }
 
+    /// Image payloads past the eager cap load with empty bytes but keep the
+    /// real content signature — `imageData` hydrates them from disk.
+    func testImagesBeyondEagerLimitHydrateFromDisk() throws {
+        let store = store()
+        let images = (0..<30).map { ClipboardHistoryItem(payload: .image(Data(repeating: UInt8($0), count: 64))) }
+        try store.save(images)
+
+        let loaded = try store.load()
+        XCTAssertEqual(loaded.count, 30)
+        for (index, item) in loaded.enumerated() {
+            guard case let .image(data) = item.payload else { return XCTFail("expected image at \(index)") }
+            if index < ClipboardHistoryStore.eagerImageLimit {
+                XCTAssertEqual(data, Data(repeating: UInt8(index), count: 64))
+            } else {
+                XCTAssertTrue(data.isEmpty, "image \(index) should be lazily-loaded")
+                XCTAssertEqual(try store.imageData(signature: item.signature), Data(repeating: UInt8(index), count: 64))
+            }
+        }
+        // A lazy row re-saved keeps its signature so hydration still works.
+        try store.save(loaded)
+        XCTAssertEqual(try store.load().count, 30)
+        for (index, item) in try store.load().enumerated() {
+            XCTAssertEqual(try store.imageData(signature: item.signature), Data(repeating: UInt8(index), count: 64))
+        }
+    }
+
     func testLegacyArchiveMigratesOnceAndIsKeptAsMigrated() throws {
         let legacy = root.appendingPathComponent("clipboard-history.json")
         let items = [ClipboardHistoryItem(payload: .text("from 1.0")), ClipboardHistoryItem(payload: .image(image))]

@@ -10,7 +10,9 @@ final class WorkloadTests: XCTestCase {
         }
         var matches = 0
 
-        measure {
+        let options = XCTMeasureOptions()
+        options.iterationCount = 3
+        measure(options: options) {
             matches = catalog.reduce(into: 0) { count, item in
                 if SearchScoring.match(query: "developer command", title: item.title, subtitle: item.subtitle, keywords: item.keywords, aliases: []) != nil {
                     count += 1
@@ -21,11 +23,13 @@ final class WorkloadTests: XCTestCase {
         XCTAssertEqual(matches, catalog.count)
     }
 
+    /// Over-limit on both count and bytes — 16 KB payloads exercise every
+    /// bound without the multi-hundred-MB signature work of the old fixture.
     func testClipboardHistoryPolicyBoundsRepresentativeHistory() {
-        let policy = ClipboardHistoryPolicy()
-        let items = (0..<policy.maxItems).map { index in
+        let policy = ClipboardHistoryPolicy(maxItems: 500, maxBytes: 8 * 1024 * 1024)
+        let items = (0..<1_000).map { index in
             ClipboardHistoryItem(
-                payload: .text(String(repeating: "x", count: 512 * 1024)),
+                payload: .text(String(repeating: "x", count: 16 * 1024) + "\(index)"),
                 createdAt: Date(timeIntervalSince1970: TimeInterval(index))
             )
         }

@@ -75,7 +75,6 @@ struct HomeResultRow: View {
     var body: some View {
         HStack(spacing: 12) {
             AppIcon(icon: result.icon, size: 26, cornerRadius: 6)
-                .scaleEffect(isSelected ? 1.04 : 1)
 
             Text(result.title)
                 .font(FoundryTheme.rowTitleFont)
@@ -289,7 +288,6 @@ struct ResultRow: View {
     private var row: some View {
         HStack(spacing: 12) {
             AppIcon(icon: result.icon, size: 28, cornerRadius: 7)
-                .scaleEffect(isSelected ? 1.04 : 1)
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(result.title)
@@ -403,6 +401,14 @@ struct FileIcon<Placeholder: View>: View {
 
     @State private var image: NSImage?
 
+    init(path: String, @ViewBuilder placeholder: @escaping () -> Placeholder) {
+        self.path = path
+        self.placeholder = placeholder
+        // A warm cache renders the icon on the first frame — no flash of
+        // placeholder that pops when the async fetch lands.
+        _image = State(initialValue: CommandIconRepository.shared.cachedImage(for: path))
+    }
+
     var body: some View {
         Group {
             if let image {
@@ -424,6 +430,12 @@ struct RemoteIcon<Placeholder: View>: View {
     @ViewBuilder var placeholder: () -> Placeholder
 
     @State private var image: NSImage?
+
+    init(url: URL, @ViewBuilder placeholder: @escaping () -> Placeholder) {
+        self.url = url
+        self.placeholder = placeholder
+        _image = State(initialValue: CommandIconRepository.shared.cachedImage(forRemoteURL: url))
+    }
 
     var body: some View {
         Group {
