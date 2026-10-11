@@ -63,8 +63,8 @@ enum SpotlightShortcut {
 @MainActor
 @Observable
 final class OnboardingState {
-    static let completedVersionKey = "foundry.onboarding.completedVersion"
-    static let stepKey = "foundry.onboarding.step"
+    nonisolated static let completedVersionKey = "foundry.onboarding.completedVersion"
+    nonisolated static let stepKey = "foundry.onboarding.step"
 
     private(set) var step: OnboardingStep
     private(set) var didTryPanel = false
@@ -76,16 +76,16 @@ final class OnboardingState {
     var onFinish: (() -> Void)?
     /// Fired on every step transition and finish — activation funnel telemetry.
     var onStepChanged: ((OnboardingStep) -> Void)?
-    private let defaults: UserDefaults
+    private let localState: LocalStateStore
     private let version: String
     private var spotlightPoll: Timer?
 
-    init(panel: CommandPanelState, permissions: PermissionHealthState, defaults: UserDefaults = .standard, version: String = OnboardingState.currentVersion) {
+    init(panel: CommandPanelState, permissions: PermissionHealthState, localState: LocalStateStore = .shared, version: String = OnboardingState.currentVersion) {
         self.panel = panel
         self.permissions = permissions
-        self.defaults = defaults
+        self.localState = localState
         self.version = version
-        self.step = OnboardingStep(rawValue: defaults.integer(forKey: Self.stepKey)) ?? .welcome
+        self.step = localState.get(\.onboardingStep).flatMap(OnboardingStep.init(rawValue:)) ?? .welcome
         panel.onResultExecuted = { [weak self] in self?.panelDidRunCommand() }
     }
 
@@ -93,8 +93,8 @@ final class OnboardingState {
         Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "dev"
     }
 
-    static func shouldShowAutomatically(defaults: UserDefaults = .standard, configExistedAtLaunch: Bool) -> Bool {
-        defaults.string(forKey: completedVersionKey) == nil && configExistedAtLaunch == false
+    static func shouldShowAutomatically(localState: LocalStateStore = .shared, configExistedAtLaunch: Bool) -> Bool {
+        localState.get(\.onboardingCompletedVersion) == nil && configExistedAtLaunch == false
     }
 
     var canGoBack: Bool { step != .welcome }
@@ -113,14 +113,16 @@ final class OnboardingState {
         tryAdvanceTask?.cancel()
         tryAdvanceTask = nil
         step = next
-        defaults.set(next.rawValue, forKey: Self.stepKey)
+        localState.set(\.onboardingStep, next.rawValue)
         onStepChanged?(next)
     }
 
     func finish() {
         stopWaitingForSpotlight()
-        defaults.set(version, forKey: Self.completedVersionKey)
-        defaults.removeObject(forKey: Self.stepKey)
+        localState.update { state in
+            state.onboardingCompletedVersion = version
+            state.onboardingStep = nil
+        }
         onStepChanged?(.done)
         onFinish?()
     }

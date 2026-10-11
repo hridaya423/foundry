@@ -49,14 +49,24 @@ Quality bar: Raycast. Plan: `docs/plans/2026-10-11-foundry-raycast-bar-audit.md`
 ### Bug found via test-env fragility (this commit)
 - `PanelController.hide()` ordered the panel out only inside an `NSAnimationContext` completion — in a headless/occluded context the completion never fires and the panel leaks onscreen. Added a 120 ms deadline failsafe (generation-guarded so a show() still wins); PanelShellTests that hung 3 s now pass in 0.3 s
 
+### Phase 4.6 — one persistence model ✅ (this commit)
+- `FoundryLocalState` on `FoundryConfig` (additive field, decodes empty from legacy files, no schema bump) absorbs all 20 `UserDefaults` app-state keys: browser, currency quote, login consent, color recents, media folder, snippet export dir, conversion celebration, Firefox prompt, download notice, onboarding step/version, emoji recents/columns/tone, script dirs + trust, calculator history
+- `UserDefaultsMigration` — one-shot import in `ConfigService.init`; keys removed as they land. `UserDefaults.standard` appears **once** in `Sources/` (the `legacyDefaults` param)
+- `LocalStateStore` facade — `shared` bound to the app's `ConfigService` at launch (`AppDelegate`); unbound stores keep an in-memory snapshot for tests. All consumers migrated: `ScriptDirectoryStore`, `CalculatorHistoryStore`, `EmojiPickerState`, `OnboardingState`, `SnippetState`, `FileConversionState`, `ActionRunner`, `BrowserProvider`, `CalculatorProvider`, `CalculatorViews`, `MediaDownloadDestination`, `DownloadNotice`, `FirefoxConnectorInstaller`, `AppDelegate`, `CommandPanelState`
+- `ConfigService.updateLocalState` + `reload()` (post-restore re-read that also clears a stale read-only state)
+- Backup restore applies **live** — no more `NSApp.terminate`: reload → re-apply script dirs → `apply(config:)` re-mirrors panel fields → clipboard/snippet/usage/AI-state refresh + hotkey re-registration + preference callbacks. `UsageRankingStore.reload()` + `CommandRegistry.reloadUsage()` + `AISettingsState.reloadFromConfig()` added for that
+- Kept deliberately outside the model: `com.apple.symbolichotkeys` suite (macOS system domain), `SourceRootLocator` (DEBUG non-packaged suite)
+- New tests: migration import/removal/no-rerun, config-init import, bound vs standalone store, legacy-JSON decode, backup round-trip carries localState inside config.json
+
 ### Verification evidence
 - `swift build`: clean
-- `swift test`: 625 tests, 0 failures, 5 skipped (~20 s; FOUNDRY_SLOW_TESTS-gated Vision cases skipped; CoreData/contactsd noise is environmental)
-- Focused: 212 tests across reformatted areas pass; 3 PanelShellTests green incl. headless-compositing failsafe
-- `scripts/lint-lines.sh --max 240`: PASS
+- `swift test`: 631 tests, 0 failures, 5 skipped (~20 s; FOUNDRY_SLOW_TESTS-gated Vision cases skipped; CoreData/contactsd noise is environmental)
+- Focused: 143 tests across persistence/config/backup/onboarding/scripts pass
+- `scripts/lint-lines.sh`: PASS
+- `UserDefaults.standard` in `Sources/`: 1 site (ConfigService migration param)
 
 ## Remaining
-- Phase 4: typed `ResultPayload` (79 prefix-check sites), `ResultAction` + ActionRunner generic executor, CommandPanelState split (~70 props), one persistence model (UserDefaults→FoundryConfig), @unchecked Sendable audit (59→≤10), `try?` audit (~200→<60), lint ratchet 240→160
+- Phase 4: typed `ResultPayload` (79 prefix-check sites), `ResultAction` + ActionRunner generic executor, CommandPanelState split (~70 props), @unchecked Sendable audit (59→≤10), `try?` audit (~200→<60), lint ratchet 240→160
 - Phase 5: UI/UX — design tokens, row anatomy, alerts→in-panel forms, Settings window, Quick Look, materials/motion, copy, localization groundwork, accessibility
 - Phase 6: platform — window tiling settle, Codex OAuth opt-in, CI snapshots
 - Final: benchmark evidence, HANDOFF + report update, goalctl done

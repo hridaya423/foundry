@@ -73,7 +73,7 @@ extension CommandPanelState {
             } else {
                 try SMAppService.mainApp.unregister()
             }
-            UserDefaults.standard.set(enabled, forKey: "foundry.launchAtLoginConsent")
+            try configService.updateLocalState { $0.launchAtLoginConsent = enabled }
             launchAtLoginError = nil
         } catch {
             launchAtLoginError = "Could not update launch at login: \(error.localizedDescription)"
@@ -82,9 +82,9 @@ extension CommandPanelState {
     }
 
     func setMainBrowser(_ browser: BrowserSource) {
-        mainBrowser = browser
-        UserDefaults.standard.set(browser.rawValue, forKey: "foundry.mainBrowser")
-        if browser == .firefox {
+        if applySetting(\.mainBrowser, browser, save: { browser in
+            try configService.updateLocalState { $0.mainBrowser = browser?.rawValue }
+        }), browser == .firefox {
             FirefoxConnectorInstaller(diagnostics: diagnostics).requestFirefoxConnector()
         }
     }
@@ -144,10 +144,37 @@ extension CommandPanelState {
             // of the pre-restore snapshot must not land on top of it.
             configService.discardPending()
             try backup.restore()
-            NSApp.terminate(nil)
+            try configService.reload()
+            // restore() wrote script dirs into the pre-reload snapshot;
+            // re-apply them onto the restored config.
+            ScriptDirectoryStore.shared.directories = backup.scriptDirectories
+            applyRestoredConfiguration()
+            showActionFeedback(.success("Backup imported"))
         } catch {
             settingsPersistenceError = "Could not import the backup. Your previous files are kept as .pre-import copies."
             diagnostics.log("Backup import failed: \(error.localizedDescription)")
+        }
+    }
+
+    /// Re-mirrors every config-driven surface after a restore — no restart.
+    private func applyRestoredConfiguration() {
+        let config = configService.current
+        apply(config: config)
+        clipboardHistory.updateConfiguration(config.clipboard)
+        snippets.load()
+        registry.reloadUsage()
+        aiSettings.reloadFromConfig()
+        rebuildCommandRows()
+        refreshFavorites()
+        refreshResults()
+        onCommandPreferencesChanged?()
+        onSnippetExpansionChanged?()
+        onMenuBarIconVisibilityChanged?(config.showMenuBarIcon)
+        do {
+            try onHotkeyChanged?(config.hotkey)
+        } catch {
+            diagnostics.log("Failed to register restored hotkey: \(error.localizedDescription)")
+            setLauncherHotkeyFailed(true)
         }
     }
 

@@ -22,6 +22,7 @@ final class ActionRunner {
     private let pasteboard: NSPasteboard
     let directPasteService: DirectPasteService
     private let scriptDirectories: ScriptDirectoryStore
+    private let localState: LocalStateStore
     private let confirmScriptDirectory: @MainActor (String) -> Bool
     private let offerQRSave: @MainActor (NSImage, String) -> Void
     private let scriptTimeout: TimeInterval
@@ -45,12 +46,14 @@ final class ActionRunner {
         pasteboard: NSPasteboard = .general,
         snippetContext: @escaping () -> SnippetRenderContext = { .current() },
         scriptDirectories: ScriptDirectoryStore = .shared,
+        localState: LocalStateStore = .shared,
         confirmScriptDirectory: @escaping @MainActor (String) -> Bool = ActionRunner.promptToTrustScriptDirectory,
         offerQRSave: @escaping @MainActor (NSImage, String) -> Void = ActionRunner.presentQRSaveOffer,
         scriptTimeout: TimeInterval = 30,
         scriptOutputLimit: Int = 256 * 1024
     ) {
         self.scriptDirectories = scriptDirectories
+        self.localState = localState
         self.confirmScriptDirectory = confirmScriptDirectory
         self.offerQRSave = offerQRSave
         self.scriptTimeout = scriptTimeout
@@ -860,9 +863,9 @@ final class ActionRunner {
         }
         guard let color else { return .cancelled }
         let hex = Self.hexString(for: color)
-        Self.recordRecentColor(hex)
+        recordRecentColor(hex)
         let formats = Self.colorFormats(for: color)
-        let recents = Self.recentColors()
+        let recents = recentColors()
         if let chosen = chooseColorFormat(hex: hex, color: color, formats: formats, recents: recents) {
             pasteboard.clearContents()
             pasteboard.setString(chosen, forType: .string)
@@ -924,14 +927,16 @@ final class ActionRunner {
 
     private static var colorTargetKey: UInt8 = 0
 
-    private static func recentColors() -> [String] {
-        (UserDefaults.standard.array(forKey: "colorPicker.recents") as? [String]) ?? []
+    private func recentColors() -> [String] {
+        localState.get(\.colorPickerRecents)
     }
 
-    private static func recordRecentColor(_ hex: String) {
-        var recents = recentColors().filter { $0 != hex }
-        recents.insert(hex, at: 0)
-        UserDefaults.standard.set(Array(recents.prefix(12)), forKey: "colorPicker.recents")
+    private func recordRecentColor(_ hex: String) {
+        localState.update { state in
+            var recents = state.colorPickerRecents.filter { $0 != hex }
+            recents.insert(hex, at: 0)
+            state.colorPickerRecents = Array(recents.prefix(12))
+        }
     }
 
     nonisolated static func colorFormats(for color: NSColor) -> [(label: String, value: String)] {

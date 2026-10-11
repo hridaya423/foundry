@@ -21,9 +21,7 @@ final class CalculatorProviderTests: XCTestCase {
     }
 
     func testHistoryStoreDeduplicatesAndCapsAtTen() {
-        let suite = UserDefaults(suiteName: "foundry.tests.calculator-history")!
-        suite.removePersistentDomain(forName: "foundry.tests.calculator-history")
-        let store = CalculatorHistoryStore(defaults: suite)
+        let store = CalculatorHistoryStore(localState: LocalStateStore())
 
         for i in 1...12 { store.record(expression: "\(i)+0", result: "\(i)") }
         store.record(expression: "10+0", result: "10")
@@ -32,6 +30,5 @@ final class CalculatorProviderTests: XCTestCase {
         XCTAssertEqual(entries.count, 10)
         XCTAssertEqual(entries.first, .init(expression: "10+0", result: "10"))
         XCTAssertEqual(entries.map(\.result), ["10", "12", "11", "9", "8", "7", "6", "5", "4", "3"])
-        suite.removePersistentDomain(forName: "foundry.tests.calculator-history")
     }
 }

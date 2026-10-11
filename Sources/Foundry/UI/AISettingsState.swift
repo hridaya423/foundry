@@ -59,6 +59,22 @@ final class AISettingsState {
         self.settingsPersistenceError = nil
     }
 
+    /// Re-mirrors the config onto stored fields — called after a backup
+    /// restore replaces config.json underneath the running app.
+    func reloadFromConfig() {
+        let ai = configService.current.ai
+        isOllamaEnabled = ai.isOllamaEnabled
+        ollamaHost = ai.ollamaHost
+        ollamaModel = ai.ollamaModel
+        ollamaHostError = nil
+        ollamaModelError = nil
+        aiProfiles = ai.profiles
+        defaultAIProfileID = ai.defaultProfileID
+        fallbackAIProfileIDs = ai.fallbackProfileIDs
+        selectedAIProfileID = ai.defaultProfileID ?? ai.profiles.first?.id
+        acceptedCodexPrivateBackendWarning = ai.acceptedCodexPrivateBackendWarning
+    }
+
     var selectedAIProfile: AIProviderProfile? {
         guard let selectedAIProfileID else { return nil }
         return aiProfiles.first { $0.id == selectedAIProfileID }

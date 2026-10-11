@@ -190,6 +190,11 @@ final class CommandRegistry: @unchecked Sendable {
         usageRanking.hasUsage(for: resultID)
     }
 
+    /// Re-reads the usage file after a backup restore swapped it on disk.
+    func reloadUsage() {
+        usageRanking.reload()
+    }
+
     func commandCatalog(forceRefresh: Bool = false) async -> CommandCatalogSnapshot {
         await catalogCache.snapshot(forceRefresh: forceRefresh, providers: providers)
     }

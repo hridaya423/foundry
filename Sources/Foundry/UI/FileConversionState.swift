@@ -38,6 +38,7 @@ final class FileConversionState {
     private let provision: @Sendable (SetupPlan, String) async throws -> Void
     private let convertOperation: @Sendable (URL, FileConversionTarget, URL, ConversionOptions) async -> Result<URL, Error>
     private let operations: OperationCoordinator
+    private let localState: LocalStateStore
     private var operationID: UUID?
     private var conversionGeneration = UUID()
     private var lastRequest: (sources: [URL], target: FileConversionTarget, folder: URL)?
@@ -60,9 +61,11 @@ final class FileConversionState {
         convert: @escaping @Sendable (URL, FileConversionTarget, URL, ConversionOptions) async -> Result<URL, Error> = { source, target, folder, options in
             await FileConversionService.convert(sourceURL: source, target: target, outputFolderURL: folder, options: options)
         },
-        operations: OperationCoordinator = OperationCoordinator()
+        operations: OperationCoordinator = OperationCoordinator(),
+        localState: LocalStateStore = .shared
     ) {
         self.assess = assess; self.provision = provision; self.convertOperation = convert; self.operations = operations
+        self.localState = localState
     }
 
     var selectedTarget: FileConversionTarget? {
@@ -470,8 +473,8 @@ final class FileConversionState {
             self.status = outputs.count == 1
                 ? "Created \(outputs[0].lastPathComponent)"
                 : "Created \(outputs.count) files"
-            if UserDefaults.standard.bool(forKey: "conversion.firstSuccessCelebrated") == false {
-                UserDefaults.standard.set(true, forKey: "conversion.firstSuccessCelebrated")
+            if localState.get(\.conversionFirstSuccessCelebrated) == false {
+                localState.set(\.conversionFirstSuccessCelebrated, true)
                 onFirstSuccess?()
             } else {
                 onConversionCompleted?()

@@ -7,13 +7,13 @@ import FoundryServices
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private var shellController: ShellController?
     private var terminationPending = false
-    private let launchAtLoginConsentKey = "foundry.launchAtLoginConsent"
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.mainMenu = MainMenu.make()
         let diagnostics = DiagnosticsService()
         let launchSpan = diagnostics.startSpan("app.launch.ready")
         let config = ConfigService(diagnostics: diagnostics)
+        LocalStateStore.shared.bind(to: config)
         let snippetStore = FileSnippetStore()
         let usageRanking = UsageRankingStore(diagnostics: diagnostics)
         let mediaDownloadManager = MediaDownloadManager()
@@ -58,7 +58,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         Task { @MainActor [weak self] in
             await Task.yield()
             guard let self else { return }
-            self.configureLoginItem(diagnostics: diagnostics)
+            self.configureLoginItem(config: config, diagnostics: diagnostics)
         }
     }
 
@@ -116,14 +116,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         return alert.runModal() == .alertFirstButtonReturn
     }
 
-    private func configureLoginItem(diagnostics: DiagnosticsService) {
+    private func configureLoginItem(config: ConfigService, diagnostics: DiagnosticsService) {
         guard Bundle.main.bundleURL.pathExtension == "app",
               Bundle.main.bundleIdentifier == "com.hridya.foundry" else {
             diagnostics.log("Skipping login-item setup outside a packaged app")
             return
         }
         let loginItem = SMAppService.mainApp
-        guard UserDefaults.standard.bool(forKey: launchAtLoginConsentKey),
+        guard config.current.localState.launchAtLoginConsent,
               loginItem.status != .enabled else { return }
         do {
             try loginItem.register()

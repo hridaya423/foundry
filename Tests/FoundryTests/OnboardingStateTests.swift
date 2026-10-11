@@ -4,21 +4,21 @@ import FoundryServices
 
 @MainActor
 final class OnboardingStateTests: XCTestCase {
-    private let defaults = UserDefaults(suiteName: "foundry-onboarding-\(UUID().uuidString)")!
+    private let localState = LocalStateStore()
 
     private func makeState() -> OnboardingState {
         let diagnostics = DiagnosticsService()
         let config = ConfigService(diagnostics: diagnostics, url: FileManager.default.temporaryDirectory.appendingPathComponent("foundry-onboarding-\(UUID().uuidString).json"))
         let registry = CommandRegistry(providers: [], usageRanking: UsageRankingStore(diagnostics: diagnostics), diagnostics: diagnostics, configService: config)
         let panel = CommandPanelState(registry: registry, actionRunner: ActionRunner(diagnostics: diagnostics), diagnostics: diagnostics, config: config)
-        return OnboardingState(panel: panel, permissions: PermissionHealthState(accessibilityTrusted: { false }), defaults: defaults, version: "1.1.0")
+        return OnboardingState(panel: panel, permissions: PermissionHealthState(accessibilityTrusted: { false }), localState: localState, version: "1.1.0")
     }
 
     func testShowsAutomaticallyOnlyForFreshInstallsThatHaveNotCompleted() {
-        XCTAssertTrue(OnboardingState.shouldShowAutomatically(defaults: defaults, configExistedAtLaunch: false))
-        XCTAssertFalse(OnboardingState.shouldShowAutomatically(defaults: defaults, configExistedAtLaunch: true))
-        defaults.set("1.0.0", forKey: OnboardingState.completedVersionKey)
-        XCTAssertFalse(OnboardingState.shouldShowAutomatically(defaults: defaults, configExistedAtLaunch: false))
+        XCTAssertTrue(OnboardingState.shouldShowAutomatically(localState: localState, configExistedAtLaunch: false))
+        XCTAssertFalse(OnboardingState.shouldShowAutomatically(localState: localState, configExistedAtLaunch: true))
+        localState.set(\.onboardingCompletedVersion, "1.0.0")
+        XCTAssertFalse(OnboardingState.shouldShowAutomatically(localState: localState, configExistedAtLaunch: false))
     }
 
     func testStepPersistsAndResumes() {
@@ -39,8 +39,8 @@ final class OnboardingStateTests: XCTestCase {
         state.go(to: .permissions)
         state.finish()
         XCTAssertEqual(finished, 1)
-        XCTAssertEqual(defaults.string(forKey: OnboardingState.completedVersionKey), "1.1.0")
-        XCTAssertNil(defaults.object(forKey: OnboardingState.stepKey))
+        XCTAssertEqual(localState.snapshot.onboardingCompletedVersion, "1.1.0")
+        XCTAssertNil(localState.snapshot.onboardingStep)
         XCTAssertEqual(makeState().step, .welcome)
     }
 

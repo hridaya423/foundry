@@ -16,8 +16,7 @@ final class FoundryBackupTests: XCTestCase {
     }
 
     private func scriptStore() -> ScriptDirectoryStore {
-        let suite = "foundry.backup.tests.\(UUID())"
-        return ScriptDirectoryStore(defaults: UserDefaults(suiteName: suite)!)
+        ScriptDirectoryStore(localState: LocalStateStore())
     }
 
     private func seed(_ locations: FoundryBackup.Locations) throws {
@@ -42,6 +41,29 @@ final class FoundryBackupTests: XCTestCase {
         }
         XCTAssertEqual(scripts.directories, ["/tmp/scripts"])
         XCTAssertFalse(scripts.isTrusted("/tmp/scripts"))
+    }
+
+    /// Browser, media folder, consent, and recents now live on config.json —
+    /// the backup carries them for free.
+    func testRoundTripCarriesLocalStateInsideConfig() throws {
+        let source = locations(), destination = locations()
+        var config = FoundryConfig()
+        config.localState.mainBrowser = "firefox"
+        config.localState.mediaDownloadFolder = "/tmp/dl"
+        config.localState.launchAtLoginConsent = true
+        config.localState.colorPickerRecents = ["#FF0000"]
+        try FileManager.default.createDirectory(at: source.config.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try JSONEncoder().encode(config).write(to: source.config)
+
+        let backup = try FoundryBackup.make(locations: source, scriptDirectories: [], appVersion: "1.1.0")
+        let decoded = try FoundryBackup.decode(backup.encoded())
+        try decoded.restore(to: destination, scripts: scriptStore())
+
+        let restored = try JSONDecoder().decode(FoundryConfig.self, from: Data(contentsOf: destination.config))
+        XCTAssertEqual(restored.localState.mainBrowser, "firefox")
+        XCTAssertEqual(restored.localState.mediaDownloadFolder, "/tmp/dl")
+        XCTAssertTrue(restored.localState.launchAtLoginConsent)
+        XCTAssertEqual(restored.localState.colorPickerRecents, ["#FF0000"])
     }
 
     func testRestoreKeepsPreImportCopiesAndLeavesMissingFilesAlone() throws {

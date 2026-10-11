@@ -2,17 +2,15 @@ import Foundation
 import FoundryDomain
 
 enum MediaDownloadDestination {
-    private static let key = "mediaDownloadFolder"
-
     static var folder: URL {
-        if let path = UserDefaults.standard.string(forKey: key), path.isEmpty == false {
+        if let path = LocalStateStore.shared.get(\.mediaDownloadFolder), path.isEmpty == false {
             return URL(fileURLWithPath: path)
         }
         return FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Downloads")
     }
 
     static func setFolder(_ url: URL) {
-        UserDefaults.standard.set(url.path, forKey: key)
+        LocalStateStore.shared.set(\.mediaDownloadFolder, url.path)
     }
 }
 

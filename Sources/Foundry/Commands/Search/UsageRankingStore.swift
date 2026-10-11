@@ -126,6 +126,16 @@ final class UsageRankingStore: @unchecked Sendable {
         lock.withLock { usage.records[resultID] != nil }
     }
 
+    /// Re-reads the on-disk snapshot — called after a backup restore
+    /// replaces the file underneath the running process.
+    func reload() {
+        let loaded = Self.load(from: storageURL) ?? StoredUsage()
+        lock.withLock {
+            usage = loaded
+            revision += 1
+        }
+    }
+
     func resetRanking(for resultID: String) {
         let snapshot: (StoredUsage, Int) = lock.withLock {
             usage.records.removeValue(forKey: resultID)

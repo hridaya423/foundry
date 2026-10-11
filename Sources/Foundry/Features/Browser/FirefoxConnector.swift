@@ -6,20 +6,22 @@ import FoundryServices
 final class FirefoxConnectorInstaller {
     static let extensionID = "firefox-connector@foundry.local"
     private let diagnostics: DiagnosticsService
+    private let localState: LocalStateStore
 
-    init(diagnostics: DiagnosticsService) {
+    init(diagnostics: DiagnosticsService, localState: LocalStateStore = .shared) {
         self.diagnostics = diagnostics
+        self.localState = localState
     }
 
     func requestFirefoxConnector() {
-        guard UserDefaults.standard.bool(forKey: "foundry.firefox.connector.promptShown") == false else { return }
+        guard localState.get(\.firefoxConnectorPromptShown) == false else { return }
 
         let alert = NSAlert()
         alert.messageText = "Connect Foundry to Firefox?"
         alert.informativeText = "Foundry can connect to your open Firefox tabs. Firefox will open its Add-ons Debugging page and Finder will show the local connector package for you to load. Foundry only receives tab titles and URLs."
         alert.addButton(withTitle: "Install Connector")
         alert.addButton(withTitle: "Not Now")
-        UserDefaults.standard.set(true, forKey: "foundry.firefox.connector.promptShown")
+        localState.set(\.firefoxConnectorPromptShown, true)
 
         guard alert.runModal() == .alertFirstButtonReturn else { return }
         do {

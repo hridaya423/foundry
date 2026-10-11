@@ -283,7 +283,7 @@ final class BrowserProvider: CommandProvider, @unchecked Sendable {
     }
 
     private var selectedMainBrowser: BrowserSource {
-        UserDefaults.standard.string(forKey: "foundry.mainBrowser").flatMap(BrowserSource.init(rawValue:)) ?? .safari
+        LocalStateStore.shared.get(\.mainBrowser).flatMap(BrowserSource.init(rawValue:)) ?? .safari
     }
 }
 

@@ -448,7 +448,7 @@ final class CalculatorProvider: CommandProvider {
     }
 
     private static func preferredCurrencyQuotes(base: String) -> [String] {
-        let preferred = UserDefaults.standard.string(forKey: "preferredCurrencyQuote")
+        let preferred = LocalStateStore.shared.get(\.preferredCurrencyQuote)
         return ([preferred].compactMap { $0 } + defaultCurrencyQuotes)
             .filter { $0 != base }
             .reduce(into: []) { result, code in
@@ -650,18 +650,13 @@ final class CalculatorHistoryStore: @unchecked Sendable {
         let result: String
     }
 
-    private let key = "foundry.calculator.history"
-    private let defaults: UserDefaults
-    private let lock = NSLock()
+    private let localState: LocalStateStore
     private let limit = 10
 
-    init(defaults: UserDefaults = .standard) { self.defaults = defaults }
+    init(localState: LocalStateStore = .shared) { self.localState = localState }
 
     var entries: [Entry] {
-        lock.lock()
-        defer { lock.unlock() }
-        guard let raw = defaults.array(forKey: key) as? [[String]] else { return [] }
-        return raw.compactMap { pair in
+        localState.get(\.calculatorHistory).compactMap { pair in
             guard pair.count == 2 else { return nil }
             return Entry(expression: pair[0], result: pair[1])
         }
@@ -669,12 +664,12 @@ final class CalculatorHistoryStore: @unchecked Sendable {
 
     func record(expression: String, result: String) {
         guard result.isEmpty == false else { return }
-        lock.lock()
-        let entry = [expression, result]
-        var raw = (defaults.array(forKey: key) as? [[String]] ?? []).filter { $0 != entry }
-        raw.insert(entry, at: 0)
-        defaults.set(Array(raw.prefix(limit)), forKey: key)
-        lock.unlock()
+        localState.update { state in
+            let entry = [expression, result]
+            var raw = state.calculatorHistory.filter { $0 != entry }
+            raw.insert(entry, at: 0)
+            state.calculatorHistory = Array(raw.prefix(limit))
+        }
     }
 }
 

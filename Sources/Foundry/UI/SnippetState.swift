@@ -12,12 +12,12 @@ final class SnippetState {
     var selectedID: String?
     private(set) var persistenceError: String? = nil
     private let store: any SnippetStore
+    private let localState: LocalStateStore
     private let contentLimit = 65_536
     private var persistTask: Task<Void, Never>?
     private var visibleItemsCache: [StoredSnippet]?
     private var visibleItemsCacheQuery = ""
     private var exportFormatTarget: FormatPickerTarget?
-    private static let lastExportDirectoryKey = "snippets.lastExportDirectory"
     var selectedTag: String? {
         didSet { keepSelectionValid() }
     }
@@ -39,8 +39,9 @@ final class SnippetState {
         return counts.sorted { $0.value != $1.value ? $0.value > $1.value : $0.key < $1.key }.map(\.key)
     }
 
-    init(store: any SnippetStore = FileSnippetStore()) {
+    init(store: any SnippetStore = FileSnippetStore(), localState: LocalStateStore = .shared) {
         self.store = store
+        self.localState = localState
     }
 
     var visibleItems: [StoredSnippet] {
@@ -222,11 +223,11 @@ final class SnippetState {
         formatPicker.frame = NSRect(x: 0, y: 4, width: 180, height: 24)
         accessory.addSubview(formatPicker)
         panel.accessoryView = accessory
-        if let lastDirectory = UserDefaults.standard.string(forKey: Self.lastExportDirectoryKey) {
+        if let lastDirectory = localState.get(\.snippetsLastExportDirectory) {
             panel.directoryURL = URL(fileURLWithPath: lastDirectory)
         }
         guard panel.runModal() == .OK, let url = panel.url else { return }
-        UserDefaults.standard.set(url.deletingLastPathComponent().path, forKey: Self.lastExportDirectoryKey)
+        localState.set(\.snippetsLastExportDirectory, url.deletingLastPathComponent().path)
         do {
             if url.pathExtension.lowercased() == "csv" {
                 try Data(csvExport().utf8).write(to: url, options: .atomic)

@@ -13,23 +13,20 @@ final class EmojiPickerState {
     private(set) var recentValues: [String]
 
     private(set) var columns: Int
-    private static let columnsKey = "emoji.columns"
     static let columnOptions = [10, 12, 14]
-    private let defaults: UserDefaults
-    private static let recentsKey = "emoji.recents"
+    private let localState: LocalStateStore
     private static let recentLimit = 12
     private static let suggestedValues = ["👍", "😂", "❤️", "🔥", "🎉", "✅"]
 
     private(set) var skinTone: String
     static let skinTones = ["", "🏻", "🏼", "🏽", "🏾", "🏿"]
-    private static let skinToneKey = "emoji.skinTone"
 
-    init(defaults: UserDefaults = .standard) {
-        self.defaults = defaults
-        self.recentValues = defaults.stringArray(forKey: Self.recentsKey) ?? []
-        let storedColumns = defaults.integer(forKey: Self.columnsKey)
+    init(localState: LocalStateStore = .shared) {
+        self.localState = localState
+        self.recentValues = localState.get(\.emojiRecents)
+        let storedColumns = localState.get(\.emojiColumns) ?? 12
         self.columns = Self.columnOptions.contains(storedColumns) ? storedColumns : 12
-        let storedTone = defaults.string(forKey: Self.skinToneKey) ?? ""
+        let storedTone = localState.get(\.emojiSkinTone)
         self.skinTone = Self.skinTones.contains(storedTone) ? storedTone : ""
     }
 
@@ -44,18 +41,18 @@ final class EmojiPickerState {
     func cycleColumns() {
         guard let index = Self.columnOptions.firstIndex(of: columns) else { return }
         columns = Self.columnOptions[(index + 1) % Self.columnOptions.count]
-        defaults.set(columns, forKey: Self.columnsKey)
+        localState.set(\.emojiColumns, columns)
     }
 
     func recordRecent(_ value: String) {
         recentValues = Array(([value] + recentValues.filter { $0 != value }).prefix(Self.recentLimit))
-        defaults.set(recentValues, forKey: Self.recentsKey)
+        localState.set(\.emojiRecents, recentValues)
     }
 
     func cycleSkinTone() {
         guard let index = Self.skinTones.firstIndex(of: skinTone) else { return }
         skinTone = Self.skinTones[(index + 1) % Self.skinTones.count]
-        defaults.set(skinTone, forKey: Self.skinToneKey)
+        localState.set(\.emojiSkinTone, skinTone)
     }
 
     func toneAppliedValue(_ item: EmojiItem) -> String {

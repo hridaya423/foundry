@@ -73,32 +73,32 @@ final class CommandPanelState {
     var isHomeLoading = false
     var hoverHighlightsArmed = true
     private(set) var actionFeedback: ActionFeedback? = nil
-    var isAgentShelfVisible: Bool
-    var hotkey: FoundryHotkey
+    var isAgentShelfVisible = true
+    var hotkey: FoundryHotkey = .optionSpace
     var hotkeyError: String? = nil
     var launcherHotkeyFailed = false
-    var showMenuBarIcon: Bool
-    var hapticsEnabled: Bool
-    var popToRootAfterSeconds: Double
-    var windowMode: WindowMode
+    var showMenuBarIcon = true
+    var hapticsEnabled = true
+    var popToRootAfterSeconds = 90.0
+    var windowMode = WindowMode.standard
     var launchAtLoginError: String?
     var mainBrowser: BrowserSource?
-    var themeIntensity: Double
-    var searchSensitivity: SearchSensitivity
+    var themeIntensity = 0.72
+    var searchSensitivity = SearchSensitivity.medium
     var settingsPersistenceError: String?
-    var snippetExpansion: SnippetExpansionConfig
+    var snippetExpansion = SnippetExpansionConfig.default
     var snippetExpansionError: String?
     var commandSettingsQuery = "" {
         didSet { rebuildCommandRows() }
     }
     var commandDescriptors: [CommandDescriptor] = []
-    var commandPreferences: [String: CommandPreference]
+    var commandPreferences: [String: CommandPreference] = [:]
     var commandRows: [CommandSettingsRowModel] = []
     var visibleCommandRows: [CommandSettingsRowModel] = []
     var commandCatalogFailures: [String] = []
     var isCommandCatalogLoading = false
     var isCommandCatalogReady = false
-    var configLoadError: String?
+    var configLoadError: String? = nil
     var expandedCommandID: String?
     var onHotkeyChanged: ((FoundryHotkey) throws -> Void)?
     var onCommandPreferencesChanged: (() -> Void)?
@@ -116,13 +116,14 @@ final class CommandPanelState {
     var now: () -> Date = Date.init
     private var lastClosedAt: Date?
 
-    @ObservationIgnored lazy var emojiPicker = EmojiPickerState()
+    @ObservationIgnored lazy var emojiPicker = EmojiPickerState(localState: localState)
     let fileShelf = FileShelfState()
     let agents = AgentMonitorState()
     let clipboardHistory: ClipboardHistoryState
     let snippets: SnippetState
+    let localState: LocalStateStore
     @ObservationIgnored lazy var fileConversion: FileConversionState = {
-        let state = FileConversionState()
+        let state = FileConversionState(localState: localState)
         state.onFirstSuccess = { [weak self] in
             self?.confettiBurstID &+= 1
             self?.performHaptic(.alignment)
@@ -344,35 +345,26 @@ final class CommandPanelState {
         config: ConfigService,
         snippetStore: any SnippetStore = FileSnippetStore(),
         mediaDownloadManager: MediaDownloadManager = MediaDownloadManager(),
-        clipboardHistory: ClipboardHistoryState? = nil
+        clipboardHistory: ClipboardHistoryState? = nil,
+        localState: LocalStateStore = .shared
     ) {
         self.registry = registry
         self.searchCoordinator = CommandSearchCoordinator(registry: registry, diagnostics: diagnostics)
         self.actionRunner = actionRunner
         self.diagnostics = diagnostics
         self.configService = config
+        self.localState = localState
         self.clipboardHistory = clipboardHistory ?? ClipboardHistoryState(configuration: config.current.clipboard)
-        self.snippets = SnippetState(store: snippetStore)
-        self.isAgentShelfVisible = config.current.showAgentShelf
-        self.showMenuBarIcon = config.current.showMenuBarIcon
-        self.hapticsEnabled = config.current.hapticsEnabled
-        self.popToRootAfterSeconds = config.current.popToRootAfterSeconds
-        self.windowMode = config.current.windowMode
-        self.hotkey = config.current.hotkey
-        self.mainBrowser = UserDefaults.standard.string(forKey: "foundry.mainBrowser").flatMap(BrowserSource.init(rawValue:))
+        self.snippets = SnippetState(store: snippetStore, localState: localState)
         self.installedBrowsers = BrowserSource.allCases.filter(\.isInstalled)
-        self.themeIntensity = config.current.themeIntensity
-        self.searchSensitivity = config.current.searchSensitivity
         self.settingsPersistenceError = nil
-        self.snippetExpansion = config.current.snippetExpansion
         self.snippetExpansionError = nil
-        self.commandPreferences = config.current.commandPreferences
         self.commandCatalogFailures = []
-        self.configLoadError = config.loadErrorMessage
         self.widgetBoard = WidgetBoardState(configService: config, diagnostics: diagnostics)
         self.aiSettings = AISettingsState(config: config, diagnostics: diagnostics)
         self.quickAI = QuickAIState(aiProvider: AIProvider(config: config, diagnostics: diagnostics))
         self.mediaDownloads = mediaDownloadManager
+        apply(config: config.current)
         self.widgetBoard.persistenceErrorHandler = { [weak self] error in
             self?.showSettingsPersistenceError(error)
         }
@@ -380,6 +372,23 @@ final class CommandPanelState {
             try? await Task.sleep(for: .seconds(2))
             self?.ensureAgentsSocket()
         }
+    }
+
+    /// Mirrors a config snapshot onto the panel's stored fields — used at
+    /// init and after a backup restore replaces the config wholesale.
+    func apply(config: FoundryConfig) {
+        isAgentShelfVisible = config.showAgentShelf
+        showMenuBarIcon = config.showMenuBarIcon
+        hapticsEnabled = config.hapticsEnabled
+        popToRootAfterSeconds = config.popToRootAfterSeconds
+        windowMode = config.windowMode
+        hotkey = config.hotkey
+        mainBrowser = config.localState.mainBrowser.flatMap(BrowserSource.init(rawValue:))
+        themeIntensity = config.themeIntensity
+        searchSensitivity = config.searchSensitivity
+        snippetExpansion = config.snippetExpansion
+        commandPreferences = config.commandPreferences
+        configLoadError = configService.loadErrorMessage
     }
 
     private var agentsSocketStarted = false

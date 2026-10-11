@@ -25,6 +25,7 @@ struct FoundryConfig: Codable, Equatable {
     var providerEnabled: [String: Bool] = [:]
     var clipboard: ClipboardConfig = .default
     var snippetExpansion: SnippetExpansionConfig = .default
+    var localState = FoundryLocalState()
 
     init(
         hotkey: FoundryHotkey = .optionSpace,
@@ -40,7 +41,8 @@ struct FoundryConfig: Codable, Equatable {
         commandPreferences: [String: CommandPreference] = [:],
         providerEnabled: [String: Bool] = [:],
         clipboard: ClipboardConfig = .default,
-        snippetExpansion: SnippetExpansionConfig = .default
+        snippetExpansion: SnippetExpansionConfig = .default,
+        localState: FoundryLocalState = FoundryLocalState()
     ) {
         schemaVersion = Self.currentSchemaVersion
         self.hotkey = hotkey
@@ -57,6 +59,7 @@ struct FoundryConfig: Codable, Equatable {
         self.providerEnabled = providerEnabled
         self.clipboard = clipboard.normalized
         self.snippetExpansion = snippetExpansion.normalized
+        self.localState = localState
     }
 
     init(from decoder: Decoder) throws {
@@ -94,6 +97,55 @@ struct FoundryConfig: Codable, Equatable {
         }
         clipboard = savedClipboard
         snippetExpansion = (try container.decodeIfPresent(SnippetExpansionConfig.self, forKey: .snippetExpansion) ?? .default).normalized
+        localState = try container.decodeIfPresent(FoundryLocalState.self, forKey: .localState) ?? FoundryLocalState()
+    }
+}
+
+/// Machine-local preferences that used to live in scattered UserDefaults
+/// keys — remembered panel choices, consent flags, and small feature
+/// histories. Kept on FoundryConfig so the debounced writer, backup, and
+/// restore cover them for free. Every field decodes with a default so the
+/// section can grow without a schema bump.
+struct FoundryLocalState: Codable, Equatable, Sendable {
+    var mainBrowser: String?
+    var preferredCurrencyQuote: String?
+    var launchAtLoginConsent = false
+    var colorPickerRecents: [String] = []
+    var mediaDownloadFolder: String?
+    var snippetsLastExportDirectory: String?
+    var conversionFirstSuccessCelebrated = false
+    var firefoxConnectorPromptShown = false
+    var downloadedNoticeShown = false
+    var onboardingCompletedVersion: String?
+    var onboardingStep: Int?
+    var emojiRecents: [String] = []
+    var emojiColumns: Int?
+    var emojiSkinTone = ""
+    var scriptDirectories: [String]?
+    var trustedScriptDirectories: [String] = []
+    var calculatorHistory: [[String]] = []
+
+    init() {}
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        mainBrowser = try container.decodeIfPresent(String.self, forKey: .mainBrowser)
+        preferredCurrencyQuote = try container.decodeIfPresent(String.self, forKey: .preferredCurrencyQuote)
+        launchAtLoginConsent = try container.decodeIfPresent(Bool.self, forKey: .launchAtLoginConsent) ?? false
+        colorPickerRecents = try container.decodeIfPresent([String].self, forKey: .colorPickerRecents) ?? []
+        mediaDownloadFolder = try container.decodeIfPresent(String.self, forKey: .mediaDownloadFolder)
+        snippetsLastExportDirectory = try container.decodeIfPresent(String.self, forKey: .snippetsLastExportDirectory)
+        conversionFirstSuccessCelebrated = try container.decodeIfPresent(Bool.self, forKey: .conversionFirstSuccessCelebrated) ?? false
+        firefoxConnectorPromptShown = try container.decodeIfPresent(Bool.self, forKey: .firefoxConnectorPromptShown) ?? false
+        downloadedNoticeShown = try container.decodeIfPresent(Bool.self, forKey: .downloadedNoticeShown) ?? false
+        onboardingCompletedVersion = try container.decodeIfPresent(String.self, forKey: .onboardingCompletedVersion)
+        onboardingStep = try container.decodeIfPresent(Int.self, forKey: .onboardingStep)
+        emojiRecents = try container.decodeIfPresent([String].self, forKey: .emojiRecents) ?? []
+        emojiColumns = try container.decodeIfPresent(Int.self, forKey: .emojiColumns)
+        emojiSkinTone = try container.decodeIfPresent(String.self, forKey: .emojiSkinTone) ?? ""
+        scriptDirectories = try container.decodeIfPresent([String].self, forKey: .scriptDirectories)
+        trustedScriptDirectories = try container.decodeIfPresent([String].self, forKey: .trustedScriptDirectories) ?? []
+        calculatorHistory = try container.decodeIfPresent([[String]].self, forKey: .calculatorHistory) ?? []
     }
 }
 
@@ -312,7 +364,12 @@ final class ConfigService: @unchecked Sendable {
     /// Disk writes performed so far — surfaced for tests and diagnostics.
     var persistedWriteCount: Int { lock.withLock { storedPersistedWriteCount } }
 
-    init(diagnostics: DiagnosticsService, url: URL = ConfigService.configURL, persistDebounce: TimeInterval = 0.3) {
+    init(
+        diagnostics: DiagnosticsService,
+        url: URL = ConfigService.configURL,
+        persistDebounce: TimeInterval = 0.3,
+        legacyDefaults: UserDefaults? = .standard
+    ) {
         self.diagnostics = diagnostics
         self.url = url
         self.persistDebounce = persistDebounce
@@ -330,6 +387,13 @@ final class ConfigService: @unchecked Sendable {
         } else {
             self.storedCurrent = FoundryConfig()
             self.loadError = nil
+        }
+        if loadError == nil, let legacyDefaults {
+            var config = storedCurrent
+            if UserDefaultsMigration.apply(to: &config.localState, defaults: legacyDefaults) {
+                storedCurrent = config
+                schedulePersistLocked(config)
+            }
         }
     }
 
@@ -447,6 +511,25 @@ final class ConfigService: @unchecked Sendable {
         try update { $0.snippetExpansion = snippetExpansion.normalized }
     }
 
+    func updateLocalState(_ mutate: (inout FoundryLocalState) -> Void) throws {
+        try update { mutate(&$0.localState) }
+    }
+
+    /// Re-reads config.json after a wholesale replace (backup restore) —
+    /// replaces the in-memory snapshot, drops any pending write, and clears
+    /// a stale read-only state from a previously unreadable file.
+    func reload() throws {
+        let data = try Data(contentsOf: url)
+        let loaded = try FoundryConfigMigration.migrate(data)
+        lock.withLock {
+            pendingPersist?.cancel()
+            pendingPersist = nil
+            pendingSnapshot = nil
+            storedCurrent = loaded
+            loadError = nil
+        }
+    }
+
     func resetToDefaults() throws {
         let defaults = FoundryConfig()
         try write(defaults)
@@ -544,6 +627,41 @@ enum FoundryConfigMigrationError: LocalizedError, Equatable {
         case let .unsupportedVersion(version):
             "Config schema version \(version) is newer than this build supports"
         }
+    }
+}
+
+/// One-shot import of the UserDefaults keys `FoundryLocalState` replaced.
+/// Runs inside ConfigService.init — the only place Sources may touch
+/// UserDefaults.standard for app state. Each key is removed as it lands so
+/// the import can't run twice or resurrect deleted values.
+enum UserDefaultsMigration {
+    @discardableResult
+    static func apply(to state: inout FoundryLocalState, defaults: UserDefaults) -> Bool {
+        var migrated = false
+        func move<Value>(_ key: String, _ read: (UserDefaults, String) -> Value?, assign: (inout FoundryLocalState, Value) -> Void) {
+            guard let value = read(defaults, key) else { return }
+            assign(&state, value)
+            defaults.removeObject(forKey: key)
+            migrated = true
+        }
+        move("foundry.mainBrowser", { $0.string(forKey: $1) }) { $0.mainBrowser = $1 }
+        move("preferredCurrencyQuote", { $0.string(forKey: $1) }) { $0.preferredCurrencyQuote = $1 }
+        move("foundry.launchAtLoginConsent", { $0.object(forKey: $1) as? Bool }) { $0.launchAtLoginConsent = $1 }
+        move("colorPicker.recents", { $0.stringArray(forKey: $1) }) { $0.colorPickerRecents = $1 }
+        move("mediaDownloadFolder", { $0.string(forKey: $1) }) { $0.mediaDownloadFolder = $1 }
+        move("snippets.lastExportDirectory", { $0.string(forKey: $1) }) { $0.snippetsLastExportDirectory = $1 }
+        move("conversion.firstSuccessCelebrated", { $0.object(forKey: $1) as? Bool }) { $0.conversionFirstSuccessCelebrated = $1 }
+        move("foundry.firefox.connector.promptShown", { $0.object(forKey: $1) as? Bool }) { $0.firefoxConnectorPromptShown = $1 }
+        move("foundry.downloadedNoticeShown", { $0.object(forKey: $1) as? Bool }) { $0.downloadedNoticeShown = $1 }
+        move(OnboardingState.completedVersionKey, { $0.string(forKey: $1) }) { $0.onboardingCompletedVersion = $1 }
+        move(OnboardingState.stepKey, { $0.object(forKey: $1) as? Int }) { $0.onboardingStep = $1 }
+        move("emoji.recents", { $0.stringArray(forKey: $1) }) { $0.emojiRecents = $1 }
+        move("emoji.columns", { $0.object(forKey: $1) as? Int }) { $0.emojiColumns = $1 }
+        move("emoji.skinTone", { $0.string(forKey: $1) }) { $0.emojiSkinTone = $1 }
+        move("foundry.scripts.directories", { $0.stringArray(forKey: $1) }) { $0.scriptDirectories = $1 }
+        move("foundry.scripts.trusted", { $0.stringArray(forKey: $1) }) { $0.trustedScriptDirectories = $1 }
+        move("foundry.calculator.history", { $0.array(forKey: $1) as? [[String]] }) { $0.calculatorHistory = $1 }
+        return migrated
     }
 }
 

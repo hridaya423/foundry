@@ -6,12 +6,12 @@ import FoundryServices
 @MainActor
 final class ScriptCommandTests: XCTestCase {
     private var directory: URL!
-    private var defaults: UserDefaults!
+    private var localState: LocalStateStore!
 
     override func setUp() async throws {
         directory = FileManager.default.temporaryDirectory.appendingPathComponent("foundry-scripts-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-        defaults = UserDefaults(suiteName: UUID().uuidString)
+        localState = LocalStateStore()
     }
 
     override func tearDown() async throws {
@@ -45,7 +45,7 @@ final class ScriptCommandTests: XCTestCase {
 
     func testProviderRequiresArgumentThenRunsWithIt() async throws {
         try writeScript("greet.sh", body: "echo \"hi $1\"", title: "Greet", extra: "# @raycast.argument1 { \"type\": \"text\", \"placeholder\": \"Name\" }")
-        let store = ScriptDirectoryStore(defaults: defaults)
+        let store = ScriptDirectoryStore(localState: localState)
         store.directories = [directory.path]
         let provider = ScriptCommandProvider(store: store)
         let bare = await provider.results(matching: "greet")
@@ -56,7 +56,7 @@ final class ScriptCommandTests: XCTestCase {
 
     func testUntrustedFolderAsksOnceAndDenialBlocksTheRun() async throws {
         let path = try writeScript("touch.sh", body: "touch \"$PWD/ran\"", title: "Touch")
-        let store = ScriptDirectoryStore(defaults: defaults)
+        let store = ScriptDirectoryStore(localState: localState)
         var prompts = 0
         let denied = runner(store: store) { _ in prompts += 1; return false }
         let deniedOutcome = await run(denied, path: path, mode: .silent)
@@ -92,7 +92,7 @@ final class ScriptCommandTests: XCTestCase {
     }
 
     private func trustedStore() -> ScriptDirectoryStore {
-        let store = ScriptDirectoryStore(defaults: defaults)
+        let store = ScriptDirectoryStore(localState: localState)
         store.setTrusted(true, for: directory.path)
         return store
     }

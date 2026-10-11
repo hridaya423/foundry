@@ -3,8 +3,6 @@ import Darwin
 
 @MainActor
 enum DownloadNotice {
-    static let shownKey = "foundry.downloadedNoticeShown"
-
     private static var isTranslocated: Bool {
         Bundle.main.bundlePath.contains("/AppTranslocation/")
     }
@@ -13,12 +11,12 @@ enum DownloadNotice {
         Bundle.main.bundlePath.withCString { getxattr($0, "com.apple.quarantine", nil, 0, 0, 0) >= 0 }
     }
 
-    static func showIfNeeded(defaults: UserDefaults = .standard) {
+    static func showIfNeeded(localState: LocalStateStore = .shared) {
         if isTranslocated {
             showTranslocatedAlert()
             return
         }
-        guard isQuarantined, defaults.bool(forKey: shownKey) == false else { return }
+        guard isQuarantined, localState.get(\.downloadedNoticeShown) == false else { return }
         let alert = NSAlert()
         alert.messageText = "Foundry isn't notarized yet"
         alert.informativeText = """
@@ -33,7 +31,7 @@ enum DownloadNotice {
            let url = URL(string: "x-apple.systempreferences:com.apple.settings.PrivacySecurity.extension") {
             NSWorkspace.shared.open(url)
         }
-        defaults.set(true, forKey: shownKey)
+        localState.set(\.downloadedNoticeShown, true)
     }
 
     private static func showTranslocatedAlert() {

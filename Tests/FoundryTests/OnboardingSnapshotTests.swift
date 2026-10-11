@@ -12,7 +12,7 @@ final class OnboardingSnapshotTests: XCTestCase {
         let config = ConfigService(diagnostics: diagnostics, url: FileManager.default.temporaryDirectory.appendingPathComponent("foundry-snap-\(UUID().uuidString).json"))
         let registry = CommandRegistry(providers: [], usageRanking: UsageRankingStore(diagnostics: diagnostics), diagnostics: diagnostics, configService: config)
         let panel = CommandPanelState(registry: registry, actionRunner: ActionRunner(diagnostics: diagnostics), diagnostics: diagnostics, config: config)
-        let state = OnboardingState(panel: panel, permissions: PermissionHealthState(accessibilityTrusted: { false }), defaults: UserDefaults(suiteName: UUID().uuidString)!)
+        let state = OnboardingState(panel: panel, permissions: PermissionHealthState(accessibilityTrusted: { false }), localState: LocalStateStore())
         for appearance in [NSAppearance.Name.aqua, .darkAqua] {
             for step in OnboardingStep.allCases {
                 state.go(to: step)

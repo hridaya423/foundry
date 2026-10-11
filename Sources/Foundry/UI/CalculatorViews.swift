@@ -91,7 +91,7 @@ struct CalculatorValuePane: View {
                         Button(split(alternative.title).unit ?? alternative.title) {
                             withAnimation(reduceMotion ? nil : .easeOut(duration: 0.16)) {
                                 if let code = currencyCode(in: alternative.title) {
-                                    UserDefaults.standard.set(code, forKey: "preferredCurrencyQuote")
+                                    LocalStateStore.shared.set(\.preferredCurrencyQuote, code)
                                 }
                                 executeAlternative(alternative)
                             }

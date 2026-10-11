@@ -59,27 +59,28 @@ final class ScriptDirectoryStore: @unchecked Sendable {
     static let shared = ScriptDirectoryStore()
     static let defaultDirectory = ConfigService.configURL.deletingLastPathComponent().appendingPathComponent("scripts").path
 
-    private let defaults: UserDefaults
-    private let directoriesKey = "foundry.scripts.directories"
-    private let trustedKey = "foundry.scripts.trusted"
+    private let localState: LocalStateStore
 
-    init(defaults: UserDefaults = .standard) {
-        self.defaults = defaults
+    init(localState: LocalStateStore = .shared) {
+        self.localState = localState
     }
 
     var directories: [String] {
-        get { defaults.stringArray(forKey: directoriesKey) ?? [Self.defaultDirectory] }
-        set { defaults.set(newValue, forKey: directoriesKey) }
+        get { localState.get(\.scriptDirectories) ?? [Self.defaultDirectory] }
+        set { localState.set(\.scriptDirectories, newValue) }
     }
 
     func isTrusted(_ directory: String) -> Bool {
-        Set(defaults.stringArray(forKey: trustedKey) ?? []).contains(Self.canonical(directory))
+        Set(localState.get(\.trustedScriptDirectories)).contains(Self.canonical(directory))
     }
 
     func setTrusted(_ trusted: Bool, for directory: String) {
-        var set = Set(defaults.stringArray(forKey: trustedKey) ?? [])
-        if trusted { set.insert(Self.canonical(directory)) } else { set.remove(Self.canonical(directory)) }
-        defaults.set(set.sorted(), forKey: trustedKey)
+        let canonical = Self.canonical(directory)
+        localState.update { state in
+            var set = Set(state.trustedScriptDirectories)
+            if trusted { set.insert(canonical) } else { set.remove(canonical) }
+            state.trustedScriptDirectories = set.sorted()
+        }
     }
 
     private static func canonical(_ path: String) -> String {
