@@ -26,7 +26,12 @@
   const RAD = SCR.radius / 2160;
   const BOX = [0.30, 0.17, 0.52, 0.70];          // one set's tile, plate fractions
   const [WALL0, WALL1] = TM.wall, [RIV0, RIV1] = TM.river;
-  const MELT0 = TM.meltCmd + 0.05;               // ignition, after 3 frames of nothing
+  const MELT0 = TM.meltCmd;                      // ignition is the enter: the drop
+  const STALL = TM.stall;
+  // the valley: the caret comes on alone, blinks once in the dark, and the line is typed into the silence
+  const CMD0 = { ...TM.cmd0, show: TM.caretAlone, blink: (TM.cmd0.t0 - TM.caretAlone) / 2 + 1e-3 };
+  // ignition delay of set (i, j): ours on the enter, the rest as a wave outward (the same formula is in gl.js TV)
+  const ignAt = (i, j) => (i === 0 && j === 0 ? 0 : h21(i + 1.7, j + 1.7) * 0.25 + Math.hypot(i, j) * 0.07);
   const camZoom = (t) => {
     if (t < WALL0) return lerp(2.2, 2.3, ease.inOutCubic(prog(t, 0, WALL0)));
     if (t < WALL1) return Math.exp(lerp(Math.log(2.3), Math.log(0.15), ease.inOutCubic(prog(t, WALL0, WALL1))));
@@ -39,8 +44,23 @@
   // the wall tilts away as the camera pulls back, and flattens again as it falls with the river into the mould
   const perspAt = (t) => ease.inOutCubic(prog(t, WALL0 + 0.1, WALL1)) * (1 - ease.inOutCubic(prog(t, RIV0 + 0.5, RIV1 - 0.1)));
   // hot air: the overheating set shimmers a little, the burning wall a lot, the casting less as it cools
-  const hazeAt = (t, overheat) => t < MELT0 ? 0.35 * overheat : t < TM.cast ? 0.4 + 0.6 * prog(t, MELT0, MELT0 + 0.6) : 0.45 * (1 - prog(t, TM.cast, TM.glass));
-  const embersAt = (t) => ease.inOutCubic(prog(t, MELT0 + 0.15, MELT0 + 0.55)) * (1 - ease.inOutCubic(prog(t, TM.cast + 0.8, TM.cast + 1.3)));
+  // (the valley is cold: the air stills as the sets die)
+  const hazeAt = (t, overheat) => t < MELT0 ? 0.35 * overheat * (1 - prog(t, STALL, STALL + 0.3)) : t < TM.cast ? 0.4 + 0.6 * prog(t, MELT0, MELT0 + 0.6) : 0.45 * (1 - prog(t, TM.cast, TM.glass));
+  // the drop: the heat reaches the lens on the enter (the 120 fps frame before it is the ramp). Overexposure and halation
+  // hold ~4 frames, then decay
+  // over half a second; the camera takes the blow (a few px, low frequency, dying); the air in front of the lens boils
+  // for ~0.8 s and settles to the wall's own haze
+  const HIT = MELT0;
+  function hitAt(t) {
+    const u = t - HIT;
+    if (u < -1 / 120 || u > 1.2) return null;
+    const f = u < 0 ? clamp(1 + u * 120) : u < 4 / 60 ? 1 : Math.exp(-(u - 4 / 60) / 0.13);
+    const hal = u < 0 ? f : u < 4 / 60 ? 1 : Math.exp(-(u - 4 / 60) / 0.2);
+    const a = u < 0 ? 0 : 7 * Math.exp(-u / 0.2), w = 2 * Math.PI;
+    const shake = [a * (Math.sin(w * 7.3 * u + 0.9) + 0.45 * Math.sin(w * 12.9 * u + 2.1)), a * 0.8 * (Math.sin(w * 6.1 * u + 2.4) + 0.5 * Math.sin(w * 11.3 * u + 0.3))];
+    const haze = u < 0 ? 0 : ease.outCubic(clamp(u / 0.06)) * (1 - ease.inOutCubic(prog(u, 0.15, 0.85)));
+    return { flash: f, hal, haze, shake };
+  }
   const toOut = (c, x, y) => ({ x: ((x - c.cx) * c.zoom + 0.5) * W, y: ((y - c.cy) * c.zoom + 0.5) * H });
 
   function tubeText(ctx, str, x, y, size, align = "left", alpha = 1, weight = 600) {
@@ -155,7 +175,7 @@
     mctx.save(); mctx.strokeStyle = "rgb(0,0,255)"; mctx.lineCap = "round"; mctx.globalCompositeOperation = "lighter";
     const px = (v) => Math.max(2.5, v * cam.zoom * W);
     for (let j = Math.max(j0, -6); j <= Math.min(j1, 5); j++) for (let i = i0; i <= i1; i++) {
-      const dl = h21(i + 1.7, j + 1.7) * 0.25 + Math.hypot(i, j) * 0.07;   // the ignition wave (same as gl.js)
+      const dl = ignAt(i, j);   // the ignition wave (same as gl.js)
       for (let d = 0; d < 2; d++) {
         const r = hash((i + 50) * 977 + (j + 50) * 131 + d);
         const v = u - dl - 0.3 - r * 0.25;
@@ -258,12 +278,16 @@
     if (u < q + 0.25) return Math.floor((u - q) / 0.25) % 2 === 0 ? 1 : 0.12;
     return 0.6 * Math.exp(-(u - q - 0.25) / 0.12);
   };
+  // back through the tiles, then a slow push in while the metal cools
+  const logoXf = (u) => {
+    const e = ease.inOutCubic(prog(u, 0.0, 0.82));
+    const z = Math.exp(lerp(Math.log(46), 0, e)) * (1 + 0.025 * ease.inOutCubic(prog(u, 0.82, TM.end - TM.logo)));
+    return { fx: lerp(focus.cx, LCX, e), fy: lerp(focus.cy, LCY, e), s: LS * z };
+  };
+  const tileIgn = (c) => 0.52 + ((c.cx - minX) / (maxX - minX)) * 0.26 + c.r * 0.05;   // seconds after the cut
   function logo(ctx, mk, t) {
     const u = t - TM.logo;
-    const e = ease.inOutCubic(prog(u, 0.0, 0.82));
-    // back through the tiles, then a slow push in while the metal cools
-    const z = Math.exp(lerp(Math.log(46), 0, e)) * (1 + 0.025 * ease.inOutCubic(prog(u, 0.82, TM.end - TM.logo)));
-    const fx = lerp(focus.cx, LCX, e), fy = lerp(focus.cy, LCY, e), s = LS * z;
+    const { fx, fy, s } = logoXf(u);
     const TX = (x) => (x - fx) * s + W / 2, TY = (y) => (y - fy) * s + H / 2;
     mk.setTransform(1, 0, 0, 1, 0, 0); mk.fillStyle = "#000"; mk.fillRect(0, 0, W, H);
     for (const c of CELLS) {
@@ -276,7 +300,7 @@
       // every tile holds the moon as he finishes the line, until the wave reaches it (gl.js casts it from uLogo)
       moon(ctx, t);
       ctx.restore();
-      const ign = 0.52 + ((c.cx - minX) / (maxX - minX)) * 0.26 + c.r * 0.05;   // seconds after the cut
+      const ign = tileIgn(c);
       mk.setTransform(s, 0, 0, s, W / 2 - fx * s, H / 2 - fy * s);
       mk.fillStyle = `rgb(255,${Math.round(clamp((ign - 0.5) / 0.5, 0, 1) * 255)},${Math.round(c.r * 255)})`;
       mk.beginPath(); cellPath(mk, c); mk.fill();
@@ -284,6 +308,73 @@
     const ch = LOGO_H * s * 0.95, cw = ch * 0.1;
     return { t: u, band: ease.inOutQuint(prog(u, 1.35, 2.12)) * 0.5 + prog(u, 1.35, 2.12) * 0.5, caretOn: caretAt(u),
       caret: [TX(maxX) + LOGO_H * s * 0.06 + cw / 2, TY((minY + maxY) / 2), cw, ch] };
+  }
+
+  // ------------------------------------------------------------------ sparks (js/sparks.js): emitters on the film's events
+  const SP = window.SPARKS, KREF = 0.15 * H;   // wall sparks live in the world: px at the wall shot's scale, per plate unit
+  const UP = -Math.PI / 2;
+  // plate (in KREF px) -> output px through the TV pass's tilt (the inverse of gl.js's uPersp warp), and the size there
+  // relative to KREF; null where the plane is clamped away
+  function wallMap(cam, P) {
+    const a = 1.1 * P, b = 0.2 * P, ASP = W / H;
+    return (x, y) => {
+      const X = (x / KREF - cam.cx) * cam.zoom * ASP, Y = (y / KREF - cam.cy) * cam.zoom / (1 + 0.3 * P);
+      const den = 1 - a * Y - b * X;
+      if (den < 0.05 || den > 4) return null;
+      return [(X / den / ASP + 0.5) * W, (Y / den + 0.5) * H, cam.zoom / 0.15 / den];
+    };
+  }
+  // the melt: every set throws sparks off its glass as the ignition wave reaches it (ignAt, as gl.js), ours the most;
+  // a few out of focus fly at the lens on the drop; slow embers ride the heat column above the fire
+  function meltSparks(out, t, cam, P) {
+    const u = t - MELT0;
+    if (u < 0 || t > TM.cast) return;
+    const map = wallMap(cam, P), hw = scr[2] * KREF / 2, hh = scr[3] * KREF / 2;
+    const edge = (k, r) => {           // a point on the glass's top or side edges
+      const q = r * 3;
+      return q < 1.6 ? [(q / 1.6 - 0.5) * 2 * hw, -hh] : q < 2.3 ? [-hw, (q - 1.95) * 2.8 * hh] : [hw, (q - 2.65) * 2.8 * hh];
+    };
+    for (let j = -14; j <= 7; j++) for (let i = -16; i <= 16; i++) {
+      const dl = ignAt(i, j), ours = i === 0 && j === 0;
+      if (u < dl || u > dl + 1.8) continue;
+      const x = (scr[0] + scr[2] / 2 + i * BOX[2]) * KREF, y = (scr[1] + scr[3] / 2 + j * BOX[3]) * KREF, c0 = map(x, y);
+      if (!c0 || c0[0] < -300 || c0[0] > W + 300 || c0[1] < -300 || c0[1] > H + 300) continue;
+      SP.emit(out, t, ours
+        ? { seed: 11, t0: MELT0, n: 120, x, y, spread: 0.1, perim: edge, dir: UP, cone: 2.9, speed: [350, 1500], life: [0.6, 1.5],
+            T0: [1.3, 1.65], r: [0.9, 2.4], E: [1.2, 2.4], g: 1100, drag: 1.1, map }
+        : { seed: 400 + (i + 20) * 61 + (j + 20) * 7, t0: MELT0 + dl, n: c0[2] > 0.6 ? 9 : 4, x, y, spread: 0.3, perim: edge, dir: UP, cone: 2.6,
+            speed: [200, 850], life: [0.45, 1.1], T0: [1.2, 1.55], r: [0.8, 1.9], E: [1.0, 2.0], g: 1100, drag: 1.3, map });
+    }
+    SP.emit(out, t, { seed: 23, t0: MELT0 + 0.02, n: 7, x: W / 2, y: H / 2, spread: 0.16, perim: (k, r) => [(r - 0.5) * 160, (hash(k * 5 + 1) - 0.5) * 90],
+      dir: 0, cone: Math.PI * 2, speed: [700, 1900], life: [0.25, 0.55], T0: [0.95, 1.25], r: [12, 30], E: [0.16, 0.32], g: 250, drag: 0.4, grow: 3, bokeh: 1 });
+    SP.column(out, t, { seed: 5, t0: MELT0 + 0.3, t1: TM.cast - 0.1, n: 16, x: (scr[0] + scr[2] / 2) * KREF, y: (scr[1] - 0.1) * KREF,
+      w: BOX[2] * KREF * 5, h: BOX[3] * KREF, map });
+  }
+  // the cast: a burst where the river lands in the mould, then a few popping off the skin as it sets
+  function castSparks(out, t) {
+    const c = t - TM.cast, top = BAR.y;
+    if (c < 0 || c > 2.2) return;
+    SP.emit(out, t, { seed: 31, t0: TM.cast + 0.01, n: 120, x: W / 2, y: BAR.y + BAR.h / 2 - 12, spread: 0.08, perim: (k, r) => [(r - 0.5) * 80, 0],
+      dir: UP, cone: 2.8, speed: [500, 2400], life: [0.45, 1.15], T0: [1.3, 1.65], r: [0.8, 2.2], E: [1.2, 2.4], g: 1300, drag: 0.9 });
+    SP.emit(out, t, { seed: 37, t0: TM.cast + 0.03, n: 3, x: W / 2, y: H / 2, spread: 0.08, dir: UP, cone: 2.4, speed: [900, 1600],
+      life: [0.25, 0.45], T0: [1.0, 1.2], r: [14, 26], E: [0.14, 0.26], g: 400, drag: 0.4, grow: 2.5, bokeh: 1 });
+    SP.emit(out, t, { seed: 41, t0: TM.cast + 0.6, n: 14, x: W / 2, y: top + 6, spread: 0.7, perim: (k, r) => [(r - 0.5) * BAR.w * 0.75, 0],
+      dir: UP, cone: 1.3, speed: [300, 900], life: [0.3, 0.6], T0: [1.1, 1.4], r: [0.7, 1.6], E: [1.0, 1.8], g: 1200, drag: 1.2 });
+  }
+  // the logo: as the wave sends each tile white-hot, a few sparks tear off its edge and fall
+  function logoSparks(out, t) {
+    const u = t - TM.logo;
+    if (u < 0.5 || u > 2.0) return;
+    CELLS.forEach((c, n) => {
+      const ign = tileIgn(c);
+      if (u < ign || u > ign + 0.9) return;
+      const { fx, fy, s } = logoXf(ign), P0 = c.p[0];
+      SP.emit(out, t, { seed: 900 + n * 13, t0: TM.logo + ign, n: 3, x: (c.cx - fx) * s + W / 2, y: (c.cy - fy) * s + H / 2, spread: 0.05,
+        perim: (k, r) => { const v = P0[Math.floor(r * P0.length) % P0.length]; return [(v[0] - c.cx) * s, (v[1] - c.cy) * s]; },
+        dir: UP, cone: 2.2, speed: [150, 600], life: [0.35, 0.85], T0: [1.2, 1.5], r: [0.6, 1.5], E: [0.9, 1.7], g: 1200, drag: 1.5 });
+    });
+    SP.emit(out, t, { seed: 47, t0: TM.logo + 0.55, n: 3, x: W / 2, y: H / 2, spread: 0.25, perim: (k, r) => [(r - 0.5) * 900, 0],
+      dir: UP, cone: 2.0, speed: [500, 1100], life: [0.3, 0.55], T0: [0.95, 1.2], r: [12, 24], E: [0.12, 0.22], g: 300, drag: 0.4, grow: 2, bokeh: 1 });
   }
 
   // ------------------------------------------------------------------ build
@@ -311,7 +402,7 @@
     window.L.on((t) => {
       const f = frame(t);
       const kill = TM.kills.find((k) => t >= k.flash && t < k.end);
-      T.command(t, t >= TM.cmd0.t0 - 0.12 && t <= TM.cmd0.out + 0.14 ? TM.cmd0 : null);
+      T.command(t, t >= CMD0.show && t <= CMD0.out + 0.14 ? CMD0 : null);
       T.bar(els.bar, t, kill && t >= kill.t0 - 0.1 ? kill : null, barT);
       // Armstrong, whole: line A builds in English and turns Japanese in his pause; line B builds under it
       const ktr = KK.translate;
@@ -326,20 +417,23 @@
 
       ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.fillStyle = "#050505"; ctx.fillRect(0, 0, W, H);
       const mctx = M.metalBegin();
-      const g = { scene: sc, t, frame: f, seed: 3.7, heat: 0, flow: 0, pinch: 0, tilt: 0, zoom: 1, plates, amber: 1 };
+      // the pictures' clock: at the stall every set's picture freezes where it was (and burns that way)
+      const tp = Math.min(t, STALL);
+      const g = { scene: sc, t, tp, frame: f, seed: 3.7, heat: 0, flow: 0, pinch: 0, tilt: 0, zoom: 1, plates, amber: 1 };
       const cam = camAt(t);
       const jolt = t < TM.act2 ? strikeJolt(t) : 0;
       let tv = { cx: cam.cx, cy: cam.cy - jolt * 0.0025, zoom: cam.zoom, scr, rad: RAD, barrel: 0.045, on: [0, 1, 1], amber: 0,
-        overheat: ease.inCubic(prog(t, TM.heat0, WALL0 + 0.3)) * (1 - prog(t, WALL1, TM.meltCmd)) };
+        overheat: t < MELT0 ? ease.inCubic(prog(tp, TM.heat0, WALL0 + 0.3)) * (1 - prog(tp, WALL1, TM.meltCmd)) : 0,
+        down: t >= STALL ? t - STALL : null };
       tv.persp = perspAt(t);
-      Object.assign(g, { archive: t < TM.act2 ? 1 : 0, haze: hazeAt(t, tv.overheat), embers: embersAt(t) });
+      const sparks = [];
+      Object.assign(g, { archive: t < TM.act2 ? 1 : 0, haze: hazeAt(t, tv.overheat), hit: hitAt(t), sparks });
 
       if (t < TM.act2) act1(ctx, t);
       else if (t < TM.cast) {
-        ctx.save(); ctx.beginPath(); ctx.rect(PIC.x, 0, PIC.w, PIC.h); ctx.clip(); act2(ctx, t); ctx.restore();
-        if (t >= WALL0 - 0.05) { tv.box = BOX; drawAtlas(actx, t); g.atlas = atlas; }
-        if (t >= TM.meltCmd && t < MELT0) { g.fade = 0.0; }                    // three frames of nothing
-        if (t >= MELT0) { tv.meltT = t - MELT0; wallDrips(mctx, t, cam); g.flowSpd2 = 9; }
+        ctx.save(); ctx.beginPath(); ctx.rect(PIC.x, 0, PIC.w, PIC.h); ctx.clip(); act2(ctx, tp); ctx.restore();
+        if (t >= WALL0 - 0.05) { tv.box = BOX; if (drawAtlas.tp !== tp) { drawAtlas(actx, tp); drawAtlas.tp = tp; } g.atlas = atlas; }
+        if (t >= MELT0) { tv.meltT = t - MELT0; wallDrips(mctx, t, cam); g.flowSpd2 = 9; meltSparks(sparks, t, cam, tv.persp); }
         g.blurY = Math.min(420, vel(camY, t) * cam.zoom * H);
       } else if (t < TM.settle + 0.06 && !kill) {
         // the casting: one river into Foundry's bar
@@ -358,6 +452,7 @@
           fade: 1 - ease.inOutCubic(prog(t, TM.line3.t0, TM.line3.t0 + 0.2)),
           imp: [0.5, impY, 0.5, impY], stream: [tail, 1, 74, 0], impT: [0.0, 0.0] };
         Object.assign(g, { raw: 1, exposure: 1.04, logo: barTex, zoom: lerp(1.1, 1.0, ease.outCubic(prog(c, 0, 1.2))) });
+        castSparks(sparks, t);
         const vy = (x) => -0.6 * (1 - ease.outExpo(prog(x, TM.cast, TM.cast + 0.35)));
         g.blurY = Math.min(380, vel(vy, t) * H);
       } else if (t < TM.logo) {
@@ -401,7 +496,7 @@
       } else {
         tv = null; g.amber = 0; g.contrast = 1.15; g.sat = 0.35;
         g.logoCast = logo(ctx, lmk, t); g.logo = lmask; g.logoLive = true;
-        g.embers = ease.inOutCubic(prog(t - TM.logo, 0.6, 0.9)) * (1 - ease.inOutCubic(prog(t - TM.logo, 1.3, 2.0))) * 0.6;
+        logoSparks(sparks, t);
       }
 
       g.tv = tv;

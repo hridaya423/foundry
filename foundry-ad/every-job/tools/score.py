@@ -154,21 +154,24 @@ def score():
     print(f"{TAKE}: drop found at {DROP:.3f} s, moved to {MC}")
     d = take[t2i(DROP):t2i(DROP) + t2i(LEAP - MC) + t2i(0.3)].copy(); d[:96] *= np.linspace(0, 1, 96)[:, None]
     out[t2i(MC):t2i(MC) + len(d)] += d[:N - t2i(MC)]
-    # ride the build: the take dips under the first kills and fades after its peak, so a fader climbs it steadily
-    # from -9 dB (re the drop) to -2 dB into the hush; within +9/-6 dB and slow enough never to pump
-    B0, B1 = t2i(dict(TM["music"])["build"]), t2i(LEAP - 0.25)
-    w = t2i(0.4); p = np.convolve(out[:, 0] ** 2 + out[:, 1] ** 2, np.ones(w) / w, "same")
-    ref = 10 * np.log10(p[t2i(MC):t2i(MC + 0.5)].max() + 1e-12)
-    have = 10 * np.log10(p[B0:B1] + 1e-12) - ref
-    gdb = np.clip(np.linspace(-9, -2, B1 - B0) - have, -6, 9)
-    g = np.zeros(N); g[B0:B1] = gdb; g[B1:] = gdb[-1] * 0
-    g = lp(lp(g, 1.5, 1)[::-1], 1.5, 1)[::-1]                                                           # zero-phase, slow
-    out *= 10 ** (g / 20)[:, None]
     # the leap: the ending, in the take's voice, crossfaded in over a quarter second
     xf = t2i(0.3); i0 = t2i(LEAP)
     out[i0:i0 + xf] *= np.linspace(1, 0, xf)[:, None]; out[i0 + xf:] = 0
     e = end[t2i(SKIP):][:N - i0].copy(); e[:xf] *= np.linspace(0, 1, xf)[:, None]
     out[i0:i0 + len(e)] += e
+    # fader rides (dB re the drop), slow enough never to pump: the weight climbs into the stall (the take holds back
+    # too long), the build climbs into the hush (it dips under the first kills and fades after its peak), and the
+    # hush is quiet strings under Armstrong rather than a hole
+    w = t2i(0.4); p = np.convolve(out[:, 0] ** 2 + out[:, 1] ** 2, np.ones(w) / w, "same")
+    ref = 10 * np.log10(p[t2i(MC):t2i(MC + 0.5)].max() + 1e-12)
+    g = np.zeros(N)
+    for t0, t1, d0, d1, cap in ((3.0, STALL, -15, -13, 9), (dict(TM["music"])["build"], LEAP - 0.25, -9, -2, 9), (LEAP + 0.35, TM["vo"]["b"], -17, -17, 20)):
+        a, b = t2i(t0), t2i(t1)
+        g[a:b] = np.clip(np.linspace(d0, d1, b - a) - (10 * np.log10(p[a:b] + 1e-12) - ref), -6, cap)
+    g[t2i(5.2):t2i(5.55)] = np.minimum(g[t2i(5.2):t2i(5.55)], 0)                                   # a pocket for the pull-back's whoosh
+    g = lp(lp(g, 4, 1)[::-1], 4, 1)[::-1]                                                               # zero-phase
+    g[t2i(STALL):t2i(MC)] = np.minimum(g[t2i(STALL):t2i(MC)], 0)                                   # never lift the valley
+    out *= 10 ** (g / 20)[:, None]
     f = t2i(0.4); out[-f:] *= np.linspace(1, 0, f)[:, None]
     return out
 
@@ -200,10 +203,123 @@ def bed(name, t, db, ramp_db=0.0, pan=0.0):
 IGN = TM["words1"][-1][1]
 # a hero hit is levelled against what sustains under it (mix.py), so each roar is at full on its hit
 bed("shuttle-roar", IGN, -1.0)                                   # the Saturn V lights; stops dead on the Act II cut
-CATCH = 0.008                                                    # the fire catches just after the blast (in phase with it below 250 Hz)
-bed("volcano", MELT0 + CATCH, 2.0, ramp_db=-4.0)                 # every screen ignites; the river grows as the camera falls
-bed("furnace", MELT0 + CATCH, -2.0, pan=-0.2)                    # the roar of the fire itself
 bed("train", KK["download"]["enter"] + 0.02, -6.0)               # the Lumiere train, out of the bar
+
+# ---- the wall of sets, one event per set. The grid and the delays are the picture's (js/gl.js, js/film.js): set (i, j)
+# is the tile i across, j down from ours (j < 0 is up the wall, which tilts away); the camera holds at zoom 0.15 on
+# the plate centre, so about 14 x 12 sets are in frame. Nearer = louder, brighter, earlier; pan = the set's x on screen.
+def h21(x, y):
+    px, py = (x * 123.34) % 1, (y * 456.21) % 1
+    d = px * (px + 45.32) + py * (py + 45.32); px += d; py += d
+    return (px * py) % 1
+WALL = [(i, j) for j in range(-6, 6) for i in range(-7, 7)]
+BOXX, BOXW, ZOOM = 0.30, 0.52, 0.15
+def set_pan(i): return float(np.clip(((BOXX + (i + 0.5) * BOXW) - 0.5) * ZOOM * 2.0, -0.95, 0.95))
+def set_dist(i, j): return np.hypot(i, j * (1.25 if j < 0 else 1.0))       # up the wall is farther away
+def stereo_add(x, t, gain, pan):
+    i = t2i(t)
+    if i >= N or gain <= 0: return
+    x = x[: N - i] * gain; th = (pan + 1) * np.pi / 4
+    beds.L[i:i + len(x)] += x * np.cos(th) * np.sqrt(2); beds.R[i:i + len(x)] += x * np.sin(th) * np.sqrt(2)
+def unit(name): x = own(name); return x / (np.abs(x).max() + 1e-12)
+def shift(x, semis):                                             # varispeed: pitch and length together, like a tape
+    r = 2 ** (semis / 12); return np.interp(np.arange(int(len(x) / r)) * r, np.arange(len(x)), x)
+def far(x, d):                                                   # distance: air takes the top off
+    return lp(x, float(np.clip(14000 / (1 + 0.9 * d), 900, 14000)), 2) if d > 0.5 else x
+vr = np.random.default_rng(11)                                   # its own stream: the score's rng stays as it was
+STALL = TM["stall"]
+
+# the stall: every set dies like a CRT losing power (gl.js: pd = (since stall - min(|cell|, 16) * 0.011 - h21(cell +
+# 4.3) * 0.05) / 0.2: the raster collapses to a line by pd 0.3, the line to a dot by 0.62, the dot is gone by 1.0).
+# Each death: the relay thunk, the static of the raster cut dead as it collapses, and the deflection whine falling
+# from ~10 kHz to nothing with the dot. Ours is right in front of the lens; the wall behind it is a ripple outward.
+TVOFF = [unit(f"tvoff-{k}") for k in (1, 2, 3, 4)]
+def power_down(d, k):
+    n = t2i(0.6); y = TVOFF[k % 4][:n].copy(); y = np.pad(y, (0, max(0, n - len(y))))
+    lo = lp(y, 260, 2) * np.exp(-np.arange(n) / (0.12 * SR))                         # the thunk, and the cabinet
+    gate = np.ones(n); a = t2i(0.06 + 0.01 * vr.random()); gate[a:] = 0.0; gate[a - 96:a] = np.linspace(1, 0, 96)
+    hi = hp(y, 260, 2) * gate                                                         # static: cut dead when the raster goes
+    T = 0.2 * (1 + 0.15 * vr.standard_normal()); tw = tt(T)
+    f = (9000 + 2500 * vr.random()) * (300 / 9500) ** ((tw / T) ** 0.7)               # the whine collapses with the dot
+    wh = (sine(f, T) + 0.25 * sine(2 * f, T)) * np.minimum(1, tw / 0.01) * (1 - tw / T) ** 1.5
+    wh = np.pad(wh, (0, n - len(wh)))
+    x = lo * 1.0 + hi * 0.8 + wh * 0.22 / (1 + d) ** 0.7                              # far whines blur into the ripple
+    return far(x, d)
+PD0 = {c: min(np.hypot(*c), 16) * 0.011 + h21(c[0] + 4.3, c[1] + 4.3) * 0.05 for c in WALL}
+# before they die, the sets hum: one set's mains buzz and line whine from the Act II cut, straining as the apps pile on
+# and the set overheats, then the whole wall's as the camera pulls back (wider, thicker). The stall cuts it with the
+# picture, ours first: the silence after it is what makes the valley a valley
+def buzz(d, f0=59.94):
+    tw = tt(d); ph = 2 * np.pi * f0 * tw * (1 + 0.002 * np.sin(2 * np.pi * 0.3 * tw))
+    x = np.abs(np.sin(ph)) - 2 / np.pi                                                # rectified: the transformer's 120 Hz buzz
+    x = bp(x, 600, 3500, 2) + 0.15 * bp(noise(d), 1500, 6000, 2) * (0.6 + 0.4 * np.sin(2 * np.pi * 7.3 * tw) ** 2)
+    return x + 0.05 * sine(15734 / 2, d)                                              # the line whine, an octave down (audible)
+A2, H0, W0, W1 = TM["act2"], TM["heat0"], TM["wall"][0], TM["wall"][1]
+HUM_DB = -4.0                                                    # re the score under the kills
+hd = STALL - A2 + 0.3
+hum_db = np.interp(tt(hd) + A2, [A2, A2 + 0.2, H0, W0, W1, STALL], [-40, -16, -13, -9, -6, -6])
+hum_off = np.clip((STALL + PD0[(0, 0)] + 0.06 - (tt(hd) + A2)) / 0.06, 0, 1)         # dies with ours, then the wall
+for k, (pan, f0) in enumerate([(0.0, 59.94), (-0.7, 59.91), (0.7, 59.97)]):            # ours, then the wall either side
+    wall_in = 1.0 if k == 0 else np.clip((tt(hd) + A2 - W0) / (W1 - W0), 0, 1)
+    off = hum_off if k == 0 else np.clip((STALL + 0.14 - (tt(hd) + A2)) / 0.1, 0, 1)
+    stereo_add(buzz(hd, f0) * 10 ** (hum_db / 20) * wall_in * off * (1.0 if k == 0 else 0.6), A2, GROOVE_RMS * 10 ** (HUM_DB / 20), pan)
+POWER = 1.5                                                      # the wall dying, re the score under the kills
+for n_, c in enumerate(sorted(WALL, key=lambda c: PD0[c])):
+    d = set_dist(*c)
+    g = 10 ** (2.0 / 20) if d == 0 else 0.42 / (1 + 0.55 * d) ** 1.3                 # ours alone carries the moment
+    stereo_add(power_down(d, n_), STALL + PD0[c] + 0.012 * d, g * GROOVE_RMS * POWER, set_pan(c[0]) * (0.6 if d == 0 else 1))
+
+# the drop: the ignition wave races outward from ours (film.js ignAt: ours on the enter, set (i, j) after
+# h21(i + 1.7, j + 1.7) * 0.25 + hypot(i, j) * 0.07, burning through over 0.35 s); each screen bursts as the fire takes
+# it (glass and an electrical crack), a little after its light, darker and later with distance. Ours is the melt hit.
+IMPL = [hp(unit(f"implode-{k}"), 350, 2) for k in (1, 2, 3, 4)]   # glass and crack: the roar carries the low end
+BURST = 0.11                                                     # into the burn, the tube lets go
+def ign_at(i, j): return 0.0 if (i, j) == (0, 0) else h21(i + 1.7, j + 1.7) * 0.25 + np.hypot(i, j) * 0.07
+for n_, c in enumerate(sorted(WALL, key=lambda c: ign_at(*c))):
+    if c == (0, 0): continue
+    d = set_dist(*c)
+    x = far(shift(IMPL[n_ % 4], 2.5 * vr.standard_normal() - 0.6 * d), d)
+    g = 0.9 / (1 + 0.5 * d) ** 1.4
+    stereo_add(x, MELT0 + ign_at(*c) + BURST + 0.006 * d, g * GROOVE_RMS * 2.2, set_pan(c[0]))
+
+# the roar: the fire's sound reaches us after its light (ROAR_LAG), swells, fills the room wide; as the river forms it
+# narrows to the middle and focuses into one pour that builds into the slam, and stops dead with the cast
+ROAR_LAG, RIV0, RIV1 = 0.22, TM["river"][0], TM["river"][1]
+def lev(name): x = own(name); return x / (np.sqrt(np.mean(x ** 2)) + 1e-12) * GROOVE_RMS
+R0, P0 = MELT0 + ROAR_LAG, RIV0 - 0.15
+def layer(parts):                                                # [(mono, t, gain L, gain R)] -> stereo
+    out = np.zeros((N, 2))
+    for x, t, l, r in parts:
+        i = t2i(t); x = x[: N - i]; out[i:i + len(x), 0] += x * l; out[i:i + len(x), 1] += x * r
+    return out
+v, fu, p1, p2 = lev("volcano"), lev("furnace"), lev("pour-1"), lev("pour-2")
+FIRE = layer([(v, R0, 1.0, 0.0), (v[t2i(0.37):], R0, 0.0, 1.0),                   # a wall of fire: two stretches of the
+              (fu, R0 + 0.05, 0.6, 0.0), (fu[t2i(0.21):], R0 + 0.05, 0.0, 0.6)])   # same fire, one each side, so it is wide
+POUR = layer([(p1, P0, 0.7, 0.7), (p2, P0, 0.45, 0.45)])                           # one stream, in the middle
+tg = np.arange(N) / SR
+swell = np.clip((tg - R0) / 0.35, 0, 1) ** 0.8                                     # arrives, swells
+fire_db = -3.0 * swell - 16 * (1 - swell) - 6.0 * np.clip((tg - RIV0) / (CAST - RIV0), 0, 1)  # gives way to the pour
+pour_db = -14 + 17.0 * np.clip((tg - P0) / (CAST - P0), 0, 1) ** 1.6                          # builds into the slam
+R = FIRE * (10 ** (fire_db / 20) * (tg >= R0))[:, None] + POUR * (10 ** (pour_db / 20) * (tg >= P0))[:, None]
+width = 1 - np.clip((tg - RIV0) / (RIV1 - 0.25 - RIV0), 0, 1) ** 1.2                # wide -> mono as the river forms
+M_, S_ = (R[:, 0] + R[:, 1]) / 2, (R[:, 0] - R[:, 1]) / 2 * width
+stop = np.ones(N); c0 = t2i(CAST + 0.12); stop[c0:] = 0; stop[c0 - t2i(0.04):c0] = np.linspace(1, 0, t2i(0.04))   # full through the slam's window
+beds.L += (M_ + S_) * stop * 10 ** (1.0 / 20); beds.R += (M_ - S_) * stop * 10 ** (1.0 / 20)
+
+# the air of the room: a faint, wide, bright floor under everything (the new score is quiet in Act I and under
+# Armstrong, and a sound effect over true digital silence is levelled against nothing: mix.py and qa.py both floor
+# the bed at -60 dBFS, so small sounds there came out inaudible). It dies with the sets at the stall and comes back
+# with the fire; the valley is true silence
+def pink(n):
+    f = np.fft.rfftfreq(n, 1 / SR); s = np.fft.rfft(vr.standard_normal(n)) / np.sqrt(np.maximum(f, 20))
+    return np.fft.irfft(s, n)
+AIR_DB = -38.0                                                   # re the score under the kills
+air = [lp(hp(pink(N), 900, 2), 13000, 2) for _ in (0, 1)]
+air = [a / np.sqrt(np.mean(a ** 2)) * GROOVE_RMS * 10 ** (AIR_DB / 20) for a in air]
+ag = np.ones(N); a0, a1 = t2i(STALL + 0.05), t2i(STALL + 0.35); ag[a0:a1] = np.linspace(1, 0, a1 - a0); ag[a1:t2i(MELT0)] = 0
+beds.L += air[0] * ag; beds.R += air[1] * ag
+if os.environ.get("BEDS_DEBUG"):                                 # score and beds apart, for audio/lab/beds.py
+    np.savez(os.path.join(ROOT, "audio", "lab", "beds-debug.npz"), music=np.stack([music.L, music.R], 1), beds=np.stack([beds.L, beds.R], 1))
 
 # ------------------------------------------------------------------ Armstrong: line A under the translate kill; line B lands on the logo
 src = os.path.join(ROOT, "..", "research", "footage", "icons", "Armstrong_Small_Step.ogg")

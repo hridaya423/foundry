@@ -8,7 +8,6 @@ Every recording placed by `tools/cues.py`. Kit sounds come from the sound-layer 
 - anvil-3: Wikimedia Commons, "WWS Blacksmith8217sanvil.ogg" (World Wide Sounds), CC BY 4.0
 - anvil-4: Wikimedia Commons, "WWS Blacksmith8217sanvil.ogg" (World Wide Sounds), CC BY 4.0
 - boom/fs-105351-backfire-ogg-1: "BACKFIRE.ogg" by CeebFrack, CC0, https://freesound.org/people/CeebFrack/sounds/105351
-- boom/fs-13862-10-wav-1: "10.wav" by adcbicycle, CC0, https://freesound.org/people/adcbicycle/sounds/13862
 - boom/fs-13875-23-wav-1: "23.wav" by adcbicycle, CC0, https://freesound.org/people/adcbicycle/sounds/13875
 - boom/fs-268608-juno-sub-wav-1: "Juno Sub.wav" by breo2012, CC0, https://freesound.org/people/breo2012/sounds/268608
 - cast-hit: cut from hit/fs-359139-low-metal-hit-3-wav-1, "Low Metal Hit 3.wav" by zazz.sound.design, CC0, https://freesound.org/people/zazz.sound.design/sounds/359139
@@ -17,15 +16,19 @@ Every recording placed by `tools/cues.py`. Kit sounds come from the sound-layer 
 - chime/fs-159011-ding2-wav-1: "ding2.wav" by mrbriandesign, CC0, https://freesound.org/people/mrbriandesign/sounds/159011
 - chime/fs-243701-correct-1: "correct" by ertfelda, CC0, https://freesound.org/people/ertfelda/sounds/243701
 - chime/fs-404104-glass-ding-3: "Glass ding" by Counter-gamer, CC0, https://freesound.org/people/Counter-gamer/sounds/404104
+- click/kenney-interface-switch-001: Kenney (kenney.nl), Interface Sounds, CC0
 - click/kenney-interface-switch-002: Kenney (kenney.nl), Interface Sounds, CC0
-- click/kenney-rpg-metal-click: Kenney (kenney.nl), RPG Audio, CC0
 - click/kenney-rpg-metal-latch: Kenney (kenney.nl), RPG Audio, CC0
 - computer: "Computer Sounds" by plasterbrain, CC0, https://freesound.org/people/plasterbrain/sounds/266165
 - furnace: "flame in furnace.wav" by jokallset, CC0, https://freesound.org/people/jokallset/sounds/395883
-- hit/fs-113747-kl-ex1bb-wav-2: "kl_ex1bb.wav" by Klerrp, CC0, https://freesound.org/people/Klerrp/sounds/113747
+- gif-boom: cut from boom/fs-13862-10-wav-1, "10.wav" by adcbicycle, CC0, https://freesound.org/people/adcbicycle/sounds/13862
 - horses: Wikimedia Commons, "Six Horses Galloping By.ogg", CC0
 - ignition-boom: cut from boom/fs-636624-deep-hit-2, "Deep hit" by CogFireStudios, CC0, https://freesound.org/people/CogFireStudios/sounds/636624
 - ignition-punch: cut from hit/fs-710368-cinematic-punch-1, "Cinematic Punch" by mittenboy, CC0, https://freesound.org/people/mittenboy/sounds/710368
+- implode-1: Generated for this film (ElevenLabs sound generation, audio/gen/eleven.py "implode"), project-owned
+- implode-2: Generated for this film (ElevenLabs sound generation, audio/gen/eleven.py "implode"), project-owned
+- implode-3: Generated for this film (ElevenLabs sound generation, audio/gen/eleven.py "implode"), project-owned
+- implode-4: Generated for this film (ElevenLabs sound generation, audio/gen/eleven.py "implode"), project-owned
 - key/fs-180974-key-1: "ä key" by uEffects, CC0, https://freesound.org/people/uEffects/sounds/180974
 - key/fs-180997-enter-key-2: "enter key" by uEffects, CC0, https://freesound.org/people/uEffects/sounds/180997
 - key/fs-194799-keyboard5-wav-1: "keyboard5.wav" by jim-ph, CC0, https://freesound.org/people/jim-ph/sounds/194799
@@ -35,19 +38,22 @@ Every recording placed by `tools/cues.py`. Kit sounds come from the sound-layer 
 - key/fs-442649-keyboard-click-mp3: "Keyboard Click.mp3" by asetkeyzet, CC0, https://freesound.org/people/asetkeyzet/sounds/442649
 - key/fs-539146-keyboard-typing-001-wav-2: "Keyboard Typing 001.wav" by ristooooo1, CC0, https://freesound.org/people/ristooooo1/sounds/539146
 - key/fs-539146-keyboard-typing-001-wav-3: "Keyboard Typing 001.wav" by ristooooo1, CC0, https://freesound.org/people/ristooooo1/sounds/539146
+- melt-hit: cut from hit/fs-113747-kl-ex1bb-wav-2, "kl_ex1bb.wav" by Klerrp, CC0, https://freesound.org/people/Klerrp/sounds/113747
 - morse: "kki-cw-2011-03-06.10.15cet.mp3" by ok1has, CC0, https://freesound.org/people/ok1has/sounds/116237
 - overheat: cut from glitch/fs-534735-digital-glitch-static-noise-1, "Digital Glitch, Static Noise" by Diicorp95, CC0, https://freesound.org/people/Diicorp95/sounds/534735
 - pass-by: cut from transition/fs-522693-arrow-ghost-pass-whoosh-1, "Arrow, ghost, pass, whoosh" by quedicemipez, CC0, https://freesound.org/people/quedicemipez/sounds/522693
 - phone-bell: "old phone ringtone Poland.wav" by blukotek, CC0, https://freesound.org/people/blukotek/sounds/245445
+- pour-1: Generated for this film (ElevenLabs sound generation, audio/gen/eleven.py "pour"), project-owned
+- pour-2: Generated for this film (ElevenLabs sound generation, audio/gen/eleven.py "pour"), project-owned
 - quench: "Food Sizzling" by LanDub, CC0, https://freesound.org/people/LanDub/sounds/182393
 - quindar-in: Generated: NASA Quindar tones are pure sines (2525 Hz intro, 2475 Hz outro, 250 ms)
 - quindar-out: Generated: NASA Quindar tones are pure sines (2525 Hz intro, 2475 Hz outro, 250 ms)
 - reverse/fs-244837-rev-cymb-23-wav-1: "Rev Cymb 23.wav" by JarredGibb, CC0, https://freesound.org/people/JarredGibb/sounds/244837
-- riser/fs-503801-reverse-fx-3-wav-1: "reverse fx 3.wav" by neezen., CC0, https://freesound.org/people/neezen./sounds/503801
 - river-fall: cut from transition/fs-521040-whoosh-large-verb-er-sfx-6-w-1, "Whoosh_LargeVerb_ER_SFX_6.wav" by Alex_hears_things, CC0, https://freesound.org/people/Alex_hears_things/sounds/521040
 - sand: "pouring sand and salt 2.mp3" by mariethompson, CC0, https://freesound.org/people/mariethompson/sounds/516920
 - shuttle-roar: "shuttlelaunch.wav" by klangfabrik, CC0, https://freesound.org/people/klangfabrik/sounds/220127
 - sizzle: "Food Sizzling" by LanDub, CC0, https://freesound.org/people/LanDub/sounds/182393
+- suck: Generated for this film (ElevenLabs sound generation, audio/gen/eleven.py "suck", take 2), project-owned
 - swish/fs-14176-28-wav-3: "28.wav" by adcbicycle, CC0, https://freesound.org/people/adcbicycle/sounds/14176
 - tap/kenney-impact-impact-glass-light-001: Kenney (kenney.nl), Impact Sounds, CC0
 - tap/kenney-impact-impact-glass-light-002: Kenney (kenney.nl), Impact Sounds, CC0
@@ -59,6 +65,10 @@ Every recording placed by `tools/cues.py`. Kit sounds come from the sound-layer 
 - tick/fs-185611-metal-tick-1-1: "Metal tick 1" by kubawolanin, CC0, https://freesound.org/people/kubawolanin/sounds/185611
 - tick/fs-386206-ratchet-stahlwille-tighten-1-3: "Ratchet - Stahlwille - Tighten 1" by ldezem, CC0, https://freesound.org/people/ldezem/sounds/386206
 - train: "Train Passing By 113 with Steam Hissing and Puffing" by FunWithSound, CC0, https://freesound.org/people/FunWithSound/sounds/593038
+- tvoff-1: Generated for this film (ElevenLabs sound generation, audio/gen/eleven.py "tvoff"), project-owned
+- tvoff-2: Generated for this film (ElevenLabs sound generation, audio/gen/eleven.py "tvoff"), project-owned
+- tvoff-3: Generated for this film (ElevenLabs sound generation, audio/gen/eleven.py "tvoff"), project-owned
+- tvoff-4: Generated for this film (ElevenLabs sound generation, audio/gen/eleven.py "tvoff"), project-owned
 - typewriter-1: Wikimedia Commons, "WWS Typewriter.ogg" (World Wide Sounds), CC BY 4.0
 - typewriter-2: Wikimedia Commons, "WWS Typewriter.ogg" (World Wide Sounds), CC BY 4.0
 - typewriter-3: Wikimedia Commons, "WWS Typewriter.ogg" (World Wide Sounds), CC BY 4.0
@@ -66,6 +76,7 @@ Every recording placed by `tools/cues.py`. Kit sounds come from the sound-layer 
 - typewriter-5: Wikimedia Commons, "WWS Typewriter.ogg" (World Wide Sounds), CC BY 4.0
 - typing-pool: Wikimedia Commons, "WWS Teleprintertyping.ogg" (World Wide Sounds), CC BY 4.0
 - ui/kenney-interface-select-001: Kenney (kenney.nl), Interface Sounds, CC0
+- ui/kenney-interface-select-002: Kenney (kenney.nl), Interface Sounds, CC0
 - ui/kenney-interface-select-003: Kenney (kenney.nl), Interface Sounds, CC0
 - ui/kenney-interface-select-004: Kenney (kenney.nl), Interface Sounds, CC0
 - ui/kenney-interface-select-006: Kenney (kenney.nl), Interface Sounds, CC0
@@ -73,5 +84,5 @@ Every recording placed by `tools/cues.py`. Kit sounds come from the sound-layer 
 - volcano: "S35-08 Volcano explosion with debris and lava" by craigsmith, CC0, https://freesound.org/people/craigsmith/sounds/675739
 - whistle: Wikimedia Commons, "WWS SteamWhistle.ogg" (World Wide Sounds), CC BY 4.0
 - whoosh/fs-30240-swoop1-flac-1: "swoop1.flac" by Streety, CC0, https://freesound.org/people/Streety/sounds/30240
-- whoosh/fs-449988-whoosh-med-high-1: "whoosh_med_high" by DJT4NN3R, CC0, https://freesound.org/people/DJT4NN3R/sounds/449988
 - whoosh/fs-449992-whoosh-short-low-wav-1: "whoosh_short_low.wav" by DJT4NN3R, CC0, https://freesound.org/people/DJT4NN3R/sounds/449992
+- wipe: cut from whoosh/fs-449988-whoosh-med-high-1, "whoosh_med_high" by DJT4NN3R, CC0, https://freesound.org/people/DJT4NN3R/sounds/449988

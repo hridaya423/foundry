@@ -254,21 +254,7 @@
     float col = smoothstep(0.45, 0.75, fbm(vec2(px.x*0.006 + 7.0, uCastT*0.3)));
     float wisp = fbm(vec2(px.x*0.009 + sin(px.y*0.01 + uCastT*2.0)*0.6, px.y*0.006 + uCastT*1.1) + 2.0);
     c += vec3(0.1, 0.096, 0.092)*smoothstep(0.42, 0.75, wisp)*col*above*uSmoke;
-    // sparks: a burst off the impact as the river lands, then a few popping off the skin as it sets
-    for (int k = 0; k < 22; k++) {
-      float fk = float(k), burst = step(fk, 13.5);
-      float t0 = burst > 0.5 ? 0.01 + 0.06*h21(vec2(fk, 2.0)) : 0.6 + h21(vec2(fk, 2.0))*0.7, u = uCastT - t0;
-      float life = burst > 0.5 ? 0.55 : 0.45;
-      if (u < 0.0 || u > life) continue;
-      vec2 o = burst > 0.5 ? uImp.xy*uRes + vec2((h21(vec2(fk, 3.0)) - 0.5)*60.0, -10.0)
-                           : vec2((0.2 + 0.6*h21(vec2(fk, 5.0)))*uRes.x, uImp.y*uRes.y - 20.0);
-      vec2 v = burst > 0.5 ? vec2((h21(vec2(fk, 7.0)) - 0.5)*1500.0, -500.0 - 900.0*h21(vec2(fk, 9.0)))
-                           : vec2((h21(vec2(fk, 7.0)) - 0.5)*500.0, -600.0 - 500.0*h21(vec2(fk, 9.0)));
-      vec2 sp_ = o + v*u + vec2(0.0, 1800.0)*u*u, vl = v + vec2(0.0, 3600.0)*u;
-      vec2 a_ = sp_ - vl/60.0, pa = px - a_, ba = sp_ - a_;
-      float dd = length(pa - ba*clamp(dot(pa, ba)/dot(ba, ba), 0.0, 1.0));
-      c += body(1.2)*exp(-dd*dd/3.0)*(1.0 - u/life)*2.0;
-    }
+    // (its sparks, the burst off the impact and the pops off the setting skin, are the film's one system: js/sparks.js)
     // the river feeding it, and its splash
     if (uStream.z > 0.0 && s.y >= uStream.x && s.y <= uImp.y) {
       float neck = 0.75 + 0.5*fbm(vec2(s.y*14.0 - uCastT*9.0, 0.0));
@@ -413,7 +399,8 @@
   uniform vec4 uScr;          // screen opening in plate fractions
   uniform vec3 uOn;           // dot, openX, openY
   uniform vec4 uFlat;         // the picture pulled out of the tube: rect in output fractions
-  uniform float uPersp, uHaze, uEmbers, uBarOn, uBarR;
+  uniform float uPersp, uHaze, uBarOn, uBarR;
+  uniform float uDown, uPT, uBlast;   // seconds since the stall (-1 before it); the pictures' clock, which stops at the stall
   uniform vec4 uBar;          // the command bar, output px: x, y, w, h
   uniform vec3 uCaret;        // the caret, output px: x, y, on
   float sdBox(vec2 p, vec2 b, float r){ vec2 q = abs(p) - b + r; return length(max(q, 0.)) + min(max(q.x, q.y), 0.) - r; }
@@ -467,48 +454,60 @@
       if (uWall > 0.5) { vec2 r = (w - uBox.xy)/uBox.zw; cell = floor(r); w = uBox.xy + fract(r)*uBox.zw; }
       float ours = 1.0 - step(0.5, abs(cell.x) + abs(cell.y));
       float vary = mix(0.45 + 0.9*h21(cell + 9.1), 1.0, ours);  // no two sets in the wall are lit alike
+      // the valley: at the stall every set dies like a CRT losing power, the reverse of the power-on: the raster
+      // collapses to a bright line, the line to a dot, the dot goes out; ours first, the wall after it, outward
+      vec3 on = uOn; float room = 1.0, sq = 1.0;
+      if (uDown >= 0.0) {
+        float pd = clamp((uDown - min(length(cell), 16.0)*0.011 - h21(cell + 4.3)*0.05)/0.2, 0.0, 1.0);
+        on = vec3(smoothstep(0.5, 0.62, pd)*(1.0 - smoothstep(0.62, 1.0, pd)), 1.0 - smoothstep(0.3, 0.62, pd), 1.0 - smoothstep(0.0, 0.3, pd));
+        sq = step(0.001, pd);
+        room = mix(1.0, 0.03, smoothstep(0.0, 0.42, uDown));  // the sets were the only light in the room
+      }
       vec2 pr = vec2(3840.0, 2160.0);
       vec2 sc = uScr.xy + uScr.zw*0.5;
       float d = sdBox((w - sc)*pr, uScr.zw*pr*0.5, uRad*pr.y);
       vec3 off = textureGrad(uOff, w, gx, gy).rgb, lit = textureGrad(uLit, w, gx, gy).rgb;
       float inb = step(0.0, w.x)*step(w.x, 1.0)*step(0.0, w.y)*step(w.y, 1.0);
       float avg = dot(textureLod(uPic, vec2(0.5), 11.0).rgb, vec3(0.3, 0.55, 0.15));
-      float spill = mix(0.45, clamp(avg*1.6, 0.0, 1.2), ours)*uOn.z*vary + uOn.x*0.06;
-      // the melt ignites as a wave from our set outward, each set a little early or late
+      float spill = mix(0.45, clamp(avg*1.6, 0.0, 1.2), ours)*on.z*vary + on.x*0.06;
+      // the melt ignites as a wave from our set outward, each set a little early or late (ours on the enter, at once;
+      // js/film.js mirrors this for the drips and the sparks)
       float hc = 0.0;
-      if (uMeltT > 0.0) { float dl = h21(cell + 1.7)*0.25 + length(cell)*0.07; hc = smoothstep(dl, dl + 0.35, uMeltT); spill += hc*1.5; }
-      c = (off + max(lit - off, 0.0)*spill)*inb;
+      if (uMeltT >= 0.0) {
+        float dl = ours > 0.5 ? 0.0 : h21(cell + 1.7)*0.25 + length(cell)*0.07;
+        hc = max(smoothstep(dl, dl + mix(0.35, 0.06, ours), uMeltT), ours*uBlast); spill += hc*1.5;   // ours is white on the enter
+        // the blast off our set lights the dead wall for a few frames, then it is dark until the wave arrives
+        float bl = uBlast*exp(-length(cell)*0.4);
+        spill += bl*1.4;
+        room = max(room, max(max(hc, bl), smoothstep(0.2, 1.0, uMeltT)*0.8));   // the dead wall is lit again by its own fire
+      }
+      c = (off*room + max(lit - off, 0.0)*spill)*inb;
       vec2 sl = (w - uScr.xy)/uScr.zw;
       // the tube's light falls on the cabinet around the glass
-      float glow = exp(-max(d, 0.0)/70.0)*step(0.0, d)*uOn.y*uOn.z*(1.0 - uScrDim);
-      c += (ours > 0.5 ? pic(clamp(sl, 0.0, 1.0), 5.0) : vec3(0.9, 0.55, 0.25)*0.25*vary + body(0.8)*hc)*glow*0.22;
+      float glow = exp(-max(d, 0.0)/70.0)*step(0.0, d);
+      c += ((ours > 0.5 ? pic(clamp(sl, 0.0, 1.0), 5.0) : vec3(0.9, 0.55, 0.25)*0.25*vary)*on.y*on.z*(1.0 - uScrDim) + body(0.8)*hc)*glow*0.22;
       float soft = 1.0 + dof*10.0;                           // out of focus, the glass edge softens too
       if (d < soft) {
         vec2 q = sl*2.0 - 1.0;
         float bar_ = uBarrel*(1.0 + 1.8*uOverheat*ours);
         q *= (1.0 + bar_*dot(q, q))/(1.0 + bar_);
         vec2 u = q*0.5 + 0.5;
-        // an overheating set: the picture rolls and tears, and the guns drift out of convergence
-        u.y += ours*uOverheat*0.035*sin(uT*31.0)*step(0.6, fract(uT*3.7));
-        u.x += ours*uOverheat*0.02*step(0.93, fract(u.y*13.0 + uT*7.0))*sin(uT*90.0);
+        // an overheating set: the picture rolls and tears, and the guns drift out of convergence (on the picture's
+        // clock, uPT, which stops at the stall: the tear holds where it was)
+        u.y += ours*uOverheat*0.035*sin(uPT*31.0)*step(0.6, fract(uPT*3.7));
+        u.x += ours*uOverheat*0.02*step(0.93, fract(u.y*13.0 + uPT*7.0))*sin(uPT*90.0);
+        // dying, the deflection fails: the whole picture is squeezed into the closing raster
+        vec2 ui = mix(u, 0.5 + (u - 0.5)/max(vec2(on.y, on.z), vec2(0.02)), sq);
         vec2 ca = (u - 0.5)*0.0035*(1.0 + 3.5*uOverheat*ours);
-        vec3 img = vec3(pic(u + ca, dof).r, pic(u, dof).g, pic(u - ca, dof).b);
+        vec3 img = vec3(pic(ui + ca, dof).r, pic(ui, dof).g, pic(ui - ca, dof).b);
         if (ours < 0.5) { // other sets show other desktops, burnt amber
           float sl_ = floor(h21(cell + 0.37)*uAtlasGrid.x*uAtlasGrid.y);
           vec2 slot = vec2(mod(sl_, uAtlasGrid.x), floor(sl_/uAtlasGrid.x));
-          vec3 a_ = texture(uAtlas, (slot + clamp(u, 0.0, 1.0))/uAtlasGrid, dof).rgb;
+          vec3 a_ = texture(uAtlas, (slot + clamp(ui, 0.0, 1.0))/uAtlasGrid, dof).rgb;
           float al = dot(a_, vec3(0.3, 0.55, 0.15))*vary;
           img = vec3(1.0, 0.60, 0.24)*pow(al, 0.92) + vec3(0.0, 0.22, 0.36)*pow(al, 2.6);
         }
-        // the melt: each screen burns through from a ragged front that glows as it passes, charring ahead of it
-        float fl = fbm(vec2(u.x*4.0, u.y*2.2 - uT*1.6) + cell*3.1);
-        vec3 hot = body(0.42 + 0.5*hc + 0.55*(fl - 0.5) + 0.25*(1.0 - abs(q.y)));
-        float nb = fbm(u*vec2(3.2, 2.4) + cell*1.7)*0.85 + 0.08 + u.y*0.12;
-        float hb = hc*1.3;
-        float burnt = smoothstep(nb - 0.025, nb + 0.025, hb);
-        float front = smoothstep(0.06, 0.0, abs(hb - nb))*step(0.001, hc)*(1.0 - step(0.999, hc));
-        img = mix(img*(1.0 - 0.75*smoothstep(nb - 0.16, nb, hb)), hot, burnt*0.96);
-        img += body(1.15)*front*1.6;
+        img *= 1.0 + 1.2*(1.0 - on.z)*sq;                      // the same beam on fewer lines: brighter as it closes
         float ok = step(0.0, u.x)*step(u.x, 1.0)*step(0.0, u.y)*step(u.y, 1.0);
         // amber phosphor: the tube sees only brightness, and burns it warm
         float pl = dot(img, vec3(0.3, 0.55, 0.15));
@@ -517,25 +516,37 @@
         // scanlines tighten on bright lines; edges and corners fall off like a real tube
         float lum = dot(img, vec3(0.3, 0.55, 0.15));
         float sl2 = 0.5 + 0.5*cos(u.y*3.14159*2.0*300.0);
-        img *= mix(0.72, 1.0, mix(sl2, 1.0, clamp(lum*0.6, 0.0, 0.85)));
+        float scan = mix(0.72, 1.0, mix(sl2, 1.0, clamp(lum*0.6, 0.0, 0.85)));
+        img *= scan;
         // a monochrome tube's phosphor has no colour triads, only a fine pitch; shown where it can't alias
         float period = uScr.z*uCam.z*uRes.x/max(z, 0.25)/320.0;
         img *= 1.0 + (cos(6.28318*u.x*320.0))*smoothstep(2.2, 4.0, period)*0.14;
         // overheat: a hum bar rolls up the picture
-        img *= 1.0 - ours*uOverheat*0.3*exp(-pow((fract(u.y + uT*0.7) - 0.5)/0.07, 2.0));
+        img *= 1.0 - ours*uOverheat*0.3*exp(-pow((fract(u.y + uPT*0.7) - 0.5)/0.07, 2.0));
         float edge = smoothstep(0.0, 0.16, min(min(u.x, 1.0 - u.x), min(u.y, 1.0 - u.y)));
         img *= mix(0.55, 1.0, edge)*ok;
         // power-on: the dot (the caret), the line, then the raster opens
         float ax = abs(u.x - 0.5), ay = abs(u.y - 0.5);
-        float open = step(ax, uOn.y*0.5)*step(ay, uOn.z*0.5);
+        float open = step(ax, on.y*0.5)*step(ay, on.z*0.5);
         img *= open*(1.0 - uScrDim);
-        float line = exp(-pow(ay/max(0.002, uOn.z*0.5 + 0.004), 2.0)*6.0)*step(ax, uOn.y*0.5)*(1.0 - smoothstep(0.6, 1.0, uOn.z));
-        img += body(1.25)*line*1.6*step(0.001, uOn.y);
+        float line = exp(-pow(ay/max(0.002, on.z*0.5 + 0.004), 2.0)*6.0)*step(ax, on.y*0.5)*(1.0 - smoothstep(0.6, 1.0, on.z));
+        img += body(1.25)*line*1.6*step(0.001, on.y)*mix(1.0, 0.75 + 0.5*vary, sq);
         float dot_ = exp(-((ax*ax)*5.0 + ay*ay*0.22)/0.0009);
         img += body(0.95 + 0.25*uOn.x)*dot_*uOn.x*2.2;
+        img += body(1.0 + 0.2*on.x)*exp(-(ax*ax*1.78 + ay*ay)/0.0012)*on.x*1.8*sq;   // the dying dot, round on the glass
+        // the melt (after the power: a dead tube still burns): each screen burns through from a ragged front that
+        // glows as it passes, charring ahead of it
+        float fl = fbm(vec2(u.x*4.0, u.y*2.2 - uT*1.6) + cell*3.1);
+        vec3 hot = body(0.42 + 0.5*hc + 0.55*(fl - 0.5) + 0.25*(1.0 - abs(q.y)))*scan*mix(0.55, 1.0, edge)*ok;
+        float nb = fbm(u*vec2(3.2, 2.4) + cell*1.7)*0.85 + 0.08 + u.y*0.12;
+        float hb = hc*1.3;
+        float burnt = smoothstep(nb - 0.025, nb + 0.025, hb);
+        float front = smoothstep(0.06, 0.0, abs(hb - nb))*step(0.001, hc)*(1.0 - step(0.999, hc));
+        img = mix(img*(1.0 - 0.75*smoothstep(nb - 0.16, nb, hb)), hot, burnt*0.96);
+        img += body(1.15)*front*1.6*ok;
         // glass: a dark tube face, a soft reflection, a bevel at the opening
-        vec3 glass = vec3(0.012, 0.014, 0.016) + vec3(0.06, 0.065, 0.07)*smoothstep(0.9, 0.0, length((sl - vec2(0.28, 0.22))*vec2(1.0, 1.6)))*0.6;
-        glass += body(0.45 + 0.3*uOverheat)*uOverheat*ours*0.35*smoothstep(0.2, 1.0, length(q));
+        vec3 glass = (vec3(0.012, 0.014, 0.016) + vec3(0.06, 0.065, 0.07)*smoothstep(0.9, 0.0, length((sl - vec2(0.28, 0.22))*vec2(1.0, 1.6)))*0.6)*room;
+        glass += body(0.45 + 0.3*uOverheat)*uOverheat*ours*0.35*smoothstep(0.2, 1.0, length(q))*on.z;
         c = mix(c, glass + img, smoothstep(soft, -1.5*soft, d));
       }
       // the picture pulled out of the tube: flat, crisp, with a shadow on the set
@@ -561,23 +572,32 @@
       float fog = exp(-max(z - 1.0, 0.0)*1.2);
       c = c*mix(1.0, fog, uPersp) + body(0.5)*(1.0 - fog)*0.08*uPersp*smoothstep(0.0, 0.8, uMeltT);
     }
-    // embers: thrown up off the metal, each one smeared over the shutter
-    if (uEmbers > 0.0) {
-      vec2 px = vec2(vUv.x, 1.0 - vUv.y)*uRes;
-      for (int k = 0; k < 40; k++) {
-        float fk = float(k), life = 0.8 + 0.8*h21(vec2(fk, 1.3)), off_ = h21(vec2(fk, 2.7));
-        float cyc = floor(uT/life + off_), ph = fract(uT/life + off_), tt = ph*life;
-        vec2 o = vec2(h21(vec2(fk, cyc + 4.1))*uRes.x, uRes.y*1.02);
-        vec2 v = vec2((h21(vec2(fk, cyc + 5.3)) - 0.5)*280.0, -(480.0 + 760.0*h21(vec2(fk, cyc + 6.7))));
-        vec2 pos = o + v*tt + vec2(sin(tt*6.0 + fk)*16.0, 220.0*tt*tt);
-        vec2 vel = v + vec2(cos(tt*6.0 + fk)*96.0, 440.0*tt);
-        vec2 a = pos - vel/60.0, pa = px - a, ba = pos - a;
-        float dd = length(pa - ba*clamp(dot(pa, ba)/dot(ba, ba), 0.0, 1.0));
-        float sz = 1.1 + 1.7*h21(vec2(fk, cyc + 8.9));
-        c += body(0.95 + 0.45*h21(vec2(fk, cyc + 9.9)))*exp(-dd*dd/(sz*sz))*smoothstep(0.0, 0.08, ph)*(1.0 - ph)*uEmbers*1.5;
-      }
-    }
+    // (sparks are drawn after this pass, as streaks: SPARK below)
     fragColor = vec4(c, 1.0);
+  }`;
+
+  // ---------------------------------------------------------------- sparks: one instanced streak per particle (js/sparks.js), added
+  // to the HDR frame before bloom; a sharp one is a gaussian core swept over the shutter, a bokeh one a soft disc
+  const SPARK_VS = `#version 300 es
+  in vec2 a; in vec4 iSeg; in vec4 iP;   // corner; streak start xy -> end zw (px, y down); radius, T, energy, bokeh
+  uniform vec2 uRes;
+  out vec2 vUv, vPx; flat out vec4 vSeg, vP;
+  void main(){
+    vec2 d = iSeg.zw - iSeg.xy; float L = length(d);
+    vec2 dir = L > 1e-3 ? d/L : vec2(1.0, 0.0), nr = vec2(-dir.y, dir.x);
+    float pad = iP.w > 0.5 ? iP.x + 2.0 : iP.x*3.0 + 1.5;
+    vec2 px = mix(iSeg.xy, iSeg.zw, a.x*0.5 + 0.5) + (dir*a.x + nr*a.y)*pad;
+    vPx = px; vSeg = iSeg; vP = iP; vUv = px/uRes;
+    gl_Position = vec4((px/uRes*2.0 - 1.0)*vec2(1.0, -1.0), 0.0, 1.0);
+  }`;
+  const SPARK = COMMON + `
+  in vec2 vPx; flat in vec4 vSeg, vP;
+  void main(){
+    vec2 pa = vPx - vSeg.xy, ba = vSeg.zw - vSeg.xy;
+    float d = length(pa - ba*clamp(dot(pa, ba)/max(dot(ba, ba), 1e-4), 0.0, 1.0)), r = vP.x;
+    // out of focus near the lens: a disc with a soft edge and a faint brighter rim, like a real aperture
+    float k = vP.w > 0.5 ? smoothstep(r, r - 1.5 - 0.2*r, d)*(0.7 + 0.3*smoothstep(0.4*r, 0.9*r, d)) : exp(-d*d/(r*r));
+    fragColor = vec4(body(vP.y)*vP.z*k, 1.0);
   }`;
 
   const BRIGHT = COMMON + `
@@ -594,10 +614,17 @@
     fragColor = vec4(c, 1.0); }`;
 
   const FINAL = COMMON + `
-  uniform sampler2D uHdr, uB1, uB2; uniform vec2 uWeave, uBlur; uniform float uFrame, uExposure, uFade, uGrain;
+  uniform sampler2D uHdr, uB1, uB2; uniform vec2 uWeave, uBlur; uniform float uFrame, uExposure, uFade, uGrain, uT;
+  // the heat hitting the lens at the drop: uHit = flash (exposure), halation surge, lens haze; uShake in px
+  uniform vec3 uHit; uniform vec2 uShake;
   vec3 shoulder(vec3 x){ vec3 k = vec3(0.78); return mix(x, k + (1.0-k)*(1.0 - exp(-(x-k)/(1.0-k))), step(k, x)); }
   void main(){
-    vec2 uv = vUv + uWeave/uRes;
+    vec2 uv = vUv + (uWeave + uShake*vec2(1.0, -1.0))/uRes;
+    // the furnace's breath right at the lens: big, slow cells of hot air bend the whole frame and rush upward
+    if (uHit.z > 0.0) {
+      vec2 hq = vUv*vec2(3.2, 2.0) + vec2(0.0, -uT*2.6);
+      uv += (vec2(fbm(hq), fbm(hq + vec2(5.2, 3.1))) - 0.5)*uHit.z*vec2(0.010, 0.016);
+    }
     vec3 c = vec3(0.), b1 = vec3(0.), b2 = vec3(0.);
     // lens: lateral chromatic aberration grows toward the edges (red out, blue in), ~1.6 px in the corners
     vec2 rc = (vUv - 0.5)*vec2(uRes.x/uRes.y, 1.0);
@@ -612,8 +639,12 @@
     // bloom close to the source stays near its colour; halation (light scattered back off the film base) is wide
     // and red, because red is recorded deepest in the emulsion
     c += b1*vec3(1.0, 0.72, 0.5)*0.32;
-    c += b2*vec3(1.0, 0.32, 0.12)*0.62 + vec3(b2.r*0.18, 0.0, 0.0);
-    c = shoulder(c*uExposure);
+    c += (b2*vec3(1.0, 0.32, 0.12)*0.62 + vec3(b2.r*0.18, 0.0, 0.0))*(1.0 + 5.0*uHit.y);
+    // the door opens at your face: the glare veils the lens, white where it faces the fire, red where it scatters
+    vec2 fq = (vUv - 0.5)*vec2(uRes.x/uRes.y, 1.0);
+    float fr = dot(fq, fq);
+    c += body(1.05 - 0.8*sqrt(fr))*uHit.x*(0.025 + 0.11*exp(-fr*4.0));
+    c = shoulder(c*uExposure*(1.0 + 1.6*uHit.x));
     c = c*(c + 0.012)/(c + 0.03)*1.018;   // toe: blacks sit down, mids barely move
     vec2 q = vUv - 0.5; c *= 1.0 - dot(q*vec2(1.0,0.8), q)*0.9;
     uvec3 q3 = uvec3(uvec2(vUv*uRes), uint(uFrame));
@@ -624,23 +655,32 @@
     fragColor = vec4(clamp(c, 0., 1.)*uFade, 1.0);
   }`;
 
-  function prog(fs) {
+  function prog(fs, vs = VS) {
     const mk = (type, src) => { const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s);
       if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s)); return s; };
     const p = gl.createProgram();
-    gl.attachShader(p, mk(gl.VERTEX_SHADER, VS)); gl.attachShader(p, mk(gl.FRAGMENT_SHADER, fs));
-    gl.bindAttribLocation(p, 0, "a"); gl.linkProgram(p);
+    gl.attachShader(p, mk(gl.VERTEX_SHADER, vs)); gl.attachShader(p, mk(gl.FRAGMENT_SHADER, fs));
+    gl.bindAttribLocation(p, 0, "a"); gl.bindAttribLocation(p, 1, "iSeg"); gl.bindAttribLocation(p, 2, "iP"); gl.linkProgram(p);
     if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p));
     const u = {}; const n = gl.getProgramParameter(p, gl.ACTIVE_UNIFORMS);
     for (let i = 0; i < n; i++) { const name = gl.getActiveUniform(p, i).name; u[name] = gl.getUniformLocation(p, name); }
     return { p, u };
   }
-  const P = { scene: prog(SCENE), tv: prog(TV), bright: prog(BRIGHT), blur: prog(BLUR), final: prog(FINAL) };
+  const P = { scene: prog(SCENE), tv: prog(TV), bright: prog(BRIGHT), blur: prog(BLUR), final: prog(FINAL), spark: prog(SPARK, SPARK_VS) };
 
   const vb = gl.createBuffer();
   gl.bindBuffer(gl.ARRAY_BUFFER, vb);
   gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
   gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+  // the sparks' own vertex array: a unit quad, and one instance (8 floats) per particle
+  const SV = gl.createVertexArray(), SQ = gl.createBuffer(), SB = gl.createBuffer();
+  gl.bindVertexArray(SV);
+  gl.bindBuffer(gl.ARRAY_BUFFER, SQ); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
+  gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+  gl.bindBuffer(gl.ARRAY_BUFFER, SB);
+  gl.enableVertexAttribArray(1); gl.vertexAttribPointer(1, 4, gl.FLOAT, false, 32, 0); gl.vertexAttribDivisor(1, 1);
+  gl.enableVertexAttribArray(2); gl.vertexAttribPointer(2, 4, gl.FLOAT, false, 32, 16); gl.vertexAttribDivisor(2, 1);
+  gl.bindVertexArray(null); gl.bindBuffer(gl.ARRAY_BUFFER, vb);
 
   function tex(w, h, hdr) {
     const t = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, t);
@@ -705,7 +745,9 @@
       bind(0, RT.pic.t, u.uPic); bind(1, T.off, u.uOff); bind(2, T.lit, u.uLit); bind(3, T.metal, u.uMetal);
       gl.uniform2f(u.uRes, W, H); gl.uniform1f(u.uT, s.t); gl.uniform1f(u.uFlowSpd2, s.flowSpd2 == null ? 7 : s.flowSpd2);
       gl.uniform1f(u.uTV, v ? 1 : 0);
-      gl.uniform1f(u.uPersp, (v && v.persp) || 0); gl.uniform1f(u.uHaze, s.haze || 0); gl.uniform1f(u.uEmbers, s.embers || 0);
+      gl.uniform1f(u.uPersp, (v && v.persp) || 0); gl.uniform1f(u.uHaze, s.haze || 0);
+      gl.uniform1f(u.uPT, s.tp == null ? s.t : s.tp); gl.uniform1f(u.uDown, v && v.down != null ? v.down : -1);
+      gl.uniform1f(u.uBlast, s.hit ? s.hit.flash : 0);
       const b = s.bar;
       gl.uniform1f(u.uBarOn, b ? 1 : 0);
       if (b) { gl.uniform4f(u.uBar, b.x, b.y, b.w, b.h); gl.uniform1f(u.uBarR, b.r); gl.uniform3f(u.uCaret, b.cx, b.cy, b.con); }
@@ -717,6 +759,16 @@
         bind(4, T.atlas, u.uAtlas); gl.uniform1f(u.uFlatOn, v.flat ? 1 : 0); gl.uniform1f(u.uFlatRot, v.flatRot || 0); gl.uniform4f(u.uFlat, ...(v.flat || [0, 0, 1, 1]));
       }
     });
+    // sparks: added into the HDR frame, so they bloom and halate like everything else hot
+    const sp = s.sparks;
+    if (sp && sp.length) {
+      gl.useProgram(P.spark.p); gl.bindFramebuffer(gl.FRAMEBUFFER, RT.hdr.f); gl.viewport(0, 0, W, H);
+      gl.uniform2f(P.spark.u.uRes, W, H);
+      gl.bindVertexArray(SV); gl.bindBuffer(gl.ARRAY_BUFFER, SB); gl.bufferData(gl.ARRAY_BUFFER, sp instanceof Float32Array ? sp : new Float32Array(sp), gl.DYNAMIC_DRAW);
+      gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE);
+      gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, sp.length / 8);
+      gl.disable(gl.BLEND); gl.bindVertexArray(null);
+    }
     pass(P.bright, RT.a4, (u) => bind(0, RT.hdr.t, u.uSrc));
     pass(P.blur, RT.b4, (u) => { bind(0, RT.a4.t, u.uSrc); gl.uniform2f(u.uDir, 4 / W, 0); });
     pass(P.blur, RT.a4, (u) => { bind(0, RT.b4.t, u.uSrc); gl.uniform2f(u.uDir, 0, 4 / H); });
@@ -729,6 +781,8 @@
       gl.uniform2f(u.uWeave, (window.L.hash(f * 3 + 1) - 0.5) * 1.6, (window.L.hash(f * 7 + 2) - 0.5) * 1.6);
       gl.uniform2f(u.uBlur, s.blurX || 0, s.blurY || 0); gl.uniform1f(u.uGrain, s.grain == null ? 0.07 : s.grain);
       gl.uniform1f(u.uExposure, s.exposure || 1); gl.uniform1f(u.uFade, s.fade == null ? 1 : s.fade);
+      const hit = s.hit || {}; gl.uniform1f(u.uT, s.t);
+      gl.uniform3f(u.uHit, hit.flash || 0, hit.hal || 0, hit.haze || 0); gl.uniform2f(u.uShake, ...(hit.shake || [0, 0]));
     });
   }
   window.GL = { draw, W, H };

@@ -1,6 +1,6 @@
 # Sources and licenses
 
-Footage and stills are public domain; fonts are OFL. The music (`tools/score.py`) is a synthesized drone, kick and bass with the recordings below; every sound effect is a real recording (`tools/cues.py`, `audio/CREDITS.md`).
+Footage and stills are public domain; fonts are OFL. The score is an ElevenLabs music generation edited to picture in `tools/score.py` (`tools/music.py` has the prompts); every sound effect is a real recording or a sound generated for this film (`tools/cues.py`, `audio/CREDITS.md`).
 
 | Asset | Source | License |
 | --- | --- | --- |
@@ -39,4 +39,6 @@ Footage and stills are public domain; fonts are OFL. The music (`tools/score.py`
 | Steam whistle | Wikimedia Commons, "WWS SteamWhistle.ogg" (World Wide Sounds) | CC BY 4.0 |
 | Horses | Wikimedia Commons, "Six Horses Galloping By.ogg" | CC0 |
 | Every other sound effect and roar | Freesound and Kenney recordings via [opus-sound-layer](https://github.com/Bodila51/opus-sound-layer); one line per file in `audio/CREDITS.md` | CC0 |
+| The valley and the drop: CRT power-downs (`tvoff`), screens bursting (`implode`), the air-suck into the drop (`suck`), the pour into the mould (`pour`) | Generated for this film with ElevenLabs sound generation (`audio/gen/eleven.py` has every prompt), cut by `tools/sources.sh` | Project-owned (ElevenLabs output) |
+| The sets' hum, each set's collapsing deflection whine, the room's air (`tools/score.py` beds) | Synthesized in `tools/score.py` | Made for this film |
 | Quindar tones | Generated pure sines (2525 / 2475 Hz, 250 ms), as NASA's were; the Commons recordings are CC BY-SA and would make the film a ShareAlike adaptation | — |

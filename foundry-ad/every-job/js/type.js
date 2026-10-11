@@ -20,7 +20,8 @@
     }
     const typing = t >= c.t0 && n < c.text.length;
     const blinkOn = Math.floor((t - c.t0) * 4) % 2 === 0;
-    caret.style.opacity = t < c.t0 ? (Math.floor((c.t0 - t) * 8) % 2 ? 1 : 0.15) : typing || t >= c.enter ? 1 : blinkOn ? 1 : 0.15;
+    // before typing it blinks (c.blink: half-period, s), phased so it is dim just before the first key lands
+    caret.style.opacity = t < c.t0 ? (Math.floor((c.t0 - t) / (c.blink || 0.125)) % 2 ? 1 : 0.15) : typing || t >= c.enter ? 1 : blinkOn ? 1 : 0.15;
     // execute: the line flashes molten for two frames, then wipes out left to right
     const flash = t >= c.enter && t < c.enter + 2 / 60;
     cmd.classList.toggle("exec", flash);

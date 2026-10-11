@@ -39,6 +39,11 @@ OWN = {  # cut by tools/sources.sh (takes: tools/takes.py, credited through thei
     "sand": FS.format("pouring sand and salt 2.mp3", "mariethompson", "mariethompson", 516920),
     "train": FS.format("Train Passing By 113 with Steam Hissing and Puffing", "FunWithSound", "FunWithSound", 593038),
     "quindar": "Generated: NASA Quindar tones are pure sines (2525 Hz intro, 2475 Hz outro, 250 ms)",
+    # generated for this film with ElevenLabs sound generation (audio/gen/eleven.py has the prompts); project-owned
+    "tvoff": "Generated for this film (ElevenLabs sound generation, audio/gen/eleven.py \"tvoff\"), project-owned",
+    "implode": "Generated for this film (ElevenLabs sound generation, audio/gen/eleven.py \"implode\"), project-owned",
+    "suck": "Generated for this film (ElevenLabs sound generation, audio/gen/eleven.py \"suck\", take 2), project-owned",
+    "pour": "Generated for this film (ElevenLabs sound generation, audio/gen/eleven.py \"pour\"), project-owned",
 }
 KIT_CUTS = {  # audio/own/ files trimmed from kit sounds by tools/sources.sh; credited as their kit source
     "overheat": "glitch/fs-534735-digital-glitch-static-noise-1",
@@ -49,9 +54,15 @@ KIT_CUTS = {  # audio/own/ files trimmed from kit sounds by tools/sources.sh; cr
     "river-fall": "transition/fs-521040-whoosh-large-verb-er-sfx-6-w-1",
     "act2-thunk": "boom/fs-13895-43-wav-1",
     "pass-by": "transition/fs-522693-arrow-ghost-pass-whoosh-1",
+    "melt-hit": "hit/fs-113747-kl-ex1bb-wav-2",
+    "wipe": "whoosh/fs-449988-whoosh-med-high-1",
+    "gif-boom": "boom/fs-13862-10-wav-1",
 }
 def own(name): return f"{OWN_DIR}/{name}.wav"
-SCORE_BEDS = ("shuttle-roar", "volcano", "furnace", "train")   # continuous roars, placed under the music by tools/score.py
+SCORE_BEDS = ("shuttle-roar", "volcano", "furnace", "train",     # continuous roars, placed under the music by tools/score.py,
+              "tvoff-1", "tvoff-2", "tvoff-3", "tvoff-4",          # and the valley's beds: the wall powering down,
+              "implode-1", "implode-2", "implode-3", "implode-4",  # the screens bursting in the ignition wave,
+              "pour-1", "pour-2")                                  # the roar focusing into the pour
 
 K = {k["kind"]: k for k in TM["kills"]}
 cues, takes = [], []
@@ -88,7 +99,8 @@ for n, (w, t, clip) in enumerate(words[:-1]):
     cue(f"strike-{w}", t, f"{own(f'typewriter-{n + 1}')}+{own(MACHINE[clip])}+{PLATEN}", visual="cut" if t > 0 else None,
         pan=[0.0, -0.25, 0.25, -0.15][n])
 IGN = words[-1][1]
-cue("ignition", IGN, f"{own('ignition-punch')}+{own('ignition-boom')}+{own('typewriter-5')}",       # both stop on the Act II cut
+NUDGE_IGN = 0.004                                              # sub-frame: the hit's body in phase with the shuttle roar and the piano
+cue("ignition", IGN + NUDGE_IGN, f"{own('ignition-punch')}+{own('ignition-boom')}+{own('typewriter-5')}",       # both stop on the Act II cut
     weight="hero", visual="cut", stop_before=True, build=True)
 cue("carriage-bell", IGN + 0.45, "chime/fs-159011-ding2-wav-1", pan=0.4)
 
@@ -112,44 +124,59 @@ cue("wall-pullback", WALL_MOVE, "whoosh/fs-30240-swoop1-flac-1", visual="move", 
 WALL_PING = WALL_MOVE + 0.19                                   # the whole wall pings at once
 cue("wall-ping", WALL_PING, "chime/fs-404104-glass-ding-3+chime/fs-127149-ding-wav-1+chime/fs-243701-correct-1", pan=0.0)
 
-# ------------------------------------------------------------------ `melt them down`: three frames of nothing, then fire
+# ------------------------------------------------------------------ the valley: the wall dies, one caret, `melt them down`, and the drop
+# the sets powering down (5.75) and the implosion cascade and roar after the drop are beds, one event per set, built in
+# tools/score.py from the picture's own per-set delays; here only the foreground: the caret, the typing, the drop
 MC = TM["meltCmd"]
-typed("melt", TM["cmd0"], FOUNDRY, WALL_PING, MC)
-MELT0 = MC + 0.05                                              # the enter is 3 frames before ignition: one event, the riser peaking on it
-cue("melt", MELT0, "hit/fs-113747-kl-ex1bb-wav-2+boom/fs-105351-backfire-ogg-1+riser/fs-503801-reverse-fx-3-wav-1+key/fs-180997-enter-key-2",
-    weight="hero", visual="cut", stop_before=True, build=True)                               # the roar after it: score.py
+CARET0 = TM["caretAlone"]                                      # the caret comes on alone in the dark: a tiny tick
+cue("caret-alone", CARET0, "click/kenney-interface-switch-001", visual="appear")     # not the line-3 caret's click: mix.py holds one sound's uses within 2 dB
+typed("melt", TM["cmd0"], FOUNDRY, CARET0, MC)                 # the only foreground sound in the valley
+# the enter IS the drop: the air is sucked out of the room (generated, cut to end on its own peak, so layered on the
+# hit it ends exactly on 7.0), then the hit on the music's own downbeat. stop_before empties the last 0.4 s (the
+# ring dies, the vacuum); no `build` (it would high-pass the tape-stop and the power-down that live in the music stem)
+NUDGE_MELT = 0.0                                               # sub-frame phase trim against the score's drop
+cue("melt", MC + NUDGE_MELT, f"{own('melt-hit')}+boom/fs-105351-backfire-ogg-1+{own('suck')}+key/fs-180997-enter-key-2",
+    weight="hero", visual="cut", stop_before=True)                                           # the cascade and roar: score.py
 
 # ------------------------------------------------------------------ the casting: the river slams in, it sets, cracks, is knocked out to glass
 CAST, C = TM["cast"], TM["cool"]
-NUDGE = -0.003                                                    # sub-frame: keeps the slam in phase with the lava's tail
+NUDGE = 0.002                                                     # sub-frame: the slam's body in phase with the pour (audio/lab/nudge.py cast)
 cue("cast", CAST + NUDGE, f"{own('cast-hit')}+{own('cast-sub')}+{own('river-fall')}",
     weight="hero", visual="move")
 cue("cast-sizzle", CAST + 0.45, own("sizzle"), align="start")                                # peaks 0.23 s in
 cue("cast-ping", CAST + C["gap0"], "tick/fs-185611-metal-tick-1-1", pan=-0.4)              # the iron pings as it contracts
-cue("cast-sweep", CAST + C["sweep0"], "swish/fs-14176-28-wav-3", pan=-0.3)                   # the band of light
+# the band of light (sweep0..sweep1): a broad swish has no 2 ms apex, so it starts on the cue and swells (peaks 0.229 s
+# in, kept GAP before the knockout)
+cue("cast-sweep", CAST + C["knock0"] - GAP - 0.229 - 0.005, "swish/fs-14176-28-wav-3", align="start", pan=-0.3)
 cue("knockout", CAST + C["knock0"], f"thump/fs-342535-medium-thud-1-2+{own('sand')}")
 L3 = TM["line3"]
 CARET = L3["t0"] - 0.08
-for n, t in enumerate((CAST + C["flake0"] + 0.12, CARET - GAP - 0.005)):                     # the shell flakes off
+for n, t in enumerate((CAST + C["knock0"] + GAP + 0.008, CARET - GAP - 0.002)):              # the shell flakes off, between the knockout and the caret
     cue(f"flake-{n}", t, f"tap/kenney-impact-impact-metal-light-00{n + 1}", pan=[0.45, -0.3][n])
 cue("caret", CARET, "click/kenney-interface-switch-002")
-PLATE = 11.067                                                 # the bar settles and the plate cuts in (measured)
+PLATE = TM["settle"] + 0.067                                   # the bar settles and the plate cuts in, the frame after settle + 0.06
+                                                               # (film.js; was 11.067 on the old render)  # re-measure on the draft render
 typed("line3", L3, FOUNDRY, CARET, PLATE)
 
 # ------------------------------------------------------------------ the kills: summon, type, enter; each job sounds like itself
-cue("plate", PLATE, "boom/fs-13875-23-wav-1", visual="cut")
+cue("plate", PLATE, "boom/fs-13875-23-wav-1+click/kenney-rpg-metal-latch", visual="cut")      # the plate drops into its holder
 SUMMON = "ui/kenney-interface-select-006"
 ENTER = "key/fs-180997-enter-key-2"
 kg, kr, kc, kt, kd, ktr = (K[n] for n in ("gif", "rmbg", "currency", "tile", "download", "translate"))
-# gif: its flash lands a frame after the plate cut, so the plate's boom is its summon
+# gif: its flash lands 8 frames after the plate cut (closer than GAP allows a second summon), so the plate's boom is its summon
 typed("gif", kg, FOUNDRY, PLATE, kg["enter"], pan=0.1)
-cue("gif-enter", kg["enter"], f"{own('anvil-1')}+boom/fs-13862-10-wav-1+{ENTER}", weight="hero", visual="cut")
-cue("gif-gallop", kg["enter"] + 0.075, own("horses"), align="start", pan=-0.1)               # peaks 0.095 s in
-cue("gif-push", 12.033, "whoosh/fs-30240-swoop1-flac-1", visual="move")                      # the camera pushes into one panel
-cue("rmbg-summon", kr["flash"], SUMMON, visual="cut")
+# the boom leads (its body sits where the score is, so the hit is levelled up against it), the anvil rides on it;
+# 5 ms late keeps that body in phase with the score (audio/lab/nudge.py gif-enter)
+cue("gif-enter", kg["enter"] + 0.005, f"{own('gif-boom')}+{own('anvil-1')}+{ENTER}", weight="hero", visual="cut")
+# the panels gallop from the enter: high-passed to ride over the anvil, it peaks 0.072 s in, GAP after the enter and
+# as far ahead of the push's swell as it can be
+cue("gif-gallop", kg["enter"] + 0.005 + GAP + 0.005 - 0.072, own("horses"), align="start", pan=-0.1)
+GIF_PUSH = kg["enter"] + 0.383                                 # the camera pushes into one panel: peak speed of film.js plateCam
+cue("gif-push", GIF_PUSH, "whoosh/fs-30240-swoop1-flac-1", visual="move")                    # (was 12.033 = old enter + 0.383)  # re-measure on the draft render
+cue("rmbg-summon", kr["flash"], "ui/kenney-interface-select-002", visual="cut")   # SUMMON's second blip (42 ms on, -0.6 dB) out-peaks it here
 typed("rmbg", kr, FOUNDRY, kr["flash"], kr["enter"], pan=0.1)
 cue("rmbg-enter", kr["enter"], f"{own('anvil-2')}+{ENTER}", visual="cut")
-cue("rmbg-wipe", kr["enter"] + 0.025, "whoosh/fs-449988-whoosh-med-high-1", align="start", pan=-0.3)   # peaks 0.13 s in
+cue("rmbg-wipe", kr["enter"] + 0.025, own("wipe"), align="start", pan=-0.3)   # peaks 0.13 s in; high-passed, over the anvil's tail
 # the horse bolts out of frame and the currency bar cuts in on the same frame
 cue("currency-summon", kc["flash"], f"whoosh/fs-449992-whoosh-short-low-wav-1+{SUMMON}", visual="cut", pan=0.3)
 typed("currency", kc, FOUNDRY, kc["flash"], kc["enter"], pan=0.1)
@@ -158,14 +185,13 @@ cue("currency-reels", kc["enter"] + 0.17, "tick/fs-386206-ratchet-stahlwille-tig
 cue("currency-land", kc["enter"] + 0.34, "key/fs-348240-cashier-register-keyboard-be-1")              # and land on 89.25
 cue("tile-summon", kt["flash"], SUMMON, visual="cut")
 typed("tile", kt, FOUNDRY, kt["flash"], kt["enter"], pan=0.1)
-cue("tile-enter", kt["enter"], f"{own('anvil-4')}+{ENTER}", visual="move")
-for n in (2, 4):                                               # the splits snap shut on their seams (one every 0.09 s)
-    cue(f"tile-snap-{n}", kt["enter"] + n * 0.09, "click/kenney-rpg-metal-latch" if n == 2 else "click/kenney-rpg-metal-click",
-        pan=0.4 if n == 2 else -0.4)
+# the splits snap shut on their seams from the enter on (one every 0.09 s); with only 0.3 s before the download cuts
+# in, no snap can keep GAP from both, so the latch is a layer of the enter
+cue("tile-enter", kt["enter"], f"{own('anvil-4')}+{ENTER}+click/kenney-rpg-metal-latch", visual="move")
 cue("download-summon", kd["flash"], SUMMON, visual="cut")
 typed("download", kd, FOUNDRY, kd["flash"], kd["enter"], pan=0.1)
 cue("download-enter", kd["enter"], f"{own('anvil-1')}+boom/fs-13875-23-wav-1+{ENTER}", weight="hero", visual="move")
-cue("download-whistle", kd["enter"] + 0.05, own("whistle"), align="start", pan=0.2)           # peaks 0.28 s in
+cue("download-whistle", kd["enter"] + 0.16, own("whistle"), align="start", pan=0.2)           # peaks 0.28 s in; starts after the enter's window
 # the train comes through the lens into the moon: the pass-by peaks on the cut, with the bar's summon
 cue("translate-summon", ktr["flash"], f"{own('pass-by')}+{SUMMON}", visual="cut")
 typed("translate", ktr, FOUNDRY, ktr["flash"], ktr["enter"], pan=0.1)
@@ -181,8 +207,10 @@ sheet = {
     "fps": 60, "duration_s": TM["end"], "energy": "punchy", "kit": "audio/kit",
     "music": {"file": "audio/music.wav", "start_s": 0, "loop": False, "fade_out_s": 0.25},
     "voice": [{"file": "audio/voice.wav", "start_s": 0}],
-    "duck_db": 6,                                              # Armstrong is already compressed and lifted; 6 dB keeps him 15 LU clear
-    "silence_ok": [[round(TM["vo"]["quindar"] + 0.1, 2), TM["end"]]],
+    "duck_db": 1.5,                                            # the score already falls to a hush under Armstrong; 1.5 dB keeps it ~14 LU under him
+    # planned quiet: the valley (the wall has died; only the ring, the caret and the typing until the drop; the
+    # music dip there is declared by the melt cue's stop_before), and the room after the Quindar out-tone
+    "silence_ok": [[TM["stall"], MC], [round(TM["vo"]["quindar"] + 0.1, 2), TM["end"]]],
     "cues": cues,
 }
 with open(os.path.join(ROOT, "audio", "cues.json"), "w") as f: json.dump(sheet, f, indent=1)

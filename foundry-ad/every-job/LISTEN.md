@@ -1,20 +1,36 @@
-# Ear check: renders/foundry-every-job.mp4
+# Ear check: renders/draft.mp4 (26.02 s)
 
-QA (`sound-layer/scripts/qa.py`) passes: 0 failed, 1 warning. These are the five places the measurements can't settle.
+QA (`sound-layer/scripts/qa.py`) on the sound alone passes every sync, audibility, hero-body, voice (music 14.6 LU
+under Armstrong), loudness and silence check. It still flags `music`: the score's own quiet stretches (its weight
+section, 2.5 to 6 s, and the hush under Armstrong, 19 to 22.5 s) are more than 12 LU under its median, and QA can only
+be told a dip is planned through a `stop_before` cue. Picture checks need the draft render. These are the places the
+measurements can't settle.
 
-1. **0:02.00 to 0:02.80, "job."** The Saturn V hit lands after a 0.4 s dead stop, the shuttle roar runs under it and
-   stops on the Act II cut. Listen for whether the hit feels as big as the picture and whether the roar's stop at 2.80
-   reads as a cut, not a click.
-2. **0:05.78 to 0:06.30, `melt them down`.** The music is dead while it is typed; the enter and a riser land with the
-   blast after three black frames, and the fire catches 8 ms later (set so the two are in phase below 250 Hz). Check
-   that the enter is still heard as an enter inside the blast.
-3. **0:08.60 to 0:10.50, the cast.** The roar stops as the river slams into the mould (the slam is 3 ms early, under a
-   fifth of a frame, for phase). Then the quiet details: sizzle, a ping at 9.50, the light sweep at 9.72, the knockout
-   at 10.00, flakes. They measure audible on headphones; check them on laptop speakers.
-4. **0:11.07 to 0:17.70, the kills.** Each command is one take, one stroke every third character as it appears. Check
-   that it reads as fast typing rather than sparse clicks, and that the anvil on each enter doesn't tire by the fifth.
-   The one warning is here: at 0:14.00 the currency result appears with very little picture change, so its enter
-   leans on sound alone.
-5. **0:22.62 to 0:23.70, the logo.** A reverse cymbal and a sub on the pull-back, under "...mankind." Both sit
-   outside his band (the cymbal is above 4 kHz, the sub below 125 Hz), but check that "mankind" stays clear, then the
-   quench, the Quindar out-tone at 23.43 and the room.
+1. **0:02.00 to 0:02.80, "job."** The Saturn V hit, the shuttle roar under it, stopping dead on the Act II cut.
+2. **0:02.80 to 0:05.75, the weight.** Under the score, the set hums (mains buzz and line whine, from the Act II cut),
+   strains as the apps pile on and the set overheats, and the whole wall hums either side as the camera pulls back.
+   Check it reads as the machines straining, not as noise in the music.
+3. **0:05.75 to 0:07.00, the valley.** The score tape-stops as the wall dies: our set first, right in front of the
+   lens (5.78: relay thunk, its static cut dead, the deflection whine falling with the dot), then the wall behind it,
+   a ripple out to both sides, quieter, duller and later with distance (to about 5.95). The hum and the room's air die
+   with them. Then nothing but the score's faint 3.95 kHz ring. At 6.10 one tiny tick as the caret comes on alone;
+   `melt them down` is typed from 6.45 to 6.71, close and dry, the only thing in the frame. Listen for whether the
+   power-down is frightening enough (it sits about 7 to 10 dB over the score just before it) and whether the silence
+   feels like silence, not a dropout.
+4. **0:06.72 to 0:07.00, the drop.** The air is sucked out of the room for 0.28 s and ends exactly on 7.00, where
+   the enter, a blast and the score's own downbeat land together (the hit is in phase with the score below 250 Hz:
+   correlation +0.05, its body lifted 3.5 dB). Check the enter still reads as an enter inside it.
+5. **0:07.00 to 0:09.52, the cascade, the roar, the river.** The screens burst outward from ours in the picture's
+   ignition wave: glass and an electrical crack, the first at 7.24, most by 7.6, the last at 8.05, panned by where each
+   set is, darker and quieter with distance. The roar arrives late (7.22: sound slower than light), swells to full by
+   7.6, wide. From 7.75 it narrows (mono by 9.15) and gives way to one pour that builds into the cast slam at 9.40, then
+   stops dead at 9.52. Check that the late roar reads as physical rather than as a mistake, and that the bursts don't
+   blur into hiss.
+6. **0:09.40 to 0:11.87, the cast.** The slam, then the quiet details: sizzle (9.85), the iron pings (10.30), the light
+   sweep (swells 10.41 to 10.64), the knockout (10.80), two flakes (10.96, 11.12), the caret (11.28), "One for every
+   job." typed, and the plate dropping in (11.87). On laptop speakers too.
+7. **0:12.50 to 0:18.75, the kills.** Enters at 12.50, 14.00, 15.25, 16.25 and 17.00, each sooner than the last, then
+   translate's Quindar tone at 18.75. Check the typing still reads as fast typing and the anvil doesn't tire.
+8. **0:19.07 to 0:26.02, Armstrong and the logo.** Under him, only the hush and the room. The logo cuts in at 23.42,
+   the pull-back (a reverse cymbal and a sub) peaks at 23.87, the tiles go white-hot from 23.94 and quench, "mankind"
+   at 23.60 must stay clear; the Quindar out-tone at 24.68, then the room to the end.

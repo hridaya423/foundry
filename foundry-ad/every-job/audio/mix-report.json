@@ -1,11 +1,11 @@
 {
  "cues_file": "/Users/hridyaagrawal/Honey/anvil/foundry-ad/every-job/audio/cues.json",
  "fps": 60,
- "duration_s": 24.32,
+ "duration_s": 26.02,
  "target_lufs": -14,
- "master_lufs": -14.0,
- "master_true_peak_db": -2.13,
- "master_gain_db": 3.91,
+ "master_lufs": -14.02,
+ "master_true_peak_db": -2.0,
+ "master_gain_db": 3.52,
  "events": [
   {
    "id": "strike-A",
@@ -20,7 +20,7 @@
    "cue_s": 0.0,
    "peak_s": 0.0,
    "pan": 0.0,
-   "gain_db": -20.99,
+   "gain_db": -29.21,
    "limited_by": "best-band target",
    "band_hz": [
     4000,
@@ -45,11 +45,11 @@
    "cue_s": 0.5,
    "peak_s": 0.5,
    "pan": -0.25,
-   "gain_db": -27.47,
+   "gain_db": -38.3,
    "limited_by": "best-band target",
    "band_hz": [
-    1000,
-    2000
+    4000,
+    8000
    ],
    "win_s": [
     0.49,
@@ -70,7 +70,7 @@
    "cue_s": 1.0,
    "peak_s": 1.0,
    "pan": 0.25,
-   "gain_db": -26.91,
+   "gain_db": -26.53,
    "limited_by": "best-band target",
    "band_hz": [
     250,
@@ -95,11 +95,11 @@
    "cue_s": 1.5,
    "peak_s": 1.5,
    "pan": -0.15,
-   "gain_db": -29.79,
+   "gain_db": -37.43,
    "limited_by": "best-band target",
    "band_hz": [
-    1000,
-    2000
+    500,
+    1000
    ],
    "win_s": [
     1.49,
@@ -117,18 +117,18 @@
    ],
    "weight": "hero",
    "align": "peak",
-   "cue_s": 2.0,
-   "peak_s": 2.0,
+   "cue_s": 2.004,
+   "peak_s": 2.004,
    "pan": 0.0,
-   "gain_db": -6.22,
+   "gain_db": -9.17,
    "limited_by": "main-band target (hero)",
    "band_hz": [
     125,
     250
    ],
    "win_s": [
-    1.99,
-    2.15
+    1.994,
+    2.154
    ],
    "visual": "cut"
   },
@@ -143,7 +143,7 @@
    "cue_s": 2.45,
    "peak_s": 2.45,
    "pan": 0.4,
-   "gain_db": -24.16,
+   "gain_db": -27.47,
    "limited_by": "best-band target",
    "band_hz": [
     2000,
@@ -166,11 +166,11 @@
    "cue_s": 2.8,
    "peak_s": 2.8,
    "pan": 0.0,
-   "gain_db": -16.96,
+   "gain_db": -27.57,
    "limited_by": "best-band target",
    "band_hz": [
-    500,
-    1000
+    125,
+    250
    ],
    "win_s": [
     2.79,
@@ -213,11 +213,11 @@
    "cue_s": 3.3,
    "peak_s": 3.3,
    "pan": -0.3,
-   "gain_db": -40.72,
+   "gain_db": -43.2,
    "limited_by": "best-band target",
    "band_hz": [
-    1000,
-    2000
+    2000,
+    4000
    ],
    "win_s": [
     3.29,
@@ -237,11 +237,11 @@
    "cue_s": 3.6,
    "peak_s": 3.6,
    "pan": 0.3,
-   "gain_db": -38.83,
+   "gain_db": -42.45,
    "limited_by": "best-band target",
    "band_hz": [
-    2000,
-    4000
+    1000,
+    2000
    ],
    "win_s": [
     3.59,
@@ -261,7 +261,7 @@
    "cue_s": 3.9,
    "peak_s": 3.9,
    "pan": 0.0,
-   "gain_db": -34.76,
+   "gain_db": -41.76,
    "limited_by": "best-band target",
    "band_hz": [
     1000,
@@ -307,11 +307,11 @@
    "cue_s": 4.3,
    "peak_s": 4.8497,
    "pan": 0.1,
-   "gain_db": -30.52,
+   "gain_db": -27.95,
    "limited_by": "best-band target",
    "band_hz": [
-    2000,
-    4000
+    4000,
+    8000
    ],
    "win_s": [
     4.8397,
@@ -330,7 +330,7 @@
    "cue_s": 4.3722,
    "peak_s": 4.3722,
    "pan": 0.5,
-   "gain_db": -37.47,
+   "gain_db": -42.03,
    "limited_by": "best-band target",
    "band_hz": [
     2000,
@@ -353,7 +353,7 @@
    "cue_s": 4.5315,
    "peak_s": 4.5315,
    "pan": -0.5,
-   "gain_db": -43.41,
+   "gain_db": -31.16,
    "limited_by": "best-band target",
    "band_hz": [
     2000,
@@ -376,11 +376,11 @@
    "cue_s": 5.0288,
    "peak_s": 5.0288,
    "pan": 0.5,
-   "gain_db": -32.5,
+   "gain_db": -30.71,
    "limited_by": "best-band target",
    "band_hz": [
-    1000,
-    2000
+    8000,
+    16000
    ],
    "win_s": [
     5.0188,
@@ -399,11 +399,11 @@
    "cue_s": 5.367,
    "peak_s": 5.367,
    "pan": 0.0,
-   "gain_db": -30.38,
+   "gain_db": -23.82,
    "limited_by": "best-band target",
    "band_hz": [
-    500,
-    1000
+    125,
+    250
    ],
    "win_s": [
     5.357,
@@ -424,7 +424,7 @@
    "cue_s": 5.557,
    "peak_s": 5.557,
    "pan": 0.0,
-   "gain_db": -38.44,
+   "gain_db": -26.92,
    "limited_by": "best-band target",
    "band_hz": [
     1000,
@@ -437,6 +437,29 @@
    "visual": null
   },
   {
+   "id": "caret-alone",
+   "sound": "click/kenney-interface-switch-001",
+   "files": [
+    "audio/kit/click/kenney-interface-switch-001.wav"
+   ],
+   "weight": "support",
+   "align": "peak",
+   "cue_s": 6.1,
+   "peak_s": 6.1,
+   "pan": 0.0,
+   "gain_db": -34.1,
+   "limited_by": "best-band target",
+   "band_hz": [
+    4000,
+    8000
+   ],
+   "win_s": [
+    6.09,
+    6.14
+   ],
+   "visual": "appear"
+  },
+  {
    "id": "melt-typing",
    "sound": "audio/own/take-melt.wav",
    "files": [
@@ -444,8 +467,8 @@
    ],
    "weight": "support",
    "align": "peak",
-   "cue_s": 5.9,
-   "peak_s": 5.9,
+   "cue_s": 6.57,
+   "peak_s": 6.57,
    "pan": 0.0,
    "gain_db": -34.12,
    "limited_by": "best-band target",
@@ -454,34 +477,34 @@
     2000
    ],
    "win_s": [
-    5.89,
-    5.94
+    6.56,
+    6.61
    ],
    "visual": null
   },
   {
    "id": "melt",
-   "sound": "hit/fs-113747-kl-ex1bb-wav-2+boom/fs-105351-backfire-ogg-1+riser/fs-503801-reverse-fx-3-wav-1+key/fs-180997-enter-key-2",
+   "sound": "audio/own/melt-hit.wav+boom/fs-105351-backfire-ogg-1+audio/own/suck.wav+key/fs-180997-enter-key-2",
    "files": [
-    "audio/kit/hit/fs-113747-kl-ex1bb-wav-2.wav",
+    "audio/own/melt-hit.wav",
     "audio/kit/boom/fs-105351-backfire-ogg-1.wav",
-    "audio/kit/riser/fs-503801-reverse-fx-3-wav-1.wav",
+    "audio/own/suck.wav",
     "audio/kit/key/fs-180997-enter-key-2.wav"
    ],
    "weight": "hero",
    "align": "peak",
-   "cue_s": 6.25,
-   "peak_s": 6.25,
+   "cue_s": 7.0,
+   "peak_s": 7.0,
    "pan": 0.0,
-   "gain_db": -8.65,
+   "gain_db": -0.94,
    "limited_by": "main-band target (hero)",
    "band_hz": [
     125,
     250
    ],
    "win_s": [
-    6.24,
-    6.4
+    6.99,
+    7.15
    ],
    "visual": "cut"
   },
@@ -495,18 +518,18 @@
    ],
    "weight": "hero",
    "align": "peak",
-   "cue_s": 8.597,
-   "peak_s": 8.597,
+   "cue_s": 9.402,
+   "peak_s": 9.402,
    "pan": 0.0,
-   "gain_db": -10.31,
+   "gain_db": -7.62,
    "limited_by": "main-band target (hero)",
    "band_hz": [
     500,
     1000
    ],
    "win_s": [
-    8.587,
-    8.747
+    9.392,
+    9.552
    ],
    "visual": "move"
   },
@@ -518,8 +541,8 @@
    ],
    "weight": "support",
    "align": "start",
-   "cue_s": 9.05,
-   "peak_s": 9.2804,
+   "cue_s": 9.85,
+   "peak_s": 10.0804,
    "pan": 0.0,
    "gain_db": -28.95,
    "limited_by": "best-band target",
@@ -528,8 +551,8 @@
     16000
    ],
    "win_s": [
-    9.2704,
-    9.4304
+    10.0704,
+    10.2304
    ],
    "visual": null
   },
@@ -541,18 +564,18 @@
    ],
    "weight": "support",
    "align": "peak",
-   "cue_s": 9.5,
-   "peak_s": 9.5,
+   "cue_s": 10.3,
+   "peak_s": 10.3,
    "pan": -0.4,
-   "gain_db": -38.57,
+   "gain_db": -33.8,
    "limited_by": "best-band target",
    "band_hz": [
-    4000,
-    8000
+    8000,
+    16000
    ],
    "win_s": [
-    9.49,
-    9.54
+    10.29,
+    10.34
    ],
    "visual": null
   },
@@ -563,19 +586,19 @@
     "audio/kit/swish/fs-14176-28-wav-3.wav"
    ],
    "weight": "support",
-   "align": "peak",
-   "cue_s": 9.72,
-   "peak_s": 9.72,
+   "align": "start",
+   "cue_s": 10.411,
+   "peak_s": 10.6362,
    "pan": -0.3,
-   "gain_db": -38.73,
+   "gain_db": -27.17,
    "limited_by": "best-band target",
    "band_hz": [
-    500,
-    1000
+    4000,
+    8000
    ],
    "win_s": [
-    9.71,
-    9.8435
+    10.6262,
+    10.7597
    ],
    "visual": null
   },
@@ -588,18 +611,18 @@
    ],
    "weight": "support",
    "align": "peak",
-   "cue_s": 10.0,
-   "peak_s": 10.0,
+   "cue_s": 10.8,
+   "peak_s": 10.8,
    "pan": 0.0,
-   "gain_db": -38.43,
+   "gain_db": -31.95,
    "limited_by": "best-band target",
    "band_hz": [
     4000,
     8000
    ],
    "win_s": [
-    9.99,
-    10.15
+    10.79,
+    10.95
    ],
    "visual": null
   },
@@ -611,18 +634,18 @@
    ],
    "weight": "support",
    "align": "peak",
-   "cue_s": 10.17,
-   "peak_s": 10.17,
+   "cue_s": 10.963,
+   "peak_s": 10.963,
    "pan": 0.45,
-   "gain_db": -41.27,
+   "gain_db": -25.72,
    "limited_by": "best-band target",
    "band_hz": [
     2000,
     4000
    ],
    "win_s": [
-    10.16,
-    10.2364
+    10.953,
+    11.0294
    ],
    "visual": null
   },
@@ -634,18 +657,18 @@
    ],
    "weight": "support",
    "align": "peak",
-   "cue_s": 10.32,
-   "peak_s": 10.32,
+   "cue_s": 11.123,
+   "peak_s": 11.123,
    "pan": -0.3,
-   "gain_db": -38.35,
+   "gain_db": -36.55,
    "limited_by": "best-band target",
    "band_hz": [
-    2000,
-    4000
+    4000,
+    8000
    ],
    "win_s": [
-    10.31,
-    10.3847
+    11.113,
+    11.1877
    ],
    "visual": null
   },
@@ -657,18 +680,18 @@
    ],
    "weight": "support",
    "align": "peak",
-   "cue_s": 10.48,
-   "peak_s": 10.48,
+   "cue_s": 11.28,
+   "peak_s": 11.28,
    "pan": 0.0,
-   "gain_db": -41.41,
+   "gain_db": -22.78,
    "limited_by": "best-band target",
    "band_hz": [
     1000,
     2000
    ],
    "win_s": [
-    10.47,
-    10.52
+    11.27,
+    11.32
    ],
    "visual": null
   },
@@ -680,41 +703,42 @@
    ],
    "weight": "support",
    "align": "peak",
-   "cue_s": 10.7822,
-   "peak_s": 10.7822,
+   "cue_s": 11.5822,
+   "peak_s": 11.5822,
    "pan": 0.0,
-   "gain_db": -36.35,
+   "gain_db": -23.04,
    "limited_by": "best-band target",
    "band_hz": [
     1000,
     2000
    ],
    "win_s": [
-    10.7722,
-    10.8222
+    11.5722,
+    11.6222
    ],
    "visual": null
   },
   {
    "id": "plate",
-   "sound": "boom/fs-13875-23-wav-1",
+   "sound": "boom/fs-13875-23-wav-1+click/kenney-rpg-metal-latch",
    "files": [
-    "audio/kit/boom/fs-13875-23-wav-1.wav"
+    "audio/kit/boom/fs-13875-23-wav-1.wav",
+    "audio/kit/click/kenney-rpg-metal-latch.wav"
    ],
    "weight": "support",
    "align": "peak",
-   "cue_s": 11.067,
-   "peak_s": 11.067,
+   "cue_s": 11.867,
+   "peak_s": 11.867,
    "pan": 0.0,
-   "gain_db": -22.34,
+   "gain_db": -35.0,
    "limited_by": "best-band target",
    "band_hz": [
-    500,
-    1000
+    4000,
+    8000
    ],
    "win_s": [
-    11.057,
-    11.1367
+    11.857,
+    11.9365
    ],
    "visual": "cut"
   },
@@ -726,43 +750,43 @@
    ],
    "weight": "support",
    "align": "peak",
-   "cue_s": 11.3468,
-   "peak_s": 11.3468,
+   "cue_s": 12.1968,
+   "peak_s": 12.1968,
    "pan": 0.1,
-   "gain_db": -25.65,
+   "gain_db": -28.05,
    "limited_by": "best-band target",
    "band_hz": [
     4000,
     8000
    ],
    "win_s": [
-    11.3368,
-    11.3868
+    12.1868,
+    12.2368
    ],
    "visual": null
   },
   {
    "id": "gif-enter",
-   "sound": "audio/own/anvil-1.wav+boom/fs-13862-10-wav-1+key/fs-180997-enter-key-2",
+   "sound": "audio/own/gif-boom.wav+audio/own/anvil-1.wav+key/fs-180997-enter-key-2",
    "files": [
+    "audio/own/gif-boom.wav",
     "audio/own/anvil-1.wav",
-    "audio/kit/boom/fs-13862-10-wav-1.wav",
     "audio/kit/key/fs-180997-enter-key-2.wav"
    ],
    "weight": "hero",
    "align": "peak",
-   "cue_s": 11.65,
-   "peak_s": 11.65,
+   "cue_s": 12.505,
+   "peak_s": 12.505,
    "pan": 0.0,
-   "gain_db": -21.88,
+   "gain_db": -11.0,
    "limited_by": "main-band target (hero)",
    "band_hz": [
-    2000,
-    4000
+    125,
+    250
    ],
    "win_s": [
-    11.64,
-    11.8
+    12.495,
+    12.6264
    ],
    "visual": "cut"
   },
@@ -774,18 +798,18 @@
    ],
    "weight": "support",
    "align": "start",
-   "cue_s": 11.725,
-   "peak_s": 11.8209,
+   "cue_s": 12.593,
+   "peak_s": 12.6659,
    "pan": -0.1,
-   "gain_db": -28.33,
+   "gain_db": -33.57,
    "limited_by": "best-band target",
    "band_hz": [
     4000,
     8000
    ],
    "win_s": [
-    11.8109,
-    11.9247
+    12.6559,
+    12.7088
    ],
    "visual": null
   },
@@ -797,41 +821,41 @@
    ],
    "weight": "support",
    "align": "peak",
-   "cue_s": 12.033,
-   "peak_s": 12.033,
+   "cue_s": 12.883,
+   "peak_s": 12.883,
    "pan": 0.0,
-   "gain_db": -26.38,
+   "gain_db": -19.82,
    "limited_by": "best-band target",
    "band_hz": [
-    500,
-    1000
+    125,
+    250
    ],
    "win_s": [
-    12.023,
-    12.073
+    12.873,
+    12.923
    ],
    "visual": "move"
   },
   {
    "id": "rmbg-summon",
-   "sound": "ui/kenney-interface-select-006",
+   "sound": "ui/kenney-interface-select-002",
    "files": [
-    "audio/kit/ui/kenney-interface-select-006.wav"
+    "audio/kit/ui/kenney-interface-select-002.wav"
    ],
    "weight": "support",
    "align": "peak",
-   "cue_s": 12.4,
-   "peak_s": 12.4,
+   "cue_s": 13.55,
+   "peak_s": 13.55,
    "pan": 0.0,
-   "gain_db": -28.63,
+   "gain_db": -18.41,
    "limited_by": "best-band target",
    "band_hz": [
-    500,
-    1000
+    2000,
+    4000
    ],
    "win_s": [
-    12.39,
-    12.4724
+    13.54,
+    13.59
    ],
    "visual": "cut"
   },
@@ -843,104 +867,10 @@
    ],
    "weight": "support",
    "align": "peak",
-   "cue_s": 12.6452,
-   "peak_s": 12.6452,
-   "pan": 0.1,
-   "gain_db": -30.07,
-   "limited_by": "best-band target",
-   "band_hz": [
-    4000,
-    8000
-   ],
-   "win_s": [
-    12.6352,
-    12.6852
-   ],
-   "visual": null
-  },
-  {
-   "id": "rmbg-enter",
-   "sound": "audio/own/anvil-2.wav+key/fs-180997-enter-key-2",
-   "files": [
-    "audio/own/anvil-2.wav",
-    "audio/kit/key/fs-180997-enter-key-2.wav"
-   ],
-   "weight": "support",
-   "align": "peak",
-   "cue_s": 12.85,
-   "peak_s": 12.85,
-   "pan": 0.0,
-   "gain_db": -41.62,
-   "limited_by": "best-band target",
-   "band_hz": [
-    1000,
-    2000
-   ],
-   "win_s": [
-    12.84,
-    13.0
-   ],
-   "visual": "cut"
-  },
-  {
-   "id": "rmbg-wipe",
-   "sound": "whoosh/fs-449988-whoosh-med-high-1",
-   "files": [
-    "audio/kit/whoosh/fs-449988-whoosh-med-high-1.wav"
-   ],
-   "weight": "support",
-   "align": "start",
-   "cue_s": 12.875,
-   "peak_s": 13.0107,
-   "pan": -0.3,
-   "gain_db": -30.41,
-   "limited_by": "best-band target",
-   "band_hz": [
-    1000,
-    2000
-   ],
-   "win_s": [
-    13.0007,
-    13.1607
-   ],
-   "visual": null
-  },
-  {
-   "id": "currency-summon",
-   "sound": "whoosh/fs-449992-whoosh-short-low-wav-1+ui/kenney-interface-select-006",
-   "files": [
-    "audio/kit/whoosh/fs-449992-whoosh-short-low-wav-1.wav",
-    "audio/kit/ui/kenney-interface-select-006.wav"
-   ],
-   "weight": "support",
-   "align": "peak",
-   "cue_s": 13.55,
-   "peak_s": 13.55,
-   "pan": 0.3,
-   "gain_db": -33.68,
-   "limited_by": "best-band target",
-   "band_hz": [
-    500,
-    1000
-   ],
-   "win_s": [
-    13.54,
-    13.6269
-   ],
-   "visual": "cut"
-  },
-  {
-   "id": "currency-typing",
-   "sound": "audio/own/take-currency.wav",
-   "files": [
-    "audio/own/take-currency.wav"
-   ],
-   "weight": "support",
-   "align": "peak",
    "cue_s": 13.7952,
    "peak_s": 13.7952,
    "pan": 0.1,
-   "gain_db": -33.3,
+   "gain_db": -26.31,
    "limited_by": "best-band target",
    "band_hz": [
     4000,
@@ -953,10 +883,10 @@
    "visual": null
   },
   {
-   "id": "currency-enter",
-   "sound": "audio/own/anvil-3.wav+key/fs-180997-enter-key-2",
+   "id": "rmbg-enter",
+   "sound": "audio/own/anvil-2.wav+key/fs-180997-enter-key-2",
    "files": [
-    "audio/own/anvil-3.wav",
+    "audio/own/anvil-2.wav",
     "audio/kit/key/fs-180997-enter-key-2.wav"
    ],
    "weight": "support",
@@ -964,7 +894,7 @@
    "cue_s": 14.0,
    "peak_s": 14.0,
    "pan": 0.0,
-   "gain_db": -42.31,
+   "gain_db": -26.85,
    "limited_by": "best-band target",
    "band_hz": [
     1000,
@@ -973,6 +903,100 @@
    "win_s": [
     13.99,
     14.15
+   ],
+   "visual": "cut"
+  },
+  {
+   "id": "rmbg-wipe",
+   "sound": "audio/own/wipe.wav",
+   "files": [
+    "audio/own/wipe.wav"
+   ],
+   "weight": "support",
+   "align": "start",
+   "cue_s": 14.025,
+   "peak_s": 14.1622,
+   "pan": -0.3,
+   "gain_db": -27.31,
+   "limited_by": "best-band target",
+   "band_hz": [
+    4000,
+    8000
+   ],
+   "win_s": [
+    14.1522,
+    14.3039
+   ],
+   "visual": null
+  },
+  {
+   "id": "currency-summon",
+   "sound": "whoosh/fs-449992-whoosh-short-low-wav-1+ui/kenney-interface-select-006",
+   "files": [
+    "audio/kit/whoosh/fs-449992-whoosh-short-low-wav-1.wav",
+    "audio/kit/ui/kenney-interface-select-006.wav"
+   ],
+   "weight": "support",
+   "align": "peak",
+   "cue_s": 14.8,
+   "peak_s": 14.8,
+   "pan": 0.3,
+   "gain_db": -16.19,
+   "limited_by": "best-band target",
+   "band_hz": [
+    500,
+    1000
+   ],
+   "win_s": [
+    14.79,
+    14.8769
+   ],
+   "visual": "cut"
+  },
+  {
+   "id": "currency-typing",
+   "sound": "audio/own/take-currency.wav",
+   "files": [
+    "audio/own/take-currency.wav"
+   ],
+   "weight": "support",
+   "align": "peak",
+   "cue_s": 15.0452,
+   "peak_s": 15.0452,
+   "pan": 0.1,
+   "gain_db": -9.54,
+   "limited_by": "best-band target",
+   "band_hz": [
+    4000,
+    8000
+   ],
+   "win_s": [
+    15.0352,
+    15.0852
+   ],
+   "visual": null
+  },
+  {
+   "id": "currency-enter",
+   "sound": "audio/own/anvil-3.wav+key/fs-180997-enter-key-2",
+   "files": [
+    "audio/own/anvil-3.wav",
+    "audio/kit/key/fs-180997-enter-key-2.wav"
+   ],
+   "weight": "support",
+   "align": "peak",
+   "cue_s": 15.25,
+   "peak_s": 15.25,
+   "pan": 0.0,
+   "gain_db": -25.47,
+   "limited_by": "best-band target",
+   "band_hz": [
+    1000,
+    2000
+   ],
+   "win_s": [
+    15.24,
+    15.4
    ],
    "visual": "appear"
   },
@@ -984,18 +1008,18 @@
    ],
    "weight": "support",
    "align": "peak",
-   "cue_s": 14.17,
-   "peak_s": 14.17,
+   "cue_s": 15.42,
+   "peak_s": 15.42,
    "pan": -0.2,
-   "gain_db": -25.0,
+   "gain_db": -22.52,
    "limited_by": "best-band target",
    "band_hz": [
     2000,
     4000
    ],
    "win_s": [
-    14.16,
-    14.21
+    15.41,
+    15.46
    ],
    "visual": null
   },
@@ -1007,18 +1031,18 @@
    ],
    "weight": "support",
    "align": "peak",
-   "cue_s": 14.34,
-   "peak_s": 14.34,
+   "cue_s": 15.59,
+   "peak_s": 15.59,
    "pan": 0.0,
-   "gain_db": -30.36,
+   "gain_db": -23.79,
    "limited_by": "best-band target",
    "band_hz": [
-    1000,
-    2000
+    4000,
+    8000
    ],
    "win_s": [
-    14.33,
-    14.38
+    15.58,
+    15.63
    ],
    "visual": null
   },
@@ -1030,18 +1054,18 @@
    ],
    "weight": "support",
    "align": "peak",
-   "cue_s": 14.65,
-   "peak_s": 14.65,
+   "cue_s": 15.8,
+   "peak_s": 15.8,
    "pan": 0.0,
-   "gain_db": -30.63,
+   "gain_db": -20.69,
    "limited_by": "best-band target",
    "band_hz": [
     500,
     1000
    ],
    "win_s": [
-    14.64,
-    14.7222
+    15.79,
+    15.8722
    ],
    "visual": "cut"
   },
@@ -1053,90 +1077,45 @@
    ],
    "weight": "support",
    "align": "peak",
-   "cue_s": 14.8952,
-   "peak_s": 14.8952,
+   "cue_s": 16.0452,
+   "peak_s": 16.0452,
    "pan": 0.1,
-   "gain_db": -33.68,
+   "gain_db": -28.87,
    "limited_by": "best-band target",
    "band_hz": [
     4000,
     8000
    ],
    "win_s": [
-    14.8852,
-    14.9352
+    16.0352,
+    16.0852
    ],
    "visual": null
   },
   {
    "id": "tile-enter",
-   "sound": "audio/own/anvil-4.wav+key/fs-180997-enter-key-2",
+   "sound": "audio/own/anvil-4.wav+key/fs-180997-enter-key-2+click/kenney-rpg-metal-latch",
    "files": [
     "audio/own/anvil-4.wav",
-    "audio/kit/key/fs-180997-enter-key-2.wav"
-   ],
-   "weight": "support",
-   "align": "peak",
-   "cue_s": 15.1,
-   "peak_s": 15.1,
-   "pan": 0.0,
-   "gain_db": -34.18,
-   "limited_by": "best-band target",
-   "band_hz": [
-    1000,
-    2000
-   ],
-   "win_s": [
-    15.09,
-    15.25
-   ],
-   "visual": "move"
-  },
-  {
-   "id": "tile-snap-2",
-   "sound": "click/kenney-rpg-metal-latch",
-   "files": [
+    "audio/kit/key/fs-180997-enter-key-2.wav",
     "audio/kit/click/kenney-rpg-metal-latch.wav"
    ],
    "weight": "support",
    "align": "peak",
-   "cue_s": 15.28,
-   "peak_s": 15.28,
-   "pan": 0.4,
-   "gain_db": -33.02,
+   "cue_s": 16.25,
+   "peak_s": 16.25,
+   "pan": 0.0,
+   "gain_db": -26.99,
    "limited_by": "best-band target",
    "band_hz": [
     4000,
     8000
    ],
    "win_s": [
-    15.27,
-    15.32
+    16.24,
+    16.4
    ],
-   "visual": null
-  },
-  {
-   "id": "tile-snap-4",
-   "sound": "click/kenney-rpg-metal-click",
-   "files": [
-    "audio/kit/click/kenney-rpg-metal-click.wav"
-   ],
-   "weight": "support",
-   "align": "peak",
-   "cue_s": 15.46,
-   "peak_s": 15.46,
-   "pan": -0.4,
-   "gain_db": -33.12,
-   "limited_by": "best-band target",
-   "band_hz": [
-    4000,
-    8000
-   ],
-   "win_s": [
-    15.45,
-    15.5
-   ],
-   "visual": null
+   "visual": "move"
   },
   {
    "id": "download-summon",
@@ -1146,18 +1125,18 @@
    ],
    "weight": "support",
    "align": "peak",
-   "cue_s": 15.85,
-   "peak_s": 15.85,
+   "cue_s": 16.55,
+   "peak_s": 16.55,
    "pan": 0.0,
-   "gain_db": -28.14,
+   "gain_db": -19.67,
    "limited_by": "best-band target",
    "band_hz": [
     500,
     1000
    ],
    "win_s": [
-    15.84,
-    15.9242
+    16.54,
+    16.6242
    ],
    "visual": "cut"
   },
@@ -1169,18 +1148,18 @@
    ],
    "weight": "support",
    "align": "peak",
-   "cue_s": 16.079,
-   "peak_s": 16.079,
+   "cue_s": 16.779,
+   "peak_s": 16.779,
    "pan": 0.1,
-   "gain_db": -33.28,
+   "gain_db": -32.02,
    "limited_by": "best-band target",
    "band_hz": [
     4000,
     8000
    ],
    "win_s": [
-    16.069,
-    16.119
+    16.769,
+    16.819
    ],
    "visual": null
   },
@@ -1194,18 +1173,18 @@
    ],
    "weight": "hero",
    "align": "peak",
-   "cue_s": 16.3,
-   "peak_s": 16.3,
+   "cue_s": 17.0,
+   "peak_s": 17.0,
    "pan": 0.0,
-   "gain_db": -13.37,
+   "gain_db": -13.56,
    "limited_by": "main-band target (hero)",
    "band_hz": [
     2000,
     4000
    ],
    "win_s": [
-    16.29,
-    16.4466
+    16.99,
+    17.1466
    ],
    "visual": "move"
   },
@@ -1217,18 +1196,18 @@
    ],
    "weight": "support",
    "align": "start",
-   "cue_s": 16.35,
-   "peak_s": 16.6287,
+   "cue_s": 17.16,
+   "peak_s": 17.4387,
    "pan": 0.2,
-   "gain_db": -14.48,
+   "gain_db": -10.48,
    "limited_by": "best-band target",
    "band_hz": [
     500,
     1000
    ],
    "win_s": [
-    16.6187,
-    16.7787
+    17.4287,
+    17.5887
    ],
    "visual": null
   },
@@ -1241,18 +1220,18 @@
    ],
    "weight": "support",
    "align": "peak",
-   "cue_s": 17.25,
-   "peak_s": 17.25,
+   "cue_s": 18.3,
+   "peak_s": 18.3,
    "pan": 0.0,
-   "gain_db": -25.35,
+   "gain_db": -12.87,
    "limited_by": "best-band target",
    "band_hz": [
-    500,
-    1000
+    1000,
+    2000
    ],
    "win_s": [
-    17.24,
-    17.3901
+    18.29,
+    18.4401
    ],
    "visual": "cut"
   },
@@ -1264,18 +1243,18 @@
    ],
    "weight": "support",
    "align": "peak",
-   "cue_s": 17.4952,
-   "peak_s": 17.4952,
+   "cue_s": 18.5452,
+   "peak_s": 18.5452,
    "pan": 0.1,
-   "gain_db": -28.4,
+   "gain_db": -29.37,
    "limited_by": "best-band target",
    "band_hz": [
     4000,
     8000
    ],
    "win_s": [
-    17.4852,
-    17.5352
+    18.5352,
+    18.5852
    ],
    "visual": null
   },
@@ -1287,18 +1266,18 @@
    ],
    "weight": "support",
    "align": "start",
-   "cue_s": 17.7,
-   "peak_s": 17.8185,
+   "cue_s": 18.75,
+   "peak_s": 18.8685,
    "pan": 0.0,
-   "gain_db": -31.71,
+   "gain_db": -24.79,
    "limited_by": "best-band target",
    "band_hz": [
     2000,
     4000
    ],
    "win_s": [
-    17.8085,
-    17.9536
+    18.8585,
+    19.0036
    ],
    "visual": "cut"
   },
@@ -1311,18 +1290,18 @@
    ],
    "weight": "hero",
    "align": "peak",
-   "cue_s": 22.62,
-   "peak_s": 22.62,
+   "cue_s": 23.87,
+   "peak_s": 23.87,
    "pan": 0.0,
-   "gain_db": -26.92,
+   "gain_db": -25.7,
    "limited_by": "main-band target (hero)",
    "band_hz": [
     4000,
     8000
    ],
    "win_s": [
-    22.61,
-    22.77
+    23.86,
+    24.02
    ],
    "visual": "move"
   },
@@ -1334,8 +1313,8 @@
    ],
    "weight": "support",
    "align": "start",
-   "cue_s": 22.69,
-   "peak_s": 22.8985,
+   "cue_s": 23.94,
+   "peak_s": 24.1485,
    "pan": 0.0,
    "gain_db": -24.53,
    "limited_by": "best-band target",
@@ -1344,8 +1323,8 @@
     16000
    ],
    "win_s": [
-    22.8885,
-    23.0485
+    24.1385,
+    24.2985
    ],
    "visual": null
   },
@@ -1357,18 +1336,18 @@
    ],
    "weight": "support",
    "align": "start",
-   "cue_s": 23.43,
-   "peak_s": 23.4648,
+   "cue_s": 24.68,
+   "peak_s": 24.7148,
    "pan": 0.0,
-   "gain_db": -31.9,
+   "gain_db": -23.51,
    "limited_by": "best-band target",
    "band_hz": [
     2000,
     4000
    ],
    "win_s": [
-    23.4548,
-    23.6148
+    24.7048,
+    24.8648
    ],
    "visual": null
   }

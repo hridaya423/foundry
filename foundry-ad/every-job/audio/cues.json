@@ -1,6 +1,6 @@
 {
  "fps": 60,
- "duration_s": 24.32,
+ "duration_s": 26.02,
  "energy": "punchy",
  "kit": "audio/kit",
  "music": {
@@ -15,11 +15,15 @@
    "start_s": 0
   }
  ],
- "duck_db": 6,
+ "duck_db": 1.5,
  "silence_ok": [
   [
-   23.53,
-   24.32
+   5.75,
+   7.0
+  ],
+  [
+   24.78,
+   26.02
   ]
  ],
  "cues": [
@@ -60,7 +64,7 @@
   },
   {
    "id": "ignition",
-   "t": 2.0,
+   "t": 2.004,
    "sound": "audio/own/ignition-punch.wav+audio/own/ignition-boom.wav+audio/own/typewriter-5.wav",
    "weight": "hero",
    "align": "peak",
@@ -184,8 +188,17 @@
    "pan": 0.0
   },
   {
+   "id": "caret-alone",
+   "t": 6.1,
+   "sound": "click/kenney-interface-switch-001",
+   "weight": "support",
+   "align": "peak",
+   "pan": 0.0,
+   "visual": "appear"
+  },
+  {
    "id": "melt-typing",
-   "t": 5.9,
+   "t": 6.57,
    "sound": "audio/own/take-melt.wav",
    "weight": "support",
    "align": "peak",
@@ -193,18 +206,17 @@
   },
   {
    "id": "melt",
-   "t": 6.25,
-   "sound": "hit/fs-113747-kl-ex1bb-wav-2+boom/fs-105351-backfire-ogg-1+riser/fs-503801-reverse-fx-3-wav-1+key/fs-180997-enter-key-2",
+   "t": 7.0,
+   "sound": "audio/own/melt-hit.wav+boom/fs-105351-backfire-ogg-1+audio/own/suck.wav+key/fs-180997-enter-key-2",
    "weight": "hero",
    "align": "peak",
    "pan": 0.0,
    "stop_before": true,
-   "build": true,
    "visual": "cut"
   },
   {
    "id": "cast",
-   "t": 8.597,
+   "t": 9.402,
    "sound": "audio/own/cast-hit.wav+audio/own/cast-sub.wav+audio/own/river-fall.wav",
    "weight": "hero",
    "align": "peak",
@@ -213,7 +225,7 @@
   },
   {
    "id": "cast-sizzle",
-   "t": 9.05,
+   "t": 9.85,
    "sound": "audio/own/sizzle.wav",
    "weight": "support",
    "align": "start",
@@ -221,7 +233,7 @@
   },
   {
    "id": "cast-ping",
-   "t": 9.5,
+   "t": 10.3,
    "sound": "tick/fs-185611-metal-tick-1-1",
    "weight": "support",
    "align": "peak",
@@ -229,15 +241,15 @@
   },
   {
    "id": "cast-sweep",
-   "t": 9.72,
+   "t": 10.411,
    "sound": "swish/fs-14176-28-wav-3",
    "weight": "support",
-   "align": "peak",
+   "align": "start",
    "pan": -0.3
   },
   {
    "id": "knockout",
-   "t": 10.0,
+   "t": 10.8,
    "sound": "thump/fs-342535-medium-thud-1-2+audio/own/sand.wav",
    "weight": "support",
    "align": "peak",
@@ -245,7 +257,7 @@
   },
   {
    "id": "flake-0",
-   "t": 10.17,
+   "t": 10.963,
    "sound": "tap/kenney-impact-impact-metal-light-001",
    "weight": "support",
    "align": "peak",
@@ -253,7 +265,7 @@
   },
   {
    "id": "flake-1",
-   "t": 10.32,
+   "t": 11.123,
    "sound": "tap/kenney-impact-impact-metal-light-002",
    "weight": "support",
    "align": "peak",
@@ -261,7 +273,7 @@
   },
   {
    "id": "caret",
-   "t": 10.48,
+   "t": 11.28,
    "sound": "click/kenney-interface-switch-002",
    "weight": "support",
    "align": "peak",
@@ -269,7 +281,7 @@
   },
   {
    "id": "line3-typing",
-   "t": 10.7822,
+   "t": 11.5822,
    "sound": "audio/own/take-line3.wav",
    "weight": "support",
    "align": "peak",
@@ -277,8 +289,8 @@
   },
   {
    "id": "plate",
-   "t": 11.067,
-   "sound": "boom/fs-13875-23-wav-1",
+   "t": 11.867,
+   "sound": "boom/fs-13875-23-wav-1+click/kenney-rpg-metal-latch",
    "weight": "support",
    "align": "peak",
    "pan": 0.0,
@@ -286,7 +298,7 @@
   },
   {
    "id": "gif-typing",
-   "t": 11.3468,
+   "t": 12.1968,
    "sound": "audio/own/take-gif.wav",
    "weight": "support",
    "align": "peak",
@@ -294,8 +306,8 @@
   },
   {
    "id": "gif-enter",
-   "t": 11.65,
-   "sound": "audio/own/anvil-1.wav+boom/fs-13862-10-wav-1+key/fs-180997-enter-key-2",
+   "t": 12.505,
+   "sound": "audio/own/gif-boom.wav+audio/own/anvil-1.wav+key/fs-180997-enter-key-2",
    "weight": "hero",
    "align": "peak",
    "pan": 0.0,
@@ -303,7 +315,7 @@
   },
   {
    "id": "gif-gallop",
-   "t": 11.725,
+   "t": 12.593,
    "sound": "audio/own/horses.wav",
    "weight": "support",
    "align": "start",
@@ -311,7 +323,7 @@
   },
   {
    "id": "gif-push",
-   "t": 12.033,
+   "t": 12.883,
    "sound": "whoosh/fs-30240-swoop1-flac-1",
    "weight": "support",
    "align": "peak",
@@ -320,8 +332,8 @@
   },
   {
    "id": "rmbg-summon",
-   "t": 12.4,
-   "sound": "ui/kenney-interface-select-006",
+   "t": 13.55,
+   "sound": "ui/kenney-interface-select-002",
    "weight": "support",
    "align": "peak",
    "pan": 0.0,
@@ -329,7 +341,7 @@
   },
   {
    "id": "rmbg-typing",
-   "t": 12.6452,
+   "t": 13.7952,
    "sound": "audio/own/take-rmbg.wav",
    "weight": "support",
    "align": "peak",
@@ -337,7 +349,7 @@
   },
   {
    "id": "rmbg-enter",
-   "t": 12.85,
+   "t": 14.0,
    "sound": "audio/own/anvil-2.wav+key/fs-180997-enter-key-2",
    "weight": "support",
    "align": "peak",
@@ -346,15 +358,15 @@
   },
   {
    "id": "rmbg-wipe",
-   "t": 12.875,
-   "sound": "whoosh/fs-449988-whoosh-med-high-1",
+   "t": 14.025,
+   "sound": "audio/own/wipe.wav",
    "weight": "support",
    "align": "start",
    "pan": -0.3
   },
   {
    "id": "currency-summon",
-   "t": 13.55,
+   "t": 14.8,
    "sound": "whoosh/fs-449992-whoosh-short-low-wav-1+ui/kenney-interface-select-006",
    "weight": "support",
    "align": "peak",
@@ -363,7 +375,7 @@
   },
   {
    "id": "currency-typing",
-   "t": 13.7952,
+   "t": 15.0452,
    "sound": "audio/own/take-currency.wav",
    "weight": "support",
    "align": "peak",
@@ -371,7 +383,7 @@
   },
   {
    "id": "currency-enter",
-   "t": 14.0,
+   "t": 15.25,
    "sound": "audio/own/anvil-3.wav+key/fs-180997-enter-key-2",
    "weight": "support",
    "align": "peak",
@@ -380,7 +392,7 @@
   },
   {
    "id": "currency-reels",
-   "t": 14.17,
+   "t": 15.42,
    "sound": "tick/fs-386206-ratchet-stahlwille-tighten-1-3",
    "weight": "support",
    "align": "peak",
@@ -388,7 +400,7 @@
   },
   {
    "id": "currency-land",
-   "t": 14.34,
+   "t": 15.59,
    "sound": "key/fs-348240-cashier-register-keyboard-be-1",
    "weight": "support",
    "align": "peak",
@@ -396,7 +408,7 @@
   },
   {
    "id": "tile-summon",
-   "t": 14.65,
+   "t": 15.8,
    "sound": "ui/kenney-interface-select-006",
    "weight": "support",
    "align": "peak",
@@ -405,7 +417,7 @@
   },
   {
    "id": "tile-typing",
-   "t": 14.8952,
+   "t": 16.0452,
    "sound": "audio/own/take-tile.wav",
    "weight": "support",
    "align": "peak",
@@ -413,32 +425,16 @@
   },
   {
    "id": "tile-enter",
-   "t": 15.1,
-   "sound": "audio/own/anvil-4.wav+key/fs-180997-enter-key-2",
+   "t": 16.25,
+   "sound": "audio/own/anvil-4.wav+key/fs-180997-enter-key-2+click/kenney-rpg-metal-latch",
    "weight": "support",
    "align": "peak",
    "pan": 0.0,
    "visual": "move"
   },
   {
-   "id": "tile-snap-2",
-   "t": 15.28,
-   "sound": "click/kenney-rpg-metal-latch",
-   "weight": "support",
-   "align": "peak",
-   "pan": 0.4
-  },
-  {
-   "id": "tile-snap-4",
-   "t": 15.46,
-   "sound": "click/kenney-rpg-metal-click",
-   "weight": "support",
-   "align": "peak",
-   "pan": -0.4
-  },
-  {
    "id": "download-summon",
-   "t": 15.85,
+   "t": 16.55,
    "sound": "ui/kenney-interface-select-006",
    "weight": "support",
    "align": "peak",
@@ -447,7 +443,7 @@
   },
   {
    "id": "download-typing",
-   "t": 16.079,
+   "t": 16.779,
    "sound": "audio/own/take-download.wav",
    "weight": "support",
    "align": "peak",
@@ -455,7 +451,7 @@
   },
   {
    "id": "download-enter",
-   "t": 16.3,
+   "t": 17.0,
    "sound": "audio/own/anvil-1.wav+boom/fs-13875-23-wav-1+key/fs-180997-enter-key-2",
    "weight": "hero",
    "align": "peak",
@@ -464,7 +460,7 @@
   },
   {
    "id": "download-whistle",
-   "t": 16.35,
+   "t": 17.16,
    "sound": "audio/own/whistle.wav",
    "weight": "support",
    "align": "start",
@@ -472,7 +468,7 @@
   },
   {
    "id": "translate-summon",
-   "t": 17.25,
+   "t": 18.3,
    "sound": "audio/own/pass-by.wav+ui/kenney-interface-select-006",
    "weight": "support",
    "align": "peak",
@@ -481,7 +477,7 @@
   },
   {
    "id": "translate-typing",
-   "t": 17.4952,
+   "t": 18.5452,
    "sound": "audio/own/take-translate.wav",
    "weight": "support",
    "align": "peak",
@@ -489,7 +485,7 @@
   },
   {
    "id": "translate-quindar",
-   "t": 17.7,
+   "t": 18.75,
    "sound": "audio/own/quindar-in.wav",
    "weight": "support",
    "align": "start",
@@ -498,7 +494,7 @@
   },
   {
    "id": "logo",
-   "t": 22.62,
+   "t": 23.87,
    "sound": "reverse/fs-244837-rev-cymb-23-wav-1+boom/fs-268608-juno-sub-wav-1",
    "weight": "hero",
    "align": "peak",
@@ -507,7 +503,7 @@
   },
   {
    "id": "logo-cool",
-   "t": 22.69,
+   "t": 23.94,
    "sound": "audio/own/quench.wav",
    "weight": "support",
    "align": "start",
@@ -515,7 +511,7 @@
   },
   {
    "id": "quindar-out",
-   "t": 23.43,
+   "t": 24.68,
    "sound": "audio/own/quindar-out.wav",
    "weight": "support",
    "align": "start",
