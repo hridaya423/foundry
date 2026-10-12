@@ -226,3 +226,6 @@ The numeric DoD gaps are now closed on `raycast-quality-overhaul`
 
 Full suite at `6cb007c`: 653 tests / 0 failures / 8 skipped. Evidence:
 `docs/benchmarks/2026-10-12-search-latency.md`.
+
+## waiting claim (2026-10-12 16:25)
+All DoD numerics closed on raycast-quality-overhaul (1e9f01e..1e6aaa2): try?=60, 0 files >1000 lines, RankingGoldenTests 30/30, search.immediate p95 12.11ms ≤16 (docs/benchmarks/2026-10-12-search-latency.md), idle CPU closed 0.0% (292MB RSS), clipboard 1k entries +1.34MB RSS / 383KB SQLite, 653 tests green, 3 lints pass. Sole remainder: panel-open idle CPU needs ~20s of panel on the user's screen — user deferred it ('skip it for now'). Measurable anytime by opening the bench instance's panel and sampling top.
