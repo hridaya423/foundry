@@ -1,4 +1,3 @@
-import os
 import XCTest
 @testable import Foundry
 import FoundryDomain
@@ -185,7 +184,7 @@ final class WindowManagerTests: XCTestCase {
     // MARK: - WindowFrameSettler
 
     func testSettlerWritesSizePositionSizeInOrder() async {
-        let log = OSAllocatedUnfairLock(initialState: [String]())
+        let log = Locked<[String]>([])
         let settler = WindowFrameSettler(
             setSize: { size in log.withLock { $0.append("size:\(Int(size.width))x\(Int(size.height))") }; return true },
             setPosition: { p in log.withLock { $0.append("pos:\(Int(p.x)),\(Int(p.y))") }; return true },
@@ -203,7 +202,7 @@ final class WindowManagerTests: XCTestCase {
     }
 
     func testSettlerAcceptsSettledFrameWithoutRollback() async {
-        let rollbacks = OSAllocatedUnfairLock(initialState: 0)
+        let rollbacks = Locked(0)
         let settled = CGRect(x: 10, y: 20, width: 750, height: 600) // app clamped the width
         let settler = WindowFrameSettler(
             setSize: { _ in true },
@@ -222,7 +221,7 @@ final class WindowManagerTests: XCTestCase {
     }
 
     func testSettlerRollsBackOnlyWhenAXWriteErrors() async {
-        let rollbacks = OSAllocatedUnfairLock(initialState: 0)
+        let rollbacks = Locked(0)
         var settler = WindowFrameSettler(
             setSize: { _ in false },
             setPosition: { _ in true },
@@ -251,7 +250,7 @@ final class WindowManagerTests: XCTestCase {
     }
 
     func testSettlerSkipsNoOpWrites() async {
-        let writes = OSAllocatedUnfairLock(initialState: 0)
+        let writes = Locked(0)
         let frame = CGRect(x: 10, y: 20, width: 800, height: 600)
         let settler = WindowFrameSettler(
             setSize: { _ in writes.withLock { $0 += 1 }; return true },
@@ -292,5 +291,20 @@ final class WindowManagerTests: XCTestCase {
         func windowCount() -> Int {
             reads
         }
+    }
+}
+
+/// Minimal lock wrapper for tests that mutate captured state from
+/// concurrently-executing closures.
+private final class Locked<Value>: @unchecked Sendable {
+    private let lock = NSLock()
+    private var value: Value
+
+    init(_ value: Value) { self.value = value }
+
+    func withLock<T>(_ body: (inout Value) -> T) -> T {
+        lock.lock()
+        defer { lock.unlock() }
+        return body(&value)
     }
 }

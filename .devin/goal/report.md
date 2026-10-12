@@ -187,18 +187,21 @@ Quality bar: Raycast. Plan: `docs/plans/2026-10-11-foundry-raycast-bar-audit.md`
 - `InstalledAppCache` merges `roots ∪ index.urls` (deduped by bundle identity); index `onUpdate` sets an `invalidated` flag → the next `current()` reloads **synchronously** — live updates, no 30 s poll dependence (timer stays as a safety net for non-indexed roots)
 - Injectible `AppIndexing` protocol; two tests: indexed app outside scanned roots is found, and an update fires a synchronous refresh on the next read
 - Gotcha: `NSPredicate(format: "%k …")` crashes — `%k` isn't a specifier; `%K == %@` is. Caught by the workload test instantiating the real registry.
+- Second gotcha: `-c release` enforces strict concurrency the debug build didn't — `LiveAppIndex` needed `AnyObject`-bound `AppIndexing`, explicit `@unchecked Sendable`, `onUpdate`/urls/`started` all inside `OSAllocatedUnfairLock`, and a serial `OperationQueue` for query notifications (observers removed in `deinit`). Always run `swift build -c release` before calling a phase done.
+
+### Final — wrap-up
+- Benchmarks: `docs/benchmarks/2026-10-12-search-latency.md` — `search.immediate` p50/p95 16.9/23.0 ms (baseline 16.8/35.6 — p95 −36%), `search.complete` 17.4/24.1 ms. The 16 ms immediate p95 remains the one open budget gap (provider tail, not scoring).
+- `build/Foundry.app` rebuilt + signed on the head commit — release config green.
+- `docs/HANDOFF.md` marked audit-complete with the phase ledger; open items reduced to GUI-only measurements (Accessibility-gated keystroke benchmark, VoiceOver walk, fresh-account sweep) and idle CPU/memory re-measure.
+- Gate at head `03cfe33`: `swift build` and `swift build -c release` clean, 650 tests / 0 failures / 6 skipped, all three lints + snapshot compare PASS.
 
 ### Workstream transferred (this commit)
 - Full handoff to the Mac mini agent: repo cloned clean to `~/Honey/anvil` at `cea3608` and verified `swift build` on its Xcode 16.3 / Swift 6.1 toolchain. Handoff brief at `~/foundry-raycast-audit-handoff.md` (mini home dir); `docs/HANDOFF.md` (`61a3918`) repointed to this audit. The mini agent owns all remaining phases and the final sync-back of commits to this checkout.
 - `cea3608` also restored Swift 6.1 compatibility broken by the try? audit: `import FoundryServices` hoisted out of `#if canImport(FoundationModels)` (OnboardingState), `@preconcurrency import Foundation` for `NSItemProvider.loadItem` (FileConversionView), and `SendableBackports.swift` — `NSImage: @retroactive @unchecked Sendable` under `#if compiler(<6.2)`. 95 errors on Xcode 16.3 → build complete.
 
 ## Remaining
-- Phase 5.4 — Settings window (NSWindow, deep links)
-- Phase 5.5 — native `QLPreviewPanel` Quick Look
-- Phase 5.6 — materials/glass polish
-- Phase 5.9 — localization groundwork
-- Phase 6 — platform: window tiling settle, Codex OAuth opt-in, CI snapshots, app indexing
-- Final: benchmark evidence, HANDOFF + report update, goalctl done
+- Nothing in the audit scope — all phases 0–6 implemented on `raycast-quality-overhaul` (18 commits).
+- Follow-ups outside scope: merge branch → main, `search.immediate` p95 (16 ms budget vs 23 ms measured), GUI-session measurements listed below.
 
 ## Manual-only / environment-gated
 - Accessibility-gated keystroke benchmarks, VoiceOver walkthrough, Liquid Glass cost check, notarization — documented in `docs/HANDOFF.md`, not falsely claimed
