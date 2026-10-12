@@ -133,6 +133,14 @@ Quality bar: Raycast. Plan: `docs/plans/2026-10-11-foundry-raycast-bar-audit.md`
 - `scripts/lint-lines.sh`: PASS · `scripts/lint-design.sh`: PASS
 - `runModal` grep: only `NSOpenPanel`/`NSSavePanel` sites remain
 
+### Phase 5.4 — dedicated Settings window ✅ (this commit)
+- `SettingsWindowController`: standard resizable `NSWindow` (820×600, min 680×480, autosaved frame) hosting `SettingsView` via `NSHostingController`; one instance lives on `ShellController`
+- Every entry point now opens the window: ⌘, in the panel, the status item, "Settings…" in the panel menu, the app menu's new Settings… ⌘, item (works while the window is key), and `OpenSettingsAction`/deep links
+- `Mode.settings` removed — the launcher is a launcher again; the panel auto-dismisses when the window takes key
+- Settings apply live: `resetConfiguration` no longer calls `NSApp.terminate` — it applies `applyRestoredConfiguration` like a restore; "Import and Quit"/"Reset and Quit" → "Import"/"Reset"
+- File pickers in the three settings panes run as sheets on the window via `runFilePanelAsSheet` (falls back to app-modal when no window is key)
+- Tests: the two openSettings tests now assert the shell port; new `testResetConfigurationAppliesLiveWithoutTerminating` — 633 tests green
+
 ### Workstream transferred (this commit)
 - Full handoff to the Mac mini agent: repo cloned clean to `~/Honey/anvil` at `cea3608` and verified `swift build` on its Xcode 16.3 / Swift 6.1 toolchain. Handoff brief at `~/foundry-raycast-audit-handoff.md` (mini home dir); `docs/HANDOFF.md` (`61a3918`) repointed to this audit. The mini agent owns all remaining phases and the final sync-back of commits to this checkout.
 - `cea3608` also restored Swift 6.1 compatibility broken by the try? audit: `import FoundryServices` hoisted out of `#if canImport(FoundationModels)` (OnboardingState), `@preconcurrency import Foundation` for `NSItemProvider.loadItem` (FileConversionView), and `SendableBackports.swift` — `NSImage: @retroactive @unchecked Sendable` under `#if compiler(<6.2)`. 95 errors on Xcode 16.3 → build complete.

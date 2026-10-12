@@ -244,16 +244,16 @@ struct SettingsView: View {
             .modifier(anchor("advanced.backup"))
             .confirmationDialog("Replace your Foundry settings?", isPresented: Binding(get: { pendingBackup != nil },
                 set: { if $0 == false { pendingBackup = nil } })) {
-                Button("Import and Quit", role: .destructive) {
+                Button("Import", role: .destructive) {
                     if let pendingBackup { state.settings.restoreBackup(pendingBackup) }
                 }
             } message: {
-                Text("Current files are kept next to the originals as .pre-import copies. Foundry quits to apply the backup.")
+                Text("Current files are kept next to the originals as .pre-import copies.")
             }
 
             SettingsGroup {
                 HStack(spacing: 12) {
-                    SettingsLabel(title: "Reset settings", subtitle: "Restore every preference to its default and quit Foundry")
+                    SettingsLabel(title: "Reset settings", subtitle: "Restore every preference to its default")
                     Spacer()
                     Button("Reset…", role: .destructive) { confirmingReset = true }
                         .controlSize(.small)
@@ -263,7 +263,7 @@ struct SettingsView: View {
             }
             .modifier(anchor("advanced.reset"))
             .confirmationDialog("Reset all Foundry settings?", isPresented: $confirmingReset) {
-                Button("Reset and Quit", role: .destructive, action: state.settings.resetConfiguration)
+                Button("Reset", role: .destructive, action: state.settings.resetConfiguration)
             } message: {
                 Text("Clipboard history and snippets are kept.")
             }
@@ -274,16 +274,20 @@ struct SettingsView: View {
         let panel = NSSavePanel()
         panel.nameFieldStringValue = "Foundry-\(Date().formatted(.iso8601.year().month().day())).\(FoundryBackup.fileExtension)"
         panel.allowedContentTypes = [UTType(filenameExtension: FoundryBackup.fileExtension) ?? .json]
-        guard panel.runModal() == .OK, let url = panel.url else { return }
-        state.settings.exportBackup(to: url)
+        Task { @MainActor in
+            guard await runFilePanelAsSheet(panel), let url = panel.url else { return }
+            state.settings.exportBackup(to: url)
+        }
     }
 
     private func chooseBackup() {
         let panel = NSOpenPanel()
         panel.allowsMultipleSelection = false
         panel.canChooseDirectories = false
-        guard panel.runModal() == .OK, let url = panel.url else { return }
-        pendingBackup = state.settings.loadBackup(from: url)
+        Task { @MainActor in
+            guard await runFilePanelAsSheet(panel), let url = panel.url else { return }
+            pendingBackup = state.settings.loadBackup(from: url)
+        }
     }
 
     private var aboutContent: some View {

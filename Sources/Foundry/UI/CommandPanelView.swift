@@ -269,8 +269,6 @@ struct CommandPanelView: View {
              actions: [.init(label: "Copy Value", keys: "Click"), .home])
         case .mediaDownloads:
             (id: "mediaDownloads", actions: [.home])
-        case .settings:
-            (id: "settings", actions: [.home])
         case .search:
             (id: searchContentID, actions: searchFooterActions)
         }
@@ -316,8 +314,6 @@ struct CommandPanelView: View {
             FeatureTitle(symbol: "hammer", title: state.developerTools.selectedTool.rawValue)
         case .mediaDownloads:
             FeatureTitle(symbol: "arrow.down.circle", title: "Downloads")
-        case .settings:
-            FeatureTitle(symbol: "gearshape", title: "Settings")
         case .search:
             searchField
         }
@@ -395,8 +391,6 @@ struct CommandPanelView: View {
                 changeDestination: state.changeMediaDownloadFolder,
                 performHaptic: { state.performHaptic(.levelChange) }
             )
-        case .settings:
-            SettingsView(state: state)
         case .search:
             searchContent
         }

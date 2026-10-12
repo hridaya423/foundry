@@ -222,7 +222,8 @@ final class SettingsStore {
         do {
             try configService.resetToDefaults()
             configLoadError = nil
-            NSApp.terminate(nil)
+            panel?.applyRestoredConfiguration()
+            panel?.showActionFeedback(.success("Settings reset"))
         } catch {
             settingsPersistenceError = "Could not reset Foundry settings. Your existing configuration was kept."
             diagnostics.log("Settings reset failed: \(error.localizedDescription)")

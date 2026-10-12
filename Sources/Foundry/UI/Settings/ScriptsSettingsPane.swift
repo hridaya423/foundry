@@ -68,8 +68,11 @@ struct ScriptsSettingsPane: View {
         let panel = NSOpenPanel()
         panel.canChooseFiles = false
         panel.canChooseDirectories = true
-        guard panel.runModal() == .OK, let url = panel.url, directories.contains(url.path) == false else { return }
-        store.directories = directories + [url.path]
-        reload()
+        Task { @MainActor in
+            guard await runFilePanelAsSheet(panel), let url = panel.url,
+                  directories.contains(url.path) == false else { return }
+            store.directories = directories + [url.path]
+            reload()
+        }
     }
 }

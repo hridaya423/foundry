@@ -56,7 +56,7 @@ extension CommandPanelState {
 
     private func moveSelection(offset: Int) {
         switch mode {
-        case .fileConversion, .camera, .translator, .settings: return
+        case .fileConversion, .camera, .translator: return
         case .emojiPicker, .fileShelf, .snippets, .clipboardHistory:
             feature(for: mode)?.handleMove(offset)
             return

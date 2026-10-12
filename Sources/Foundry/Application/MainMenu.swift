@@ -4,6 +4,8 @@ import AppKit
 enum MainMenu {
     static func make() -> NSMenu {
         let app = NSMenu(title: "Foundry")
+        app.addItem(withTitle: "Settings…", action: #selector(AppDelegate.showSettings(_:)), keyEquivalent: ",")
+        app.addItem(.separator())
         app.addItem(withTitle: "Quit Foundry", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
 
         let edit = NSMenu(title: "Edit")

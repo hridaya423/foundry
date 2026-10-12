@@ -101,10 +101,12 @@ struct QuicklinksSettingsPane: View {
         panel.allowedContentTypes = [.applicationBundle]
         panel.directoryURL = URL(fileURLWithPath: "/Applications")
         panel.allowsMultipleSelection = false
-        guard panel.runModal() == .OK, let url = panel.url,
-              let bundleID = Bundle(url: url)?.bundleIdentifier,
-              let index = links.firstIndex(where: { $0.id == linkID }) else { return }
-        links[index].openWithBundleID = bundleID
+        Task { @MainActor in
+            guard await runFilePanelAsSheet(panel), let url = panel.url,
+                  let bundleID = Bundle(url: url)?.bundleIdentifier,
+                  let index = links.firstIndex(where: { $0.id == linkID }) else { return }
+            links[index].openWithBundleID = bundleID
+        }
     }
 
     static func appName(for bundleID: String?) -> String? {
@@ -117,7 +119,13 @@ struct QuicklinksSettingsPane: View {
     private func importRaycast() {
         let panel = NSOpenPanel()
         panel.allowedContentTypes = [.json]
-        guard panel.runModal() == .OK, let url = panel.url else { return }
+        Task { @MainActor in
+            await importRaycastPanel(panel)
+        }
+    }
+
+    private func importRaycastPanel(_ panel: NSOpenPanel) async {
+        guard await runFilePanelAsSheet(panel), let url = panel.url else { return }
         do {
             let imported = try QuicklinkTemplate.importRaycast(Data(contentsOf: url))
             let existing = Set(links.map(\.link))

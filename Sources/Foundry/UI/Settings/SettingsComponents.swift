@@ -3,6 +3,21 @@ import Carbon
 import SwiftUI
 import FoundryDomain
 
+/// Runs an NSOpenPanel/NSSavePanel as a sheet on the key window — the
+/// Settings window when the call came from its UI — falling back to
+/// app-modal only when no window is available.
+@MainActor
+func runFilePanelAsSheet(_ panel: NSSavePanel) async -> Bool {
+    guard let window = NSApp.keyWindow ?? NSApp.mainWindow else {
+        return panel.runModal() == .OK
+    }
+    return await withCheckedContinuation { continuation in
+        panel.beginSheetModal(for: window) { response in
+            continuation.resume(returning: response == .OK)
+        }
+    }
+}
+
 struct SettingsGroup<Content: View>: View {
     @ViewBuilder let content: () -> Content
 

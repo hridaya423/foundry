@@ -69,6 +69,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         return false
     }
 
+    /// "Settings…" ⌘, in the app menu — responder-chain target while the
+    /// Settings window is key.
+    @objc func showSettings(_ sender: Any?) {
+        shellController?.openSettings()
+    }
+
     /// Finder "Open With…" and dropping files onto the Dock icon route here —
     /// the app declares `public.data`/`public.folder` document types so any
     /// file can be sent straight into the converter.

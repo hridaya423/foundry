@@ -19,6 +19,7 @@ final class ShellController {
     private let snippetExpansion: SnippetExpansionService
     private var hasStarted = false
     private var workspaceObservers: [NSObjectProtocol] = []
+    private lazy var settingsWindow = SettingsWindowController(state: panelState)
 
     init(
         registry: CommandRegistry,
@@ -264,7 +265,7 @@ extension ShellController: ShellPort {
     }
 
     func openSettings() {
-        showPanel()
+        settingsWindow.show()
     }
 
     func quickLook(_ url: URL) {

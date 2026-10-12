@@ -91,10 +91,9 @@ final class PanelRouter {
         }
     }
 
+    /// Settings lives in its own window — the launcher stays a launcher.
     func openSettings() {
-        guard let panel else { return }
-        if panel.isPanelOpen == false { panel.shell?.openSettings() }
-        beginFeatureMode(.settings)
+        panel?.shell?.openSettings()
     }
 
     func openWelcomeGuide() {

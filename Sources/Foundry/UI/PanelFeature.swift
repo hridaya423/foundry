@@ -46,7 +46,7 @@ extension CommandPanelState {
         case .translator: translator
         case .developerTools: developerTools
         case .quickAI: quickAI
-        case .search, .mediaDownloads, .fileConversion, .camera, .agents, .settings:
+        case .search, .mediaDownloads, .fileConversion, .camera, .agents:
             nil
         }
     }

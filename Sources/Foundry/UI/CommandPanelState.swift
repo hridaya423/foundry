@@ -22,7 +22,6 @@ final class CommandPanelState {
         case developerTools
         case agents
         case mediaDownloads
-        case settings
     }
 
     var presentationToken = UUID()
