@@ -1,0 +1,213 @@
+import AppKit
+import SwiftUI
+
+struct FoundrySmoothedRectangle: InsettableShape {
+    var cornerRadius: CGFloat
+    var smoothing: CGFloat = 0.75
+    var insetAmount: CGFloat = 0
+
+    func inset(by amount: CGFloat) -> some InsettableShape {
+        var copy = self
+        copy.insetAmount += amount
+        return copy
+    }
+
+    func path(in rect: CGRect) -> Path {
+        let rect = rect.insetBy(dx: insetAmount, dy: insetAmount)
+        let radius = min(max(cornerRadius, 0), min(rect.width, rect.height) / 2)
+        guard radius > 0 else { return Path(rect) }
+
+        var path = Path()
+        let exponent = 2 + (min(max(smoothing, 0), 1) * 2.5)
+        let segments = 48
+
+        path.move(to: CGPoint(x: rect.minX + radius, y: rect.minY))
+        path.addLine(to: CGPoint(x: rect.maxX - radius, y: rect.minY))
+        addSuperellipseCorner(to: &path, center: CGPoint(x: rect.maxX - radius, y: rect.minY + radius), startAngle: -.pi / 2, exponent: exponent,
+            radius: radius, segments: segments)
+        path.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY - radius))
+        addSuperellipseCorner(to: &path, center: CGPoint(x: rect.maxX - radius, y: rect.maxY - radius), startAngle: 0, exponent: exponent,
+            radius: radius, segments: segments)
+        path.addLine(to: CGPoint(x: rect.minX + radius, y: rect.maxY))
+        addSuperellipseCorner(to: &path, center: CGPoint(x: rect.minX + radius, y: rect.maxY - radius), startAngle: .pi / 2, exponent: exponent,
+            radius: radius, segments: segments)
+        path.addLine(to: CGPoint(x: rect.minX, y: rect.minY + radius))
+        addSuperellipseCorner(to: &path, center: CGPoint(x: rect.minX + radius, y: rect.minY + radius), startAngle: .pi, exponent: exponent,
+            radius: radius, segments: segments)
+        path.closeSubpath()
+        return path
+    }
+
+    private func addSuperellipseCorner(to path: inout Path, center: CGPoint, startAngle: CGFloat, exponent: CGFloat, radius: CGFloat, segments: Int) {
+        for index in 1...segments {
+            let angle = startAngle + (CGFloat(index) / CGFloat(segments) * .pi / 2)
+            let x = copysign(pow(abs(cos(angle)), 2 / exponent), cos(angle)) * radius
+            let y = copysign(pow(abs(sin(angle)), 2 / exponent), sin(angle)) * radius
+            path.addLine(to: CGPoint(x: center.x + x, y: center.y + y))
+        }
+    }
+}
+
+struct ActionRow: View {
+    let action: CommandAction
+    let shortcut: String?
+    let isSelected: Bool
+
+    @State private var isHovering = false
+
+    var body: some View {
+        HStack(spacing: 12) {
+            RoundedRectangle(cornerRadius: 7, style: .continuous)
+                .fill(FoundryTheme.fillTint)
+                .overlay(
+                    Image(systemName: iconName)
+                        .font(FoundryTheme.Glyph.sm)
+                        .foregroundStyle(FoundryTheme.textSecondary)
+                )
+                .frame(width: 28, height: 28)
+
+            Text(action.title)
+                .font(FoundryTheme.body)
+                .foregroundStyle(action.isDestructive ? FoundryTheme.destructive : FoundryTheme.textPrimary)
+
+            Spacer()
+
+            if let shortcut {
+                KeycapHint(text: shortcut)
+                    .accessibilityLabel("Shortcut \(shortcut)")
+            }
+        }
+        .padding(.horizontal, FoundryTheme.Spacing.sm)
+        .frame(height: 40)
+        .background(RowBackground(isSelected: isSelected, isHovering: isHovering))
+        .onHover { hovering in
+            isHovering = hovering
+
+        }
+    }
+
+    private var iconName: String {
+        action.behavior.icon ?? "bolt"
+    }
+}
+
+struct LauncherSearchField: NSViewRepresentable {
+    @Binding var text: String
+    let placeholder: String
+    let onTab: () -> Void
+    let onReturn: () -> Void
+
+    func makeNSView(context: Context) -> LauncherSearchTextField {
+        let field = LauncherSearchTextField()
+        field.isBordered = false
+        field.drawsBackground = false
+        field.focusRingType = .none
+        field.font = NSFont.systemFont(ofSize: LauncherSearchTextField.maximumPointSize, weight: .regular)
+        field.textColor = .labelColor
+        field.placeholderString = placeholder
+        field.cell?.usesSingleLineMode = true
+        field.cell?.isScrollable = true
+        field.delegate = context.coordinator
+        field.onTab = onTab
+        field.onReturn = onReturn
+        return field
+    }
+
+    func updateNSView(_ nsView: LauncherSearchTextField, context: Context) {
+        if nsView.stringValue != text {
+            nsView.stringValue = text
+        }
+        nsView.placeholderString = placeholder
+        nsView.toolTip = text.isEmpty ? nil : text
+        nsView.onTab = onTab
+        nsView.onReturn = onReturn
+        nsView.delegate = context.coordinator
+        context.coordinator.text = $text
+        context.coordinator.onTab = onTab
+        context.coordinator.onReturn = onReturn
+    }
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(text: $text, onTab: onTab, onReturn: onReturn)
+    }
+
+    final class Coordinator: NSObject, NSTextFieldDelegate {
+        var text: Binding<String>
+        var onTab: (() -> Void)?
+        var onReturn: (() -> Void)?
+
+        init(text: Binding<String>, onTab: (() -> Void)? = nil, onReturn: (() -> Void)? = nil) {
+            self.text = text
+            self.onTab = onTab
+            self.onReturn = onReturn
+        }
+
+        func controlTextDidChange(_ obj: Notification) {
+            guard let field = obj.object as? NSTextField else { return }
+            text.wrappedValue = field.stringValue
+        }
+
+        func control(_ control: NSControl, textView: NSTextView, doCommandBy commandSelector: Selector) -> Bool {
+            switch commandSelector {
+            case #selector(NSResponder.insertTab(_:)), #selector(NSResponder.insertBacktab(_:)):
+                onTab?()
+                return true
+            case #selector(NSResponder.insertNewline(_:)), #selector(NSResponder.insertNewlineIgnoringFieldEditor(_:)):
+                onReturn?()
+                return true
+            default:
+                return false
+            }
+        }
+    }
+}
+
+final class LauncherSearchTextField: NSTextField {
+    static let maximumPointSize: CGFloat = 20
+
+    var onTab: (() -> Void)?
+    var onReturn: (() -> Void)?
+
+    override func layout() {
+        super.layout()
+        fitTextToWidth()
+    }
+
+    private func fitTextToWidth() {
+        let maximumPointSize = LauncherSearchTextField.maximumPointSize
+        let minimumPointSize: CGFloat = 12
+        guard bounds.width > 0, stringValue.isEmpty == false else {
+            if font?.pointSize != maximumPointSize {
+                font = NSFont.systemFont(ofSize: maximumPointSize, weight: .regular)
+            }
+            return
+        }
+
+        let baseFont = NSFont.systemFont(ofSize: maximumPointSize, weight: .regular)
+        let textWidth = (stringValue as NSString).size(withAttributes: [.font: baseFont]).width
+        let pointSize = textWidth > bounds.width
+            ? max(minimumPointSize, maximumPointSize * bounds.width / textWidth)
+            : maximumPointSize
+        guard abs((font?.pointSize ?? 0) - pointSize) > 0.1 else { return }
+        font = NSFont.systemFont(ofSize: pointSize, weight: .regular)
+    }
+
+    override func performKeyEquivalent(with event: NSEvent) -> Bool {
+        if event.keyCode == 48 {
+            onTab?()
+            return true
+        }
+        return super.performKeyEquivalent(with: event)
+    }
+
+    override func keyDown(with event: NSEvent) {
+        switch event.keyCode {
+        case 48:
+            onTab?()
+        case 36:
+            onReturn?()
+        default:
+            super.keyDown(with: event)
+        }
+    }
+}
