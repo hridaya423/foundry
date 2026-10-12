@@ -44,6 +44,7 @@ struct FoundryGlassSurface<Content: View, SurfaceShape: Shape>: View {
     let shape: SurfaceShape
 
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @Environment(\.foundryIncreaseContrast) private var increaseContrast
 
     init(role: FoundryMaterialRole, shape: SurfaceShape, @ViewBuilder content: () -> Content) {
         self.content = content()
@@ -67,7 +68,7 @@ struct FoundryGlassSurface<Content: View, SurfaceShape: Shape>: View {
         content
             .background(role.fallbackFill, in: shape)
             .overlay {
-                shape.stroke(role.fallbackStroke, lineWidth: 1)
+                shape.stroke(increaseContrast ? AnyShapeStyle(Color(nsColor: .separatorColor)) : AnyShapeStyle(role.fallbackStroke), lineWidth: 1)
             }
     }
 

@@ -18,7 +18,9 @@ final class SettingsWindowController: NSWindowController {
         window.minSize = NSSize(width: 680, height: 480)
         window.isReleasedWhenClosed = false
         window.setFrameAutosaveName("FoundrySettings")
-        window.contentViewController = NSHostingController(rootView: SettingsView(state: state))
+        window.contentViewController = NSHostingController(rootView: FoundryIncreaseContrastRoot {
+            SettingsView(state: state)
+        })
         window.center()
         super.init(window: window)
     }

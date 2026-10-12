@@ -10,8 +10,10 @@ final class TransientNoticeController {
     func show(_ feedback: ActionFeedback, relativeTo parent: NSWindow?) {
         hideTask?.cancel()
         let panel = panel ?? makePanel()
-        let host = panel.contentView as? NSHostingView<NoticeToast>
-        host?.rootView = NoticeToast(message: feedback.message, symbol: feedback.symbolName)
+        let host = panel.contentView as? NSHostingView<FoundryIncreaseContrastRoot<NoticeToast>>
+        host?.rootView = FoundryIncreaseContrastRoot {
+            NoticeToast(message: feedback.message, symbol: feedback.symbolName)
+        }
         let size = host?.fittingSize ?? NSSize(width: 220, height: 34)
         panel.setContentSize(size)
         panel.alphaValue = 1
@@ -58,7 +60,9 @@ final class TransientNoticeController {
         panel.ignoresMouseEvents = true
         panel.collectionBehavior = [.canJoinAllSpaces, .stationary, .ignoresCycle]
         panel.isReleasedWhenClosed = false
-        panel.contentView = NSHostingView(rootView: NoticeToast(message: "", symbol: "checkmark.circle.fill"))
+        panel.contentView = NSHostingView(rootView: FoundryIncreaseContrastRoot {
+            NoticeToast(message: "", symbol: "checkmark.circle.fill")
+        })
         self.panel = panel
         return panel
     }

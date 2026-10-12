@@ -47,7 +47,6 @@ struct FoundryBackdrop: View {
         ZStack {
             if isOpaque {
                 Color(nsColor: .windowBackgroundColor)
-                FoundryTheme.dark(0.42 * intensity)
                 LinearGradient(
                     colors: [FoundryTheme.primary(0.07 * intensity), FoundryTheme.primary(0.016 * intensity), Color.clear],
                     startPoint: .top,

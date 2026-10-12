@@ -92,4 +92,35 @@ final class PreviewSnapshotTests: XCTestCase {
                 .write(to: URL(fileURLWithPath: dir).appendingPathComponent("rows-\(appearance == .aqua ? "light" : "dark").png"))
         }
     }
+
+    /// 5.6 material fix: the Reduce-Transparency backdrop paints
+    /// `windowBackgroundColor` with no black wash — the light panel must stay
+    /// light (the old wash pushed it to ≈0.65 luminance) and the dark panel
+    /// must stay dark. Samples the bottom edge, past the brand gradient.
+    func testOpaqueBackdropPaintsSemanticWindowBackground() throws {
+        for appearance in [NSAppearance.Name.aqua, .darkAqua] {
+            let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 300, height: 160), styleMask: [.titled, .fullSizeContentView], backing: .buffered, defer: false)
+            window.appearance = try XCTUnwrap(NSAppearance(named: appearance))
+            let host = NSHostingView(rootView: FoundryBackdrop(isOpaque: true).frame(width: 300, height: 160))
+            host.frame = window.contentLayoutRect
+            window.contentView = host
+            RunLoop.main.run(until: Date().addingTimeInterval(0.6))
+
+            let rep = try XCTUnwrap(host.bitmapImageRepForCachingDisplay(in: host.bounds))
+            host.cacheDisplay(in: host.bounds, to: rep)
+            let pixel = try XCTUnwrap(rep.colorAt(x: 150, y: 20)?.usingColorSpace(.deviceRGB))
+            let luminance = 0.2126 * pixel.redComponent + 0.7152 * pixel.greenComponent + 0.0722 * pixel.blueComponent
+
+            if appearance == .aqua {
+                XCTAssertGreaterThan(luminance, 0.80, "light-mode opaque backdrop must be windowBackgroundColor, not a dark wash")
+            } else {
+                XCTAssertLessThan(luminance, 0.45, "dark-mode opaque backdrop must stay dark")
+            }
+
+            if let dir = ProcessInfo.processInfo.environment["FOUNDRY_QA_SNAPSHOT_DIR"] {
+                try XCTUnwrap(rep.representation(using: .png, properties: [:]))
+                    .write(to: URL(fileURLWithPath: dir).appendingPathComponent("backdrop-opaque-\(appearance == .aqua ? "light" : "dark").png"))
+            }
+        }
+    }
 }

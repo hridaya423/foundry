@@ -149,6 +149,14 @@ Quality bar: Raycast. Plan: `docs/plans/2026-10-11-foundry-raycast-bar-audit.md`
 - `previewFile` (file-conversion output preview) goes through the same shared panel
 - Tests: 4 new `PanelKeyboardTests` — Space toggles/typing passthrough, Esc ordering, selection-follow — 637 green
 
+### Phase 5.6 — materials / appearance ✅ (this commit)
+- E39 fix: `FoundryBackdrop(isOpaque:)` dropped the unconditional `dark(0.42·intensity)` wash that darkened `windowBackgroundColor` in light mode — Reduce Transparency is now a clean semantic fill + the brand gradient
+- Semantic separator: the shell chrome draws a flat `NSColor.separatorColor` border whenever Reduce Transparency *or* Increase Contrast is on (separatorColor self-adapts under IC); legacy-visual-effect keeps its gradient stroke
+- `FoundryGlassSurface` fallback stroke upgrades to `separatorColor` under Increase Contrast
+- `FileConversionView`'s raw `.ultraThinMaterial` convert button now respects Reduce Transparency (`fillTint` fallback)
+- Increase Contrast has no macOS SwiftUI env key — added `foundryIncreaseContrast` environment key + `FoundryIncreaseContrastRoot` fed by `NSWorkspace.accessibilityDisplayShouldIncreaseContrast` / `accessibilityDisplayOptionsDidChangeNotification`, injected at all three hosting roots (panel, toast, Settings window)
+- Test: `testOpaqueBackdropPaintsSemanticWindowBackground` renders the backdrop in aqua+darkAqua and asserts panel luminance — 638 green
+
 ### Workstream transferred (this commit)
 - Full handoff to the Mac mini agent: repo cloned clean to `~/Honey/anvil` at `cea3608` and verified `swift build` on its Xcode 16.3 / Swift 6.1 toolchain. Handoff brief at `~/foundry-raycast-audit-handoff.md` (mini home dir); `docs/HANDOFF.md` (`61a3918`) repointed to this audit. The mini agent owns all remaining phases and the final sync-back of commits to this checkout.
 - `cea3608` also restored Swift 6.1 compatibility broken by the try? audit: `import FoundryServices` hoisted out of `#if canImport(FoundationModels)` (OnboardingState), `@preconcurrency import Foundation` for `NSItemProvider.loadItem` (FileConversionView), and `SendableBackports.swift` — `NSImage: @retroactive @unchecked Sendable` under `#if compiler(<6.2)`. 95 errors on Xcode 16.3 → build complete.

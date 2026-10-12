@@ -275,8 +275,10 @@ final class PanelController: NSObject, NSWindowDelegate {
             self?.state.spaceTogglesQuickLook() ?? false
         }
 
-        let rootView = CommandPanelView(state: state) { [weak self] in
-            self?.hide()
+        let rootView = FoundryIncreaseContrastRoot {
+            CommandPanelView(state: state) { [weak self] in
+                self?.hide()
+            }
         }
         let hostingView = NSHostingView(rootView: rootView)
         hostingView.wantsLayer = true

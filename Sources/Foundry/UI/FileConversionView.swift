@@ -7,6 +7,7 @@ import UniformTypeIdentifiers
 struct FileConversionView: View {
     var state: FileConversionState
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @State private var isDropTargeted = false
 
     var body: some View {
@@ -853,7 +854,7 @@ struct FileConversionView: View {
     private var convertButtonGlass: some View {
         let shape = RoundedRectangle(cornerRadius: 13, style: .continuous)
         return shape
-            .fill(.ultraThinMaterial)
+            .fill(reduceTransparency ? AnyShapeStyle(FoundryTheme.fillTint) : AnyShapeStyle(.ultraThinMaterial))
             .overlay {
                 shape.fill(FoundryTheme.fillSelected)
             }

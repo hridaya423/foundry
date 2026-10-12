@@ -21,6 +21,34 @@ enum FoundryMaterialPolicy {
     }
 }
 
+/// SwiftUI exposes no macOS environment key for Increase Contrast, so Foundry
+/// carries its own: `FoundryIncreaseContrastRoot` feeds
+/// `NSWorkspace.accessibilityDisplayShouldIncreaseContrast` into the tree and
+/// keeps it live off `accessibilityDisplayOptionsDidChangeNotification`.
+private enum FoundryIncreaseContrastKey: EnvironmentKey {
+    static let defaultValue = false
+}
+
+extension EnvironmentValues {
+    var foundryIncreaseContrast: Bool {
+        get { self[FoundryIncreaseContrastKey.self] }
+        set { self[FoundryIncreaseContrastKey.self] = newValue }
+    }
+}
+
+struct FoundryIncreaseContrastRoot<Content: View>: View {
+    @State private var increaseContrast = NSWorkspace.shared.accessibilityDisplayShouldIncreaseContrast
+    @ViewBuilder var content: Content
+
+    var body: some View {
+        content
+            .environment(\.foundryIncreaseContrast, increaseContrast)
+            .onReceive(NotificationCenter.default.publisher(for: NSWorkspace.accessibilityDisplayOptionsDidChangeNotification)) { _ in
+                increaseContrast = NSWorkspace.shared.accessibilityDisplayShouldIncreaseContrast
+            }
+    }
+}
+
 /// The whole visual vocabulary: a six-style text ramp, a glyph scale for
 /// SF Symbols and emoji, semantic colours over dynamic system colours, and
 /// the 4/8/12/16/24 spacing scale. `lint-design.sh` keeps raw `.system(size:`,

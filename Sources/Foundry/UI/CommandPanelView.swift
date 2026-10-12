@@ -14,6 +14,7 @@ struct CommandPanelView: View {
     @FocusState private var inputFocused: Bool
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @Environment(\.foundryIncreaseContrast) private var increaseContrast
     @Environment(\.colorScheme) private var colorScheme
     @State private var isDropTargeted = false
     @State private var visibleResultIDs: Set<String> = []
@@ -203,21 +204,30 @@ struct CommandPanelView: View {
 
     private var shellChrome: some View {
         ZStack {
-            if nativeGlassEnabled == false {
+            if needsVisibleBorder {
                 FoundrySmoothedRectangle(cornerRadius: FoundryTheme.Radius.panel, smoothing: 0.75)
-                    .strokeBorder(
-                        LinearGradient(
-                            colors: [FoundryTheme.stroke, FoundryTheme.fillTint, FoundryTheme.fillSubtle],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        ),
-                        lineWidth: 1
-                    )
+                    .strokeBorder(borderStroke, lineWidth: 1)
             }
             FoundrySmoothedRectangle(cornerRadius: FoundryTheme.Radius.panel, smoothing: 0.75)
                 .strokeBorder(innerHighlight, lineWidth: 0.5)
         }
         .allowsHitTesting(false)
+    }
+
+    private var needsVisibleBorder: Bool {
+        nativeGlassEnabled == false || increaseContrast
+    }
+
+    private var borderStroke: AnyShapeStyle {
+        if reduceTransparency || increaseContrast {
+            AnyShapeStyle(Color(nsColor: .separatorColor))
+        } else {
+            AnyShapeStyle(LinearGradient(
+                colors: [FoundryTheme.stroke, FoundryTheme.fillTint, FoundryTheme.fillSubtle],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            ))
+        }
     }
 
     private var innerHighlight: Color {
