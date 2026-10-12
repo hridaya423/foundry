@@ -182,6 +182,12 @@ Quality bar: Raycast. Plan: `docs/plans/2026-10-11-foundry-raycast-bar-audit.md`
 - Gotcha found by the harness itself: the full panel snapshot drifted 2.68% run-to-run (live caret) — swapped for the deterministic `PanelPromptOverlay`
 - New `.github/workflows/test.yml`: lints + `swift test` on push/PR — the repo previously had only the release workflow
 
+### Phase 6.4 — Spotlight app index ✅
+- `LiveAppIndex` wraps `NSMetadataQuery` (`kMDItemContentType == 'com.apple.application-bundle'`, `NSMetadataQueryLocalComputerScope`) — catches apps on other volumes and in nested folders the root scan misses
+- `InstalledAppCache` merges `roots ∪ index.urls` (deduped by bundle identity); index `onUpdate` sets an `invalidated` flag → the next `current()` reloads **synchronously** — live updates, no 30 s poll dependence (timer stays as a safety net for non-indexed roots)
+- Injectible `AppIndexing` protocol; two tests: indexed app outside scanned roots is found, and an update fires a synchronous refresh on the next read
+- Gotcha: `NSPredicate(format: "%k …")` crashes — `%k` isn't a specifier; `%K == %@` is. Caught by the workload test instantiating the real registry.
+
 ### Workstream transferred (this commit)
 - Full handoff to the Mac mini agent: repo cloned clean to `~/Honey/anvil` at `cea3608` and verified `swift build` on its Xcode 16.3 / Swift 6.1 toolchain. Handoff brief at `~/foundry-raycast-audit-handoff.md` (mini home dir); `docs/HANDOFF.md` (`61a3918`) repointed to this audit. The mini agent owns all remaining phases and the final sync-back of commits to this checkout.
 - `cea3608` also restored Swift 6.1 compatibility broken by the try? audit: `import FoundryServices` hoisted out of `#if canImport(FoundationModels)` (OnboardingState), `@preconcurrency import Foundation` for `NSItemProvider.loadItem` (FileConversionView), and `SendableBackports.swift` — `NSImage: @retroactive @unchecked Sendable` under `#if compiler(<6.2)`. 95 errors on Xcode 16.3 → build complete.

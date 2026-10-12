@@ -9,9 +9,10 @@ final class AppSearchProvider: CommandProvider, Sendable {
 
     private let appCache: InstalledAppCache
 
-    init(diagnostics: DiagnosticsService, roots: [URL]? = nil, extraApps: [URL]? = nil) {
+    init(diagnostics: DiagnosticsService, roots: [URL]? = nil, extraApps: [URL]? = nil, index: (any AppIndexing)? = nil) {
+        let useLiveIndex = roots == nil && index == nil
         self.appCache = InstalledAppCache(roots: roots ?? Self.appSearchRoots(), extraApps: extraApps ?? (roots == nil ? Self.coreServicesApps : []),
-            diagnostics: diagnostics)
+            index: index ?? (useLiveIndex ? LiveAppIndex() : nil), diagnostics: diagnostics)
     }
 
     static let coreServicesApps: [URL] = [
@@ -130,31 +131,47 @@ private final class InstalledAppCache: Sendable {
         var hasLoaded = false
         var refreshTask: Task<[InstalledApp], Never>?
         var nextRefresh = Date.distantPast
+        /// Live index pushed changes — the next read reloads synchronously.
+        var invalidated = false
     }
 
     private let roots: [URL]
     private let extraApps: [URL]
+    private let index: (any AppIndexing)?
     private let diagnostics: DiagnosticsService
     private let state = OSAllocatedUnfairLock(initialState: State())
     private let refreshInterval: TimeInterval = 30
 
-    init(roots: [URL], extraApps: [URL], diagnostics: DiagnosticsService) {
+    init(roots: [URL], extraApps: [URL], index: (any AppIndexing)?, diagnostics: DiagnosticsService) {
         self.roots = roots
         self.extraApps = extraApps
+        self.index = index
         self.diagnostics = diagnostics
+        index?.onUpdate = { [state] in
+            state.withLock {
+                $0.nextRefresh = .distantPast
+                $0.invalidated = true
+            }
+        }
     }
 
     func current() async -> [InstalledApp] {
+        index?.start()
         let signature = rootSignatures()
         let now = Date()
 
         let (cached, stale): ([InstalledApp]?, Bool) = state.withLock { state in
             guard state.hasLoaded, signature == state.rootSignature else { return (nil, false) }
-            return (state.apps, now >= state.nextRefresh)
+            return (state.apps, now >= state.nextRefresh || state.invalidated)
         }
         if let cached {
             if stale {
                 let task = loadTask()
+                // Index-driven invalidation awaits the reload; the periodic
+                // rescan stays stale-while-revalidate to keep search snappy.
+                if state.withLock({ $0.invalidated }) {
+                    return await finishRefresh(task.value)
+                }
                 Task { [weak self] in
                     self?.finishRefresh(await task.value)
                 }
@@ -170,8 +187,9 @@ private final class InstalledAppCache: Sendable {
             if let refreshTask = state.refreshTask {
                 return refreshTask
             }
+            let extraApps = self.extraApps + (self.index?.urls ?? [])
             let task = Task.detached(priority: .utility) {
-                AppSearchProvider.loadApps(roots: self.roots, extraApps: self.extraApps, diagnostics: self.diagnostics)
+                AppSearchProvider.loadApps(roots: self.roots, extraApps: extraApps, diagnostics: self.diagnostics)
             }
             state.refreshTask = task
             return task
@@ -186,6 +204,7 @@ private final class InstalledAppCache: Sendable {
             }
             state.rootSignature = rootSignatures()
             state.hasLoaded = true
+            state.invalidated = false
             state.nextRefresh = Date().addingTimeInterval(refreshInterval)
             state.refreshTask = nil
             return state.apps
