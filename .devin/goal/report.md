@@ -176,6 +176,12 @@ Quality bar: Raycast. Plan: `docs/plans/2026-10-11-foundry-raycast-bar-audit.md`
 - Settings row components (`SettingsLabel`/`ToggleRow`/`SectionLabel`/`TextField`/`SecureField`/`ConfigField`/`IconButton`/`Notice`, `InlineNotice`, `WidgetKind`/`WidgetCategory` titles) now carry `LocalizedStringResource`; ~60 status/error/message literals wrapped in `String(localized:)`; lint-l10n generalized to `*Status/*Error/*Message = "…"` assignments
 - Gotcha: `LocalizedStringResource(stringLiteral:)` wraps dynamic Strings (key+default in one); LSR interpolates inside LSR literals — verified on SDK 27
 
+### Phase 6.3 — snapshot tests compare, CI runs them
+- `SnapshotHarness` renders at a fixed 1x `NSBitmapImageRep` (host scale can't leak in), compares against `Tests/Fixtures/Snapshots/` with per-channel tolerance ±24 and ≤2% mismatched pixels; `FOUNDRY_SNAPSHOT_RECORD=1` rebaselines, missing refs fail
+- References checked in (light mode only): row anatomy, opaque backdrop, confirm prompt — the surfaces Phase 5 touched
+- Gotcha found by the harness itself: the full panel snapshot drifted 2.68% run-to-run (live caret) — swapped for the deterministic `PanelPromptOverlay`
+- New `.github/workflows/test.yml`: lints + `swift test` on push/PR — the repo previously had only the release workflow
+
 ### Workstream transferred (this commit)
 - Full handoff to the Mac mini agent: repo cloned clean to `~/Honey/anvil` at `cea3608` and verified `swift build` on its Xcode 16.3 / Swift 6.1 toolchain. Handoff brief at `~/foundry-raycast-audit-handoff.md` (mini home dir); `docs/HANDOFF.md` (`61a3918`) repointed to this audit. The mini agent owns all remaining phases and the final sync-back of commits to this checkout.
 - `cea3608` also restored Swift 6.1 compatibility broken by the try? audit: `import FoundryServices` hoisted out of `#if canImport(FoundationModels)` (OnboardingState), `@preconcurrency import Foundation` for `NSItemProvider.loadItem` (FileConversionView), and `SendableBackports.swift` — `NSImage: @retroactive @unchecked Sendable` under `#if compiler(<6.2)`. 95 errors on Xcode 16.3 → build complete.
