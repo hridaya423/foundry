@@ -24,7 +24,13 @@ final class PanelSession {
             )
         }
     }
-    var selectedResultID: String?
+    var selectedResultID: String? {
+        didSet {
+            if selectedResultID != oldValue { onSelectionDidChange?() }
+        }
+    }
+    /// Notifies after the selected row changes — Quick Look follows it.
+    @ObservationIgnored var onSelectionDidChange: (() -> Void)?
     private(set) var selectionScrollToken = UUID()
     var isShowingActions = false {
         didSet {

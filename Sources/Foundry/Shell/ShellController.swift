@@ -272,6 +272,18 @@ extension ShellController: ShellPort {
         panelController.toggleQuickLook(url)
     }
 
+    func quickLookFollowSelection() {
+        panelController.quickLookFollowSelection()
+    }
+
+    var isQuickLookShowing: Bool {
+        panelController.isQuickLookShowing
+    }
+
+    func closeQuickLook() {
+        panelController.closeQuickLook()
+    }
+
     func showTransientNotice(_ feedback: ActionFeedback) {
         panelController.showTransientNotice(feedback)
     }

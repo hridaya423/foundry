@@ -130,6 +130,72 @@ final class PanelKeyboardTests: XCTestCase {
         state.shutdown()
     }
 
+    // MARK: Quick Look — Space, ⌘Y, Esc ordering
+
+    private func fileResult(_ id: String = "file./tmp/doc.pdf") -> CommandResult {
+        result(id, title: "doc.pdf", payload: .file(URL(fileURLWithPath: "/tmp/doc.pdf")),
+               primary: OpenFileWithAppAction(path: "/tmp/doc.pdf", appPath: ""))
+    }
+
+    func testSpaceTogglesQuickLookForSelectedFile() {
+        let state = makeState()
+        let shell = RecordingShellPort()
+        var previewed: URL?
+        shell.onQuickLook = { previewed = $0 }
+        state.shell = shell
+        state.mode = .search
+        let file = fileResult()
+        state.session.results = [file]
+        state.session.selectedResultID = file.id
+
+        XCTAssertTrue(state.spaceTogglesQuickLook())
+        XCTAssertEqual(previewed, URL(fileURLWithPath: "/tmp/doc.pdf"))
+        state.shutdown()
+    }
+
+    func testSpaceTypesNormallyWithoutAFileSelection() {
+        let state = makeState()
+        let shell = RecordingShellPort()
+        state.shell = shell
+        state.mode = .search
+        let command = result("test.command", title: "Some Command")
+        state.session.results = [command]
+        state.session.selectedResultID = command.id
+
+        XCTAssertFalse(state.spaceTogglesQuickLook())
+        state.shutdown()
+    }
+
+    func testEscapeClosesQuickLookBeforeThePanel() {
+        let state = makeState()
+        let shell = RecordingShellPort()
+        var closes = 0
+        shell.quickLookShowing = true
+        shell.onCloseQuickLook = { closes += 1 }
+        state.shell = shell
+        state.mode = .search
+        state.session.query = "doc"
+
+        XCTAssertTrue(state.handleEscape())
+        XCTAssertEqual(closes, 1)
+        XCTAssertEqual(state.session.query, "doc", "Esc closed the preview, not the query")
+        state.shutdown()
+    }
+
+    func testSelectionChangeFollowsThroughToQuickLook() {
+        let state = makeState()
+        let shell = RecordingShellPort()
+        var follows = 0
+        shell.onQuickLookFollowSelection = { follows += 1 }
+        state.shell = shell
+        state.session.results = [fileResult("file./tmp/a.txt"), fileResult("file./tmp/b.txt")]
+
+        state.session.selectedResultID = nil
+        state.moveSelectionDown()
+        XCTAssertEqual(follows, 1)
+        state.shutdown()
+    }
+
     // MARK: Meta actions only on durable results
 
     func testMetaActionsHiddenForEphemeralResults() {

@@ -120,9 +120,25 @@ final class PanelController: NSObject, NSWindowDelegate {
         }
     }
 
-    /// ⌘Y on a file result toggles the Quick Look panel — `ShellPort.quickLook`.
+    /// ⌘Y / Space on a file result toggles Quick Look — `ShellPort.quickLook`.
     func toggleQuickLook(_ url: URL) {
-        quickLook.toggle(url, relativeTo: panel)
+        quickLook.toggle(url)
+    }
+
+    var isQuickLookShowing: Bool { quickLook.isShowing }
+
+    func closeQuickLook() {
+        quickLook.close()
+    }
+
+    /// Arrow-key moves keep the launcher's selection — and the preview
+    /// follows it while the panel is up.
+    func quickLookFollowSelection() {
+        guard case let .file(url)? = state.session.selectedResult?.payload else {
+            quickLook.followSelection(nil)
+            return
+        }
+        quickLook.followSelection(url)
     }
 
     /// Post-dismissal success toast — `ShellPort.showTransientNotice`.
@@ -131,7 +147,7 @@ final class PanelController: NSObject, NSWindowDelegate {
     }
 
     func previewFile(_ url: URL) {
-        quickLook.show(url, relativeTo: panel)
+        quickLook.show(url)
     }
 
     func hide() {
@@ -201,7 +217,8 @@ final class PanelController: NSObject, NSWindowDelegate {
             guard PanelDismissalPolicy.shouldDismiss(
                 hasAttachedSheet: panel.attachedSheet != nil,
                 hasChildWindows: panel.childWindows?.isEmpty == false,
-                hasModalWindow: NSApp.modalWindow != nil
+                hasModalWindow: NSApp.modalWindow != nil,
+                hasQuickLook: quickLook.isShowing
             ) else { return }
             self.hide()
         }
@@ -253,6 +270,9 @@ final class PanelController: NSObject, NSWindowDelegate {
         }
         panel.onKeyDown = { [weak self] in
             self?.state.session.hoverHighlightsArmed = false
+        }
+        panel.onSpace = { [weak self] in
+            self?.state.spaceTogglesQuickLook() ?? false
         }
 
         let rootView = CommandPanelView(state: state) { [weak self] in
@@ -307,8 +327,8 @@ struct PanelHideGate {
 }
 
 enum PanelDismissalPolicy {
-    static func shouldDismiss(hasAttachedSheet: Bool, hasChildWindows: Bool, hasModalWindow: Bool) -> Bool {
-        hasAttachedSheet == false && hasChildWindows == false && hasModalWindow == false
+    static func shouldDismiss(hasAttachedSheet: Bool, hasChildWindows: Bool, hasModalWindow: Bool, hasQuickLook: Bool = false) -> Bool {
+        hasAttachedSheet == false && hasChildWindows == false && hasModalWindow == false && hasQuickLook == false
     }
 }
 
@@ -321,6 +341,9 @@ final class FoundryPanel: NSPanel {
     var onEscape: (() -> Void)?
     var onMouseMoved: (() -> Void)?
     var onKeyDown: (() -> Void)?
+    /// Returns true when Space toggled Quick Look — swallow the event so
+    /// it never lands in the query field.
+    var onSpace: (() -> Bool)?
     var inputEnabled = true
 
     override var canBecomeKey: Bool { inputEnabled }
@@ -332,6 +355,11 @@ final class FoundryPanel: NSPanel {
             onMouseMoved?()
         case .keyDown:
             onKeyDown?()
+            // Space previews the selected file — handled here, before the
+            // field editor, so it works with the query field focused.
+            if event.keyCode == 49,
+               event.modifierFlags.intersection(.deviceIndependentFlagsMask).isEmpty,
+               onSpace?() == true { return }
         default:
             break
         }

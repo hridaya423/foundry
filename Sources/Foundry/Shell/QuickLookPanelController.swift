@@ -1,66 +1,87 @@
 import AppKit
 import QuickLookUI
 
+/// Drives the system `QLPreviewPanel` instead of a hand-rolled
+/// `QLPreviewView` in a utility window — fullscreen, markup and Open With
+/// come with it. The shared panel is ordered front *without* taking key,
+/// so the launcher's arrow keys keep driving the selection and typing
+/// still lands in the search field; selection changes call
+/// `followSelection` to swap the previewed item.
 @MainActor
-final class QuickLookPanelController: NSObject, NSWindowDelegate {
-    private var panel: NSPanel?
-    private var previewView: QLPreviewView?
+final class QuickLookPanelController: NSObject {
     private var currentURL: URL?
 
-    func toggle(_ url: URL, relativeTo parent: NSWindow?) {
-        if panel?.isVisible == true, currentURL == url {
+    var isShowing: Bool {
+        QLPreviewPanel.sharedPreviewPanelExists()
+            && QLPreviewPanel.shared()?.isVisible == true
+            && currentURL != nil
+    }
+
+    func toggle(_ url: URL) {
+        if isShowing, currentURL == url {
             close()
             return
         }
-        show(url, relativeTo: parent)
+        show(url)
     }
 
-    func show(_ url: URL, relativeTo parent: NSWindow?) {
-        let panel = panel ?? makePanel()
+    func show(_ url: URL) {
+        guard let panel = QLPreviewPanel.shared() else { return }
         currentURL = url
-        panel.title = url.lastPathComponent
-        previewView?.previewItem = url as QLPreviewItem
-        if let parent {
-            let frame = parent.frame
-            panel.setFrameOrigin(NSPoint(
-                x: frame.midX - panel.frame.width / 2,
-                y: frame.midY - panel.frame.height / 2
-            ))
-            parent.addChildWindow(panel, ordered: .above)
+        panel.dataSource = self
+        panel.delegate = self
+        panel.reloadData()
+        panel.orderFront(nil)
+    }
+
+    /// Keeps the previewed item in step with the launcher's selection
+    /// while the panel is up.
+    func followSelection(_ url: URL?) {
+        guard isShowing else { return }
+        guard let url else {
+            close()
+            return
         }
-        panel.makeKeyAndOrderFront(nil)
+        guard url != currentURL else { return }
+        currentURL = url
+        QLPreviewPanel.shared()?.refreshCurrentPreviewItem()
     }
 
     func close() {
-        guard let panel else { return }
-        panel.parent?.removeChildWindow(panel)
+        currentURL = nil
+        guard let panel = QLPreviewPanel.shared() else { return }
         panel.orderOut(nil)
-        currentURL = nil
+        panel.dataSource = nil
+        panel.delegate = nil
+    }
+}
+
+// The QLPreviewPanel protocols are ObjC-era and nonisolated; the panel
+// only ever calls them on the main thread, hence @preconcurrency.
+extension QuickLookPanelController: @preconcurrency QLPreviewPanelDataSource {
+    func numberOfPreviewItems(in panel: QLPreviewPanel!) -> Int {
+        currentURL == nil ? 0 : 1
     }
 
-    private func makePanel() -> NSPanel {
-        let panel = NSPanel(
-            contentRect: NSRect(x: 0, y: 0, width: 640, height: 520),
-            styleMask: [.titled, .closable, .resizable, .utilityWindow],
-            backing: .buffered,
-            defer: false
-        )
-        panel.isFloatingPanel = true
-        panel.level = .floating
-        panel.isReleasedWhenClosed = false
-        panel.delegate = self
-        guard let preview = QLPreviewView(frame: NSRect(x: 0, y: 0, width: 640, height: 520), style: .normal) else {
-            return panel
-        }
-        preview.autoresizingMask = [.width, .height]
-        preview.autostarts = true
-        panel.contentView?.addSubview(preview)
-        previewView = preview
-        self.panel = panel
-        return panel
+    func previewPanel(_ panel: QLPreviewPanel!, previewItemAt index: Int) -> QLPreviewItem! {
+        currentURL as QLPreviewItem?
+    }
+}
+
+extension QuickLookPanelController: @preconcurrency QLPreviewPanelDelegate {
+    /// The launcher keeps its keys — arrows and Space belong to the panel,
+    /// not to Quick Look's own navigation.
+    func previewPanel(_ panel: QLPreviewPanel!, handle event: NSEvent!) -> Bool {
+        false
     }
 
-    func windowWillClose(_ notification: Notification) {
-        currentURL = nil
+    func sourceFrameOnScreenForPreviewItem(_ item: QLPreviewItem!) -> NSRect {
+        .zero
+    }
+
+    /// Zoom the preview in from the item's icon.
+    func transitionImageForPreviewItem(_ item: QLPreviewItem!, contentRect: UnsafeMutablePointer<NSRect>!) -> Any! {
+        guard let url = item as? URL else { return nil }
+        return NSWorkspace.shared.icon(forFile: url.path)
     }
 }

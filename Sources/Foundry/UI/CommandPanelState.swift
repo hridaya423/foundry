@@ -117,6 +117,9 @@ final class CommandPanelState {
         settings.panel = self
         router.panel = self
         session.panel = self
+        session.onSelectionDidChange = { [weak self] in
+            self?.shell?.quickLookFollowSelection()
+        }
         settings.apply(config: config.current)
         actionRunner.panel.toggleFavorite = { [weak self] id in
             self?.settings.toggleFavorite(commandID: id) ?? false

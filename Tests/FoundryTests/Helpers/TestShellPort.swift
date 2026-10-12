@@ -19,6 +19,9 @@ final class RecordingShellPort: ShellPort {
     var onOpenSnippetPrivacySettings: (() -> Void)?
     var onResultExecuted: (() -> Void)?
     var onEnsurePanelVisible: (() -> Void)?
+    var onQuickLookFollowSelection: (() -> Void)?
+    var quickLookShowing = false
+    var onCloseQuickLook: (() -> Void)?
 
     func hotkeyChanged(_ hotkey: FoundryHotkey) throws { try onHotkeyChanged?(hotkey) }
     func commandPreferencesChanged() { onCommandPreferencesChanged?() }
@@ -33,4 +36,7 @@ final class RecordingShellPort: ShellPort {
     func openSnippetPrivacySettings() { onOpenSnippetPrivacySettings?() }
     func resultExecuted() { onResultExecuted?() }
     func ensurePanelVisible() { onEnsurePanelVisible?() }
+    func quickLookFollowSelection() { onQuickLookFollowSelection?() }
+    var isQuickLookShowing: Bool { quickLookShowing }
+    func closeQuickLook() { onCloseQuickLook?() }
 }

@@ -141,6 +141,14 @@ Quality bar: Raycast. Plan: `docs/plans/2026-10-11-foundry-raycast-bar-audit.md`
 - File pickers in the three settings panes run as sheets on the window via `runFilePanelAsSheet` (falls back to app-modal when no window is key)
 - Tests: the two openSettings tests now assert the shell port; new `testResetConfigurationAppliesLiveWithoutTerminating` — 633 tests green
 
+### Phase 5.5 — native Quick Look ✅ (this commit)
+- `QuickLookPanelController` rewritten to drive `QLPreviewPanel.shared()` (data source + delegate via `@preconcurrency` extensions — the ObjC protocols are nonisolated; QL only calls them on main): fullscreen, markup and Open With come free
+- The shared panel is ordered front without taking key, so arrows keep driving the launcher selection; `PanelSession.onSelectionDidChange` → `ShellPort.quickLookFollowSelection` → `refreshCurrentPreviewItem` keeps the previewed file in step
+- Space toggles it: `FoundryPanel.sendEvent` intercepts an unmodified Space before the field editor → `state.spaceTogglesQuickLook()` (search mode, file payload, actions overlay closed) — swallowed so it never types into the query
+- Esc ordering: `PanelRouter.handleEscape` closes an open preview before touching the query/panel; `PanelDismissalPolicy` keeps the panel alive while QL is key (clicking into the preview no longer kills the launcher)
+- `previewFile` (file-conversion output preview) goes through the same shared panel
+- Tests: 4 new `PanelKeyboardTests` — Space toggles/typing passthrough, Esc ordering, selection-follow — 637 green
+
 ### Workstream transferred (this commit)
 - Full handoff to the Mac mini agent: repo cloned clean to `~/Honey/anvil` at `cea3608` and verified `swift build` on its Xcode 16.3 / Swift 6.1 toolchain. Handoff brief at `~/foundry-raycast-audit-handoff.md` (mini home dir); `docs/HANDOFF.md` (`61a3918`) repointed to this audit. The mini agent owns all remaining phases and the final sync-back of commits to this checkout.
 - `cea3608` also restored Swift 6.1 compatibility broken by the try? audit: `import FoundryServices` hoisted out of `#if canImport(FoundationModels)` (OnboardingState), `@preconcurrency import Foundation` for `NSItemProvider.loadItem` (FileConversionView), and `SendableBackports.swift` — `NSImage: @retroactive @unchecked Sendable` under `#if compiler(<6.2)`. 95 errors on Xcode 16.3 → build complete.

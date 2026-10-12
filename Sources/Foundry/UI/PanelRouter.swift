@@ -182,6 +182,10 @@ final class PanelRouter {
             panel.cancelPrompt()
             return true
         }
+        if panel.shell?.isQuickLookShowing == true {
+            panel.shell?.closeQuickLook()
+            return true
+        }
         if panel.pendingDropURLs != nil {
             panel.pendingDropURLs = nil
             return true

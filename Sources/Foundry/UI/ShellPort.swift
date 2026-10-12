@@ -18,6 +18,11 @@ protocol ShellPort: AnyObject {
     func ensurePanelVisible()
     func openSettings()
     func quickLook(_ url: URL)
+    /// Selection moved while Quick Look is open — the preview follows it.
+    func quickLookFollowSelection()
+    /// Quick Look is up — Esc dismisses it before the panel.
+    var isQuickLookShowing: Bool { get }
+    func closeQuickLook()
     func showTransientNotice(_ feedback: ActionFeedback)
     func openWelcomeGuide()
     func snippetExpansionChanged()

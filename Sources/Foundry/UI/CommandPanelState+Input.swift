@@ -35,6 +35,16 @@ extension CommandPanelState {
         return true
     }
 
+    /// Space toggles Quick Look for a selected file result — returning true
+    /// swallows the event so it never reaches the query field. ⌘Y takes
+    /// the same path through `performModeShortcut`.
+    func spaceTogglesQuickLook() -> Bool {
+        guard mode == .search, session.isShowingActions == false,
+              case let .file(url)? = session.selectedResult?.payload else { return false }
+        shell?.quickLook(url)
+        return true
+    }
+
     func pasteFromClipboard() -> Bool {
         guard let text = NSPasteboard.general.string(forType: .string), text.isEmpty == false else { return false }
         if mode == .search {
