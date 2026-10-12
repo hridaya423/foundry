@@ -153,7 +153,7 @@ final class DeveloperToolsState {
         }
         guard let rows = DeveloperToolsEngine.baseConversion(from: trimmed) else {
             baseRows = []
-            baseError = "Enter a decimal value, prefixed value like 0xff, or radix notation like 16 ff."
+            baseError = String(localized: "Enter a decimal value, prefixed value like 0xff, or radix notation like 16 ff.")
             return
         }
         baseRows = rows.map { OutputRow(label: $0.label, value: $0.value) }
@@ -164,7 +164,7 @@ final class DeveloperToolsState {
         guard let lhs = DeveloperToolsEngine.parseUnsignedInteger(bitLeftInput) else {
             bitExpression = ""
             bitRows = []
-            bitError = "Enter a valid left value like 5, 0xff, or 0b1010."
+            bitError = String(localized: "Enter a valid left value like 5, 0xff, or 0b1010.")
             return
         }
 
@@ -238,7 +238,7 @@ final class DeveloperToolsState {
             : DeveloperToolsEngine.base64Decode(trimmed)
         guard let output else {
             base64Output = ""
-            base64Error = "Enter valid Base64 text to decode."
+            base64Error = String(localized: "Enter valid Base64 text to decode.")
             return
         }
         base64Output = output
@@ -254,7 +254,7 @@ final class DeveloperToolsState {
         }
         guard let output = DeveloperToolsEngine.formatJSON(input) else {
             jsonOutput = ""
-            jsonError = "Enter valid JSON."
+            jsonError = String(localized: "Enter valid JSON.")
             return
         }
         jsonOutput = output

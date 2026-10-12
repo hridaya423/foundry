@@ -202,7 +202,7 @@ final class SnippetState {
             persist()
             if added > 0 { selectedID = items.first?.id }
         } catch {
-            persistenceError = "Could not import snippets: \(error.localizedDescription)"
+            persistenceError = String(localized: "Could not import snippets: \(error.localizedDescription)")
         }
     }
 
@@ -239,7 +239,7 @@ final class SnippetState {
                 try encoder.encode(exported).write(to: url, options: .atomic)
             }
         } catch {
-            persistenceError = "Could not export snippets: \(error.localizedDescription)"
+            persistenceError = String(localized: "Could not export snippets: \(error.localizedDescription)")
         }
     }
 
@@ -262,7 +262,7 @@ final class SnippetState {
         case .success:
             persistenceError = nil
         case let .failure(error):
-            persistenceError = "Could not save snippets: \(error.localizedDescription)"
+            persistenceError = String(localized: "Could not save snippets: \(error.localizedDescription)")
         }
     }
 

@@ -116,7 +116,7 @@ struct AgentRunner: Sendable {
     private func runLoop(prompt: String, context: String?, profile: AIProviderProfile, sessionID: String?,
         continuation: AsyncStream<AIStreamEvent>.Continuation) async -> AgentRunResult {
         if profile.enabled == false {
-            let message = "\(profile.name) is disabled. Enable it in Foundry Settings to use this provider."
+            let message = String(localized: "\(profile.name) is disabled. Enable it in Foundry Settings to use this provider.")
             return AgentRunResult(failureMessage: message, failureKind: .configuration)
         }
         var transcript = context.map { "Conversation context:\n\($0)\n\nCurrent user request:\n\(prompt)" } ?? prompt
@@ -154,7 +154,7 @@ struct AgentRunner: Sendable {
             }
         }
 
-        let message = "I stopped after reaching the maximum of 6 tool steps."
+        let message = String(localized: "I stopped after reaching the maximum of 6 tool steps.")
         continuation.yield(.textDelta(message))
         continuation.yield(.completed)
         return AgentRunResult()

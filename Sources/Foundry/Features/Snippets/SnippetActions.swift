@@ -145,7 +145,7 @@ struct ImportSnippetsAction: ResultAction, Equatable {
                 ctx.diagnostics.log("Failed to save imported snippets: \(error.localizedDescription)")
                 return .failure(message: String(localized: "Could not save imported snippets"), retryable: true)
             }
-            let message = "Imported \(added) snippets, skipped \(skipped) duplicates"
+            let message = String(localized: "Imported \(added) snippets, skipped \(skipped) duplicates")
             ctx.diagnostics.log(message)
             return ctx.finish(.success(message: message), feedback: .success(message))
         } catch {
@@ -174,7 +174,7 @@ struct ExportSnippetsAction: ResultAction, Equatable {
             let encoder = JSONEncoder()
             encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
             try encoder.encode(exported).write(to: url, options: .atomic)
-            let message = "Exported \(snippets.count) snippet\(snippets.count == 1 ? "" : "s")"
+            let message = String(localized: "Exported \(snippets.count) snippet\(snippets.count == 1 ? "" : "s")")
             ctx.diagnostics.log("\(message) to \(url.path)")
             return ctx.finish(.success(message: message), feedback: .success(message))
         } catch {

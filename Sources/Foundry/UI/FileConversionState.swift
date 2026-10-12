@@ -12,7 +12,7 @@ final class FileConversionState {
     var availableTargets: [FileConversionTarget] = []
     var selectedTargetID: String?
     var options = ConversionOptions.standard
-    var status = ""
+    var status = String(localized: "")
     var isConverting = false
     var outputURLs: [URL] = []
     var outputURL: URL?
@@ -85,7 +85,7 @@ final class FileConversionState {
         outputFolderURL = nil
         availableTargets = []
         selectedTargetID = nil
-        status = ""
+        status = String(localized: "")
         isConverting = false
         outputURLs = []
         outputURL = nil
@@ -150,7 +150,7 @@ final class FileConversionState {
         availableTargets = []
         selectedTargetID = nil
         options = .standard
-        status = ""
+        status = String(localized: "")
         isConverting = false
         outputURLs = []
         outputURL = nil
@@ -183,24 +183,24 @@ final class FileConversionState {
         outputURL = nil
         capabilities = [:]
         if sourceURLs.isEmpty {
-            status = ""
+            status = String(localized: "")
         } else if availableTargets.isEmpty {
             status = sourceURLs.count == 1
                 ? "No local converter available for this file yet"
                 : "No common conversion format for these files"
         } else {
-            status = ""
+            status = String(localized: "")
         }
         Task { await refreshCapabilities() }
     }
 
     func convert() {
         guard sourceURLs.isEmpty == false, let target = selectedTarget else { return }
-        guard let capability = capabilities[target.id] else { status = "Checking converter readiness…"; return }
+        guard let capability = capabilities[target.id] else { status = String(localized: "Checking converter readiness…"); return }
         switch capability.state {
         case .ready: break
         case .setupRequired(let plan): dependencySetup = DependencySetup(target: target, plan: plan); return
-        case .unavailable(let reason), .degraded(let reason): status = "\(target.title) unavailable: \(reason)"; return
+        case .unavailable(let reason), .degraded(let reason): status = String(localized: "\(target.title) unavailable: \(reason)"); return
         }
         startConversion(sourceURLs: sourceURLs, target: target)
     }
@@ -229,7 +229,7 @@ final class FileConversionState {
             startConversion(sourceURLs: sources, target: setup.target, operationID: id, requestedOutputFolder: folder)
         } catch is CancellationError {
             guard conversionGeneration == generation else { return }
-            phase = .cancelled; status = "Tool installation cancelled"
+            phase = .cancelled; status = String(localized: "Tool installation cancelled")
             operations.update(id: id, phase: .cancelled, progress: progress, failure: OperationFailure(message: "Tool installation cancelled"))
         } catch {
             guard conversionGeneration == generation else { return }
@@ -246,11 +246,11 @@ final class FileConversionState {
             try await provision(setup.plan, setup.plan.fingerprint)
             await refreshCapabilities()
             guard conversionGeneration == generation else { return }
-            phase = .completed; progress = .items(completed: 1, total: 1); status = "Tool installed"
+            phase = .completed; progress = .items(completed: 1, total: 1); status = String(localized: "Tool installed")
             operations.update(id: id, phase: .completed, progress: progress)
         } catch is CancellationError {
             guard conversionGeneration == generation else { return }
-            phase = .cancelled; status = "Tool installation cancelled"
+            phase = .cancelled; status = String(localized: "Tool installation cancelled")
             operations.update(id: id, phase: .cancelled, progress: progress, failure: OperationFailure(message: "Tool installation cancelled"))
         } catch {
             guard conversionGeneration == generation else { return }
@@ -272,7 +272,7 @@ final class FileConversionState {
         conversionTask?.cancel()
         conversionTask = nil
         isConverting = false
-        status = "Conversion cancelled"
+        status = String(localized: "Conversion cancelled")
         phase = .cancelled
         cancelRemaining(sourceURLs, operationID: operationID)
     }
@@ -311,7 +311,7 @@ final class FileConversionState {
             // one combined document instead of per-file outputs.
             if FileConversionService.shouldMergeForPDFTarget(sources: workSources, target: target) {
                 await MainActor.run { [weak self] in
-                    self?.status = "Merging \(workSources.count) files into one PDF…"
+                    self?.status = String(localized: "Merging \(workSources.count) files into one PDF…")
                 }
                 let snapshot = self?.options ?? .standard
                 let destination = FileConversionService.destination(
@@ -416,7 +416,7 @@ final class FileConversionState {
         completedBeforeStart: Int, total: Int, allSources: [URL]) async -> Bool {
         let snapshot = options
         await MainActor.run { [weak self] in
-            self?.status = "Converting \(workSources.count) files to \(target.title)…"
+            self?.status = String(localized: "Converting \(workSources.count) files to \(target.title)…")
         }
         var completedCount = 0
         var cancelled = false
@@ -511,10 +511,10 @@ final class FileConversionState {
                 break
             case let .setupRequired(plan):
                 self.dependencySetup = DependencySetup(target: request.target, plan: plan)
-                self.status = "Converter readiness changed; setup is required before retrying"
+                self.status = String(localized: "Converter readiness changed; setup is required before retrying")
                 return
             case let .unavailable(reason), let .degraded(reason):
-                self.status = "Converter unavailable: \(reason)"
+                self.status = String(localized: "Converter unavailable: \(reason)")
                 return
             }
             let completed = self.itemOutcomes.filter { $0.state == .completed }
@@ -543,7 +543,7 @@ final class FileConversionState {
         outputURLs = itemOutcomes.compactMap(\.outputURL)
         outputURL = outputURLs.last
         progress = .items(completed: completed, total: itemOutcomes.count)
-        status = "Conversion cancelled after creating \(completed) of \(itemOutcomes.count) files"
+        status = String(localized: "Conversion cancelled after creating \(completed) of \(itemOutcomes.count) files")
         phase = .cancelled; isConverting = false
         if let operationID { operations.update(id: operationID, phase: .cancelled, progress: progress,
             failure: OperationFailure(message: "Conversion cancelled")) }
@@ -564,7 +564,7 @@ final class FileConversionState {
 
     private func failProvisioning(operationID: UUID, error: Error) {
         let typed = OperationFailure(message: error.localizedDescription)
-        failure = typed; phase = .failed; status = "Tool installation failed: \(typed.message)"
+        failure = typed; phase = .failed; status = String(localized: "Tool installation failed: \(typed.message)")
         operations.update(id: operationID, phase: .failed, progress: progress, failure: typed)
     }
 

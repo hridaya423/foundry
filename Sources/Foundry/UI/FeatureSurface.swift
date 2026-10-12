@@ -257,20 +257,20 @@ struct InlineNotice: View {
     }
 
     let level: Level
-    let text: String
+    let text: LocalizedStringResource
     var symbol: String? = nil
-    var actionTitle: String? = nil
+    var actionTitle: LocalizedStringResource? = nil
     var action: (() -> Void)? = nil
 
     var body: some View {
         HStack(spacing: 9) {
-            Label(text, systemImage: symbol ?? level.defaultSymbol)
+            Label(String(localized: text), systemImage: symbol ?? level.defaultSymbol)
                 .font(FoundryTheme.bodySecondary)
                 .foregroundStyle(level.tint)
                 .frame(maxWidth: .infinity, alignment: .leading)
 
             if let actionTitle, let action {
-                Button(actionTitle, action: action)
+                Button(String(localized: actionTitle), action: action)
                     .buttonStyle(.plain)
                     .font(FoundryTheme.micro)
                     .foregroundStyle(FoundryTheme.textPrimary)

@@ -364,7 +364,7 @@ struct MediaDownloadsView: View {
     private func submit() {
         let count = start(links)
         guard count > 0 else {
-            validationMessage = "Paste a full video or audio URL, starting with https://."
+            validationMessage = String(localized: "Paste a full video or audio URL, starting with https://.")
             return
         }
         links = MediaDownloadProvider.remainingInput(after: links)
@@ -374,7 +374,7 @@ struct MediaDownloadsView: View {
 
     private func pasteLinks() {
         guard let pasted = NSPasteboard.general.string(forType: .string), pasted.isEmpty == false else {
-            validationMessage = "The clipboard does not contain a link."
+            validationMessage = String(localized: "The clipboard does not contain a link.")
             return
         }
         links = pasted
@@ -604,7 +604,7 @@ private struct MediaDownloadRow: View {
             Button(item.progress.outputURLs.count == 1 ? "Open" : "Show in Finder") {
                 let files = item.progress.outputURLs.filter { FileManager.default.fileExists(atPath: $0.path) }
                 guard files.isEmpty == false else {
-                    fileError = "The saved files have been moved or deleted."
+                    fileError = String(localized: "The saved files have been moved or deleted.")
                     return
                 }
                 if files.count == 1, let file = files.first {

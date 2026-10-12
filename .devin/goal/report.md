@@ -164,6 +164,18 @@ Quality bar: Raycast. Plan: `docs/plans/2026-10-11-foundry-raycast-bar-audit.md`
 - `scripts/lint-l10n.sh`: bans `Text(verbatim:)`, `NSLocalizedString`, raw AppKit title literals, `NSAlert`, and raw `feedback:`/`message:`/`showActionFeedback` literals — the "no new literals" gate
 - Tests: `LocalizationTests` (catalog ships in the packaged bundle, seeded keys resolve, unseeded keys fall back to source text) + StatusItemMenuTests assert resolved strings — 641 green
 
+### Phase 6.1 — window tiling settle ✅
+- `WindowFrameSettler` extracted from `NativeWindowAccessibilityClient.setFrame` — injected `setSize`/`setPosition`/`readFrame`/`rollback` closures make the AX sequence testable
+- Write order fixed to Rectangle's proven **size → position → size** (second size write re-asserts after the move clamps it)
+- **No more settle rollback**: after the 12×25 ms poll the app keeps wherever it landed — `.applied` if it matched, `.constrained` otherwise. Rollback now runs only when an `AXUIElementSetAttributeValue` call itself errors; a cancelled apply no longer rolls back either (a newer placement may already be in flight)
+- 4 settler tests: write ordering, settle-accepted-without-rollback, rollback-only-on-write-error (incl. failed *read* ≠ write error), no-op writes skipped
+
+### Phase 6.2 — Codex OAuth opt-in + settings localization surface
+- Toggle renamed to "Use ChatGPT sign-in (unofficial)" with private-undocumented-endpoint copy; default off (unchanged)
+- Fixed a real hole: `setAIProfileEnabled` could enable the `openAISubscription` profile without the opt-in — now blocked with a visible status
+- Settings row components (`SettingsLabel`/`ToggleRow`/`SectionLabel`/`TextField`/`SecureField`/`ConfigField`/`IconButton`/`Notice`, `InlineNotice`, `WidgetKind`/`WidgetCategory` titles) now carry `LocalizedStringResource`; ~60 status/error/message literals wrapped in `String(localized:)`; lint-l10n generalized to `*Status/*Error/*Message = "…"` assignments
+- Gotcha: `LocalizedStringResource(stringLiteral:)` wraps dynamic Strings (key+default in one); LSR interpolates inside LSR literals — verified on SDK 27
+
 ### Workstream transferred (this commit)
 - Full handoff to the Mac mini agent: repo cloned clean to `~/Honey/anvil` at `cea3608` and verified `swift build` on its Xcode 16.3 / Swift 6.1 toolchain. Handoff brief at `~/foundry-raycast-audit-handoff.md` (mini home dir); `docs/HANDOFF.md` (`61a3918`) repointed to this audit. The mini agent owns all remaining phases and the final sync-back of commits to this checkout.
 - `cea3608` also restored Swift 6.1 compatibility broken by the try? audit: `import FoundryServices` hoisted out of `#if canImport(FoundationModels)` (OnboardingState), `@preconcurrency import Foundation` for `NSItemProvider.loadItem` (FileConversionView), and `SendableBackports.swift` — `NSImage: @retroactive @unchecked Sendable` under `#if compiler(<6.2)`. 95 errors on Xcode 16.3 → build complete.

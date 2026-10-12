@@ -118,20 +118,20 @@ final class MediaDownloadService: MediaDownloading, Sendable {
                 try dependencies.networkPolicy.validate(url)
                 let file = try await downloadDirectFile(url, downloadFolder: folder, status: status, progress: progress)
                 files = [file]
-                message = "Downloaded \(file.lastPathComponent)"
+                message = String(localized: "Downloaded \(file.lastPathComponent)")
             } else if isYouTube(url) {
                 report("Preparing yt-dlp", status)
                 let executable = try await installYTDLPIfNeeded()
                 report(isPlaylist(url) ? "Downloading playlist" : "Downloading media", status)
                 files = try await runYTDLP(executable, url: url, downloadFolder: folder, progress: progress)
-                message = "Downloaded YouTube media to \(folder.path)"
+                message = String(localized: "Downloaded YouTube media to \(folder.path)")
             } else {
                 try dependencies.networkPolicy.validate(url)
                 if cobaltIsConfigured {
                     do {
                         let file = try await downloadWithCobalt(url, downloadFolder: folder, status: status, progress: progress)
                         files = [file]
-                        message = "Downloaded \(file.lastPathComponent)"
+                        message = String(localized: "Downloaded \(file.lastPathComponent)")
                     } catch is CancellationError {
                         throw CancellationError()
                     } catch {
@@ -139,14 +139,14 @@ final class MediaDownloadService: MediaDownloading, Sendable {
                         let executable = try await installYTDLPIfNeeded()
                         report("Downloading media", status)
                         files = try await runYTDLP(executable, url: url, downloadFolder: folder, progress: progress)
-                        message = "Downloaded media with yt-dlp"
+                        message = String(localized: "Downloaded media with yt-dlp")
                     }
                 } else {
                     report("Preparing yt-dlp", status)
                     let executable = try await installYTDLPIfNeeded()
                     report("Downloading media", status)
                     files = try await runYTDLP(executable, url: url, downloadFolder: folder, progress: progress)
-                    message = "Downloaded media with yt-dlp"
+                    message = String(localized: "Downloaded media with yt-dlp")
                 }
             }
             var completed = MediaDownloadProgress.starting(title: files.count == 1 ? files[0].lastPathComponent : "\(files.count) media files")
@@ -171,7 +171,7 @@ final class MediaDownloadService: MediaDownloading, Sendable {
                 ), progress)
                 throw CancellationError()
             }
-            let message = "Media download failed: \(error.localizedDescription)"
+            let message = String(localized: "Media download failed: \(error.localizedDescription)")
             emit(MediaDownloadProgress(
                 phase: .failed,
                 title: initialTitle,

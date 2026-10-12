@@ -80,7 +80,7 @@ struct QuicklinksSettingsPane: View {
             .controlSize(.small)
 
             if let error {
-                SettingsNotice(text: error, symbol: "exclamationmark.triangle")
+                SettingsNotice(text: LocalizedStringResource(stringLiteral: error), symbol: "exclamationmark.triangle")
             }
         }
         .onAppear { links = store.load() }
@@ -92,7 +92,7 @@ struct QuicklinksSettingsPane: View {
             try store.save(updated.filter { $0.name.isEmpty == false || $0.link.isEmpty == false })
             error = nil
         } catch {
-            self.error = "Quicklinks could not be saved: \(error.localizedDescription)"
+            self.error = String(localized: "Quicklinks could not be saved: \(error.localizedDescription)")
         }
     }
 
@@ -131,7 +131,7 @@ struct QuicklinksSettingsPane: View {
             let existing = Set(links.map(\.link))
             links.append(contentsOf: imported.filter { existing.contains($0.link) == false })
         } catch {
-            self.error = "That file isn’t a Raycast Quicklinks export."
+            self.error = String(localized: "That file isn’t a Raycast Quicklinks export.")
         }
     }
 }

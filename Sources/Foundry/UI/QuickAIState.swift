@@ -7,7 +7,7 @@ import Observation
 final class QuickAIState {
     var quickAIQuery = ""
     var quickAIResponse = ""
-    var quickAIStatus = ""
+    var quickAIStatus = String(localized: "")
     var isQuickAILoading = false
     var quickAILastFailedPrompt: String?
     var quickAIThreads: [AIChatThread]
@@ -40,7 +40,7 @@ final class QuickAIState {
     func resetTransientState() {
         quickAIQuery = ""
         quickAIResponse = ""
-        quickAIStatus = ""
+        quickAIStatus = String(localized: "")
         isQuickAILoading = false
         quickAILastFailedPrompt = nil
         quickAITask?.cancel()
@@ -68,14 +68,14 @@ final class QuickAIState {
     func submit() async {
         let prompt = quickAIQuery.trimmingCharacters(in: .whitespacesAndNewlines)
         guard prompt.isEmpty == false else {
-            quickAIStatus = "Type a question first"
+            quickAIStatus = String(localized: "Type a question first")
             return
         }
         quickAIQuery = ""
         quickAITask?.cancel()
         quickAIRequestID = nil
         guard let threadID = activeQuickAIThreadID else {
-            quickAIStatus = "Start a chat first"
+            quickAIStatus = String(localized: "Start a chat first")
             return
         }
         let requestID = UUID()
@@ -178,7 +178,7 @@ final class QuickAIState {
     private func performQuickAI(prompt: String, persistUserMessage: Bool = true, threadID: UUID, requestID: UUID) async {
         guard isCurrentQuickAIRequest(requestID, threadID: threadID) else { return }
         isQuickAILoading = true
-        quickAIStatus = "Thinking"
+        quickAIStatus = String(localized: "Thinking")
         quickAIResponse = ""
         var didFail = false
         var response = ""
@@ -215,13 +215,13 @@ final class QuickAIState {
                     lastResponsePublication = now
                 }
             case let .toolCallStarted(name):
-                quickAIStatus = "Using \(name.replacingOccurrences(of: "_", with: " "))"
+                quickAIStatus = String(localized: "Using \(name.replacingOccurrences(of: "_", with: " "))")
                 recordToolStarted(name, threadID: threadID)
             case let .toolResult(name, result):
-                quickAIStatus = "Finished \(name.replacingOccurrences(of: "_", with: " "))"
+                quickAIStatus = String(localized: "Finished \(name.replacingOccurrences(of: "_", with: " "))")
                 recordToolFinished(name, result: result, threadID: threadID)
             case .completed:
-                quickAIStatus = "Done"
+                quickAIStatus = String(localized: "Done")
             case let .failed(message):
                 didFail = true
                 quickAILastFailedPrompt = prompt
@@ -253,11 +253,11 @@ final class QuickAIState {
         isQuickAILoading = false
         quickAIResponse = partial
         guard partial.isEmpty == false, let index = quickAIThreads.firstIndex(where: { $0.id == threadID }) else {
-            quickAIStatus = "Stopped"
+            quickAIStatus = String(localized: "Stopped")
             quickAILastFailedPrompt = prompt
             return
         }
-        quickAIStatus = "Stopped"
+        quickAIStatus = String(localized: "Stopped")
         quickAIThreads[index].messages.append(AIChatMessage(role: .assistant, content: partial))
         quickAIThreads[index].updatedAt = .now
         persistAIThreads()

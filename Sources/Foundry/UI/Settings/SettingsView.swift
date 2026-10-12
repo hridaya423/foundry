@@ -159,7 +159,7 @@ struct SettingsView: View {
             }
 
             if let error = state.settings.settingsPersistenceError {
-                SettingsNotice(text: error, symbol: "exclamationmark.triangle")
+                SettingsNotice(text: LocalizedStringResource(stringLiteral: error), symbol: "exclamationmark.triangle")
                     .padding(.horizontal, 24)
                     .padding(.bottom, 10)
             }
@@ -216,7 +216,10 @@ struct SettingsView: View {
         VStack(alignment: .leading, spacing: 12) {
             SettingsGroup {
                 HStack(spacing: 12) {
-                    SettingsLabel(title: "Config folder", subtitle: ConfigService.configURL.deletingLastPathComponent().path)
+                    SettingsLabel(
+                        title: "Config folder",
+                        subtitle: LocalizedStringResource(stringLiteral: ConfigService.configURL.deletingLastPathComponent().path)
+                    )
                     Spacer()
                     Button("Show in Finder") {
                         NSWorkspace.shared.activateFileViewerSelecting([ConfigService.configURL])
@@ -363,8 +366,9 @@ struct SettingsView: View {
                     SettingsDivider()
                     SettingsToggleRow(
                         title: "Launch at login",
-                        subtitle: state.settings.launchAtLoginAvailable ? "Start Foundry automatically when you sign in" : "Available in the " +
-                            "installed Foundry app",
+                        subtitle: state.settings.launchAtLoginAvailable
+                            ? "Start Foundry automatically when you sign in"
+                            : "Available in the installed Foundry app",
                         isOn: state.settings.launchAtLoginEnabled,
                         set: state.settings.setLaunchAtLogin
                     )
@@ -398,7 +402,7 @@ struct SettingsView: View {
             }
             .modifier(anchor("general.system"))
             if let error = state.settings.launchAtLoginError {
-                SettingsNotice(text: error, symbol: "exclamationmark.triangle")
+                SettingsNotice(text: LocalizedStringResource(stringLiteral: error), symbol: "exclamationmark.triangle")
             }
 
             SettingsGroup {
@@ -429,7 +433,7 @@ struct SettingsView: View {
 
             SettingsGroup {
                 HStack(spacing: 12) {
-                    SettingsLabel(title: "Search sensitivity", subtitle: state.settings.searchSensitivity.subtitle)
+                    SettingsLabel(title: "Search sensitivity", subtitle: LocalizedStringResource(stringLiteral: state.settings.searchSensitivity.subtitle))
                     Spacer()
                     Picker("Search sensitivity", selection: Binding(
                         get: { state.settings.searchSensitivity },
@@ -561,7 +565,7 @@ struct SettingsView: View {
                 )
             }
             if let error = state.settings.snippetExpansionError {
-                SettingsNotice(text: error, symbol: "exclamationmark.triangle")
+                SettingsNotice(text: LocalizedStringResource(stringLiteral: error), symbol: "exclamationmark.triangle")
             }
         }
     }
@@ -742,7 +746,7 @@ struct SettingsView: View {
             }
 
             if let integrationError = state.agents.integrationError {
-                SettingsNotice(text: integrationError, symbol: "exclamationmark.triangle")
+                SettingsNotice(text: LocalizedStringResource(stringLiteral: integrationError), symbol: "exclamationmark.triangle")
             }
 
             SettingsSectionLabel(title: "Provider bridges")
@@ -776,7 +780,12 @@ struct SettingsView: View {
                                     .font(FoundryTheme.Glyph.sm)
                                     .foregroundStyle(FoundryTheme.textSecondary)
                                     .frame(width: 22)
-                                SettingsLabel(title: session.title, subtitle: "\(session.provider.rawValue) · \(session.status.rawValue)")
+                                SettingsLabel(
+                                    title: LocalizedStringResource(stringLiteral: session.title),
+                                    subtitle: LocalizedStringResource(
+                                        stringLiteral: "\(session.provider.rawValue) · \(session.status.rawValue)"
+                                    )
+                                )
                                 Spacer()
                                 Text(session.origin.rawValue)
                                     .font(FoundryTheme.caption)

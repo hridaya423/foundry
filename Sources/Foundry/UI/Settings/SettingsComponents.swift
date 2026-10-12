@@ -34,10 +34,10 @@ struct SettingsGroup<Content: View>: View {
 }
 
 struct SettingsSectionLabel: View {
-    let title: String
+    let title: LocalizedStringResource
     let value: String?
 
-    init(title: String, value: String? = nil) {
+    init(title: LocalizedStringResource, value: String? = nil) {
         self.title = title
         self.value = value
     }
@@ -68,8 +68,8 @@ struct SettingsDivider: View {
 }
 
 struct SettingsLabel: View {
-    let title: String
-    let subtitle: String
+    let title: LocalizedStringResource
+    let subtitle: LocalizedStringResource
 
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
@@ -85,8 +85,8 @@ struct SettingsLabel: View {
 }
 
 struct SettingsToggleRow: View {
-    let title: String
-    let subtitle: String
+    let title: LocalizedStringResource
+    let subtitle: LocalizedStringResource
     let isOn: Bool
     let set: (Bool) -> Void
 
@@ -97,8 +97,8 @@ struct SettingsToggleRow: View {
             Toggle("", isOn: Binding(get: { isOn }, set: { value in set(value) }))
                 .labelsHidden()
                 .toggleStyle(.switch)
-                .accessibilityLabel(title)
-                .accessibilityValue(isOn ? "On" : "Off")
+                .accessibilityLabel(Text(title))
+                .accessibilityValue(isOn ? String(localized: "On") : String(localized: "Off"))
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 12)
@@ -106,9 +106,9 @@ struct SettingsToggleRow: View {
 }
 
 struct SettingsNotice: View {
-    let text: String
+    let text: LocalizedStringResource
     let symbol: String
-    var actionTitle: String? = nil
+    var actionTitle: LocalizedStringResource? = nil
     var action: (() -> Void)? = nil
 
     var body: some View {
@@ -117,15 +117,15 @@ struct SettingsNotice: View {
 }
 
 struct SettingsTextFieldRow: View {
-    let title: String
-    let placeholder: String
+    let title: LocalizedStringResource
+    let placeholder: LocalizedStringResource
     let value: String
     let error: String?
     let commit: (String) -> Void
 
     @State private var text: String
 
-    init(title: String, placeholder: String, value: String, error: String?, commit: @escaping (String) -> Void) {
+    init(title: LocalizedStringResource, placeholder: LocalizedStringResource, value: String, error: String?, commit: @escaping (String) -> Void) {
         self.title = title
         self.placeholder = placeholder
         self.value = value
@@ -142,7 +142,7 @@ struct SettingsTextFieldRow: View {
                     .foregroundStyle(FoundryTheme.textPrimary)
                     .frame(width: 72, alignment: .leading)
                 VStack(alignment: .leading, spacing: 2) {
-                    TextField(placeholder, text: $text)
+                    TextField(String(localized: placeholder), text: $text)
                         .textFieldStyle(.plain)
                         .font(FoundryTheme.body)
                         .foregroundStyle(FoundryTheme.textPrimary)
@@ -165,8 +165,8 @@ struct SettingsTextFieldRow: View {
 }
 
 struct SettingsSecureFieldRow: View {
-    let title: String
-    let placeholder: String
+    let title: LocalizedStringResource
+    let placeholder: LocalizedStringResource
     @Binding var value: String
     let commit: (String) -> Void
 
@@ -176,7 +176,7 @@ struct SettingsSecureFieldRow: View {
                 .font(FoundryTheme.body)
                 .foregroundStyle(FoundryTheme.textPrimary)
                 .frame(width: 72, alignment: .leading)
-            SecureField(placeholder, text: $value)
+            SecureField(String(localized: placeholder), text: $value)
                 .textFieldStyle(.plain)
                 .font(FoundryTheme.body)
                 .foregroundStyle(FoundryTheme.textPrimary)
@@ -353,7 +353,7 @@ struct AvailableWidgetRow: View {
 
 struct SettingsIconButton: View {
     let symbol: String
-    let label: String
+    let label: LocalizedStringResource
     let action: () -> Void
     var tint: Color = FoundryTheme.textSecondary
 
@@ -367,14 +367,14 @@ struct SettingsIconButton: View {
                 .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
         }
         .buttonStyle(.plain)
-        .accessibilityLabel(label)
-        .help(label)
+        .accessibilityLabel(Text(label))
+        .help(Text(label))
     }
 }
 
 struct ConfigFieldRow: View {
-    let title: String
-    let placeholder: String
+    let title: LocalizedStringResource
+    let placeholder: LocalizedStringResource
     let initialValue: String
     let commit: (String) -> Void
     @State private var text = ""
@@ -385,7 +385,7 @@ struct ConfigFieldRow: View {
                 .font(FoundryTheme.body)
                 .foregroundStyle(FoundryTheme.textPrimary)
                 .frame(width: 112, alignment: .leading)
-            TextField(placeholder, text: $text)
+            TextField(String(localized: placeholder), text: $text)
                 .textFieldStyle(.plain)
                 .font(FoundryTheme.body)
                 .foregroundStyle(FoundryTheme.textPrimary)

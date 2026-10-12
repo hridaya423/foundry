@@ -154,7 +154,7 @@ final class MediaDownloadManager {
         guard let index = itemIndices[id] else { return }
         items[index].status = .cancelled
         items[index].progress.phase = .cancelled
-        items[index].progress.message = "Download cancelled"
+        items[index].progress.message = String(localized: "Download cancelled")
         items[index].failure = OperationFailure(message: "Download cancelled")
     }
 

@@ -138,7 +138,7 @@ final class SettingsStore {
                 }
                 showSettingsPersistenceError(error)
             } else {
-                hotkeyError = "That shortcut is unavailable. Choose another key combination."
+                hotkeyError = String(localized: "That shortcut is unavailable. Choose another key combination.")
                 diagnostics.log("Failed to register hotkey: \(error.localizedDescription)")
             }
         }
@@ -186,7 +186,7 @@ final class SettingsStore {
             try configService.updateLocalState { $0.launchAtLoginConsent = enabled }
             launchAtLoginError = nil
         } catch {
-            launchAtLoginError = "Could not update launch at login: \(error.localizedDescription)"
+            launchAtLoginError = String(localized: "Could not update launch at login: \(error.localizedDescription)")
             diagnostics.log("Launch at login update failed: \(error.localizedDescription)")
         }
     }
@@ -214,7 +214,7 @@ final class SettingsStore {
     }
 
     func showSettingsPersistenceError(_ error: Error) {
-        settingsPersistenceError = "Preferences could not be saved. Your previous settings were kept."
+        settingsPersistenceError = String(localized: "Preferences could not be saved. Your previous settings were kept.")
         diagnostics.log("Settings persistence failed: \(error.localizedDescription)")
     }
 
@@ -225,7 +225,7 @@ final class SettingsStore {
             panel?.applyRestoredConfiguration()
             panel?.showActionFeedback(.success(String(localized: "Settings reset")))
         } catch {
-            settingsPersistenceError = "Could not reset Foundry settings. Your existing configuration was kept."
+            settingsPersistenceError = String(localized: "Could not reset Foundry settings. Your existing configuration was kept.")
             diagnostics.log("Settings reset failed: \(error.localizedDescription)")
         }
     }
@@ -237,7 +237,7 @@ final class SettingsStore {
             let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "dev"
             try FoundryBackup.make(scriptDirectories: ScriptDirectoryStore.shared.directories, appVersion: version).encoded().write(to: url, options: .atomic)
         } catch {
-            settingsPersistenceError = "Could not save the backup: \(error.localizedDescription)"
+            settingsPersistenceError = String(localized: "Could not save the backup: \(error.localizedDescription)")
             diagnostics.log("Backup export failed: \(error.localizedDescription)")
         }
     }
@@ -264,7 +264,7 @@ final class SettingsStore {
             panel?.applyRestoredConfiguration()
             panel?.showActionFeedback(.success(String(localized: "Backup imported")))
         } catch {
-            settingsPersistenceError = "Could not import the backup. Your previous files are kept as .pre-import copies."
+            settingsPersistenceError = String(localized: "Could not import the backup. Your previous files are kept as .pre-import copies.")
             diagnostics.log("Backup import failed: \(error.localizedDescription)")
         }
     }

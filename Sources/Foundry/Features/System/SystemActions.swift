@@ -289,7 +289,7 @@ struct TerminatePortAction: ResultAction, Equatable {
             let lookup = try await ProcessRunner.run(path: "/usr/sbin/lsof", arguments: ["-ti", "tcp:\(port)"], timeout: 3)
             let pids = lookup.stdout.split(whereSeparator: \.isNewline).map(String.init)
             guard lookup.succeeded, pids.isEmpty == false else {
-                let message = "No process is listening on port \(port)"
+                let message = String(localized: "No process is listening on port \(port)")
                 ctx.diagnostics.log(message)
                 return ctx.finish(.failure(message: message, retryable: true), feedback: .failure(message))
             }

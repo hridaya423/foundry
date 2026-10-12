@@ -13,7 +13,10 @@ struct AgentIntegrationRow: View {
                 .font(FoundryTheme.Glyph.sm)
                 .foregroundStyle(FoundryTheme.textSecondary)
                 .frame(width: 22)
-            SettingsLabel(title: provider.title, subtitle: status.detail ?? status.path.path)
+            SettingsLabel(
+                                title: LocalizedStringResource(stringLiteral: provider.title),
+                                subtitle: LocalizedStringResource(stringLiteral: status.detail ?? status.path.path)
+                            )
             Spacer()
             if status.installed {
                 Text("Installed")
@@ -41,7 +44,7 @@ struct AISettingsSection: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             if let error = state.settingsPersistenceError {
-                SettingsNotice(text: error, symbol: "exclamationmark.triangle")
+                SettingsNotice(text: LocalizedStringResource(stringLiteral: error), symbol: "exclamationmark.triangle")
             }
 
             HStack(spacing: 8) {
@@ -137,7 +140,7 @@ struct AISettingsSection: View {
                         SettingsDivider()
                         SettingsTextFieldRow(
                             title: "Name",
-                            placeholder: profile.kind.displayName,
+                            placeholder: LocalizedStringResource(stringLiteral: profile.kind.displayName),
                             value: profile.name,
                             error: nil,
                             commit: { state.setAIProfileName($0, id: profile.id) }
@@ -212,16 +215,17 @@ struct AISettingsSection: View {
                     } else if profile.authentication == .oauth {
                         SettingsDivider()
                         VStack(alignment: .leading, spacing: 10) {
-                            SettingsLabel(title: "ChatGPT subscription", subtitle: "Uses the private Codex backend with OAuth PKCE")
+                            SettingsLabel(title: "ChatGPT subscription", subtitle: "Sign in with your ChatGPT account instead of an API key")
                             Text(
-                                "This integration may change or stop working without notice. Foundry stores OAuth credentials only in macOS " +
-                                    "Keychain and does not use browser cookies.")
+                                "Foundry relies on a private, undocumented Codex endpoint that OpenAI has not published and may change " +
+                                    "or shut down without notice. OAuth credentials are stored only in the macOS Keychain; Foundry " +
+                                    "never reads browser cookies.")
                                 .font(FoundryTheme.caption)
                                 .foregroundStyle(FoundryTheme.textTertiary)
                                 .fixedSize(horizontal: false, vertical: true)
                             SettingsToggleRow(
-                                title: "Private backend warning",
-                                subtitle: "I understand this is an experimental integration",
+                                title: "Use ChatGPT sign-in (unofficial)",
+                                subtitle: "Private endpoint — may break without notice",
                                 isOn: state.acceptedCodexPrivateBackendWarning,
                                 set: state.setCodexPrivateBackendWarningAccepted
                             )

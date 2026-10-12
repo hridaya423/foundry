@@ -485,6 +485,16 @@
         }
       }
     },
+    "Foundry relies on a private, undocumented Codex endpoint that OpenAI has not published and may change or shut down without notice. OAuth credentials are stored only in the macOS Keychain; Foundry never reads browser cookies.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Foundry relies on a private, undocumented Codex endpoint that OpenAI has not published and may change or shut down without notice. OAuth credentials are stored only in the macOS Keychain; Foundry never reads browser cookies."
+          }
+        }
+      }
+    },
     "Grant Accessibility access in System Settings to control windows": {
       "extractionState": "manual",
       "localizations": {
@@ -584,6 +594,26 @@
         }
       }
     },
+    "Off": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Off"
+          }
+        }
+      }
+    },
+    "On": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "On"
+          }
+        }
+      }
+    },
     "Opened Foundry folder": {
       "extractionState": "manual",
       "localizations": {
@@ -635,6 +665,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Pasted as plain text"
+          }
+        }
+      }
+    },
+    "Private endpoint — may break without notice": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Private endpoint — may break without notice"
           }
         }
       }
@@ -771,6 +811,16 @@
         }
       }
     },
+    "Sign in with your ChatGPT account instead of an API key": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sign in with your ChatGPT account instead of an API key"
+          }
+        }
+      }
+    },
     "Snippet deleted": {
       "extractionState": "manual",
       "localizations": {
@@ -903,6 +953,16 @@
         }
       }
     },
+    "Turn on ChatGPT sign-in before enabling the unofficial backend.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Turn on ChatGPT sign-in before enabling the unofficial backend."
+          }
+        }
+      }
+    },
     "Undo": {
       "extractionState": "manual",
       "localizations": {
@@ -910,6 +970,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Undo"
+          }
+        }
+      }
+    },
+    "Use ChatGPT sign-in (unofficial)": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Use ChatGPT sign-in (unofficial)"
           }
         }
       }

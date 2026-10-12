@@ -84,7 +84,7 @@ final class SnippetExpansionService {
             eventsOfInterest: CGEventMask(1 << CGEventType.keyDown.rawValue),
             callback: callback, userInfo: Unmanaged.passUnretained(self).toOpaque()
         ) else {
-            lastError = "Could not start snippet expansion. Check Accessibility access and try again."
+            lastError = String(localized: "Could not start snippet expansion. Check Accessibility access and try again.")
             onStatusChanged?(lastError)
             return
         }

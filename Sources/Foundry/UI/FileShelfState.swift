@@ -36,7 +36,7 @@ final class FileShelfState {
     var selectedID: String?
     private(set) var selectedIDs: Set<String> = []
     private(set) var backgroundRemovalFileID: String?
-    private(set) var backgroundRemovalStatus = ""
+    private(set) var backgroundRemovalStatus = String(localized: "")
     private(set) var backgroundRemovalError: String?
     private(set) var backgroundRemovalNeedsDestination = false
     private(set) var backgroundRemovalEngine: BackgroundRemovalEngine?
@@ -283,9 +283,9 @@ final class FileShelfState {
                     self?.backgroundRemovalStatus = message
                 }
                 self?.ben2Assessment = BEN2BackgroundRemovalService.assess()
-                self?.backgroundRemovalStatus = "BEN2 is ready"
+                self?.backgroundRemovalStatus = String(localized: "BEN2 is ready")
             } catch is CancellationError {
-                self?.backgroundRemovalStatus = "BEN2 setup cancelled"
+                self?.backgroundRemovalStatus = String(localized: "BEN2 setup cancelled")
             } catch {
                 self?.backgroundRemovalError = error.localizedDescription
             }
@@ -303,7 +303,7 @@ final class FileShelfState {
         do {
             try BEN2BackgroundRemovalService.removeData()
             ben2Assessment = BEN2BackgroundRemovalService.assess()
-            backgroundRemovalStatus = "BEN2 data removed"
+            backgroundRemovalStatus = String(localized: "BEN2 data removed")
         } catch { backgroundRemovalError = error.localizedDescription }
     }
 
@@ -345,7 +345,7 @@ final class FileShelfState {
         backgroundRemovalEngine = nil
         backgroundRemovalNeedsDestination = false
         backgroundRemovalError = nil
-        backgroundRemovalStatus = "Background removal cancelled"
+        backgroundRemovalStatus = String(localized: "Background removal cancelled")
         backgroundRemovalPhase = .cancelled
         backgroundRemovalFailure = OperationFailure(message: "Background removal cancelled")
     }

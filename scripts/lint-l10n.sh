@@ -12,7 +12,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 
 violations=$(find "$ROOT/Sources" -name '*.swift' -print0 \
-    | xargs -0 grep -nHE 'Text\(verbatim:|NSLocalizedString\(|NSMenu\(title: "|withTitle: "|accessibilityDescription: "|\.messageText = "|\.informativeText = "|NSAlert\(|feedback: \.(info|success|failure)\("|\.(success|failure|stayOpen|refreshResults|denied)\(message: "|showActionFeedback\(\.(info|success|failure)\("' \
+    | xargs -0 grep -nHE 'Text\(verbatim:|NSLocalizedString\(|NSMenu\(title: "|withTitle: "|accessibilityDescription: "|\.messageText = "|\.informativeText = "|NSAlert\(|feedback: \.(info|success|failure)\("|\.(success|failure|stayOpen|refreshResults|denied)\(message: "|showActionFeedback\(\.(info|success|failure)\("|\b\w*(Status|Error|Message|status|error|message)\s*=\s*"[^"]' \
     || true)
 
 if [[ -n $violations ]]; then

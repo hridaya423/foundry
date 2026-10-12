@@ -16,7 +16,7 @@ struct TileWindowAction: ResultAction, Equatable {
             let message = WindowPlacementMetadata(resultPlacement).successMessage
             return ctx.finish(.success(message: message), feedback: .success(message))
         case let .constrained(resultPlacement):
-            let message = "Window was constrained while applying \(WindowPlacementMetadata(resultPlacement).title.lowercased())"
+            let message = String(localized: "Window was constrained while applying \(WindowPlacementMetadata(resultPlacement).title.lowercased())")
             return ctx.finish(.success(message: message), feedback: .info(message))
         case .restored:
             return ctx.finish(

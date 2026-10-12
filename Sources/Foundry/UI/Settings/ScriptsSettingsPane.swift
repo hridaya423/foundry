@@ -19,8 +19,10 @@ struct ScriptsSettingsPane: View {
             SettingsGroup {
                 ForEach(directories, id: \.self) { directory in
                     HStack(spacing: 10) {
-                        SettingsLabel(title: (directory as NSString).lastPathComponent,
-                            subtitle: "\(ScriptCommandProvider.scan(directory).count) scripts · \(directory)")
+                        SettingsLabel(
+                            title: LocalizedStringResource(stringLiteral: (directory as NSString).lastPathComponent),
+                            subtitle: LocalizedStringResource(stringLiteral: "\(ScriptCommandProvider.scan(directory).count) scripts · \(directory)")
+                        )
                         Spacer()
                         Toggle("Trusted", isOn: Binding(
                             get: { trusted.contains(directory) },
