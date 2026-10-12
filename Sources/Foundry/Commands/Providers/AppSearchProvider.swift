@@ -32,7 +32,8 @@ final class AppSearchProvider: CommandProvider, Sendable {
         let (results, probed) = await Self.scan(apps: apps, query: normalizedQuery, request: request, running: running)
         if ProcessInfo.processInfo.environment["FOUNDRY_BENCH_PROFILE"] != nil {
             let ms = { (d: Duration) in Double(d.components.seconds) * 1000 + Double(d.components.attoseconds) / 1e15 }
-            print("APPS running=\(ms(t1 - t0)) cache=\(ms(t2 - t1)) scan=\(ms(ContinuousClock.now - t2)) probed=\(probed)/\(apps.count) matched=\(results.count)")
+            print("APPS running=\(ms(t1 - t0)) cache=\(ms(t2 - t1)) "
+                + "scan=\(ms(ContinuousClock.now - t2)) probed=\(probed)/\(apps.count) matched=\(results.count)")
         }
         return results
     }

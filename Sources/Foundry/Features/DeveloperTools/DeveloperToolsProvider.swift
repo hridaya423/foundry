@@ -8,7 +8,8 @@ final class DeveloperToolsProvider: CommandProvider {
         let trimmed = request.query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard trimmed.isEmpty == false else { return [] }
 
-        var results = staticCommandResults(query: SearchScoring.PreparedQuery(query: trimmed), customAliases: request.customAliases, sensitivity: request.sensitivity)
+        var results = staticCommandResults(query: SearchScoring.PreparedQuery(query: trimmed),
+            customAliases: request.customAliases, sensitivity: request.sensitivity)
         results.append(contentsOf: uuidResults(query: trimmed))
         results.append(contentsOf: base64Results(query: trimmed))
         results.append(contentsOf: jsonResults(query: trimmed))
@@ -65,7 +66,8 @@ final class DeveloperToolsProvider: CommandProvider {
         ]
     }
 
-    private func staticCommandResults(query: SearchScoring.PreparedQuery, customAliases: [String: [String]], sensitivity: SearchSensitivity) -> [CommandResult] {
+    private func staticCommandResults(query: SearchScoring.PreparedQuery, customAliases: [String: [String]],
+                                      sensitivity: SearchSensitivity) -> [CommandResult] {
         staticCommands.compactMap { command in
             let aliases = customAliases[command.id] ?? []
             guard SearchScoring.match(

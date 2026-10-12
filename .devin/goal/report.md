@@ -206,3 +206,23 @@ Quality bar: Raycast. Plan: `docs/plans/2026-10-11-foundry-raycast-bar-audit.md`
 ## Manual-only / environment-gated
 - Accessibility-gated keystroke benchmarks, VoiceOver walkthrough, Liquid Glass cost check, notarization — documented in `docs/HANDOFF.md`, not falsely claimed
 - Idle CPU/memory measured via `ps` (7–8% CPU, ~364 MB peak during audit)
+
+## done claim (2026-10-12 07:24)
+All audit phases 0-6 implemented on raycast-quality-overhaul (19 commits 2d94634..5a048aa): typed ResultPayload, feature-owned ResultAction (runner 1551→136), CommandPanelState split, @unchecked Sendable 60→3, lint 160, FoundryTheme+row anatomy+motion+PanelPrompt (zero NSAlert), Settings window, native QLPreviewPanel, material/IC fixes, xcstrings+l10n lint, WindowFrameSettler, Codex OAuth opt-in gate, CI snapshot comparisons, Spotlight LiveAppIndex. Verified at HEAD: swift build + release build clean, 650 tests/0 failures, 3 lints PASS, snapshot refs compare, app rebuilt+signed. Benchmarks docs/benchmarks/2026-10-12-search-latency.md (immediate p95 35.6→23.0ms).
+
+## done-claim follow-up (2026-10-12, judge feedback)
+The numeric DoD gaps are now closed on `raycast-quality-overhaul`
+(`1e9f01e`..`6cb007c` + evidence commit):
+
+| Gate | Bar | Result |
+| --- | --- | --- |
+| `try?` count | ≤ 60 | **60** — persistent-state probes log via `BestEffort`; keeps are cancellation sleeps / cleanup / shape probes |
+| Files > 1,000 lines | 0 | **0** — five files split at natural seams (PanelChrome, +Surfaces, CalculatorEngine, SettingsSupport, MediaDownloadSupport, +Actions) |
+| Ranking golden set | 30/30 checked in | **`RankingGoldenTests.swift` 30/30** — also caught+fixed the alias-tier inversion (built-in aliases ranked below subtitles) |
+| Keystroke→results immediate p95 | ≤ 16 ms | **12.11 ms** (p50 4.65, 8-round run at load-avg ≈5–8; `phase.wall` p95 10.05 isolates provider work) |
+| Idle CPU, panel closed | measured | **0.0 %** across 5×5 s `top` samples; RSS 292 MB (bench instance `com.hridya.foundry.bench`) |
+| Idle CPU, panel open | measured | pending — needs one ~20 s on-screen panel sample (user working on the machine; asked before driving the GUI) |
+| Clipboard footprint, 1,000 entries | measured | **+1.34 MB RSS**, 383 KB SQLite (`ClipboardMemoryBenchmarkTests`, env-gated, in repo) |
+
+Full suite at `6cb007c`: 653 tests / 0 failures / 8 skipped. Evidence:
+`docs/benchmarks/2026-10-12-search-latency.md`.
