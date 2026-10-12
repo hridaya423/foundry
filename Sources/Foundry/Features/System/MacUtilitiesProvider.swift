@@ -47,8 +47,9 @@ final class MacUtilitiesProvider: CommandProvider {
     }
 
     private func keepAwakeResults(query: String, sensitivity: SearchSensitivity) -> [CommandResult] {
-        guard SearchScoring.match(query: query, title: "Keep Awake", subtitle: nil, keywords: [], aliases: ["coffee", "caffeinate", "awake",
-            "sleep off"], sensitivity: sensitivity) != nil else { return [] }
+        let aliases = ["coffee", "caffeinate", "awake", "sleep off", "keep awake"]
+        guard SearchScoring.match(query: query, title: "Keep Awake", subtitle: nil, keywords: [], aliases: aliases,
+            sensitivity: sensitivity) != nil else { return [] }
         let active = KeepAwakeController.isActive()
         return [makeResult(
             id: "mac.keepawake.toggle",
@@ -57,6 +58,7 @@ final class MacUtilitiesProvider: CommandProvider {
             icon: "cup.and.saucer.fill",
             fallback: "ZZ",
             route: .macUtility,
+            aliases: aliases,
             primary: ToggleKeepAwakeAction()
         )]
     }
@@ -137,10 +139,12 @@ final class MacUtilitiesProvider: CommandProvider {
     }
 
     private func quitAllResults(query: String, sensitivity: SearchSensitivity) -> [CommandResult] {
-        guard SearchScoring.match(query: query, title: "Quit All Apps", subtitle: nil, keywords: [], aliases: ["close all apps", "quit everything"],
+        let aliases = ["close all apps", "quit everything", "quit all"]
+        guard SearchScoring.match(query: query, title: "Quit All Apps", subtitle: nil, keywords: [], aliases: aliases,
             sensitivity: sensitivity) != nil else { return [] }
         return [makeResult(id: "mac.quit-all", title: "Quit All Apps", subtitle: "Quit every open app except Finder and Foundry",
-            icon: "xmark.rectangle.portrait", fallback: "QA", route: .macUtility, primary: QuitAllApplicationsAction())]
+            icon: "xmark.rectangle.portrait", fallback: "QA", route: .macUtility, aliases: aliases,
+            primary: QuitAllApplicationsAction())]
     }
 
     private func portResults(query: String) async -> [CommandResult] {
@@ -191,18 +195,20 @@ final class MacUtilitiesProvider: CommandProvider {
                 icon: kind == .output ? "speaker.wave.2.fill" : "mic.fill",
                 fallback: "AU",
                 route: .macUtility,
+                aliases: deviceAliases,
                 primary: SetAudioDeviceAction(id: device.id, kind: kind)
             )
         }
     }
 
     private func makeResult(id: String, title: String, subtitle: String, icon: String, fallback: String, route: SearchRoute? = nil,
-        primary: any ResultAction) -> CommandResult {
+        aliases: [String] = [], primary: any ResultAction) -> CommandResult {
         CommandResult(
             id: id,
             title: title,
             subtitle: subtitle,
             icon: CommandIcon(fallback: fallback, systemName: icon),
+            searchAliases: aliases,
             route: route,
             payload: .command,
             primaryAction: CommandAction(id: id + ".primary", title: "Run", behavior: primary),

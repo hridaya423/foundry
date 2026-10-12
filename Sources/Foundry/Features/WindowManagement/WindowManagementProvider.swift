@@ -21,8 +21,8 @@ final class WindowManagementProvider: CommandProvider {
                 title: command.title,
                 subtitle: command.subtitle,
                 icon: command.icon,
-                searchAliases: aliases,
-                searchKeywords: command.aliases,
+                searchAliases: command.aliases + aliases,
+                searchKeywords: [],
                 payload: .command,
                 primaryAction: command.primaryAction,
                 secondaryActions: []

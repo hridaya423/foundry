@@ -44,7 +44,8 @@ final class LibraryProvider: CommandProvider {
                         snippet.content.replacingOccurrences(of: "\n", with: " "),
                     ].compactMap { $0 }.joined(separator: " • "),
                     icon: CommandIcon(fallback: "SN", systemName: "curlybraces"),
-                    searchKeywords: [snippet.keyword] + snippet.tags,
+                    searchAliases: [snippet.keyword].filter { $0.isEmpty == false },
+                    searchKeywords: snippet.tags,
                     payload: .snippet(id: snippet.id),
                     primaryAction: insertPrimary ? insertAction : copyAction,
                     secondaryActions: [

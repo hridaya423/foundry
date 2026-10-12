@@ -26,8 +26,8 @@ final class BuiltInCommandProvider: CommandProvider {
                 title: command.title,
                 subtitle: command.subtitle,
                 icon: CommandIcon(fallback: command.fallback, systemName: command.systemIcon),
-                searchAliases: aliases,
-                searchKeywords: command.aliases,
+                searchAliases: command.aliases + aliases,
+                searchKeywords: [],
                 payload: .command,
                 primaryAction: command.primaryAction,
                 secondaryActions: []

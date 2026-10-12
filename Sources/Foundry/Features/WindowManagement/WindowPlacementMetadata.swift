@@ -133,7 +133,7 @@ struct WindowPlacementMetadata {
         case .almostMaximize:
             self.init(
                 "Almost Maximize Window", "Fill 90% of the screen, centered", "Window almost maximized",
-                ["almost maximize", "almost max", "nearly full", "90%"],
+                ["almost maximize", "almost max", "nearly full", "90%", "als"],
                 "arrow.up.left.and.down.right.and.arrow.up.right.and.down.left", "AM"
             )
         case .maximizeHeight:

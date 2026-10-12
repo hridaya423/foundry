@@ -82,8 +82,8 @@ final class DeveloperToolsProvider: CommandProvider {
                 subtitle: command.subtitle,
                 icon: command.icon,
                 fallback: command.fallback,
-                searchAliases: aliases,
-                searchKeywords: command.aliases,
+                searchAliases: command.aliases + aliases,
+                searchKeywords: [],
                 primary: command.action
             )
         }

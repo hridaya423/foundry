@@ -34,8 +34,8 @@ final class SystemCommandProvider: CommandProvider, Sendable {
                 title: command.title,
                 subtitle: command.subtitle,
                 icon: CommandIcon(fallback: command.fallback, systemName: command.systemIcon),
-                searchAliases: aliases,
-                searchKeywords: command.aliases,
+                searchAliases: command.aliases + aliases,
+                searchKeywords: [],
                 payload: .command,
                 primaryAction: CommandAction(id: "\(command.id).perform", title: command.actionTitle, behavior: command.action),
                 secondaryActions: []
@@ -242,7 +242,7 @@ final class SystemCommandProvider: CommandProvider, Sendable {
                 id: "system.settings",
                 title: "Open System Settings",
                 subtitle: "Open macOS System Settings or jump to any pane",
-                aliases: ["preferences", "prefs", "settings"],
+                aliases: ["preferences", "prefs", "settings", "sys"],
                 systemIcon: "gearshape.fill",
                 fallback: "SE",
                 url: "x-apple.systempreferences:"
@@ -624,16 +624,6 @@ final class SystemCommandProvider: CommandProvider, Sendable {
                 systemIcon: "arrow.triangle.2.circlepath",
                 fallback: "TR",
                 url: "x-apple.systempreferences:com.apple.Transfer-Reset-Settings.extension"
-            ),
-            SystemCommand(
-                id: "system.empty-trash",
-                title: "Empty Trash",
-                subtitle: "Ask Finder to empty the Trash",
-                aliases: ["trash", "bin", "delete trash"],
-                systemIcon: "trash.fill",
-                fallback: "TR",
-                actionTitle: "Empty",
-                action: RunProcessAction(path: "/usr/bin/osascript", arguments: ["-e", "tell application \"Finder\" to empty trash"])
             ),
             SystemCommand(
                 id: "system.open-screenshot",

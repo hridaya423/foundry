@@ -223,8 +223,8 @@ final class QuicklinkProvider: CommandProvider, Sendable {
                 == nil ? "Type \(prefix) then your query" : Self.displayURL(link.link, argument: argument)),
             icon: CommandIcon(fallback: String(link.name.prefix(2)).uppercased(), systemName: isFileSearch ? "doc.text.magnifyingglass" : "link",
                 remoteIconURL: link.useFavicon == false ? nil : Self.faviconURL(for: link.link)),
-            searchAliases: aliases,
-            searchKeywords: [link.keyword].filter { !$0.isEmpty },
+            searchAliases: aliases + [link.keyword].filter { $0.isEmpty == false },
+            searchKeywords: [],
             payload: .quicklink(id: link.id),
             primaryAction: primary,
             secondaryActions: [
