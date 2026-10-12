@@ -36,7 +36,9 @@ enum OpenAICompatibleTransport {
             if let apiKey { request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization") }
             let (data, response) = try await AITransportSupport.requestData(request, timeout: profile.requestOptions.timeoutSeconds)
             if let error = AITransportSupport.classify(response) { return .failure(error.message) }
-            guard (try? JSONSerialization.jsonObject(with: data)) != nil else { return .failure("Provider returned invalid model data.") }
+            guard (BestEffort.attempt("provider model catalog") { try JSONSerialization.jsonObject(with: data) }) != nil else {
+                return .failure("Provider returned invalid model data.")
+            }
             return .success("Connected to \(profile.name).")
         } catch {
             return .failure(AITransportSupport.failureMessage(error))
@@ -71,7 +73,7 @@ enum OpenAICompatibleTransport {
                       let arguments = function["arguments"],
                       (arguments is String) == false,
                       JSONSerialization.isValidJSONObject(arguments),
-                      let data = try? JSONSerialization.data(withJSONObject: arguments),
+                      let data = (BestEffort.attempt("tool call arguments") { try JSONSerialization.data(withJSONObject: arguments) }),
                       let json = String(data: data, encoding: .utf8) else { return call }
                 var encodedCall = call
                 function["arguments"] = json
@@ -103,9 +105,9 @@ enum OpenAICompatibleTransport {
         }
         let text = textParts.joined()
         if let toolName {
-            let rawArguments = BestEffort.attempt("decode tool call arguments") {
+            let rawArguments = (BestEffort.attempt("decode tool call arguments") {
                 try JSONSerialization.jsonObject(with: Data(toolArgumentParts.joined().utf8))
-            }
+            })
             let arguments = rawArguments as? [String: Any] ?? [:]
             var object: [String: Any] = ["name": toolName, "arguments": arguments]
             object["id"] = toolID
@@ -202,9 +204,9 @@ enum AnthropicTransport {
         }
         let text = textParts.joined()
         if let toolName {
-            let rawArguments = BestEffort.attempt("decode tool call arguments") {
+            let rawArguments = (BestEffort.attempt("decode tool call arguments") {
                 try JSONSerialization.jsonObject(with: Data(toolArgumentParts.joined().utf8))
-            }
+            })
             let arguments = rawArguments as? [String: Any] ?? [:]
             var object: [String: Any] = ["name": toolName, "arguments": arguments]
             object["id"] = toolID

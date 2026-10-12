@@ -86,7 +86,7 @@ struct FoundryBackup: Codable, Equatable {
             try fileManager.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
             if fileManager.fileExists(atPath: url.path) {
                 let saved = url.appendingPathExtension("pre-import")
-                try? fileManager.removeItem(at: saved)
+                BestEffort.attempt("stale backup cleanup") { try fileManager.removeItem(at: saved) }
                 try fileManager.copyItem(at: url, to: saved)
             }
             try contents.write(to: url, options: .atomic)

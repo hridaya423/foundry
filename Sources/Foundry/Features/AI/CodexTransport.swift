@@ -37,7 +37,8 @@ struct CodexResponsesStreamDecoder: Sendable {
         let value = line.hasPrefix("data:") ? String(line.dropFirst(5)).trimmingCharacters(in: .whitespaces) : line.trimmingCharacters(in: .whitespaces)
         guard value.isEmpty == false else { return nil }
         if value == "[DONE]" { return finish() }
-        guard let data = value.data(using: .utf8), let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return nil }
+        guard let data = value.data(using: .utf8),
+              let root = (BestEffort.attempt("Codex transport JSON") { try JSONSerialization.jsonObject(with: data) }) as? [String: Any] else { return nil }
         let type = root["type"] as? String ?? ""
         switch type {
         case "response.output_text.delta":
@@ -78,9 +79,9 @@ struct CodexResponsesStreamDecoder: Sendable {
     mutating func finish() -> CodexResponsesStreamFrame {
         let call: AgentToolCall?
         if let toolName {
-            let rawArguments = BestEffort.attempt("decode codex tool arguments") {
+            let rawArguments = (BestEffort.attempt("decode codex tool arguments") {
                 try JSONSerialization.jsonObject(with: Data(toolArgumentParts.joined().utf8))
-            }
+            })
             let arguments = rawArguments as? [String: Any] ?? [:]
             call = AgentToolCall(id: toolID, name: toolName, arguments: AgentToolCall.from(json: ["name": toolName, "arguments": arguments])?.arguments ?? [:])
         } else {
@@ -174,8 +175,8 @@ enum OpenAICodexTransport {
             if role == "assistant", let calls = message["tool_calls"] as? [[String: Any]] {
                 for call in calls {
                     guard let function = call["function"] as? [String: Any], let name = function["name"] as? String else { continue }
-                    let arguments = (try? JSONSerialization.data(
-                        withJSONObject: function["arguments"] as? [String: String] ?? [:])).flatMap { String(data: $0, encoding: .utf8) } ?? "{}"
+                    let arguments = (BestEffort.attempt("tool call arguments") { try JSONSerialization.data(
+                        withJSONObject: function["arguments"] as? [String: String] ?? [:]) }).flatMap { String(data: $0, encoding: .utf8) } ?? "{}"
                     let callID = call["id"] as? String ?? "foundry-\(name)"
                     input.append(["type": "function_call", "call_id": callID, "name": name, "arguments": arguments])
                 }

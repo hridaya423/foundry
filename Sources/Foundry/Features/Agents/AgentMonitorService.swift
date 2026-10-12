@@ -114,9 +114,9 @@ enum AgentMonitorService {
         if let cached = cache.claudeHistory, cached.stamp == stamp {
             return cached.cards.filter { isRecent($0.updatedAt, within: 7 * 24 * 60 * 60) }
         }
-        let data = BestEffort.attempt("read claude history") {
+        let data = (BestEffort.attempt("read claude history") {
             try Data(contentsOf: historyURL)
-        }
+        })
         guard let text = data.flatMap({ String(data: $0, encoding: .utf8) }) else { return [] }
         let cards = claudeHistorySessions(from: text)
         cache.claudeHistory = AgentMonitorCachedCards(stamp: stamp, cards: cards)
@@ -127,7 +127,7 @@ enum AgentMonitorService {
         var latestBySession: [String: ClaudeHistoryEntry] = [:]
         for line in text.split(whereSeparator: \.isNewline) {
             guard let data = line.data(using: .utf8),
-                   let entry = try? JSONDecoder().decode(ClaudeHistoryEntry.self, from: data),
+                   let entry = (BestEffort.attempt("Claude history entry decode") { try JSONDecoder().decode(ClaudeHistoryEntry.self, from: data) }),
                    entry.sessionId.nilIfEmpty != nil,
                    isRecent(date(milliseconds: entry.timestamp), within: 7 * 24 * 60 * 60, now: now),
                    isClaudeProbe(entry) == false else { continue }
@@ -439,7 +439,8 @@ enum AgentMonitorService {
 
     private static func openCodeModelLabel(_ json: String) -> String? {
         guard let data = json.data(using: .utf8),
-              let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return json.nilIfEmpty }
+              let object = (BestEffort.attempt("Claude session JSON") { try JSONSerialization.jsonObject(with: data) }) as? [String: Any]
+            else { return json.nilIfEmpty }
         let id = object["id"] as? String
         let variant = object["variant"] as? String
         return [id, variant == "none" ? nil : variant].compactMap { $0?.nilIfEmpty }.joined(separator: " ").nilIfEmpty
@@ -451,9 +452,9 @@ enum AgentMonitorService {
         var result: [String: String] = [:]
         for entry in entries {
             let file = entry.appendingPathComponent("workspace.json")
-            let raw = BestEffort.attempt("read cursor workspace \(entry.lastPathComponent)") {
+            let raw = (BestEffort.attempt("read cursor workspace \(entry.lastPathComponent)") {
                 try JSONSerialization.jsonObject(with: Data(contentsOf: file))
-            }
+            })
             guard let json = raw as? [String: Any],
                   let folder = json["folder"] as? String,
                   let url = URL(string: folder) else { continue }

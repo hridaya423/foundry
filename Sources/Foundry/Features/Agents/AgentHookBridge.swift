@@ -30,9 +30,9 @@ enum AgentBridgeProvider: String, CaseIterable, Sendable {
 enum AgentHookBridge {
     static func run(provider: AgentBridgeProvider, input: Data = FileHandle.standardInput.readDataToEndOfFile(),
         environment: [String: String] = ProcessInfo.processInfo.environment) {
-        let raw = BestEffort.attempt("parse \(provider.rawValue) hook input") {
+        let raw = (BestEffort.attempt("parse \(provider.rawValue) hook input") {
             try JSONSerialization.jsonObject(with: input)
-        }
+        })
         guard input.count <= 1_048_576,
               let object = raw as? [String: Any],
               let envelope = normalize(provider: provider, object: object, environment: environment) else {
@@ -243,9 +243,9 @@ enum AgentHookBridge {
     }
 
     static func send(_ envelope: AgentEventEnvelope, socketURL: URL) -> Bool {
-        let data = BestEffort.attempt("encode agent event") {
+        let data = (BestEffort.attempt("encode agent event") {
             try JSONEncoder().encode(envelope)
-        }
+        })
         guard let data else { return false }
         let descriptor = socket(AF_UNIX, SOCK_STREAM, 0)
         guard descriptor >= 0 else { return false }
@@ -280,9 +280,9 @@ enum AgentHookBridge {
             guard count > 0 else { break }
             ack.append(buffer, count: count)
         }
-        return BestEffort.attempt("decode agent ack") {
+        return (BestEffort.attempt("decode agent ack") {
             try JSONDecoder().decode(AgentEventAck.self, from: ack)
-        }?.accepted == true
+        })?.accepted == true
     }
 
     private static func writeAll(_ data: Data, to descriptor: Int32) -> Bool {
@@ -311,7 +311,7 @@ enum AgentHookBridge {
         if let number = value as? NSNumber { return number.stringValue }
         guard let value,
               JSONSerialization.isValidJSONObject(value),
-              let data = try? JSONSerialization.data(withJSONObject: value),
+              let data = (BestEffort.attempt("agent hook payload") { try JSONSerialization.data(withJSONObject: value) }),
               let text = String(data: data, encoding: .utf8) else {
             return nil
         }

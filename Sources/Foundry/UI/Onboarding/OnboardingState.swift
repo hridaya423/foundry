@@ -222,7 +222,8 @@ final class OnboardingState {
             guard let url = URL(string: urlString) else { continue }
             var request = URLRequest(url: url)
             request.timeoutInterval = 0.4
-            if (try? await URLSession.shared.data(for: request)) != nil {
+            let probe = request
+            if (await BestEffort.attempt("onboarding reachability probe") { try await URLSession.shared.data(for: probe) }) != nil {
                 return kind
             }
         }

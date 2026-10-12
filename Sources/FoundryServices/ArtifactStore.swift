@@ -54,7 +54,7 @@ public final class ArtifactStore: Sendable {
     }
 
     public func discard(_ staged: StagedArtifact) {
-        try? fileManager.removeItem(at: staged.url)
+        BestEffort.attempt("staged artifact cleanup") { try fileManager.removeItem(at: staged.url) }
         Self.reservations.withLock {
             let key = staged.destination.standardizedFileURL.path
             guard $0[key] == staged.reservation else { return }

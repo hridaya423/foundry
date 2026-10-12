@@ -64,7 +64,7 @@ struct OllamaStreamFrame: Sendable, Equatable {
 struct OllamaStreamDecoder: Sendable {
     mutating func decode(line: String) -> OllamaStreamFrame? {
         guard let data = line.data(using: .utf8),
-              let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return nil }
+              let root = (BestEffort.attempt("agent transcript JSON") { try JSONSerialization.jsonObject(with: data) }) as? [String: Any] else { return nil }
         let message = root["message"] as? [String: Any]
         let contentDelta = message?["content"] as? String ?? ""
         var toolCall: AgentToolCall?
@@ -210,7 +210,8 @@ struct AgentProtocolDecoder {
     static func displayContent(from text: String) -> String {
         if let content = finalContent(from: text) { return content }
         for candidate in jsonCandidates(in: text).reversed() {
-            guard let data = candidate.data(using: .utf8), let value = try? JSONSerialization.jsonObject(with: data) else { continue }
+            guard let data = candidate.data(using: .utf8),
+                  let value = (BestEffort.attempt("agent candidate JSON") { try JSONSerialization.jsonObject(with: data) }) else { continue }
             if let object = value as? [String: Any], object["type"] != nil { continue }
             return readable(value)
         }
@@ -223,7 +224,7 @@ struct AgentProtocolDecoder {
     private static func protocolObject(from text: String) -> [String: Any]? {
         for candidate in jsonCandidates(in: text).reversed() {
             guard let data = candidate.data(using: .utf8),
-                  let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { continue }
+                  let object = (BestEffort.attempt("agent event JSON") { try JSONSerialization.jsonObject(with: data) }) as? [String: Any] else { continue }
             if object["type"] != nil { return object }
         }
         return nil
@@ -267,7 +268,8 @@ struct AgentProtocolDecoder {
     private static func readable(_ value: Any) -> String {
         if let string = value as? String {
             let trimmed = string.trimmingCharacters(in: .whitespacesAndNewlines)
-            if let data = trimmed.data(using: .utf8), let nested = try? JSONSerialization.jsonObject(with: data) { return readable(nested) }
+            if let data = trimmed.data(using: .utf8),
+               let nested = (BestEffort.attempt("agent nested JSON") { try JSONSerialization.jsonObject(with: data) }) { return readable(nested) }
             return trimmed
         }
         if let number = value as? NSNumber { return number.stringValue }

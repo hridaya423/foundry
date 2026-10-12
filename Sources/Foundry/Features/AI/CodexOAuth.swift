@@ -1,6 +1,7 @@
 import AppKit
 import CryptoKit
 import Foundation
+import FoundryServices
 import Network
 import os
 import Security
@@ -115,7 +116,7 @@ enum OpenAIJWT {
         var encoded = String(pieces[1]).replacingOccurrences(of: "-", with: "+").replacingOccurrences(of: "_", with: "/")
         encoded += String(repeating: "=", count: (4 - encoded.count % 4) % 4)
         guard let data = Data(base64Encoded: encoded, options: .ignoreUnknownCharacters),
-            let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return nil }
+            let object = (BestEffort.attempt("Codex OAuth response") { try JSONSerialization.jsonObject(with: data) }) as? [String: Any] else { return nil }
         return object
     }
 

@@ -33,7 +33,7 @@ final class ClipboardHistoryStore: ClipboardHistoryPersisting, Sendable {
                 catch { throw ClipboardHistoryPersistenceError.corruptArchive(error) }
                 try write(legacy, db: db)
                 let migrated = legacyURL.appendingPathExtension("migrated")
-                try? FileManager.default.removeItem(at: migrated)
+                BestEffort.attempt("clipboard migration cleanup") { try FileManager.default.removeItem(at: migrated) }
                 try FileManager.default.moveItem(at: legacyURL, to: migrated)
                 items = try selectAll(db)
             }
@@ -164,7 +164,7 @@ final class ClipboardHistoryStore: ClipboardHistoryPersisting, Sendable {
             deletedRows = Int(sqlite3_changes(db))
             try exec(db, "COMMIT")
         } catch {
-            try? exec(db, "ROLLBACK")
+            BestEffort.attempt("clipboard history rollback") { try exec(db, "ROLLBACK") }
             throw error
         }
         if deletedRows > 0 {

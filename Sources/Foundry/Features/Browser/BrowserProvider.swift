@@ -154,9 +154,9 @@ final class BrowserProvider: CommandProvider, Sendable {
             }
         default:
             return source.bookmarkFiles(in: homeDirectory).flatMap { file in
-                let object = BestEffort.attempt("read bookmarks \(file.lastPathComponent)") {
+                let object = (BestEffort.attempt("read bookmarks \(file.lastPathComponent)") {
                     try JSONSerialization.jsonObject(with: Data(contentsOf: file))
-                }
+                })
                 guard let object else { return [BrowserRecord]() }
                 return ChromeBookmarkParser.parse(object).compactMap { makeBookmark($0, source: source) }
             }
@@ -197,9 +197,9 @@ final class BrowserProvider: CommandProvider, Sendable {
                 "w.tabs().map(t => ({title: t.title(), url: t.url()})))); }"
         }
         guard let output = runOSAScript(script), let data = output.data(using: .utf8) else { return [] }
-        let tabs = BestEffort.attempt("decode \(source.rawValue) live tabs") {
+        let tabs = (BestEffort.attempt("decode \(source.rawValue) live tabs") {
             try JSONDecoder().decode([LiveTab].self, from: data)
-        }
+        })
         guard let tabs else { return [] }
         let records: [BrowserRecord] = tabs.compactMap { tab in
             guard let url = URL(string: tab.url), url.scheme != nil else { return nil }
@@ -239,9 +239,9 @@ final class BrowserProvider: CommandProvider, Sendable {
         guard let values = file.fileResourceValues([.contentModificationDateKey]),
               let modifiedAt = values.contentModificationDate,
               Date().timeIntervalSince(modifiedAt) < 600 else { return nil }
-        let payload = BestEffort.attempt("read Firefox live tabs") {
+        let payload = (BestEffort.attempt("read Firefox live tabs") {
             try JSONDecoder().decode(FirefoxLiveTabs.self, from: Data(contentsOf: file))
-        }
+        })
         guard let payload else { return nil }
         return payload.tabs.enumerated().compactMap { index, tab in
             guard let url = URL(string: tab.url), url.scheme != nil else { return nil }
@@ -629,7 +629,7 @@ enum FirefoxSessionParser {
 
     static func parse(_ data: Data) -> FirefoxSession? {
         guard let json = decode(data),
-              let root = try? JSONSerialization.jsonObject(with: json) as? [String: Any],
+              let root = (BestEffort.attempt("browser session JSON") { try JSONSerialization.jsonObject(with: json) }) as? [String: Any],
               let windows = root["windows"] as? [[String: Any]] else { return nil }
 
         let tabs = windows.flatMap { window in

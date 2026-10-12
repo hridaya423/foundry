@@ -313,10 +313,10 @@ private actor BEN2Runtime {
         if fm.fileExists(atPath: destination.path) { try fm.moveItem(at: destination, to: backup) }
         do {
             try fm.moveItem(at: staging, to: destination)
-            try? fm.removeItem(at: backup)
+            BestEffort.attempt("remove pre-removal backup") { try fm.removeItem(at: backup) }
         } catch {
-            try? fm.removeItem(at: destination)
-            if fm.fileExists(atPath: backup.path) { try? fm.moveItem(at: backup, to: destination) }
+            BestEffort.attempt("clear destination before restore") { try fm.removeItem(at: destination) }
+            if fm.fileExists(atPath: backup.path) { BestEffort.attempt("restore pre-removal backup") { try fm.moveItem(at: backup, to: destination) } }
             throw error
         }
     }

@@ -270,9 +270,9 @@ enum WebSearchHTMLParser {
     }
 
     private static func matches(_ pattern: String, in text: String) -> [[String]] {
-        let regex = BestEffort.attempt("compile search pattern") {
+        let regex = (BestEffort.attempt("compile search pattern") {
             try NSRegularExpression(pattern: pattern, options: [.caseInsensitive, .dotMatchesLineSeparators])
-        }
+        })
         guard let regex else { return [] }
         let range = NSRange(text.startIndex..., in: text)
         return regex.matches(in: text, range: range).map { match in
@@ -309,9 +309,9 @@ enum BraveSearchHTMLParser {
     static func parse(_ data: Data) -> [WebSearchResult] {
         guard let html = String(data: data, encoding: .utf8) else { return [] }
         let pattern = #"\{title:\"((?:\\.|[^\"])*)\",url:\"((?:\\.|[^\"])*)\",full_title:(?:void 0|\"(?:\\.|[^\"])*\"),description:\"((?:\\.|[^\"])*)\""#
-        let regex = BestEffort.attempt("compile brave results pattern") {
+        let regex = (BestEffort.attempt("compile brave results pattern") {
             try NSRegularExpression(pattern: pattern, options: [.dotMatchesLineSeparators])
-        }
+        })
         guard let regex else { return [] }
         let range = NSRange(html.startIndex..., in: html)
         var seenURLs = Set<String>()
@@ -331,7 +331,7 @@ enum BraveSearchHTMLParser {
 
     private static func decode(_ value: String) -> String? {
         guard let data = "\"\(value)\"".data(using: .utf8) else { return nil }
-        return try? JSONDecoder().decode(String.self, from: data)
+        return (BestEffort.attempt("web search decode") { try JSONDecoder().decode(String.self, from: data) })
     }
 
     private static func clean(_ value: String) -> String {
