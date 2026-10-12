@@ -155,6 +155,8 @@ struct ChooseMediaDownloadFolderAction: ResultAction, Equatable {
         MediaDownloadDestination.setFolder(url)
         ctx.emit(.status("Downloads will save to \(url.lastPathComponent)"))
         ctx.diagnostics.log("Media download folder changed: \(url.path)")
-        return ctx.finish(.refreshResults(message: "Download folder changed"), feedback: .success("Download folder changed"))
+        return ctx.finish(
+            .refreshResults(message: String(localized: "Download folder changed")),
+             feedback: .success(String(localized: "Download folder changed")))
     }
 }

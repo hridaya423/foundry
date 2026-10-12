@@ -33,7 +33,7 @@ struct CompressFileAction: ResultAction, Equatable {
         } catch {
             try? FileManager.default.removeItem(at: destination)
             ctx.diagnostics.log("Compress failed for \(path): \(error.localizedDescription)")
-            return ctx.finish(.failure(message: "Could not compress \u{201C}\(source.lastPathComponent)\u{201D}", retryable: true))
+            return ctx.finish(.failure(message: String(localized: "Could not compress \u{201C}\(source.lastPathComponent)\u{201D}"), retryable: true))
         }
     }
 
@@ -67,12 +67,12 @@ struct ShareFileAction: ResultAction, Equatable {
 func shareFile(path: String) -> CommandOutcome {
     let url = URL(fileURLWithPath: path)
     guard FileManager.default.fileExists(atPath: path) else {
-        return .failure(message: "The file no longer exists", retryable: false)
+        return .failure(message: String(localized: "The file no longer exists"), retryable: false)
     }
     // Anchor to the Foundry panel (or any app window) — the share picker
     // needs a live view to present from.
     guard let anchor = (NSApp.windows.first { $0 is FoundryPanel } ?? NSApp.keyWindow)?.contentView else {
-        return .failure(message: "Could not open the share menu", retryable: false)
+        return .failure(message: String(localized: "Could not open the share menu"), retryable: false)
     }
     let picker = NSSharingServicePicker(items: [url])
     let rect = NSRect(x: anchor.bounds.midX, y: anchor.bounds.maxY - 40, width: 1, height: 1)
@@ -108,20 +108,20 @@ struct RenameFileAction: ResultAction, Equatable {
         guard newName.isEmpty == false, newName != source.lastPathComponent else { return .cancelled }
         guard newName.contains("/") == false, newName.contains(":") == false else {
             ctx.emit(.feedback(.failure("Names can\u{2019}t contain / or :")))
-            return .failure(message: "Invalid name", retryable: true)
+            return .failure(message: String(localized: "Invalid name"), retryable: true)
         }
         let destination = source.deletingLastPathComponent().appendingPathComponent(newName)
         guard FileManager.default.fileExists(atPath: destination.path) == false else {
             ctx.emit(.feedback(.failure("\u{201C}\(newName)\u{201D} already exists")))
-            return .failure(message: "A file with that name already exists", retryable: true)
+            return .failure(message: String(localized: "A file with that name already exists"), retryable: true)
         }
         do {
             try FileManager.default.moveItem(at: source, to: destination)
             ctx.diagnostics.log("Renamed \(source.lastPathComponent) → \(newName)")
-            return .refreshResults(message: "Renamed to \u{201C}\(newName)\u{201D}")
+            return .refreshResults(message: String(localized: "Renamed to \u{201C}\(newName)\u{201D}"))
         } catch {
             ctx.diagnostics.log("Rename failed for \(path): \(error.localizedDescription)")
-            return ctx.finish(.failure(message: "Could not rename file", retryable: true))
+            return ctx.finish(.failure(message: String(localized: "Could not rename file"), retryable: true))
         }
     }
 }
@@ -138,10 +138,14 @@ struct MoveToTrashAction: ResultAction, Equatable {
         do {
             try FileManager.default.trashItem(at: url, resultingItemURL: nil)
             ctx.diagnostics.log("Moved to Trash: \(path)")
-            return ctx.finish(.refreshResults(message: "Moved to Trash"), feedback: .success("Moved \u{201C}\(url.lastPathComponent)\u{201D} to Trash"))
+            return ctx.finish(
+                .refreshResults(message: String(localized: "Moved to Trash")),
+                 feedback: .success(String(localized: "Moved \u{201C}\(url.lastPathComponent)\u{201D} to Trash")))
         } catch {
             ctx.diagnostics.log("Trash failed for \(path): \(error.localizedDescription)")
-            return ctx.finish(.failure(message: "Could not move to Trash", retryable: true), feedback: .failure("Could not move to Trash"))
+            return ctx.finish(
+                .failure(message: String(localized: "Could not move to Trash"), retryable: true),
+                 feedback: .failure(String(localized: "Could not move to Trash")))
         }
     }
 }

@@ -79,10 +79,10 @@ struct OpenAppAction: ResultAction, Equatable {
                         let outcome: CommandOutcome
                         if let error {
                             diagnostics.log("Failed to launch \(name): \(error.localizedDescription)")
-                            outcome = .failure(message: "Could not open \(name)", retryable: true)
+                            outcome = .failure(message: String(localized: "Could not open \(name)"), retryable: true)
                         } else {
                             diagnostics.log("Launched app: \(name)")
-                            outcome = .success(message: "Opened \(name)")
+                            outcome = .success(message: String(localized: "Opened \(name)"))
                         }
                         if completion.resume(outcome), case .failure = outcome {
                             ctx.emit(.feedback(.failure("Could not open \(name)")))
@@ -104,12 +104,16 @@ struct OpenURLAction: ResultAction, Equatable {
     func perform(_ ctx: ActionContext) async -> CommandOutcome {
         guard let url = URL(string: value) else {
             ctx.diagnostics.log("Invalid URL: \(value)")
-            return ctx.finish(.failure(message: "That link isn't a valid URL", retryable: false), feedback: .failure("That link isn't a valid URL"))
+            return ctx.finish(
+                .failure(message: String(localized: "That link isn't a valid URL"), retryable: false),
+                 feedback: .failure(String(localized: "That link isn't a valid URL")))
         }
         if ctx.openURL(url) == false {
-            return ctx.finish(.failure(message: "Could not open link", retryable: true), feedback: .failure("Could not open link"))
+            return ctx.finish(
+                .failure(message: String(localized: "Could not open link"), retryable: true),
+                 feedback: .failure(String(localized: "Could not open link")))
         }
-        return .success(message: "Opened link")
+        return .success(message: String(localized: "Opened link"))
     }
 }
 
@@ -121,15 +125,21 @@ struct OpenURLWithAppAction: ResultAction, Equatable {
 
     func perform(_ ctx: ActionContext) async -> CommandOutcome {
         guard let url = URL(string: self.url) else {
-            return ctx.finish(.failure(message: "That link isn't valid", retryable: false), feedback: .failure("That link isn't valid"))
+            return ctx.finish(
+                .failure(message: String(localized: "That link isn't valid"), retryable: false),
+                 feedback: .failure(String(localized: "That link isn't valid")))
         }
         guard let appURL = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID) else {
-            return ctx.finish(.failure(message: "That app isn't installed", retryable: false), feedback: .failure("That app isn't installed"))
+            return ctx.finish(
+                .failure(message: String(localized: "That app isn't installed"), retryable: false),
+                 feedback: .failure(String(localized: "That app isn't installed")))
         }
         if await openURLs([url], withAppAt: appURL) == false {
-            return ctx.finish(.failure(message: "Could not open link with that app", retryable: true), feedback: .failure("Could not open link with that app"))
+            return ctx.finish(
+                .failure(message: String(localized: "Could not open link with that app"), retryable: true),
+                 feedback: .failure(String(localized: "Could not open link with that app")))
         }
-        return .success(message: "Opened link")
+        return .success(message: String(localized: "Opened link"))
     }
 }
 
@@ -141,11 +151,15 @@ struct OpenConfigFolderAction: ResultAction, Equatable {
         do {
             try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
             if NSWorkspace.shared.open(folder) == false {
-                return ctx.finish(.failure(message: "Could not open Foundry folder", retryable: true), feedback: .failure("Could not open Foundry folder"))
+                return ctx.finish(
+                    .failure(message: String(localized: "Could not open Foundry folder"), retryable: true),
+                     feedback: .failure(String(localized: "Could not open Foundry folder")))
             }
-            return .success(message: "Opened Foundry folder")
+            return .success(message: String(localized: "Opened Foundry folder"))
         } catch {
-            return ctx.finish(.failure(message: "Could not create Foundry folder", retryable: true), feedback: .failure("Could not create Foundry folder"))
+            return ctx.finish(
+                .failure(message: String(localized: "Could not create Foundry folder"), retryable: true),
+                 feedback: .failure(String(localized: "Could not create Foundry folder")))
         }
     }
 }
@@ -158,8 +172,10 @@ struct OpenFileWithAppAction: ResultAction, Equatable {
 
     func perform(_ ctx: ActionContext) async -> CommandOutcome {
         if await openURLs([URL(fileURLWithPath: path)], withAppAt: URL(fileURLWithPath: appPath)) == false {
-            return ctx.finish(.failure(message: "Could not open file with that app", retryable: true), feedback: .failure("Could not open file with that app"))
+            return ctx.finish(
+                .failure(message: String(localized: "Could not open file with that app"), retryable: true),
+                 feedback: .failure(String(localized: "Could not open file with that app")))
         }
-        return .success(message: "Opened file")
+        return .success(message: String(localized: "Opened file"))
     }
 }

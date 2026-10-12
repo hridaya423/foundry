@@ -36,11 +36,13 @@ struct CopySnippetAction: ResultAction, Equatable {
     var resultSection: ResultSection? { .snippets }
 
     func perform(_ ctx: ActionContext) async -> CommandOutcome {
-        guard let snippet = ctx.snippetStore.load().first(where: { $0.id == id }) else { return .failure(message: "Snippet not found", retryable: false) }
+        guard let snippet = ctx.snippetStore.load(
+            ).first(where: { $0.id == id }) else { return .failure(message: String(localized: "Snippet not found"),
+             retryable: false) }
         let rendered = SnippetRenderer.render(snippet.content, context: ctx.snippetContext())
         ctx.pasteboard.clearContents(); ctx.pasteboard.setString(rendered.text, forType: .string)
         recordSnippetUse(id: id, in: ctx)
-        return ctx.finish(.copied(content: rendered.text), feedback: .success("Copied to clipboard"))
+        return ctx.finish(.copied(content: rendered.text), feedback: .success(String(localized: "Copied to clipboard")))
     }
 }
 
@@ -51,16 +53,20 @@ struct PasteSnippetAction: ResultAction, Equatable {
     var resultSection: ResultSection? { .snippets }
 
     func perform(_ ctx: ActionContext) async -> CommandOutcome {
-        guard let snippet = ctx.snippetStore.load().first(where: { $0.id == id }) else { return .failure(message: "Snippet not found", retryable: false) }
+        guard let snippet = ctx.snippetStore.load(
+            ).first(where: { $0.id == id }) else { return .failure(message: String(localized: "Snippet not found"),
+             retryable: false) }
         let rendered = SnippetRenderer.render(snippet.content, context: ctx.snippetContext())
         do {
             try ctx.directPasteService.stage(.text(rendered.text), cursorOffset: rendered.cursorOffsetFromEnd)
             recordSnippetUse(id: id, in: ctx)
-            return ctx.finish(.pasted(content: rendered.text), feedback: .success("Inserted snippet"))
+            return ctx.finish(.pasted(content: rendered.text), feedback: .success(String(localized: "Inserted snippet")))
         } catch DirectPasteError.missingTarget {
-            return ctx.finish(.stayOpen(message: "No originating application is available"), feedback: .failure("No originating application is available"))
+            return ctx.finish(
+                .stayOpen(message: String(localized: "No originating application is available")),
+                 feedback: .failure(String(localized: "No originating application is available")))
         } catch {
-            return ctx.finish(.stayOpen(message: "Could not stage paste"), feedback: .failure("Could not stage paste"))
+            return ctx.finish(.stayOpen(message: String(localized: "Could not stage paste")), feedback: .failure(String(localized: "Could not stage paste")))
         }
     }
 }
@@ -75,9 +81,9 @@ struct DeleteSnippetAction: ResultAction, Equatable {
 
     func perform(_ ctx: ActionContext) async -> CommandOutcome {
         let snippets = ctx.snippetStore.load()
-        guard snippets.contains(where: { $0.id == id }) else { return .failure(message: "Snippet not found", retryable: false) }
+        guard snippets.contains(where: { $0.id == id }) else { return .failure(message: String(localized: "Snippet not found"), retryable: false) }
         _ = ctx.snippetStore.save(snippets.filter { $0.id != id })
-        return ctx.finish(.refreshResults(message: "Snippet deleted"), feedback: .success("Snippet deleted"))
+        return ctx.finish(.refreshResults(message: String(localized: "Snippet deleted")), feedback: .success(String(localized: "Snippet deleted")))
     }
 }
 
@@ -88,16 +94,20 @@ struct CreateSnippetFromClipboardAction: ResultAction, Equatable {
     func perform(_ ctx: ActionContext) async -> CommandOutcome {
         guard let content = ctx.pasteboard.string(forType: .string)?.trimmingCharacters(in: .whitespacesAndNewlines), content.isEmpty == false else {
             ctx.diagnostics.log("Clipboard is empty")
-            return ctx.finish(.failure(message: "Clipboard is empty", retryable: false), feedback: .info("Clipboard is empty"))
+            return ctx.finish(
+                .failure(message: String(localized: "Clipboard is empty"), retryable: false),
+                 feedback: .info(String(localized: "Clipboard is empty")))
         }
         var snippets = ctx.snippetStore.load()
         snippets.insert(StoredSnippet(title: snippetTitle(from: content), content: String(content.prefix(snippetLimit))), at: 0)
         if case let .failure(error) = ctx.snippetStore.save(snippets) {
             ctx.diagnostics.log("Failed to save clipboard snippet: \(error.localizedDescription)")
-            return ctx.finish(.failure(message: "Could not save snippet", retryable: true), feedback: .failure("Could not save snippet"))
+            return ctx.finish(
+                .failure(message: String(localized: "Could not save snippet"), retryable: true),
+                 feedback: .failure(String(localized: "Could not save snippet")))
         }
         ctx.diagnostics.log("Created snippet from clipboard")
-        return ctx.finish(.success(message: "Created snippet"), feedback: .success("Created snippet"))
+        return ctx.finish(.success(message: String(localized: "Created snippet")), feedback: .success(String(localized: "Created snippet")))
     }
 }
 
@@ -133,14 +143,14 @@ struct ImportSnippetsAction: ResultAction, Equatable {
 
             if case let .failure(error) = ctx.snippetStore.save(snippets) {
                 ctx.diagnostics.log("Failed to save imported snippets: \(error.localizedDescription)")
-                return .failure(message: "Could not save imported snippets", retryable: true)
+                return .failure(message: String(localized: "Could not save imported snippets"), retryable: true)
             }
             let message = "Imported \(added) snippets, skipped \(skipped) duplicates"
             ctx.diagnostics.log(message)
             return ctx.finish(.success(message: message), feedback: .success(message))
         } catch {
             ctx.diagnostics.log("Snippet import failed: \(error.localizedDescription)")
-            return .failure(message: "Snippet import failed", retryable: false)
+            return .failure(message: String(localized: "Snippet import failed"), retryable: false)
         }
     }
 }
@@ -152,7 +162,7 @@ struct ExportSnippetsAction: ResultAction, Equatable {
     func perform(_ ctx: ActionContext) async -> CommandOutcome {
         let snippets = ctx.snippetStore.load()
         guard snippets.isEmpty == false else {
-            return .failure(message: "No snippets to export", retryable: false)
+            return .failure(message: String(localized: "No snippets to export"), retryable: false)
         }
         let panel = NSSavePanel()
         panel.allowedContentTypes = [.json]
@@ -169,7 +179,7 @@ struct ExportSnippetsAction: ResultAction, Equatable {
             return ctx.finish(.success(message: message), feedback: .success(message))
         } catch {
             ctx.diagnostics.log("Snippet export failed: \(error.localizedDescription)")
-            return .failure(message: "Snippet export failed", retryable: true)
+            return .failure(message: String(localized: "Snippet export failed"), retryable: true)
         }
     }
 }

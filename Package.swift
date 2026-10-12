@@ -4,6 +4,7 @@ import PackageDescription
 
 let package = Package(
     name: "Foundry",
+    defaultLocalization: "en",
     platforms: [
         .macOS(.v14)
     ],
@@ -25,6 +26,7 @@ let package = Package(
             dependencies: ["FoundryDomain", "FoundryServices"],
             path: "Sources/Foundry",
             resources: [
+                .process("Resources/Localizable.xcstrings"),
                 .copy("Resources/ProviderIcons/anthropic.svg"),
                 .copy("Resources/ProviderIcons/opencode.svg"),
                 .copy("Resources/FirefoxConnector/manifest.json"),

@@ -93,19 +93,19 @@ extension CommandPanelState {
     private func shelfFiles(_ urls: [URL]) {
         let result = fileShelf.add(urls: urls)
         guard result.didReceiveFiles else {
-            showActionFeedback(.failure("Couldn't add those files"))
+            showActionFeedback(.failure(String(localized: "Couldn't add those files")))
             return
         }
         if result.addedCount > 0 {
             let noun = result.addedCount == 1 ? "file" : "files"
             let duplicateSuffix = result.duplicateCount > 0 ? " · \(result.duplicateCount) already waiting" : ""
             let rejectedSuffix = result.rejectedCount > 0 ? " · \(result.rejectedCount) unsupported" : ""
-            showActionFeedback(.success("Added \(result.addedCount) \(noun) to File Shelf\(duplicateSuffix)\(rejectedSuffix)"))
+            showActionFeedback(.success(String(localized: "Added \(result.addedCount) \(noun) to File Shelf\(duplicateSuffix)\(rejectedSuffix)")))
         } else if result.duplicateCount > 0 {
             let noun = result.duplicateCount == 1 ? "file is" : "files are"
-            showActionFeedback(.info("Those \(noun) already on File Shelf"))
+            showActionFeedback(.info(String(localized: "Those \(noun) already on File Shelf")))
         } else {
-            showActionFeedback(.failure("Couldn't add those files"))
+            showActionFeedback(.failure(String(localized: "Couldn't add those files")))
         }
         if mode == .search {
             if session.query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {

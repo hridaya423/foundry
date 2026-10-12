@@ -114,6 +114,11 @@ for required in NOTICE.txt background_removal_worker.py manifest.json background
     fi
 done
 
+# Localization: SwiftPM compiles Localizable.xcstrings into the module
+# bundle's *.lproj; Bundle.main lookups (Text literals, String(localized:))
+# need those same .lproj dirs at the app's own Resources root.
+find "$RESOURCE_BUNDLE_DIR" -type d -name '*.lproj' -exec cp -R {} "$RESOURCES_DIR/" \;
+
 # App icon: regenerate with `swift scripts/render-icon.swift` then
 # `iconutil -c icns Supporting/AppIcon.iconset -o Supporting/AppIcon.icns`.
 ICON_FILE="$ROOT_DIR/Supporting/AppIcon.icns"

@@ -14,7 +14,10 @@ struct RunScriptAction: ResultAction, Equatable {
         let directory = (path as NSString).deletingLastPathComponent
         if ctx.scriptDirectories.isTrusted(directory) == false {
             guard await ctx.confirmScriptDirectory(directory) else {
-                return ctx.finish(.denied(message: "Scripts in this folder are not trusted"), feedback: .info("Script not run"))
+                return ctx.finish(
+                    .denied(message: String(localized: "Scripts in this folder are not trusted")),
+                    feedback: .info(String(localized: "Script not run"))
+                )
             }
             ctx.scriptDirectories.setTrusted(true, for: directory)
         }
@@ -24,8 +27,8 @@ struct RunScriptAction: ResultAction, Equatable {
                 outputLimit: ctx.scriptOutputLimit, currentDirectoryURL: URL(fileURLWithPath: directory))
             let lastLine = { (text: String) in text.split(whereSeparator: \.isNewline).last.map(String.init) }
             if result.timedOut {
-                return ctx.finish(.failure(message: "\(name) timed out after \(Int(ctx.scriptTimeout)) s", retryable: true),
-                    feedback: .failure("\(name) timed out"))
+                return ctx.finish(.failure(message: String(localized: "\(name) timed out after \(Int(ctx.scriptTimeout)) s"), retryable: true),
+                    feedback: .failure(String(localized: "\(name) timed out")))
             }
             guard result.succeeded else {
                 let message = lastLine(result.stderr) ?? lastLine(result.stdout) ?? "\(name) exited with code \(result.exitCode)"
@@ -40,12 +43,12 @@ struct RunScriptAction: ResultAction, Equatable {
                 let url = FileManager.default.temporaryDirectory.appendingPathComponent("Foundry \(name) output.txt")
                 try Data((result.stdout + result.stderr).utf8).write(to: url, options: .atomic)
                 _ = ctx.openURL(url)
-                return .success(message: "Opened output of \(name)")
+                return .success(message: String(localized: "Opened output of \(name)"))
             }
         } catch {
             if isExecutionCancellation(error) { return .cancelled }
-            return ctx.finish(.failure(message: "Could not run \(name): \(error.localizedDescription)", retryable: true),
-                feedback: .failure("Could not run \(name)"))
+            return ctx.finish(.failure(message: String(localized: "Could not run \(name): \(error.localizedDescription)"), retryable: true),
+                feedback: .failure(String(localized: "Could not run \(name)")))
         }
     }
 
@@ -53,8 +56,10 @@ struct RunScriptAction: ResultAction, Equatable {
     static func trustSpec(for directory: String) -> PanelPromptSpec {
         .confirmation(
             title: "Run scripts from “\((directory as NSString).lastPathComponent)”?",
-            message: "Scripts in \(directory) can run any command as you. Only trust folders whose scripts you wrote or reviewed. " +
-                "Foundry will not ask again for this folder.",
+            message: """
+                Scripts in \(directory) can run any command as you. Only trust folders whose scripts you wrote or \
+                reviewed. Foundry will not ask again for this folder.
+                """,
             confirmLabel: "Trust and Run"
         )
     }

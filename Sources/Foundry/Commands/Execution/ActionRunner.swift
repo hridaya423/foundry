@@ -80,7 +80,7 @@ final class ActionRunner {
     ) async -> CommandOutcome {
         let invocationID = request.invocation.cancellationID
         guard activeExecutionTasks[invocationID] == nil else {
-            return .failure(message: "An action with this cancellation ID is already running", retryable: true)
+            return .failure(message: String(localized: "An action with this cancellation ID is already running"), retryable: true)
         }
         let task = Task { @MainActor [weak self] in
             guard let self else { return CommandOutcome.cancelled }
@@ -109,14 +109,14 @@ final class ActionRunner {
                     .confirmation(
                         title: "\(request.action.descriptor.title)?",
                         message: request.invocation.source == .external ? "Requested by an external integration." : nil,
-                        confirmLabel: request.action.descriptor.title,
+                        confirmLabel: LocalizedStringResource("\(request.action.descriptor.title)"),
                         isDestructive: request.action.descriptor.isDestructive
                     )
                 ).confirmed
             }
             if confirmed == false {
                 emit(.feedback(.info("Action cancelled")))
-                return .denied(message: "Action cancelled")
+                return .denied(message: String(localized: "Action cancelled"))
             }
         }
 

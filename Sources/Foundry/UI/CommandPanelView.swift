@@ -92,7 +92,11 @@ struct CommandPanelView: View {
         let feedbackWrapped = highlighted.overlay(alignment: Alignment.bottom) {
             if let actionFeedback = state.actionFeedback {
                 FoundryGlassSurface(role: .floatingOverlay, shape: Capsule()) {
-                    Label(actionFeedback.message, systemImage: actionFeedback.symbolName)
+                    Label {
+                        Text(actionFeedback.message)
+                    } icon: {
+                        Image(systemName: actionFeedback.symbolName)
+                    }
                         .font(FoundryTheme.body)
                         .foregroundStyle(actionFeedbackColor(actionFeedback))
                         .padding(.horizontal, 12)
@@ -321,7 +325,7 @@ struct CommandPanelView: View {
         case .translator:
             FeatureTitle(symbol: "globe", title: "Translate")
         case .developerTools:
-            FeatureTitle(symbol: "hammer", title: state.developerTools.selectedTool.rawValue)
+            FeatureTitle(symbol: "hammer", title: LocalizedStringResource("\(state.developerTools.selectedTool.rawValue)"))
         case .mediaDownloads:
             FeatureTitle(symbol: "arrow.down.circle", title: "Downloads")
         case .search:
@@ -837,10 +841,13 @@ struct CommandPanelView: View {
 
     private var searchFooterActions: [FooterActionSpec] {
         if state.session.isShowingActions {
-            return [.init(label: state.session.selectedAction?.title ?? "Run", keys: "↵", emphasized: true), .init(label: "Back", keys: "esc")]
+            return [
+                .init(label: state.session.selectedAction.map { LocalizedStringResource("\($0.title)") } ?? "Run", keys: "↵", emphasized: true),
+                .init(label: "Back", keys: "esc"),
+            ]
         }
         let primary = FooterActionSpec(
-            label: isWindowLayoutQuery ? "Apply" : state.session.preferredActionTitle,
+            label: isWindowLayoutQuery ? "Apply" : LocalizedStringResource("\(state.session.preferredActionTitle)"),
             keys: "↵",
             emphasized: true
         )

@@ -48,7 +48,7 @@ struct FeatureHeader<Content: View, Trailing: View>: View {
 
 struct FeatureTitle: View {
     let symbol: String
-    let title: String
+    let title: LocalizedStringResource
 
     var body: some View {
         HStack(spacing: 12) {
@@ -65,7 +65,7 @@ struct FeatureTitle: View {
 }
 
 struct FooterActionSpec {
-    let label: String
+    let label: LocalizedStringResource
     let keys: String
     var emphasized = false
 
@@ -191,8 +191,8 @@ struct FooterAction: View {
 }
 
 struct EmptyState: View {
-    let title: String
-    var message: String? = nil
+    let title: LocalizedStringResource
+    var message: LocalizedStringResource? = nil
     var symbol: String? = nil
     var isLoading = false
 

@@ -92,7 +92,7 @@ extension SnippetState: PanelFeature {
     ) -> Bool {
         guard shortcut.key == "\r", selectedItem != nil else { return false }
         copySelected()
-        panel.showActionFeedback(.success("Copied snippet"))
+        panel.showActionFeedback(.success(String(localized: "Copied snippet")))
         dismiss()
         return true
     }

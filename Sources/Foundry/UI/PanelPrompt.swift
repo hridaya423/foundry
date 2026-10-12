@@ -5,19 +5,19 @@ import Foundation
 /// replacement for NSAlert. Built by actions, rendered by
 /// `CommandPanelView`, resolved through `CommandPanelState.requestPrompt`.
 struct PanelPromptSpec {
-    var title: String
-    var message: String?
+    var title: LocalizedStringResource
+    var message: LocalizedStringResource?
     var fields: [Field] = []
     var picker: Picker?
     var image: NSImage?
-    var confirmLabel: String
-    var cancelLabel: String?
+    var confirmLabel: LocalizedStringResource
+    var cancelLabel: LocalizedStringResource?
     var isDestructive = false
 
     /// A labeled single-line input.
     struct Field: Identifiable {
         let id: String
-        let placeholder: String
+        let placeholder: LocalizedStringResource
         var isSecure = false
         var initial = ""
     }
@@ -25,15 +25,15 @@ struct PanelPromptSpec {
     /// One labeled option row rendered as a segmented picker.
     struct Picker {
         let id: String
-        let options: [String]
+        let options: [LocalizedStringResource]
         var selected: Int
     }
 
     /// Confirm/cancel-only prompt (ConfirmBar).
     static func confirmation(
-        title: String,
-        message: String? = nil,
-        confirmLabel: String,
+        title: LocalizedStringResource,
+        message: LocalizedStringResource? = nil,
+        confirmLabel: LocalizedStringResource,
         isDestructive: Bool = false
     ) -> PanelPromptSpec {
         PanelPromptSpec(

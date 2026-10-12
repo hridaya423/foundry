@@ -148,7 +148,7 @@ struct ResetRankingAction: ResultAction, Equatable {
 
     func perform(_ ctx: ActionContext) async -> CommandOutcome {
         ctx.resetRanking(commandID)
-        return ctx.finish(.stayOpen(message: "Ranking reset"), feedback: .success("Ranking reset"))
+        return ctx.finish(.stayOpen(message: String(localized: "Ranking reset")), feedback: .success(String(localized: "Ranking reset")))
     }
 }
 
@@ -157,7 +157,7 @@ struct CelebrateAction: ResultAction, Equatable {
 
     func perform(_ ctx: ActionContext) async -> CommandOutcome {
         ctx.panel.celebrate()
-        return ctx.finish(.stayOpen(message: nil), feedback: .success("🎉"))
+        return ctx.finish(.stayOpen(message: nil), feedback: .success(String(localized: "🎉")))
     }
 }
 
@@ -167,7 +167,7 @@ struct QuitAction: ResultAction, Equatable {
 
     func perform(_ ctx: ActionContext) async -> CommandOutcome {
         NSApp.terminate(nil)
-        return .success(message: "Quitting Foundry")
+        return .success(message: String(localized: "Quitting Foundry"))
     }
 }
 

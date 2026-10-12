@@ -27,8 +27,10 @@ final class FirefoxConnectorInstaller {
         Task { @MainActor in
             let prompt = await requestPrompt(PanelPromptSpec(
                 title: "Connect Foundry to Firefox?",
-                message: "Foundry can connect to your open Firefox tabs. Firefox will open its Add-ons Debugging page " +
-                    "and Finder will show the local connector package for you to load. Foundry only receives tab titles and URLs.",
+                message: """
+                    Foundry can connect to your open Firefox tabs. Firefox will open its Add-ons Debugging page \
+                    and Finder will show the local connector package for you to load. Foundry only receives tab titles and URLs.
+                    """,
                 confirmLabel: "Install Connector",
                 cancelLabel: "Not Now"
             ))

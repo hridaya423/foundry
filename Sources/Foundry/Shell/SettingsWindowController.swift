@@ -14,7 +14,7 @@ final class SettingsWindowController: NSWindowController {
             backing: .buffered,
             defer: false
         )
-        window.title = "Settings"
+        window.title = String(localized: "Settings")
         window.minSize = NSSize(width: 680, height: 480)
         window.isReleasedWhenClosed = false
         window.setFrameAutosaveName("FoundrySettings")

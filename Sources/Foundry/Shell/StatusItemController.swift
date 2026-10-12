@@ -17,7 +17,7 @@ struct StatusItemMenuModel: Equatable {
 
     struct Item: Equatable {
         let kind: ItemKind
-        let title: String
+        let title: LocalizedStringResource
         let keyEquivalent: String
         let keyEquivalentModifierMask: NSEvent.ModifierFlags
         var isOn: Bool = false
@@ -78,7 +78,7 @@ final class StatusItemController: NSObject, NSMenuDelegate {
             guard statusItem == nil else { return }
             let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
             if let button = item.button {
-                let image = NSImage(systemSymbolName: "command", accessibilityDescription: "Foundry")
+                let image = NSImage(systemSymbolName: "command", accessibilityDescription: String(localized: "Foundry"))
                 image?.isTemplate = true
                 button.image = image
             }
@@ -105,7 +105,7 @@ final class StatusItemController: NSObject, NSMenuDelegate {
                 menu.addItem(.separator())
                 continue
             }
-            let menuItem = NSMenuItem(title: item.title, action: #selector(performItemAction(_:)), keyEquivalent: item.keyEquivalent)
+            let menuItem = NSMenuItem(title: String(localized: item.title), action: #selector(performItemAction(_:)), keyEquivalent: item.keyEquivalent)
             menuItem.keyEquivalentModifierMask = item.keyEquivalentModifierMask
             menuItem.representedObject = item.kind
             menuItem.target = self

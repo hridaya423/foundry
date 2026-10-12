@@ -36,7 +36,7 @@ struct CopyFileAction: ResultAction, Equatable {
         ctx.pasteboard.clearContents()
         ctx.pasteboard.writeObjects([url as NSURL])
         ctx.diagnostics.log("Copied file")
-        return ctx.finish(.copied(content: path), feedback: .success("Copied \u{201C}\(url.lastPathComponent)\u{201D}"))
+        return ctx.finish(.copied(content: path), feedback: .success(String(localized: "Copied \u{201C}\(url.lastPathComponent)\u{201D}")))
     }
 }
 
@@ -58,11 +58,13 @@ struct PasteTextAction: ResultAction, Equatable {
         do {
             try ctx.directPasteService.stage(.text(value), cursorOffset: cursorOffset)
             ctx.diagnostics.log("Staged direct paste")
-            return ctx.finish(.pasted(content: value), feedback: .success("Inserted snippet"))
+            return ctx.finish(.pasted(content: value), feedback: .success(String(localized: "Inserted snippet")))
         } catch DirectPasteError.missingTarget {
-            return ctx.finish(.stayOpen(message: "No originating application is available"), feedback: .failure("No originating application is available"))
+            return ctx.finish(
+                .stayOpen(message: String(localized: "No originating application is available")),
+                 feedback: .failure(String(localized: "No originating application is available")))
         } catch {
-            return ctx.finish(.stayOpen(message: "Could not stage paste"), feedback: .failure("Could not stage paste"))
+            return ctx.finish(.stayOpen(message: String(localized: "Could not stage paste")), feedback: .failure(String(localized: "Could not stage paste")))
         }
     }
 }
@@ -72,15 +74,19 @@ struct PasteClipboardAsPlainTextAction: ResultAction, Equatable {
 
     func perform(_ ctx: ActionContext) async -> CommandOutcome {
         guard let text = ctx.pasteboard.string(forType: .string), text.isEmpty == false else {
-            return ctx.finish(.failure(message: "Clipboard has no text", retryable: false), feedback: .info("Clipboard has no text"))
+            return ctx.finish(
+                .failure(message: String(localized: "Clipboard has no text"), retryable: false),
+                 feedback: .info(String(localized: "Clipboard has no text")))
         }
         do {
             try ctx.directPasteService.stage(.text(text), cursorOffset: 0)
-            return ctx.finish(.pasted(content: text), feedback: .success("Pasted as plain text"))
+            return ctx.finish(.pasted(content: text), feedback: .success(String(localized: "Pasted as plain text")))
         } catch DirectPasteError.missingTarget {
-            return ctx.finish(.stayOpen(message: "No originating application is available"), feedback: .failure("No originating application is available"))
+            return ctx.finish(
+                .stayOpen(message: String(localized: "No originating application is available")),
+                 feedback: .failure(String(localized: "No originating application is available")))
         } catch {
-            return ctx.finish(.stayOpen(message: "Could not stage paste"), feedback: .failure("Could not stage paste"))
+            return ctx.finish(.stayOpen(message: String(localized: "Could not stage paste")), feedback: .failure(String(localized: "Could not stage paste")))
         }
     }
 }

@@ -223,7 +223,7 @@ final class SettingsStore {
             try configService.resetToDefaults()
             configLoadError = nil
             panel?.applyRestoredConfiguration()
-            panel?.showActionFeedback(.success("Settings reset"))
+            panel?.showActionFeedback(.success(String(localized: "Settings reset")))
         } catch {
             settingsPersistenceError = "Could not reset Foundry settings. Your existing configuration was kept."
             diagnostics.log("Settings reset failed: \(error.localizedDescription)")
@@ -262,7 +262,7 @@ final class SettingsStore {
             // re-apply them onto the restored config.
             ScriptDirectoryStore.shared.directories = backup.scriptDirectories
             panel?.applyRestoredConfiguration()
-            panel?.showActionFeedback(.success("Backup imported"))
+            panel?.showActionFeedback(.success(String(localized: "Backup imported")))
         } catch {
             settingsPersistenceError = "Could not import the backup. Your previous files are kept as .pre-import copies."
             diagnostics.log("Backup import failed: \(error.localizedDescription)")
@@ -348,7 +348,7 @@ final class SettingsStore {
     func setSnippetExpansionError(_ message: String?) { snippetExpansionError = message }
 
     func setDirectPasteError(_ error: Error) {
-        panel?.showActionFeedback(.failure("Couldn't paste: \(error.localizedDescription)"))
+        panel?.showActionFeedback(.failure(String(localized: "Couldn't paste: \(error.localizedDescription)")))
         diagnostics.log("Direct paste failed: \(error.localizedDescription)")
     }
 

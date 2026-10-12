@@ -100,7 +100,7 @@ struct ExtractTextFromImageAction: ResultAction, Equatable {
             let lines = try await VisionText.recognizeText(at: url)
             let text = lines.joined(separator: "\n")
             guard text.isEmpty == false else {
-                return .failure(message: "No text found in \(url.lastPathComponent)", retryable: false)
+                return .failure(message: String(localized: "No text found in \(url.lastPathComponent)"), retryable: false)
             }
             ctx.pasteboard.clearContents()
             ctx.pasteboard.setString(text, forType: .string)
@@ -108,7 +108,7 @@ struct ExtractTextFromImageAction: ResultAction, Equatable {
             return .copied(content: text)
         } catch {
             ctx.diagnostics.log("OCR failed: \(error.localizedDescription)")
-            return .failure(message: "Could not extract text", retryable: true)
+            return .failure(message: String(localized: "Could not extract text"), retryable: true)
         }
     }
 }
@@ -125,12 +125,12 @@ struct PreviewExtractedTextAction: ResultAction, Equatable {
             let lines = try await VisionText.recognizeText(at: url)
             guard try presentExtractedText(lines, sourceName: url.deletingPathExtension().lastPathComponent, suffix: "OCR",
                 onQuickLook: ctx.panel.onQuickLook) else {
-                return .failure(message: "No text found in \(url.lastPathComponent)", retryable: false)
+                return .failure(message: String(localized: "No text found in \(url.lastPathComponent)"), retryable: false)
             }
             return ctx.panel.onQuickLook == nil ? .success(message: nil) : .stayOpen(message: nil)
         } catch {
             ctx.diagnostics.log("OCR preview failed: \(error.localizedDescription)")
-            return .failure(message: "Could not extract text", retryable: true)
+            return .failure(message: String(localized: "Could not extract text"), retryable: true)
         }
     }
 }
@@ -189,11 +189,11 @@ struct PickColorAction: ResultAction, Equatable {
         }
         let recentOptions = Array(recents.prefix(4))
         let prompt = await ctx.panel.requestPrompt(PanelPromptSpec(
-            title: hex,
+            title: LocalizedStringResource("\(hex)"),
             message: "Pick a format to copy.\n\(Self.contrastSummary(for: color))",
             picker: PanelPromptSpec.Picker(
                 id: "format",
-                options: formats.map(\.label) + recentOptions,
+                options: (formats.map(\.label) + recentOptions).map { LocalizedStringResource("\($0)") },
                 selected: 0
             ),
             image: swatch,
@@ -289,10 +289,10 @@ struct GenerateQRCodeAction: ResultAction, Equatable {
 
     func perform(_ ctx: ActionContext) async -> CommandOutcome {
         guard let content = ctx.pasteboard.string(forType: .string)?.trimmingCharacters(in: .whitespacesAndNewlines), content.isEmpty == false else {
-            return .failure(message: "Clipboard has no text to encode", retryable: false)
+            return .failure(message: String(localized: "Clipboard has no text to encode"), retryable: false)
         }
         guard let image = qrImage(for: content) else {
-            return .failure(message: "Could not generate QR code", retryable: false)
+            return .failure(message: String(localized: "Could not generate QR code"), retryable: false)
         }
         ctx.pasteboard.clearContents()
         ctx.pasteboard.writeObjects([image])
@@ -306,9 +306,10 @@ struct GenerateQRCodeAction: ResultAction, Equatable {
     /// the panel prompt: under tests the default port declines, so modal
     /// UI never runs.
     @MainActor static func presentSaveOffer(_ image: NSImage, content: String, ctx: ActionContext) async {
+        let preview = content.count > 120 ? String(content.prefix(120)) + "…" : content
         let offer = await ctx.panel.requestPrompt(PanelPromptSpec(
             title: "QR code copied to clipboard",
-            message: content.count > 120 ? String(content.prefix(120)) + "…" : content,
+            message: "\(preview)",
             confirmLabel: "Save as PNG…",
             cancelLabel: "Done"
         ))
@@ -326,7 +327,7 @@ struct GenerateQRCodeAction: ResultAction, Equatable {
         } catch {
             _ = await ctx.panel.requestPrompt(PanelPromptSpec(
                 title: "Couldn't save the QR code",
-                message: error.localizedDescription,
+                message: "\(error.localizedDescription)",
                 confirmLabel: "OK",
                 cancelLabel: nil
             ))
@@ -387,11 +388,11 @@ struct GenerateWiFiQRCodeAction: ResultAction, Equatable {
         guard prompt.confirmed else { return .cancelled }
         let network = (prompt.texts.first ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
         guard network.isEmpty == false else {
-            return .failure(message: "Enter a network name", retryable: true)
+            return .failure(message: String(localized: "Enter a network name"), retryable: true)
         }
         let payload = wifiQRPayload(ssid: network, password: prompt.texts.dropFirst().first ?? "", security: prompt.selection)
         guard let image = qrImage(for: payload) else {
-            return .failure(message: "Could not generate QR code", retryable: false)
+            return .failure(message: String(localized: "Could not generate QR code"), retryable: false)
         }
         ctx.pasteboard.clearContents()
         ctx.pasteboard.writeObjects([image])
@@ -409,7 +410,7 @@ struct ReadQRCodeAction: ResultAction, Equatable {
             ctx.emit(.status("Scanning image…"))
             let payloads = try await VisionText.readBarcodes(at: url)
             guard let payload = payloads.first else {
-                return .failure(message: "No QR code found in \(url.lastPathComponent)", retryable: false)
+                return .failure(message: String(localized: "No QR code found in \(url.lastPathComponent)"), retryable: false)
             }
             ctx.pasteboard.clearContents()
             ctx.pasteboard.setString(payload, forType: .string)
@@ -418,7 +419,7 @@ struct ReadQRCodeAction: ResultAction, Equatable {
             return .copied(content: payload)
         } catch {
             ctx.diagnostics.log("QR decode failed: \(error.localizedDescription)")
-            return ctx.finish(.failure(message: "Could not read QR code", retryable: true))
+            return ctx.finish(.failure(message: String(localized: "Could not read QR code"), retryable: true))
         }
     }
 }
@@ -433,7 +434,7 @@ struct RecognizeScreenTextAction: ResultAction, Equatable {
         do {
             _ = try await ProcessRunner.run(path: "/usr/sbin/screencapture", arguments: ["-i", "-x", temporary.path], timeout: 120)
         } catch {
-            return .failure(message: "Could not capture the screen", retryable: true)
+            return .failure(message: String(localized: "Could not capture the screen"), retryable: true)
         }
         defer { try? FileManager.default.removeItem(at: temporary) }
         guard FileManager.default.fileExists(atPath: temporary.path) else { return .cancelled }
@@ -442,7 +443,7 @@ struct RecognizeScreenTextAction: ResultAction, Equatable {
             let lines = try await VisionText.recognizeText(at: temporary)
             let text = lines.joined(separator: "\n")
             guard text.isEmpty == false else {
-                return .failure(message: "No text found in the captured region", retryable: false)
+                return .failure(message: String(localized: "No text found in the captured region"), retryable: false)
             }
             ctx.pasteboard.clearContents()
             ctx.pasteboard.setString(text, forType: .string)
@@ -451,7 +452,7 @@ struct RecognizeScreenTextAction: ResultAction, Equatable {
             return .copied(content: text)
         } catch {
             ctx.diagnostics.log("Screen OCR failed: \(error.localizedDescription)")
-            return ctx.finish(.failure(message: "Could not extract text", retryable: true))
+            return ctx.finish(.failure(message: String(localized: "Could not extract text"), retryable: true))
         }
     }
 }

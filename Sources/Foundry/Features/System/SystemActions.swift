@@ -100,7 +100,7 @@ struct TerminateProcessAction: ResultAction, Equatable {
         do {
             if kill(pid, SIGTERM) == 0 {
                 ctx.diagnostics.log("Terminated process \(pid)")
-                return ctx.finish(.success(message: "Terminated process"), feedback: .success("Terminated process"))
+                return ctx.finish(.success(message: String(localized: "Terminated process")), feedback: .success(String(localized: "Terminated process")))
             } else {
                 throw POSIXError(POSIXErrorCode(rawValue: errno) ?? .EPERM)
             }
@@ -109,7 +109,9 @@ struct TerminateProcessAction: ResultAction, Equatable {
                 return .cancelled
             }
             ctx.diagnostics.log("Failed to terminate process \(pid): \(error.localizedDescription)")
-            return ctx.finish(.failure(message: "Could not terminate process", retryable: true), feedback: .failure("Could not terminate process"))
+            return ctx.finish(
+                .failure(message: String(localized: "Could not terminate process"), retryable: true),
+                 feedback: .failure(String(localized: "Could not terminate process")))
         }
     }
 }
@@ -129,14 +131,16 @@ struct QuitApplicationAction: ResultAction, Equatable {
         if let running {
             if running.terminate() || running.forceTerminate() {
                 ctx.diagnostics.log("Quit \(name)")
-                return ctx.finish(.success(message: "Quit \(name)"), feedback: .success("Quit \(name)"))
+                return ctx.finish(.success(message: String(localized: "Quit \(name)")), feedback: .success(String(localized: "Quit \(name)")))
             } else {
                 ctx.diagnostics.log("Failed to quit \(name)")
-                return ctx.finish(.failure(message: "Could not quit \(name)", retryable: true), feedback: .failure("Could not quit \(name)"))
+                return ctx.finish(
+                    .failure(message: String(localized: "Could not quit \(name)"), retryable: true),
+                     feedback: .failure(String(localized: "Could not quit \(name)")))
             }
         } else {
             ctx.diagnostics.log("\(name) is not running")
-            return .failure(message: "\(name) is not running", retryable: false)
+            return .failure(message: String(localized: "\(name) is not running"), retryable: false)
         }
     }
 }
@@ -151,11 +155,13 @@ struct ForceQuitApplicationAction: ResultAction, Equatable {
     func perform(_ ctx: ActionContext) async -> CommandOutcome {
         guard let running = NSWorkspace.shared.runningApplications.first(where: { $0.bundleIdentifier == bundleID && bundleID != nil
             || $0.localizedName == name }) else {
-            return .failure(message: "\(name) is not running", retryable: false)
+            return .failure(message: String(localized: "\(name) is not running"), retryable: false)
         }
         return running.forceTerminate()
-            ? ctx.finish(.success(message: "Force quit \(name)"), feedback: .success("Force quit \(name)"))
-            : ctx.finish(.failure(message: "Could not force quit \(name)", retryable: true), feedback: .failure("Could not force quit \(name)"))
+            ? ctx.finish(.success(message: String(localized: "Force quit \(name)")), feedback: .success(String(localized: "Force quit \(name)")))
+            : ctx.finish(
+                .failure(message: String(localized: "Could not force quit \(name)"), retryable: true),
+                 feedback: .failure(String(localized: "Could not force quit \(name)")))
     }
 }
 
@@ -167,8 +173,13 @@ struct HideApplicationAction: ResultAction, Equatable {
 
     func perform(_ ctx: ActionContext) async -> CommandOutcome {
         let hidden = NSRunningApplication.runningApplications(withBundleIdentifier: bundleID).map { $0.hide() }.contains(true)
-        return hidden ? ctx.finish(.success(message: "Hid \(name)"), feedback: .success("Hid \(name)")) : .failure(message: "\(name) is not running",
-            retryable: false)
+        if hidden {
+            return ctx.finish(
+                .success(message: String(localized: "Hid \(name)")),
+                feedback: .success(String(localized: "Hid \(name)"))
+            )
+        }
+        return .failure(message: String(localized: "\(name) is not running"), retryable: false)
     }
 }
 
@@ -180,7 +191,9 @@ struct QuitAllApplicationsAction: ResultAction, Equatable {
         let spared: Set<String> = [Bundle.main.bundleIdentifier ?? "", "com.apple.finder"]
         let targets = NSWorkspace.shared.runningApplications.filter { $0.activationPolicy == .regular && spared.contains($0.bundleIdentifier ?? "") == false }
         let quit = targets.filter { $0.terminate() }.count
-        return ctx.finish(.success(message: "Asked \(quit) apps to quit"), feedback: .success("Asked \(quit) apps to quit"))
+        return ctx.finish(
+            .success(message: String(localized: "Asked \(quit) apps to quit")),
+             feedback: .success(String(localized: "Asked \(quit) apps to quit")))
     }
 }
 
@@ -195,7 +208,9 @@ struct ToggleKeepAwakeAction: ResultAction, Equatable {
                 feedback: .success(state ? "Keep Awake enabled" : "Keep Awake disabled"))
         } catch {
             ctx.diagnostics.log("Could not update Keep Awake: \(error.localizedDescription)")
-            return ctx.finish(.failure(message: "Could not update Keep Awake", retryable: true), feedback: .failure("Could not update Keep Awake"))
+            return ctx.finish(
+                .failure(message: String(localized: "Could not update Keep Awake"), retryable: true),
+                 feedback: .failure(String(localized: "Could not update Keep Awake")))
         }
     }
 }
@@ -218,14 +233,14 @@ struct EmptyTrashAction: ResultAction, Equatable {
                 timeout: 60
             )
             guard result.succeeded else {
-                return .failure(message: "Finder could not empty the Trash", retryable: true)
+                return .failure(message: String(localized: "Finder could not empty the Trash"), retryable: true)
             }
             ctx.diagnostics.log("Emptied trash")
             ctx.emit(.feedback(.success("Trash emptied")))
-            return .success(message: "Trash emptied")
+            return .success(message: String(localized: "Trash emptied"))
         } catch {
             ctx.diagnostics.log("Empty Trash failed: \(error.localizedDescription)")
-            return ctx.finish(.failure(message: "Could not empty the Trash", retryable: true))
+            return ctx.finish(.failure(message: String(localized: "Could not empty the Trash"), retryable: true))
         }
     }
 }
@@ -256,7 +271,7 @@ struct ToggleDesktopIconsAction: ResultAction, Equatable {
             return .success(message: message)
         } catch {
             ctx.diagnostics.log("Desktop icon toggle failed: \(error.localizedDescription)")
-            return ctx.finish(.failure(message: "Could not toggle desktop icons", retryable: true))
+            return ctx.finish(.failure(message: String(localized: "Could not toggle desktop icons"), retryable: true))
         }
     }
 }
@@ -292,8 +307,8 @@ struct TerminatePortAction: ResultAction, Equatable {
                 return .cancelled
             }
             ctx.diagnostics.log("Failed to stop port \(port): \(error.localizedDescription)")
-            return ctx.finish(.failure(message: "Couldn't stop the process on port \(port)", retryable: true),
-                feedback: .failure("Couldn't stop the process on port \(port)"))
+            return ctx.finish(.failure(message: String(localized: "Couldn't stop the process on port \(port)"), retryable: true),
+                feedback: .failure(String(localized: "Couldn't stop the process on port \(port)")))
         }
     }
 }
@@ -308,10 +323,12 @@ struct SetAudioDeviceAction: ResultAction, Equatable {
         do {
             try AudioDeviceController.setDevice(id: id, kind: kind)
             ctx.diagnostics.log("Updated \(kind == .output ? "output" : "input") audio device")
-            return ctx.finish(.success(message: "Audio device updated"), feedback: .success("Audio device updated"))
+            return ctx.finish(.success(message: String(localized: "Audio device updated")), feedback: .success(String(localized: "Audio device updated")))
         } catch {
             ctx.diagnostics.log("Failed to switch audio device: \(error.localizedDescription)")
-            return ctx.finish(.failure(message: "Could not switch audio device", retryable: true), feedback: .failure("Could not switch audio device"))
+            return ctx.finish(
+                .failure(message: String(localized: "Could not switch audio device"), retryable: true),
+                 feedback: .failure(String(localized: "Could not switch audio device")))
         }
     }
 }
@@ -324,7 +341,7 @@ struct RebuildAppAction: ResultAction, Equatable {
         #if DEBUG
         guard let sourceRoot = SourceRootLocator.locate() else {
             ctx.diagnostics.log("Cannot rebuild Foundry: source root is unavailable")
-            return .failure(message: "Cannot rebuild Foundry", retryable: false)
+            return .failure(message: String(localized: "Cannot rebuild Foundry"), retryable: false)
         }
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/bin/zsh")
@@ -333,14 +350,14 @@ struct RebuildAppAction: ResultAction, Equatable {
         do {
             try process.run()
             ctx.diagnostics.log("Started Foundry app rebuild")
-            return .success(message: "Started Foundry app rebuild")
+            return .success(message: String(localized: "Started Foundry app rebuild"))
         } catch {
             ctx.diagnostics.log("Failed to rebuild Foundry app: \(error.localizedDescription)")
-            return .failure(message: "Failed to rebuild Foundry app", retryable: true)
+            return .failure(message: String(localized: "Failed to rebuild Foundry app"), retryable: true)
         }
         #else
         ctx.diagnostics.log("Cannot rebuild Foundry outside a debug build")
-        return .failure(message: "Cannot rebuild Foundry", retryable: false)
+        return .failure(message: String(localized: "Cannot rebuild Foundry"), retryable: false)
         #endif
     }
 }
@@ -367,7 +384,7 @@ struct RunProcessAction: ResultAction, Equatable {
                 return .cancelled
             }
             ctx.diagnostics.log("Failed to run \(path): \(error.localizedDescription)")
-            return .failure(message: "Failed to run process", retryable: true)
+            return .failure(message: String(localized: "Failed to run process"), retryable: true)
         }
     }
 }

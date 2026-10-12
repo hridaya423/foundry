@@ -247,7 +247,7 @@ final class CommandPanelState {
             session.refreshResults()
         case let .fileResults(urls):
             if urls.isEmpty {
-                showActionFeedback(.info("No files found"))
+                showActionFeedback(.info(String(localized: "No files found")))
             } else {
                 NSWorkspace.shared.activateFileViewerSelecting(urls)
             }
@@ -256,7 +256,7 @@ final class CommandPanelState {
             if result.addedCount > 0 {
                 showActionFeedback(.success(result.addedCount == 1 ? "Added to File Shelf" : "Added \(result.addedCount) files to File Shelf"))
             } else {
-                showActionFeedback(.info("Already in the File Shelf"))
+                showActionFeedback(.info(String(localized: "Already in the File Shelf")))
             }
         case let .followUp(actionIDs):
             let availableIDs = Set(session.selectedActions.map(\.id))
@@ -265,7 +265,7 @@ final class CommandPanelState {
                 session.isShowingActions = true
                 session.selectedActionID = actionID
             } else {
-                showActionFeedback(.info("No follow-up action available"))
+                showActionFeedback(.info(String(localized: "No follow-up action available")))
             }
         case .success, .cancelled, .stayOpen(nil), .copied, .pasted:
             break
@@ -289,7 +289,7 @@ final class CommandPanelState {
     func executeCommand(commandID: String) async {
         guard let result = await registry.commandResult(for: commandID) else {
             diagnostics.log("Command hotkey target is unavailable: \(commandID)")
-            showActionFeedback(.failure("That command is no longer available"))
+            showActionFeedback(.failure(String(localized: "That command is no longer available")))
             return
         }
         session.results = [result]

@@ -44,9 +44,9 @@ struct PanelPromptOverlay: View {
             ForEach(Array(spec.fields.enumerated()), id: \.element.id) { index, field in
                 Group {
                     if field.isSecure {
-                        SecureField(field.placeholder, text: $texts[index])
+                        SecureField(String(localized: field.placeholder), text: $texts[index])
                     } else {
-                        TextField(field.placeholder, text: $texts[index])
+                        TextField(String(localized: field.placeholder), text: $texts[index])
                     }
                 }
                 .textFieldStyle(.plain)
@@ -62,7 +62,7 @@ struct PanelPromptOverlay: View {
             if let picker = spec.picker {
                 HStack(spacing: 4) {
                     ForEach(Array(picker.options.enumerated()), id: \.offset) { index, option in
-                        Button(option) { selection = index }
+                        Button(String(localized: option)) { selection = index }
                             .buttonStyle(.plain)
                             .font(FoundryTheme.bodySecondary)
                             .foregroundStyle(selection == index ? FoundryTheme.textPrimary : FoundryTheme.textTertiary)
@@ -78,14 +78,14 @@ struct PanelPromptOverlay: View {
 
             HStack(spacing: 8) {
                 if let cancelLabel = spec.cancelLabel {
-                    Button(cancelLabel) { resolve(.cancelled) }
+                    Button(String(localized: cancelLabel)) { resolve(.cancelled) }
                         .buttonStyle(FoundryQuietButtonStyle())
                         .font(FoundryTheme.bodySecondary)
                         .padding(.horizontal, 10)
                         .frame(height: 26)
                 }
                 Spacer()
-                Button(spec.confirmLabel, action: confirm)
+                Button(String(localized: spec.confirmLabel), action: confirm)
                     .font(FoundryTheme.body)
                     .foregroundStyle(spec.isDestructive ? FoundryTheme.destructive : FoundryTheme.textPrimary)
                     .padding(.horizontal, 13)

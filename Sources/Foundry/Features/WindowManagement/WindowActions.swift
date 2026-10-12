@@ -19,11 +19,13 @@ struct TileWindowAction: ResultAction, Equatable {
             let message = "Window was constrained while applying \(WindowPlacementMetadata(resultPlacement).title.lowercased())"
             return ctx.finish(.success(message: message), feedback: .info(message))
         case .restored:
-            return ctx.finish(.success(message: "Restored previous window frame"), feedback: .success("Restored previous window frame"))
+            return ctx.finish(
+                .success(message: String(localized: "Restored previous window frame")),
+                 feedback: .success(String(localized: "Restored previous window frame")))
         case .needsAccessibilityPermission:
             return ctx.finish(
-                .stayOpen(message: "Accessibility permission required for window control"),
-                feedback: .failure("Grant Accessibility access in System Settings to control windows")
+                .stayOpen(message: String(localized: "Accessibility permission required for window control")),
+                feedback: .failure(String(localized: "Grant Accessibility access in System Settings to control windows"))
             )
         case let .failed(message):
             return ctx.finish(.failure(message: message, retryable: false), feedback: .failure(message))
