@@ -74,6 +74,64 @@ enum WindowFrameApplicationResult: Sendable, Equatable {
     case cancelled
 }
 
+/// Drives one AX frame application in the proven order — size, then position,
+/// then size again because some apps clamp the size during the move — and then
+/// accepts whatever frame the app settles at. Rollback happens only when an
+/// AX write itself returns an error; a slow-to-settle app (animated resizers,
+/// Electron) keeps its frame instead of being reverted.
+struct WindowFrameSettler: Sendable {
+    static let tolerance: CGFloat = 4
+
+    /// All closures work in AX coordinates (top-left origin, y-down).
+    var setSize: @Sendable (CGSize) -> Bool
+    var setPosition: @Sendable (CGPoint) -> Bool
+    var readFrame: @Sendable () -> CGRect?
+    var rollback: @Sendable (CGRect) -> Void
+    var pollAttempts = 12
+    var pollInterval = Duration.milliseconds(25)
+
+    func apply(targetAX: CGRect, originalAX: CGRect) async -> WindowFrameApplicationResult {
+        let needsMove = abs(originalAX.minX - targetAX.minX) > 1 || abs(originalAX.minY - targetAX.minY) > 1
+        let needsResize = abs(originalAX.width - targetAX.width) > 1 || abs(originalAX.height - targetAX.height) > 1
+        if needsResize && setSize(targetAX.size) == false {
+            rollback(originalAX)
+            return .failed
+        }
+        if needsMove && setPosition(targetAX.origin) == false {
+            rollback(originalAX)
+            return .failed
+        }
+        if needsResize && setSize(targetAX.size) == false {
+            rollback(originalAX)
+            return .failed
+        }
+        for _ in 0..<pollAttempts {
+            if Task.isCancelled { return .cancelled }
+            if let actualAX = readFrame() {
+                if Self.matches(actualAX, targetAX) { return .applied(actualAX) }
+                if Self.acceptable(actualAX, targetAX) { return .constrained(actualAX) }
+            }
+            try? await Task.sleep(for: pollInterval)
+        }
+        guard let settledAX = readFrame() else { return .failed }
+        return Self.matches(settledAX, targetAX) ? .applied(settledAX) : .constrained(settledAX)
+    }
+
+    static func matches(_ actual: CGRect, _ target: CGRect) -> Bool {
+        abs(actual.minX - target.minX) <= tolerance
+            && abs(actual.minY - target.minY) <= tolerance
+            && abs(actual.width - target.width) <= tolerance
+            && abs(actual.height - target.height) <= tolerance
+    }
+
+    static func acceptable(_ actual: CGRect, _ target: CGRect) -> Bool {
+        abs(actual.minX - target.minX) <= tolerance
+            && abs(actual.minY - target.minY) <= tolerance
+            && actual.width >= 100
+            && actual.height >= 60
+    }
+}
+
 @MainActor
 final class NativeWindowManager: WindowManaging {
     static let accessibilitySettingsURL = URL(
@@ -190,13 +248,6 @@ final class NativeWindowManager: WindowManaging {
         CGRect(x: frame.minX, y: anchorHeight - frame.maxY, width: frame.width, height: frame.height)
     }
 
-    nonisolated static func isAcceptableConstrainedFrame(_ actualAXFrame: CGRect, targetAXFrame: CGRect) -> Bool {
-        abs(actualAXFrame.minX - targetAXFrame.minX) <= 4
-            && abs(actualAXFrame.minY - targetAXFrame.minY) <= 4
-            && actualAXFrame.width >= 100
-            && actualAXFrame.height >= 60
-    }
-
     private func currentTargetPID() -> pid_t? {
         if let target = targetProvider() {
             return target
@@ -292,8 +343,6 @@ private actor NativeWindowAccessibilityClient: WindowAccessibilityClient {
         guard let element else { return .failed }
         guard let originalAXFrame = currentFrame(of: element) else { return .failed }
         let targetAXFrame = NativeWindowManager.axFrame(fromAppKit: frame, anchorHeight: anchorHeight)
-        var position = targetAXFrame.origin
-        var size = targetAXFrame.size
         let needsMove = abs(originalAXFrame.minX - targetAXFrame.minX) > 1 || abs(originalAXFrame.minY - targetAXFrame.minY) > 1
         let needsResize = abs(originalAXFrame.width - targetAXFrame.width) > 1 || abs(originalAXFrame.height - targetAXFrame.height) > 1
         var canMove = DarwinBoolean(false)
@@ -302,29 +351,29 @@ private actor NativeWindowAccessibilityClient: WindowAccessibilityClient {
               needsResize == false || (AXUIElementIsAttributeSettable(element, attribute("AXSize"), &canResize) == .success && canResize.boolValue) else {
             return .failed
         }
-        guard let positionValue = AXValueCreate(.cgPoint, &position),
-              let sizeValue = AXValueCreate(.cgSize, &size),
-              (needsResize == false || AXUIElementSetAttributeValue(element, attribute("AXSize"), sizeValue) == .success),
-              (needsMove == false || AXUIElementSetAttributeValue(element, attribute("AXPosition"), positionValue) == .success) else {
-            _ = rollback(originalAXFrame, element: element)
-            return .failed
+        let settler = WindowFrameSettler(
+            setSize: { [self] size in
+                var size = size
+                guard let value = AXValueCreate(.cgSize, &size) else { return false }
+                return AXUIElementSetAttributeValue(element, attribute("AXSize"), value) == .success
+            },
+            setPosition: { [self] position in
+                var position = position
+                guard let value = AXValueCreate(.cgPoint, &position) else { return false }
+                return AXUIElementSetAttributeValue(element, attribute("AXPosition"), value) == .success
+            },
+            readFrame: { [self] in currentFrame(of: element) },
+            rollback: { [self] frame in _ = rollback(frame, element: element) }
+        )
+        let result = await settler.apply(targetAX: targetAXFrame, originalAX: originalAXFrame)
+        switch result {
+        case .applied(let ax):
+            return .applied(NativeWindowManager.appkitFrame(fromAX: ax, anchorHeight: anchorHeight))
+        case .constrained(let ax):
+            return .constrained(NativeWindowManager.appkitFrame(fromAX: ax, anchorHeight: anchorHeight))
+        case .failed, .cancelled:
+            return result
         }
-        for _ in 0..<12 {
-            if Task.isCancelled {
-                _ = rollback(originalAXFrame, element: element)
-                return .cancelled
-            }
-            if let actualAX = currentFrame(of: element) {
-                let actual = NativeWindowManager.appkitFrame(fromAX: actualAX, anchorHeight: anchorHeight)
-                if close(actual, to: frame) { return .applied(actual) }
-                if NativeWindowManager.isAcceptableConstrainedFrame(actualAX, targetAXFrame: targetAXFrame) {
-                    return .constrained(actual)
-                }
-            }
-            try? await Task.sleep(for: .milliseconds(25))
-        }
-        _ = rollback(originalAXFrame, element: element)
-        return .failed
     }
 
     private func standardWindow(_ element: AXUIElement, anchorHeight: CGFloat) -> AXWindowSnapshot? {
@@ -341,7 +390,7 @@ private actor NativeWindowAccessibilityClient: WindowAccessibilityClient {
         )
     }
 
-    private func rollback(_ frame: CGRect, element: AXUIElement) -> Bool {
+    private nonisolated func rollback(_ frame: CGRect, element: AXUIElement) -> Bool {
         var position = frame.origin
         var size = frame.size
         guard let positionValue = AXValueCreate(.cgPoint, &position),
@@ -379,7 +428,7 @@ private actor NativeWindowAccessibilityClient: WindowAccessibilityClient {
         return axWindows(value)
     }
 
-    private func currentFrame(of element: AXUIElement) -> CGRect? {
+    private nonisolated func currentFrame(of element: AXUIElement) -> CGRect? {
         var position: CFTypeRef?
         var size: CFTypeRef?
         guard AXUIElementCopyAttributeValue(element, attribute("AXPosition"), &position) == .success,
@@ -429,7 +478,7 @@ private actor NativeWindowAccessibilityClient: WindowAccessibilityClient {
         }.flatMap { $0[kCGWindowNumber as String] as? UInt32 }
     }
 
-    private func attribute(_ value: String) -> CFString {
+    private nonisolated func attribute(_ value: String) -> CFString {
         value as CFString
     }
 
