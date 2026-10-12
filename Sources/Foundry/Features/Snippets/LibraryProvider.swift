@@ -14,6 +14,7 @@ final class LibraryProvider: CommandProvider {
     func search(_ request: CommandSearchRequest) async -> [CommandResult] {
         let trimmed = request.query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard trimmed.isEmpty == false else { return [] }
+        let prepared = SearchScoring.PreparedQuery(query: trimmed)
 
         let snippetResults = snippetsCache.current()
             .sorted { lhs, rhs in
@@ -22,7 +23,7 @@ final class LibraryProvider: CommandProvider {
             }
             .filter { snippet in
                 SearchScoring.match(
-                    query: trimmed,
+                    query: prepared,
                     title: snippet.title,
                     subtitle: snippet.content,
                     keywords: [snippet.keyword] + snippet.tags,

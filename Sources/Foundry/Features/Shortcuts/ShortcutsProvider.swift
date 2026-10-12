@@ -36,10 +36,11 @@ final class ShortcutsProvider: CommandProvider, Sendable {
     func search(_ request: CommandSearchRequest) async -> [CommandResult] {
         let query = request.query.trimmingCharacters(in: .whitespaces)
         guard query.isEmpty == false else { return [] }
+        let prepared = SearchScoring.PreparedQuery(query: query)
         return cachedNames().compactMap { name in
             let id = "shortcut.\(name)"
             let aliases = request.customAliases[id] ?? []
-            guard SearchScoring.match(query: query, title: name, subtitle: nil, keywords: ["shortcut"], aliases: aliases,
+            guard SearchScoring.match(query: prepared, title: name, subtitle: nil, keywords: ["shortcut"], aliases: aliases,
                 sensitivity: request.sensitivity) != nil else { return nil }
             return CommandResult(
                 id: id,

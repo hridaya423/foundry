@@ -35,8 +35,9 @@ final class BrowserProvider: CommandProvider, Sendable {
             allRecords.append(contentsOf: records(for: source, kind: browserRequest.kind))
         }
 
+        let prepared = SearchScoring.PreparedQuery(query: browserRequest.search)
         return allRecords
-            .filter { browserRequest.search.isEmpty || $0.matches(browserRequest.search, sensitivity: request.sensitivity) }
+            .filter { browserRequest.search.isEmpty || $0.matches(prepared, sensitivity: request.sensitivity) }
             .map(makeResult)
     }
 
@@ -47,7 +48,7 @@ final class BrowserProvider: CommandProvider, Sendable {
     func cachedResults(matching query: String, sensitivity: SearchSensitivity = .medium) -> [CommandResult] {
         let search = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         guard search.count >= 2, let tabs = liveTabsCache.value(for: selectedMainBrowser) else { return [] }
-        return tabs.filter { $0.matches(search, sensitivity: sensitivity) }.prefix(50).map(makeResult)
+        return tabs.filter { $0.matches(SearchScoring.PreparedQuery(query: search), sensitivity: sensitivity) }.prefix(50).map(makeResult)
     }
 
     func supplementalResults(matching query: String, sensitivity: SearchSensitivity) -> [CommandResult] {
@@ -58,8 +59,9 @@ final class BrowserProvider: CommandProvider, Sendable {
         let request = BrowserSearchRequest(query: query)
         guard request.isBrowserIntent, request.search.count >= 2 else { return [] }
         let source = selectedMainBrowser
+        let prepared = SearchScoring.PreparedQuery(query: request.search)
         return records(for: source, kind: nil)
-            .filter { $0.matches(request.search, sensitivity: sensitivity) }
+            .filter { $0.matches(prepared, sensitivity: sensitivity) }
             .prefix(50)
             .map(makeResult)
     }
@@ -592,7 +594,7 @@ struct BrowserRecord: Sendable {
     let url: URL
     let icon: String
 
-    func matches(_ query: String, sensitivity: SearchSensitivity = .medium) -> Bool {
+    func matches(_ query: SearchScoring.PreparedQuery, sensitivity: SearchSensitivity = .medium) -> Bool {
         SearchScoring.match(
             query: query,
             title: title,

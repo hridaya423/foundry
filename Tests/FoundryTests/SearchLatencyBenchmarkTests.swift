@@ -33,12 +33,34 @@ final class SearchLatencyBenchmarkTests: XCTestCase {
         }
         coordinator.cancel()
 
-        let report: [String: Any] = [
+        var report: [String: Any] = [
             "driver": "Tests/FoundryTests/SearchLatencyBenchmarkTests.swift (in-process, default registry, 90 ms keystrokes, first round warm-up)",
             "unit": "ms",
             "search.immediate": Self.summary(immediate),
             "search.complete": Self.summary(complete)
         ]
+
+        if ProcessInfo.processInfo.environment["FOUNDRY_BENCH_PROFILE"] != nil {
+            var phaseWall: [Double] = []
+            var perProvider: [String: [Double]] = [:]
+            for query in queries {
+                for length in 1...query.count {
+                    let q = String(query.prefix(length))
+                    let start = ContinuousClock.now
+                    let phase = await registry.immediateSearchPhase(matching: q)
+                    phaseWall.append(Self.ms(ContinuousClock.now - start))
+                    for timing in phase.providerTimings {
+                        perProvider[timing.providerID, default: []].append(timing.elapsedMilliseconds)
+                    }
+                }
+            }
+            report["phase.wall"] = Self.summary(phaseWall)
+            var providerSummary: [String: Any] = [:]
+            for (id, values) in perProvider.sorted(by: { $0.key < $1.key }) {
+                providerSummary[id] = Self.summary(values)
+            }
+            report["provider.immediate"] = providerSummary
+        }
         let data = try JSONSerialization.data(withJSONObject: report, options: [.prettyPrinted, .sortedKeys])
         try data.write(to: URL(fileURLWithPath: out))
         XCTAssertFalse(immediate.isEmpty)

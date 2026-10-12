@@ -17,14 +17,15 @@ final class MacUtilitiesProvider: CommandProvider {
         let trimmed = request.query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard trimmed.isEmpty == false else { return [] }
 
+        let prepared = SearchScoring.PreparedQuery(query: trimmed)
         var results: [CommandResult] = []
-        results.append(contentsOf: keepAwakeResults(query: trimmed, sensitivity: request.sensitivity))
+        results.append(contentsOf: keepAwakeResults(query: prepared, sensitivity: request.sensitivity))
         results.append(contentsOf: killProcessResults(query: trimmed))
         results.append(contentsOf: quitAppResults(query: trimmed))
         results.append(contentsOf: runningAppResults(query: trimmed))
-        results.append(contentsOf: quitAllResults(query: trimmed, sensitivity: request.sensitivity))
+        results.append(contentsOf: quitAllResults(query: prepared, sensitivity: request.sensitivity))
         results.append(contentsOf: await portResults(query: trimmed))
-        results.append(contentsOf: audioDeviceResults(query: trimmed, sensitivity: request.sensitivity))
+        results.append(contentsOf: audioDeviceResults(prepared: prepared, sensitivity: request.sensitivity))
 
         return results
     }
@@ -46,7 +47,7 @@ final class MacUtilitiesProvider: CommandProvider {
         ]
     }
 
-    private func keepAwakeResults(query: String, sensitivity: SearchSensitivity) -> [CommandResult] {
+    private func keepAwakeResults(query: SearchScoring.PreparedQuery, sensitivity: SearchSensitivity) -> [CommandResult] {
         let aliases = ["coffee", "caffeinate", "awake", "sleep off", "keep awake"]
         guard SearchScoring.match(query: query, title: "Keep Awake", subtitle: nil, keywords: [], aliases: aliases,
             sensitivity: sensitivity) != nil else { return [] }
@@ -138,7 +139,7 @@ final class MacUtilitiesProvider: CommandProvider {
             }
     }
 
-    private func quitAllResults(query: String, sensitivity: SearchSensitivity) -> [CommandResult] {
+    private func quitAllResults(query: SearchScoring.PreparedQuery, sensitivity: SearchSensitivity) -> [CommandResult] {
         let aliases = ["close all apps", "quit everything", "quit all"]
         guard SearchScoring.match(query: query, title: "Quit All Apps", subtitle: nil, keywords: [], aliases: aliases,
             sensitivity: sensitivity) != nil else { return [] }
@@ -165,8 +166,8 @@ final class MacUtilitiesProvider: CommandProvider {
         ]
     }
 
-    private func audioDeviceResults(query: String, sensitivity: SearchSensitivity) -> [CommandResult] {
-        let normalized = SearchScoring.normalize(query)
+    private func audioDeviceResults(prepared: SearchScoring.PreparedQuery, sensitivity: SearchSensitivity) -> [CommandResult] {
+        let normalized = prepared.normalized
         let wantsOutput = normalized.contains("audio") || normalized.contains("sound") || normalized.contains("speaker") || normalized.contains("output")
         let wantsInput = normalized.contains("microphone") || normalized.contains("mic") || normalized.contains("input")
         guard wantsOutput || wantsInput else { return [] }
@@ -180,7 +181,7 @@ final class MacUtilitiesProvider: CommandProvider {
                 device.hasInput ? "input audio" : "",
             ].filter { $0.isEmpty == false }
             guard SearchScoring.match(
-                query: query,
+                query: prepared,
                 title: device.name,
                 subtitle: nil,
                 keywords: [],

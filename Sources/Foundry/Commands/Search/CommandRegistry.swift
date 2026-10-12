@@ -63,7 +63,7 @@ final class CommandRegistry: Sendable {
             $0.searchPolicy.tier == .immediate && $0.isActive(for: query)
         }
         let (providerCandidates, timings) = await collectCandidates(query: query, providers: activeProviders, aliases: customAliases,
-            timeout: .milliseconds(80))
+            timeout: .milliseconds(80), priority: .userInitiated)
         var candidates = providerCandidates.filter { isCommandEnabled($0.result) }
         let sensitivity = configService?.current.searchSensitivity ?? .medium
 
@@ -79,7 +79,8 @@ final class CommandRegistry: Sendable {
             results: Array(ranker.ordered(ranker.deduplicated(candidates), query: query).prefix(Self.resultLimit(for: query))),
             completedProviderIDs: Set(timings.compactMap { timing in
                 timing.status == .success ? timing.providerID : nil
-            })
+            }),
+            providerTimings: timings
         )
     }
 
@@ -93,7 +94,8 @@ final class CommandRegistry: Sendable {
             provider.searchPolicy.tier == .deferred || completedProviderIDs.contains(provider.id) == false
         }
         let collectSpan = diagnostics.startSpan("search.phase2.collect")
-        let (providerCandidates, timings) = await collectCandidates(query: query, providers: providers, aliases: customAliases, timeout: .milliseconds(250))
+        let (providerCandidates, timings) = await collectCandidates(query: query, providers: providers, aliases: customAliases,
+            timeout: .milliseconds(250), priority: .utility)
         diagnostics.endSpan(collectSpan)
         var candidates = initialResults.enumerated().map { index, result in
             RankCandidate(result: result, providerID: "foundry.immediate", sourceOrder: index)
@@ -251,7 +253,8 @@ final class CommandRegistry: Sendable {
         query: String,
         providers: [CommandProvider],
         aliases: [String: [String]],
-        timeout: Duration
+        timeout: Duration,
+        priority: TaskPriority
     ) async -> ([RankCandidate], [ProviderSearchTiming]) {
         let config = configService?.current
         return await providerScheduler.search(
@@ -260,7 +263,8 @@ final class CommandRegistry: Sendable {
             aliases: aliases,
             sensitivity: config?.searchSensitivity ?? .medium,
             snippetInsertAsPrimary: config?.snippetExpansion.insertAsPrimary ?? true,
-            timeout: timeout
+            timeout: timeout,
+            priority: priority
         )
     }
 
@@ -313,6 +317,7 @@ final class CommandRegistry: Sendable {
 struct CommandSearchPhase: Sendable {
     let results: [CommandResult]
     let completedProviderIDs: Set<String>
+    var providerTimings: [ProviderSearchTiming] = []
 }
 
 private actor CommandCatalogCache {

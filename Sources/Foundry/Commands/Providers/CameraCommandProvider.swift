@@ -7,8 +7,9 @@ final class CameraCommandProvider: CommandProvider {
 
     func search(_ request: CommandSearchRequest) async -> [CommandResult] {
         let aliases = request.customAliases[id] ?? []
+        let prepared = SearchScoring.PreparedQuery(query: request.query)
         guard SearchScoring.match(
-            query: request.query,
+            query: prepared,
             title: "Camera",
             subtitle: "Live camera preview inside Foundry",
             keywords: [],

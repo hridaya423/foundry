@@ -156,14 +156,15 @@ final class QuicklinkProvider: CommandProvider, Sendable {
     func search(_ request: CommandSearchRequest) async -> [CommandResult] {
         let query = request.query.trimmingCharacters(in: .whitespaces)
         guard query.isEmpty == false else { return [] }
-        let create = SearchScoring.match(query: query, title: Self.createCommand.title, subtitle: nil, keywords: ["new quicklink", "add quicklink"],
+        let prepared = SearchScoring.PreparedQuery(query: query)
+        let create = SearchScoring.match(query: prepared, title: Self.createCommand.title, subtitle: nil, keywords: ["new quicklink", "add quicklink"],
             aliases: [], sensitivity: request.sensitivity) != nil ? [Self.createCommand] : []
         return create + store.load().filter(\.isEnabled).compactMap { link in
             if link.takesArgument, let argument = argument(in: query, for: link) {
                 return result(for: link, argument: argument, aliases: request.customAliases["quicklink.\(link.id)"] ?? [])
             }
             let aliases = request.customAliases["quicklink.\(link.id)"] ?? []
-            guard SearchScoring.match(query: query, title: link.name, subtitle: nil, keywords: [],
+            guard SearchScoring.match(query: prepared, title: link.name, subtitle: nil, keywords: [],
                 aliases: aliases + [link.keyword].filter { !$0.isEmpty }, sensitivity: request.sensitivity) != nil else { return nil }
             return result(for: link, argument: nil, aliases: aliases)
         }

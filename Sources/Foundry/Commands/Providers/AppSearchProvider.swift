@@ -24,11 +24,38 @@ final class AppSearchProvider: CommandProvider, Sendable {
         let normalizedQuery = SearchScoring.PreparedQuery(query: request.query)
         guard normalizedQuery.normalized.isEmpty == false else { return [] }
 
+        let t0 = ContinuousClock.now
         let running = runningBundleIDs()
-        return await appCache.current().compactMap { app -> CommandResult? in
-            guard Task.isCancelled == false else { return nil }
+        let t1 = ContinuousClock.now
+        let apps = await appCache.current()
+        let t2 = ContinuousClock.now
+        let (results, probed) = await Self.scan(apps: apps, query: normalizedQuery, request: request, running: running)
+        if ProcessInfo.processInfo.environment["FOUNDRY_BENCH_PROFILE"] != nil {
+            let ms = { (d: Duration) in Double(d.components.seconds) * 1000 + Double(d.components.attoseconds) / 1e15 }
+            print("APPS running=\(ms(t1 - t0)) cache=\(ms(t2 - t1)) scan=\(ms(ContinuousClock.now - t2)) probed=\(probed)/\(apps.count) matched=\(results.count)")
+        }
+        return results
+    }
+
+    /// Scores the catalog against the prepared query. Large catalogs are split
+    /// into fixed chunks scored on cooperative-pool threads in parallel and
+    /// reassembled in catalog order, so results stay deterministic.
+    private static func scan(
+        apps: [InstalledApp],
+        query normalizedQuery: SearchScoring.PreparedQuery,
+        request: CommandSearchRequest,
+        running: Set<String>
+    ) async -> ([CommandResult], Int) {
+        func match(_ app: InstalledApp) -> (result: CommandResult?, probed: Bool) {
             let resultID = "app.\(app.identity)"
             let aliases = request.customAliases[resultID] ?? []
+            var searchableMask = app.searchableMask
+            for alias in aliases {
+                searchableMask |= SearchScoring.characterMask(SearchScoring.normalize(alias))
+            }
+            guard SearchScoring.probableMatch(query: normalizedQuery, searchableMask: searchableMask, sensitivity: request.sensitivity) else {
+                return (nil, false)
+            }
             guard SearchScoring.matchPrepared(
                 query: normalizedQuery,
                 normalizedTitle: app.normalizedName,
@@ -36,11 +63,44 @@ final class AppSearchProvider: CommandProvider, Sendable {
                 normalizedKeywords: app.normalizedSearchCandidates,
                 normalizedAliases: aliases.map(SearchScoring.normalize),
                 sensitivity: request.sensitivity
-            ) != nil else { return nil }
+            ) != nil else { return (nil, true) }
 
-            return Self.result(for: app, isRunning: running.contains(app.bundleIdentifier), searchAliases: aliases,
-                searchKeywords: app.normalizedSearchCandidates)
+            return (result(for: app, isRunning: running.contains(app.bundleIdentifier), searchAliases: aliases,
+                searchKeywords: app.normalizedSearchCandidates), true)
         }
+
+        guard apps.count >= 96 else {
+            var probed = 0
+            let results = apps.compactMap { app -> CommandResult? in
+                guard Task.isCancelled == false else { return nil }
+                let match = match(app)
+                probed += match.probed ? 1 : 0
+                return match.result
+            }
+            return (results, probed)
+        }
+
+        let chunkCount = min(4, (apps.count + 63) / 64)
+        let chunkSize = (apps.count + chunkCount - 1) / chunkCount
+        let chunks = await withTaskGroup(of: (index: Int, results: [CommandResult?], probed: Int).self) { group in
+            for chunkIndex in 0..<chunkCount {
+                let range = (chunkIndex * chunkSize)..<min(apps.count, (chunkIndex + 1) * chunkSize)
+                let slice = apps[range]
+                group.addTask {
+                    var probed = 0
+                    let results = slice.map { app -> CommandResult? in
+                        let match = match(app)
+                        probed += match.probed ? 1 : 0
+                        return match.result
+                    }
+                    return (chunkIndex, results, probed)
+                }
+            }
+            var chunks: [(index: Int, results: [CommandResult?], probed: Int)] = []
+            for await chunk in group { chunks.append(chunk) }
+            return chunks.sorted { $0.index < $1.index }
+        }
+        return (chunks.flatMap { $0.results.compactMap { $0 } }, chunks.reduce(0) { $0 + $1.probed })
     }
 
     private func runningBundleIDs() -> Set<String> {
@@ -229,6 +289,7 @@ private struct InstalledApp: Sendable {
     let path: URL
     let normalizedName: String
     let normalizedSearchCandidates: [String]
+    let searchableMask: UInt64
 
     var identity: String {
         if bundleIdentifier.isEmpty == false { return bundleIdentifier }
@@ -261,5 +322,6 @@ private struct InstalledApp: Sendable {
         ]
         .map(SearchScoring.normalize)
         .filter { $0.isEmpty == false }
+        self.searchableMask = self.normalizedSearchCandidates.reduce(0) { $0 | SearchScoring.characterMask($1) }
     }
 }

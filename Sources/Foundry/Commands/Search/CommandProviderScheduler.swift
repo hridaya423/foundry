@@ -17,7 +17,8 @@ final class CommandProviderScheduler: Sendable {
         aliases: [String: [String]],
         sensitivity: SearchSensitivity,
         snippetInsertAsPrimary: Bool = true,
-        timeout: Duration
+        timeout: Duration,
+        priority: TaskPriority = .userInitiated
     ) async -> ([RankCandidate], [ProviderSearchTiming]) {
         let aliasKey = aliases
             .sorted { $0.key < $1.key }
@@ -26,7 +27,7 @@ final class CommandProviderScheduler: Sendable {
 
         return await withTaskGroup(of: ProviderSearchResult.self, returning: ([RankCandidate], [ProviderSearchTiming]).self) { group in
             for provider in providers {
-                group.addTask { [diagnostics] in
+                group.addTask(priority: priority) { [diagnostics] in
                     let span = diagnostics.startSpan("search.provider.\(provider.id)")
                     defer { diagnostics.endSpan(span) }
                     let startedAt = Date().timeIntervalSinceReferenceDate
@@ -38,7 +39,8 @@ final class CommandProviderScheduler: Sendable {
                         sensitivity: sensitivity,
                         snippetInsertAsPrimary: snippetInsertAsPrimary,
                         aliasKey: aliasKey,
-                        deadline: deadline
+                        deadline: deadline,
+                        priority: priority
                     )
                     let elapsedMilliseconds = (Date().timeIntervalSinceReferenceDate - startedAt) * 1_000
                     return ProviderSearchResult(
@@ -73,7 +75,7 @@ final class CommandProviderScheduler: Sendable {
     func defaults(for provider: CommandProvider, deadline: ContinuousClock.Instant) async -> ProviderOperationResult<[CommandResult]> {
         await race(providerID: provider.id, operationKey: "defaults", {
             try await provider.defaultResults()
-        }, until: deadline)
+        }, until: deadline, priority: .userInitiated)
     }
 
     private func results(
@@ -83,7 +85,8 @@ final class CommandProviderScheduler: Sendable {
         sensitivity: SearchSensitivity,
         snippetInsertAsPrimary: Bool,
         aliasKey: String,
-        deadline: ContinuousClock.Instant
+        deadline: ContinuousClock.Instant,
+        priority: TaskPriority
     ) async -> ProviderOperationResult<[CommandResult]> {
         let operationKey = "search:\(query)|\(sensitivity.rawValue)|\(snippetInsertAsPrimary)|\(aliasKey)"
         return await race(providerID: provider.id, operationKey: operationKey, {
@@ -93,14 +96,15 @@ final class CommandProviderScheduler: Sendable {
                 sensitivity: sensitivity,
                 snippetInsertAsPrimary: snippetInsertAsPrimary
             ))
-        }, until: deadline)
+        }, until: deadline, priority: priority)
     }
 
     private func race(
         providerID: String,
         operationKey: String,
         _ work: @escaping @Sendable () async throws -> [CommandResult],
-        until deadline: ContinuousClock.Instant
+        until deadline: ContinuousClock.Instant,
+        priority: TaskPriority
     ) async -> ProviderOperationResult<[CommandResult]> {
         let gate = executionGate(for: providerID)
         guard let operationTask = await gate.task(for: operationKey, work: {
@@ -111,7 +115,7 @@ final class CommandProviderScheduler: Sendable {
             } catch {
                 return .failed(error.localizedDescription)
             }
-        }, until: deadline) else {
+        }, until: deadline, priority: priority) else {
             return .busy
         }
 
@@ -233,7 +237,8 @@ private actor ProviderExecutionGate {
     func task(
         for key: String,
         work: @escaping @Sendable () async -> ProviderOperationResult<[CommandResult]>,
-        until deadline: ContinuousClock.Instant
+        until deadline: ContinuousClock.Instant,
+        priority: TaskPriority
     ) async -> Task<ProviderOperationResult<[CommandResult]>, Never>? {
         guard Task.isCancelled == false else { return nil }
         if let existing = inFlight[key] {
@@ -245,7 +250,7 @@ private actor ProviderExecutionGate {
             guard Task.isCancelled == false else { return nil }
         }
 
-        let task = Task.detached { [self] in
+        let task = Task.detached(priority: priority) { [self] in
             let result = await work()
             await self.finish(key: key)
             return result

@@ -10,6 +10,7 @@ final class CommandSearchCoordinator {
     private var task: Task<Void, Never>?
     private var generation = 0
     private var searchInFlight = false
+    private var searchStartedAt: ContinuousClock.Instant?
     /// Last computed home list. Opening the panel paints this synchronously —
     /// the async refresh only reconciles it, so the first frame is never
     /// empty.
@@ -27,10 +28,18 @@ final class CommandSearchCoordinator {
         onImmediate: @escaping ResultsHandler,
         onComplete: @escaping ResultsHandler
     ) {
-        let coalesce = searchInFlight
+        // Coalescing is bounded to one 16 ms window after the search started —
+        // a previous search whose deferred providers are still finishing must
+        // not re-tax every keystroke with another full frame.
+        let now = ContinuousClock.now
+        let coalesceFor: Duration = {
+            guard searchInFlight, let searchStartedAt else { return .zero }
+            return .milliseconds(16) - (now - searchStartedAt)
+        }()
         cancel()
         generation += 1
         searchInFlight = true
+        searchStartedAt = now
         let currentGeneration = generation
         let registry = registry
         let diagnostics = diagnostics
@@ -40,13 +49,16 @@ final class CommandSearchCoordinator {
         task = Task { [weak self] in
             let span = diagnostics.startSpan("search.async")
             defer { diagnostics.endSpan(span) }
-            if coalesce {
-                do { try await Task.sleep(for: .milliseconds(16)) } catch { return }
+            if coalesceFor > .zero {
+                do { try await Task.sleep(for: coalesceFor) } catch { return }
             }
             guard Task.isCancelled == false else { return }
 
             let immediatePhase = await registry.immediateSearchPhase(matching: query)
             guard let self, self.isCurrent(currentGeneration) else { return }
+            // The immediate pipeline is drained — release the in-flight flag so
+            // the next keystroke never pays a coalesce wait on deferred work.
+            self.searchInFlight = false
             if let immediateSpan = self.immediateSpan {
                 diagnostics.endSpan(immediateSpan)
                 self.immediateSpan = nil
@@ -66,7 +78,6 @@ final class CommandSearchCoordinator {
                 diagnostics.endSpan(completeSpan)
                 self.completeSpan = nil
             }
-            self.searchInFlight = false
             onComplete(completeResults)
         }
     }

@@ -3,19 +3,27 @@ import FoundryDomain
 
 final class BuiltInCommandProvider: CommandProvider {
     let id = "foundry.builtin"
-
-    init() {}
+    private let commands = BuiltInCommandProvider.makeCommands()
 
     func search(_ request: CommandSearchRequest) async -> [CommandResult] {
-        commands().compactMap { command in
+        let prepared = SearchScoring.PreparedQuery(query: request.query)
+        return commands.compactMap { command in
             guard Task.isCancelled == false else { return nil }
             let aliases = request.customAliases[command.id] ?? []
-            guard SearchScoring.match(
-                query: request.query,
-                title: command.title,
-                subtitle: command.subtitle,
-                keywords: [],
-                aliases: command.aliases + aliases,
+            var searchableMask = command.searchableMask
+            for alias in aliases {
+                searchableMask |= SearchScoring.characterMask(SearchScoring.normalize(alias))
+            }
+            guard SearchScoring.probableMatch(query: prepared, searchableMask: searchableMask, sensitivity: request.sensitivity) else { return nil }
+            let normalizedAliases = aliases.isEmpty
+                ? command.normalizedAliases
+                : command.normalizedAliases + aliases.map(SearchScoring.normalize)
+            guard SearchScoring.matchPrepared(
+                query: prepared,
+                normalizedTitle: command.normalizedTitle,
+                normalizedSubtitle: command.normalizedSubtitle,
+                normalizedKeywords: [],
+                normalizedAliases: normalizedAliases,
                 sensitivity: request.sensitivity
             ) != nil else {
                 return nil
@@ -36,7 +44,7 @@ final class BuiltInCommandProvider: CommandProvider {
     }
 
     func defaultResults() async -> [CommandResult] {
-        commands().map { command in
+        commands.map { command in
             CommandResult(
                 id: command.id,
                 title: command.title,
@@ -49,7 +57,7 @@ final class BuiltInCommandProvider: CommandProvider {
         }
     }
 
-    private func commands() -> [BuiltInCommand] {
+    private static func makeCommands() -> [BuiltInCommand] {
         [
             BuiltInCommand(
                 id: "foundry.emoji-picker",
@@ -289,4 +297,23 @@ private struct BuiltInCommand {
     let systemIcon: String
     let fallback: String
     let primaryAction: CommandAction
+    let normalizedTitle: String
+    let normalizedSubtitle: String
+    let normalizedAliases: [String]
+    let searchableMask: UInt64
+
+    init(id: String, title: String, subtitle: String, aliases: [String], systemIcon: String, fallback: String,
+         primaryAction: CommandAction) {
+        self.id = id
+        self.title = title
+        self.subtitle = subtitle
+        self.aliases = aliases
+        self.systemIcon = systemIcon
+        self.fallback = fallback
+        self.primaryAction = primaryAction
+        self.normalizedTitle = SearchScoring.normalize(title)
+        self.normalizedSubtitle = SearchScoring.normalize(subtitle)
+        self.normalizedAliases = aliases.map(SearchScoring.normalize)
+        self.searchableMask = ([title, subtitle] + aliases).reduce(0) { $0 | SearchScoring.characterMask($1) }
+    }
 }

@@ -105,6 +105,7 @@ final class ScriptCommandProvider: CommandProvider, Sendable {
     func search(_ request: CommandSearchRequest) async -> [CommandResult] {
         let query = request.query.trimmingCharacters(in: .whitespaces)
         guard query.isEmpty == false else { return [] }
+        let prepared = SearchScoring.PreparedQuery(query: query)
         return scripts().compactMap { script in
             let id = "script.\(script.path)"
             let aliases = request.customAliases[id] ?? []
@@ -112,7 +113,7 @@ final class ScriptCommandProvider: CommandProvider, Sendable {
                 let argument = query.dropFirst(script.title.count).trimmingCharacters(in: .whitespaces)
                 return result(script, id: id, aliases: aliases, argument: argument)
             }
-            guard SearchScoring.match(query: query, title: script.title, subtitle: script.packageName, keywords: ["script"], aliases: aliases,
+            guard SearchScoring.match(query: prepared, title: script.title, subtitle: script.packageName, keywords: ["script"], aliases: aliases,
                 sensitivity: request.sensitivity) != nil else { return nil }
             return result(script, id: id, aliases: aliases, argument: nil)
         }

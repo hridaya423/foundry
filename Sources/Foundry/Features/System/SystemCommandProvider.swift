@@ -15,15 +15,24 @@ final class SystemCommandProvider: CommandProvider, Sendable {
     }
 
     func search(_ request: CommandSearchRequest) async -> [CommandResult] {
-        commands.compactMap { command in
+        let prepared = SearchScoring.PreparedQuery(query: request.query)
+        return commands.compactMap { command in
             guard Task.isCancelled == false else { return nil }
             let aliases = request.customAliases[command.id] ?? []
-            guard SearchScoring.match(
-                query: request.query,
-                title: command.title,
-                subtitle: command.subtitle,
-                keywords: [],
-                aliases: command.aliases + aliases,
+            var searchableMask = command.searchableMask
+            for alias in aliases {
+                searchableMask |= SearchScoring.characterMask(SearchScoring.normalize(alias))
+            }
+            guard SearchScoring.probableMatch(query: prepared, searchableMask: searchableMask, sensitivity: request.sensitivity) else { return nil }
+            let normalizedAliases = aliases.isEmpty
+                ? command.normalizedAliases
+                : command.normalizedAliases + aliases.map(SearchScoring.normalize)
+            guard SearchScoring.matchPrepared(
+                query: prepared,
+                normalizedTitle: command.normalizedTitle,
+                normalizedSubtitle: command.normalizedSubtitle,
+                normalizedKeywords: [],
+                normalizedAliases: normalizedAliases,
                 sensitivity: request.sensitivity
             ) != nil else {
                 return nil
@@ -702,4 +711,28 @@ private struct SystemCommand: Sendable {
     let fallback: String
     let actionTitle: String
     let action: any ResultAction
+    /// Precomputed once — `search` scores against these instead of
+    /// re-normalizing every command string on every keystroke.
+    let normalizedTitle: String
+    let normalizedSubtitle: String
+    let normalizedAliases: [String]
+    /// Character multiset over everything `search` feeds the matcher —
+    /// lets `probableMatch` reject impossible commands in one instruction.
+    let searchableMask: UInt64
+
+    init(id: String, title: String, subtitle: String, aliases: [String], systemIcon: String, fallback: String,
+         actionTitle: String, action: any ResultAction) {
+        self.id = id
+        self.title = title
+        self.subtitle = subtitle
+        self.aliases = aliases
+        self.systemIcon = systemIcon
+        self.fallback = fallback
+        self.actionTitle = actionTitle
+        self.action = action
+        self.normalizedTitle = SearchScoring.normalize(title)
+        self.normalizedSubtitle = SearchScoring.normalize(subtitle)
+        self.normalizedAliases = aliases.map(SearchScoring.normalize)
+        self.searchableMask = ([title, subtitle] + aliases).reduce(0) { $0 | SearchScoring.characterMask($1) }
+    }
 }
