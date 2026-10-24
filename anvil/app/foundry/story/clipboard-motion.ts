@@ -15,57 +15,78 @@ export function searchClipboard(query: string) {
 }
 
 export function clipboardFocus(progress: number) {
-  return 4 * phase(progress, 1.12, 1.50);
+  return 4 * phase(progress, 1.2, 1.5);
 }
 
-export function clipboardCardPose(offset: number, width: number, height: number) {
+const beltLength = clipboardItems.length;
+
+function beltSpacing(mobile: boolean) {
+  return mobile ? .79 : .3;
+}
+
+function beltPush(progress: number) {
+  return 1.2 * phase(progress, 1.5, 1.58) ** 2;
+}
+
+function ribbonY(x: number, mobile: boolean) {
+  return mobile ? .65 + .028 * Math.sin(x * Math.PI * 1.3) : .64 + .12 * Math.sin((x - .12) * Math.PI * 1.25);
+}
+
+function ribbonSlope(x: number, mobile: boolean) {
+  return mobile ? .028 * Math.PI * 1.3 * Math.cos(x * Math.PI * 1.3) : .12 * Math.PI * 1.25 * Math.cos((x - .12) * Math.PI * 1.25);
+}
+
+function settle(t: number) {
+  const back = 1.1;
+  return 1 + (back + 1) * (t - 1) ** 3 + back * (t - 1) ** 2;
+}
+
+export function clipboardCardPose(index: number, belt: number, progress: number, width: number, height: number) {
   const mobile = width < 900;
-  const distance = Math.abs(offset);
+  const wrapped = ((index - belt + beltLength / 2) % beltLength + beltLength) % beltLength - beltLength / 2;
+  const distance = Math.min(1, Math.abs(wrapped));
+  const x = (mobile ? .5 : .26) + wrapped * beltSpacing(mobile) - beltPush(progress);
+  const order = Math.max(0, Math.round(wrapped) + 1);
+  const land = phase(progress, 1.01 + order * .035, 1.11 + order * .035);
+  const tile = width * (mobile ? .021 : .024);
   return {
-    x: width * ((mobile ? 0.5 : 0.32) + offset * (mobile ? 0.79 : 0.225)),
-    y: height * ((mobile ? 0.47 : 0.54) + (mobile ? 0.018 : 0.07) * offset - 0.009 * offset * offset),
-    scale: Math.max(0.56, 1 - distance * (mobile ? 0.14 : 0.09)),
-    rotate: mobile ? offset * 5 : 9 - offset * 2.5,
-    depth: mobile ? 0 : -12 + offset * 3,
-    blur: Math.min(4, distance * 1.25),
-    opacity: Math.max(0.2, 1 - distance * 0.17),
+    x: x * width,
+    y: ribbonY(x, mobile) * height - tile * .55 - (1 - distance) * 10 - (1 - settle(land)) * height * .14,
+    rotate: Math.atan2(height * ribbonSlope(x, mobile), width) * 180 / Math.PI,
+    scale: 1 - distance * .08,
+    opacity: Math.min(1, land * 3) * (1 - distance * .25),
+    wrapped,
   };
 }
 
-function ribbonTravel(index: number, progress: number) {
+function ribbonTravel(index: number, progress: number, belt: number, mobile: boolean) {
   const elapsed = Math.max(0, progress - 1);
-  const head = progress <= 1 ? (progress - .875) * 10 : 1.25 + .62 * elapsed + .3752 * (1 - Math.exp(-elapsed / .04));
+  const head = progress <= 1 ? (progress - .875) * 10 : 1.25 + .3752 * (1 - Math.exp(-elapsed / .04)) + belt * beltSpacing(mobile) + beltPush(progress);
   return Math.max(0, head - index * 1.4 / 48);
 }
 
-export function clipboardRibbonPoint(index: number, width: number, height: number, focus: number, progress = 1.2) {
-  const mobile = width < 900;
-  const travel = ribbonTravel(index, progress);
-  const x = 1.2 - travel % 1.4;
-  const y = mobile ? .65 + .055 * Math.sin(x * Math.PI * 1.3) : .64 + .12 * Math.sin((x - .12) * Math.PI * 1.25);
-  const slope = mobile ? .055 * Math.PI * 1.3 * Math.cos(x * Math.PI * 1.3) : .12 * Math.PI * 1.25 * Math.cos((x - .12) * Math.PI * 1.25);
-  return { x: x * width, y: y * height, angle: Math.atan2(height * slope, width), size: width * (mobile ? .021 : .024) };
-}
-
-export function writeClipboardTilePose(out: ShelfPose, ribbonIndex: number, progress: number, layout: ShelfLayout, focus: number) {
+export function writeClipboardTilePose(out: ShelfPose, ribbonIndex: number, progress: number, layout: ShelfLayout, belt: number) {
   if (progress <= .875) return;
   if (ribbonIndex < 0) {
     if (out.y > layout.height) return;
-    const leave = phase(progress, 1, 1.12);
-    out.y -= layout.height * .28 * leave;
+    const leave = phase(progress, 1, 1.06);
+    out.y += layout.height * .04 * leave;
     out.sx *= 1 - leave;
     out.sy *= 1 - leave;
     return;
   }
-  const point = clipboardRibbonPoint(ribbonIndex, layout.width, layout.height, focus, progress);
-  const travel = ribbonTravel(ribbonIndex, progress);
+  const mobile = layout.width < 900;
+  const travel = ribbonTravel(ribbonIndex, progress, belt, mobile);
+  const x = 1.2 - travel % 1.4;
+  const size = layout.width * (mobile ? .021 : .024);
   const join = phase(travel, 0, .24);
-  out.x += (point.x - out.x) * join;
-  out.y += (point.y - out.y) * join;
+  const exit = 1 - phase(progress, 1.5, 1.58);
+  out.x += (x * layout.width - out.x) * join;
+  out.y += (ribbonY(x, mobile) * layout.height - out.y) * join;
   out.z = -8 * Math.sin(join * Math.PI);
   out.rx = -.2 * join;
   out.ry = 0;
-  out.rz = point.angle * join;
-  out.sx += (point.size / 24 - out.sx) * join;
-  out.sy += (point.size / 24 - out.sy) * join;
+  out.rz = Math.atan2(layout.height * ribbonSlope(x, mobile), layout.width) * join;
+  out.sx = (out.sx + (size / 24 - out.sx) * join) * exit;
+  out.sy = (out.sy + (size / 24 - out.sy) * join) * exit;
 }

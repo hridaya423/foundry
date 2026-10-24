@@ -1,11 +1,13 @@
 import { tileText } from "./tile-glyphs";
-import { phase, type ShelfLayout, type ShelfPose } from "./shelf-motion";
+import { toolsEnd } from "./tools-motion";
+import { phase, type ShelfPose } from "./shelf-motion";
 
-export const memoryStart = 3.46;
+export const memoryStart = toolsEnd;
+export const memorySettled = memoryStart + .18;
 export const memoryValues = ["115.2", "620.2"] as const;
 const headline = tileText("81%");
 const foundry = tileText("115.2 MB");
-export const memoryCarryCount = headline.points.length + foundry.points.length;
+export const memoryTileCount = headline.points.length + foundry.points.length;
 
 export function memoryTargets(width: number, height: number) {
   const mobile = width < 900;
@@ -15,9 +17,9 @@ export function memoryTargets(width: number, height: number) {
   });
 }
 
-export function writeMemoryTilePose(out: ShelfPose, index: number, progress: number, layout: ShelfLayout, targets: ReturnType<typeof memoryTargets>) {
+export function writeMemoryTilePose(out: ShelfPose, index: number, progress: number, targets: ReturnType<typeof memoryTargets>) {
   if (progress <= memoryStart) return;
-  const settle = phase(progress, memoryStart, memoryStart + .18);
+  const settle = phase(progress, memoryStart, memorySettled);
   const point = targets[index];
   if (!point) {
     out.sx *= 1 - settle;

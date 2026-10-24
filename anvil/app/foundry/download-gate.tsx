@@ -2,9 +2,7 @@
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-
-export const foundryDownloadUrl =
-  "https://github.com/hridaya423/foundry/releases/latest/download/Foundry.dmg";
+import { foundryDownloadUrl } from "../site";
 
 export default function DownloadLink({ className, children }: { className?: string; children: ReactNode }) {
   const [open, setOpen] = useState(false);

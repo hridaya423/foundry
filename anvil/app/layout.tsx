@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
-import { Anton, Geist, Geist_Mono } from "next/font/google";
+import { Geist, Geist_Mono } from "next/font/google";
+import { siteDescription, siteUrl } from "./site";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -12,16 +13,13 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-const anton = Anton({
-  variable: "--font-anton",
-  weight: "400",
-  subsets: ["latin"],
-});
-
 export const metadata: Metadata = {
+  metadataBase: siteUrl,
   title: "Foundry · The app you never open.",
-  description:
-    "Launch apps, find what you copied, transform files, run commands. One native launcher.",
+  description: siteDescription,
+  alternates: { canonical: "/" },
+  openGraph: { type: "website", siteName: "Foundry", title: "Foundry · The app you never open.", description: siteDescription },
+  twitter: { card: "summary_large_image" },
 };
 
 export default function RootLayout({
@@ -32,9 +30,9 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} ${anton.variable} h-full antialiased`}
+      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="grain min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col"><a className="skip-link" href="#content">Skip to content</a>{children}</body>
     </html>
   );
 }

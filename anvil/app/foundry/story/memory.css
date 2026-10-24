@@ -18,7 +18,7 @@
 .story-shell[data-scene="ready"] .memory-product h3 { font-size: 15px; }
 .story-shell[data-scene="ready"] .memory-display { font-size: 18px; }
 .story-shell[data-scene="ready"] .memory-context { position: absolute; top: 82%; left: 0; width: 100%; margin: 0; text-align: center; }
-.memory-section:not([inert]) .memory-context a { pointer-events: auto; }
+.memory-section[data-active="true"] .memory-context a { pointer-events: auto; }
 .story-shell:not([data-scene="ready"]) .memory-section { opacity: 1 !important; }
 @media (hover: hover) { .memory-context a:hover { color: var(--f-accent); } }
 @media (max-width: 899px) {

@@ -5,7 +5,7 @@ import type { MotionValue } from "motion/react";
 import type { Tile } from "../tile-motion";
 import type { Rect, ShelfLayout } from "./shelf-motion";
 
-export default function ShelfCanvas({ progress, clipboardFocus, mediaPortrait, toolSelection, toolReveal, toolTransition, toolPrevious, onModeChange }: { progress: MotionValue<number>; clipboardFocus: MotionValue<number>; mediaPortrait: MotionValue<number>; toolSelection: MotionValue<number>; toolReveal: MotionValue<number>; toolTransition: MotionValue<number>; toolPrevious: MotionValue<number>; onModeChange: (animated: boolean) => void }) {
+export default function ShelfCanvas({ progress, departure, clipboardBelt, toolSelection, toolReveal, toolTransition, toolPrevious, onModeChange }: { progress: MotionValue<number>; departure: MotionValue<number>; clipboardBelt: MotionValue<number>; toolSelection: MotionValue<number>; toolReveal: MotionValue<number>; toolTransition: MotionValue<number>; toolPrevious: MotionValue<number>; onModeChange: (animated: boolean) => void }) {
   const ref = useRef<HTMLCanvasElement>(null);
   useEffect(() => {
     const canvas = ref.current;
@@ -44,7 +44,7 @@ export default function ShelfCanvas({ progress, clipboardFocus, mediaPortrait, t
     }
     function draw() {
       frame = 0;
-      if (scene && visible && !document.hidden && !reduced.matches && !compact.matches) scene.render(progress.get(), clipboardFocus.get(), mediaPortrait.get(), toolSelection.get(), toolReveal.get(), toolTransition.get(), toolPrevious.get());
+      if (scene && visible && !document.hidden && !reduced.matches && !compact.matches) scene.render(progress.get(), departure.get(), clipboardBelt.get(), toolSelection.get(), toolReveal.get(), toolTransition.get(), toolPrevious.get());
     }
     function schedule() {
       if (!frame && !disposed) frame = requestAnimationFrame(draw);
@@ -88,12 +88,12 @@ export default function ShelfCanvas({ progress, clipboardFocus, mediaPortrait, t
     const intersection = new IntersectionObserver(([entry]) => { visible = entry.isIntersecting; if (visible) schedule(); });
     intersection.observe(stage);
     const unsubscribe = progress.on("change", schedule);
-    const unsubscribeFocus = clipboardFocus.on("change", schedule);
+    const unsubscribeBelt = clipboardBelt.on("change", schedule);
+    const unsubscribeDeparture = departure.on("change", schedule);
     const unsubscribeTool = toolSelection.on("change", schedule);
     const unsubscribeTransition = toolTransition.on("change", schedule);
     const unsubscribePrevious = toolPrevious.on("change", schedule);
     const unsubscribeReveal = toolReveal.on("change", schedule);
-    const unsubscribePortrait = mediaPortrait.on("change", schedule);
     reduced.addEventListener("change", initialize);
     compact.addEventListener("change", initialize);
     document.addEventListener("visibilitychange", schedule);
@@ -105,8 +105,8 @@ export default function ShelfCanvas({ progress, clipboardFocus, mediaPortrait, t
       observer.disconnect();
       intersection.disconnect();
       unsubscribe();
-      unsubscribeFocus();
-      unsubscribePortrait();
+      unsubscribeBelt();
+      unsubscribeDeparture();
       unsubscribeTool();
       unsubscribeReveal();
       unsubscribeTransition();
@@ -116,6 +116,6 @@ export default function ShelfCanvas({ progress, clipboardFocus, mediaPortrait, t
       document.removeEventListener("visibilitychange", schedule);
       canvas.removeEventListener("webglcontextlost", lost);
     };
-  }, [progress, clipboardFocus, mediaPortrait, toolSelection, toolReveal, toolTransition, toolPrevious, onModeChange]);
+  }, [progress, departure, clipboardBelt, toolSelection, toolReveal, toolTransition, toolPrevious, onModeChange]);
   return <canvas ref={ref} className="shelf-canvas" aria-hidden="true" />;
 }

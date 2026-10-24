@@ -30,8 +30,9 @@ function CardMeta({ item, overlay }: { item: ClipboardEntry; overlay?: boolean }
   return <span className={overlay ? "clipboard-card-meta clipboard-card-meta-overlay" : "clipboard-card-meta"}><AppGlyph app={item.app} /><span>{item.app}</span><time>{item.time}</time></span>;
 }
 
-function ClipboardCard({ item, focus, width, height, selected, onSelect }: {
+function ClipboardCard({ item, progress, focus, width, height, selected, onSelect }: {
   item: ClipboardEntry;
+  progress: MotionValue<number>;
   focus: MotionValue<number>;
   width: MotionValue<number>;
   height: MotionValue<number>;
@@ -40,11 +41,10 @@ function ClipboardCard({ item, focus, width, height, selected, onSelect }: {
 }) {
   const index = clipboardItems.indexOf(item);
   const [imageFailed, setImageFailed] = useState(false);
-  const pose = useTransform(() => clipboardCardPose(index - focus.get(), width.get(), height.get()));
-  const transform = useTransform(pose, (p) => `translate3d(${p.x}px, ${p.y}px, 0) translate(-50%, -50%) perspective(1000px) rotateY(${p.depth}deg) rotateZ(${p.rotate}deg) scale(${p.scale})`);
-  const filter = useTransform(pose, (p) => `blur(${p.blur}px)`);
+  const pose = useTransform(() => clipboardCardPose(index, focus.get(), progress.get(), width.get(), height.get()));
+  const transform = useTransform(pose, (p) => `translate3d(${p.x}px, ${p.y}px, 0) translate(-50%, -100%) rotate(${p.rotate}deg) scale(${p.scale})`);
   const opacity = useTransform(pose, (p) => p.opacity);
-  const zIndex = useTransform(focus, (value) => 10 - Math.round(Math.abs(index - value)));
+  const zIndex = useTransform(pose, (p) => 10 - Math.round(Math.abs(p.wrapped)));
   return (
     <motion.button
       className="clipboard-card"
@@ -52,8 +52,7 @@ function ClipboardCard({ item, focus, width, height, selected, onSelect }: {
       data-image-failed={imageFailed || undefined}
       data-kind={item.kind}
       data-selected={selected}
-      style={{ transform, filter, opacity, zIndex }}
-      aria-label={imageFailed ? `Retry ${item.title} image` : `Select ${item.title}`}
+      style={{ transform, opacity, zIndex }}
       aria-pressed={selected}
       tabIndex={selected ? 0 : -1}
       onClick={(event) => { if (imageFailed) setImageFailed(false); onSelect(event.detail === 0); }}
@@ -67,7 +66,7 @@ function ClipboardCard({ item, focus, width, height, selected, onSelect }: {
         <>
           <div className="clipboard-card-body">
             {imageFailed ? (
-              <p className="clipboard-card-text">Image unavailable — select to retry.</p>
+              <p className="clipboard-card-text">Image unavailable. Select to retry.</p>
             ) : item.kind === "text" ? (
               <p className="clipboard-card-text">{item.value}</p>
             ) : item.kind === "link" ? (
@@ -100,13 +99,13 @@ export default function ClipboardStory({ progress, focus, animated }: {
   const [selected, setSelected] = useState(() => progress.get() > 1 ? Math.round(focus.get()) : 1);
   const [query, setQuery] = useState("");
   const [copyState, setCopyState] = useState<"idle" | "copying" | "copied" | "failed">("idle");
-  const [active, setActive] = useState(progress.get() >= 1.2 && progress.get() < 1.57);
+  const [active, setActive] = useState(progress.get() >= 1.2 && progress.get() < 1.5);
   const matches = searchClipboard(query);
   const item = matches.find((entry) => entry === clipboardItems[selected]) ?? matches[0];
   const position = matches.indexOf(item);
-  const opacity = useTransform(progress, (value) => phase(value, 1.07, 1.16) * (1 - phase(value, 1.56, 1.62)));
+  const opacity = useTransform(progress, (value) => phase(value, 1.0, 1.08) * (1 - phase(value, 1.5, 1.58)));
   const controlsOpacity = useTransform(progress, (value) => phase(value, 1.195, 1.23));
-  const transform = useTransform(progress, (value) => `translateY(calc(${60 * (1 - phase(value, 1.05, 1.17))}px - ${18 * phase(value, 1.56, 1.62)}%))`);
+  const transform = useTransform(progress, (value) => `translateY(${40 * (1 - phase(value, 1.0, 1.1))}px)`);
 
   useEffect(() => {
     const element = deck.current!;
@@ -119,7 +118,7 @@ export default function ClipboardStory({ progress, focus, animated }: {
   }, [width, height]);
 
   useMotionValueEvent(progress, "change", (value) => {
-    setActive(value >= 1.2 && value < 1.57);
+    setActive(value >= 1.2 && value < 1.5);
     if (!animated) return;
     if (!interacting.current && !query) {
       const next = clipboardFocus(value);
@@ -201,7 +200,8 @@ export default function ClipboardStory({ progress, focus, animated }: {
       className="clipboard-section"
       id="clipboard"
       aria-labelledby="clipboard-heading"
-      inert={animated && !active}
+      data-stop="1.3"
+      data-active={!animated || active}
       style={{ opacity, transform }}
       onFocusCapture={() => { interacting.current = true; }}
       onBlurCapture={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) interacting.current = false; }}
@@ -211,9 +211,9 @@ export default function ClipboardStory({ progress, focus, animated }: {
         <h2 id="clipboard-heading">That thing<br />you copied<span>.</span></h2>
         <p>Find it again in clipboard history.</p>
       </header>
-      <div className="clipboard-deck" ref={deck} aria-label="Sample clipboard history">
+      <div className="clipboard-deck" ref={deck} role="group" aria-label="Sample clipboard history">
         {matches.map((entry) => (
-          <ClipboardCard key={entry.id} item={entry} focus={focus} width={width} height={height} selected={entry === item} onSelect={(instant) => select(entry, instant)} />
+          <ClipboardCard key={entry.id} item={entry} progress={progress} focus={focus} width={width} height={height} selected={entry === item} onSelect={(instant) => select(entry, instant)} />
         ))}
       </div>
       {item && (
@@ -222,7 +222,7 @@ export default function ClipboardStory({ progress, focus, animated }: {
           {item.kind === "text" && <p className="clipboard-value">{item.value}</p>}
           {item.kind === "link" && <a className="clipboard-value" href={item.value}>{item.value}</a>}
           {item.kind === "color" && <p className="clipboard-value">{item.value}</p>}
-          <div className="clipboard-browse" aria-label="Browse clipboard history">
+          <div className="clipboard-browse" role="group" aria-label="Browse clipboard history">
             <button aria-label="Previous clipboard item" disabled={position <= 0} onClick={(event) => move(-1, event.detail === 0)}>Previous</button>
             <span>{position + 1} / {matches.length}</span>
             <button aria-label="Next clipboard item" disabled={position >= matches.length - 1} onClick={(event) => move(1, event.detail === 0)}>Next</button>

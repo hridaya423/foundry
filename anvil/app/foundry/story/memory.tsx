@@ -1,17 +1,18 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type MouseEvent } from "react";
 import { motion, useMotionValueEvent, useTransform, type MotionValue } from "motion/react";
 import { downloadStart } from "./download-motion";
-import { memoryStart, memoryValues } from "./memory-motion";
+import { memorySettled, memoryValues } from "./memory-motion";
 import { phase } from "./shelf-motion";
 
-export default function MemoryStory({ progress, animated }: { progress: MotionValue<number>; animated: boolean }) {
-  const [active, setActive] = useState(progress.get() >= memoryStart + 0.12 && progress.get() < downloadStart + .04);
-  useMotionValueEvent(progress, "change", (value) => setActive(value >= memoryStart + 0.12 && value < downloadStart + .04));
-  const opacity = useTransform(progress, (value) => phase(value, memoryStart + 0.08, memoryStart + 0.18) * (1 - phase(value, downloadStart, downloadStart + .04)));
+export default function MemoryStory({ progress, animated, onReadMethodology }: { progress: MotionValue<number>; animated: boolean; onReadMethodology: (event: MouseEvent<HTMLAnchorElement>) => void }) {
+  const isActive = (value: number) => value >= memorySettled - .06 && value < downloadStart;
+  const [active, setActive] = useState(isActive(progress.get()));
+  useMotionValueEvent(progress, "change", (value) => setActive(isActive(value)));
+  const opacity = useTransform(progress, (value) => phase(value, memorySettled - .1, memorySettled) * (1 - phase(value, downloadStart, downloadStart + .04)));
   return (
-    <motion.section className="memory-section" aria-labelledby="memory-heading" inert={animated && !active} style={{ opacity }}>
+    <motion.section className="memory-section" aria-labelledby="memory-heading" data-stop={memorySettled + .1} data-active={!animated || active} style={{ opacity }}>
       <h2 id="memory-heading"><span className="memory-percent">81<span>%</span></span><span className="memory-takeaway">lower warmed memory use.</span></h2>
       <div className="memory-comparison">
         <div className="memory-product" data-product="0">
@@ -22,7 +23,7 @@ export default function MemoryStory({ progress, animated }: { progress: MotionVa
       </div>
       <div className="memory-context">
         <p>Provisional · Warmed memory · One M4 Pro<br />Two order-swapped runs. Worst-case leg.</p>
-        <a href="/methodology">Read methodology</a>
+        <a href="/methodology" onClick={onReadMethodology}>Read methodology</a>
       </div>
     </motion.section>
   );
