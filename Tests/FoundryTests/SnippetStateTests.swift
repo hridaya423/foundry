@@ -12,6 +12,23 @@ final class SnippetStateTests: XCTestCase {
         return state
     }
 
+    func testBrowsingASnippetDoesNotChangeItOrMoveIt() {
+        let old = Date(timeIntervalSince1970: 1_000)
+        let state = makeState([
+            StoredSnippet(id: "a", title: "Newest", content: "1", updatedAt: Date(timeIntervalSince1970: 3_000)),
+            StoredSnippet(id: "b", title: "Middle", content: "2", updatedAt: Date(timeIntervalSince1970: 2_000)),
+            StoredSnippet(id: "c", title: "Oldest", content: "3", keyword: ";o", tags: ["t"], updatedAt: old),
+        ])
+        let order = state.visibleItems.map(\.id)
+        state.select(id: "c")
+        state.updateSelected(title: "Oldest", content: "3", keyword: ";o", tags: ["t"])
+        XCTAssertEqual(state.items.first { $0.id == "c" }?.updatedAt, old)
+        XCTAssertEqual(state.visibleItems.map(\.id), order)
+
+        state.updateSelected(title: "Oldest", content: "3 edited", keyword: ";o", tags: ["t"])
+        XCTAssertNotEqual(state.items.first { $0.id == "c" }?.updatedAt, old)
+    }
+
     func testTagFilterNarrowsVisibleItems() {
         let state = makeState([
             StoredSnippet(id: "a", title: "Addr", content: "123 Main", tags: ["personal"]),

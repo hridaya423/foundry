@@ -127,11 +127,15 @@ final class SnippetState {
 
     func updateSelected(title: String, content: String, keyword: String, tags: [String]) {
         guard let selectedID, let index = items.firstIndex(where: { $0.id == selectedID }) else { return }
-        items[index].title = title.isEmpty ? "Untitled Snippet" : title
-        items[index].content = String(content.prefix(contentLimit))
-        items[index].keyword = keyword.trimmingCharacters(in: .whitespacesAndNewlines)
-        items[index].tags = tags.filter { $0.isEmpty == false }
-        items[index].updatedAt = Date()
+        var edited = items[index]
+        edited.title = title.isEmpty ? "Untitled Snippet" : title
+        edited.content = String(content.prefix(contentLimit))
+        edited.keyword = keyword.trimmingCharacters(in: .whitespacesAndNewlines)
+        edited.tags = tags.filter { $0.isEmpty == false }
+        guard edited.title != items[index].title || edited.content != items[index].content
+            || edited.keyword != items[index].keyword || edited.tags != items[index].tags else { return }
+        edited.updatedAt = Date()
+        items[index] = edited
         invalidateVisibleItems()
         schedulePersist()
     }

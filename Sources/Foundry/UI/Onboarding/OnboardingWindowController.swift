@@ -18,6 +18,7 @@ final class OnboardingWindowController: NSObject, NSWindowDelegate {
         if let step {
             state.go(to: step)
         }
+        state.markPresented()
         let window = window ?? makeWindow()
         self.window = window
         keyboard.start()
@@ -64,6 +65,6 @@ final class OnboardingWindowController: NSObject, NSWindowDelegate {
 
     func windowWillClose(_ notification: Notification) {
         keyboard.stop()
-        state.stopWaitingForSpotlight()
+        state.abandon()
     }
 }

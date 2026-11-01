@@ -25,8 +25,6 @@ extension CommandPanelState {
             session.selectedActionID = nil
             if session.query.isEmpty == false {
                 session.query = ""
-                session.results = []
-                session.selectedResultID = nil
             }
             return
         }

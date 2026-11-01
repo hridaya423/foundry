@@ -63,7 +63,7 @@ struct OnboardingView: View {
                 Reveal(index: 1, after: reduceMotion ? 0 : (state.step == .welcome ? Self.welcomeCastBeat : 0)) { footer }
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
                 if state.step != .welcome && state.step != .done {
-                    Button("Skip setup") { state.finish() }
+                    Button("Skip setup") { state.abandon() }
                         .buttonStyle(BrandQuietButtonStyle(dim: true))
                         .padding(.top, 30)
                         .padding(.trailing, Self.margin)
@@ -100,7 +100,7 @@ struct OnboardingView: View {
             state.completeTryIt()
         }
         .onChange(of: state.step) { _, _ in keyboard.isRecording = false }
-        .onExitCommand { state.finish() }
+        .onExitCommand { state.abandon() }
     }
 
     /// A crossfade; the slight blur makes the two steps read as one change.

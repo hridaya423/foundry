@@ -258,7 +258,53 @@ final class PanelKeyboardTests: XCTestCase {
         state.shutdown()
     }
 
+    private func footer(_ state: CommandPanelState) -> [String] {
+        state.searchFooterActions(isWindowLayoutQuery: false).map { "\($0.keys) \(String(localized: $0.label))" }
+    }
+
+    func testFooterShowsNothingWhenNothingIsSelected() {
+        let state = makeState()
+        state.session.results = []
+        state.session.selectedResultID = nil
+        XCTAssertEqual(footer(state), [])
+        state.shutdown()
+    }
+
+    func testFooterNamesTheSelectedResultsAction() {
+        let state = makeState()
+        state.session.results = [result("test.one")]
+        state.session.selectedResultID = "test.one"
+        XCTAssertEqual(footer(state), ["↵ Open", "⌘K Actions"])
+        state.shutdown()
+    }
+
+    func testFooterShowsThePromptsVerbsWhileAPromptIsUp() {
+        let state = makeState()
+        state.session.results = [result("test.one")]
+        state.session.selectedResultID = "test.one"
+        state.pendingPrompt = PendingPrompt(
+            spec: .confirmation(title: "Move to Trash?", confirmLabel: "Move to Trash", isDestructive: true),
+            resume: { _ in })
+        XCTAssertEqual(footer(state), ["↵ Move to Trash", "esc Cancel"])
+        state.shutdown()
+    }
+
     // MARK: Home never blanks
+
+    func testReopenInsidePopToRootWindowPaintsHomeOnTheFirstFrame() async {
+        let command = result("test.homecmd", title: "Home Command")
+        let state = makeState(providers: [HomeProvider(home: [command])])
+        state.resetForOpen()
+        let filled = await waitUntilTrue { state.session.results.isEmpty == false }
+        XCTAssertTrue(filled)
+        state.session.query = "ho"
+        state.panelWillClose()
+
+        state.resetForOpen()
+        XCTAssertEqual(state.session.results.map(\.id), ["test.homecmd"])
+        XCTAssertEqual(state.session.selectedResultID, "test.homecmd")
+        state.shutdown()
+    }
 
     func testHomeSnapshotFillsSynchronouslyOnReopen() async {
         let command = result("test.homecmd", title: "Home Command")

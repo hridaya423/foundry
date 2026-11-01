@@ -315,7 +315,7 @@ struct CommandPanelView: View {
         case .scriptOutput:
             (id: "scriptOutput", actions: [.init(label: "Copy Output", keys: "⌘↵", emphasized: true), .home])
         case .search:
-            (id: searchContentID, actions: searchFooterActions)
+            (id: searchContentID, actions: state.searchFooterActions(isWindowLayoutQuery: isWindowLayoutQuery))
         }
     }
 
@@ -890,22 +890,6 @@ struct CommandPanelView: View {
         case .commands, .fallback: "Command"
         }
     }
-
-    private var searchFooterActions: [FooterActionSpec] {
-        if state.session.isShowingActions {
-            return [
-                .init(label: state.session.selectedAction.map { LocalizedStringResource("\($0.title)") } ?? "Run", keys: "↵", emphasized: true),
-                .init(label: "Back", keys: "esc"),
-            ]
-        }
-        let primary = FooterActionSpec(
-            label: isWindowLayoutQuery ? "Apply" : LocalizedStringResource("\(state.session.preferredActionTitle)"),
-            keys: "↵",
-            emphasized: true
-        )
-        return [primary, .actions]
-    }
-
 
     @ViewBuilder
     private var panelFooter: some View {

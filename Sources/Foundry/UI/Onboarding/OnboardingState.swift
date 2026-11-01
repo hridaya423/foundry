@@ -95,7 +95,12 @@ final class OnboardingState {
     }
 
     static func shouldShowAutomatically(localState: LocalStateStore = .shared, configExistedAtLaunch: Bool) -> Bool {
-        localState.get(\.onboardingCompletedVersion) == nil && configExistedAtLaunch == false
+        localState.get(\.onboardingCompletedVersion) == nil
+            && (configExistedAtLaunch == false || localState.get(\.onboardingStep) != nil)
+    }
+
+    func markPresented() {
+        localState.set(\.onboardingStep, step.rawValue)
     }
 
     var canGoBack: Bool { step != .welcome }
@@ -120,16 +125,38 @@ final class OnboardingState {
 
     func finish() {
         if didClaimCommandSpace == false && panel.settings.hotkey == .commandSpace { claimCommandSpace() }
+        end()
+        onStepChanged?(.done)
+        onFinish?()
+    }
+
+    /// Esc, Skip setup and the close button. Nothing outside Foundry changes:
+    /// if ⌘ Space is still someone else's, Foundry falls back to ⌥ Space so
+    /// the user is never left without a working shortcut.
+    func abandon(rivals: [LauncherRival] = LauncherRival.all,
+        spotlightEnabled: () -> Bool = SpotlightShortcut.isEnabledOnThisMac) {
+        guard hasEnded == false else { return }
+        if didClaimCommandSpace == false, panel.settings.hotkey == .commandSpace,
+           spotlightEnabled() || rivals.contains(where: { $0.holdsCommandSpace() }) {
+            panel.settings.setHotkey(.optionSpace)
+        }
+        end()
+        onFinish?()
+    }
+
+    private var hasEnded = false
+
+    private func end() {
+        hasEnded = true
         stopWaitingForSpotlight()
         localState.update { state in
             state.onboardingCompletedVersion = version
             state.onboardingStep = nil
         }
-        onStepChanged?(.done)
-        onFinish?()
     }
 
     func restart() {
+        hasEnded = false
         go(to: .welcome)
         didTryPanel = false
     }

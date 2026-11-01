@@ -288,9 +288,8 @@ final class PanelSession {
 
     /// What ↵ will actually do to the selection — the footer's label must
     /// come from here, not from a typed-in string that can drift.
-    var preferredActionTitle: String {
-        guard let selectedResult else { return "Open" }
-        return preferredAction(for: selectedResult).title
+    var preferredActionTitle: String? {
+        selectedResult.map { preferredAction(for: $0).title }
     }
 
     func select(resultID: String) {

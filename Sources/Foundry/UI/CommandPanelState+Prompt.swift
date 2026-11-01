@@ -25,4 +25,24 @@ extension CommandPanelState {
     func cancelPrompt() {
         resolvePrompt(.cancelled)
     }
+
+    func searchFooterActions(isWindowLayoutQuery: Bool) -> [FooterActionSpec] {
+        if let prompt = pendingPrompt {
+            return [
+                .init(label: prompt.spec.confirmLabel, keys: "↵", emphasized: true),
+                .init(label: prompt.spec.cancelLabel ?? "Cancel", keys: "esc"),
+            ]
+        }
+        if session.isShowingActions {
+            return [
+                .init(label: session.selectedAction.map { LocalizedStringResource("\($0.title)") } ?? "Run", keys: "↵", emphasized: true),
+                .init(label: "Back", keys: "esc"),
+            ]
+        }
+        if isWindowLayoutQuery {
+            return [.init(label: "Apply", keys: "↵", emphasized: true), .actions]
+        }
+        guard let title = session.preferredActionTitle else { return [] }
+        return [.init(label: LocalizedStringResource("\(title)"), keys: "↵", emphasized: true), .actions]
+    }
 }

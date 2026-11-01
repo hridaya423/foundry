@@ -21,6 +21,20 @@ final class OnboardingStateTests: XCTestCase {
         XCTAssertFalse(OnboardingState.shouldShowAutomatically(localState: localState, configExistedAtLaunch: false))
     }
 
+    func testResumesAfterQuitWhenAStepWasSaved() {
+        localState.set(\.onboardingStep, OnboardingStep.tryIt.rawValue)
+        XCTAssertTrue(OnboardingState.shouldShowAutomatically(localState: localState, configExistedAtLaunch: true))
+        localState.set(\.onboardingCompletedVersion, "1.0.0")
+        XCTAssertFalse(OnboardingState.shouldShowAutomatically(localState: localState, configExistedAtLaunch: true))
+    }
+
+    func testPresentingWelcomeSavesTheStepSoAQuitResumes() {
+        let state = makeState()
+        state.markPresented()
+        XCTAssertEqual(localState.get(\.onboardingStep), OnboardingStep.welcome.rawValue)
+        XCTAssertTrue(OnboardingState.shouldShowAutomatically(localState: localState, configExistedAtLaunch: true))
+    }
+
     func testStepPersistsAndResumes() {
         let state = makeState()
         XCTAssertEqual(state.step, .welcome)
@@ -166,6 +180,28 @@ final class OnboardingStateTests: XCTestCase {
         XCTAssertEqual(NSDictionary(contentsOf: prefs)?["mod"] as? Int, option)
         XCTAssertEqual(NSDictionary(contentsOf: prefs)?["key"] as? Int, 49)
         XCTAssertFalse(rival.holdsCommandSpace())
+    }
+
+    func testAbandonTouchesNoOtherAppAndFallsBackToOptionSpace() {
+        let state = makeState()
+        state.panel.settings.setHotkey(.commandSpace)
+        let moved = LockedFlag()
+        let rival = LauncherRival(id: "test", name: "Test", bundleID: "app.foundry.tests.absent",
+            holdsCommandSpace: { true }, moveToOptionSpace: { moved.value = true; return true })
+        state.abandon(rivals: [rival], spotlightEnabled: { true })
+        XCTAssertFalse(state.didClaimCommandSpace)
+        XCTAssertTrue(state.takeovers.isEmpty)
+        XCTAssertFalse(moved.value)
+        XCTAssertEqual(state.panel.settings.hotkey, .optionSpace)
+        XCTAssertNotNil(localState.get(\.onboardingCompletedVersion))
+        XCTAssertNil(localState.get(\.onboardingStep))
+    }
+
+    func testAbandonKeepsCommandSpaceWhenNothingElseHoldsIt() {
+        let state = makeState()
+        state.panel.settings.setHotkey(.commandSpace)
+        state.abandon(rivals: [], spotlightEnabled: { false })
+        XCTAssertEqual(state.panel.settings.hotkey, .commandSpace)
     }
 
     func testClaimingCommandSpaceTurnsOffSpotlightAndMovesRivals() async {
