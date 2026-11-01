@@ -95,8 +95,9 @@ final class PanelController: NSObject, NSWindowDelegate {
         CATransaction.flush()
         DispatchQueue.main.async { [weak panel, diagnostics] in
             diagnostics.endSpan(span)
-            guard let panel, panel.isVisible, panel.isKeyWindow == false else { return }
-            panel.makeKeyAndOrderFront(nil)
+            guard let panel, panel.isVisible else { return }
+            if panel.isKeyWindow == false { panel.makeKeyAndOrderFront(nil) }
+            (panel.firstResponder as? NSTextView)?.selectAll(nil)
         }
     }
 

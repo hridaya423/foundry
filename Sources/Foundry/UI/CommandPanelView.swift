@@ -17,6 +17,7 @@ struct CommandPanelView: View {
     @Environment(\.foundryIncreaseContrast) private var increaseContrast
     @Environment(\.colorScheme) private var colorScheme
     @State private var isDropTargeted = false
+    @State private var showsLoadingHairline = false
     @State private var visibleResultIDs: Set<String> = []
     /// Replayed on every open: the content settles from 97% (1.1's entrance).
 
@@ -62,6 +63,18 @@ struct CommandPanelView: View {
                 content: { surfaceHeader },
                 trailing: { surfaceHeaderTrailing }
             )
+            .overlay(alignment: .bottom) {
+                if showsLoadingHairline {
+                    LoadingHairline()
+                }
+            }
+            .task(id: state.mode == .search && state.session.isSearchLoading) {
+                showsLoadingHairline = false
+                guard state.mode == .search, state.session.isSearchLoading else { return }
+                try? await Task.sleep(for: .milliseconds(150))
+                guard Task.isCancelled == false else { return }
+                showsLoadingHairline = true
+            }
 
             if state.compactCollapsed == false {
                 if state.showsWhatsNew && state.mode == .search && trimmedQuery.isEmpty {
@@ -861,35 +874,13 @@ struct CommandPanelView: View {
         }
     }
 
-    @ViewBuilder
     private var panelFooter: some View {
-        let actions = surfaceSpec.actions
-        if state.mode == .search, state.session.isSearchLoading {
-            PanelFooter(actions: actions, openSettings: state.router.openSettings, openWelcomeGuide: state.router.openWelcomeGuide) {
-                Text("Searching…")
-                    .font(FoundryTheme.caption)
-                    .foregroundStyle(FoundryTheme.textTertiary)
-            }
-        } else if isWindowLayoutQuery {
-            PanelFooter(actions: actions, openSettings: state.router.openSettings, openWelcomeGuide: state.router.openWelcomeGuide) {
-                Text("\(windowLayoutResults.count) layouts")
-                    .font(FoundryTheme.caption.monospacedDigit())
-                    .foregroundStyle(FoundryTheme.textQuaternary)
-            }
-        } else if state.mode == .search, trimmedQuery.isEmpty == false, state.session.results.isEmpty == false {
-            PanelFooter(actions: actions, openSettings: state.router.openSettings, openWelcomeGuide: state.router.openWelcomeGuide) {
-                Text(state.session.results.count == 1 ? "1 result" : "\(state.session.results.count) results")
-                    .font(FoundryTheme.caption.monospacedDigit())
-                    .foregroundStyle(FoundryTheme.textQuaternary)
-            }
-        } else {
-            PanelFooter(
-                actions: actions,
-                leadingAccessory: state.mode == .quickAI ? AnyView(QuickAIModelMenu(quickAI: state.quickAI, aiSettings: state.aiSettings,
-                    openAISettings: { state.presentSettings(.ai) })) : nil,
-                openSettings: state.router.openSettings,
-                openWelcomeGuide: state.router.openWelcomeGuide
-            )
-        }
+        PanelFooter(
+            actions: surfaceSpec.actions,
+            leadingAccessory: state.mode == .quickAI ? AnyView(QuickAIModelMenu(quickAI: state.quickAI, aiSettings: state.aiSettings,
+                openAISettings: { state.presentSettings(.ai) })) : nil,
+            openSettings: state.router.openSettings,
+            openWelcomeGuide: state.router.openWelcomeGuide
+        )
     }
 }

@@ -1,3 +1,4 @@
+import AppKit
 import XCTest
 @testable import Foundry
 import FoundryDomain
@@ -326,19 +327,33 @@ final class PanelKeyboardTests: XCTestCase {
 
     // MARK: Home never blanks
 
-    func testReopenInsidePopToRootWindowPaintsHomeOnTheFirstFrame() async {
+    func testReopenInsidePopToRootWindowKeepsTheQueryAndItsResults() async {
         let command = result("test.homecmd", title: "Home Command")
         let state = makeState(providers: [HomeProvider(home: [command])])
         state.resetForOpen()
         let filled = await waitUntilTrue { state.session.results.isEmpty == false }
         XCTAssertTrue(filled)
         state.session.query = "ho"
+        state.session.results = [command]
+        state.session.selectedResultID = command.id
         state.panelWillClose()
 
         state.resetForOpen()
+        XCTAssertEqual(state.session.query, "ho")
         XCTAssertEqual(state.session.results.map(\.id), ["test.homecmd"])
         XCTAssertEqual(state.session.selectedResultID, "test.homecmd")
         state.shutdown()
+    }
+
+    func testShiftTabDoesNothingInSearch() {
+        var tabs = 0
+        let coordinator = LauncherSearchField.Coordinator(text: .constant(""), onTab: { tabs += 1 })
+        let field = NSTextField()
+        let handled = coordinator.control(field, textView: NSTextView(), doCommandBy: #selector(NSResponder.insertBacktab(_:)))
+        XCTAssertTrue(handled)
+        XCTAssertEqual(tabs, 0)
+        _ = coordinator.control(field, textView: NSTextView(), doCommandBy: #selector(NSResponder.insertTab(_:)))
+        XCTAssertEqual(tabs, 1)
     }
 
     func testHomeSnapshotFillsSynchronouslyOnReopen() async {

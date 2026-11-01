@@ -101,7 +101,7 @@ struct LauncherSearchField: NSViewRepresentable {
         field.isBordered = false
         field.drawsBackground = false
         field.focusRingType = .none
-        field.font = NSFont.systemFont(ofSize: LauncherSearchTextField.maximumPointSize, weight: .regular)
+        field.font = NSFont.systemFont(ofSize: LauncherSearchTextField.pointSize, weight: .regular)
         field.textColor = .labelColor
         field.placeholderString = placeholder
         field.cell?.usesSingleLineMode = true
@@ -148,8 +148,10 @@ struct LauncherSearchField: NSViewRepresentable {
 
         func control(_ control: NSControl, textView: NSTextView, doCommandBy commandSelector: Selector) -> Bool {
             switch commandSelector {
-            case #selector(NSResponder.insertTab(_:)), #selector(NSResponder.insertBacktab(_:)):
+            case #selector(NSResponder.insertTab(_:)):
                 onTab?()
+                return true
+            case #selector(NSResponder.insertBacktab(_:)):
                 return true
             case #selector(NSResponder.insertNewline(_:)), #selector(NSResponder.insertNewlineIgnoringFieldEditor(_:)):
                 onReturn?()
@@ -162,37 +164,13 @@ struct LauncherSearchField: NSViewRepresentable {
 }
 
 final class LauncherSearchTextField: NSTextField {
-    static let maximumPointSize: CGFloat = 20
+    static let pointSize: CGFloat = 20
 
     var onTab: (() -> Void)?
     var onReturn: (() -> Void)?
 
-    override func layout() {
-        super.layout()
-        fitTextToWidth()
-    }
-
-    private func fitTextToWidth() {
-        let maximumPointSize = LauncherSearchTextField.maximumPointSize
-        let minimumPointSize: CGFloat = 12
-        guard bounds.width > 0, stringValue.isEmpty == false else {
-            if font?.pointSize != maximumPointSize {
-                font = NSFont.systemFont(ofSize: maximumPointSize, weight: .regular)
-            }
-            return
-        }
-
-        let baseFont = NSFont.systemFont(ofSize: maximumPointSize, weight: .regular)
-        let textWidth = (stringValue as NSString).size(withAttributes: [.font: baseFont]).width
-        let pointSize = textWidth > bounds.width
-            ? max(minimumPointSize, maximumPointSize * bounds.width / textWidth)
-            : maximumPointSize
-        guard abs((font?.pointSize ?? 0) - pointSize) > 0.1 else { return }
-        font = NSFont.systemFont(ofSize: pointSize, weight: .regular)
-    }
-
     override func performKeyEquivalent(with event: NSEvent) -> Bool {
-        if event.keyCode == 48 {
+        if event.keyCode == 48, event.modifierFlags.contains(.shift) == false {
             onTab?()
             return true
         }
@@ -201,12 +179,29 @@ final class LauncherSearchTextField: NSTextField {
 
     override func keyDown(with event: NSEvent) {
         switch event.keyCode {
-        case 48:
+        case 48 where event.modifierFlags.contains(.shift) == false:
             onTab?()
         case 36:
             onReturn?()
         default:
             super.keyDown(with: event)
         }
+    }
+}
+
+struct LoadingHairline: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var dimmed = false
+
+    var body: some View {
+        Rectangle()
+            .fill(FoundryTheme.accent)
+            .frame(height: 1)
+            .opacity(dimmed ? FoundryTheme.Alpha.subtle : FoundryTheme.Alpha.half)
+            .accessibilityHidden(true)
+            .onAppear {
+                guard reduceMotion == false else { return }
+                withAnimation(FoundryTheme.Motion.pulse.repeatForever(autoreverses: true)) { dimmed = true }
+            }
     }
 }

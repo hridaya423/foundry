@@ -171,6 +171,14 @@ final class PreviewSnapshotTests: XCTestCase {
         state.session.results = [file]
         state.session.selectedResultID = file.id
         state.session.toggleActions()
+        try renderPanel(state, named: "actions", dir: dir)
+        state.session.toggleActions()
+        state.session.isSearchLoading = true
+        try renderPanel(state, named: "loading", dir: dir)
+        state.shutdown()
+    }
+
+    private func renderPanel(_ state: CommandPanelState, named prefix: String, dir: String) throws {
         for appearance in [NSAppearance.Name.aqua, .darkAqua] {
             let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 736, height: 474), styleMask: [.titled, .fullSizeContentView], backing: .buffered, defer: false)
             window.appearance = NSAppearance(named: appearance)
@@ -180,10 +188,9 @@ final class PreviewSnapshotTests: XCTestCase {
             RunLoop.main.run(until: Date().addingTimeInterval(0.6))
             let rep = try XCTUnwrap(host.bitmapImageRepForCachingDisplay(in: host.bounds))
             host.cacheDisplay(in: host.bounds, to: rep)
-            let name = "actions-\(appearance == .aqua ? "light" : "dark").png"
+            let name = "\(prefix)-\(appearance == .aqua ? "light" : "dark").png"
             try XCTUnwrap(rep.representation(using: .png, properties: [:])).write(to: URL(fileURLWithPath: dir).appendingPathComponent(name))
         }
-        state.shutdown()
     }
 
 }

@@ -371,9 +371,9 @@ final class CommandPanelStateTests: XCTestCase {
         state.resetForOpen()
 
         XCTAssertEqual(state.mode, .translator)
-        XCTAssertTrue(state.session.query.isEmpty)
-        XCTAssertTrue(state.session.results.isEmpty)
-        XCTAssertNil(state.session.selectedResultID)
+        XCTAssertEqual(state.session.query, "tes")
+        XCTAssertEqual(state.session.results.map(\.id), ["test.result"])
+        XCTAssertEqual(state.session.selectedResultID, "test.result")
         state.shutdown()
     }
 
