@@ -218,9 +218,10 @@ final class PanelSession {
                 behavior: OpenCommandSettingsAction(SettingsDeepLink(result: selectedResult))
             )]
             : [CommandAction]()
-        return orderedActions(for: selectedResult)
-            + openWithActions
-            + metaActions
+        let actions = orderedActions(for: selectedResult) + openWithActions + metaActions
+        guard let primary = actions.first else { return actions }
+        let rest = actions.dropFirst()
+        return [primary] + rest.filter { $0.isDestructive == false } + rest.filter(\.isDestructive)
     }
 
     var selectedAction: CommandAction? {

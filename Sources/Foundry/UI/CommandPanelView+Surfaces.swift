@@ -59,25 +59,16 @@ extension CommandPanelView {
 
     var actionsSurface: some View {
         VStack(spacing: 0) {
-            HStack(spacing: 8) {
-                Text("Actions")
-                    .font(FoundryTheme.micro)
-                    .foregroundStyle(FoundryTheme.textQuaternary)
-                    .textCase(.uppercase)
-                    .tracking(0.4)
-
-                if let selectedResult = state.session.selectedResult {
-                    Text(selectedResult.title)
-                        .font(FoundryTheme.bodySecondary)
-                        .foregroundStyle(FoundryTheme.textTertiary)
-                        .lineLimit(1)
-                }
-
-                Spacer()
+            if let selectedResult = state.session.selectedResult {
+                Text(selectedResult.title)
+                    .font(FoundryTheme.bodySecondary)
+                    .foregroundStyle(FoundryTheme.textSecondary)
+                    .lineLimit(1)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 16)
+                    .padding(.top, 12)
+                    .padding(.bottom, 4)
             }
-            .padding(.horizontal, 20)
-            .frame(height: 40)
-            .background(Color.clear)
 
             ScrollViewReader { proxy in
                 ScrollView {
@@ -90,6 +81,9 @@ extension CommandPanelView {
                                 .padding(.vertical, 24)
                         }
                         ForEach(state.session.visibleActions, id: \.id) { action in
+                            if action.id == firstDestructiveActionID {
+                                Divider().padding(.vertical, 4).padding(.horizontal, 8)
+                            }
                             ActionRow(
                                 action: action,
                                 shortcut: action.id == state.session.selectedActions.first?.id ? "↵" : state.session.actionShortcuts[action.id]?.display,
@@ -109,10 +103,16 @@ extension CommandPanelView {
                 .background(Color.clear)
                 .onChange(of: state.session.selectedActionID) { _, actionID in
                     guard let actionID else { return }
-                    proxy.scrollTo(actionID, anchor: .center)
+                    proxy.scrollTo(actionID)
                 }
             }
         }
+    }
+
+    private var firstDestructiveActionID: String? {
+        let actions = state.session.visibleActions
+        guard actions.contains(where: { $0.isDestructive == false }) else { return nil }
+        return actions.first(where: \.isDestructive)?.id
     }
 
     var trimmedQuery: String {

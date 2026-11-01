@@ -157,16 +157,15 @@ struct KeycapHint: View {
     let text: String
 
     var body: some View {
-        FoundryGlassSurface(role: .control, shape: RoundedRectangle(cornerRadius: 5, style: .continuous)) {
-            Text(text)
-                .font(FoundryTheme.caption)
-                .foregroundStyle(FoundryTheme.textSecondary)
-                .multilineTextAlignment(.center)
-                .baselineOffset(-0.5)
-                .padding(.horizontal, 5)
-                .frame(minWidth: 19, minHeight: 19)
-        }
-        .fixedSize()
+        Text(text)
+            .font(FoundryTheme.caption)
+            .foregroundStyle(FoundryTheme.textSecondary)
+            .multilineTextAlignment(.center)
+            .baselineOffset(-0.5)
+            .padding(.horizontal, 5)
+            .frame(minWidth: 19, minHeight: 19)
+            .background(FoundryTheme.fillTint, in: RoundedRectangle(cornerRadius: FoundryTheme.Radius.badge, style: .continuous))
+            .fixedSize()
     }
 }
 

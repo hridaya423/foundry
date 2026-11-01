@@ -277,6 +277,26 @@ final class PanelKeyboardTests: XCTestCase {
         state.shutdown()
     }
 
+    func testActionsKeepTheRootQueryAndListDestructiveActionsLast() {
+        let state = makeState()
+        let file = CommandResult(id: "file.a", title: "Report.pdf", subtitle: nil, icon: CommandIcon(fallback: "F"),
+            payload: .file(URL(fileURLWithPath: "/tmp/Report.pdf")),
+            primaryAction: CommandAction(id: "file.open", title: "Open", behavior: OpenHomeAction()),
+            secondaryActions: [
+                CommandAction(id: "file.trash", title: "Move to Trash", behavior: MoveToTrashAction(path: "/tmp/Report.pdf")),
+                CommandAction(id: "file.copy", title: "Copy Path", behavior: CopyToClipboardAction("/tmp/Report.pdf")),
+            ])
+        state.session.query = "rep"
+        state.session.results = [file]
+        state.session.selectedResultID = file.id
+        state.session.toggleActions()
+        XCTAssertEqual(state.session.query, "rep")
+        let titles = state.session.selectedActions.map(\.title)
+        XCTAssertEqual(titles.first, "Open")
+        XCTAssertEqual(titles.last, "Move to Trash")
+        state.shutdown()
+    }
+
     func testFooterShowsNothingWhenNothingIsSelected() {
         let state = makeState()
         state.session.results = []

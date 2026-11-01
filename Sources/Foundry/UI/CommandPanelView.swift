@@ -119,7 +119,7 @@ struct CommandPanelView: View {
             .overlay(alignment: .bottomTrailing) {
                 Group {
                     if state.session.isShowingActions {
-                        FoundryGlassSurface(role: .floatingOverlay, shape: RoundedRectangle(cornerRadius: 16, style: .continuous)) {
+                        FoundryGlassSurface(role: .floatingOverlay, shape: RoundedRectangle(cornerRadius: FoundryTheme.Radius.popover, style: .continuous)) {
                             actionsSurface
                                 .frame(width: 340)
                                 .frame(maxHeight: 320)
@@ -135,7 +135,7 @@ struct CommandPanelView: View {
             .overlay(alignment: .bottom) {
                 Group {
                     if let prompt = state.pendingPrompt {
-                        FoundryGlassSurface(role: .floatingOverlay, shape: RoundedRectangle(cornerRadius: 16, style: .continuous)) {
+                        FoundryGlassSurface(role: .floatingOverlay, shape: RoundedRectangle(cornerRadius: FoundryTheme.Radius.popover, style: .continuous)) {
                             PanelPromptOverlay(spec: prompt.spec) { result in
                                 state.resolvePrompt(result)
                             }
@@ -150,7 +150,7 @@ struct CommandPanelView: View {
             .overlay(alignment: .bottom) {
                 Group {
                     if state.pendingDropURLs != nil {
-                        FoundryGlassSurface(role: .floatingOverlay, shape: RoundedRectangle(cornerRadius: 16, style: .continuous)) {
+                        FoundryGlassSurface(role: .floatingOverlay, shape: RoundedRectangle(cornerRadius: FoundryTheme.Radius.popover, style: .continuous)) {
                             dropChooserSurface
                                 .frame(width: 340)
                         }

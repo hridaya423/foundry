@@ -154,4 +154,36 @@ final class PreviewSnapshotTests: XCTestCase {
         }
     }
 
+    func testRenderActionsOverlay() throws {
+        guard let dir = ProcessInfo.processInfo.environment["FOUNDRY_QA_SNAPSHOT_DIR"] else { throw XCTSkip("snapshot dir not set") }
+        let diagnostics = DiagnosticsService()
+        let config = ConfigService(diagnostics: diagnostics, url: FileManager.default.temporaryDirectory.appendingPathComponent("snap-\(UUID()).json"))
+        let registry = CommandRegistry(providers: [], usageRanking: UsageRankingStore(diagnostics: diagnostics), diagnostics: diagnostics, configService: config)
+        let state = CommandPanelState(registry: registry, actionRunner: ActionRunner(diagnostics: diagnostics), diagnostics: diagnostics, config: config)
+        let file = CommandResult(id: "file.a", title: "Report.pdf", subtitle: "~/Documents", icon: CommandIcon(fallback: "F", systemName: "doc"),
+            payload: .file(URL(fileURLWithPath: "/tmp/Report.pdf")),
+            primaryAction: CommandAction(id: "file.open", title: "Open", behavior: OpenHomeAction()),
+            secondaryActions: [
+                CommandAction(id: "file.trash", title: "Move to Trash", behavior: MoveToTrashAction(path: "/tmp/Report.pdf")),
+                CommandAction(id: "file.copy", title: "Copy Path", behavior: CopyToClipboardAction("/tmp/Report.pdf")),
+            ])
+        RunLoop.main.run(until: Date().addingTimeInterval(0.3))
+        state.session.results = [file]
+        state.session.selectedResultID = file.id
+        state.session.toggleActions()
+        for appearance in [NSAppearance.Name.aqua, .darkAqua] {
+            let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 736, height: 474), styleMask: [.titled, .fullSizeContentView], backing: .buffered, defer: false)
+            window.appearance = NSAppearance(named: appearance)
+            let host = NSHostingView(rootView: CommandPanelView(state: state) {}.background(Color(nsColor: .windowBackgroundColor)))
+            host.frame = window.contentLayoutRect
+            window.contentView = host
+            RunLoop.main.run(until: Date().addingTimeInterval(0.6))
+            let rep = try XCTUnwrap(host.bitmapImageRepForCachingDisplay(in: host.bounds))
+            host.cacheDisplay(in: host.bounds, to: rep)
+            let name = "actions-\(appearance == .aqua ? "light" : "dark").png"
+            try XCTUnwrap(rep.representation(using: .png, properties: [:])).write(to: URL(fileURLWithPath: dir).appendingPathComponent(name))
+        }
+        state.shutdown()
+    }
+
 }

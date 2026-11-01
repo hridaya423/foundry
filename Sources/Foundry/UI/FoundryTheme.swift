@@ -216,6 +216,7 @@ enum FoundryTheme {
         static let control: CGFloat = 8
         static let row: CGFloat = 10
         static let overlay: CGFloat = 14
+        static let popover: CGFloat = 18
         static let panel: CGFloat = 26
     }
 
