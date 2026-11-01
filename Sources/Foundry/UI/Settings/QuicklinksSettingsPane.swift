@@ -20,7 +20,8 @@ struct QuicklinksSettingsPane: View {
                 .fixedSize(horizontal: false, vertical: true)
 
             SettingsGroup {
-                SettingsToggleRow(title: "Site icons", subtitle: "Show each site’s icon. Foundry gets the icon from the site.",
+                SettingsToggleRow(title: "Site icons",
+                    subtitle: "Show each site’s icon in Quicklinks and Media Downloads. Foundry gets the icon from the site.",
                     isOn: settings.quicklinkSiteIcons, set: settings.updateQuicklinkSiteIcons)
             }
 

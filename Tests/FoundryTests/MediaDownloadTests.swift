@@ -6,6 +6,18 @@ import FoundryDomain
 import FoundryServices
 
 final class MediaDownloadTests: XCTestCase {
+    func testFaviconsFollowTheSiteIconsSetting() {
+        XCTAssertNil(MediaDownloadsView.faviconURL(for: "https://www.youtube.com/watch?v=x", siteIcons: false),
+            "no request to icons.duckduckgo.com when Site icons is off")
+        XCTAssertEqual(MediaDownloadsView.faviconURL(for: "https://www.youtube.com/watch?v=x", siteIcons: true)?.host, "icons.duckduckgo.com")
+    }
+
+    func testSkippedLinksMessageCountsWhatWasLeft() {
+        XCTAssertNil(MediaDownloadsView.skippedMessage(remaining: "  \n"))
+        XCTAssertEqual(MediaDownloadsView.skippedMessage(remaining: "ftp://a"), "1 link isn’t supported and was left in the box.")
+        XCTAssertEqual(MediaDownloadsView.skippedMessage(remaining: "ftp://a\nnot-a-link"), "2 links aren’t supported and were left in the box.")
+    }
+
     func testProgressThrottleAlwaysPublishesSignificantUpdates() {
         let throttle = MediaProgressThrottle()
         let ordinary = MediaDownloadProgress(phase: .downloading, title: "Video", message: "Downloading", bytesReceived: 1, totalBytes: 10, fractionCompletedOverride: nil, speedBytesPerSecond: nil, estimatedTimeRemaining: nil, currentItem: nil, totalItems: nil)

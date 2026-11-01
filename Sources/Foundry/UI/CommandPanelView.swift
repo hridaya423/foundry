@@ -444,7 +444,8 @@ struct CommandPanelView: View {
                 retry: state.retryDownload,
                 changeDestination: state.changeMediaDownloadFolder,
                 performHaptic: { state.performHaptic(.levelChange) },
-                notify: state.showActionFeedback
+                notify: state.showActionFeedback,
+                siteIcons: state.settings.quicklinkSiteIcons
             )
         case .scriptOutput:
             ScrollView {

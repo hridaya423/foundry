@@ -11,6 +11,7 @@ struct MediaDownloadsView: View {
     let changeDestination: () -> Void
     var performHaptic: () -> Void = {}
     var notify: (ActionFeedback) -> Void = { _ in }
+    var siteIcons = true
 
     @State private var links = ""
     @State private var validationMessage: String?
@@ -135,10 +136,10 @@ struct MediaDownloadsView: View {
         .padding(.horizontal, 12)
         .padding(.vertical, 9)
         .background(
-            RoundedRectangle(cornerRadius: 13, style: .continuous)
+            RoundedRectangle(cornerRadius: FoundryTheme.Radius.overlay, style: .continuous)
                 .fill(FoundryTheme.fillTint)
                 .overlay(
-                    RoundedRectangle(cornerRadius: 13, style: .continuous)
+                    RoundedRectangle(cornerRadius: FoundryTheme.Radius.overlay, style: .continuous)
                         .strokeBorder(FoundryTheme.separator, lineWidth: 1)
                 )
         )
@@ -155,7 +156,7 @@ struct MediaDownloadsView: View {
                     .foregroundStyle(composerFocused ? FoundryTheme.accent : FoundryTheme.textTertiary)
                     .frame(width: 30, height: 30)
                     .background(FoundryTheme.fillHover)
-                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    .clipShape(RoundedRectangle(cornerRadius: FoundryTheme.Radius.control, style: .continuous))
 
                 TextField("Paste one or more media links", text: $links, axis: .vertical)
                     .textFieldStyle(.plain)
@@ -187,7 +188,7 @@ struct MediaDownloadsView: View {
                     .padding(.horizontal, 13)
                     .frame(height: 32)
                     .background(FoundryTheme.prominentControlFill.opacity(links.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? 0.34 : 0.92))
-                    .clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
+                    .clipShape(RoundedRectangle(cornerRadius: FoundryTheme.Radius.control, style: .continuous))
                 }
                 .buttonStyle(PressableButtonStyle())
                 .disabled(links.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
@@ -195,9 +196,9 @@ struct MediaDownloadsView: View {
             .padding(.horizontal, 9)
             .padding(.vertical, 7)
             .background(FoundryTheme.scrim)
-            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: FoundryTheme.Radius.overlay, style: .continuous))
             .overlay(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                RoundedRectangle(cornerRadius: FoundryTheme.Radius.overlay, style: .continuous)
                     .stroke(composerFocused || isDropTargeted ? FoundryTheme.accent.opacity(FoundryTheme.Alpha.half) : FoundryTheme.fillTint, lineWidth: 1)
             )
             .onDrop(of: [.url, .plainText], isTargeted: $isDropTargeted) { providers in
@@ -325,15 +326,11 @@ struct MediaDownloadsView: View {
 
             VStack(spacing: 0) {
                 ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
-                    MediaDownloadRow(item: item, cancel: cancel, retry: retry, redownload: { _ = start(item.sourceURL) }, notify: notify) {
+                    MediaDownloadRow(item: item, isSelected: selectedID == item.id,
+                        faviconURL: Self.faviconURL(for: item.sourceURL, siteIcons: siteIcons),
+                        cancel: cancel, retry: retry, redownload: { _ = start(item.sourceURL) }, notify: notify) {
                         manager.remove(id: item.id)
                     }
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 10, style: .continuous)
-                            .strokeBorder(FoundryTheme.accent.opacity(FoundryTheme.Alpha.half), lineWidth: 1.5)
-                            .padding(.horizontal, 3)
-                            .opacity(selectedID == item.id ? 1 : 0)
-                    )
                     .onTapGesture { selectedID = selectedID == item.id ? nil : item.id }
                     .accessibilityHint(item.status == .active ? "" : "Delete removes this row")
                     if index < items.count - 1 {
@@ -345,9 +342,9 @@ struct MediaDownloadsView: View {
                 }
             }
             .background(FoundryTheme.fillHover)
-            .clipShape(RoundedRectangle(cornerRadius: 15, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: FoundryTheme.Radius.overlay, style: .continuous))
             .overlay(
-                RoundedRectangle(cornerRadius: 15, style: .continuous)
+                RoundedRectangle(cornerRadius: FoundryTheme.Radius.overlay, style: .continuous)
                     .stroke(FoundryTheme.fillTint, lineWidth: 1)
             )
         }
@@ -370,8 +367,21 @@ struct MediaDownloadsView: View {
             return
         }
         links = MediaDownloadProvider.remainingInput(after: links)
-        validationMessage = links.isEmpty ? nil : "Some entries were skipped. Review the remaining text and try again."
+        validationMessage = Self.skippedMessage(remaining: links)
         composerFocused = true
+    }
+
+    static func skippedMessage(remaining: String) -> String? {
+        let count = remaining.split(whereSeparator: \.isWhitespace).count
+        guard count > 0 else { return nil }
+        return count == 1
+            ? String(localized: "1 link isn’t supported and was left in the box.")
+            : String(localized: "\(count) links aren’t supported and were left in the box.")
+    }
+
+    static func faviconURL(for source: String, siteIcons: Bool) -> URL? {
+        guard siteIcons, let host = URL(string: source)?.host, host.isEmpty == false else { return nil }
+        return URL(string: "https://icons.duckduckgo.com/ip3/\(host).ico")
     }
 
     private func pasteLinks() {
@@ -422,6 +432,8 @@ struct MediaDownloadsView: View {
 
 private struct MediaDownloadRow: View {
     let item: MediaDownloadItem
+    let isSelected: Bool
+    let faviconURL: URL?
     let cancel: (UUID) -> Void
     let retry: (MediaDownloadItem) -> Void
     let redownload: () -> Void
@@ -492,7 +504,7 @@ private struct MediaDownloadRow: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 11)
-        .background(isHovering ? FoundryTheme.fillSubtle : .clear)
+        .background(RowBackground(isSelected: isSelected, isHovering: isHovering))
         .animation(reduceMotion ? nil : FoundryTheme.Motion.hover, value: isHovering)
         .onHover { isHovering = $0 }
         .contextMenu { rowMenu }
@@ -508,9 +520,9 @@ private struct MediaDownloadRow: View {
                 }
             }
             .frame(width: 34, height: 34)
-            .clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: FoundryTheme.Radius.control, style: .continuous))
             .overlay(
-                RoundedRectangle(cornerRadius: 9, style: .continuous)
+                RoundedRectangle(cornerRadius: FoundryTheme.Radius.control, style: .continuous)
                     .strokeBorder(FoundryTheme.fillTint, lineWidth: 1)
             )
 
@@ -522,7 +534,7 @@ private struct MediaDownloadRow: View {
 
     private var hostIcon: some View {
         ZStack {
-            RoundedRectangle(cornerRadius: 9, style: .continuous)
+            RoundedRectangle(cornerRadius: FoundryTheme.Radius.control, style: .continuous)
                 .fill(statusColor.opacity(FoundryTheme.Alpha.subtle))
 
             if let faviconURL {
@@ -533,7 +545,7 @@ private struct MediaDownloadRow: View {
             }
 
             if item.status == .active, item.progress.fractionCompleted == nil {
-                RoundedRectangle(cornerRadius: 9, style: .continuous)
+                RoundedRectangle(cornerRadius: FoundryTheme.Radius.control, style: .continuous)
                     .fill(FoundryTheme.shadow)
                 ProgressView()
                     .controlSize(.small)
@@ -568,11 +580,6 @@ private struct MediaDownloadRow: View {
         case .failed: "exclamationmark"
         case .cancelled: "xmark"
         }
-    }
-
-    private var faviconURL: URL? {
-        guard let host = URL(string: item.sourceURL)?.host, host.isEmpty == false else { return nil }
-        return URL(string: "https://icons.duckduckgo.com/ip3/\(host).ico")
     }
 
     @ViewBuilder
