@@ -68,10 +68,6 @@ struct OpenFileConverterAction: ResultAction, Equatable {
     }
 }
 
-struct OpenCameraAction: ResultAction, Equatable {
-    var icon: String? { "camera" }
-    func perform(_ ctx: ActionContext) async -> CommandOutcome { .open(route: .camera) }
-}
 
 struct OpenTranslatorAction: ResultAction, Equatable {
     let text: String?

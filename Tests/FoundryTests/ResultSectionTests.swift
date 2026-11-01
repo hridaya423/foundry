@@ -36,7 +36,7 @@ final class ResultSectionTests: XCTestCase {
             result("ai", OpenQuickAIAction(prompt: "x")),
             result("cmd.a", OpenFileShelfAction()),
             result("app.a", OpenAppAction(path: "/a.app", name: "A")),
-            result("cmd.b", OpenCameraAction())
+            result("cmd.b", OpenClipboardHistoryAction())
         ]
         let ordered = ResultSection.ordered(ranked)
 

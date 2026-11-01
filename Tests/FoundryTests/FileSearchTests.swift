@@ -202,19 +202,4 @@ final class FileSearchTests: XCTestCase {
         XCTAssertEqual(results.map(\.title).first, "Display Settings.pdf")
     }
 
-    func testCameraCommandIsHiddenByDefaultUntilEnabled() async throws {
-        let diagnostics = DiagnosticsService()
-        let config = ConfigService(diagnostics: diagnostics, url: FileManager.default.temporaryDirectory.appendingPathComponent("\(UUID()).json"))
-        let registry = CommandRegistry(providers: [CameraCommandProvider()], usageRanking: UsageRankingStore(diagnostics: diagnostics), diagnostics: diagnostics, configService: config)
-
-        let hidden = await registry.completeResults(matching: "camera", initialResults: [])
-        XCTAssertFalse(hidden.contains { $0.id == "foundry.camera" })
-
-        var preference = CommandPreference()
-        preference.isEnabled = true
-        try config.updateCommandPreference(preference, for: "foundry.camera")
-        let shown = await registry.completeResults(matching: "camera", initialResults: [])
-        XCTAssertTrue(shown.contains { $0.id == "foundry.camera" })
-    }
-
 }

@@ -110,7 +110,7 @@ extension CommandPanelState {
         }
         if session.featureActions != nil { return session.moveSelection(offset: offset) }
         switch mode {
-        case .fileConversion, .camera, .translator, .scriptOutput: return
+        case .fileConversion, .translator, .scriptOutput: return
         case .emojiPicker, .fileShelf, .snippets, .clipboardHistory:
             feature(for: mode)?.handleMove(offset)
             return

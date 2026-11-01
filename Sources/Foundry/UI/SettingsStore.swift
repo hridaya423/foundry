@@ -291,7 +291,7 @@ final class SettingsStore {
 
     func commandPreference(for commandID: String) -> CommandPreference {
         commandPreferences[commandID]
-            ?? CommandPreference(isEnabled: CommandRegistry.defaultDisabledCommandIDs.contains(commandID) == false)
+            ?? CommandPreference(isEnabled: true)
     }
 
     func setCommandEnabled(_ isEnabled: Bool, for commandID: String) {

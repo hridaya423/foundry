@@ -22,7 +22,6 @@ Press **⌘Space** anywhere to open the launcher. First-run setup takes ⌘Space
 - Calculator with unit conversions, equations, and a last-10 history
 - Currency exchange via Frankfurter with the rate date shown
 - Translator with live language switching
-- Camera preview inside the launcher
 - Media downloads for direct links, Cobalt, and automatic YouTube support through yt-dlp, with favicons, file thumbnails, context menus, a completion toast, and aggregate speed
 - Clipboard history for text, files, and images, stored locally in SQLite, with pins, filters, plain-text paste, merge-with-previous, and image metadata
 - Apple Notes search and quick actions

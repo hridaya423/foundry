@@ -52,7 +52,7 @@ extension CommandPanelState {
         case .developerTools: developerTools
         case .quickAI: quickAI
         case .scriptOutput: scriptOutput
-        case .search, .mediaDownloads, .fileConversion, .camera, .agents:
+        case .search, .mediaDownloads, .fileConversion, .agents:
             nil
         }
     }

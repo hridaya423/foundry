@@ -114,7 +114,6 @@ final class RankingGoldenTests: XCTestCase {
                 LibraryProvider(store: FileSnippetStore(url: tmp.appendingPathComponent("snippets.json"))),
                 QuicklinkProvider(store: QuicklinkStore(url: tmp.appendingPathComponent("quicklinks.json"))),
                 MediaDownloadProvider(),
-                CameraCommandProvider(),
                 SystemCommandProvider(),
                 WindowManagementProvider(),
                 BuiltInCommandProvider(),

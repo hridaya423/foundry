@@ -501,7 +501,6 @@ final class AIProviderTests: XCTestCase {
             .clipboardHistory,
             .snippets,
             .fileConversion,
-            .camera,
             .translator,
             .developerTools
         ]

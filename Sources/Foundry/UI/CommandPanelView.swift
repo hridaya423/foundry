@@ -301,8 +301,6 @@ struct CommandPanelView: View {
         case .fileConversion:
             (id: "fileConversion",
              actions: [.init(label: "Convert", keys: "↵", emphasized: true), .home])
-        case .camera:
-            (id: "camera", actions: [.home])
         case .fileShelf:
             (id: "shelf",
              actions: [.init(label: "Open", keys: "↵", emphasized: true), .actions])
@@ -351,8 +349,6 @@ struct CommandPanelView: View {
         case .fileConversion:
             FeatureTitle(symbol: "arrow.triangle.2.circlepath",
                          title: state.fileConversion.sourceURLs.count > 1 ? "Convert Files" : "Convert File")
-        case .camera:
-            FeatureTitle(symbol: "camera", title: "Camera")
         case .fileShelf:
             FeatureTitle(symbol: "tray.full", title: "File Shelf")
         case .clipboardHistory:
@@ -402,8 +398,6 @@ struct CommandPanelView: View {
             }
         case .fileConversion:
             FileConversionView(state: state.fileConversion)
-        case .camera:
-            CameraPreviewView(state: state.camera)
         case .fileShelf:
             FileShelfView(state: state.fileShelf, convertSelected: { selectedFiles in
                 guard selectedFiles.isEmpty == false else { return }

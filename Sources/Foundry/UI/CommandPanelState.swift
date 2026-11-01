@@ -17,7 +17,6 @@ final class CommandPanelState {
         case clipboardHistory
         case snippets
         case fileConversion
-        case camera
         case translator
         case developerTools
         case agents
@@ -58,7 +57,6 @@ final class CommandPanelState {
         }
         return state
     }()
-    @ObservationIgnored lazy var camera: CameraPreviewState = { builtFeatures.insert(.camera); return CameraPreviewState() }()
     @ObservationIgnored lazy var translator: TranslatorState = {
         builtFeatures.insert(.translator)
         let translator = TranslatorState()

@@ -36,7 +36,6 @@ final class PanelRouter {
         panel.scriptOutput = nil
         let built = panel.builtFeatures
         if built.contains(.fileConversion) { panel.fileConversion.reset() }
-        if built.contains(.camera) { panel.camera.stop() }
         if built.contains(.translator) { panel.translator.reset() }
         if built.contains(.developerTools) { panel.developerTools.reset() }
     }
@@ -82,8 +81,6 @@ final class PanelRouter {
             }
         case let .fileConversion(path):
             openFileConverter(path: path)
-        case .camera:
-            openCamera()
         case let .translator(text, language):
             openTranslator(text: text, language: language)
         case let .developerTools(tool):
@@ -157,11 +154,6 @@ final class PanelRouter {
         } else if panel.fileShelf.selectedFiles.isEmpty == false {
             panel.fileConversion.setSources(urls: panel.fileShelf.selectedFiles.map(\.url))
         }
-    }
-
-    func openCamera() {
-        beginFeatureMode(.camera)
-        panel?.camera.start()
     }
 
     func openTranslator(text: String? = nil, language: String? = nil) {

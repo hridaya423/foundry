@@ -9,7 +9,6 @@ enum CommandRoute: Codable, Equatable, Sendable {
     case snippets
     case snippet(id: String, then: SnippetFollowUp)
     case fileConversion(path: String?)
-    case camera
     case translator(text: String?, language: String?)
     case developerTools(tool: String?)
     case settings

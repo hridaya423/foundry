@@ -4,23 +4,15 @@ import XCTest
 @testable import Foundry
 
 final class ResourcePackagingTests: XCTestCase {
-    func testCameraCommandIsProvidedByDedicatedProvider() async {
-        let results = await CameraCommandProvider().results(matching: "camera")
-
-        XCTAssertEqual(results.map(\.id), ["foundry.camera"])
-        XCTAssertEqual(results.first?.primaryAction.behavior as? OpenCameraAction, OpenCameraAction())
-    }
-
-    func testBuildPackagingDeclaresCameraPurposeAndEntitlement() throws {
+    func testBuildPackagingSignsWithTheEntitlementsFileAndNoCamera() throws {
         let buildScript = try String(contentsOf: rootURL().appendingPathComponent("scripts/build-app.sh"), encoding: .utf8)
         let entitlements = try String(contentsOf: rootURL().appendingPathComponent("Supporting/Foundry.entitlements"), encoding: .utf8)
 
-        XCTAssertTrue(buildScript.contains("NSCameraUsageDescription"))
+        XCTAssertFalse(buildScript.contains("NSCameraUsageDescription"))
         XCTAssertTrue(buildScript.contains("com.hridya.foundry"))
         XCTAssertTrue(buildScript.contains("Foundry.entitlements"))
         XCTAssertTrue(buildScript.contains("codesign --display --entitlements :- \"$APP_DIR\" 2>/dev/null | plutil -lint -"))
-        XCTAssertTrue(entitlements.contains("com.apple.security.device.camera"))
-        XCTAssertTrue(entitlements.contains("<true/>"))
+        XCTAssertFalse(entitlements.contains("com.apple.security.device.camera"))
         XCTAssertFalse(entitlements.contains("com.apple.security.app-sandbox"))
     }
 

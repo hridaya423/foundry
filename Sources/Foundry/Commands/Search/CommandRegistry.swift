@@ -43,7 +43,6 @@ final class CommandRegistry: Sendable {
                 ScriptCommandProvider(),
                 FileSearchProvider(settings: { config.current.fileSearch }),
                 MediaDownloadProvider(),
-                CameraCommandProvider(),
                 SystemCommandProvider(),
                 WindowManagementProvider(),
                 BuiltInCommandProvider()
@@ -305,14 +304,12 @@ final class CommandRegistry: Sendable {
         enabledProviders.filter { $0.searchPolicy.includesSupplementalResults }
     }
 
-    static let defaultDisabledCommandIDs: Set<String> = ["foundry.camera"]
-
     private func isCommandEnabled(_ result: CommandResult) -> Bool {
         let preferences = configService?.current.commandPreferences
         if CommandSettingsCatalog.isSystemSettingsPane(result.id), preferences?[CommandSettingsCatalog.systemSettingsID]?.isEnabled == false {
             return false
         }
-        return preferences?[result.id]?.isEnabled ?? !Self.defaultDisabledCommandIDs.contains(result.id)
+        return preferences?[result.id]?.isEnabled ?? true
     }
 
     private func isMediaQuery(_ query: String) -> Bool {
