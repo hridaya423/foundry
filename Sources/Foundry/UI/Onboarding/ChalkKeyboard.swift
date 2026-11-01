@@ -75,6 +75,7 @@ final class KeyboardMirror {
     }
 
     @ObservationIgnored var onRecord: ((FoundryHotkey) -> Void)?
+    @ObservationIgnored var onCommandSpace: (() -> Void)?
     @ObservationIgnored private var monitor: Any?
     @ObservationIgnored private var flashTask: Task<Void, Never>?
 
@@ -139,6 +140,9 @@ final class KeyboardMirror {
             return true
         case .keyDown:
             keysDown.insert(event.keyCode)
+            if event.keyCode == UInt16(kVK_Space), event.modifierFlags.intersection(.deviceIndependentFlagsMask) == .command {
+                onCommandSpace?()
+            }
         case .keyUp:
             keysDown.remove(event.keyCode)
         default:

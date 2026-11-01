@@ -6,12 +6,14 @@ import FoundryServices
 final class OnboardingStateTests: XCTestCase {
     private let localState = LocalStateStore()
 
-    private func makeState() -> OnboardingState {
+    private func makeState(imports: [ImportSource] = [], appleIntelligence: Bool = false,
+        loginItem: ((Bool) -> Void)? = { _ in }) -> OnboardingState {
         let diagnostics = DiagnosticsService()
         let config = ConfigService(diagnostics: diagnostics, url: FileManager.default.temporaryDirectory.appendingPathComponent("foundry-onboarding-\(UUID().uuidString).json"))
         let registry = CommandRegistry(providers: [], usageRanking: UsageRankingStore(diagnostics: diagnostics), diagnostics: diagnostics, configService: config)
         let panel = CommandPanelState(registry: registry, actionRunner: ActionRunner(diagnostics: diagnostics), diagnostics: diagnostics, config: config)
-        return OnboardingState(panel: panel, permissions: PermissionHealthState(accessibilityTrusted: { false }), localState: localState, version: "1.1.0")
+        return OnboardingState(panel: panel, permissions: PermissionHealthState(accessibilityTrusted: { false }), localState: localState,
+            version: "1.1.0", importSources: { imports }, appleIntelligence: { appleIntelligence }, registerLoginItem: loginItem)
     }
 
     func testShowsAutomaticallyOnlyForFreshInstallsThatHaveNotCompleted() {
@@ -22,7 +24,7 @@ final class OnboardingStateTests: XCTestCase {
     }
 
     func testResumesAfterQuitWhenAStepWasSaved() {
-        localState.set(\.onboardingStep, OnboardingStep.tryIt.rawValue)
+        localState.set(\.onboardingStep, OnboardingStep.shortcut.rawValue)
         XCTAssertTrue(OnboardingState.shouldShowAutomatically(localState: localState, configExistedAtLaunch: true))
         localState.set(\.onboardingCompletedVersion, "1.0.0")
         XCTAssertFalse(OnboardingState.shouldShowAutomatically(localState: localState, configExistedAtLaunch: true))
@@ -41,16 +43,15 @@ final class OnboardingStateTests: XCTestCase {
         state.back()
         XCTAssertEqual(state.step, .welcome)
         state.advance()
-        state.advance()
-        XCTAssertEqual(state.step, .tryIt)
-        XCTAssertEqual(makeState().step, .tryIt)
+        XCTAssertEqual(state.step, .shortcut)
+        XCTAssertEqual(makeState().step, .shortcut)
     }
 
     func testFinishRecordsVersionClearsStepAndNotifies() {
         let state = makeState()
         var finished = 0
         state.onFinish = { finished += 1 }
-        state.go(to: .permissions)
+        state.go(to: .shortcut)
         state.finish()
         XCTAssertEqual(finished, 1)
         XCTAssertEqual(localState.snapshot.onboardingCompletedVersion, "1.1.0")
@@ -72,18 +73,94 @@ final class OnboardingStateTests: XCTestCase {
         var steps: [OnboardingStep] = []
         state.onStepChanged = { steps.append($0) }
         state.go(to: .shortcut)
-        state.go(to: .tryIt)
+        state.go(to: .bringYourStuff)
         state.finish()
-        XCTAssertEqual(steps, [.shortcut, .tryIt, .done])
+        XCTAssertEqual(steps, [.shortcut, .bringYourStuff, .done])
     }
 
-    func testTryItOnlyCountsCommandsRunDuringThatStep() {
+    func testFlowHasFourStepsAtMost() {
+        XCTAssertEqual(OnboardingStep.allCases, [.welcome, .shortcut, .bringYourStuff, .done])
+    }
+
+    func testBringYourStuffIsSkippedWhenNothingIsInstalled() {
+        let state = makeState()
+        state.go(to: .shortcut)
+        state.advance()
+        XCTAssertEqual(state.step, .done)
+        state.back()
+        XCTAssertEqual(state.step, .shortcut)
+    }
+
+    func testBringYourStuffShowsWhenAlfredHasSnippets() {
+        let state = makeState(imports: [ImportSource(kind: .alfred, available: 12)])
+        state.go(to: .shortcut)
+        state.advance()
+        XCTAssertEqual(state.step, .bringYourStuff)
+        XCTAssertEqual(state.importSources.map(\.available), [12])
+    }
+
+    func testTryItCompletesOnlyWhenAResultRuns() {
         let state = makeState()
         state.completeTryIt()
-        XCTAssertFalse(state.didTryPanel)
-        state.go(to: .tryIt)
+        XCTAssertFalse(state.didLaunch)
+        state.go(to: .shortcut)
+        state.panelClosedWithoutLaunch()
+        XCTAssertFalse(state.didLaunch)
+        XCTAssertTrue(state.openedWithoutLaunch)
         state.completeTryIt()
-        XCTAssertTrue(state.didTryPanel)
+        XCTAssertTrue(state.didLaunch)
+    }
+
+    func testTryItLeadNamesARunningAppThatIsNotFoundOrFrontmost() {
+        let running = [(name: "Finder", bundleID: "com.apple.finder"), (name: "Xcode", bundleID: "com.apple.dt.Xcode"),
+            (name: "T3 Code (Nightly)", bundleID: "com.t3.nightly"),
+            (name: "Notes", bundleID: "com.apple.Notes")]
+        XCTAssertEqual(OnboardingState.suggestedLaunch(running: running, frontmost: "com.apple.dt.Xcode"),
+            .init(name: "Notes", prefix: "no"))
+        XCTAssertEqual(OnboardingState.suggestedLaunch(running: [], frontmost: nil), .init(name: "Safari", prefix: "sa"))
+    }
+
+    func testShortcutStepDoesNotMoveRivalsWithoutConsent() {
+        let state = makeState()
+        let moved = LockedFlag()
+        let rival = LauncherRival(id: "test", name: "Raycast", bundleID: "app.foundry.tests.absent",
+            holdsCommandSpace: { true }, moveToOptionSpace: { moved.value = true; return true })
+        state.go(to: .shortcut)
+        state.detectCommandSpaceHolders(rivals: [rival], spotlightEnabled: { true })
+        XCTAssertEqual(state.commandSpaceHolders, ["Spotlight", "Raycast"])
+        XCTAssertFalse(moved.value)
+        XCTAssertFalse(state.didClaimCommandSpace)
+        state.useOptionSpace()
+        XCTAssertEqual(state.panel.settings.hotkey, .optionSpace)
+        XCTAssertFalse(moved.value)
+    }
+
+    func testUnclaimedChordOffersOptionSpace() {
+        let state = makeState()
+        state.panel.settings.setHotkey(.commandSpace)
+        state.go(to: .shortcut)
+        state.commandSpaceReachedWindow()
+        XCTAssertTrue(state.commandSpaceUnreachable)
+        state.finish()
+        XCTAssertEqual(state.panel.settings.hotkey, .optionSpace)
+    }
+
+    func testReceiptListsOnlyWhatHappened() {
+        let state = makeState(appleIntelligence: true)
+        state.panel.settings.setHotkey(.commandSpace)
+        state.go(to: .done)
+        XCTAssertEqual(state.receipt, ["⌘ Space is yours", "Apple Intelligence answers Tab"])
+    }
+
+    func testFinishRegistersLoginItemOnlyWhenTheRowIsOn() {
+        var registered: [Bool] = []
+        let on = makeState(loginItem: { registered.append($0) })
+        on.finish()
+        XCTAssertEqual(registered, [true])
+        let off = makeState(loginItem: { registered.append($0) })
+        off.startsAtLogin = false
+        off.finish()
+        XCTAssertEqual(registered, [true])
     }
 
     func testCommandSpaceAppliesImmediatelyWhenSpotlightIsOff() {

@@ -181,6 +181,27 @@ final class SnippetState {
         selectedID = id
     }
 
+    @discardableResult
+    func add(_ incoming: [StoredSnippet]) -> Int {
+        flushPendingPersistence()
+        var added = 0
+        for var snippet in incoming {
+            snippet.title = snippet.title.trimmingCharacters(in: .whitespacesAndNewlines)
+            snippet.content = String(snippet.content.trimmingCharacters(in: .whitespacesAndNewlines).prefix(contentLimit))
+            guard snippet.title.isEmpty == false, snippet.content.isEmpty == false,
+                  items.contains(where: { $0.title == snippet.title && $0.content == snippet.content }) == false else { continue }
+            items.insert(snippet, at: 0)
+            added += 1
+        }
+        guard added > 0 else { return 0 }
+        items = sorted(items)
+        invalidateVisibleItems()
+        keepSelectionValid()
+        persist()
+        selectedID = items.first?.id
+        return added
+    }
+
     func importFromFile() {
         let panel = NSOpenPanel()
         panel.allowedContentTypes = [.json]
@@ -190,21 +211,7 @@ final class SnippetState {
         do {
             let data = try Data(contentsOf: url)
             let imported = try JSONDecoder().decode([RaycastSnippetFile].self, from: data)
-            flushPendingPersistence()
-            var added = 0
-            for item in imported {
-                let title = item.name.trimmingCharacters(in: .whitespacesAndNewlines)
-                let content = item.text.trimmingCharacters(in: .whitespacesAndNewlines)
-                guard title.isEmpty == false, content.isEmpty == false else { continue }
-                if items.contains(where: { $0.title == title && $0.content == content }) { continue }
-                items.insert(StoredSnippet(title: title, content: String(content.prefix(contentLimit)), keyword: item.keyword ?? ""), at: 0)
-                added += 1
-            }
-            items = sorted(items)
-            invalidateVisibleItems()
-            keepSelectionValid()
-            persist()
-            if added > 0 { selectedID = items.first?.id }
+            add(imported.map { StoredSnippet(title: $0.name, content: $0.text, keyword: $0.keyword ?? "") })
         } catch {
             persistenceError = String(localized: "Could not import snippets: \(error.localizedDescription)")
         }
@@ -301,7 +308,7 @@ final class SnippetState {
     }
 }
 
-private struct RaycastSnippetFile: Codable {
+struct RaycastSnippetFile: Codable {
     let name: String
     let text: String
     let keyword: String?

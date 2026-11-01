@@ -16,9 +16,8 @@ struct OnboardingView: View {
     @State private var windowSeen = false
     /// Offscreen renders never become key.
     var opensImmediately = false
-    @State private var panelOpenedForTryIt = false
-    @State private var aiSelection: OnboardingState.AIChoice?
     @State private var demoKeys: Set<String> = []
+    @State private var launch = OnboardingState.SuggestedLaunch(name: "Safari", prefix: "sa")
 
     static let size = CGSize(width: 880, height: 580)
     private static let margin: CGFloat = 64
@@ -39,14 +38,14 @@ struct OnboardingView: View {
         ZStack(alignment: .topLeading) {
             RadialGradient(colors: [Brand.inkGlow, Brand.ink], center: UnitPoint(x: 0.65, y: 0.45), startRadius: 0, endRadius: 640)
 
-            if state.step == .shortcut || state.step == .tryIt {
+            if state.step == .shortcut {
                 EllipticalGradient(colors: [Brand.accentGlow, .clear])
                     .frame(width: 680, height: 260)
                     .offset(x: 80, y: 230)
-                    .opacity(state.step == .tryIt && state.didTryPanel ? 1 : 0)
-                    .animation(Brand.Motion.enter, value: state.didTryPanel)
+                    .opacity(state.didLaunch ? 1 : 0)
+                    .animation(Brand.Motion.enter, value: state.didLaunch)
                     .allowsHitTesting(false)
-                ChalkKeyboard(modifiers: chord.modifiers, keyCode: chord.keyCode, hot: state.step == .tryIt && state.didTryPanel) { key, lit in
+                ChalkKeyboard(modifiers: chord.modifiers, keyCode: chord.keyCode, hot: state.didLaunch) { key, lit in
                     keyboard.isPressed(key) || demoKeys.contains(key.id) || (lit && keyboard.flashing)
                 }
                     .padding(.top, Self.keyboardTop)
@@ -62,7 +61,7 @@ struct OnboardingView: View {
                 // The cast plays alone; the footer arrives with the headline.
                 Reveal(index: 1, after: reduceMotion ? 0 : (state.step == .welcome ? Self.welcomeCastBeat : 0)) { footer }
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
-                if state.step != .welcome && state.step != .done {
+                if state.step != .welcome && state.step != .done && awaitingLaunch == false {
                     Button("Skip setup") { state.abandon() }
                         .buttonStyle(BrandQuietButtonStyle(dim: true))
                         .padding(.top, 30)
@@ -84,20 +83,18 @@ struct OnboardingView: View {
             keyboard.onRecord = { [state] recorded in
                 if recorded == .commandSpace { state.claimCommandSpace() } else { state.panel.settings.setHotkey(recorded) }
             }
+            keyboard.onCommandSpace = { [state] in state.commandSpaceReachedWindow() }
         }
         .onChange(of: panel.presentationToken) { _, _ in
-            if state.step == .tryIt, state.didTryPanel == false {
-                panelOpenedForTryIt = true
-                panel.searchHint = String(localized: "Press \(hotkey.spokenName) again to close")
+            if state.step == .shortcut, state.didLaunch == false {
+                panel.searchHint = String(localized: "Type \(launch.prefix) and press Return")
             }
             keyboard.flash()
         }
         .onChange(of: panel.isPanelOpen) { _, isOpen in
             guard isOpen == false else { return }
             panel.searchHint = nil
-            guard state.step == .tryIt, panelOpenedForTryIt else { return }
-            keyboard.flash()
-            state.completeTryIt()
+            state.panelClosedWithoutLaunch()
         }
         .onChange(of: state.step) { _, _ in keyboard.isRecording = false }
         .onExitCommand { state.abandon() }
@@ -117,10 +114,7 @@ struct OnboardingView: View {
         switch state.step {
         case .welcome: welcomeStep
         case .shortcut: shortcutStep
-        case .tryIt: tryItStep
-        case .preferences: preferencesStep
-        case .permissions: permissionsStep
-        case .ai: aiStep
+        case .bringYourStuff: bringYourStuffStep
         case .done: doneStep
         }
     }
@@ -155,40 +149,68 @@ struct OnboardingView: View {
 
     private var shortcutStep: some View {
         page {
-            Reveal(index: 0) {
-                BrandHeadline(lines: ["One keystroke opens everything"],
-                              lead: "From any app, right over whatever you’re doing.")
+            Group {
+                if state.didLaunch {
+                    BrandHeadline(lines: ["That’s the whole idea"],
+                                  lead: "\(launch.name) opened. \(hotkey.spokenName) works from any app.")
+                } else if state.openedWithoutLaunch {
+                    BrandHeadline(lines: ["Now open something"], lead: "Press \(hotkey.spokenName), type \(launch.prefix), and press Return.")
+                } else {
+                    BrandHeadline(lines: ["One keystroke opens everything"],
+                                  lead: "Press \(hotkey.spokenName), type \(launch.prefix), and press Return to open \(launch.name).")
+                }
             }
+            .id(state.didLaunch ? 2 : (state.openedWithoutLaunch ? 1 : 0))
+            .transition(.opacity)
+            .animation(Brand.Motion.step, value: state.openedWithoutLaunch)
+            .animation(Brand.Motion.step, value: state.didLaunch)
             Spacer(minLength: 0)
+                .task { await demonstratePress() }
             HStack(alignment: .top, spacing: 20) {
                 Reveal(index: 1) { shortcutControls }
                 Spacer(minLength: 0)
-                Reveal(index: 2) { takeoverStatus }
+                Reveal(index: 2) { shortcutStatus }
                     .padding(.top, 10)
             }
             .frame(height: Self.size.height - Self.controlsTop, alignment: .top)
         }
         .onAppear {
-            if hotkey == .commandSpace && state.didClaimCommandSpace == false { state.claimCommandSpace() }
+            launch = OnboardingState.suggestedLaunchOnThisMac()
+            state.detectCommandSpaceHolders()
+            state.refreshLocalModelDetection()
         }
     }
 
     private var shortcutControls: some View {
-        HStack(spacing: 20) {
-            ShortcutField(recording: keyboard.isRecording,
-                          keys: keyboard.isRecording ? heldKeys : hotkeyKeys) { keyboard.isRecording.toggle() }
+        ShortcutField(recording: keyboard.isRecording,
+                      keys: keyboard.isRecording ? heldKeys : hotkeyKeys) { keyboard.isRecording.toggle() }
+    }
 
-            if hotkey != .commandSpace && keyboard.isRecording == false {
-                Button("Use ⌘ Space instead") { state.claimCommandSpace() }
-                    .buttonStyle(BrandQuietButtonStyle())
-            }
-        }
+    private var needsConsent: Bool {
+        hotkey == .commandSpace && state.didClaimCommandSpace == false && state.commandSpaceHolders.isEmpty == false
     }
 
     @ViewBuilder
-    private var takeoverStatus: some View {
-        VStack(alignment: .trailing, spacing: 6) {
-            if panel.settings.launcherHotkeyFailed {
+    private var shortcutStatus: some View {
+        VStack(alignment: .trailing, spacing: 10) {
+            if needsConsent {
+                let holders = state.commandSpaceHolders.formatted(.list(type: .and))
+                StatusLine(kind: .problem, text: state.commandSpaceHolders.count == 1 ? "\(holders) uses ⌘ Space." : "\(holders) use ⌘ Space.")
+                HStack(spacing: 14) {
+                    Button("Use ⌥ Space") { state.useOptionSpace() }
+                        .buttonStyle(BrandQuietButtonStyle())
+                    Button("Take ⌘ Space") { state.claimCommandSpace() }
+                        .buttonStyle(BrandSecondaryButtonStyle())
+                }
+            } else if state.commandSpaceUnreachable && hotkey == .commandSpace {
+                StatusLine(kind: .problem, text: "Another app has ⌘ Space.")
+                HStack(spacing: 14) {
+                    Button("Record Your Own") { keyboard.isRecording = true }
+                        .buttonStyle(BrandQuietButtonStyle())
+                    Button("Use ⌥ Space") { state.useOptionSpace() }
+                        .buttonStyle(BrandSecondaryButtonStyle())
+                }
+            } else if panel.settings.launcherHotkeyFailed {
                 StatusLine(kind: .problem, text: "\(hotkey.spokenName) is taken by another app. Record a different shortcut.")
             }
             if state.didClaimSpotlight {
@@ -213,56 +235,23 @@ struct OnboardingView: View {
             }
         }
         .animation(Brand.Motion.state, value: state.takeovers)
+        .animation(Brand.Motion.state, value: needsConsent)
     }
 
-    // MARK: Try it
-
-    private var tryItStep: some View {
-        page {
-            Group {
-                if state.didTryPanel {
-                    BrandHeadline(lines: ["That’s the whole idea"], lead: "Open it from anywhere. Close it the same way.")
-                } else if panelOpenedForTryIt {
-                    BrandHeadline(lines: ["Now press it again"], lead: "The same keys close it. So does Esc.")
-                } else {
-                    BrandHeadline(lines: ["Now press it"], lead: "The panel opens right over this window.")
-                }
-            }
-            .id(state.didTryPanel ? 2 : (panelOpenedForTryIt ? 1 : 0))
-            .transition(.opacity)
-            .animation(Brand.Motion.step, value: panelOpenedForTryIt)
-            .animation(Brand.Motion.step, value: state.didTryPanel)
-
-            Spacer(minLength: 0)
-                .task { await demonstratePress() }
-            Group {
-                if panelOpenedForTryIt == false && state.didTryPanel == false {
-                    Reveal(index: 1, after: 0.6) {
-                        Button { state.go(to: .shortcut) } label: {
-                            Text("Nothing happened?") + Text(" ") + Text("Choose another shortcut").foregroundStyle(Brand.text)
-                        }
-                        .buttonStyle(BrandQuietButtonStyle())
-                    }
-                    .padding(.top, 11)
-                }
-            }
-            .frame(height: Self.size.height - Self.controlsTop, alignment: .top)
-        }
-    }
-
-    /// Presses the chord on the keycaps, key by key, until the user does it for real.
+    /// Presses the chord on the keycaps once, and again only after the user sits idle.
     private func demonstratePress() async {
         guard reduceMotion == false else { return }
-        while panelOpenedForTryIt == false, state.step == .tryIt {
+        var delay: Duration = .seconds(1.4)
+        while state.didLaunch == false, state.openedWithoutLaunch == false, state.step == .shortcut {
             do {
-                try await Task.sleep(for: .seconds(1.4))
+                try await Task.sleep(for: delay)
                 for key in BoardKey.macBook.joined() where key.isLit(modifiers: chord.modifiers, keyCode: chord.keyCode) {
                     demoKeys.insert(key.id)
                     try await Task.sleep(for: .milliseconds(140))
                 }
                 try await Task.sleep(for: .milliseconds(320))
                 demoKeys.removeAll()
-                try await Task.sleep(for: .seconds(1.6))
+                delay = .seconds(6)
             } catch {
                 demoKeys.removeAll()
                 return
@@ -271,163 +260,85 @@ struct OnboardingView: View {
         demoKeys.removeAll()
     }
 
-    // MARK: Preferences
+    // MARK: Bring your stuff
 
-    private var preferencesStep: some View {
+    private var bringYourStuffStep: some View {
         page {
             Reveal(index: 0) {
-                BrandHeadline(lines: ["Make it yours"], lead: "Change any of these later in Settings.")
+                BrandHeadline(lines: ["Bring your snippets"], lead: "Foundry reads what you already saved. Nothing in the other app changes.")
             }
             Reveal(index: 1) {
                 BrandList {
-                    toggleRow("Launch at login",
-                              detail: panel.settings.launchAtLoginAvailable
-                                  ? panel.settings.launchAtLoginError ?? String(localized: "Ready the moment you sign in.")
-                                  : String(localized: "Available in the installed Foundry app."),
-                              isOn: Binding(get: { panel.settings.launchAtLoginEnabled }, set: { panel.settings.setLaunchAtLogin($0) }))
-                        .disabled(panel.settings.launchAtLoginAvailable == false)
-                    BrandDivider()
-                    toggleRow("Menu bar icon", detail: String(localized: "Quick access to the panel and your clipboard."),
-                              isOn: Binding(get: { state.menuBarIconOn }, set: { state.setMenuBarIcon($0) }))
-                    BrandDivider()
-                    toggleRow("Clipboard history", detail: String(localized: "Kept only on this Mac. Items apps mark private are never saved."),
-                              isOn: Binding(get: { state.clipboardCaptureOn }, set: { state.setClipboardCapture($0) }))
-                    BrandDivider()
-                    toggleRow("Clipboard shortcut", detail: String(localized: "Chrome and Slack also use it, to paste without formatting."),
-                              keys: ["⇧", "⌘", "V"],
-                              isOn: Binding(get: { clipboardHotkeyIsSet }, set: { setClipboardHotkey($0) }))
-                }
-            }
-            .padding(.top, Self.listGap)
-        }
-    }
-
-    private func toggleRow(_ title: LocalizedStringKey, detail: String, keys: [String] = [], isOn: Binding<Bool>) -> some View {
-        Toggle(isOn: isOn) {
-            HStack(spacing: 16) {
-                BrandRowText(title: title, detail: detail)
-                if keys.isEmpty == false { kbdChord(keys) }
-            }
-        }
-            .toggleStyle(BrandToggleStyle())
-            .padding(.horizontal, 18)
-            .padding(.vertical, 14)
-    }
-
-    // MARK: Permissions
-
-    private var permissionsStep: some View {
-        page {
-            Reveal(index: 0) {
-                BrandHeadline(lines: ["Grant only what you use"], lead: "Foundry works without these. Each one unlocks a few commands.")
-            }
-            Reveal(index: 1) {
-                BrandList {
-                    ForEach(Array(PermissionKind.allCases.enumerated()), id: \.element) { index, kind in
+                    ForEach(Array(state.importSources.enumerated()), id: \.element.id) { index, source in
                         if index > 0 { BrandDivider() }
-                        HStack(spacing: 16) {
-                            BrandRowText(title: LocalizedStringKey(kind.title), detail: kind.purpose)
-                            permissionStatus(kind)
-                        }
-                        .padding(.horizontal, 18)
-                        .padding(.vertical, 14)
+                        importRow(source)
                     }
                 }
             }
             .padding(.top, Self.listGap)
         }
-        .onAppear { permissions.startPolling() }
-        .onDisappear { permissions.stopPolling() }
     }
 
-    @ViewBuilder
-    private func permissionStatus(_ kind: PermissionKind) -> some View {
-        switch permissions.status(for: kind) {
-        case .granted:
-            StatusLine(kind: .done, text: "Allowed")
-        case .notGranted:
-            Button("Allow…") { permissions.request(kind) }
-                .buttonStyle(BrandSecondaryButtonStyle())
-        case let status:
-            Text(status.label)
-                .font(Brand.rowDetail)
-                .foregroundStyle(Brand.muted)
-        }
-    }
-
-    // MARK: AI
-
-    private var aiStep: some View {
-        page {
-            Reveal(index: 0) {
-                BrandHeadline(lines: ["Choose your AI"], lead: "Press Tab in Foundry to ask. Change it any time in Settings.")
+    private func importRow(_ source: ImportSource) -> some View {
+        HStack(spacing: 16) {
+            switch source.kind {
+            case .alfred:
+                BrandRowText(title: "Alfred", detail: String(localized: "\(source.available ?? 0) snippets"))
+            case .raycast:
+                BrandRowText(title: "Raycast", detail: String(localized: "Export snippets from Raycast, then choose the file."))
             }
-            Reveal(index: 1) {
-                BrandList {
-                    aiRow(.appleIntelligence, "Apple Intelligence",
-                          detail: OnboardingState.appleIntelligenceAvailable
-                              ? String(localized: "Runs on this Mac. Nothing leaves it.")
-                              : String(localized: "Not available on this Mac yet."),
-                          enabled: OnboardingState.appleIntelligenceAvailable)
-                    BrandDivider()
-                    aiRow(.localModel, "Local model",
-                          detail: state.detectedLocalKind.map { String(localized: "\($0.displayName) is running on this Mac.") }
-                              ?? String(localized: "Start Ollama or LM Studio to use one."),
-                          enabled: state.detectedLocalKind != nil)
-                    BrandDivider()
-                    aiRow(.later, "Cloud provider", detail: String(localized: "Add an API key in Settings when you’re ready."))
-                    BrandDivider()
-                    aiRow(.off, "No AI", detail: String(localized: "Foundry stays a launcher."))
-                }
-                .animation(Brand.Motion.state, value: selectedAI)
+            if let imported = source.imported {
+                StatusLine(kind: .done, text: "\(imported) imported")
+            } else {
+                Button(source.kind == .alfred ? "Import" : "Choose File…") { importSnippets(from: source.kind) }
+                    .buttonStyle(BrandSecondaryButtonStyle())
             }
-            .padding(.top, Self.listGap)
         }
-        .onAppear { state.refreshLocalModelDetection() }
+        .padding(.horizontal, 18)
+        .padding(.vertical, 14)
     }
 
-    private var recommendedAI: OnboardingState.AIChoice {
-        if OnboardingState.appleIntelligenceAvailable { return .appleIntelligence }
-        return state.detectedLocalKind == nil ? .later : .localModel
-    }
-
-    private var selectedAI: OnboardingState.AIChoice { aiSelection ?? recommendedAI }
-
-    private func aiRow(_ choice: OnboardingState.AIChoice, _ title: LocalizedStringKey, detail: String,
-                       enabled: Bool = true) -> some View {
-        let selected = selectedAI == choice
-        return Button { aiSelection = choice } label: {
-            HStack(spacing: 16) {
-                BrandRowText(title: title, detail: detail)
-                BrandSelectionMark(selected: selected)
-            }
-            .padding(.horizontal, 18)
-            .padding(.vertical, 14)
-            .background(selected ? Brand.rowSelected : .clear)
-        }
-        .buttonStyle(BrandRowButtonStyle())
-        .disabled(enabled == false)
-        .accessibilityAddTraits(selected ? .isSelected : [])
+    private func importSnippets(from kind: ImportSource.Kind) {
+        guard kind == .raycast else { return state.importSnippets(from: kind) }
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [.json]
+        panel.allowsMultipleSelection = false
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        state.importSnippets(from: .raycast, file: url)
     }
 
     // MARK: Done
 
     private var doneStep: some View {
-        page {
+        let receipt = state.receipt
+        return page {
             Reveal(index: 0) {
-                BrandHeadline(lines: ["You’re set"], lead: "The keys worth remembering.")
+                BrandHeadline(lines: [LocalizedStringKey(receipt.first ?? "")])
             }
             Reveal(index: 1) {
                 BrandList {
-                    cheatRow(hotkeyKeys, "Open from anywhere")
-                    BrandDivider()
-                    if panel.settings.commandPreference(for: "foundry.ai").isEnabled {
-                        cheatRow(["Tab"], "Ask AI")
+                    ForEach(receipt.dropFirst(), id: \.self) { line in
+                        HStack(spacing: 12) {
+                            Image(systemName: "checkmark").foregroundStyle(Brand.accent)
+                            Text(line).font(Brand.rowTitle).tracking(Brand.bodyTracking).foregroundStyle(Brand.text)
+                            Spacer()
+                        }
+                        .padding(.horizontal, 18)
+                        .frame(height: 52)
+                        .accessibilityElement(children: .combine)
                         BrandDivider()
                     }
-                    cheatRow(["⌘", "K"], "Actions on a result")
+                    Toggle(isOn: Binding(get: { state.startsAtLogin }, set: { state.startsAtLogin = $0 })) {
+                        BrandRowText(title: "Starts when you log in", detail: String(localized: "So the shortcut works after a restart."))
+                    }
+                    .toggleStyle(BrandToggleStyle())
+                    .disabled(panel.settings.launchAtLoginAvailable == false)
+                    .padding(.horizontal, 18)
+                    .padding(.vertical, 14)
                     BrandDivider()
-                    cheatRow(["⌘", ","], "Settings")
+                    BrandRowText(title: "Foundry lives in the menu bar", detail: String(localized: "Its icon opens the panel and Settings."))
+                        .padding(.horizontal, 18)
+                        .padding(.vertical, 14)
                 }
             }
             .padding(.top, Self.listGap)
@@ -440,39 +351,6 @@ struct OnboardingView: View {
 
     private var heldKeys: [String] {
         HotkeyFormatter.modifierString(keyboard.heldModifiers).map(String.init)
-    }
-
-    private func cheatRow(_ keys: [String], _ label: LocalizedStringKey) -> some View {
-        HStack {
-            Text(label)
-                .font(Brand.rowTitle)
-                .tracking(Brand.bodyTracking)
-                .foregroundStyle(Brand.text)
-            Spacer()
-            kbdChord(keys)
-        }
-        .padding(.horizontal, 18)
-        .frame(height: 56)
-    }
-
-    private func kbdChord(_ keys: [String]) -> some View {
-        HStack(spacing: 4) {
-            ForEach(keys.indices, id: \.self) { BrandKbd(key: keys[$0]) }
-        }
-    }
-
-    private var clipboardHotkeyIsSet: Bool {
-        panel.settings.commandPreferences["foundry.clipboard-history"]?.globalHotkey != nil
-    }
-
-    private func setClipboardHotkey(_ on: Bool) {
-        let keyCode = UInt32(kVK_ANSI_V), modifiers = UInt32(cmdKey | shiftKey)
-        var chord: FoundryHotkey?
-        if on, panel.settings.commandHotkeyOwner(keyCode: keyCode, modifiers: modifiers, excluding: "foundry.clipboard-history") == nil {
-            chord = FoundryHotkey(keyCode: keyCode, modifiers: modifiers,
-                                  displayName: HotkeyFormatter.displayName(keyCode: keyCode, modifiers: modifiers))
-        }
-        panel.settings.setCommandHotkey(chord, for: "foundry.clipboard-history")
     }
 
     // MARK: Footer
@@ -488,18 +366,21 @@ struct OnboardingView: View {
                     .buttonStyle(BrandQuietButtonStyle())
                     .keyboardShortcut(.leftArrow, modifiers: [])
             }
-            Button(primaryTitle) {
-                if state.step == .ai { state.chooseAI(selectedAI) } else { state.advance() }
+            if awaitingLaunch {
+                Button("Skip") { state.advance() }
+                    .buttonStyle(BrandQuietButtonStyle(dim: true))
+            } else {
+                Button(primaryTitle) { state.advance() }
+                    .buttonStyle(BrandPrimaryButtonStyle(ready: true))
+                    .keyboardShortcut(.defaultAction)
             }
-            .buttonStyle(BrandPrimaryButtonStyle(ready: awaitingTry == false))
-            .keyboardShortcut(awaitingTry ? nil : .defaultAction)
         }
         .padding(.horizontal, Self.margin)
         .padding(.bottom, 36)
     }
 
-    /// Try it asks for the shortcut; Continue waits quietly until it works.
-    private var awaitingTry: Bool { state.step == .tryIt && state.didTryPanel == false }
+    /// The shortcut step's primary appears once a launch works.
+    private var awaitingLaunch: Bool { state.step == .shortcut && state.didLaunch == false }
 
     private var primaryTitle: LocalizedStringKey {
         switch state.step {
