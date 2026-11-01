@@ -18,7 +18,7 @@ extension ActionFeedback {
         case .failure:
             .seconds(5)
         case .info, .success:
-            .seconds(2.2)
+            FoundryTheme.Motion.toastHold
         }
     }
 }

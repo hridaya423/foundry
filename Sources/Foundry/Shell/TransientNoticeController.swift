@@ -16,22 +16,29 @@ final class TransientNoticeController {
         }
         let size = host?.fittingSize ?? NSSize(width: 220, height: 34)
         panel.setContentSize(size)
-        panel.alphaValue = 1
 
         let anchor = parent?.frame ?? NSScreen.main?.visibleFrame ?? .zero
         panel.setFrameOrigin(NSPoint(x: anchor.midX - size.width / 2, y: anchor.midY - size.height / 2))
+        let fades = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion == false
+        panel.alphaValue = fades ? 0 : 1
         panel.orderFrontRegardless()
+        if fades {
+            NSAnimationContext.runAnimationGroup { context in
+                context.duration = FoundryTheme.Motion.toastInDuration
+                panel.animator().alphaValue = 1
+            }
+        }
 
         hideTask = Task { [weak panel] in
-            try? await Task.sleep(for: .seconds(1.4))
+            try? await Task.sleep(for: feedback.displayDuration)
             guard Task.isCancelled == false else { return }
             await MainActor.run {
                 NSAnimationContext.runAnimationGroup { context in
-                    context.duration = 0.18
+                    context.duration = fades ? FoundryTheme.Motion.toastOutDuration : 0
                     panel?.animator().alphaValue = 0
                 }
             }
-            try? await Task.sleep(for: .milliseconds(200))
+            try? await Task.sleep(for: .seconds(FoundryTheme.Motion.toastOutDuration))
             guard Task.isCancelled == false else { return }
             await MainActor.run {
                 panel?.orderOut(nil)

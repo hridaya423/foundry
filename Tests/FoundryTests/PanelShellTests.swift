@@ -1,6 +1,7 @@
 import XCTest
 @testable import Foundry
 import FoundryServices
+import FoundryDomain
 import AppKit
 
 @MainActor
@@ -110,5 +111,11 @@ final class PanelShellTests: XCTestCase {
             try? await Task.sleep(for: .milliseconds(16))
         }
         return condition()
+    }
+
+    func testToastsShareOneHoldAndErrorsStayLonger() {
+        XCTAssertEqual(ActionFeedback.success("Copied").displayDuration, FoundryTheme.Motion.toastHold)
+        XCTAssertEqual(ActionFeedback.info("Copied").displayDuration, FoundryTheme.Motion.toastHold)
+        XCTAssertGreaterThan(ActionFeedback.failure("No").displayDuration, FoundryTheme.Motion.toastHold)
     }
 }
