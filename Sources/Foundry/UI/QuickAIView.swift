@@ -50,50 +50,67 @@ struct QuickAISurfaceView: View {
     var onOpenAISettings: () -> Void
 
     var body: some View {
-        ScrollView {
-            LazyVStack(alignment: .leading, spacing: 18) {
-                if let active = quickAI.activeThread, active.messages.isEmpty, quickAI.isQuickAILoading == false {
-                    QuickAIEmptyState { prompt in
-                        quickAI.quickAIQuery = prompt
-                        Task { await quickAI.submit() }
-                    }
-                } else if let active = quickAI.activeThread {
-                    ForEach(active.messages) { message in
-                        quickAIMessageRow(message)
-                    }
-                }
-
-                if quickAI.isQuickAILoading,
-                   quickAI.quickAIStatus.hasPrefix("Using ") == false,
-                   quickAI.quickAIStatus.hasPrefix("Finished ") == false {
-                    QuickAIActivityRow(status: quickAI.quickAIStatus)
-                }
-
-                if quickAI.quickAIResponse.isEmpty == false,
-                   quickAI.isQuickAILoading || quickAI.quickAIThreads.first(where: { $0.id
-                       == quickAI.activeQuickAIThreadID })?.messages.last?.content != quickAI.quickAIResponse {
-                    AIFormattedText(content: quickAI.quickAIResponse)
-                        .font(FoundryTheme.bodySecondary)
-                        .foregroundStyle(FoundryTheme.textPrimary)
-                        .textSelection(.enabled)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                }
-
-                if quickAI.quickAILastFailedPrompt != nil, quickAI.isQuickAILoading == false {
-                    HStack(spacing: 10) {
-                        FoundryActionButton(title: "Retry", systemName: "arrow.clockwise") {
-                            quickAI.retry()
+        ScrollViewReader { proxy in
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 18) {
+                    if let active = quickAI.activeThread, active.messages.isEmpty, quickAI.isQuickAILoading == false {
+                        QuickAIEmptyState { prompt in
+                            quickAI.quickAIQuery = prompt
+                            Task { await quickAI.submit() }
                         }
-                        QuickAIModelMenu(quickAI: quickAI, aiSettings: aiSettings, title: "Switch Model", openAISettings: onOpenAISettings)
-                        FoundryActionButton(title: "AI Settings", systemName: "gear", action: onOpenAISettings)
+                    } else if let active = quickAI.activeThread {
+                        ForEach(active.messages) { message in
+                            quickAIMessageRow(message)
+                        }
                     }
-                        .padding(.top, 2)
+
+                    if quickAI.isQuickAILoading,
+                       quickAI.quickAIStatus.hasPrefix("Using ") == false,
+                       quickAI.quickAIStatus.hasPrefix("Finished ") == false {
+                        QuickAIActivityRow(status: quickAI.quickAIStatus)
+                    }
+
+                    if quickAI.quickAIResponse.isEmpty == false,
+                       quickAI.isQuickAILoading || quickAI.quickAIThreads.first(where: { $0.id
+                           == quickAI.activeQuickAIThreadID })?.messages.last?.content != quickAI.quickAIResponse {
+                        AIFormattedText(content: quickAI.quickAIResponse)
+                            .font(FoundryTheme.bodySecondary)
+                            .foregroundStyle(FoundryTheme.textPrimary)
+                            .textSelection(.enabled)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+
+                    if let error = quickAI.quickAIError, quickAI.isQuickAILoading == false {
+                        InlineNotice(level: .error, text: "\(error)")
+                    }
+
+                    if quickAI.quickAILastFailedPrompt != nil, quickAI.isQuickAILoading == false {
+                        HStack(spacing: 10) {
+                            FoundryActionButton(title: "Retry", systemName: "arrow.clockwise") {
+                                quickAI.retry()
+                            }
+                            QuickAIModelMenu(quickAI: quickAI, aiSettings: aiSettings, title: "Switch Model", openAISettings: onOpenAISettings)
+                            FoundryActionButton(title: "AI Settings", systemName: "gear", action: onOpenAISettings)
+                        }
+                            .padding(.top, 2)
+                    }
+
+                    Color.clear.frame(height: 1).id(Self.bottomID)
                 }
+                .padding(.horizontal, 28)
+                .padding(.vertical, 24)
             }
-            .padding(.horizontal, 28)
-            .padding(.vertical, 24)
+            .onChange(of: quickAI.quickAIResponse) {
+                guard quickAI.isQuickAILoading else { return }
+                proxy.scrollTo(Self.bottomID, anchor: .bottom)
+            }
+            .onChange(of: quickAI.activeThread?.messages.count) {
+                proxy.scrollTo(Self.bottomID, anchor: .bottom)
+            }
         }
     }
+
+    private static let bottomID = "quickAI.bottom"
 
     @ViewBuilder
     private func quickAIMessageRow(_ message: AIChatMessage) -> some View {

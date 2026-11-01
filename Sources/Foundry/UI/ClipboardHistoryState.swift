@@ -173,7 +173,6 @@ final class ClipboardHistoryState {
     }
     func removeSelected() { guard let id = selectedItem?.id else { return }; items.removeAll { $0.id == id }; persist(); keepSelectionValid() }
     func clear() { items.removeAll(); persist(); selectedID = nil }
-    func report(_ error: Error) { self.error = error }
     func updatePolicy(maxItems: Int, maxBytes: Int, maxAgeDays: Int) {
         policy = ClipboardHistoryPolicy(
             maxItems: maxItems,

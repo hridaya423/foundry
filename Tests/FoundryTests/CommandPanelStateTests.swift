@@ -260,7 +260,8 @@ final class CommandPanelStateTests: XCTestCase {
 
         clipboard.select(id: clipboard.items.first?.id ?? "missing")
         XCTAssertFalse(state.directPasteSelectedClipboardItem())
-        XCTAssertNotNil(clipboard.error)
+        XCTAssertEqual(state.actionFeedback, .failure("Select an item to paste."))
+        XCTAssertNil(clipboard.error)
 
         let item = ClipboardHistoryItem(payload: .text("hello"))
         pasteboardClient.snapshotValue = PasteboardSnapshot(types: [.string], payload: item.payload, sourceBundleIdentifier: "com.example")
@@ -271,6 +272,27 @@ final class CommandPanelStateTests: XCTestCase {
 
         XCTAssertTrue(state.directPasteSelectedClipboardItem())
         XCTAssertTrue(directPaste.hasPendingPaste)
+        state.shutdown()
+    }
+
+    func testPasteWithNoTargetAppCopiesAndSaysSo() {
+        let diagnostics = DiagnosticsService()
+        let config = ConfigService(diagnostics: diagnostics, url: temporaryURL())
+        let pasteboard = NSPasteboard(name: NSPasteboard.Name("CommandPanelStateTests.noTarget"))
+        let directPaste = DirectPasteService(pasteboard: pasteboard, ownProcessIdentifier: 7) { nil }
+        let actionRunner = ActionRunner(diagnostics: diagnostics, directPasteService: directPaste)
+        let pasteboardClient = TestClipboardPasteboard()
+        let clipboard = ClipboardHistoryState(pasteboard: pasteboardClient, persistence: nil, configuration: config.current.clipboard)
+        let state = makeState(diagnostics: diagnostics, config: config, clipboard: clipboard, actionRunner: actionRunner)
+        let item = ClipboardHistoryItem(payload: .text("hello"))
+        pasteboardClient.snapshotValue = PasteboardSnapshot(types: [.string], payload: item.payload, sourceBundleIdentifier: "com.example")
+        pasteboardClient.changeCountValue += 1
+        clipboard.captureIfChanged()
+        clipboard.select(id: item.id)
+
+        XCTAssertFalse(state.directPasteSelectedClipboardItem())
+        XCTAssertEqual(state.actionFeedback, .info("Copied. Press ⌘V where you want it."))
+        XCTAssertEqual(pasteboardClient.writtenPayloads, [.text("hello")])
         state.shutdown()
     }
 

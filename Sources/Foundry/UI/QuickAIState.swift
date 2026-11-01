@@ -10,6 +10,7 @@ final class QuickAIState {
     var quickAIStatus = String(localized: "")
     var isQuickAILoading = false
     var quickAILastFailedPrompt: String?
+    var quickAIError: String?
     var quickAIThreads: [AIChatThread]
     var activeQuickAIThreadID: UUID?
 
@@ -43,6 +44,7 @@ final class QuickAIState {
         quickAIStatus = String(localized: "")
         isQuickAILoading = false
         quickAILastFailedPrompt = nil
+        quickAIError = nil
         quickAITask?.cancel()
         quickAITask = nil
         quickAIRequestID = nil
@@ -56,6 +58,7 @@ final class QuickAIState {
         quickAIStatus = prompt.isEmpty ? "Ask anything" : "Ready"
         isQuickAILoading = false
         quickAILastFailedPrompt = nil
+        quickAIError = nil
         let thread = AIChatThread(title: prompt.isEmpty ? "New Chat" : prompt, providerProfileID: selectedAIProfileID)
         quickAIThreads.insert(thread, at: 0)
         activeQuickAIThreadID = thread.id
@@ -89,6 +92,7 @@ final class QuickAIState {
     func retry() {
         guard let prompt = quickAILastFailedPrompt, isQuickAILoading == false else { return }
         quickAILastFailedPrompt = nil
+        quickAIError = nil
         quickAITask?.cancel()
         guard let threadID = activeQuickAIThreadID else { return }
         let requestID = UUID()
@@ -125,6 +129,7 @@ final class QuickAIState {
         quickAIResponse = thread.messages.last(where: { $0.role == .assistant })?.content ?? ""
         quickAIStatus = thread.messages.isEmpty ? "Ask anything" : "Loaded"
         quickAILastFailedPrompt = nil
+        quickAIError = nil
     }
 
     func shutdown() {
@@ -186,6 +191,7 @@ final class QuickAIState {
     private func performQuickAI(prompt: String, persistUserMessage: Bool = true, threadID: UUID, requestID: UUID) async {
         guard isCurrentQuickAIRequest(requestID, threadID: threadID) else { return }
         isQuickAILoading = true
+        quickAIError = nil
         quickAIStatus = String(localized: "Thinking")
         quickAIResponse = ""
         var didFail = false
@@ -233,9 +239,10 @@ final class QuickAIState {
             case let .failed(message):
                 didFail = true
                 quickAILastFailedPrompt = prompt
-                quickAIStatus = message
-                response = message
-                quickAIResponse = message
+                quickAIError = message
+                quickAIStatus = String(localized: "Failed")
+                response = ""
+                quickAIResponse = ""
             }
         }
 

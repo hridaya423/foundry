@@ -1024,7 +1024,7 @@ struct SettingsView: View {
                 )
             }
             if let error = state.clipboardHistory.error {
-                SettingsNotice(text: "Clipboard history could not be saved: \(error.localizedDescription)", symbol: "exclamationmark.triangle")
+                SettingsNotice(text: "Couldn't load or save clipboard history: \(error.localizedDescription)", symbol: "exclamationmark.triangle")
             }
         }
     }

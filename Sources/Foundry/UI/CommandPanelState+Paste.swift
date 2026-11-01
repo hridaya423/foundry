@@ -9,7 +9,7 @@ extension CommandPanelState {
     @discardableResult
     func directPasteSelectedClipboardItem() -> Bool {
         guard let item = clipboardHistory.selectedItem else {
-            clipboardHistory.report(ClipboardDirectPasteError.noSelection)
+            showActionFeedback(.failure(String(localized: "Select an item to paste.")))
             return false
         }
         do {
@@ -17,6 +17,8 @@ extension CommandPanelState {
             return true
         } catch {
             diagnostics.log("Could not stage paste: \(error.localizedDescription)")
+            clipboardHistory.copySelected()
+            showActionFeedback(.info(String(localized: "Copied. Press ⌘V where you want it.")))
             return false
         }
     }
@@ -28,11 +30,11 @@ extension CommandPanelState {
         Task {
             do {
                 if try await TextPreview.extractText(fromImageData: data, onQuickLook: actionRunner.panel.onQuickLook) == false {
-                    clipboardHistory.report(ClipboardVisionError.noTextFound)
+                    showActionFeedback(.failure(String(localized: "No text found in this image. Try a sharper screenshot.")))
                 }
             } catch {
                 diagnostics.log("Clipboard OCR failed: \(error.localizedDescription)")
-                clipboardHistory.report(ClipboardVisionError.failed)
+                showActionFeedback(.failure(String(localized: "Couldn't read this image.")))
             }
         }
     }
@@ -44,11 +46,11 @@ extension CommandPanelState {
         Task {
             do {
                 if try await TextPreview.decodeBarcode(fromImageData: data, onQuickLook: actionRunner.panel.onQuickLook) == false {
-                    clipboardHistory.report(ClipboardVisionError.noBarcodeFound)
+                    showActionFeedback(.failure(String(localized: "No barcode or QR code found in this image.")))
                 }
             } catch {
                 diagnostics.log("Clipboard barcode decode failed: \(error.localizedDescription)")
-                clipboardHistory.report(ClipboardVisionError.failed)
+                showActionFeedback(.failure(String(localized: "Couldn't read this image.")))
             }
         }
     }
@@ -130,23 +132,7 @@ extension CommandPanelState {
     }
 
     func pasteOrCopySelectedClipboardItem() {
-        if directPasteSelectedClipboardItem() == false { clipboardHistory.copySelected() }
-    }
-}
-
-private enum ClipboardDirectPasteError: LocalizedError {
-    case noSelection
-    var errorDescription: String? { "Select an item to paste." }
-}
-
-private enum ClipboardVisionError: LocalizedError {
-    case noTextFound, noBarcodeFound, failed
-    var errorDescription: String? {
-        switch self {
-        case .noTextFound: "No text found in that image."
-        case .noBarcodeFound: "No barcode found in that image."
-        case .failed: "Could not analyze that image."
-        }
+        directPasteSelectedClipboardItem()
     }
 }
 

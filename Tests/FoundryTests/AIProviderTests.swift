@@ -241,6 +241,31 @@ final class AIProviderTests: XCTestCase {
     }
 
     @MainActor
+    func testProviderFailureIsShownAsAnErrorNotAnAnswer() async {
+        let configURL = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: configURL) }
+        let config = ConfigService(diagnostics: DiagnosticsService(), url: configURL)
+        let unreachable = AIProviderProfile(name: "Closed port", kind: .openAICompatible, authentication: .none,
+            endpoint: "http://127.0.0.1:9", model: "none")
+        var ai = config.current.ai
+        ai.profiles = [unreachable]
+        ai.defaultProfileID = unreachable.id
+        ai.fallbackProfileIDs = []
+        try? config.updateAIConfig(ai)
+        let state = QuickAIState(aiProvider: AIProvider(config: config, diagnostics: DiagnosticsService()),
+            chatStore: AIChatStore(url: configURL.appendingPathExtension("chats")))
+        state.startNewThread(selectedAIProfileID: unreachable.id)
+        state.quickAIQuery = "hello"
+        await state.submit()
+        await waitUntil { state.isQuickAILoading == false }
+        XCTAssertEqual(state.quickAIResponse, "")
+        XCTAssertNotNil(state.quickAIError)
+        XCTAssertEqual(state.quickAILastFailedPrompt, "hello")
+        XCTAssertEqual(state.activeThread?.messages.map(\.role), [.user])
+        state.shutdown()
+    }
+
+    @MainActor
     func testStoppingKeepsThePartialAnswerAndOnlyOffersRetryWhenNothingArrived() {
         let configURL = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: configURL) }
