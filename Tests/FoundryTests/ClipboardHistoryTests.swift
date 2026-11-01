@@ -131,6 +131,25 @@ final class ClipboardHistoryTests: XCTestCase {
     }
 
     @MainActor
+    func testSearchFindsSourceAppsAndTheCountNamesWhatIsShown() {
+        let pasteboard = TestPasteboardClient()
+        let state = ClipboardHistoryState(pasteboard: pasteboard, persistence: nil)
+        for (text, source) in [("from the browser", "com.apple.Safari"), ("from the editor", "com.apple.dt.Xcode")] {
+            pasteboard.snapshotValue = PasteboardSnapshot(types: [.string], payload: .text(text), sourceBundleIdentifier: source)
+            pasteboard.changeCountValue += 1
+            state.captureIfChanged()
+        }
+        XCTAssertEqual(state.countLabel, "2 items")
+
+        state.query = "safari"
+
+        XCTAssertEqual(state.visibleItems.map(\.title), ["from the browser"])
+        XCTAssertEqual(state.countLabel, "1 of 2 items")
+        state.select(id: state.visibleItems[0].id)
+        XCTAssertTrue(state.canMergeSelectedWithPrevious, "the row above is text, so the two can merge")
+    }
+
+    @MainActor
     func testKindFiltersFullTextSearchAndPinnedFirst() {
         let pasteboard = TestPasteboardClient()
         let state = ClipboardHistoryState(pasteboard: pasteboard, persistence: nil)

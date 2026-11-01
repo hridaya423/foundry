@@ -35,10 +35,14 @@ final class PreviewSnapshotTests: XCTestCase {
 
         for appearance in [NSAppearance.Name.aqua, .darkAqua] {
             clipboard.select(id: clipboard.visibleItems[0].id)
-            try render(ClipboardHistoryView(state: clipboard, fileShelf: shelf), name: "clipboard-text", appearance: appearance)
+            try render(ClipboardHistoryView(state: clipboard), name: "clipboard-text", appearance: appearance)
             clipboard.select(id: clipboard.visibleItems[1].id)
-            try render(ClipboardHistoryView(state: clipboard, fileShelf: shelf), name: "clipboard-file", appearance: appearance)
+            try render(ClipboardHistoryView(state: clipboard), name: "clipboard-file", appearance: appearance)
         }
+        var paused = config.current.clipboard
+        paused.isPaused = true
+        clipboard.updateConfiguration(paused)
+        try render(ClipboardHistoryView(state: clipboard), name: "clipboard-paused", appearance: .aqua)
     }
 
     /// 5.2 row anatomy: 40pt single-line rows, 24pt icons, inline subtitle,

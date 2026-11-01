@@ -4,61 +4,47 @@ import SwiftUI
 
 struct ClipboardHistoryView: View {
     @Bindable var state: ClipboardHistoryState
-    var fileShelf: FileShelfState
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var isConfirmingClear = false
     let directPaste: () -> Bool
     let pause: (Bool) -> Void
-    let extractText: (String) -> Void
-    let decodeBarcode: (String) -> Void
 
     init(
         state: ClipboardHistoryState,
-        fileShelf: FileShelfState,
         directPaste: @escaping () -> Bool = { false },
-        pause: @escaping (Bool) -> Void = { _ in },
-        extractText: @escaping (String) -> Void = { _ in },
-        decodeBarcode: @escaping (String) -> Void = { _ in }
+        pause: @escaping (Bool) -> Void = { _ in }
     ) {
         self.state = state
-        self.fileShelf = fileShelf
         self.directPaste = directPaste
         self.pause = pause
-        self.extractText = extractText
-        self.decodeBarcode = decodeBarcode
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack {
-                if state.items.isEmpty == false {
-                    FoundrySectionHeader(
-                        title: "Clipboard",
-                        count: "\(state.visibleItems.count) item\(state.visibleItems.count == 1 ? "" : "s")",
-                        actionTitle: "Clear",
-                        action: { isConfirmingClear = true }
-                    )
-                } else {
-                    Text("Clipboard")
-                        .font(FoundryTheme.body)
-                        .foregroundStyle(FoundryTheme.textSecondary)
-                }
-                Spacer()
-                Button(state.isPaused ? "Resume" : "Pause") { pause(!state.isPaused) }
+        VStack(alignment: .leading, spacing: FoundryTheme.Spacing.sm) {
+            if state.isPaused {
+                InlineNotice(level: .warning, text: "Capture paused. New copies aren’t saved.", symbol: "pause.circle",
+                    actionTitle: "Resume", action: { pause(false) })
             }
-            .padding(.horizontal, 4)
 
-            if state.items.isEmpty == false {
-                Picker("Show", selection: $state.kindFilter) {
-                    ForEach(ClipboardHistoryState.KindFilter.allCases) { filter in
-                        Text(filter.rawValue).tag(filter)
+            if state.items.isEmpty == false || state.isPaused == false {
+                HStack(spacing: 6) {
+                    if state.items.isEmpty == false {
+                        ForEach(Array(ClipboardHistoryState.KindFilter.allCases.enumerated()), id: \.element) { index, filter in
+                            let count = state.items.filter(filter.matches).count
+                            if filter == .all || count > 0 || state.kindFilter == filter {
+                                ClipboardFilterChip(
+                                    title: filter.rawValue,
+                                    count: filter == .all ? nil : count,
+                                    isSelected: state.kindFilter == filter,
+                                    shortcut: "⌘\(index + 1)"
+                                ) { state.kindFilter = filter }
+                            }
+                        }
+                    }
+                    Spacer(minLength: 8)
+                    if state.isPaused == false {
+                        FoundryActionButton(title: String(localized: "Pause"), systemName: "pause.fill") { pause(true) }
                     }
                 }
-                .pickerStyle(.segmented)
-                .labelsHidden()
-                .controlSize(.small)
-                .fixedSize()
-                .help("⌘1–⌘5")
             }
 
             if state.items.isEmpty {
@@ -68,11 +54,19 @@ struct ClipboardHistoryView: View {
                     message: "Copy text, files, or images while Foundry is running and they will appear here."
                 )
             } else if state.visibleItems.isEmpty {
-                FoundryEmptyState(
-                    symbol: "magnifyingglass",
-                    title: state.query.isEmpty ? "No \(state.kindFilter.rawValue.lowercased()) in your history" : "No clipboard matches",
-                    message: state.query.isEmpty ? "Press ⌘1 to show everything." : "Try a shorter search or clear the search field."
-                )
+                if state.query.isEmpty {
+                    FoundryEmptyState(
+                        symbol: "line.3.horizontal.decrease",
+                        title: "No \(state.kindFilter.rawValue.lowercased()) in your history",
+                        message: "Press ⌘1 to show everything."
+                    )
+                } else {
+                    FoundryEmptyState(
+                        symbol: "magnifyingglass",
+                        title: "Nothing matches “\(state.query)”",
+                        message: "Search covers text, file names and source apps. Press esc to clear."
+                    )
+                }
             } else {
                 SplitPreviewLayout {
                     ScrollViewReader { proxy in
@@ -82,9 +76,7 @@ struct ClipboardHistoryView: View {
                                     ClipboardHistoryRow(
                                         item: item,
                                         isSelected: state.selectedID == item.id,
-                                        onCopy: { state.select(id: item.id); state.copySelected() },
                                         onPaste: { state.select(id: item.id); _ = directPaste() },
-                                        onExtractText: { extractText(item.id) },
                                         onRemove: { state.select(id: item.id); state.removeSelected() }
                                     )
                                         .id(item.id)
@@ -101,7 +93,7 @@ struct ClipboardHistoryView: View {
                         .scrollIndicators(.never)
                         .onChange(of: state.selectedID) { _, id in
                             guard let id else { return }
-                            proxy.scrollTo(id, anchor: .center)
+                            proxy.scrollTo(id)
                         }
                     }
                 } preview: {
@@ -109,12 +101,7 @@ struct ClipboardHistoryView: View {
                         ClipboardPreviewPane(
                             item: item,
                             copy: { state.copy(item) },
-                            remove: { state.select(id: item.id); state.removeSelected() },
-                            paste: { state.select(id: item.id); _ = directPaste() },
-                            addToShelf: { state.select(id: item.id); state.addSelectedFiles(to: fileShelf) },
-                            mergeWithPrevious: { state.select(id: item.id); state.copyMergedWithPreviousSelected() },
-                            extractText: { extractText(item.id) },
-                            decodeBarcode: { decodeBarcode(item.id) }
+                            paste: { state.select(id: item.id); _ = directPaste() }
                         )
                     }
                 }
@@ -122,28 +109,20 @@ struct ClipboardHistoryView: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 14)
-        .alert("Clear Clipboard History?", isPresented: $isConfirmingClear) {
-            Button("Clear History", role: .destructive) { state.clear() }
-            Button("Cancel", role: .cancel) {}
-        } message: {
-            Text("Remove the copied items currently held by Foundry.")
-        }
     }
 }
 
 private struct ClipboardHistoryRow: View {
     let item: ClipboardHistoryItem
     let isSelected: Bool
-    let onCopy: () -> Void
     let onPaste: () -> Void
-    let onExtractText: () -> Void
     let onRemove: () -> Void
 
     @State private var isHovering = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: FoundryTheme.Spacing.sm) {
             Group {
                 if case let .files(urls) = item.payload, let first = urls.first {
                     FileIcon(path: first.path) { Image(systemName: item.systemImage) }
@@ -153,7 +132,7 @@ private struct ClipboardHistoryRow: View {
                         .foregroundStyle(FoundryTheme.textSecondary)
                 }
             }
-            .frame(width: 22, height: 22)
+            .frame(width: 26, height: 26)
             .accessibilityHidden(true)
 
             Text(item.title)
@@ -172,11 +151,7 @@ private struct ClipboardHistoryRow: View {
             }
             if isHovering {
                 HStack(spacing: 2) {
-                    hoverAction("doc.on.doc", label: "Copy", action: onCopy)
-                    hoverAction("arrow.up.doc.on.clipboard", label: "Paste as plain text", action: onPaste)
-                    if case .image = item.payload {
-                        hoverAction("text.viewfinder", label: "Extract text", action: onExtractText)
-                    }
+                    hoverAction("text.insert", label: "Paste", action: onPaste)
                     hoverAction("xmark", label: "Remove", action: onRemove)
                 }
             } else {
@@ -185,9 +160,9 @@ private struct ClipboardHistoryRow: View {
                     .foregroundStyle(FoundryTheme.textQuaternary)
             }
         }
-        .padding(.horizontal, 10)
-        .frame(height: 36)
-        .background(RowBackground(isSelected: isSelected, isHovering: isHovering, cornerRadius: 8))
+        .padding(.horizontal, FoundryTheme.Spacing.sm)
+        .frame(height: 40)
+        .background(RowBackground(isSelected: isSelected, isHovering: isHovering))
         .onHover { isHovering = $0 }
         .animation(reduceMotion ? nil : FoundryTheme.Motion.hover, value: isHovering)
         .accessibilityElement(children: .combine)
@@ -211,12 +186,7 @@ private struct ClipboardHistoryRow: View {
 private struct ClipboardPreviewPane: View {
     let item: ClipboardHistoryItem
     let copy: () -> Void
-    let remove: () -> Void
     let paste: () -> Void
-    let addToShelf: () -> Void
-    let mergeWithPrevious: () -> Void
-    let extractText: () -> Void
-    let decodeBarcode: () -> Void
 
     @AppStorage("clipboard.preview.monospace") private var monospace = false
 
@@ -258,24 +228,8 @@ private struct ClipboardPreviewPane: View {
                         label: monospace ? "Show proportional text" : "Show monospaced text") { monospace.toggle() }
                 }
                 Spacer(minLength: 0)
-                if case let .text(value) = item.payload, let url = linkURL(in: value) {
-                    ClipboardCardButton(symbol: "safari", label: "Open link") { NSWorkspace.shared.open(url) }
-                }
-                if case .files = item.payload {
-                    ClipboardCardButton(symbol: "tray.and.arrow.down", label: "Add files to shelf", action: addToShelf)
-                }
-                if case .image = item.payload {
-                    ClipboardCardButton(symbol: "text.viewfinder", label: "Extract text (OCR)", action: extractText)
-                    ClipboardCardButton(symbol: "qrcode.viewfinder", label: "Read QR or barcode", action: decodeBarcode)
-                }
-                if case .text = item.payload {
-                    ClipboardCardButton(symbol: "doc.plaintext", label: "Paste as plain text", action: paste)
-                    ClipboardCardButton(symbol: "text.append", label: "Copy merged with previous", action: mergeWithPrevious)
-                } else {
-                    ClipboardCardButton(symbol: "text.insert", label: "Paste into originating app", action: paste)
-                }
-                ClipboardCardButton(symbol: "doc.on.doc", label: "Copy item", action: copy)
-                ClipboardCardButton(symbol: "xmark", label: "Remove item", action: remove)
+                ClipboardCardButton(symbol: "doc.on.doc", label: "Copy", action: copy)
+                ClipboardCardButton(symbol: "text.insert", label: "Paste", action: paste)
             }
 
             content
@@ -284,10 +238,6 @@ private struct ClipboardPreviewPane: View {
             PreviewMetadata(rows: metadata)
         }
         .padding(.leading, 14)
-    }
-
-    private func linkURL(in value: String) -> URL? {
-        ClipboardHistoryState.linkURL(in: value)
     }
 
     @ViewBuilder
@@ -324,6 +274,37 @@ private struct ClipboardPreviewPane: View {
                 }
             }
         }
+    }
+}
+
+private struct ClipboardFilterChip: View {
+    let title: String
+    let count: Int?
+    let isSelected: Bool
+    let shortcut: String
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 5) {
+                Text(title)
+                if let count {
+                    Text(count.formatted())
+                        .monospacedDigit()
+                        .foregroundStyle(isSelected ? FoundryTheme.textSecondary : FoundryTheme.textTertiary)
+                }
+            }
+            .font(FoundryTheme.caption)
+            .foregroundStyle(isSelected ? FoundryTheme.textPrimary : FoundryTheme.textSecondary)
+            .padding(.horizontal, FoundryTheme.Spacing.xs)
+            .frame(height: 24)
+            .background(Capsule(style: .continuous).fill(isSelected ? FoundryTheme.accentTintFill : FoundryTheme.fillHover))
+            .contentShape(Capsule())
+        }
+        .buttonStyle(PressableButtonStyle())
+        .accessibilityLabel(count.map { "\(title), \($0)" } ?? title)
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
+        .help("\(title) \(shortcut)")
     }
 }
 

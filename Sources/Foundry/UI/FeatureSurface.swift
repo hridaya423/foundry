@@ -213,10 +213,13 @@ struct InlineNotice: View {
 
     var body: some View {
         HStack(spacing: 9) {
-            Label(String(localized: text), systemImage: symbol ?? level.defaultSymbol)
-                .font(FoundryTheme.bodySecondary)
-                .foregroundStyle(level.tint)
-                .frame(maxWidth: .infinity, alignment: .leading)
+            Label {
+                Text(text).foregroundStyle(FoundryTheme.textPrimary)
+            } icon: {
+                Image(systemName: symbol ?? level.defaultSymbol).foregroundStyle(level.tint)
+            }
+            .font(FoundryTheme.bodySecondary)
+            .frame(maxWidth: .infinity, alignment: .leading)
 
             if let actionTitle, let action {
                 Button(action: action) {

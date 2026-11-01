@@ -62,6 +62,13 @@ extension CommandPanelState {
                 dismiss()
             })
         }
+        if case .text = item.payload, history.canMergeSelectedWithPrevious {
+            actions.append(featureAction("merge", String(localized: "Copy Merged with Previous"), icon: "text.append") { [weak self] in
+                history.copyMergedWithPreviousSelected()
+                self?.notify(.success(String(localized: "Copied both items")), dismissed: true)
+                dismiss()
+            })
+        }
         if case .image = item.payload {
             let id = item.id
             actions.append(featureAction("extract-text", String(localized: "Extract Text"), icon: "text.viewfinder") { [weak self] in

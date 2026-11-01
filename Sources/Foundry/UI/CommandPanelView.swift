@@ -410,13 +410,11 @@ struct CommandPanelView: View {
                 state.mode = .fileConversion
             }, extractText: state.extractTextFromShelfFile, decodeBarcode: state.decodeBarcodeFromShelfFile)
         case .clipboardHistory:
-            ClipboardHistoryView(state: state.clipboardHistory, fileShelf: state.fileShelf, directPaste: {
+            ClipboardHistoryView(state: state.clipboardHistory, directPaste: {
                 let staged = state.directPasteSelectedClipboardItem()
                 if staged { dismiss() }
                 return staged
-            }, pause: state.settings.setClipboardPaused,
-                extractText: state.extractTextFromClipboardItem,
-                decodeBarcode: state.decodeBarcodeFromClipboardItem)
+            }, pause: state.settings.setClipboardPaused)
         case .snippets:
             ZStack {
                 SnippetsView(state: state.snippets, expansionEnabled: state.settings.snippetExpansion.isEnabled,
@@ -895,6 +893,12 @@ struct CommandPanelView: View {
                 openAISettings: { state.presentSettings(.ai) })) : nil,
             openSettings: state.router.openSettings,
             openWelcomeGuide: state.router.openWelcomeGuide
-        )
+        ) {
+            if state.mode == .clipboardHistory, state.clipboardHistory.items.isEmpty == false {
+                Text(state.clipboardHistory.countLabel)
+                    .font(FoundryTheme.caption.monospacedDigit())
+                    .foregroundStyle(FoundryTheme.textTertiary)
+            }
+        }
     }
 }
