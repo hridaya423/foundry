@@ -12,7 +12,7 @@ struct FoundryConfig: Codable, Equatable, Sendable {
     static let currentSchemaVersion = 8
 
     var schemaVersion = FoundryConfig.currentSchemaVersion
-    var hotkey: FoundryHotkey = .optionSpace
+    var hotkey: FoundryHotkey = .commandSpace
     var themeIntensity: Double = 0.72
     var showAgentShelf: Bool = true
     var showMenuBarIcon: Bool = true
@@ -26,10 +26,13 @@ struct FoundryConfig: Codable, Equatable, Sendable {
     var providerEnabled: [String: Bool] = [:]
     var clipboard: ClipboardConfig = .default
     var snippetExpansion: SnippetExpansionConfig = .default
+    var fallbacks: FallbackConfig = .default
+    var fileSearch: FileSearchConfig = .default
+    var quicklinkSiteIcons = true
     var localState = FoundryLocalState()
 
     init(
-        hotkey: FoundryHotkey = .optionSpace,
+        hotkey: FoundryHotkey = .commandSpace,
         themeIntensity: Double = 0.72,
         showAgentShelf: Bool = true,
         showMenuBarIcon: Bool = true,
@@ -76,7 +79,7 @@ struct FoundryConfig: Codable, Equatable, Sendable {
            savedHotkey.modifiers == FoundryHotkey.commandSpace.modifiers {
             hotkey = .commandSpace
         } else {
-            hotkey = savedHotkey ?? (savedSchemaVersion < 7 ? .commandSpace : .optionSpace)
+            hotkey = savedHotkey ?? .commandSpace
         }
         themeIntensity = try container.decodeIfPresent(Double.self, forKey: .themeIntensity) ?? 0.72
         showAgentShelf = try container.decodeIfPresent(Bool.self, forKey: .showAgentShelf) ?? true
@@ -98,6 +101,9 @@ struct FoundryConfig: Codable, Equatable, Sendable {
         }
         clipboard = savedClipboard
         snippetExpansion = (try container.decodeIfPresent(SnippetExpansionConfig.self, forKey: .snippetExpansion) ?? .default).normalized
+        fallbacks = try container.decodeIfPresent(FallbackConfig.self, forKey: .fallbacks) ?? .default
+        fileSearch = try container.decodeIfPresent(FileSearchConfig.self, forKey: .fileSearch) ?? .default
+        quicklinkSiteIcons = try container.decodeIfPresent(Bool.self, forKey: .quicklinkSiteIcons) ?? true
         localState = try container.decodeIfPresent(FoundryLocalState.self, forKey: .localState) ?? FoundryLocalState()
     }
 }
@@ -116,9 +122,9 @@ struct FoundryLocalState: Codable, Equatable, Sendable {
     var snippetsLastExportDirectory: String?
     var conversionFirstSuccessCelebrated = false
     var firefoxConnectorPromptShown = false
-    var downloadedNoticeShown = false
     var onboardingCompletedVersion: String?
     var onboardingStep: Int?
+    var whatsNewSeenVersion: String?
     var emojiRecents: [String] = []
     var emojiColumns: Int?
     var emojiSkinTone = ""
@@ -138,9 +144,9 @@ struct FoundryLocalState: Codable, Equatable, Sendable {
         snippetsLastExportDirectory = try container.decodeIfPresent(String.self, forKey: .snippetsLastExportDirectory)
         conversionFirstSuccessCelebrated = try container.decodeIfPresent(Bool.self, forKey: .conversionFirstSuccessCelebrated) ?? false
         firefoxConnectorPromptShown = try container.decodeIfPresent(Bool.self, forKey: .firefoxConnectorPromptShown) ?? false
-        downloadedNoticeShown = try container.decodeIfPresent(Bool.self, forKey: .downloadedNoticeShown) ?? false
         onboardingCompletedVersion = try container.decodeIfPresent(String.self, forKey: .onboardingCompletedVersion)
         onboardingStep = try container.decodeIfPresent(Int.self, forKey: .onboardingStep)
+        whatsNewSeenVersion = try container.decodeIfPresent(String.self, forKey: .whatsNewSeenVersion)
         emojiRecents = try container.decodeIfPresent([String].self, forKey: .emojiRecents) ?? []
         emojiColumns = try container.decodeIfPresent(Int.self, forKey: .emojiColumns)
         emojiSkinTone = try container.decodeIfPresent(String.self, forKey: .emojiSkinTone) ?? ""
@@ -513,6 +519,18 @@ final class ConfigService: Sendable {
         try update { $0.snippetExpansion = snippetExpansion.normalized }
     }
 
+    func updateFallbacks(_ fallbacks: FallbackConfig) throws {
+        try update { $0.fallbacks = fallbacks }
+    }
+
+    func updateFileSearch(_ fileSearch: FileSearchConfig) throws {
+        try update { $0.fileSearch = fileSearch }
+    }
+
+    func updateQuicklinkSiteIcons(_ enabled: Bool) throws {
+        try update { $0.quicklinkSiteIcons = enabled }
+    }
+
     func updateLocalState(_ mutate: (inout FoundryLocalState) -> Void) throws {
         try update { mutate(&$0.localState) }
     }
@@ -654,7 +672,6 @@ enum UserDefaultsMigration {
         move("snippets.lastExportDirectory", { $0.string(forKey: $1) }) { $0.snippetsLastExportDirectory = $1 }
         move("conversion.firstSuccessCelebrated", { $0.object(forKey: $1) as? Bool }) { $0.conversionFirstSuccessCelebrated = $1 }
         move("foundry.firefox.connector.promptShown", { $0.object(forKey: $1) as? Bool }) { $0.firefoxConnectorPromptShown = $1 }
-        move("foundry.downloadedNoticeShown", { $0.object(forKey: $1) as? Bool }) { $0.downloadedNoticeShown = $1 }
         move(OnboardingState.completedVersionKey, { $0.string(forKey: $1) }) { $0.onboardingCompletedVersion = $1 }
         move(OnboardingState.stepKey, { $0.object(forKey: $1) as? Int }) { $0.onboardingStep = $1 }
         move("emoji.recents", { $0.stringArray(forKey: $1) }) { $0.emojiRecents = $1 }

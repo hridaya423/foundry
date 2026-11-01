@@ -7,6 +7,7 @@ struct DeleteQuicklinkAction: ResultAction, Equatable {
 
     var icon: String? { "trash" }
     var style: ActionStyle { .destructive }
+    var confirmationMessage: LocalizedStringResource? { "This removes it from Foundry. You can’t undo this." }
     var shortcut: ActionShortcut? { ActionShortcut(key: "x", modifiers: [.control]) }
 
     func perform(_ ctx: ActionContext) async -> CommandOutcome {

@@ -40,19 +40,37 @@ final class ShortcutsProvider: CommandProvider, Sendable {
         return cachedNames().compactMap { name in
             let id = "shortcut.\(name)"
             let aliases = request.customAliases[id] ?? []
+            let edit = CommandAction(id: "\(id).edit", title: "Edit in Shortcuts",
+                behavior: OpenURLAction("shortcuts://open-shortcut?name=\(name.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? name)"))
+            if query.count > name.count + 1, query.lowercased().hasPrefix(name.lowercased() + " ") {
+                let input = query.dropFirst(name.count + 1).trimmingCharacters(in: .whitespaces)
+                return CommandResult(
+                    id: id,
+                    title: "\(name) with \u{201C}\(input)\u{201D}",
+                    subtitle: "Shortcut",
+                    icon: CommandIcon(fallback: "SC", systemName: "square.2.layers.3d"),
+                    searchAliases: aliases,
+                    searchKeywords: ["shortcut"],
+                    payload: .command,
+                    primaryAction: CommandAction(id: "\(id).run-input", title: "Run with Input", behavior: RunShortcutAction(name: name, input: .text(input))),
+                    secondaryActions: [edit]
+                )
+            }
             guard SearchScoring.match(query: prepared, title: name, subtitle: nil, keywords: ["shortcut"], aliases: aliases,
                 sensitivity: request.sensitivity) != nil else { return nil }
             return CommandResult(
                 id: id,
                 title: name,
-                subtitle: "Shortcut",
+                subtitle: "Shortcut · type text after the name to pass it as input",
                 icon: CommandIcon(fallback: "SC", systemName: "square.2.layers.3d"),
                 searchAliases: aliases,
                 searchKeywords: ["shortcut"],
                 payload: .command,
-                primaryAction: CommandAction(id: "\(id).run", title: "Run Shortcut", behavior: RunProcessAction(path: Self.cliPath, arguments: ["run", name])),
-                secondaryActions: [CommandAction(id: "\(id).edit", title: "Edit in Shortcuts",
-                    behavior: OpenURLAction("shortcuts://open-shortcut?name=\(name.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? name)"))]
+                primaryAction: CommandAction(id: "\(id).run", title: "Run Shortcut", behavior: RunShortcutAction(name: name)),
+                secondaryActions: [
+                    CommandAction(id: "\(id).run-clipboard", title: "Run with Clipboard", behavior: RunShortcutAction(name: name, input: .clipboard)),
+                    edit
+                ]
             )
         }
     }

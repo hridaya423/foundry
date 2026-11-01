@@ -12,7 +12,7 @@ import FoundryServices
 @Observable
 final class SettingsStore {
     var isAgentShelfVisible = true
-    var hotkey: FoundryHotkey = .optionSpace
+    var hotkey: FoundryHotkey = .commandSpace
     var hotkeyError: String? = nil
     var launcherHotkeyFailed = false
     var showMenuBarIcon = true
@@ -26,6 +26,9 @@ final class SettingsStore {
     var settingsPersistenceError: String?
     var snippetExpansion = SnippetExpansionConfig.default
     var snippetExpansionError: String?
+    var fallbacks = FallbackConfig.default
+    var fileSearch = FileSearchConfig.default
+    var quicklinkSiteIcons = true
     var commandSettingsQuery = "" {
         didSet { rebuildCommandRows() }
     }
@@ -68,6 +71,9 @@ final class SettingsStore {
         themeIntensity = config.themeIntensity
         searchSensitivity = config.searchSensitivity
         snippetExpansion = config.snippetExpansion
+        fallbacks = config.fallbacks
+        fileSearch = config.fileSearch
+        quicklinkSiteIcons = config.quicklinkSiteIcons
         commandPreferences = config.commandPreferences
         configLoadError = configService.loadErrorMessage
     }
@@ -300,6 +306,26 @@ final class SettingsStore {
         }
     }
 
+    func updateFallbacks(_ change: (inout FallbackConfig) -> Void) {
+        var next = fallbacks
+        change(&next)
+        if applySetting(\.fallbacks, next, save: configService.updateFallbacks) {
+            panel?.session.refreshResults()
+        }
+    }
+
+    func updateFileSearch(_ change: (inout FileSearchConfig) -> Void) {
+        var next = fileSearch
+        change(&next)
+        _ = applySetting(\.fileSearch, next, save: configService.updateFileSearch)
+    }
+
+    func updateQuicklinkSiteIcons(_ enabled: Bool) {
+        if applySetting(\.quicklinkSiteIcons, enabled, save: configService.updateQuicklinkSiteIcons) {
+            panel?.session.refreshResults()
+        }
+    }
+
     func setClipboardPaused(_ paused: Bool) {
         var configuration = configService.current.clipboard
         configuration.isPaused = paused
@@ -424,6 +450,19 @@ final class SettingsStore {
             CommandHotkey(keyCode: $0.keyCode, modifiers: $0.modifiers, displayName: $0.displayName)
         }
         updateCommandPreference(preference, for: commandID)
+    }
+
+    @discardableResult
+    func applySuggestedWindowHotkeys() -> Int {
+        var applied = 0
+        for (placement, hotkey) in WindowHotkeySuggestions.all {
+            let id = WindowHotkeySuggestions.commandID(for: placement)
+            guard commandPreference(for: id).globalHotkey == nil,
+                  commandHotkeyOwner(keyCode: hotkey.keyCode, modifiers: hotkey.modifiers) == nil else { continue }
+            setCommandHotkey(hotkey, for: id)
+            applied += 1
+        }
+        return applied
     }
 
     func setCommandFallbackEligible(_ isEligible: Bool, for commandID: String) {

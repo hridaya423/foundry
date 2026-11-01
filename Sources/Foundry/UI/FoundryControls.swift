@@ -140,6 +140,7 @@ struct FoundryQuietButtonStyle: ButtonStyle {
             .opacity(configuration.isPressed ? 0.55 : 1)
             .scaleEffect(configuration.isPressed ? 0.97 : 1)
             .animation(reduceMotion ? nil : .easeOut(duration: 0.12), value: configuration.isPressed)
+            .pointerCursor()
     }
 }
 
@@ -151,6 +152,16 @@ struct PressableButtonStyle: ButtonStyle {
             .scaleEffect(configuration.isPressed ? 0.975 : 1)
             .opacity(configuration.isPressed ? 0.82 : 1)
             .animation(reduceMotion ? nil : .easeOut(duration: 0.10), value: configuration.isPressed)
+            .pointerCursor()
+    }
+}
+
+extension View {
+    /// The pointing hand over anything clickable in the panel.
+    func pointerCursor() -> some View {
+        onHover { hovering in
+            if hovering { NSCursor.pointingHand.set() } else { NSCursor.arrow.set() }
+        }
     }
 }
 

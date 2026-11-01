@@ -146,6 +146,20 @@ final class ActionRunnerTests: XCTestCase {
         XCTAssertEqual(outcome, .denied(message: "Action cancelled"))
     }
 
+    func testDeletingSnippetSaysItCannotBeUndone() async {
+        let runner = ActionRunner(diagnostics: DiagnosticsService())
+        var asked: PanelPromptSpec?
+        runner.panel.requestPrompt = { spec in asked = spec; return .cancelled }
+        let request = CommandExecutionRequest(
+            commandID: "snippet.a",
+            action: CommandAction(id: "snippet.a.delete", title: "Delete Snippet", behavior: DeleteSnippetAction(id: "a"))
+        )
+
+        _ = await runner.execute(request) { _ in }
+
+        XCTAssertEqual(asked?.message.map { String(localized: $0) }, "This removes it from Foundry. You can’t undo this.")
+    }
+
     func testWindowPermissionKeepsThePanelStateAvailable() async {
         let runner = ActionRunner(
             diagnostics: DiagnosticsService(),

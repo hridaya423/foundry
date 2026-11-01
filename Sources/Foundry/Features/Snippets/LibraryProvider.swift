@@ -51,7 +51,7 @@ final class LibraryProvider: CommandProvider {
                     primaryAction: insertPrimary ? insertAction : copyAction,
                     secondaryActions: [
                         insertPrimary ? copyAction : insertAction,
-                        CommandAction(id: "snippet.open.\(snippet.id)", title: "Open Snippets", behavior: OpenSnippetsAction()),
+                        CommandAction(id: "snippet.edit.\(snippet.id)", title: "Edit Snippet", behavior: EditSnippetAction(id: snippet.id)),
                         CommandAction(id: "snippet.delete.\(snippet.id)", title: "Delete Snippet", behavior: DeleteSnippetAction(id: snippet.id))
                     ]
                 )

@@ -65,10 +65,10 @@ final class OnboardingStateTests: XCTestCase {
 
     func testTryItOnlyCountsCommandsRunDuringThatStep() {
         let state = makeState()
-        state.panelDidRunCommand()
+        state.completeTryIt()
         XCTAssertFalse(state.didTryPanel)
         state.go(to: .tryIt)
-        state.panelDidRunCommand()
+        state.completeTryIt()
         XCTAssertTrue(state.didTryPanel)
     }
 
@@ -91,6 +91,7 @@ final class OnboardingStateTests: XCTestCase {
 
     func testCommandSpaceShowsManualStepsWhenAutoDisableFails() {
         let state = makeState()
+        state.panel.settings.setHotkey(.optionSpace)
         state.useCommandSpace(spotlightEnabled: { true }, disableSpotlight: { false })
         XCTAssertTrue(state.spotlightHoldsCommandSpace)
         XCTAssertTrue(state.isWaitingForSpotlight)
@@ -139,5 +140,55 @@ final class OnboardingStateTests: XCTestCase {
         trusted = true
         health.refresh()
         XCTAssertEqual(health.status(for: .accessibility), .granted)
+    }
+
+    func testRaycastHoldingCommandSpaceMovesToOptionSpace() {
+        let suite = "foundry-raycast-\(UUID().uuidString)"
+        let rival = LauncherRival.raycast(suiteName: suite)
+        XCTAssertFalse(rival.holdsCommandSpace())
+        UserDefaults(suiteName: suite)!.set("Command-49", forKey: "raycastGlobalHotkey")
+        XCTAssertTrue(rival.holdsCommandSpace())
+        XCTAssertTrue(rival.moveToOptionSpace())
+        XCTAssertEqual(UserDefaults(suiteName: suite)!.string(forKey: "raycastGlobalHotkey"), "Option-49")
+        XCTAssertFalse(rival.holdsCommandSpace())
+    }
+
+    func testAlfredHoldingCommandSpaceMovesToOptionSpace() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent("foundry-alfred-\(UUID().uuidString)/Alfred.alfredpreferences")
+        let hotkey = root.appendingPathComponent("preferences/local/abc123/hotkey")
+        try FileManager.default.createDirectory(at: hotkey, withIntermediateDirectories: true)
+        let prefs = hotkey.appendingPathComponent("prefs.plist")
+        let command = Int(NSEvent.ModifierFlags.command.rawValue), option = Int(NSEvent.ModifierFlags.option.rawValue)
+        try (["key": 49, "mod": command, "string": "Space"] as NSDictionary).write(to: prefs)
+        let rival = LauncherRival.alfred(preferencesRoot: root)
+        XCTAssertTrue(rival.holdsCommandSpace())
+        XCTAssertTrue(rival.moveToOptionSpace())
+        XCTAssertEqual(NSDictionary(contentsOf: prefs)?["mod"] as? Int, option)
+        XCTAssertEqual(NSDictionary(contentsOf: prefs)?["key"] as? Int, 49)
+        XCTAssertFalse(rival.holdsCommandSpace())
+    }
+
+    func testClaimingCommandSpaceTurnsOffSpotlightAndMovesRivals() async {
+        let state = makeState()
+        let moved = LockedFlag()
+        let rival = LauncherRival(id: "test", name: "Test", bundleID: "app.foundry.tests.absent",
+            holdsCommandSpace: { moved.value == false }, moveToOptionSpace: { moved.value = true; return true })
+        state.claimCommandSpace(rivals: [rival], spotlightEnabled: { true }, disableSpotlight: { true })
+        XCTAssertTrue(state.didClaimSpotlight)
+        XCTAssertEqual(state.takeovers.map(\.status), [.working])
+        for _ in 0..<50 where state.takeovers.first?.status == .working { try? await Task.sleep(for: .milliseconds(20)) }
+        XCTAssertEqual(state.takeovers.map(\.status), [.done])
+        XCTAssertTrue(moved.value)
+        state.claimCommandSpace(rivals: [rival], spotlightEnabled: { false })
+        XCTAssertEqual(state.takeovers.count, 1)
+    }
+}
+
+private final class LockedFlag: @unchecked Sendable {
+    private let lock = NSLock()
+    private var stored = false
+    var value: Bool {
+        get { lock.withLock { stored } }
+        set { lock.withLock { stored = newValue } }
     }
 }

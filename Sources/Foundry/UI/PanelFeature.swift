@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 import FoundryDomain
 import FoundryServices
@@ -46,9 +47,27 @@ extension CommandPanelState {
         case .translator: translator
         case .developerTools: developerTools
         case .quickAI: quickAI
+        case .scriptOutput: scriptOutput
         case .search, .mediaDownloads, .fileConversion, .camera, .agents:
             nil
         }
+    }
+}
+
+struct ScriptOutput: Equatable, PanelFeature {
+    let title: String
+    let text: String
+
+    func handleModeShortcut(
+        _ shortcut: ActionShortcut,
+        panel: CommandPanelState,
+        dismiss: @MainActor () -> Void
+    ) -> Bool {
+        guard shortcut.key == "\r" else { return false }
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(text, forType: .string)
+        panel.showActionFeedback(.success(String(localized: "Copied output")))
+        return true
     }
 }
 
@@ -91,9 +110,7 @@ extension SnippetState: PanelFeature {
         dismiss: @MainActor () -> Void
     ) -> Bool {
         guard shortcut.key == "\r", selectedItem != nil else { return false }
-        copySelected()
-        panel.showActionFeedback(.success(String(localized: "Copied snippet")))
-        dismiss()
+        if panel.copySelectedSnippet() { dismiss() }
         return true
     }
 
@@ -108,8 +125,21 @@ extension TranslatorState: PanelFeature {
         panel: CommandPanelState,
         dismiss: @MainActor () -> Void
     ) -> Bool {
-        guard shortcut.key == "s" else { return false }
-        swapLanguages()
+        switch (shortcut.key, shortcut.modifiers.contains(.shift)) {
+        case ("s", _):
+            swapLanguages()
+        case ("c", true) where result.isEmpty == false:
+            copyResult()
+            panel.showActionFeedback(.success(String(localized: "Copied translation")))
+        case ("\r", _) where result.isEmpty == false:
+            if panel.insertTranslation() == false {
+                copyResult()
+                panel.showActionFeedback(.success(String(localized: "Copied translation")))
+            }
+            dismiss()
+        default:
+            return false
+        }
         return true
     }
 
@@ -124,8 +154,12 @@ extension EmojiPickerState: PanelFeature {
         panel: CommandPanelState,
         dismiss: @MainActor () -> Void
     ) -> Bool {
-        guard shortcut.key == "t" else { return false }
-        cycleSkinTone()
+        if shortcut.key == "t" {
+            cycleSkinTone()
+            return true
+        }
+        guard let index = Int(shortcut.key), Self.skinTones.indices.contains(index - 1) else { return false }
+        setSkinTone(Self.skinTones[index - 1])
         return true
     }
 

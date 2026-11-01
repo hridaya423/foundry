@@ -3,16 +3,25 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 struct QuicklinksSettingsPane: View {
+    var settings: SettingsStore
     var store: QuicklinkStore = .shared
     @State private var links: [Quicklink] = []
     @State private var error: String?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Type a keyword and your query, for example “g swift concurrency”. Use {argument}, {clipboard}, {date} or {time} in the link.")
+            Text("""
+                Type a keyword and your query, for example “g swift concurrency”. \
+                Use {argument}, {clipboard}, {selection}, {date} or {time} in the link. {selection} needs Accessibility access.
+                """)
                 .font(FoundryTheme.bodySecondary)
                 .foregroundStyle(FoundryTheme.textTertiary)
                 .fixedSize(horizontal: false, vertical: true)
+
+            SettingsGroup {
+                SettingsToggleRow(title: "Site icons", subtitle: "Show each site’s icon. Foundry gets the icon from the site.",
+                    isOn: settings.quicklinkSiteIcons, set: settings.updateQuicklinkSiteIcons)
+            }
 
             SettingsGroup {
                 if links.isEmpty {
@@ -47,6 +56,7 @@ struct QuicklinksSettingsPane: View {
                                 set: { link.useFavicon = $0 ? nil : false }
                             ))
                             .toggleStyle(.checkbox)
+                            .disabled(settings.quicklinkSiteIcons == false)
                             Spacer()
                             Text("Open with")
                                 .foregroundStyle(FoundryTheme.textTertiary)

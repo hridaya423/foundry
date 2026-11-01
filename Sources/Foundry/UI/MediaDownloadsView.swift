@@ -312,11 +312,11 @@ struct MediaDownloadsView: View {
                 Spacer()
 
                 if canClear {
-                    Button("Clear history") { manager.clearFinished() }
+                    Button("Clear List") { manager.clearFinished() }
                         .font(FoundryTheme.caption)
                         .foregroundStyle(FoundryTheme.textTertiary)
                         .buttonStyle(FoundryQuietButtonStyle())
-                        .help("Remove finished downloads from this list without deleting files")
+                        .help("Clear finished, failed and cancelled downloads from this list. The files stay on disk.")
                 }
             }
             .padding(.horizontal, 2)

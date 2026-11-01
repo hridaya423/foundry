@@ -7,9 +7,10 @@ struct RowBackground: View {
     let isHovering: Bool
     var cornerRadius: CGFloat = FoundryTheme.Radius.row
     @Environment(\.foundryHoverHighlightsArmed) private var hoverHighlightsArmed
+    @Environment(\.foundryIncreaseContrast) private var increaseContrast
 
     private var fill: Color {
-        if isSelected { return FoundryTheme.fillSelected }
+        if isSelected { return increaseContrast ? FoundryTheme.highContrastSelection : FoundryTheme.fillSelected }
         if isHovering && hoverHighlightsArmed { return FoundryTheme.fillHover }
         return Color.clear
     }
@@ -17,6 +18,11 @@ struct RowBackground: View {
     var body: some View {
         RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
             .fill(fill)
+            .overlay {
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .strokeBorder(isSelected ? (increaseContrast ? FoundryTheme.highContrastSelectionBorder : FoundryTheme.selectionBorder) : Color.clear,
+                        lineWidth: increaseContrast ? 2 : 1)
+            }
     }
 }
 
@@ -37,9 +43,10 @@ struct HomeSectionHeader: View {
 
     var body: some View {
         HStack {
-            Text(title)
+            Text(title.uppercased())
                 .font(FoundryTheme.micro)
-                .foregroundStyle(FoundryTheme.textTertiary)
+                .tracking(0.4)
+                .foregroundStyle(FoundryTheme.sectionHeader)
             Spacer()
             if let action {
                 Button(action: action) {
@@ -68,27 +75,26 @@ struct HomeResultRow: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            AppIcon(icon: result.icon, size: 24, cornerRadius: 6)
+            AppIcon(icon: result.icon, size: 26, cornerRadius: 6)
+                .scaleEffect(isSelected ? 1.04 : 1)
 
             Text(result.title)
-                .font(FoundryTheme.body)
+                .font(FoundryTheme.rowTitle)
                 .foregroundStyle(FoundryTheme.textPrimary)
                 .lineLimit(1)
 
             Spacer()
 
             Text(label)
-                .font(FoundryTheme.bodySecondary)
+                .font(FoundryTheme.rowDetail)
                 .foregroundStyle(FoundryTheme.textQuaternary)
                 .lineLimit(1)
         }
         .padding(.horizontal, FoundryTheme.Spacing.sm)
         .frame(height: 40)
         .background(RowBackground(isSelected: isSelected, isHovering: isHovering))
-        .onHover { hovering in
-            isHovering = hovering
-
-        }
+        .onHover { isHovering = $0 }
+        .pointerCursor()
     }
 }
 
@@ -131,6 +137,7 @@ private struct FavoriteTile: View {
         }
         .buttonStyle(.plain)
         .onHover { isHovering = $0 }
+        .pointerCursor()
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(result.title)
         .accessibilityAddTraits(.isButton)
@@ -280,21 +287,21 @@ struct ResultRow: View {
 
     private var row: some View {
         HStack(spacing: 12) {
-            AppIcon(icon: result.icon, size: 24, cornerRadius: 6)
+            AppIcon(icon: result.icon, size: 28, cornerRadius: 7)
+                .scaleEffect(isSelected ? 1.04 : 1)
 
-            HStack(alignment: .firstTextBaseline, spacing: 8) {
+            VStack(alignment: .leading, spacing: 2) {
                 Text(result.title)
-                    .font(FoundryTheme.body)
+                    .font(FoundryTheme.rowTitle)
                     .foregroundStyle(FoundryTheme.textPrimary)
                     .lineLimit(1)
-                    .layoutPriority(1)
 
-                if let subtitle = result.subtitle {
+                // Commands explain themselves by title; a detail line is noise.
+                if let subtitle = result.subtitle, ResultSection.of(result) != .commands {
                     Text(subtitle)
-                        .font(FoundryTheme.bodySecondary)
+                        .font(FoundryTheme.rowDetail)
                         .foregroundStyle(FoundryTheme.textTertiary)
                         .lineLimit(1)
-                        .truncationMode(.tail)
                 }
             }
 
@@ -305,7 +312,7 @@ struct ResultRow: View {
                     ResultBadge(text: alias)
                 }
                 if let hotkey {
-                    Keycap(text: hotkey)
+                    ResultBadge(text: hotkey)
                 }
                 if isRunning {
                     Circle()
@@ -315,19 +322,17 @@ struct ResultRow: View {
                 }
                 if let kindLabel {
                     Text(kindLabel)
-                        .font(FoundryTheme.bodySecondary)
+                        .font(FoundryTheme.rowDetail)
                         .foregroundStyle(FoundryTheme.textQuaternary)
                         .lineLimit(1)
                 }
             }
         }
         .padding(.horizontal, FoundryTheme.Spacing.sm)
-        .frame(height: compact ? 38 : 40)
+        .frame(height: compact ? 38 : 44)
         .background(RowBackground(isSelected: isSelected, isHovering: isHovering))
-        .onHover { hovering in
-            isHovering = hovering
-
-        }
+        .onHover { isHovering = $0 }
+        .pointerCursor()
     }
 
     private var dragProvider: (() -> NSItemProvider)? {
@@ -347,29 +352,6 @@ private struct ResultBadge: View {
             .padding(.horizontal, 6)
             .frame(height: 20)
             .background(FoundryTheme.fillHover, in: RoundedRectangle(cornerRadius: 5, style: .continuous))
-    }
-}
-
-/// Bordered keycap for hotkey chords — reads as hardware, distinct from
-/// the filled alias badge.
-private struct Keycap: View {
-    let text: String
-
-    var body: some View {
-        Text(text)
-            .font(FoundryTheme.caption)
-            .foregroundStyle(FoundryTheme.textTertiary)
-            .lineLimit(1)
-            .padding(.horizontal, 6)
-            .frame(height: 20)
-            .background(
-                RoundedRectangle(cornerRadius: FoundryTheme.Radius.badge, style: .continuous)
-                    .fill(FoundryTheme.fillSubtle)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: FoundryTheme.Radius.badge, style: .continuous)
-                            .strokeBorder(FoundryTheme.stroke, lineWidth: 1)
-                    )
-            )
     }
 }
 

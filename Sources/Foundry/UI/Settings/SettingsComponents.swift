@@ -250,46 +250,18 @@ final class ShortcutRecorderView: NSView {
     }
 
     override func keyDown(with event: NSEvent) {
-        let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
-        let modifiers = carbonModifiers(from: flags)
-        guard modifiers & UInt32(cmdKey | optionKey | controlKey) != 0 else {
+        guard let recorded = FoundryHotkey(recording: event) else {
             NSSound.beep()
             return
         }
-        let keyName = HotkeyFormatter.keyName(UInt32(event.keyCode)) ?? fallbackKeyName(for: event)
-        guard let keyName else {
-            NSSound.beep()
-            return
-        }
-
         isRecording = false
-        let displayName = HotkeyFormatter.modifierString(modifiers) + keyName
-        onHotkey?(FoundryHotkey(keyCode: UInt32(event.keyCode), modifiers: modifiers, displayName: displayName))
+        onHotkey?(recorded)
         window?.makeFirstResponder(nil)
     }
 
     override func resignFirstResponder() -> Bool {
         isRecording = false
         return super.resignFirstResponder()
-    }
-
-    private func carbonModifiers(from flags: NSEvent.ModifierFlags) -> UInt32 {
-        var modifiers: UInt32 = 0
-        if flags.contains(.command) { modifiers |= UInt32(cmdKey) }
-        if flags.contains(.option) { modifiers |= UInt32(optionKey) }
-        if flags.contains(.control) { modifiers |= UInt32(controlKey) }
-        if flags.contains(.shift) { modifiers |= UInt32(shiftKey) }
-        return modifiers
-    }
-
-    /// Layout-aware name for keys outside the formatter's ANSI table
-    /// (e.g. ISO punctuation keys).
-    private func fallbackKeyName(for event: NSEvent) -> String? {
-        guard let characters = event.charactersIgnoringModifiers?.trimmingCharacters(in: .whitespacesAndNewlines),
-              characters.isEmpty == false else {
-            return nil
-        }
-        return characters.uppercased()
     }
 }
 

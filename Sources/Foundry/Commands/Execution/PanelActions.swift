@@ -37,6 +37,25 @@ struct OpenSnippetsAction: ResultAction, Equatable {
     func perform(_ ctx: ActionContext) async -> CommandOutcome { .open(route: .snippets) }
 }
 
+struct EditSnippetAction: ResultAction, Equatable {
+    let id: String
+
+    var icon: String? { "pencil" }
+    var shortcut: ActionShortcut? { ActionShortcut(key: "e", modifiers: [.command]) }
+    var resultSection: ResultSection? { .snippets }
+    func perform(_ ctx: ActionContext) async -> CommandOutcome { .open(route: .snippet(id: id, then: .select)) }
+}
+
+struct EditQuicklinkAction: ResultAction, Equatable {
+    var icon: String? { "pencil" }
+    var shortcut: ActionShortcut? { ActionShortcut(key: "e", modifiers: [.command]) }
+
+    func perform(_ ctx: ActionContext) async -> CommandOutcome {
+        ctx.panel.presentSettings(.quicklinks)
+        return .stayOpen(message: nil)
+    }
+}
+
 struct OpenFileConverterAction: ResultAction, Equatable {
     let path: String?
 

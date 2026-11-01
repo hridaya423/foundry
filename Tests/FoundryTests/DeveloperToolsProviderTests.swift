@@ -44,6 +44,16 @@ final class DeveloperToolsProviderTests: XCTestCase {
         XCTAssertNotNil(state.timestampError)
     }
 
+    @MainActor
+    func testInvalidJSONSaysWhereParsingFailedAndShowsAnExample() throws {
+        let state = DeveloperToolsState()
+        state.jsonInput = "{\"a\": tru}"
+        let error = try XCTUnwrap(state.jsonError)
+        XCTAssertTrue(error.contains("column"), error)
+        XCTAssertTrue(error.contains("Example:"), error)
+        XCTAssertNil(DeveloperToolsState.jsonProblem(in: "[1, 2]"))
+    }
+
     func testFormatJSONPrettyPrintsAndSortsKeys() {
         let formatted = DeveloperToolsEngine.formatJSON("{\"b\":2,\"a\":1}")
         XCTAssertEqual(formatted, "{\n  \"a\" : 1,\n  \"b\" : 2\n}")

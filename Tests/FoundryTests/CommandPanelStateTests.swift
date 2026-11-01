@@ -355,6 +355,42 @@ final class CommandPanelStateTests: XCTestCase {
         state.shutdown()
     }
 
+    func testTranslatorChordsWaitForAResultAndSwapWithOrWithoutShift() {
+        let diagnostics = DiagnosticsService()
+        let config = ConfigService(diagnostics: diagnostics, url: temporaryURL())
+        let state = makeState(diagnostics: diagnostics, config: config, clipboard: ClipboardHistoryState(persistence: nil))
+        state.router.openTranslator(language: "french")
+        XCTAssertFalse(state.performModeShortcut(ActionShortcut(key: "c", modifiers: [.shift, .command])) {})
+        XCTAssertFalse(state.performModeShortcut(ActionShortcut(key: "\r", modifiers: [.command])) {})
+        let before = state.translator.targetLanguage
+        XCTAssertTrue(state.performModeShortcut(ActionShortcut(key: "s", modifiers: [.command])) {})
+        XCTAssertNotEqual(state.translator.targetLanguage, before)
+        state.shutdown()
+    }
+
+    func testWhatsNewShowsOnceForUpgradersOnly() throws {
+        let diagnostics = DiagnosticsService()
+        let fresh = ConfigService(diagnostics: diagnostics, url: temporaryURL())
+        let freshState = makeState(diagnostics: diagnostics, config: fresh, clipboard: ClipboardHistoryState(persistence: nil))
+        XCTAssertFalse(freshState.showsWhatsNew)
+        XCTAssertEqual(fresh.current.localState.whatsNewSeenVersion, WhatsNew.version, "fresh installs never see it later")
+        freshState.shutdown()
+
+        let url = temporaryURL()
+        try JSONEncoder().encode(FoundryConfig()).write(to: url)
+        let upgraded = ConfigService(diagnostics: diagnostics, url: url)
+        let state = makeState(diagnostics: diagnostics, config: upgraded, clipboard: ClipboardHistoryState(persistence: nil))
+        XCTAssertTrue(state.showsWhatsNew)
+        state.dismissWhatsNew()
+        XCTAssertFalse(state.showsWhatsNew)
+        upgraded.flush()
+        state.shutdown()
+        let reopened = makeState(diagnostics: diagnostics, config: ConfigService(diagnostics: diagnostics, url: url),
+            clipboard: ClipboardHistoryState(persistence: nil))
+        XCTAssertFalse(reopened.showsWhatsNew)
+        reopened.shutdown()
+    }
+
     func testReopenResetsAfterPopToRootTimeout() {
         let diagnostics = DiagnosticsService()
         let config = ConfigService(diagnostics: diagnostics, url: temporaryURL())

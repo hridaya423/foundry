@@ -148,15 +148,16 @@ enum HomeSuggestionRules {
 /// Typed target for `.openCommandSettings` — replaces re-parsing result
 /// id prefixes in Settings to pick a pane.
 enum SettingsDeepLink: Hashable, Sendable {
-    case command(id: String)
+    case command(id: String, title: String)
     case quicklinks
     case scripts
+    case ai
 
     init(result: CommandResult) {
         switch result.payload {
         case .quicklink: self = .quicklinks
         case .script: self = .scripts
-        default: self = .command(id: result.id)
+        default: self = .command(id: result.id, title: result.title)
         }
     }
 }

@@ -33,10 +33,12 @@ final class PanelRouter {
         guard let panel else { return }
         panel.emojiPicker.reset()
         panel.pendingSnippetArguments = nil
-        panel.fileConversion.reset()
-        panel.camera.stop()
-        panel.translator.reset()
-        panel.developerTools.reset()
+        panel.scriptOutput = nil
+        let built = panel.builtFeatures
+        if built.contains(.fileConversion) { panel.fileConversion.reset() }
+        if built.contains(.camera) { panel.camera.stop() }
+        if built.contains(.translator) { panel.translator.reset() }
+        if built.contains(.developerTools) { panel.developerTools.reset() }
     }
 
     func stopTransientPolling() {
@@ -70,6 +72,14 @@ final class PanelRouter {
             openClipboardHistory()
         case .snippets:
             openSnippets()
+        case let .snippet(id, followUp):
+            openSnippets()
+            panel?.snippets.select(id: id)
+            switch followUp {
+            case .select: break
+            case .insert: _ = panel?.insertOrCopySelectedSnippet()
+            case .copy: _ = panel?.copySelectedSnippet()
+            }
         case let .fileConversion(path):
             openFileConverter(path: path)
         case .camera:
@@ -88,6 +98,9 @@ final class PanelRouter {
             openWelcomeGuide()
         case let .query(text):
             panel?.session.query = text
+        case let .scriptOutput(title, text):
+            beginFeatureMode(.scriptOutput)
+            panel?.scriptOutput = ScriptOutput(title: title, text: text)
         }
     }
 

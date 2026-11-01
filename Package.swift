@@ -33,7 +33,11 @@ let package = Package(
                 .copy("Resources/FirefoxConnector/background.js"),
                 .copy("Resources/BackgroundRemoval/NOTICE.txt"),
                 .copy("Resources/BackgroundRemoval/background_removal_worker.py"),
-                .copy("Resources/emoji.tsv")
+                .copy("Resources/emoji.tsv"),
+                .copy("Resources/Onboarding/Geist-Light.ttf"),
+                .copy("Resources/Onboarding/Geist-Regular.ttf"),
+                .copy("Resources/Onboarding/Geist-Medium.ttf"),
+                .copy("Resources/Onboarding/OFL-Geist.txt")
             ],
             linkerSettings: [
                 .linkedFramework("IOKit")

@@ -108,7 +108,7 @@ final class ActionRunner {
                 confirmed = await panel.requestPrompt(
                     .confirmation(
                         title: "\(request.action.descriptor.title)?",
-                        message: request.invocation.source == .external ? "Requested by an external integration." : nil,
+                        message: request.invocation.source == .external ? "Requested by an external integration." : request.action.behavior.confirmationMessage,
                         confirmLabel: LocalizedStringResource("\(request.action.descriptor.title)"),
                         isDestructive: request.action.descriptor.isDestructive
                     )

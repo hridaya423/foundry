@@ -52,7 +52,12 @@ final class EmojiPickerState {
 
     func cycleSkinTone() {
         guard let index = Self.skinTones.firstIndex(of: skinTone) else { return }
-        skinTone = Self.skinTones[(index + 1) % Self.skinTones.count]
+        setSkinTone(Self.skinTones[(index + 1) % Self.skinTones.count])
+    }
+
+    func setSkinTone(_ tone: String) {
+        guard Self.skinTones.contains(tone) else { return }
+        skinTone = tone
         localState.set(\.emojiSkinTone, skinTone)
     }
 

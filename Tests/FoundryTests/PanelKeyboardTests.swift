@@ -245,6 +245,19 @@ final class PanelKeyboardTests: XCTestCase {
         state.shutdown()
     }
 
+    func testHomeOpensWithTheFirstVisibleRowSelected() async {
+        // A non-suggestible app loads first but Home doesn't paint it; the
+        // opening selection must land on a row the user can see.
+        let hiddenApp = appResult("app.hidden", title: "HiddenApp")
+        let command = result("test.command", title: "Some Command")
+        let state = makeState(providers: [HomeProvider(home: [hiddenApp, command])])
+        state.session.refreshHomeResults()
+        let filled = await waitUntilTrue { state.session.results.isEmpty == false }
+        XCTAssertTrue(filled)
+        XCTAssertEqual(state.session.selectedResultID, "test.command")
+        state.shutdown()
+    }
+
     // MARK: Home never blanks
 
     func testHomeSnapshotFillsSynchronouslyOnReopen() async {
@@ -270,5 +283,45 @@ final class PanelKeyboardTests: XCTestCase {
             try? await Task.sleep(for: .milliseconds(16))
         }
         return condition()
+    }
+
+    func testControlChordReachesActionShortcutsBeforeTheFieldEditor() throws {
+        let panel = FoundryPanel(contentRect: .zero, styleMask: [.nonactivatingPanel], backing: .buffered, defer: true)
+        var received: ActionShortcut?
+        panel.onActionShortcut = { received = $0; return true }
+        let event = try XCTUnwrap(NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: .control, timestamp: 0,
+            windowNumber: 0, context: nil, characters: "\u{18}", charactersIgnoringModifiers: "x", isARepeat: false, keyCode: 7))
+        panel.sendEvent(event)
+        XCTAssertEqual(received, ActionShortcut(key: "x", modifiers: [.control]))
+    }
+
+    private final class QueryRecorder: CommandProvider, @unchecked Sendable {
+        let id = "test.recorder"
+        private let lock = NSLock()
+        private var seen: [String] = []
+        var queries: [String] { lock.withLock { seen } }
+        func search(_ request: CommandSearchRequest) async throws -> [CommandResult] {
+            lock.withLock { seen.append(request.query) }
+            return []
+        }
+    }
+
+    func testFilePrefixAloneReachesSearchWithItsSpace() async {
+        let recorder = QueryRecorder()
+        let state = makeState(providers: [recorder])
+        state.session.query = "f "
+        let reached = await waitUntilTrue { recorder.queries.contains("f ") }
+        XCTAssertTrue(reached, "bare `f ` lists recent files, so the prefix space must survive trimming: \(recorder.queries)")
+        state.shutdown()
+    }
+
+    func testOpenAndCloseLeaveUnusedFeatureStatesUnbuilt() {
+        let state = makeState()
+        state.resetForOpen()
+        state.panelWillClose()
+        XCTAssertTrue(state.builtFeatures.isEmpty, "\(state.builtFeatures)")
+        state.router.openTranslator()
+        XCTAssertEqual(state.builtFeatures, [.translator])
+        state.shutdown()
     }
 }

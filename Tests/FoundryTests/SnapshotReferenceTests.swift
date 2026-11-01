@@ -10,16 +10,18 @@ import FoundryServices
 /// `FOUNDRY_SNAPSHOT_RECORD=1 swift test --filter SnapshotReferenceTests`.
 @MainActor
 final class SnapshotReferenceTests: XCTestCase {
-    /// Row anatomy: 40pt rows, 24pt icons, inline subtitle, alias badge,
-    /// bordered keycap, kind label, fill-only selection, section headers.
+    /// Row anatomy, as 1.1 shipped it: 44pt rows, 28pt icons, a detail line
+    /// under the title (hidden for commands), filled badges, kind label,
+    /// outlined selection, tracked-caps section headers.
     func testRowAnatomyMatchesReference() throws {
-        func makeResult(_ id: String, _ title: String, subtitle: String? = nil, icon: String = "app") -> CommandResult {
+        func makeResult(_ id: String, _ title: String, subtitle: String? = nil, icon: String = "app",
+                        payload: ResultPayload = .command) -> CommandResult {
             CommandResult(
                 id: id,
                 title: title,
                 subtitle: subtitle,
                 icon: CommandIcon(fallback: String(title.prefix(2)).uppercased(), systemName: icon),
-                payload: .command,
+                payload: payload,
                 primaryAction: CommandAction(id: "\(id).open", title: "Open", behavior: OpenHomeAction()),
                 secondaryActions: []
             )
@@ -38,13 +40,13 @@ final class SnapshotReferenceTests: XCTestCase {
                       isSelected: false, isRunning: true, kindLabel: "App")
             ResultRow(result: makeResult("r5", "A Very Long Result Title That Keeps Going",
                                         subtitle: "and an equally long subtitle that must truncate on one line",
-                                        icon: "doc"),
+                                        icon: "doc", payload: .file(URL(fileURLWithPath: "/tmp/long.txt"))),
                       isSelected: false, kindLabel: "File")
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 8)
 
-        let rep = try SnapshotHarness.render(rows, size: CGSize(width: 736, height: 280))
+        let rep = try SnapshotHarness.render(rows, size: CGSize(width: 736, height: 300))
         try SnapshotHarness.assertMatchesReference(rep, name: "rows-light")
     }
 

@@ -39,6 +39,7 @@ struct CopySnippetAction: ResultAction, Equatable {
         guard let snippet = ctx.snippetStore.load(
             ).first(where: { $0.id == id }) else { return .failure(message: String(localized: "Snippet not found"),
              retryable: false) }
+        if SnippetRenderer.argumentNames(in: snippet.content).isEmpty == false { return .open(route: .snippet(id: id, then: .copy)) }
         let rendered = SnippetRenderer.render(snippet.content, context: ctx.snippetContext())
         ctx.pasteboard.clearContents(); ctx.pasteboard.setString(rendered.text, forType: .string)
         recordSnippetUse(id: id, in: ctx)
@@ -56,6 +57,7 @@ struct PasteSnippetAction: ResultAction, Equatable {
         guard let snippet = ctx.snippetStore.load(
             ).first(where: { $0.id == id }) else { return .failure(message: String(localized: "Snippet not found"),
              retryable: false) }
+        if SnippetRenderer.argumentNames(in: snippet.content).isEmpty == false { return .open(route: .snippet(id: id, then: .insert)) }
         let rendered = SnippetRenderer.render(snippet.content, context: ctx.snippetContext())
         do {
             try ctx.directPasteService.stage(.text(rendered.text), cursorOffset: rendered.cursorOffsetFromEnd)
@@ -76,6 +78,7 @@ struct DeleteSnippetAction: ResultAction, Equatable {
 
     var icon: String? { "trash" }
     var style: ActionStyle { .destructive }
+    var confirmationMessage: LocalizedStringResource? { "This removes it from Foundry. You can’t undo this." }
     var shortcut: ActionShortcut? { ActionShortcut(key: "x", modifiers: [.control]) }
     var resultSection: ResultSection? { .snippets }
 

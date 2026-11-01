@@ -120,7 +120,7 @@ private struct CompactFileShelfWidget: View {
 
                     if shelf.files.count > 3 {
                         Text("+\(shelf.files.count - 3)")
-                            .font(FoundryTheme.mono)
+                            .font(FoundryTheme.Strip.mono(9, weight: .bold))
                             .foregroundStyle(FoundryTheme.textOnDarkSurface)
                             .padding(.horizontal, 4)
                             .frame(height: 16)
@@ -131,11 +131,11 @@ private struct CompactFileShelfWidget: View {
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text("File Shelf")
-                        .font(FoundryTheme.micro)
+                        .font(FoundryTheme.Strip.text(11, weight: .semibold))
                         .foregroundStyle(FoundryTheme.textPrimary)
                         .lineLimit(1)
                     Text(shelf.compactSummary)
-                        .font(FoundryTheme.caption)
+                        .font(FoundryTheme.Strip.text(9.5, weight: .medium))
                         .foregroundStyle(shelf.isRemovingBackground ? FoundryTheme.accent : FoundryTheme.textSecondary)
                         .lineLimit(1)
                         .truncationMode(.middle)
@@ -143,7 +143,7 @@ private struct CompactFileShelfWidget: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
 
                 Image(systemName: "chevron.right")
-                    .font(FoundryTheme.Glyph.xs)
+                    .font(FoundryTheme.glyph(9, weight: .bold))
                     .foregroundStyle(FoundryTheme.textQuaternary)
             }
             .padding(.horizontal, 0)
@@ -171,7 +171,7 @@ private struct StatWidget: View {
     var body: some View {
         HStack(spacing: 8) {
             Image(systemName: symbol)
-                .font(FoundryTheme.Glyph.sm)
+                .font(FoundryTheme.glyph(14, weight: .semibold))
                 .foregroundStyle(tint)
                 .frame(width: 24, height: 24)
                 .background(tint.opacity(FoundryTheme.Alpha.tint))
@@ -179,13 +179,13 @@ private struct StatWidget: View {
 
             VStack(alignment: .leading, spacing: 1) {
                 Text(value)
-                    .font(FoundryTheme.body)
+                    .font(FoundryTheme.Strip.text(12, weight: .semibold))
                     .foregroundStyle(FoundryTheme.textPrimary)
                     .lineLimit(1)
                     .minimumScaleFactor(0.55)
 
                 Text(title)
-                    .font(FoundryTheme.micro)
+                    .font(FoundryTheme.Strip.text(9.5, weight: .semibold))
                     .foregroundStyle(FoundryTheme.textQuaternary)
                     .lineLimit(1)
             }
@@ -248,13 +248,13 @@ private struct AgentWidgetRow: View {
 
                 VStack(alignment: .leading, spacing: 1) {
                     Text(session.title)
-                        .font(FoundryTheme.micro)
+                        .font(FoundryTheme.Strip.text(11, weight: .semibold))
                         .foregroundStyle(FoundryTheme.textPrimary)
                         .lineLimit(1)
                         .truncationMode(.tail)
 
                     Text(statusLabel)
-                        .font(FoundryTheme.caption)
+                        .font(FoundryTheme.Strip.text(9.5, weight: .medium))
                         .foregroundStyle(statusColor)
                         .lineLimit(1)
                 }
@@ -262,7 +262,7 @@ private struct AgentWidgetRow: View {
 
                 if additionalCount > 0 {
                     Text("+\(additionalCount)")
-                        .font(FoundryTheme.micro)
+                        .font(FoundryTheme.Strip.text(9, weight: .bold))
                         .foregroundStyle(FoundryTheme.textSecondary)
                         .padding(.horizontal, 5)
                         .padding(.vertical, 2)
@@ -272,7 +272,7 @@ private struct AgentWidgetRow: View {
                 }
 
                 Image(systemName: "arrow.up.right")
-                    .font(FoundryTheme.Glyph.xs)
+                    .font(FoundryTheme.glyph(8, weight: .bold))
                     .foregroundStyle(FoundryTheme.textTertiary)
                     .opacity(isHovering ? 0.9 : 0.35)
                     .frame(width: 16)
@@ -283,6 +283,7 @@ private struct AgentWidgetRow: View {
         }
         .buttonStyle(.plain)
         .onHover { isHovering = $0 }
+        .pointerCursor()
         .accessibilityElement(children: .combine)
         .accessibilityLabel(session.title)
         .accessibilityValue(statusLabel)
@@ -357,12 +358,12 @@ private struct SystemWidget: View {
     private func meter(symbol: String, label: String, value: Double, display: String) -> some View {
         HStack(spacing: 7) {
             Image(systemName: symbol)
-                .font(FoundryTheme.Glyph.xs)
+                .font(FoundryTheme.glyph(11, weight: .semibold))
                 .foregroundStyle(FoundryTheme.textSecondary)
                 .frame(width: 15)
 
             Text(label)
-                .font(FoundryTheme.micro)
+                .font(FoundryTheme.Strip.text(10, weight: .semibold))
                 .foregroundStyle(FoundryTheme.textQuaternary)
                 .frame(width: 25, alignment: .leading)
 
@@ -377,7 +378,7 @@ private struct SystemWidget: View {
             .frame(height: 5)
 
             Text(display)
-                .font(FoundryTheme.mono)
+                .font(FoundryTheme.Strip.mono(10, weight: .semibold))
                 .foregroundStyle(FoundryTheme.textSecondary)
                 .frame(width: 36, alignment: .trailing)
         }
@@ -393,25 +394,25 @@ private struct WeatherWidget: View {
     var body: some View {
         HStack(spacing: 8) {
             Image(systemName: snapshot?.symbol ?? "cloud")
-                .font(FoundryTheme.Glyph.md)
+                .font(FoundryTheme.glyph(18, weight: .medium))
                 .foregroundStyle(FoundryTheme.textPrimary)
                 .frame(width: 27)
 
             VStack(alignment: .leading, spacing: 1) {
                 if let snapshot {
                     Text("\(Int(snapshot.temperature.rounded()))°")
-                        .font(FoundryTheme.title)
+                        .font(FoundryTheme.Strip.text(16, weight: .semibold))
                         .foregroundStyle(FoundryTheme.textPrimary)
                     Text(isStale ? "Offline · last known" : snapshot.condition)
-                        .font(FoundryTheme.caption)
+                        .font(FoundryTheme.Strip.text(10, weight: .regular))
                         .foregroundStyle(FoundryTheme.textTertiary)
                         .lineLimit(1)
                 } else {
                     Text(isLoading ? "Loading" : city.isEmpty ? "Set city" : "Unavailable")
-                        .font(FoundryTheme.bodySecondary)
+                        .font(FoundryTheme.Strip.text(12, weight: .medium))
                         .foregroundStyle(FoundryTheme.textSecondary)
                     Text(city.isEmpty ? "Widget settings" : city)
-                        .font(FoundryTheme.caption)
+                        .font(FoundryTheme.Strip.text(10, weight: .regular))
                         .foregroundStyle(FoundryTheme.textTertiary)
                         .lineLimit(1)
                 }
@@ -440,21 +441,21 @@ private struct StockWidget: View {
     var body: some View {
         HStack(spacing: 8) {
             Image(systemName: "chart.line.uptrend.xyaxis")
-                .font(FoundryTheme.Glyph.sm)
+                .font(FoundryTheme.glyph(15, weight: .medium))
                 .foregroundStyle(changeColor)
                 .frame(width: 25)
 
             VStack(alignment: .leading, spacing: 1) {
                 Text(snapshot?.symbol ?? symbol)
-                    .font(FoundryTheme.body)
+                    .font(FoundryTheme.Strip.text(12, weight: .semibold))
                     .foregroundStyle(FoundryTheme.textPrimary)
                 if let snapshot {
                     Text("\(String(format: "%.2f", snapshot.price)) \(isStale ? "· offline" : snapshot.currency)")
-                        .font(FoundryTheme.caption)
+                        .font(FoundryTheme.Strip.text(10, weight: .regular))
                         .foregroundStyle(FoundryTheme.textTertiary)
                 } else {
                     Text(isLoading ? "Loading" : symbol.isEmpty ? "Set symbol" : "Unavailable")
-                        .font(FoundryTheme.caption)
+                        .font(FoundryTheme.Strip.text(10, weight: .regular))
                         .foregroundStyle(FoundryTheme.textTertiary)
                 }
             }
@@ -463,7 +464,7 @@ private struct StockWidget: View {
 
             if let snapshot {
                 Text(String(format: "%+.1f%%", snapshot.changePercent))
-                    .font(FoundryTheme.mono)
+                    .font(FoundryTheme.Strip.mono(10, weight: .semibold))
                     .foregroundStyle(changeColor)
             }
         }
@@ -481,7 +482,7 @@ private struct CompactDateWidget: View {
         TimelineView(.everyMinute) { context in
             HStack(spacing: 8) {
                 Image(systemName: "calendar")
-                    .font(FoundryTheme.Glyph.sm)
+                    .font(FoundryTheme.glyph(14, weight: .semibold))
                     .foregroundStyle(FoundryTheme.textSecondary)
                     .frame(width: 23, height: 23)
                     .background(FoundryTheme.fillTint)
@@ -489,11 +490,11 @@ private struct CompactDateWidget: View {
 
                 VStack(alignment: .leading, spacing: 1) {
                     Text(context.date.formatted(.dateTime.day()))
-                        .font(FoundryTheme.title)
+                        .font(FoundryTheme.Strip.text(18, weight: .semibold))
                         .foregroundStyle(FoundryTheme.textPrimary)
                         .monospacedDigit()
                     Text(context.date.formatted(.dateTime.weekday(.abbreviated).month(.abbreviated)))
-                        .font(FoundryTheme.micro)
+                        .font(FoundryTheme.Strip.text(9.5, weight: .semibold))
                         .foregroundStyle(FoundryTheme.textSecondary)
                         .lineLimit(1)
                 }
@@ -513,7 +514,7 @@ private struct ClockWidget: View {
         TimelineView(.everyMinute) { context in
             HStack(spacing: 8) {
                 Image(systemName: "clock")
-                    .font(FoundryTheme.Glyph.sm)
+                    .font(FoundryTheme.glyph(14, weight: .semibold))
                     .foregroundStyle(FoundryTheme.textSecondary)
                     .frame(width: 23, height: 23)
                     .background(FoundryTheme.fillTint)
@@ -521,10 +522,10 @@ private struct ClockWidget: View {
 
                 VStack(alignment: .leading, spacing: 1) {
                     Text(Self.time.string(from: context.date))
-                        .font(FoundryTheme.mono)
+                        .font(FoundryTheme.Strip.mono(12, weight: .semibold))
                         .foregroundStyle(FoundryTheme.textPrimary)
                     Text(TimeZone.current.localizedName(for: .shortStandard, locale: .current) ?? TimeZone.current.identifier)
-                        .font(FoundryTheme.micro)
+                        .font(FoundryTheme.Strip.text(9.5, weight: .semibold))
                         .foregroundStyle(FoundryTheme.textQuaternary)
                         .lineLimit(1)
                 }

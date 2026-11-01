@@ -62,4 +62,10 @@ final class SnippetRendererTests: XCTestCase {
         )
         XCTAssertEqual(rendered.text, "Hi Asha, {argument name=\"topic\"}")
     }
+
+    func testBareArgumentIsOnePlaceholderSharedByEveryUse() {
+        XCTAssertEqual(SnippetRenderer.argumentNames(in: "Hi {argument}, bye {argument}"), ["Argument"])
+        XCTAssertEqual(SnippetRenderer.render("Hi {argument}, bye {argument}", context: context(), arguments: ["Argument": "Asha"]).text,
+            "Hi Asha, bye Asha")
+    }
 }

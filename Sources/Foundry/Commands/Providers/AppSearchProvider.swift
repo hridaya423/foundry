@@ -116,12 +116,22 @@ final class AppSearchProvider: CommandProvider, Sendable {
     }
 
     static func actions(identity: String, name: String, path: String, bundleID: String, isRunning: Bool) -> [CommandAction] {
-        guard isRunning, bundleID.isEmpty == false else { return [] }
-        return [
-            CommandAction(id: "app.\(identity).quit", title: "Quit", behavior: QuitApplicationAction(bundleID: bundleID, name: name)),
-            CommandAction(id: "app.\(identity).hide", title: "Hide", behavior: HideApplicationAction(bundleID: bundleID, name: name)),
-            CommandAction(id: "app.\(identity).force-quit", title: "Force Quit", behavior: ForceQuitApplicationAction(bundleID: bundleID, name: name))
+        var actions: [CommandAction] = []
+        if isRunning, bundleID.isEmpty == false {
+            actions += [
+                CommandAction(id: "app.\(identity).quit", title: "Quit", behavior: QuitApplicationAction(bundleID: bundleID, name: name)),
+                CommandAction(id: "app.\(identity).hide", title: "Hide", behavior: HideApplicationAction(bundleID: bundleID, name: name)),
+                CommandAction(id: "app.\(identity).force-quit", title: "Force Quit", behavior: ForceQuitApplicationAction(bundleID: bundleID, name: name))
+            ]
+        }
+        actions += [
+            CommandAction(id: "app.\(identity).reveal", title: "Show in Finder", behavior: RevealFileAction(path: path)),
+            CommandAction(id: "app.\(identity).copy-path", title: "Copy Path", behavior: CopyToClipboardAction(path))
         ]
+        if bundleID.isEmpty == false {
+            actions.append(CommandAction(id: "app.\(identity).copy-bundle-id", title: "Copy Bundle ID", behavior: CopyToClipboardAction(bundleID)))
+        }
+        return actions
     }
 
     private static func result(for app: InstalledApp, isRunning: Bool, searchAliases: [String]? = nil, searchKeywords: [String]? = nil) -> CommandResult {

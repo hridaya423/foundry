@@ -6,6 +6,7 @@ struct SnippetsView: View {
     var expansionEnabled = true
     var setExpansionEnabled: ((Bool) -> Void)? = nil
     let insert: () -> Bool
+    let copy: () -> Bool
     @State private var isConfirmingDelete = false
 
     var body: some View {
@@ -172,7 +173,7 @@ struct SnippetsView: View {
                         tint: selected.isPinned ? FoundryTheme.textPrimary : FoundryTheme.textSecondary,
                         action: state.togglePinnedSelected
                     )
-                    SnippetIconButton(symbol: "doc.on.doc", help: "Copy to clipboard", action: state.copySelected)
+                    SnippetIconButton(symbol: "doc.on.doc", help: "Copy to clipboard", action: { _ = copy() })
                     SnippetIconButton(symbol: "arrow.down.doc", help: "Insert snippet", action: { _ = insert() })
                     SnippetIconButton(symbol: "trash", help: "Delete snippet", destructive: true, action: { isConfirmingDelete = true })
                 }

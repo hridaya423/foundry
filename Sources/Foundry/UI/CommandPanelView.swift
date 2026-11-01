@@ -18,6 +18,8 @@ struct CommandPanelView: View {
     @Environment(\.colorScheme) private var colorScheme
     @State private var isDropTargeted = false
     @State private var visibleResultIDs: Set<String> = []
+    /// Replayed on every open: the content settles from 97% (1.1's entrance).
+    @State private var presented = false
 
     init(state: CommandPanelState, dismiss: @escaping () -> Void) {
         self.state = state
@@ -63,6 +65,17 @@ struct CommandPanelView: View {
             )
 
             if state.compactCollapsed == false {
+                if state.showsWhatsNew && state.mode == .search && trimmedQuery.isEmpty {
+                    HStack(alignment: .center, spacing: 6) {
+                        InlineNotice(level: .info, text: LocalizedStringResource(stringLiteral: WhatsNew.summary), symbol: "sparkles",
+                            actionTitle: "Take the Tour") { state.dismissWhatsNew(showingGuide: true) }
+                        FoundryIconButton(systemName: "xmark", accessibilityLabel: String(localized: "Dismiss what's new")) {
+                            state.dismissWhatsNew()
+                        }
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 6)
+                }
                 if shouldShowHomeAccessory {
                     homeAccessoryStrip
                         .transition(reduceMotion ? .opacity : .opacity.combined(with: .move(edge: .top)))
@@ -157,6 +170,11 @@ struct CommandPanelView: View {
             .overlay(ConfettiBurst(trigger: state.confettiBurstID))
 
         return animated
+            .scaleEffect(reduceMotion || presented ? 1 : 0.97)
+            .opacity(presented ? 1 : 0)
+            .onChange(of: state.presentationToken, initial: true) { _, _ in
+                replayPresentation()
+            }
             .onChange(of: state.mode) { _, _ in
                 inputFocused = true
             }
@@ -235,7 +253,16 @@ struct CommandPanelView: View {
     }
 
     private var innerHighlight: Color {
-        colorScheme == .dark ? FoundryTheme.onDarkFaint : FoundryTheme.scrim
+        colorScheme == .dark ? FoundryTheme.onDarkFaint : FoundryTheme.dark(0.06)
+    }
+
+    private func replayPresentation() {
+        presented = false
+        DispatchQueue.main.async {
+            withAnimation(.spring(response: 0.22, dampingFraction: 0.9)) {
+                presented = true
+            }
+        }
     }
 
     /// Per-mode metadata that isn't a view: the transition identity and the
@@ -277,12 +304,16 @@ struct CommandPanelView: View {
             (id: "snippets",
              actions: [.init(label: "Insert", keys: "↵", emphasized: true), .init(label: "Copy", keys: "⌘↵"), .home])
         case .translator:
-            (id: "translator", actions: [.home])
+            (id: "translator",
+             actions: [.init(label: "Replace", keys: "⌘↵", emphasized: true), .init(label: "Copy", keys: "⇧⌘C"),
+                .init(label: "Swap", keys: "⌘S"), .home])
         case .developerTools:
             (id: "developerTools",
              actions: [.init(label: "Copy Value", keys: "Click"), .home])
         case .mediaDownloads:
             (id: "mediaDownloads", actions: [.home])
+        case .scriptOutput:
+            (id: "scriptOutput", actions: [.init(label: "Copy Output", keys: "⌘↵", emphasized: true), .home])
         case .search:
             (id: searchContentID, actions: searchFooterActions)
         }
@@ -298,8 +329,11 @@ struct CommandPanelView: View {
                 state.router.openQuickAI()
             }
         case .emojiPicker:
-            featureSearchField("Search emoji and symbols…", text: emojiQueryBinding) {
-                if state.emojiPicker.copySelectedEmoji() { dismiss() }
+            HStack(spacing: 8) {
+                featureSearchField("Search emoji and symbols…", text: emojiQueryBinding) {
+                    if state.emojiPicker.copySelectedEmoji() { dismiss() }
+                }
+                EmojiSkinToneMenu(state: state.emojiPicker)
             }
         case .fileConversion:
             FeatureTitle(symbol: "arrow.triangle.2.circlepath",
@@ -328,6 +362,8 @@ struct CommandPanelView: View {
             FeatureTitle(symbol: "hammer", title: LocalizedStringResource("\(state.developerTools.selectedTool.rawValue)"))
         case .mediaDownloads:
             FeatureTitle(symbol: "arrow.down.circle", title: "Downloads")
+        case .scriptOutput:
+            FeatureTitle(symbol: "terminal", title: LocalizedStringResource(stringLiteral: state.scriptOutput?.title ?? "Script Output"))
         case .search:
             searchField
         }
@@ -347,7 +383,7 @@ struct CommandPanelView: View {
         case .agents:
             AgentShelfView(agents: state.agents, dismiss: dismiss)
         case .quickAI:
-            QuickAISurfaceView(quickAI: state.quickAI, onOpenAISettings: state.router.openSettings)
+            QuickAISurfaceView(quickAI: state.quickAI, aiSettings: state.aiSettings, onOpenAISettings: { state.presentSettings(.ai) })
         case .emojiPicker:
             EmojiPickerView(state: state.emojiPicker) {
                 if state.emojiPicker.copySelectedEmoji() { dismiss() }
@@ -377,10 +413,10 @@ struct CommandPanelView: View {
                     guard state.insertOrCopySelectedSnippet() else { return false }
                     dismiss()
                     return true
-                })
-                if let names = state.pendingSnippetArguments {
+                }, copy: state.copySelectedSnippet)
+                if let request = state.pendingSnippetArguments {
                     SnippetArgumentPrompt(
-                        names: names,
+                        names: request.names,
                         onCancel: state.cancelSnippetArguments,
                         onSubmit: { values in
                             if state.submitSnippetArguments(values) { dismiss() }
@@ -405,6 +441,15 @@ struct CommandPanelView: View {
                 changeDestination: state.changeMediaDownloadFolder,
                 performHaptic: { state.performHaptic(.levelChange) }
             )
+        case .scriptOutput:
+            ScrollView {
+                Text(state.scriptOutput.map { $0.text.isEmpty ? String(localized: "The script printed nothing.") : $0.text } ?? "")
+                    .font(FoundryTheme.mono)
+                    .foregroundStyle(state.scriptOutput?.text.isEmpty == false ? FoundryTheme.textPrimary : FoundryTheme.textTertiary)
+                    .textSelection(.enabled)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(20)
+            }
         case .search:
             searchContent
         }
@@ -422,7 +467,7 @@ struct CommandPanelView: View {
     private var searchField: some View {
         LauncherSearchField(
             text: state.session.isShowingActions ? $state.session.actionFilter : $state.session.query,
-            placeholder: state.session.isShowingActions ? "Search actions…" : "Search for apps and commands…",
+            placeholder: state.session.isShowingActions ? "Search actions…" : state.searchHint ?? "Search for apps and commands…",
             onTab: {
                 guard state.session.isShowingActions == false else { return }
                 state.router.openQuickAI(initialPrompt: state.session.query)
@@ -518,12 +563,19 @@ struct CommandPanelView: View {
     private var searchEmptyState: some View {
         let hasQuery = trimmedQuery.isEmpty == false
         if let fileQuery = FileSearchProvider.fileQuery(state.session.query) {
-            if fileQuery.count < 2 {
-                EmptyState(title: "Search Files", message: "Type a file name to search your home folder.", symbol: "doc.text.magnifyingglass")
-            } else if state.session.isSearchLoading {
-                EmptyState(title: "Searching files", message: "Looking through your home folder with Spotlight.", isLoading: true)
+            if state.session.isSearchLoading {
+                EmptyState(title: "Searching files", message: "Looking through your search folders with Spotlight.", isLoading: true)
+            } else if fileQuery.isEmpty {
+                EmptyState(title: "Search Files", message: """
+                    Type a file name. Add kind:image or kind:pdf to narrow it. \
+                    Files you changed this week appear here.
+                    """, symbol: "doc.text.magnifyingglass")
+            } else if fileQuery.count < 2 {
+                EmptyState(title: "Search Files", message: "Keep typing a file name.", symbol: "doc.text.magnifyingglass")
             } else {
-                EmptyState(title: "No files found", message: "No file names contain \u{201C}\(fileQuery)\u{201D}.", symbol: "doc.text.magnifyingglass")
+                EmptyState(title: "No files found",
+                    message: "No file names contain \u{201C}\(fileQuery)\u{201D}. Folders are set in Settings › File Search.",
+                    symbol: "doc.text.magnifyingglass")
             }
         } else if state.session.isHomeLoading && hasQuery == false {
             EmptyState(title: "Loading Home", message: "Preparing your recent apps and commands.", isLoading: true)
@@ -870,15 +922,20 @@ struct CommandPanelView: View {
                     .font(FoundryTheme.caption.monospacedDigit())
                     .foregroundStyle(FoundryTheme.textQuaternary)
             }
+        } else if state.mode == .search, trimmedQuery.isEmpty == false, state.session.results.isEmpty == false {
+            PanelFooter(actions: actions, openSettings: state.router.openSettings, openWelcomeGuide: state.router.openWelcomeGuide) {
+                Text(state.session.results.count == 1 ? "1 result" : "\(state.session.results.count) results")
+                    .font(FoundryTheme.caption.monospacedDigit())
+                    .foregroundStyle(FoundryTheme.textQuaternary)
+            }
         } else {
             PanelFooter(
                 actions: actions,
-                showsQuickAIChip: state.mode == .quickAI,
+                leadingAccessory: state.mode == .quickAI ? AnyView(QuickAIModelMenu(quickAI: state.quickAI, aiSettings: state.aiSettings,
+                    openAISettings: { state.presentSettings(.ai) })) : nil,
                 openSettings: state.router.openSettings,
                 openWelcomeGuide: state.router.openWelcomeGuide
             )
         }
     }
-
-
 }

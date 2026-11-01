@@ -49,12 +49,12 @@ struct FoundryIncreaseContrastRoot<Content: View>: View {
     }
 }
 
-/// The whole visual vocabulary: a six-style text ramp, a glyph scale for
+/// The whole visual vocabulary: an eight-style text ramp, a glyph scale for
 /// SF Symbols and emoji, semantic colours over dynamic system colours, and
 /// the 4/8/12/16/24 spacing scale. `lint-design.sh` keeps raw `.system(size:`,
 /// `Color(red:` and `opacity(0.` literals out of every other file.
 enum FoundryTheme {
-    // MARK: Type ramp — exactly six text styles, 11 pt minimum
+    // MARK: Type ramp — eight text styles, 11 pt minimum
 
     /// 20/regular — panel title, search field, display readouts.
     static let title = Font.system(size: 20, weight: .regular)
@@ -68,9 +68,13 @@ enum FoundryTheme {
     static let micro = Font.system(size: 11, weight: .semibold)
     /// 12/regular monospaced — code, paths, hotkey hints.
     static let mono = Font.system(size: 12, weight: .regular, design: .monospaced)
+    /// 13.5/medium — launcher result titles, as 1.1 shipped them.
+    static let rowTitle = Font.system(size: 13.5, weight: .medium)
+    /// 12/regular — the detail line and kind label under/beside a result.
+    static let rowDetail = Font.system(size: 12, weight: .regular)
 
     /// Glyph sizing for SF Symbols and emoji — not text, so it lives outside
-    /// the ramp. Everything else uses one of the six text styles above.
+    /// the ramp. Everything else uses one of the text styles above.
     enum Glyph {
         static let xs = Font.system(size: 10)
         static let sm = Font.system(size: 14)
@@ -80,8 +84,15 @@ enum FoundryTheme {
         static let hero = Font.system(size: 44)
     }
 
+    /// The home widget strip keeps the 1.1 sizes (9–18 pt), denser than the
+    /// ramp, because the user prefers how 1.1 looked.
+    enum Strip {
+        static func text(_ size: CGFloat, weight: Font.Weight) -> Font { .system(size: size, weight: weight) }
+        static func mono(_ size: CGFloat, weight: Font.Weight) -> Font { .system(size: size, weight: weight, design: .monospaced) }
+    }
+
     /// Computed glyph size (e.g. an initial scaled to its icon box) — the
-    /// only sanctioned non-fixed `.system(size:)` outside the six-style ramp.
+    /// only sanctioned non-fixed `.system(size:)` outside the ramp.
     static func glyph(_ size: CGFloat, weight: Font.Weight = .semibold) -> Font {
         .system(size: size, weight: weight)
     }
@@ -99,8 +110,13 @@ enum FoundryTheme {
     static let fillHover = Color.primary.opacity(0.06)
     /// Active-but-unselected tint (tags, chips).
     static let fillTint = Color.primary.opacity(0.08)
-    /// The selected row — fill only, no border.
+    /// The selected row's fill; `selectionBorder` outlines it.
     static let fillSelected = Color.primary.opacity(0.10)
+    static let selectionBorder = Color.primary.opacity(0.16)
+    static let highContrastSelection = Color.primary.opacity(0.18)
+    static let highContrastSelectionBorder = Color.accentColor
+    /// Tracked-caps section headers on the panel.
+    static let sectionHeader = Color.primary.opacity(0.70)
     /// Hairlines between rows and surfaces.
     static let separator = Color.primary.opacity(0.12)
     /// The strongest neutral fill (pressed controls, drop zones).
@@ -184,6 +200,81 @@ enum FoundryTheme {
 
     enum Control {
         static let compact: CGFloat = 30
+    }
+
+    /// The website's language (anvil/app/foundry/foundry.css) for brand
+    /// surfaces: onboarding. Always dark, set in Geist, closed by an orange
+    /// full stop.
+    enum Brand {
+        static let ink = Color(red: 0.059, green: 0.051, blue: 0.047)
+        static let inkGlow = Color(red: 0.090, green: 0.075, blue: 0.059)
+        static let text = Color(red: 0.933, green: 0.906, blue: 0.867)
+        static let muted = Color(red: 0.741, green: 0.706, blue: 0.667)
+        static let faint = Color(red: 0.522, green: 0.490, blue: 0.455)
+        static let line = Color(red: 0.282, green: 0.251, blue: 0.224)
+        static let rowTop = Color(red: 0.141, green: 0.125, blue: 0.110)
+        static let rowHover = Color.white.opacity(0.035)
+        static let rowSelected = Color.white.opacity(0.06)
+        static let accent = Color(red: 0.980, green: 0.392, blue: 0.157)
+        static let accentDeep = Color(red: 0.941, green: 0.294, blue: 0.063)
+        static let accentChip = ink.opacity(0.14)
+        static let accentGlow = accent.opacity(0.22)
+        static let accentSide = Color(red: 0.600, green: 0.184, blue: 0.039)
+        static let tileIdle = Color(red: 0.227, green: 0.200, blue: 0.176)
+        static let tileDone = Color(red: 0.420, green: 0.373, blue: 0.329)
+        static let wordmarkTop = Color(red: 0.831, green: 0.788, blue: 0.718)
+        static let wordmarkBottom = Color(red: 0.761, green: 0.714, blue: 0.639)
+        static let chalkTop = Color(red: 0.949, green: 0.925, blue: 0.875)
+        static let chalkMid = Color(red: 0.890, green: 0.859, blue: 0.800)
+        static let chalkBottom = Color(red: 0.824, green: 0.780, blue: 0.702)
+        static let chalkSideTop = Color(red: 0.663, green: 0.616, blue: 0.541)
+        static let chalkSideBottom = Color(red: 0.522, green: 0.478, blue: 0.412)
+        static let chalkHighlight = Color.white.opacity(0.75)
+        static let chalkEdge = Color(red: 0.471, green: 0.412, blue: 0.333).opacity(0.25)
+        static let legend = Color(red: 0.165, green: 0.141, blue: 0.122)
+        static let legendName = Color(red: 0.427, green: 0.392, blue: 0.341)
+        static let keyShadow = Color.black.opacity(0.6)
+        static let keyIdleTop = Color(red: 0.106, green: 0.092, blue: 0.082)
+        static let keyIdleBottom = Color(red: 0.086, green: 0.075, blue: 0.067)
+        static let keyIdleEdge = Color(red: 0.149, green: 0.129, blue: 0.114)
+        static let keyIdleLegend = Color(red: 0.275, green: 0.247, blue: 0.220)
+        static let keyIdleBase = Color(red: 0.039, green: 0.035, blue: 0.031)
+        static let tileShadow = Color.black.opacity(0.4)
+
+        static let display = Font.custom("Geist-Regular", size: 40)
+        static let displayLarge = Font.custom("Geist-Regular", size: 50)
+        static let lead = Font.custom("Geist-Regular", size: 16)
+        static let rowTitle = Font.custom("Geist-Medium", size: 16)
+        static let rowDetail = Font.custom("Geist-Regular", size: 14)
+        static let button = Font.custom("Geist-Medium", size: 16)
+        static let quiet = Font.custom("Geist-Regular", size: 15)
+        static let kbd = Font.custom("Geist-Medium", size: 13)
+        static let keyGlyph = Font.custom("Geist-Regular", size: 14)
+        static let keyName = Font.custom("Geist-Medium", size: 8.5)
+
+        /// Onboarding motion. One strong ease-out curve, no overshoot:
+        /// press answers at once, state changes settle, entrances stay short.
+        enum Motion {
+            static let press = Animation.timingCurve(0.23, 1, 0.32, 1, duration: 0.12)
+            static let release = Animation.timingCurve(0.23, 1, 0.32, 1, duration: 0.22)
+            static let state = Animation.timingCurve(0.23, 1, 0.32, 1, duration: 0.22)
+            static let enter = Animation.timingCurve(0.23, 1, 0.32, 1, duration: 0.45)
+            static let step = Animation.timingCurve(0.23, 1, 0.32, 1, duration: 0.3)
+            static let stagger = 0.05
+            static let rise: CGFloat = 6
+        }
+
+        static let displayTracking: CGFloat = -1.8
+        static let displayLargeTracking: CGFloat = -2.3
+        static let bodyTracking: CGFloat = -0.16
+
+        /// Geist ships inside the app's resource bundle; registering it once
+        /// makes the `Font.custom` names above resolve.
+        static let registerFonts: Void = {
+            let urls = ["Geist-Light", "Geist-Regular", "Geist-Medium"]
+                .compactMap { Bundle.packagedResources?.url(forResource: $0, withExtension: "ttf") }
+            CTFontManagerRegisterFontURLs(urls as CFArray, .process, true, nil)
+        }()
     }
 }
 

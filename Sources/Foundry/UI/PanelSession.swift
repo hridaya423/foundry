@@ -214,7 +214,7 @@ final class PanelSession {
                 behavior: ResetRankingAction(commandID: selectedResult.id)
             ), CommandAction(
                 id: "settings.configure.\(selectedResult.id)",
-                title: "Configure Command",
+                title: "Set Hotkey or Alias…",
                 behavior: OpenCommandSettingsAction(SettingsDeepLink(result: selectedResult))
             )]
             : [CommandAction]()
@@ -360,8 +360,9 @@ final class PanelSession {
             return
         }
 
+        let leading = String(query.drop(while: \.isWhitespace))
         searchCoordinator.search(
-            query: trimmed,
+            query: FileSearchProvider.fileQuery(leading) == nil ? trimmed : leading,
             onImmediate: { [weak self] immediateResults in
                 guard let self else { return }
                 self.selectedResultID = nil
@@ -440,7 +441,8 @@ final class PanelSession {
         runningAppBundleIDs = PanelRouter.regularRunningAppBundleIDs()
         results = homeResults
         diagnostics.mark("results.committed")
-        selectedResultID = homeResults.first?.id
+        // Home hides some loaded rows; select the first one it paints.
+        selectedResultID = navigableResults.first?.id
         selectionScrollToken = UUID()
         isHomeLoading = false
         refreshFavorites()

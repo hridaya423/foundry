@@ -135,7 +135,10 @@ final class ScriptCommandProvider: CommandProvider, Sendable {
             searchKeywords: ["script"],
             payload: .script(path: script.path),
             primaryAction: primary,
-            secondaryActions: []
+            secondaryActions: [
+                CommandAction(id: "\(id).reveal", title: "Show in Finder", behavior: RevealFileAction(path: script.path)),
+                CommandAction(id: "\(id).copy-path", title: "Copy Path", behavior: CopyToClipboardAction(script.path))
+            ]
         )
     }
 

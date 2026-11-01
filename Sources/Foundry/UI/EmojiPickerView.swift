@@ -115,3 +115,23 @@ private struct EmojiCell: View {
             }
     }
 }
+
+struct EmojiSkinToneMenu: View {
+    var state: EmojiPickerState
+
+    var body: some View {
+        Menu {
+            ForEach(Array(EmojiPickerState.skinTones.enumerated()), id: \.offset) { index, tone in
+                Button("✋\(tone)  ⌘\(index + 1)") { state.setSkinTone(tone) }
+            }
+        } label: {
+            Text("✋\(state.skinTone)")
+                .font(FoundryTheme.Glyph.md)
+        }
+        .menuStyle(.borderlessButton)
+        .menuIndicator(.hidden)
+        .fixedSize()
+        .help("Skin tone (⌘1–6)")
+        .accessibilityLabel("Skin tone")
+    }
+}

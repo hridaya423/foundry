@@ -28,6 +28,13 @@ final class QuicklinkTests: XCTestCase {
         XCTAssertEqual(QuicklinkTemplate.expand("~/Notes/{argument}", argument: "a b", context: context), "~/Notes/a b")
     }
 
+    func testPathQuicklinksOpenAsFileURLs() throws {
+        let target = try XCTUnwrap(URL(string: QuicklinkTemplate.target("~/Notes/a b.md")))
+        XCTAssertTrue(target.isFileURL)
+        XCTAssertEqual(target.path, NSHomeDirectory() + "/Notes/a b.md")
+        XCTAssertEqual(QuicklinkTemplate.target("https://x.com/a"), "https://x.com/a")
+    }
+
     func testRaycastImport() throws {
         let data = Data(#"[{"name":"Docs","link":"https://docs.dev/?q={Query}","openWith":"com.apple.Safari"}]"#.utf8)
         let imported = try QuicklinkTemplate.importRaycast(data)
@@ -73,6 +80,10 @@ final class QuicklinkTests: XCTestCase {
         let hidden = try XCTUnwrap(hiddenResults.first)
         XCTAssertNotNil(shown.icon.remoteIconURL)
         XCTAssertNil(hidden.icon.remoteIconURL)
+
+        let iconsOff = QuicklinkProvider(store: store, context: { context }, siteIcons: { false })
+        let offResults = await iconsOff.results(matching: "shown")
+        XCTAssertNil(try XCTUnwrap(offResults.first).icon.remoteIconURL)
     }
 
     func testProviderFillsQueryThenOpensExpandedLink() async throws {

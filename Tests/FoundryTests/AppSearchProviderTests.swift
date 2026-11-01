@@ -30,9 +30,9 @@ final class AppSearchProviderTests: XCTestCase {
 
     func testRunningAppsGetQuitHideAndForceQuitActions() {
         let idle = AppSearchProvider.actions(identity: "x", name: "X", path: "/Applications/X.app", bundleID: "com.x", isRunning: false).map(\.title)
-        XCTAssertTrue(idle.isEmpty)
+        XCTAssertEqual(idle, ["Show in Finder", "Copy Path", "Copy Bundle ID"])
         let running = AppSearchProvider.actions(identity: "x", name: "X", path: "/Applications/X.app", bundleID: "com.x", isRunning: true).map(\.title)
-        XCTAssertEqual(running, ["Quit", "Hide", "Force Quit"])
+        XCTAssertEqual(running, ["Quit", "Hide", "Force Quit", "Show in Finder", "Copy Path", "Copy Bundle ID"])
         XCTAssertTrue(ForceQuitApplicationAction(bundleID: "com.x", name: "X").style == .destructive)
     }
 

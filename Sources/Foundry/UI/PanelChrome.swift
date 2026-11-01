@@ -65,9 +65,10 @@ struct ActionRow: View {
                         .foregroundStyle(FoundryTheme.textSecondary)
                 )
                 .frame(width: 28, height: 28)
+                .scaleEffect(isSelected ? 1.04 : 1)
 
             Text(action.title)
-                .font(FoundryTheme.body)
+                .font(FoundryTheme.rowTitle)
                 .foregroundStyle(action.isDestructive ? FoundryTheme.destructive : FoundryTheme.textPrimary)
 
             Spacer()
@@ -80,10 +81,8 @@ struct ActionRow: View {
         .padding(.horizontal, FoundryTheme.Spacing.sm)
         .frame(height: 40)
         .background(RowBackground(isSelected: isSelected, isHovering: isHovering))
-        .onHover { hovering in
-            isHovering = hovering
-
-        }
+        .onHover { isHovering = $0 }
+        .pointerCursor()
     }
 
     private var iconName: String {

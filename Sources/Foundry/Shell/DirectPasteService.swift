@@ -76,6 +76,8 @@ final class DirectPasteService {
         self.sendLeft = sendLeft
     }
 
+    var targetProcessIdentifier: pid_t? { target?.processIdentifier }
+
     func captureTarget() {
         guard let candidate = targetProvider(), candidate.processIdentifier != ownProcessIdentifier else { return }
         target = candidate

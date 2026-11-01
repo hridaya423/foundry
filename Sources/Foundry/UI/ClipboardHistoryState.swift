@@ -220,7 +220,7 @@ final class ClipboardHistoryState {
         let item: ClipboardHistoryItem
         switch snapshot.payload {
         case .text(let value):
-            guard value.utf8.count <= policy.maxTextBytes else { return }
+            guard value.utf8.count <= policy.maxTextBytes, ClipboardHistoryPolicy.looksLikeSecret(value) == false else { return }
             item = ClipboardHistoryItem(payload: .text(value), sourceBundleIdentifier: snapshot.sourceBundleIdentifier)
         case .image(let data):
             guard data.count <= policy.maxImageBytes else { return }

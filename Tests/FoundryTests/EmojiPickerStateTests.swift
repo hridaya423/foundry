@@ -1,5 +1,6 @@
 import XCTest
 @testable import Foundry
+import FoundryServices
 
 @MainActor
 final class EmojiPickerStateTests: XCTestCase {
@@ -30,6 +31,22 @@ final class EmojiPickerStateTests: XCTestCase {
         XCTAssertEqual(EmojiPickerState(localState: localState).columns, 10)
         localState.set(\.emojiColumns, 7)
         XCTAssertEqual(EmojiPickerState(localState: localState).columns, 12, "invalid stored value falls back")
+    }
+
+    func testCommandDigitsPickASkinTone() {
+        let localState = LocalStateStore()
+        let state = EmojiPickerState(localState: localState)
+        let panel: any PanelFeature = state
+        let config = ConfigService(diagnostics: DiagnosticsService(),
+            url: FileManager.default.temporaryDirectory.appendingPathComponent("foundry-emoji-\(UUID().uuidString).json"))
+        let host = CommandPanelState(registry: CommandRegistry(providers: [], usageRanking: UsageRankingStore(diagnostics: DiagnosticsService()),
+            diagnostics: DiagnosticsService(), configService: config), actionRunner: ActionRunner(diagnostics: DiagnosticsService()),
+            diagnostics: DiagnosticsService(), config: config)
+        XCTAssertTrue(panel.handleModeShortcut(ActionShortcut(key: "4", modifiers: [.command]), panel: host) {})
+        XCTAssertEqual(state.skinTone, "🏽")
+        XCTAssertFalse(panel.handleModeShortcut(ActionShortcut(key: "7", modifiers: [.command]), panel: host) {})
+        XCTAssertEqual(EmojiPickerState(localState: localState).skinTone, "🏽")
+        host.shutdown()
     }
 
     func testSkinToneCyclesPersistsAndAppliesOnCopy() throws {

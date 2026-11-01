@@ -89,6 +89,27 @@ final class CommandContractsTests: XCTestCase {
         state.shutdown()
     }
 
+    @MainActor
+    func testSuggestedWindowHotkeysFillOnlyFreeLayoutsAndChords() {
+        let config = ConfigService(diagnostics: DiagnosticsService(),
+            url: FileManager.default.temporaryDirectory.appendingPathComponent("foundry-wh-\(UUID().uuidString).json"))
+        let state = CommandPanelState(
+            registry: CommandRegistry(providers: [], usageRanking: UsageRankingStore(diagnostics: DiagnosticsService()),
+                diagnostics: DiagnosticsService(), configService: config),
+            actionRunner: ActionRunner(diagnostics: DiagnosticsService()), diagnostics: DiagnosticsService(), config: config)
+        let mine = FoundryHotkey(keyCode: 1, modifiers: 256, displayName: "⌘S")
+        state.settings.setCommandHotkey(mine, for: "window.leftHalf")
+        let center = WindowHotkeySuggestions.all.first { $0.placement == .center }!.hotkey
+        state.settings.setCommandHotkey(center, for: "some.other.command")
+
+        XCTAssertEqual(state.settings.applySuggestedWindowHotkeys(), 4)
+        let hotkeys = config.current.commandPreferences
+        XCTAssertEqual(hotkeys["window.leftHalf"]?.globalHotkey?.displayName, "⌘S")
+        XCTAssertEqual(hotkeys["window.rightHalf"]?.globalHotkey?.displayName, "⌃⌥→")
+        XCTAssertNil(hotkeys["window.center"]?.globalHotkey)
+        state.shutdown()
+    }
+
     func testExecutionRequestPreservesInvocationContext() {
         let request = CommandExecutionRequest(
             commandID: "foundry.test",

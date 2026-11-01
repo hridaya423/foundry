@@ -40,10 +40,7 @@ struct RunScriptAction: ResultAction, Equatable {
             case .compact, .inline:
                 return ctx.finish(.success(message: lastLine(result.stdout) ?? "Ran \(name)"), feedback: .success(lastLine(result.stdout) ?? "Ran \(name)"))
             case .fullOutput:
-                let url = FileManager.default.temporaryDirectory.appendingPathComponent("Foundry \(name) output.txt")
-                try Data((result.stdout + result.stderr).utf8).write(to: url, options: .atomic)
-                _ = ctx.openURL(url)
-                return .success(message: String(localized: "Opened output of \(name)"))
+                return .open(route: .scriptOutput(title: name, text: result.stdout + result.stderr))
             }
         } catch {
             if isExecutionCancellation(error) { return .cancelled }

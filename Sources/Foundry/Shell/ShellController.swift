@@ -307,6 +307,6 @@ extension ShellController: ShellPort {
     }
 
     func resultExecuted() {
-        onboardingState.panelDidRunCommand()
+        onboardingState.completeTryIt()
     }
 }

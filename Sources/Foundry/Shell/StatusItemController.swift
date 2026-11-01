@@ -78,9 +78,7 @@ final class StatusItemController: NSObject, NSMenuDelegate {
             guard statusItem == nil else { return }
             let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
             if let button = item.button {
-                let image = NSImage(systemSymbolName: "command", accessibilityDescription: String(localized: "Foundry"))
-                image?.isTemplate = true
-                button.image = image
+                button.image = MarkTiles.menuBarImage
             }
             let menu = NSMenu()
             menu.delegate = self

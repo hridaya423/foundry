@@ -110,6 +110,7 @@ protocol ResultAction: Sendable {
     var shortcut: ActionShortcut? { get }
     /// `.destructive` styles red and can require confirmation.
     var style: ActionStyle { get }
+    var confirmationMessage: LocalizedStringResource? { get }
     /// Whether the panel must dismiss before a hotkey-invoked run.
     var hidesPanelForHotkey: Bool { get }
     /// List section the action's result belongs in, when classification
@@ -123,6 +124,7 @@ extension ResultAction {
     var icon: String? { nil }
     var shortcut: ActionShortcut? { nil }
     var style: ActionStyle { .normal }
+    var confirmationMessage: LocalizedStringResource? { nil }
     var hidesPanelForHotkey: Bool { false }
     var resultSection: ResultSection? { nil }
 }

@@ -22,6 +22,7 @@ final class CommandPanelState {
         case developerTools
         case agents
         case mediaDownloads
+        case scriptOutput
     }
 
     var presentationToken = UUID()
@@ -38,7 +39,9 @@ final class CommandPanelState {
     let clipboardHistory: ClipboardHistoryState
     let snippets: SnippetState
     let localState: LocalStateStore
+    @ObservationIgnored private(set) var builtFeatures: Set<Mode> = []
     @ObservationIgnored lazy var fileConversion: FileConversionState = {
+        builtFeatures.insert(.fileConversion)
         let state = FileConversionState(localState: localState)
         state.onFirstSuccess = { [weak self] in
             self?.confettiBurstID &+= 1
@@ -55,9 +58,12 @@ final class CommandPanelState {
         }
         return state
     }()
-    @ObservationIgnored lazy var camera = CameraPreviewState()
-    @ObservationIgnored lazy var translator = TranslatorState()
-    @ObservationIgnored lazy var developerTools = DeveloperToolsState()
+    @ObservationIgnored lazy var camera: CameraPreviewState = { builtFeatures.insert(.camera); return CameraPreviewState() }()
+    @ObservationIgnored lazy var translator: TranslatorState = { builtFeatures.insert(.translator); return TranslatorState() }()
+    @ObservationIgnored lazy var developerTools: DeveloperToolsState = {
+        builtFeatures.insert(.developerTools)
+        return DeveloperToolsState()
+    }()
     let widgetBoard: WidgetBoardState
     let aiSettings: AISettingsState
     let quickAI: QuickAIState
@@ -81,12 +87,22 @@ final class CommandPanelState {
     private(set) var isActionInProgress = false
     var feedbackTask: Task<Void, Never>?
     var isPanelOpen = false
+    /// Onboarding's try-it step puts its next instruction here, because the
+    /// open panel covers the onboarding window.
+    var searchHint: String?
 
     /// Files dropped on the panel surface pending the user's choice of action.
     var pendingDropURLs: [URL]?
     var pendingPrompt: PendingPrompt?
-    var pendingSnippetArguments: [String]?
+    var pendingSnippetArguments: SnippetArgumentRequest?
+    var scriptOutput: ScriptOutput?
+    private(set) var showsWhatsNew = false
     private(set) var confettiBurstID = 0
+
+    func presentSettings(_ link: SettingsDeepLink) {
+        pendingSettingsDeepLink = link
+        open(.settings)
+    }
 
     init(
         registry: CommandRegistry,
@@ -124,10 +140,7 @@ final class CommandPanelState {
         actionRunner.panel.toggleFavorite = { [weak self] id in
             self?.settings.toggleFavorite(commandID: id) ?? false
         }
-        actionRunner.panel.presentSettings = { [weak self] link in
-            self?.pendingSettingsDeepLink = link
-            self?.open(.settings)
-        }
+        actionRunner.panel.presentSettings = { [weak self] link in self?.presentSettings(link) }
         actionRunner.panel.presentMediaDownloads = { [weak self] in
             self?.router.openMediaDownloads()
         }
@@ -140,6 +153,21 @@ final class CommandPanelState {
         }
         self.widgetBoard.persistenceErrorHandler = { [weak self] error in
             self?.settings.showSettingsPersistenceError(error)
+        }
+        showsWhatsNew = WhatsNew.shouldShow(configExistedAtLaunch: config.existedAtLaunch,
+            seenVersion: config.current.localState.whatsNewSeenVersion)
+        if config.existedAtLaunch == false { markWhatsNewSeen() }
+    }
+
+    func dismissWhatsNew(showingGuide: Bool = false) {
+        markWhatsNewSeen()
+        showsWhatsNew = false
+        if showingGuide { router.openWelcomeGuide() }
+    }
+
+    private func markWhatsNewSeen() {
+        BestEffort.attempt("record what's new as seen") {
+            try configService.updateLocalState { $0.whatsNewSeenVersion = WhatsNew.version }
         }
     }
 

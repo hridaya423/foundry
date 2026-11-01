@@ -76,31 +76,25 @@ struct FooterActionSpec {
 struct PanelFooter<Status: View>: View {
     var status: Status
     var actions: [FooterActionSpec]
-    var showsQuickAIChip = false
+    var leadingAccessory: AnyView?
     var openSettings: () -> Void = {}
     var openWelcomeGuide: (() -> Void)?
 
-    init(actions: [FooterActionSpec], showsQuickAIChip: Bool = false,
+    init(actions: [FooterActionSpec], leadingAccessory: AnyView? = nil,
          openSettings: @escaping () -> Void = {}, openWelcomeGuide: (() -> Void)? = nil,
          @ViewBuilder status: () -> Status) {
         self.status = status()
         self.actions = actions
-        self.showsQuickAIChip = showsQuickAIChip
+        self.leadingAccessory = leadingAccessory
         self.openSettings = openSettings
         self.openWelcomeGuide = openWelcomeGuide
     }
 
     var body: some View {
         HStack(spacing: 0) {
-            if showsQuickAIChip {
-                HStack(spacing: 8) {
-                    Image(systemName: "sparkles")
-                        .font(FoundryTheme.Glyph.xs)
-                    Text("Quick AI")
-                        .font(FoundryTheme.body)
-                }
-                .foregroundStyle(FoundryTheme.textSecondary)
-                .padding(.horizontal, 8)
+            if let leadingAccessory {
+                leadingAccessory
+                    .padding(.horizontal, 8)
             } else {
                 FoundryMenuButton(openSettings: openSettings, openWelcomeGuide: openWelcomeGuide)
             }
@@ -122,9 +116,9 @@ struct PanelFooter<Status: View>: View {
 }
 
 extension PanelFooter where Status == EmptyView {
-    init(actions: [FooterActionSpec], showsQuickAIChip: Bool = false,
+    init(actions: [FooterActionSpec], leadingAccessory: AnyView? = nil,
          openSettings: @escaping () -> Void = {}, openWelcomeGuide: (() -> Void)? = nil) {
-        self.init(actions: actions, showsQuickAIChip: showsQuickAIChip,
+        self.init(actions: actions, leadingAccessory: leadingAccessory,
                   openSettings: openSettings, openWelcomeGuide: openWelcomeGuide,
                   status: { EmptyView() })
     }

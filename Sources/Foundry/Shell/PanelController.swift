@@ -63,6 +63,7 @@ final class PanelController: NSObject, NSWindowDelegate {
         hideGate.cancelPendingHide()
         toast.dismiss()
         directPasteService.captureTarget()
+        SelectionSnapshot.capture(processIdentifier: directPasteService.targetProcessIdentifier)
         let span = diagnostics.startSpan("panel.show")
         let panel = panel ?? makePanel()
         self.panel = panel
@@ -72,39 +73,8 @@ final class PanelController: NSObject, NSWindowDelegate {
         panel.setFrame(frame(for: panel), display: false)
         panel.ignoresMouseEvents = false
         panel.inputEnabled = true
-        panel.alphaValue = 0
-
-        let reduceMotion = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
-        let contentLayer = panel.contentView?.layer
-        if reduceMotion == false, let contentLayer {
-            CATransaction.begin()
-            CATransaction.setDisableActions(true)
-            // Translate only — a scale transform resamples the layer and
-            // every row renders soft for the duration of the settle.
-            contentLayer.transform = CATransform3DMakeTranslation(0, 6, 0)
-            CATransaction.commit()
-        }
-        NSAnimationContext.runAnimationGroup { context in
-            context.duration = reduceMotion ? 0 : 0.18
-            context.timingFunction = CAMediaTimingFunction(controlPoints: 0.2, 0.9, 0.25, 1)
-            context.allowsImplicitAnimation = true
-            panel.animator().alphaValue = 1
-        }
-        if reduceMotion == false, let contentLayer {
-            // Physical settle — a whisper of overshoot on arrival.
-            let settle = CASpringAnimation(keyPath: "transform")
-            settle.damping = 14
-            settle.stiffness = 260
-            settle.mass = 0.8
-            settle.initialVelocity = 0.6
-            settle.fromValue = NSValue(caTransform3D: contentLayer.transform)
-            settle.toValue = NSValue(caTransform3D: CATransform3DIdentity)
-            settle.duration = min(settle.settlingDuration, 0.5)
-            contentLayer.add(settle, forKey: "foundry.entranceSettle")
-            contentLayer.transform = CATransform3DIdentity
-        } else {
-            contentLayer?.transform = CATransform3DIdentity
-        }
+        // The window appears at once; the content's own entrance carries it.
+        panel.alphaValue = 1
         panel.contentView?.layoutSubtreeIfNeeded()
         panel.displayIfNeeded()
         panel.makeKeyAndOrderFront(nil)
@@ -152,6 +122,7 @@ final class PanelController: NSObject, NSWindowDelegate {
 
     func hide() {
         quickLook.close()
+        SelectionSnapshot.clear()
         state.panelWillClose()
         guard let panel else {
             completePendingPaste()
@@ -298,10 +269,9 @@ final class PanelController: NSObject, NSWindowDelegate {
             ?? NSScreen.screens.first
 
         guard let visibleFrame = screen?.visibleFrame else { return panel.frame }
-        // A quarter down the usable height, in points — the launcher slot
-        // Raycast uses. Must not divide by backingScaleFactor or Retina
-        // displays get half the intended inset.
-        let topInset = visibleFrame.height * 0.25
+        // A seventh down the usable height, in points: 140 pt on a 14" MacBook,
+        // where the 1.1 release sat and the user prefers it.
+        let topInset = visibleFrame.height / 7
         let height = state.compactCollapsed ? Self.compactHeight : Self.rootSize.height
         let origin = CGPoint(
             x: visibleFrame.midX - Self.rootSize.width / 2,
@@ -362,6 +332,9 @@ final class FoundryPanel: NSPanel {
             if event.keyCode == 49,
                event.modifierFlags.intersection(.deviceIndependentFlagsMask).isEmpty,
                onSpace?() == true { return }
+            if event.modifierFlags.intersection(.deviceIndependentFlagsMask).contains(.control),
+               event.modifierFlags.contains(.command) == false,
+               handleShortcut(event) { return }
         default:
             break
         }
@@ -418,7 +391,8 @@ final class FoundryPanel: NSPanel {
 
     private func handleShortcut(_ event: NSEvent) -> Bool {
         let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
-        if flags.contains(.command), let key = event.charactersIgnoringModifiers?.lowercased(), key.isEmpty == false {
+        if flags.contains(.command) || flags.contains(.control),
+           let key = event.charactersIgnoringModifiers?.lowercased(), key.isEmpty == false {
             let modifiers = Set(zip([NSEvent.ModifierFlags.control, .option, .shift, .command],
                 ActionShortcut.Modifier.allCases).compactMap { flags.contains($0) ? $1 : nil })
             if onActionShortcut?(ActionShortcut(key: key, modifiers: modifiers)) == true { return true }

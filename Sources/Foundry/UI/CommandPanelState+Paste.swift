@@ -96,13 +96,23 @@ extension CommandPanelState {
     }
 
     func insertOrCopySelectedSnippet() -> Bool {
+        guard askForSnippetArguments(copyOnly: false) == false else { return false }
+        if directPasteSelectedSnippet() == false { snippets.copySelected() }
+        return true
+    }
+
+    func copySelectedSnippet() -> Bool {
+        guard askForSnippetArguments(copyOnly: true) == false else { return false }
+        snippets.copySelected()
+        showActionFeedback(.success(String(localized: "Copied snippet")))
+        return true
+    }
+
+    private func askForSnippetArguments(copyOnly: Bool) -> Bool {
         guard let snippet = snippets.selectedItem else { return false }
         let names = SnippetRenderer.argumentNames(in: snippet.content)
-        if names.isEmpty == false {
-            pendingSnippetArguments = names
-            return false
-        }
-        if directPasteSelectedSnippet() == false { snippets.copySelected() }
+        guard names.isEmpty == false else { return false }
+        pendingSnippetArguments = SnippetArgumentRequest(names: names, copyOnly: copyOnly)
         return true
     }
 
@@ -110,8 +120,13 @@ extension CommandPanelState {
 
     @discardableResult
     func submitSnippetArguments(_ values: [String: String]) -> Bool {
+        guard let request = pendingSnippetArguments, snippets.selectedItem != nil else { return false }
         pendingSnippetArguments = nil
-        return directPasteSelectedSnippet(arguments: values)
+        if request.copyOnly || directPasteSelectedSnippet(arguments: values) == false {
+            snippets.copySelected(arguments: values)
+            if request.copyOnly { showActionFeedback(.success(String(localized: "Copied snippet"))) }
+        }
+        return true
     }
 
     func pasteOrCopySelectedClipboardItem() {
@@ -133,4 +148,9 @@ private enum ClipboardVisionError: LocalizedError {
         case .failed: "Could not analyze that image."
         }
     }
+}
+
+struct SnippetArgumentRequest: Equatable {
+    let names: [String]
+    let copyOnly: Bool
 }

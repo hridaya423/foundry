@@ -46,7 +46,8 @@ struct QuickAIHeaderControlsView: View {
 
 struct QuickAISurfaceView: View {
     @Bindable var quickAI: QuickAIState
-    var onOpenAISettings: (() -> Void)?
+    var aiSettings: AISettingsState
+    var onOpenAISettings: () -> Void
 
     var body: some View {
         ScrollView {
@@ -83,11 +84,8 @@ struct QuickAISurfaceView: View {
                         FoundryActionButton(title: "Retry", systemName: "arrow.clockwise") {
                             quickAI.retry()
                         }
-                        if let onOpenAISettings {
-                            FoundryActionButton(title: "AI Settings", systemName: "gear") {
-                                onOpenAISettings()
-                            }
-                        }
+                        QuickAIModelMenu(quickAI: quickAI, aiSettings: aiSettings, title: "Switch Model", openAISettings: onOpenAISettings)
+                        FoundryActionButton(title: "AI Settings", systemName: "gear", action: onOpenAISettings)
                     }
                         .padding(.top, 2)
                 }
@@ -452,5 +450,51 @@ private struct QuickAIThreadPicker: View {
         }
         .padding(10)
         .frame(width: 260, height: 300)
+    }
+}
+
+struct QuickAIModelMenu: View {
+    var quickAI: QuickAIState
+    var aiSettings: AISettingsState
+    var title: LocalizedStringResource?
+    let openAISettings: () -> Void
+
+    private var currentID: UUID? { quickAI.activeProfileID ?? aiSettings.defaultAIProfileID }
+
+    var body: some View {
+        Menu {
+            ForEach(aiSettings.aiProfiles.filter(\.enabled)) { profile in
+                Button {
+                    quickAI.useProfile(profile.id)
+                    aiSettings.setDefaultAIProfile(profile.id)
+                } label: {
+                    if profile.id == currentID { Label(profile.name, systemImage: "checkmark") } else { Text(profile.name) }
+                }
+            }
+            Divider()
+            Button("AI Settings…", action: openAISettings)
+        } label: {
+            HStack(spacing: 6) {
+                Image(systemName: "sparkles")
+                    .font(FoundryTheme.Glyph.xs)
+                if let title {
+                    Text(title)
+                        .font(FoundryTheme.body)
+                } else {
+                    Text(aiSettings.aiProfiles.first { $0.id == currentID }?.name ?? String(localized: "Choose a model"))
+                        .font(FoundryTheme.body)
+                        .lineLimit(1)
+                }
+            }
+            .foregroundStyle(FoundryTheme.textSecondary)
+            .padding(.horizontal, title == nil ? 0 : FoundryTheme.Spacing.md)
+            .frame(height: FoundryTheme.Control.compact)
+            .contentShape(Rectangle())
+        }
+        .menuStyle(.button)
+        .buttonStyle(FoundryQuietButtonStyle())
+        .menuIndicator(.hidden)
+        .fixedSize()
+        .accessibilityLabel("Model")
     }
 }

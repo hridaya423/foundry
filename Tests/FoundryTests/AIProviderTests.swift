@@ -225,6 +225,22 @@ final class AIProviderTests: XCTestCase {
     }
 
     @MainActor
+    func testPickingAModelAppliesToTheCurrentChat() {
+        let store = DelayedAIChatStore(threads: [])
+        store.finishLoading()
+        let configURL = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: configURL) }
+        let config = ConfigService(diagnostics: DiagnosticsService(), url: configURL)
+        let state = QuickAIState(aiProvider: AIProvider(config: config, diagnostics: DiagnosticsService()), chatStore: store)
+        state.startNewThread(selectedAIProfileID: nil)
+        let profile = UUID()
+        state.useProfile(profile)
+        XCTAssertEqual(state.activeProfileID, profile)
+        state.shutdown()
+        XCTAssertEqual(store.savedThreads().first?.providerProfileID, profile)
+    }
+
+    @MainActor
     func testStoppingKeepsThePartialAnswerAndOnlyOffersRetryWhenNothingArrived() {
         let configURL = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: configURL) }

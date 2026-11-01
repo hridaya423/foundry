@@ -38,10 +38,10 @@ final class CommandRegistry: Sendable {
                 AppleNotesProvider(),
                 BrowserProvider(),
                 LibraryProvider(store: snippetStore),
-                QuicklinkProvider(),
+                QuicklinkProvider(siteIcons: { config.current.quicklinkSiteIcons }),
                 ShortcutsProvider(),
                 ScriptCommandProvider(),
-                FileSearchProvider(),
+                FileSearchProvider(settings: { config.current.fileSearch }),
                 MediaDownloadProvider(),
                 CameraCommandProvider(),
                 SystemCommandProvider(),
@@ -148,9 +148,30 @@ final class CommandRegistry: Sendable {
             primaryAction: CommandAction(id: "ai.quick", title: "Ask AI", behavior: OpenQuickAIAction(prompt: prompt)),
             secondaryActions: []
         )
-        let web = trailing.filter { if case .quicklink = $0.payload { return true }; return false }
-        let files = trailing.filter { if case .quicklink = $0.payload { return false }; return true }
-        return Array((leading.prefix(8) + [askAI] + web + files).prefix(Self.resultLimit(for: query)))
+        let isQuicklink: (CommandResult) -> Bool = { if case .quicklink = $0.payload { return true }; return false }
+        let groups: [FallbackKind: [CommandResult]] = [
+            .suggestions: Array(leading.prefix(8)),
+            .askAI: [askAI],
+            .searchWeb: trailing.filter(isQuicklink),
+            .searchFiles: trailing.filter { isQuicklink($0) == false },
+            .define: Self.defineResult(for: prompt).map { [$0] } ?? []
+        ]
+        let order = (configService?.current.fallbacks ?? .default).enabledInOrder
+        return Array(order.flatMap { groups[$0] ?? [] }.prefix(Self.resultLimit(for: query)))
+    }
+
+    static func defineResult(for word: String) -> CommandResult? {
+        guard word.isEmpty == false, word.contains(where: \.isWhitespace) == false, word.count <= 40,
+              let encoded = word.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) else { return nil }
+        return CommandResult(
+            id: "foundry.define.\(word.lowercased())",
+            title: "Define \u{201C}\(word)\u{201D}",
+            subtitle: "Dictionary",
+            icon: CommandIcon(fallback: "DI", systemName: "character.book.closed"),
+            payload: .command,
+            primaryAction: CommandAction(id: "define.open", title: "Open in Dictionary", behavior: OpenURLAction("dict://\(encoded)")),
+            secondaryActions: []
+        )
     }
 
     func homeResults() async -> [CommandResult] {

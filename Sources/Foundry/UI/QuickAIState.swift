@@ -98,6 +98,14 @@ final class QuickAIState {
         }
     }
 
+    var activeProfileID: UUID? { activeThread?.providerProfileID }
+
+    func useProfile(_ id: UUID) {
+        guard let index = quickAIThreads.firstIndex(where: { $0.id == activeQuickAIThreadID }) else { return }
+        quickAIThreads[index].providerProfileID = id
+        persistAIThreads()
+    }
+
     var activeThread: AIChatThread? {
         quickAIThreads.first { $0.id == activeQuickAIThreadID }
     }

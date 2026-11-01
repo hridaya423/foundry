@@ -2,6 +2,7 @@ import os
 import XCTest
 import FoundryDomain
 @testable import Foundry
+import FoundryServices
 
 @MainActor
 final class SnippetStateTests: XCTestCase {
@@ -80,6 +81,41 @@ final class SnippetStateTests: XCTestCase {
         let copyFirst = await provider.search(CommandSearchRequest(query: "Addr", snippetInsertAsPrimary: false))
         XCTAssertEqual(copyFirst.first?.primaryAction.behavior as? CopySnippetAction, CopySnippetAction(id: "a"))
         XCTAssertEqual(copyFirst.first?.secondaryActions.first?.behavior as? PasteSnippetAction, PasteSnippetAction(id: "a"))
+    }
+
+    func testSnippetWithArgumentsAsksBeforeCopyAndEditOpensItSelected() {
+        let diagnostics = DiagnosticsService()
+        let config = ConfigService(diagnostics: diagnostics,
+            url: FileManager.default.temporaryDirectory.appendingPathComponent("foundry-snip-\(UUID().uuidString).json"))
+        let state = CommandPanelState(
+            registry: CommandRegistry(providers: [], usageRanking: UsageRankingStore(diagnostics: diagnostics), diagnostics: diagnostics,
+                configService: config),
+            actionRunner: ActionRunner(diagnostics: diagnostics), diagnostics: diagnostics, config: config,
+            snippetStore: InMemorySnippetStore(snippets: [
+                StoredSnippet(id: "plain", title: "Plain", content: "x"),
+                StoredSnippet(id: "ask", title: "Ask", content: "Hi {argument}"),
+            ]))
+
+        state.router.open(.snippet(id: "ask", then: .copy))
+        XCTAssertEqual(state.snippets.selectedID, "ask")
+        XCTAssertEqual(state.pendingSnippetArguments, SnippetArgumentRequest(names: ["Argument"], copyOnly: true))
+
+        state.router.open(.snippet(id: "plain", then: .select))
+        XCTAssertEqual(state.snippets.selectedID, "plain")
+        XCTAssertNil(state.pendingSnippetArguments)
+        state.shutdown()
+    }
+
+    func testRootSnippetWithArgumentsRoutesToThePromptAndOffersEdit() async {
+        let store = InMemorySnippetStore(snippets: [StoredSnippet(id: "a", title: "Greet", content: "Hi {argument name=\"to\"}")])
+        let runner = ActionRunner(diagnostics: DiagnosticsService(), snippetStore: store)
+        let insert = CommandAction(id: "i", title: "Insert", behavior: PasteSnippetAction(id: "a"))
+        let outcome = await runner.execute(CommandExecutionRequest(commandID: "i", action: insert)) { _ in }
+        XCTAssertEqual(outcome, .open(route: .snippet(id: "a", then: .insert)))
+
+        let results = await LibraryProvider(store: store).search(CommandSearchRequest(query: "Greet"))
+        let edit = results.first?.secondaryActions.first { $0.behavior is EditSnippetAction }
+        XCTAssertEqual(edit?.behavior.shortcut, ActionShortcut(key: "e", modifiers: [.command]))
     }
 }
 

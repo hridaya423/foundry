@@ -14,7 +14,7 @@ extension CommandPanelState {
     }
 
     func performModeShortcut(_ shortcut: ActionShortcut, dismiss: @escaping @MainActor () -> Void) -> Bool {
-        guard shortcut.modifiers == [.command] else { return false }
+        guard shortcut.modifiers == [.command] || shortcut.modifiers == [.shift, .command] else { return false }
         if mode == .search {
             guard shortcut.key == "y",
                   case let .file(url)? = session.selectedResult?.payload else { return false }
@@ -66,7 +66,7 @@ extension CommandPanelState {
 
     private func moveSelection(offset: Int) {
         switch mode {
-        case .fileConversion, .camera, .translator: return
+        case .fileConversion, .camera, .translator, .scriptOutput: return
         case .emojiPicker, .fileShelf, .snippets, .clipboardHistory:
             feature(for: mode)?.handleMove(offset)
             return

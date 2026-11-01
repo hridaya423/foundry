@@ -31,9 +31,9 @@ final class ConfigServiceTests: XCTestCase {
         }
     }
 
-    func testFreshConfigDefaultsToOptionSpaceAndMenuBarIcon() {
+    func testFreshConfigDefaultsToCommandSpaceAndMenuBarIcon() {
         let config = FoundryConfig()
-        XCTAssertEqual(config.hotkey, .optionSpace)
+        XCTAssertEqual(config.hotkey, .commandSpace)
         XCTAssertTrue(config.showMenuBarIcon)
     }
 

@@ -15,9 +15,19 @@ final class ShortcutsProviderTests: XCTestCase {
         let results = await provider.results(matching: "resize")
         let result = try XCTUnwrap(results.first)
         XCTAssertEqual(result.title, "Resize Image")
-        XCTAssertEqual(result.primaryAction.behavior as? RunProcessAction, RunProcessAction(path: "/usr/bin/shortcuts", arguments: ["run", "Resize Image"]))
+        XCTAssertEqual(result.primaryAction.behavior as? RunShortcutAction, RunShortcutAction(name: "Resize Image"))
+        XCTAssertEqual(result.secondaryActions.first?.behavior as? RunShortcutAction, RunShortcutAction(name: "Resize Image", input: .clipboard))
         _ = await provider.results(matching: "morning")
         XCTAssertEqual(calls.value, 1, "fresh cache must not re-run the CLI per keystroke")
+    }
+
+    func testTextAfterTheNameBecomesTheShortcutsInput() async throws {
+        let provider = ShortcutsProvider { ["Resize Image"] }
+        provider.refresh()
+        let results = await provider.results(matching: "Resize Image cat.png")
+        let result = try XCTUnwrap(results.first)
+        XCTAssertEqual(result.title, "Resize Image with \u{201C}cat.png\u{201D}")
+        XCTAssertEqual(result.primaryAction.behavior as? RunShortcutAction, RunShortcutAction(name: "Resize Image", input: .text("cat.png")))
     }
 
     func testStaleCacheRefreshesInBackgroundAndKeepsOldNamesOnFailure() async {

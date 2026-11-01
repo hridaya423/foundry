@@ -186,6 +186,20 @@ final class ClipboardHistoryTests: XCTestCase {
         XCTAssertTrue(emptyAfterLater)
     }
 
+    func testSecretShapedTextNeverEntersHistory() async {
+        let pasteboard = TestPasteboardClient()
+        let state = await MainActor.run { ClipboardHistoryState(pasteboard: pasteboard, persistence: nil) }
+        await MainActor.run { state.start() }
+        for (index, text) in ["sk-ant-api03-abcdefghijklmnopqrstuvwxyz012345", "ghp_abcdefghijklmnopqrstuvwxyz0123456789", "plain words here"].enumerated() {
+            pasteboard.snapshotValue = PasteboardSnapshot(types: [.string], payload: .text(text), sourceBundleIdentifier: "com.example")
+            pasteboard.changeCountValue = index + 1
+            await MainActor.run { state.captureIfChanged() }
+        }
+        let texts = await MainActor.run { state.items.compactMap { if case let .text(value) = $0.payload { value } else { nil } } }
+        XCTAssertEqual(texts, ["plain words here"])
+        XCTAssertFalse(ClipboardHistoryPolicy.looksLikeSecret("https://example.com/some/long/path/here"))
+    }
+
     func testClipboardCapturesPersistOffMainActorInOrder() async throws {
         let url = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: url) }

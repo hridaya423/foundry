@@ -119,6 +119,7 @@ final class OnboardingState {
     }
 
     func finish() {
+        if didClaimCommandSpace == false && panel.settings.hotkey == .commandSpace { claimCommandSpace() }
         stopWaitingForSpotlight()
         localState.update { state in
             state.onboardingCompletedVersion = version
@@ -133,12 +134,11 @@ final class OnboardingState {
         didTryPanel = false
     }
 
-    /// Fires once when the try-it panel actually runs a command — the view
-    /// maps it to confetti + haptic.
+    /// Fires once when the try-it panel closes again or runs a command.
     var onDidTryPanel: (() -> Void)?
     private var tryAdvanceTask: Task<Void, Never>?
 
-    func panelDidRunCommand() {
+    func completeTryIt() {
         guard step == .tryIt, didTryPanel == false else { return }
         didTryPanel = true
         onDidTryPanel?()
@@ -152,6 +152,37 @@ final class OnboardingState {
     }
 
     private var spotlightTicks = 0
+
+    struct Takeover: Identifiable, Equatable {
+        enum Status { case working, done, failed }
+        let id: String
+        let name: String
+        var status: Status
+    }
+
+    /// Spotlight's state lives in the flags above; this tracks the launchers
+    /// moved off ⌘ Space.
+    private(set) var takeovers: [Takeover] = []
+    private(set) var didClaimSpotlight = false
+    private(set) var didClaimCommandSpace = false
+
+    /// Makes ⌘ Space Foundry's: turns off Spotlight's shortcut and moves any
+    /// other launcher holding it to ⌥ Space.
+    func claimCommandSpace(rivals: [LauncherRival] = LauncherRival.all,
+        spotlightEnabled: @escaping @Sendable () -> Bool = SpotlightShortcut.isEnabledOnThisMac,
+        disableSpotlight: () -> Bool = SpotlightShortcut.disableOnThisMac) {
+        didClaimCommandSpace = true
+        if spotlightEnabled() { didClaimSpotlight = true }
+        useCommandSpace(spotlightEnabled: spotlightEnabled, disableSpotlight: disableSpotlight)
+        for rival in rivals where takeovers.contains(where: { $0.id == rival.id }) == false && rival.holdsCommandSpace() {
+            takeovers.append(Takeover(id: rival.id, name: rival.name, status: .working))
+            Task { @MainActor [weak self] in
+                let released = await rival.release()
+                guard let self, let index = self.takeovers.firstIndex(where: { $0.id == rival.id }) else { return }
+                self.takeovers[index].status = released ? .done : .failed
+            }
+        }
+    }
 
     func useCommandSpace(spotlightEnabled: @escaping @Sendable () -> Bool = SpotlightShortcut.isEnabledOnThisMac,
         disableSpotlight: () -> Bool = SpotlightShortcut.disableOnThisMac) {

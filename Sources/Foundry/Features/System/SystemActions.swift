@@ -371,14 +371,11 @@ struct RunProcessAction: ResultAction, Equatable {
     func perform(_ ctx: ActionContext) async -> CommandOutcome {
         do {
             let result = try await ProcessRunner.run(path: path, arguments: arguments)
-            let shortcut = path == ShortcutsProvider.cliPath ? arguments.last : nil
             guard result.succeeded else {
                 ctx.diagnostics.log("Failed to run \(path)")
-                return .failure(
-                    message: shortcut.map { "“\($0)” failed: \(result.stderr.trimmingCharacters(in: .whitespacesAndNewlines))" } ?? "Failed to run " +
-                        "process", retryable: true)
+                return .failure(message: String(localized: "Failed to run process"), retryable: true)
             }
-            return .success(message: shortcut.map { "Ran “\($0)”" } ?? "Process completed")
+            return .success(message: String(localized: "Process completed"))
         } catch {
             if isExecutionCancellation(error) {
                 return .cancelled

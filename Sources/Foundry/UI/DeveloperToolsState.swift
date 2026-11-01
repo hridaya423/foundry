@@ -238,7 +238,7 @@ final class DeveloperToolsState {
             : DeveloperToolsEngine.base64Decode(trimmed)
         guard let output else {
             base64Output = ""
-            base64Error = String(localized: "Enter valid Base64 text to decode.")
+            base64Error = String(localized: "That isn’t valid Base64. It should look like SGVsbG8gd29ybGQ= (letters, digits, + and /, padded with =).")
             return
         }
         base64Output = output
@@ -254,11 +254,22 @@ final class DeveloperToolsState {
         }
         guard let output = DeveloperToolsEngine.formatJSON(input) else {
             jsonOutput = ""
-            jsonError = String(localized: "Enter valid JSON.")
+            let problem = Self.jsonProblem(in: input).map { ": \($0)" } ?? ""
+            jsonError = String(localized: "That isn’t valid JSON\(problem). Example: {\"name\": \"Foundry\", \"tags\": [1, 2]}")
             return
         }
         jsonOutput = output
         jsonError = nil
+    }
+
+    static func jsonProblem(in input: String) -> String? {
+        do {
+            _ = try JSONSerialization.jsonObject(with: Data(input.utf8), options: [.fragmentsAllowed])
+            return nil
+        } catch {
+            guard let detail = (error as NSError).userInfo[NSDebugDescriptionErrorKey] as? String, detail.isEmpty == false else { return nil }
+            return detail.prefix(1).lowercased() + detail.dropFirst().trimmingCharacters(in: CharacterSet(charactersIn: "."))
+        }
     }
 
     private func refreshCase() {

@@ -20,6 +20,21 @@ final class FileSearchTests: XCTestCase {
         XCTAssertEqual(FileSearchProvider.filter(paths, scope: home), ["/Users/test/Documents/Report.pdf"])
     }
 
+    func testSearchCoversEveryConfiguredFolderAndHonoursSkippedNames() async {
+        let config = FileSearchConfig(folders: ["/Users/test/work", "/Volumes/Projects"], excludedFolders: ["build"])
+        let provider = FileSearchProvider(settings: { config }) { _, scope in
+            ["\(scope.path)/report.txt", "\(scope.path)/build/report.txt", "\(scope.path)/Library/report.txt"]
+        }
+        let paths = await provider.results(matching: "f report").compactMap { result -> String? in
+            if case let .file(url) = result.payload { return url.path }
+            return nil
+        }
+        XCTAssertEqual(Set(paths), ["/Users/test/work/report.txt", "/Users/test/work/Library/report.txt", "/Volumes/Projects/report.txt",
+            "/Volumes/Projects/Library/report.txt"])
+        let decoded = try? JSONDecoder().decode(FileSearchConfig.self, from: Data(#"{"folders":[]}"#.utf8))
+        XCTAssertEqual(decoded, .default)
+    }
+
     func testPrefixGatesFileModeAndStripsSpotlightMetacharacters() {
         let provider = FileSearchProvider(scope: home) { _, _ in [] }
         XCTAssertFalse(provider.isActive(for: "report"))
@@ -94,6 +109,27 @@ final class FileSearchTests: XCTestCase {
         try config.updateCommandPreference(preference, for: FileSearchProvider.commandID)
         let withoutFiles = await registry.completeResults(matching: "zzqx plover", initialResults: [])
         XCTAssertEqual(withoutFiles.count, 2)
+    }
+
+    func testFallbackOrderAndDefineFollowSettings() async throws {
+        let diagnostics = DiagnosticsService()
+        let config = ConfigService(diagnostics: diagnostics, url: FileManager.default.temporaryDirectory.appendingPathComponent("\(UUID()).json"))
+        var fallbacks = FallbackConfig.default
+        fallbacks.disabled = [.askAI]
+        fallbacks.move(.define, by: -10)
+        try config.updateFallbacks(fallbacks)
+        let registry = CommandRegistry(providers: [FileSearchProvider(scope: home) { _, _ in [] }],
+            usageRanking: UsageRankingStore(diagnostics: diagnostics), diagnostics: diagnostics, configService: config)
+
+        let results = await registry.completeResults(matching: "zzqxplover", initialResults: [])
+        XCTAssertEqual(results.first?.primaryAction.behavior as? OpenURLAction, OpenURLAction("dict://zzqxplover"))
+        XCTAssertEqual(results.dropFirst().first?.primaryAction.behavior as? FillQueryAction, FillQueryAction("f zzqxplover"))
+        XCTAssertEqual(results.count, 2)
+        XCTAssertNil(CommandRegistry.defineResult(for: "two words"))
+
+        let decoded = try JSONDecoder().decode(FallbackConfig.self, from: Data(#"{"order":["define","bogus","define"]}"#.utf8))
+        XCTAssertEqual(decoded.order, [.define, .suggestions, .askAI, .searchWeb, .searchFiles])
+        XCTAssertEqual(decoded.disabled, FallbackConfig.default.disabled)
     }
 
     func testFileModeShowsOnlyFilesEvenWhenSpotlightIsSlowerThanTheDeferredBudget() async {

@@ -39,10 +39,13 @@ struct SettingsView: View {
             category = .scripts
             pendingAnchor = "scripts.folders"
             highlightedAnchor = "scripts.folders"
-        case let .command(id):
+        case .ai:
+            category = .ai
+            pendingAnchor = "ai.provider"
+        case let .command(id, title):
             category = .commands
             state.settings.prepareCommandCatalog()
-            state.settings.commandSettingsQuery = ""
+            state.settings.commandSettingsQuery = title
             state.settings.expandedCommandID = id
             pendingAnchor = "commands.\(id)"
             highlightedAnchor = "commands.\(id)"
@@ -173,13 +176,23 @@ struct SettingsView: View {
                         case .appearance:
                             appearanceContent
                         case .commands:
+                            FallbackSettingsPane(settings: state.settings).modifier(anchor("commands.fallbacks"))
+                            windowHotkeysContent.modifier(anchor("commands.windowHotkeys"))
                             commandsContent.id("commands.list")
                         case .quicklinks:
-                            QuicklinksSettingsPane().id("quicklinks.list")
+                            QuicklinksSettingsPane(settings: state.settings).id("quicklinks.list")
+                        case .snippets:
+                            snippetsContent
                         case .scripts:
                             ScriptsSettingsPane().id("scripts.folders")
+                        case .fileSearch:
+                            FileSearchSettingsPane(settings: state.settings).id("fileSearch.folders")
                         case .clipboard:
                             clipboardContent.id("clipboard.history")
+                        case .browser:
+                            browserContent
+                        case .permissions:
+                            PermissionsSettingsPane().id("permissions.list")
                         case .ai:
                             aiContent.id("ai.provider")
                         case .agents:
@@ -380,24 +393,6 @@ struct SettingsView: View {
                         isOn: state.settings.hapticsEnabled,
                         set: state.settings.setHapticsEnabled
                     )
-                    SettingsDivider()
-                    HStack(spacing: 12) {
-                        SettingsLabel(title: "Main browser", subtitle: "Used for browser history and open-tab results")
-                        Spacer()
-                        Picker("Main browser", selection: Binding(
-                            get: { state.settings.mainBrowser ?? .safari },
-                            set: { state.settings.setMainBrowser($0) }
-                        )) {
-                            ForEach(state.installedBrowsers, id: \.self) { browser in
-                                Text(browser.displayName).tag(browser)
-                            }
-                        }
-                        .labelsHidden()
-                        .pickerStyle(.menu)
-                        .frame(width: 130)
-                    }
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 11)
                 }
             }
             .modifier(anchor("general.system"))
@@ -451,10 +446,53 @@ struct SettingsView: View {
                 .padding(.vertical, 11)
             }
             .modifier(anchor("general.sensitivity"))
-
-            snippetExpansionContent
-                .modifier(anchor("general.snippets"))
         }
+    }
+
+    private var snippetsContent: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            SettingsGroup {
+                HStack(spacing: 12) {
+                    SettingsLabel(title: "Snippet library",
+                        subtitle: "^[\(state.snippets.items.count) snippet](inflect: true). Import and export use Raycast's JSON format.")
+                    Spacer()
+                    Button("Import…") { state.snippets.importFromFile() }
+                        .controlSize(.small)
+                    Button("Export…") { state.snippets.exportToFile() }
+                        .controlSize(.small)
+                        .disabled(state.snippets.items.isEmpty)
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 11)
+            }
+            .modifier(anchor("snippets.library"))
+            snippetExpansionContent
+                .modifier(anchor("snippets.expansion"))
+        }
+        .onAppear(perform: state.snippets.load)
+    }
+
+    private var browserContent: some View {
+        SettingsGroup {
+            HStack(spacing: 12) {
+                SettingsLabel(title: "Main browser", subtitle: "Used for browser history and open-tab results")
+                Spacer()
+                Picker("Main browser", selection: Binding(
+                    get: { state.settings.mainBrowser ?? .safari },
+                    set: { state.settings.setMainBrowser($0) }
+                )) {
+                    ForEach(state.installedBrowsers, id: \.self) { browser in
+                        Text(browser.displayName).tag(browser)
+                    }
+                }
+                .labelsHidden()
+                .pickerStyle(.menu)
+                .frame(width: 130)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 11)
+        }
+        .modifier(anchor("browser.main"))
     }
 
     private var snippetExpansionContent: some View {
@@ -619,6 +657,20 @@ struct SettingsView: View {
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 11)
+        }
+    }
+
+    private var windowHotkeysContent: some View {
+        SettingsGroup {
+            HStack(spacing: 10) {
+                SettingsLabel(title: "Window layout shortcuts",
+                    subtitle: "Suggested: \(WindowHotkeySuggestions.summary). Only layouts without a shortcut get one.")
+                Spacer()
+                Button("Use Suggested") { state.settings.applySuggestedWindowHotkeys() }
+                    .controlSize(.small)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
         }
     }
 
@@ -885,6 +937,18 @@ struct SettingsView: View {
         }
     }
 
+    private static func retentionLabel(days: Int) -> String {
+        switch days {
+        case 1: String(localized: "1 day")
+        case 7: String(localized: "1 week")
+        case 30: String(localized: "1 month")
+        case 90: String(localized: "3 months")
+        case 365: String(localized: "1 year")
+        case ClipboardConfig.maximumMaxAgeDays: String(localized: "Forever")
+        default: String(localized: "\(days) days")
+        }
+    }
+
     private var clipboardContent: some View {
         VStack(alignment: .leading, spacing: 10) {
             SettingsSectionLabel(title: "Clipboard history")
@@ -914,20 +978,24 @@ struct SettingsView: View {
                 HStack {
                     SettingsLabel(title: "Keep for", subtitle: "Unpinned items older than this are dropped")
                     Spacer()
-                    Stepper(
-                        value: Binding(
-                            get: { Int(state.clipboardHistory.policy.maxAge / 86_400) },
-                            set: {
-                                state.settings.setClipboardRetention(
-                                    maxItems: state.clipboardHistory.policy.maxItems,
-                                    maxBytes: state.clipboardHistory.policy.maxBytes,
-                                    maxAgeDays: $0
-                                )
-                            }
-                        ),
-                        in: ClipboardConfig.minimumMaxAgeDays...ClipboardConfig.maximumMaxAgeDays,
-                        step: 30
-                    ) { Text("\(Int(state.clipboardHistory.policy.maxAge / 86_400)) days") }
+                    Picker("Keep for", selection: Binding(
+                        get: { Int(state.clipboardHistory.policy.maxAge / 86_400) },
+                        set: {
+                            state.settings.setClipboardRetention(
+                                maxItems: state.clipboardHistory.policy.maxItems,
+                                maxBytes: state.clipboardHistory.policy.maxBytes,
+                                maxAgeDays: $0
+                            )
+                        }
+                    )) {
+                        let current = Int(state.clipboardHistory.policy.maxAge / 86_400)
+                        ForEach(Array(Set([1, 7, 30, 90, 365, ClipboardConfig.maximumMaxAgeDays, current])).sorted(), id: \.self) { days in
+                            Text(Self.retentionLabel(days: days)).tag(days)
+                        }
+                    }
+                    .labelsHidden()
+                    .pickerStyle(.menu)
+                    .frame(width: 130)
                 }.padding(.horizontal, 12).padding(.vertical, 10)
                 SettingsDivider()
                 HStack {

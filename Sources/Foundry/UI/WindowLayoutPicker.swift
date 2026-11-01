@@ -29,6 +29,7 @@ struct WindowLayoutPicker: View {
                     .foregroundStyle(FoundryTheme.textSecondary)
                 }
                 .buttonStyle(.plain)
+                .pointerCursor()
                 .accessibilityLabel("Show all window layouts")
             }
             .padding(.horizontal, 2)
@@ -376,6 +377,7 @@ private struct FamilyTab: View {
         }
         .buttonStyle(.plain)
         .onHover { isHovering = $0 }
+        .pointerCursor()
         .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 }
