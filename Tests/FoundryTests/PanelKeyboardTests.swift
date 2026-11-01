@@ -190,6 +190,16 @@ final class PanelKeyboardTests: XCTestCase {
         state.shutdown()
     }
 
+    func testDeveloperToolsPrimaryOutputIsTheFirstRow() {
+        let state = makeState()
+        state.developerTools.selectedTool = .base
+        state.developerTools.baseInput = "255"
+        XCTAssertEqual(state.developerTools.primaryOutput, state.developerTools.baseRows.first?.value)
+        state.developerTools.baseInput = ""
+        XCTAssertNil(state.developerTools.primaryOutput)
+        state.shutdown()
+    }
+
     // MARK: What you see is what you navigate
 
     func testNavigableRowsMatchWhatTheViewRendersAtHome() {

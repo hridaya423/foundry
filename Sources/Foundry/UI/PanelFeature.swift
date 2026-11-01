@@ -96,6 +96,11 @@ extension DeveloperToolsState: PanelFeature {
         panel: CommandPanelState,
         dismiss: @MainActor () -> Void
     ) -> Bool {
+        if shortcut.key == "\r", let output = primaryOutput {
+            copy(output)
+            panel.showActionFeedback(.success(String(localized: "Copied \(output.prefix(40))")))
+            return true
+        }
         let tools = Tool.allCases
         guard let index = Int(shortcut.key), tools.indices.contains(index - 1) else { return false }
         selectedTool = tools[index - 1]

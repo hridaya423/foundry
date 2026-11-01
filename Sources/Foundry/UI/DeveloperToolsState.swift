@@ -139,6 +139,20 @@ final class DeveloperToolsState {
         refreshWordCount()
     }
 
+    /// The value ⌘↵ copies: the first output of the open tool.
+    var primaryOutput: String? {
+        let value: String? = switch selectedTool {
+        case .base: baseRows.first?.value
+        case .bitwise: bitRows.first?.value
+        case .base64: base64Output
+        case .json: jsonOutput
+        case .textCase: caseRows.first?.value
+        case .timestamp: timestampRows.first?.value
+        case .wordCount: wordCountRows.first?.value
+        }
+        return value.flatMap { $0.isEmpty ? nil : $0 }
+    }
+
     func copy(_ value: String) {
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(value, forType: .string)

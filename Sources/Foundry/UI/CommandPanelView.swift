@@ -284,7 +284,7 @@ struct CommandPanelView: View {
         switch state.mode {
         case .agents:
             (id: "agents",
-             actions: [.init(label: "Open", keys: "Click", emphasized: true), .home])
+             actions: [.home])
         case .quickAI:
             (id: "quickAI",
              actions: state.quickAI.isQuickAILoading
@@ -321,7 +321,7 @@ struct CommandPanelView: View {
                 .init(label: "Swap", keys: "⌘S"), .home])
         case .developerTools:
             (id: "developerTools",
-             actions: [.init(label: "Copy Value", keys: "Click"), .home])
+             actions: [.init(label: "Copy", keys: "⌘↵", emphasized: true), .home])
         case .mediaDownloads:
             (id: "mediaDownloads", actions: [.home])
         case .scriptOutput:
