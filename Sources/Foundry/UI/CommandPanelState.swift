@@ -235,6 +235,11 @@ final class CommandPanelState {
 
     var accessibilityTrusted: Bool { AXIsProcessTrusted() }
 
+    var snippetExpansionWarning: LocalizedStringResource? {
+        guard settings.snippetExpansion.isEnabled else { return "Keywords won’t expand. Turn on expansion in Settings › Snippets." }
+        return accessibilityTrusted ? nil : "Keywords won’t expand. Allow Accessibility in Settings › Snippets."
+    }
+
     // Input surface the views and tests use — the router owns the stack;
     // these four aliases keep the panel's public shape narrow.
     var mode: Mode {

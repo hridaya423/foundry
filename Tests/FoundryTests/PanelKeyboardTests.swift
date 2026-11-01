@@ -218,6 +218,17 @@ final class PanelKeyboardTests: XCTestCase {
         state.shutdown()
     }
 
+    func testCommandNCreatesASnippetReadyForItsTitle() {
+        let state = makeState()
+        state.mode = .snippets
+
+        XCTAssertTrue(state.performModeShortcut(ActionShortcut(key: "n", modifiers: [.command]), dismiss: {}))
+
+        XCTAssertEqual(state.snippets.items.count, 1)
+        XCTAssertEqual(state.snippets.freshSnippetID, state.snippets.selectedID)
+        state.shutdown()
+    }
+
     func testDeveloperToolsPrimaryOutputIsTheFirstRow() {
         let state = makeState()
         state.developerTools.selectedTool = .base

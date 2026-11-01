@@ -3,11 +3,12 @@ import SwiftUI
 
 struct SnippetsView: View {
     var state: SnippetState
-    var expansionEnabled = true
-    var setExpansionEnabled: ((Bool) -> Void)? = nil
+    var expansionWarning: LocalizedStringResource?
+    var openSnippetSettings: () -> Void = {}
     let insert: () -> Bool
     let copy: () -> Bool
-    @State private var isConfirmingDelete = false
+    var delete: () -> Void = {}
+    @AppStorage("snippets.editor.monospace") private var monospace = false
 
     var body: some View {
         HStack(spacing: 14) {
@@ -16,23 +17,13 @@ struct SnippetsView: View {
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 18)
-        .alert("Delete Snippet?", isPresented: $isConfirmingDelete) {
-            Button("Delete Snippet", role: .destructive) { state.removeSelected() }
-            Button("Cancel", role: .cancel) {}
-        } message: {
-            Text("This removes the snippet from Foundry's saved library.")
-        }
     }
 
     private var sidebar: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 8) {
-                Text(state.visibleItems.count == 1 ? "1 SNIPPET" : "\(state.visibleItems.count) SNIPPETS")
-                    .font(FoundryTheme.micro)
-                    .foregroundStyle(FoundryTheme.textQuaternary)
-                    .tracking(0.6)
+                FoundrySectionHeader(title: String(localized: "Snippets"), count: state.visibleItems.count.formatted())
                     .padding(.leading, 11)
-                Spacer()
                 Menu {
                     Picker("Sort by", selection: Binding(
                         get: { state.sortMode },
@@ -87,7 +78,7 @@ struct SnippetsView: View {
                         ForEach(state.visibleItems) { snippet in
                             SnippetRow(
                                 snippet: snippet,
-                                subtitle: snippetSubtitle(snippet),
+                                subtitle: Self.firstLine(of: snippet.content),
                                 isSelected: state.selectedItem?.id == snippet.id,
                                 select: { state.select(id: snippet.id) }
                             )
@@ -128,23 +119,10 @@ struct SnippetsView: View {
             Text("No matching snippets")
                 .font(FoundryTheme.body)
                 .foregroundStyle(FoundryTheme.textSecondary)
-            Button("Clear filters") {
+            FoundryActionButton(title: String(localized: "Clear Filters")) {
                 state.query = ""
                 state.selectedTag = nil
             }
-                .buttonStyle(PressableButtonStyle())
-                .font(FoundryTheme.body)
-                .foregroundStyle(FoundryTheme.textPrimary)
-                .padding(.horizontal, 14)
-                .frame(height: 32)
-                .background(
-                    RoundedRectangle(cornerRadius: 9, style: .continuous)
-                        .fill(FoundryTheme.fillTint)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 9, style: .continuous)
-                                .strokeBorder(FoundryTheme.fillSelected, lineWidth: 1)
-                        )
-                )
             Spacer()
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -154,19 +132,17 @@ struct SnippetsView: View {
     private var detail: some View {
         VStack(alignment: .leading, spacing: 12) {
             if let persistenceError = state.persistenceError {
-                Label(persistenceError, systemImage: "exclamationmark.triangle.fill")
-                    .font(FoundryTheme.bodySecondary)
-                    .foregroundStyle(FoundryTheme.destructive)
-                    .lineLimit(2)
+                InlineNotice(level: .error, text: "\(persistenceError)")
             }
             if let selected = state.selectedItem {
                 HStack(spacing: 4) {
-                    Text("EDIT SNIPPET")
-                        .font(FoundryTheme.micro)
-                        .foregroundStyle(FoundryTheme.textQuaternary)
-                        .tracking(0.6)
+                    FoundrySectionHeader(title: String(localized: "Edit Snippet"))
                         .padding(.leading, 13)
-                    Spacer()
+                    SnippetIconButton(
+                        symbol: monospace ? "textformat" : "chevron.left.forwardslash.chevron.right",
+                        help: monospace ? "Show proportional text" : "Show monospaced text",
+                        action: { monospace.toggle() }
+                    )
                     SnippetIconButton(
                         symbol: selected.isPinned ? "pin.fill" : "pin",
                         help: selected.isPinned ? "Unpin" : "Pin",
@@ -175,36 +151,16 @@ struct SnippetsView: View {
                     )
                     SnippetIconButton(symbol: "doc.on.doc", help: "Copy to clipboard", action: { _ = copy() })
                     SnippetIconButton(symbol: "arrow.down.doc", help: "Insert snippet", action: { _ = insert() })
-                    SnippetIconButton(symbol: "trash", help: "Delete snippet", destructive: true, action: { isConfirmingDelete = true })
+                    SnippetIconButton(symbol: "trash", help: "Delete snippet", destructive: true, action: delete)
                 }
                 .frame(height: 30)
-                SnippetEditor(state: state)
-                if state.duplicateKeywords.isEmpty == false {
-                    Label(
-                        "Duplicate keywords: \(state.duplicateKeywords.joined(separator: ", ")). "
-                            + "Save is allowed, but auto-expansion is disabled until resolved.",
-                        systemImage: "exclamationmark.triangle"
-                    )
-                        .font(FoundryTheme.caption)
-                        .foregroundStyle(FoundryTheme.destructive)
-                        .lineLimit(2)
+                SnippetEditor(state: state, monospace: monospace)
+                if let duplicate = state.duplicateKeyword {
+                    InlineNotice(level: .warning,
+                        text: "“\(duplicate.keyword)” is used by \(duplicate.count) snippets. Rename one to turn expansion back on.")
                 }
-                HStack(spacing: 8) {
-                    Text(state.expansionAvailabilityMessage)
-                        .font(FoundryTheme.caption)
-                        .foregroundStyle(FoundryTheme.textQuaternary)
-                    Spacer()
-                    if let setExpansionEnabled {
-                        Toggle("Auto-expand", isOn: Binding(
-                            get: { expansionEnabled },
-                            set: { setExpansionEnabled($0) }
-                        ))
-                        .toggleStyle(.switch)
-                        .controlSize(.mini)
-                        .font(FoundryTheme.caption)
-                        .foregroundStyle(FoundryTheme.textSecondary)
-                        .accessibilityLabel("Auto-expand snippet keywords")
-                    }
+                if let expansionWarning {
+                    InlineNotice(level: .warning, text: expansionWarning, actionTitle: "Open Settings", action: openSnippetSettings)
                 }
             } else {
                 detailEmptyState
@@ -236,26 +192,7 @@ struct SnippetsView: View {
     }
 
     private var newSnippetButton: some View {
-        Button(action: state.newSnippet) {
-            HStack(spacing: 6) {
-                Image(systemName: "plus")
-                    .font(FoundryTheme.Glyph.xs)
-                Text("New Snippet")
-                    .font(FoundryTheme.body)
-            }
-            .foregroundStyle(FoundryTheme.textPrimary)
-            .padding(.horizontal, 14)
-            .frame(height: 32)
-            .background(
-                RoundedRectangle(cornerRadius: 9, style: .continuous)
-                    .fill(FoundryTheme.fillTint)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 9, style: .continuous)
-                            .strokeBorder(FoundryTheme.fillSelected, lineWidth: 1)
-                    )
-            )
-        }
-        .buttonStyle(PressableButtonStyle())
+        FoundryActionButton(title: String(localized: "New Snippet"), systemName: "plus", action: state.newSnippet)
     }
 
     private func tagChip(label: String, selected: Bool, action: @escaping () -> Void) -> some View {
@@ -274,14 +211,10 @@ struct SnippetsView: View {
         .accessibilityLabel("Filter by tag \(label)")
     }
 
-    private func snippetSubtitle(_ snippet: StoredSnippet) -> String {
-        let parts: [String?] = [
-            snippet.keyword.isEmpty ? nil : snippet.keyword,
-            snippet.tags.isEmpty ? nil : snippet.tags.map { "#\($0)" }.joined(separator: " "),
-            snippet.useCount > 0 ? "used \(snippet.useCount)×" : nil,
-            relativeDate(snippet.updatedAt)
-        ]
-        return parts.compactMap { $0 }.joined(separator: "  •  ")
+    static func firstLine(of content: String) -> String {
+        content.split(whereSeparator: \.isNewline).lazy
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .first { $0.isEmpty == false } ?? ""
     }
 }
 
@@ -289,9 +222,9 @@ private struct SnippetPanelSurface: ViewModifier {
     func body(content: Content) -> some View {
         content
             .background(FoundryTheme.fillHover)
-            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: FoundryTheme.Radius.popover, style: .continuous))
             .overlay(
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                RoundedRectangle(cornerRadius: FoundryTheme.Radius.popover, style: .continuous)
                     .strokeBorder(FoundryTheme.fillTint, lineWidth: 1)
             )
     }
@@ -321,18 +254,15 @@ private struct SnippetIconButton: View {
                 .foregroundStyle(foreground)
                 .frame(width: 30, height: 30)
                 .background(
-                    RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .fill(Color.primary.opacity(isHovering ? 0.09 : 0))
+                    RoundedRectangle(cornerRadius: FoundryTheme.Radius.control, style: .continuous)
+                        .fill(isHovering ? FoundryTheme.fillHover : .clear)
                 )
         }
         .buttonStyle(.plain)
         .help(help)
         .accessibilityLabel(help)
         .animation(reduceMotion ? nil : FoundryTheme.Motion.hover, value: isHovering)
-        .onHover { hovering in
-            isHovering = hovering
-
-        }
+        .onHover { isHovering = $0 }
     }
 }
 
@@ -346,8 +276,8 @@ private struct SnippetRow: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
-        HStack(spacing: 10) {
-            VStack(alignment: .leading, spacing: 3) {
+        HStack(spacing: 8) {
+            VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 6) {
                     Text(snippet.title.isEmpty ? "Untitled Snippet" : snippet.title)
                         .font(FoundryTheme.body)
@@ -367,28 +297,36 @@ private struct SnippetRow: View {
                 }
             }
             Spacer(minLength: 0)
+            if snippet.keyword.isEmpty == false {
+                Text(snippet.keyword)
+                    .font(FoundryTheme.mono)
+                    .foregroundStyle(FoundryTheme.textSecondary)
+                    .lineLimit(1)
+                    .padding(.horizontal, 6)
+                    .frame(height: 20)
+                    .background(FoundryTheme.fillTint, in: RoundedRectangle(cornerRadius: FoundryTheme.Radius.badge, style: .continuous))
+            }
         }
-        .padding(.horizontal, 11)
-        .frame(height: 48)
-        .background(RowBackground(isSelected: isSelected, isHovering: isHovering, cornerRadius: 10))
+        .padding(.horizontal, FoundryTheme.Spacing.sm)
+        .frame(height: 44)
+        .background(RowBackground(isSelected: isSelected, isHovering: isHovering))
         .contentShape(Rectangle())
         .accessibilityElement(children: .combine)
         .accessibilityLabel(snippet.title.isEmpty ? "Untitled Snippet" : snippet.title)
-        .accessibilityValue(isSelected ? "Selected" : subtitle)
+        .accessibilityValue(snippet.keyword.isEmpty ? subtitle : "\(subtitle), keyword \(snippet.keyword)")
         .accessibilityAddTraits(.isButton)
         .accessibilityAddTraits(isSelected ? .isSelected : [])
         .accessibilityHint("Select snippet")
         .onTapGesture(perform: select)
         .animation(reduceMotion ? nil : FoundryTheme.Motion.hover, value: isHovering)
-        .onHover { hovering in
-            isHovering = hovering
-
-        }
+        .onHover { isHovering = $0 }
     }
 }
 
-private struct SnippetEditor: View {
+struct SnippetEditor: View {
     var state: SnippetState
+    var monospace: Bool
+    @FocusState private var titleFocused: Bool
     @State private var title = ""
     @State private var keyword = ""
     @State private var tags = ""
@@ -398,6 +336,7 @@ private struct SnippetEditor: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             TextField("Snippet title", text: $title)
+                .focused($titleFocused)
                 .textFieldStyle(.plain)
                 .font(FoundryTheme.body)
                 .foregroundStyle(FoundryTheme.textPrimary)
@@ -419,11 +358,11 @@ private struct SnippetEditor: View {
                         .padding(.vertical, 12)
                         .allowsHitTesting(false)
                 }
-                SnippetTextEditor(text: $content, insertRequest: $insertRequest)
+                SnippetTextEditor(text: $content, insertRequest: $insertRequest, monospace: monospace)
                     .padding(.horizontal, 9)
                     .padding(.vertical, 5)
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .frame(maxWidth: .infinity, minHeight: 88, maxHeight: .infinity)
             .background(fieldBackground)
 
             HStack(spacing: 8) {
@@ -442,7 +381,7 @@ private struct SnippetEditor: View {
                     HStack(spacing: 6) {
                         Image(systemName: "curlybraces")
                             .font(FoundryTheme.Glyph.xs)
-                        Text("Insert placeholder")
+                        Text("Insert Placeholder")
                             .font(FoundryTheme.micro)
                         Image(systemName: "chevron.up.chevron.down")
                             .font(FoundryTheme.Glyph.xs)
@@ -462,27 +401,19 @@ private struct SnippetEditor: View {
                 .fixedSize()
                 .help("Insert a dynamic placeholder at the cursor")
 
-                Text("Dynamic values fill in when the snippet is pasted")
-                    .font(FoundryTheme.caption)
-                    .foregroundStyle(FoundryTheme.textQuaternary)
-                    .lineLimit(1)
-
                 Spacer(minLength: 8)
 
-                Text("\(content.count.formatted()) characters")
-                    .font(FoundryTheme.mono)
-                    .foregroundStyle(FoundryTheme.textQuaternary)
-                    .contentTransition(.numericText())
+                Text(footerDetail)
+                    .font(FoundryTheme.caption.monospacedDigit())
+                    .foregroundStyle(FoundryTheme.textTertiary)
+                    .lineLimit(1)
             }
             .padding(.leading, 2)
 
             let rendered = SnippetRenderer.render(content)
             if rendered.text != content {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("PREVIEW")
-                        .font(FoundryTheme.micro)
-                        .foregroundStyle(FoundryTheme.textQuaternary)
-                        .tracking(0.6)
+                    FoundrySectionHeader(title: String(localized: "Preview"))
                     Text(rendered.text)
                         .font(FoundryTheme.bodySecondary)
                         .foregroundStyle(FoundryTheme.textSecondary)
@@ -496,7 +427,10 @@ private struct SnippetEditor: View {
             }
         }
         .onAppear { sync() }
-        .onChange(of: state.selectedID) { _, _ in sync() }
+        .onChange(of: state.selectedID) { _, id in
+            sync()
+            if id != nil, id == state.freshSnippetID { titleFocused = true }
+        }
         .onChange(of: title) { _, _ in persist() }
         .onChange(of: keyword) { _, _ in persist() }
         .onChange(of: tags) { _, _ in persist() }
@@ -519,11 +453,31 @@ private struct SnippetEditor: View {
         .background(fieldBackground)
     }
 
+    private var footerDetail: String {
+        var parts = [String(localized: "\(content.count.formatted()) characters")]
+        if let selected = state.selectedItem {
+            parts.insert(Self.edited(selected.updatedAt), at: 0)
+            if selected.useCount > 0 { parts.insert(String(localized: "Used \(selected.useCount)×"), at: 0) }
+        }
+        return parts.joined(separator: " · ")
+    }
+
+    static func edited(_ date: Date, now: Date = .now) -> String {
+        guard now.timeIntervalSince(date) >= 60 else { return String(localized: "Edited just now") }
+        return String(localized: "Edited \(relative.localizedString(for: date, relativeTo: now))")
+    }
+
+    private static let relative: RelativeDateTimeFormatter = {
+        let formatter = RelativeDateTimeFormatter()
+        formatter.unitsStyle = .abbreviated
+        return formatter
+    }()
+
     private var fieldBackground: some View {
-        RoundedRectangle(cornerRadius: 10, style: .continuous)
+        RoundedRectangle(cornerRadius: FoundryTheme.Radius.row, style: .continuous)
             .fill(FoundryTheme.fillHover)
             .overlay(
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                RoundedRectangle(cornerRadius: FoundryTheme.Radius.row, style: .continuous)
                     .strokeBorder(FoundryTheme.fillTint, lineWidth: 1)
             )
     }
@@ -556,6 +510,11 @@ extension SnippetEditor {
 private struct SnippetTextEditor: NSViewRepresentable {
     @Binding var text: String
     @Binding var insertRequest: String?
+    var monospace: Bool
+
+    private var font: NSFont {
+        monospace ? .monospacedSystemFont(ofSize: 12, weight: .regular) : .systemFont(ofSize: 13)
+    }
 
     func makeCoordinator() -> Coordinator { Coordinator(text: $text) }
 
@@ -572,7 +531,7 @@ private struct SnippetTextEditor: NSViewRepresentable {
         textView.isAutomaticDashSubstitutionEnabled = false
         textView.isAutomaticTextReplacementEnabled = false
         textView.isAutomaticSpellingCorrectionEnabled = false
-        textView.font = NSFont.systemFont(ofSize: 13.5)
+        textView.font = font
         textView.textColor = NSColor.labelColor
         textView.insertionPointColor = NSColor.labelColor
         textView.drawsBackground = false
@@ -591,6 +550,7 @@ private struct SnippetTextEditor: NSViewRepresentable {
 
     func updateNSView(_ scrollView: NSScrollView, context: Context) {
         guard let textView = scrollView.documentView as? NSTextView else { return }
+        if textView.font != font { textView.font = font }
         if textView.string != text {
             let selection = textView.selectedRange()
             textView.string = text
@@ -618,16 +578,6 @@ private struct SnippetTextEditor: NSViewRepresentable {
     }
 }
 
-private func relativeDate(_ date: Date) -> String {
-    let seconds = max(0, Int(Date().timeIntervalSince(date)))
-    if seconds < 60 { return "now" }
-    let minutes = seconds / 60
-    if minutes < 60 { return "\(minutes)m ago" }
-    let hours = minutes / 60
-    if hours < 24 { return "\(hours)h ago" }
-    return "\(hours / 24)d ago"
-}
-
 struct SnippetArgumentPrompt: View {
     let names: [String]
     let onCancel: () -> Void
@@ -639,43 +589,50 @@ struct SnippetArgumentPrompt: View {
         ZStack {
             FoundryTheme.scrim
                 .onTapGesture(perform: onCancel)
-            VStack(alignment: .leading, spacing: 12) {
-                Text(names.count == 1 ? "One placeholder to fill in" : "\(names.count) placeholders to fill in")
-                    .font(FoundryTheme.body)
-                    .foregroundStyle(FoundryTheme.textPrimary)
-                ForEach(names, id: \.self) { name in
-                    TextField(name, text: binding(for: name))
-                        .textFieldStyle(.plain)
-                        .font(FoundryTheme.bodySecondary)
+            FoundryGlassSurface(role: .floatingOverlay, shape: RoundedRectangle(cornerRadius: FoundryTheme.Radius.popover, style: .continuous)) {
+                VStack(alignment: .leading, spacing: 10) {
+                    Text(names.count == 1 ? "One placeholder to fill in" : "\(names.count) placeholders to fill in")
+                        .font(FoundryTheme.body)
                         .foregroundStyle(FoundryTheme.textPrimary)
-                        .padding(.horizontal, 13)
-                        .frame(height: 36)
-                        .background(
-                            RoundedRectangle(cornerRadius: 9, style: .continuous)
-                                .fill(FoundryTheme.fillHover)
-                        )
-                        .focused($focused, equals: name)
-                        .onSubmit(submit)
-                }
-                HStack {
-                    Button("Cancel", action: onCancel)
-                        .keyboardShortcut(.cancelAction)
-                    Spacer()
-                    Button("Insert", action: submit)
+                    ForEach(names, id: \.self) { name in
+                        TextField(name, text: binding(for: name))
+                            .textFieldStyle(.plain)
+                            .font(FoundryTheme.bodySecondary)
+                            .foregroundStyle(FoundryTheme.textPrimary)
+                            .padding(.horizontal, 12)
+                            .frame(height: 32)
+                            .background(FoundryTheme.fillHover, in: RoundedRectangle(cornerRadius: FoundryTheme.Radius.control, style: .continuous))
+                            .focused($focused, equals: name)
+                            .onSubmit(submit)
+                    }
+                    HStack(spacing: 8) {
+                        Button(action: onCancel) {
+                            Text("Cancel")
+                                .font(FoundryTheme.bodySecondary)
+                                .foregroundStyle(FoundryTheme.textSecondary)
+                                .padding(.horizontal, 10)
+                                .frame(height: 26)
+                                .contentShape(.rect)
+                        }
+                        .buttonStyle(FoundryQuietButtonStyle())
+                        Spacer()
+                        Button(action: submit) {
+                            Text("Insert")
+                                .font(FoundryTheme.body)
+                                .foregroundStyle(FoundryTheme.textPrimary)
+                                .padding(.horizontal, 13)
+                                .frame(height: FoundryTheme.Control.compact)
+                                .background(FoundryTheme.fillTint, in: RoundedRectangle(cornerRadius: FoundryTheme.Radius.control, style: .continuous))
+                                .contentShape(.rect)
+                        }
+                        .buttonStyle(PressableButtonStyle())
                         .keyboardShortcut(.defaultAction)
+                    }
                 }
-                .buttonStyle(PressableButtonStyle())
+                .padding(16)
+                .frame(width: 340)
             }
-            .padding(18)
-            .frame(width: 320)
-            .background(
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .fill(Color(nsColor: .windowBackgroundColor))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 14, style: .continuous)
-                            .strokeBorder(FoundryTheme.fillSelected, lineWidth: 1)
-                    )
-            )
+            .shadow(color: FoundryTheme.shadow, radius: 24, y: 10)
         }
         .onAppear { focused = names.first }
     }

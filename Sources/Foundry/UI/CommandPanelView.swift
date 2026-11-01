@@ -417,12 +417,12 @@ struct CommandPanelView: View {
             }, pause: state.settings.setClipboardPaused)
         case .snippets:
             ZStack {
-                SnippetsView(state: state.snippets, expansionEnabled: state.settings.snippetExpansion.isEnabled,
-                    setExpansionEnabled: { state.settings.setSnippetExpansionEnabled($0) }, insert: {
+                SnippetsView(state: state.snippets, expansionWarning: state.snippetExpansionWarning,
+                    openSnippetSettings: { state.presentSettings(.snippets) }, insert: {
                     guard state.insertOrCopySelectedSnippet() else { return false }
                     dismiss()
                     return true
-                }, copy: state.copySelectedSnippet)
+                }, copy: state.copySelectedSnippet, delete: state.confirmDeleteSnippet)
                 if let request = state.pendingSnippetArguments {
                     SnippetArgumentPrompt(
                         names: request.names,

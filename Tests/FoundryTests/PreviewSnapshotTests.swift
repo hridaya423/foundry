@@ -43,6 +43,24 @@ final class PreviewSnapshotTests: XCTestCase {
         paused.isPaused = true
         clipboard.updateConfiguration(paused)
         try render(ClipboardHistoryView(state: clipboard), name: "clipboard-paused", appearance: .aqua)
+
+        let snippetStore = FileSnippetStore(url: FileManager.default.temporaryDirectory.appendingPathComponent("snap-snippets-\(UUID()).json"))
+        try snippetStore.save([
+            StoredSnippet(id: "a", title: "Address", content: "1 Infinite Loop\nCupertino, CA", keyword: ";addr", useCount: 4),
+            StoredSnippet(id: "b", title: "Sign-off", content: "Thanks,\n{argument name=\"name\"}", keyword: ";sig", useCount: 2),
+            StoredSnippet(id: "c", title: "Old sign-off", content: "Cheers", keyword: ";sig"),
+        ]).get()
+        let snippets = SnippetState(store: snippetStore)
+        snippets.load()
+        snippets.select(id: "b")
+        for appearance in [NSAppearance.Name.aqua, .darkAqua] {
+            try render(SnippetsView(state: snippets, expansionWarning: "Keywords won’t expand. Allow Accessibility in Settings › Snippets.",
+                insert: { false }, copy: { false }), name: "snippets-editor", appearance: appearance)
+            try render(ZStack {
+                SnippetsView(state: snippets, insert: { false }, copy: { false })
+                SnippetArgumentPrompt(names: ["name"], onCancel: {}, onSubmit: { _ in })
+            }, name: "snippets-argument", appearance: appearance)
+        }
     }
 
     /// 5.2 row anatomy: 40pt single-line rows, 24pt icons, inline subtitle,

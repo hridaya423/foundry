@@ -12,6 +12,34 @@ final class SnippetStateTests: XCTestCase {
         return state
     }
 
+    func testDuplicateKeywordWarningNamesTheSelectedSnippetsClashFirst() {
+        let state = makeState([
+            StoredSnippet(id: "a", title: "A", content: "1", keyword: ";addr"),
+            StoredSnippet(id: "b", title: "B", content: "2", keyword: ";addr"),
+            StoredSnippet(id: "c", title: "C", content: "3", keyword: ";sig"),
+            StoredSnippet(id: "d", title: "D", content: "4", keyword: ";sig"),
+            StoredSnippet(id: "e", title: "E", content: "5", keyword: ";sig"),
+        ])
+        state.select(id: "c")
+        XCTAssertEqual(state.duplicateKeyword?.keyword, ";sig")
+        XCTAssertEqual(state.duplicateKeyword?.count, 3)
+        state.select(id: "a")
+        XCTAssertEqual(state.duplicateKeyword?.keyword, ";addr")
+        XCTAssertNil(makeState([StoredSnippet(id: "x", title: "X", content: "", keyword: ";x")]).duplicateKeyword)
+    }
+
+    func testEditedLabelSaysJustNowInsteadOfSeconds() {
+        let now = Date(timeIntervalSince1970: 10_000)
+        XCTAssertEqual(SnippetEditor.edited(now.addingTimeInterval(1), now: now), "Edited just now")
+        XCTAssertEqual(SnippetEditor.edited(now.addingTimeInterval(-30), now: now), "Edited just now")
+        XCTAssertTrue(SnippetEditor.edited(now.addingTimeInterval(-7_200), now: now).hasPrefix("Edited 2"))
+    }
+
+    func testRowSubtitleIsTheFirstNonBlankLine() {
+        XCTAssertEqual(SnippetsView.firstLine(of: "\n  Dear team,\nThanks"), "Dear team,")
+        XCTAssertEqual(SnippetsView.firstLine(of: ""), "")
+    }
+
     func testBrowsingASnippetDoesNotChangeItOrMoveIt() {
         let old = Date(timeIntervalSince1970: 1_000)
         let state = makeState([

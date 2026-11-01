@@ -43,6 +43,8 @@ struct SettingsView: View {
         case .ai:
             category = .ai
             pendingAnchor = "ai.provider"
+        case .snippets:
+            category = .snippets
         case let .command(id, title):
             category = .commands
             state.settings.prepareCommandCatalog()

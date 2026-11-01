@@ -85,19 +85,20 @@ final class SnippetState {
         return sortedItems
     }
 
+    private(set) var freshSnippetID: String?
     var selectedItem: StoredSnippet? {
         visibleItems.first { $0.id == selectedID } ?? visibleItems.first
     }
 
-    var duplicateKeywords: [String] {
-        Dictionary(grouping: items.filter { !$0.keyword.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty },
-            by: { $0.keyword.trimmingCharacters(in: .whitespacesAndNewlines) })
-            .filter { $0.value.count > 1 }
-            .keys.sorted()
-    }
-
-    var expansionAvailabilityMessage: String {
-        "Auto-expansion is unavailable in secure fields and excluded apps."
+    /// The duplicated keyword to warn about: the selected snippet's when it
+    /// clashes, otherwise the first clash in the library.
+    var duplicateKeyword: (keyword: String, count: Int)? {
+        let counts = Dictionary(grouping: items.map { $0.keyword.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { $0.isEmpty == false },
+            by: { $0 }).mapValues(\.count).filter { $0.value > 1 }
+        let selected = selectedItem?.keyword.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let keyword = selected.flatMap({ counts[$0] == nil ? nil : $0 }) ?? counts.keys.sorted().first,
+              let count = counts[keyword] else { return nil }
+        return (keyword, count)
     }
 
     func load() {
@@ -122,6 +123,7 @@ final class SnippetState {
     func newSnippet() {
         let snippet = StoredSnippet(title: "Untitled Snippet")
         items.insert(snippet, at: 0)
+        freshSnippetID = snippet.id
         selectedID = snippet.id
         persist()
     }
