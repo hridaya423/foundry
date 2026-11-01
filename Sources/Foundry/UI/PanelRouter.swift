@@ -221,6 +221,9 @@ final class PanelRouter {
             panel.session.query = ""
             return true
         }
+        if panel.feature(for: mode)?.clearFilter() == true {
+            return true
+        }
         showHome()
         return true
     }

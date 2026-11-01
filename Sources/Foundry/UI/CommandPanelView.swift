@@ -471,7 +471,8 @@ struct CommandPanelView: View {
             },
             onReturn: {
                 executeSelectedResult()
-            }
+            },
+            onJump: { state.moveSelection($0) }
         )
         .frame(maxWidth: .infinity, alignment: .leading)
         .focused($inputFocused)
@@ -665,7 +666,7 @@ struct CommandPanelView: View {
 
                     if isHome {
                         if state.session.favoriteResults.isEmpty == false {
-                            FavoritesRow(results: state.session.favoriteResults, onSelect: execute)
+                            FavoritesRow(results: state.session.favoriteResults, showsShortcuts: state.session.isCommandHeld, onSelect: execute)
                                 .padding(.bottom, 14)
                         }
 

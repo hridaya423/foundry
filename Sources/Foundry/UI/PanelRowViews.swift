@@ -68,22 +68,25 @@ struct HomeSectionHeader: View {
 
 struct FavoritesRow: View {
     let results: [CommandResult]
+    let showsShortcuts: Bool
     let onSelect: (CommandResult) -> Void
 
     var body: some View {
         HStack(spacing: 4) {
-            ForEach(results.prefix(8), id: \.id) { result in
-                FavoriteTile(result: result) {
+            ForEach(Array(results.prefix(8).enumerated()), id: \.element.id) { index, result in
+                FavoriteTile(result: result, shortcut: showsShortcuts ? "⌘\(index + 1)" : nil) {
                     onSelect(result)
                 }
             }
         }
+        .animation(FoundryTheme.Motion.hover, value: showsShortcuts)
         .padding(.horizontal, 2)
     }
 }
 
 private struct FavoriteTile: View {
     let result: CommandResult
+    let shortcut: String?
     let action: () -> Void
 
     @State private var isHovering = false
@@ -92,10 +95,16 @@ private struct FavoriteTile: View {
         Button(action: action) {
             VStack(spacing: 5) {
                 AppIcon(icon: result.icon, size: 30, cornerRadius: 8)
-                Text(result.title)
-                    .font(FoundryTheme.caption)
-                    .foregroundStyle(FoundryTheme.textSecondary)
-                    .lineLimit(1)
+                ZStack {
+                    Text(result.title)
+                        .lineLimit(1)
+                        .opacity(shortcut == nil ? 1 : 0)
+                    Text(shortcut ?? "")
+                        .monospacedDigit()
+                        .opacity(shortcut == nil ? 0 : 1)
+                }
+                .font(FoundryTheme.caption)
+                .foregroundStyle(FoundryTheme.textSecondary)
             }
             .frame(maxWidth: .infinity)
             .padding(.vertical, 8)

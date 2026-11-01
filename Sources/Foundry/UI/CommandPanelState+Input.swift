@@ -14,7 +14,14 @@ extension CommandPanelState {
     }
 
     func performModeShortcut(_ shortcut: ActionShortcut, dismiss: @escaping @MainActor () -> Void) -> Bool {
+        if shortcut.modifiers == [.control], let offset = ["n": 1, "p": -1][shortcut.key] {
+            moveSelection(offset: offset)
+            return true
+        }
         guard shortcut.modifiers == [.command] || shortcut.modifiers == [.shift, .command] else { return false }
+        if mode == .search, shortcut.modifiers == [.command], let digit = Int(shortcut.key) {
+            return openFavorite(at: digit - 1, dismiss: dismiss)
+        }
         if mode == .search {
             guard shortcut.key == "y",
                   case let .file(url)? = session.selectedResult?.payload else { return false }
@@ -53,6 +60,32 @@ extension CommandPanelState {
         }
         guard let feature = feature(for: mode) else { return false }
         feature.pasteText(text)
+        return true
+    }
+
+    enum SelectionJump {
+        case first, last, pageUp, pageDown
+    }
+
+    func moveSelection(_ jump: SelectionJump) {
+        let page = 7
+        let far = max(session.navigableResults.count, 10_000)
+        switch jump {
+        case .first: moveSelection(offset: -far)
+        case .last: moveSelection(offset: far)
+        case .pageUp: moveSelection(offset: -page)
+        case .pageDown: moveSelection(offset: page)
+        }
+    }
+
+    private func openFavorite(at index: Int, dismiss: @escaping @MainActor () -> Void) -> Bool {
+        guard session.query.isEmpty, session.isShowingActions == false, (0..<8).contains(index),
+              session.favoriteResults.indices.contains(index) else { return false }
+        let favorite = session.favoriteResults[index]
+        session.selectedResultID = favorite.id
+        Task { @MainActor in
+            if await executeResult(favorite).shouldDismissPanel { dismiss() }
+        }
         return true
     }
 

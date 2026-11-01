@@ -247,6 +247,9 @@ final class PanelController: NSObject, NSWindowDelegate {
         panel.onCommandV = { [weak self] in
             self?.state.pasteFromClipboard() ?? false
         }
+        panel.onCommandHeld = { [weak self] held in
+            self?.state.session.isCommandHeld = held
+        }
         panel.onEscape = { [weak self] in
             guard let self else { return }
             if self.state.handleEscape() == false {
@@ -330,6 +333,7 @@ final class FoundryPanel: NSPanel {
     var onEscape: (() -> Void)?
     var onMouseMoved: (() -> Void)?
     var onKeyDown: (() -> Void)?
+    var onCommandHeld: ((Bool) -> Void)?
     /// Returns true when Space toggled Quick Look — swallow the event so
     /// it never lands in the query field.
     var onSpace: (() -> Bool)?
@@ -342,6 +346,8 @@ final class FoundryPanel: NSPanel {
         switch event.type {
         case .mouseMoved:
             onMouseMoved?()
+        case .flagsChanged:
+            onCommandHeld?(event.modifierFlags.intersection(.deviceIndependentFlagsMask) == .command)
         case .keyDown:
             onKeyDown?()
             // Space previews the selected file — handled here, before the

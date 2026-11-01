@@ -21,6 +21,8 @@ protocol PanelFeature {
 
     /// ⌘V text from the clipboard into the feature's query/source field.
     func pasteText(_ text: String)
+
+    func clearFilter() -> Bool
 }
 
 extension PanelFeature {
@@ -33,6 +35,8 @@ extension PanelFeature {
     func handleMove(_ offset: Int) {}
 
     func pasteText(_ text: String) {}
+
+    func clearFilter() -> Bool { false }
 }
 
 extension CommandPanelState {
@@ -100,6 +104,12 @@ extension DeveloperToolsState: PanelFeature {
 }
 
 extension SnippetState: PanelFeature {
+    func clearFilter() -> Bool {
+        guard query.isEmpty == false else { return false }
+        query = ""
+        return true
+    }
+
     func handleMove(_ offset: Int) {
         moveSelection(offset: offset)
     }
@@ -149,6 +159,12 @@ extension TranslatorState: PanelFeature {
 }
 
 extension EmojiPickerState: PanelFeature {
+    func clearFilter() -> Bool {
+        guard query.isEmpty == false else { return false }
+        query = ""
+        return true
+    }
+
     func handleModeShortcut(
         _ shortcut: ActionShortcut,
         panel: CommandPanelState,
@@ -175,6 +191,12 @@ extension EmojiPickerState: PanelFeature {
 }
 
 extension ClipboardHistoryState: PanelFeature {
+    func clearFilter() -> Bool {
+        guard query.isEmpty == false else { return false }
+        query = ""
+        return true
+    }
+
     func handleMove(_ offset: Int) {
         moveSelection(offset: offset)
     }

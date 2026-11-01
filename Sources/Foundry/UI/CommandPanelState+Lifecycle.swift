@@ -44,6 +44,7 @@ extension CommandPanelState {
         detachActiveAction()
         cancelPrompt()
         isPanelOpen = false
+        session.isCommandHeld = false
         lastClosedAt = now()
         session.homeRefreshID = UUID()
         session.isSearchLoading = false

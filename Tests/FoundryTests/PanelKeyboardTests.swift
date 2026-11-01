@@ -76,11 +76,57 @@ final class PanelKeyboardTests: XCTestCase {
         state.shutdown()
     }
 
-    func testEscapeInFeatureModeGoesHome() {
+    func testEscapeClearsFeatureFilterBeforeGoingHome() {
         let state = makeState()
-        state.mode = .snippets
+        state.mode = .clipboardHistory
+        state.clipboardHistory.query = "a"
+        XCTAssertTrue(state.handleEscape())
+        XCTAssertEqual(state.mode, .clipboardHistory)
+        XCTAssertEqual(state.clipboardHistory.query, "")
         XCTAssertTrue(state.handleEscape())
         XCTAssertEqual(state.mode, .search)
+        state.shutdown()
+    }
+
+    private func listState(count: Int) -> CommandPanelState {
+        let state = makeState()
+        state.session.query = "x"
+        state.session.results = (0..<count).map { result("test.r\($0)") }
+        state.session.selectedResultID = "test.r0"
+        return state
+    }
+
+    func testControlNAndPMoveSelection() {
+        let state = listState(count: 3)
+        XCTAssertTrue(state.performModeShortcut(ActionShortcut(key: "n", modifiers: [.control]), dismiss: {}))
+        XCTAssertEqual(state.session.selectedResultID, "test.r1")
+        XCTAssertTrue(state.performModeShortcut(ActionShortcut(key: "p", modifiers: [.control]), dismiss: {}))
+        XCTAssertEqual(state.session.selectedResultID, "test.r0")
+        state.shutdown()
+    }
+
+    func testCommandArrowsJumpToEndsAndPagesMoveSeven() {
+        let state = listState(count: 20)
+        state.moveSelection(.last)
+        XCTAssertEqual(state.session.selectedResultID, "test.r19")
+        state.moveSelection(.first)
+        XCTAssertEqual(state.session.selectedResultID, "test.r0")
+        state.moveSelection(.pageDown)
+        XCTAssertEqual(state.session.selectedResultID, "test.r7")
+        state.moveSelection(.pageUp)
+        XCTAssertEqual(state.session.selectedResultID, "test.r0")
+        state.shutdown()
+    }
+
+    func testCommandDigitOpensFavorite() {
+        let state = makeState()
+        let favorites = (0..<3).map { result("test.fav\($0)") }
+        state.session.favoriteResults = favorites
+        XCTAssertTrue(state.performModeShortcut(ActionShortcut(key: "3", modifiers: [.command]), dismiss: {}))
+        XCTAssertEqual(state.session.selectedResultID, "test.fav2")
+        XCTAssertFalse(state.performModeShortcut(ActionShortcut(key: "4", modifiers: [.command]), dismiss: {}))
+        state.session.query = "x"
+        XCTAssertFalse(state.performModeShortcut(ActionShortcut(key: "1", modifiers: [.command]), dismiss: {}))
         state.shutdown()
     }
 

@@ -95,6 +95,7 @@ struct LauncherSearchField: NSViewRepresentable {
     let placeholder: String
     let onTab: () -> Void
     let onReturn: () -> Void
+    var onJump: (CommandPanelState.SelectionJump) -> Void = { _ in }
 
     func makeNSView(context: Context) -> LauncherSearchTextField {
         let field = LauncherSearchTextField()
@@ -124,16 +125,20 @@ struct LauncherSearchField: NSViewRepresentable {
         context.coordinator.text = $text
         context.coordinator.onTab = onTab
         context.coordinator.onReturn = onReturn
+        context.coordinator.onJump = onJump
     }
 
     func makeCoordinator() -> Coordinator {
-        Coordinator(text: $text, onTab: onTab, onReturn: onReturn)
+        let coordinator = Coordinator(text: $text, onTab: onTab, onReturn: onReturn)
+        coordinator.onJump = onJump
+        return coordinator
     }
 
     final class Coordinator: NSObject, NSTextFieldDelegate {
         var text: Binding<String>
         var onTab: (() -> Void)?
         var onReturn: (() -> Void)?
+        var onJump: ((CommandPanelState.SelectionJump) -> Void)?
 
         init(text: Binding<String>, onTab: (() -> Void)? = nil, onReturn: (() -> Void)? = nil) {
             self.text = text
@@ -152,6 +157,18 @@ struct LauncherSearchField: NSViewRepresentable {
                 onTab?()
                 return true
             case #selector(NSResponder.insertBacktab(_:)):
+                return true
+            case #selector(NSResponder.moveToBeginningOfDocument(_:)):
+                onJump?(.first)
+                return true
+            case #selector(NSResponder.moveToEndOfDocument(_:)):
+                onJump?(.last)
+                return true
+            case #selector(NSResponder.pageUp(_:)), #selector(NSResponder.scrollPageUp(_:)):
+                onJump?(.pageUp)
+                return true
+            case #selector(NSResponder.pageDown(_:)), #selector(NSResponder.scrollPageDown(_:)):
+                onJump?(.pageDown)
                 return true
             case #selector(NSResponder.insertNewline(_:)), #selector(NSResponder.insertNewlineIgnoringFieldEditor(_:)):
                 onReturn?()

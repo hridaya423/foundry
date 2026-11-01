@@ -56,6 +56,7 @@ final class PanelSession {
     var homeRefreshID = UUID()
     private var searchKeySpan: DiagnosticsService.Span?
     var favoriteResults: [CommandResult] = []
+    var isCommandHeld = false
     private(set) var runningAppBundleIDs: Set<String> = []
 
     let registry: CommandRegistry
