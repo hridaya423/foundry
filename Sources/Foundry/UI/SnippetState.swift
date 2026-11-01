@@ -140,6 +140,17 @@ final class SnippetState {
         schedulePersist()
     }
 
+    func duplicateSelected() {
+        guard let selectedItem else { return }
+        var copy = StoredSnippet(title: String(localized: "\(selectedItem.title) copy"), content: selectedItem.content, tags: selectedItem.tags)
+        copy.keyword = ""
+        items.insert(copy, at: 0)
+        items = sorted(items)
+        invalidateVisibleItems()
+        selectedID = copy.id
+        persist()
+    }
+
     func togglePinnedSelected() {
         guard let selectedID, let index = items.firstIndex(where: { $0.id == selectedID }) else { return }
         items[index].isPinned.toggle()

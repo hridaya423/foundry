@@ -179,6 +179,27 @@ final class PreviewSnapshotTests: XCTestCase {
         state.shutdown()
     }
 
+    func testRenderClipboardActions() throws {
+        guard let dir = ProcessInfo.processInfo.environment["FOUNDRY_QA_SNAPSHOT_DIR"] else { throw XCTSkip("snapshot dir not set") }
+        let pasteboard = TestClipboardPasteboard()
+        let diagnostics = DiagnosticsService()
+        let config = ConfigService(diagnostics: diagnostics, url: FileManager.default.temporaryDirectory.appendingPathComponent("snap-\(UUID()).json"))
+        let clipboard = ClipboardHistoryState(pasteboard: pasteboard, persistence: nil, configuration: config.current.clipboard)
+        let registry = CommandRegistry(providers: [], usageRanking: UsageRankingStore(diagnostics: diagnostics), diagnostics: diagnostics, configService: config)
+        let state = CommandPanelState(registry: registry, actionRunner: ActionRunner(diagnostics: diagnostics), diagnostics: diagnostics,
+            config: config, clipboardHistory: clipboard)
+        for text in ["Meeting notes for Thursday", "https://foundry.app/download"] {
+            pasteboard.snapshotValue = PasteboardSnapshot(types: [.string], payload: .text(text), sourceBundleIdentifier: "com.apple.Safari")
+            pasteboard.changeCountValue += 1
+            clipboard.captureIfChanged()
+        }
+        clipboard.select(id: clipboard.visibleItems[0].id)
+        state.mode = .clipboardHistory
+        state.toggleActions {}
+        try renderPanel(state, named: "clipboard-actions", dir: dir)
+        state.shutdown()
+    }
+
     private func renderPanel(_ state: CommandPanelState, named prefix: String, dir: String) throws {
         for appearance in [NSAppearance.Name.aqua, .darkAqua] {
             let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 736, height: 474), styleMask: [.titled, .fullSizeContentView], backing: .buffered, defer: false)

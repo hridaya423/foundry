@@ -287,11 +287,7 @@ private struct ClipboardPreviewPane: View {
     }
 
     private func linkURL(in value: String) -> URL? {
-        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard trimmed.contains(" ") == false, trimmed.count > 6,
-              let url = URL(string: trimmed), let scheme = url.scheme?.lowercased(),
-              scheme == "http" || scheme == "https", url.host?.contains(".") == true else { return nil }
-        return url
+        ClipboardHistoryState.linkURL(in: value)
     }
 
     @ViewBuilder

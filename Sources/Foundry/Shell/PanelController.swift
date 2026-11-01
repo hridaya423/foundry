@@ -233,8 +233,12 @@ final class PanelController: NSObject, NSWindowDelegate {
         panel.hasShadow = true
         panel.titleVisibility = .hidden
         panel.titlebarAppearsTransparent = true
+        panel.onReturn = { [weak self] in
+            guard let state = self?.state else { return false }
+            return state.runSelectedFeatureAction() || state.runPrimaryFeatureAction()
+        }
         panel.onCommandK = { [weak self] in
-            self?.state.session.toggleActions()
+            self?.state.toggleActions { [weak self] in self?.hide(reason: .executed) }
         }
         panel.onActionShortcut = { [weak self] shortcut in
             guard let self else { return false }
@@ -333,6 +337,7 @@ final class FoundryPanel: NSPanel {
     var onEscape: (() -> Void)?
     var onMouseMoved: (() -> Void)?
     var onKeyDown: (() -> Void)?
+    var onReturn: (() -> Bool)?
     var onCommandHeld: ((Bool) -> Void)?
     /// Returns true when Space toggled Quick Look — swallow the event so
     /// it never lands in the query field.
@@ -402,6 +407,10 @@ final class FoundryPanel: NSPanel {
     override func keyDown(with event: NSEvent) {
         if event.keyCode == 53 {
             onEscape?()
+            return
+        }
+
+        if event.keyCode == 36, onReturn?() == true {
             return
         }
 

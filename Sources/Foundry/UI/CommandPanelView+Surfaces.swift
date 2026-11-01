@@ -59,8 +59,8 @@ extension CommandPanelView {
 
     var actionsSurface: some View {
         VStack(spacing: 0) {
-            if let selectedResult = state.session.selectedResult {
-                Text(selectedResult.title)
+            if let title = state.session.featureActionsTitle ?? state.session.selectedResult?.title {
+                Text(title)
                     .font(FoundryTheme.bodySecondary)
                     .foregroundStyle(FoundryTheme.textSecondary)
                     .lineLimit(1)

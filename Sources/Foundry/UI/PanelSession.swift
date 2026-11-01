@@ -35,9 +35,11 @@ final class PanelSession {
     var isShowingActions = false {
         didSet {
             if isShowingActions { prepareOpenWithActions() }
-            else { openWithTask?.cancel(); openWithActions = [] }
+            else { openWithTask?.cancel(); openWithActions = []; featureActions = nil; featureActionsTitle = nil }
         }
     }
+    var featureActions: [CommandAction]?
+    var featureActionsTitle: String?
     var actionFilter = "" {
         didSet { if isShowingActions { selectedActionID = visibleActions.first?.id } }
     }
@@ -207,6 +209,7 @@ final class PanelSession {
     }
 
     var selectedActions: [CommandAction] {
+        if let featureActions { return featureActions }
         guard let selectedResult else { return [] }
         let isFavorite = commandPreferences[selectedResult.id]?.favoriteRank != nil
         let metaActions = supportsMetaActions(selectedResult)
@@ -274,7 +277,10 @@ final class PanelSession {
     }
 
     var actionShortcuts: [String: ActionShortcut] {
-        ActionShortcut.assign(to: selectedActions)
+        if let featureActions {
+            return Dictionary(uniqueKeysWithValues: featureActions.compactMap { action in action.behavior.shortcut.map { (action.id, $0) } })
+        }
+        return ActionShortcut.assign(to: selectedActions)
     }
 
     func orderedActions(for result: CommandResult) -> [CommandAction] {

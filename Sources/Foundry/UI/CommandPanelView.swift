@@ -304,18 +304,17 @@ struct CommandPanelView: View {
             (id: "camera", actions: [.home])
         case .fileShelf:
             (id: "shelf",
-             actions: [.init(label: "Remove", keys: "⌫"), .home])
+             actions: [.init(label: "Open", keys: "↵", emphasized: true), .actions])
         case .clipboardHistory:
             (id: "clipboard",
              actions: [
                 .init(label: "Paste", keys: "↵", emphasized: true),
                 .init(label: "Copy", keys: "⌘↵"),
-                .init(label: "Pin", keys: "⌘P"),
-                .home,
+                .actions,
              ])
         case .snippets:
             (id: "snippets",
-             actions: [.init(label: "Insert", keys: "↵", emphasized: true), .init(label: "Copy", keys: "⌘↵"), .home])
+             actions: [.init(label: "Insert", keys: "↵", emphasized: true), .init(label: "Copy", keys: "⌘↵"), .actions])
         case .translator:
             (id: "translator",
              actions: [.init(label: "Replace", keys: "⌘↵", emphasized: true), .init(label: "Copy", keys: "⇧⌘C"),
@@ -473,7 +472,9 @@ struct CommandPanelView: View {
             .font(FoundryTheme.title)
             .foregroundStyle(FoundryTheme.textPrimary)
             .focused($inputFocused)
-            .onSubmit(onSubmit)
+            .onSubmit {
+                if state.runSelectedFeatureAction() == false { onSubmit() }
+            }
     }
 
     private var searchField: some View {

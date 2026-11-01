@@ -59,7 +59,8 @@ final class PanelKeyboardTests: XCTestCase {
             registry: registry,
             actionRunner: ActionRunner(diagnostics: diagnostics),
             diagnostics: diagnostics,
-            config: config
+            config: config,
+            snippetStore: FileSnippetStore(url: FileManager.default.temporaryDirectory.appendingPathComponent("foundry-kbd-snippets-\(UUID().uuidString).json"))
         )
     }
 
@@ -136,6 +137,56 @@ final class PanelKeyboardTests: XCTestCase {
         state.session.announce = { heard.append($0) }
         state.moveSelectionDown()
         XCTAssertEqual(heard, ["Result, 2 of 3"])
+        state.shutdown()
+    }
+
+    func testCommandKOpensActionsInClipboardMode() {
+        let pasteboard = TestClipboardPasteboard()
+        let diagnostics = DiagnosticsService()
+        let config = ConfigService(diagnostics: diagnostics,
+            url: FileManager.default.temporaryDirectory.appendingPathComponent("foundry-kbd-\(UUID().uuidString).json"))
+        let clipboard = ClipboardHistoryState(pasteboard: pasteboard, persistence: nil, configuration: config.current.clipboard)
+        let registry = CommandRegistry(providers: [], usageRanking: UsageRankingStore(diagnostics: diagnostics), diagnostics: diagnostics,
+            configService: config)
+        let state = CommandPanelState(registry: registry, actionRunner: ActionRunner(diagnostics: diagnostics), diagnostics: diagnostics,
+            config: config, clipboardHistory: clipboard)
+        let item = ClipboardHistoryItem(payload: .text("https://foundry.app"))
+        pasteboard.snapshotValue = PasteboardSnapshot(types: [.string], payload: item.payload, sourceBundleIdentifier: "com.example")
+        pasteboard.changeCountValue += 1
+        clipboard.captureIfChanged()
+        clipboard.select(id: clipboard.visibleItems[0].id)
+        state.mode = .clipboardHistory
+
+        state.toggleActions {}
+        XCTAssertTrue(state.session.isShowingActions)
+        XCTAssertEqual(state.session.selectedActions.map(\.title),
+            ["Paste", "Copy", "Open Link", "Pin", "Remove", "Clear History…"])
+        XCTAssertEqual(state.session.actionShortcuts["feature.copy"]?.display, "⌘↵")
+        XCTAssertEqual(state.session.actionShortcuts["feature.clear"]?.display, "⇧⌘⌫")
+
+        state.moveSelectionDown()
+        XCTAssertEqual(state.session.selectedActionID, "feature.copy")
+        XCTAssertEqual(clipboard.selectedItem?.id, clipboard.visibleItems[0].id, "arrows move the action list, not the history")
+
+        XCTAssertTrue(state.handleEscape())
+        XCTAssertFalse(state.session.isShowingActions)
+        XCTAssertNil(state.session.featureActions)
+        XCTAssertEqual(state.mode, .clipboardHistory)
+        state.shutdown()
+    }
+
+    func testSnippetActionsListInsertFirstAndDeleteLast() {
+        let state = makeState()
+        state.snippets.newSnippet()
+        state.mode = .snippets
+        state.toggleActions {}
+        let titles = state.session.selectedActions.map(\.title)
+        XCTAssertEqual(titles.first, "Insert")
+        XCTAssertEqual(titles.last, "Delete…")
+        XCTAssertTrue(titles.contains("Duplicate"))
+        let before = state.snippets.items.count
+        XCTAssertTrue(state.performModeShortcut(ActionShortcut(key: "d", modifiers: [.command]), dismiss: {}))
+        XCTAssertEqual(state.snippets.items.count, before + 1)
         state.shutdown()
     }
 

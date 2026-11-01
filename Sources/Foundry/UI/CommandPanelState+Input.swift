@@ -28,7 +28,13 @@ extension CommandPanelState {
             shell?.quickLook(url)
             return true
         }
-        return feature(for: mode)?.handleModeShortcut(shortcut, panel: self, dismiss: dismiss) ?? false
+        if feature(for: mode)?.handleModeShortcut(shortcut, panel: self, dismiss: dismiss) == true { return true }
+        let sendableDismiss: @MainActor @Sendable () -> Void = { dismiss() }
+        guard let action = featureActions(dismiss: sendableDismiss)?.actions.first(where: { $0.behavior.shortcut == shortcut }),
+              let run = (action.behavior as? PanelClosureAction)?.run else { return false }
+        session.isShowingActions = false
+        run()
+        return true
     }
 
     @discardableResult
@@ -98,6 +104,7 @@ extension CommandPanelState {
     }
 
     private func moveSelection(offset: Int) {
+        if session.featureActions != nil { return session.moveSelection(offset: offset) }
         switch mode {
         case .fileConversion, .camera, .translator, .scriptOutput: return
         case .emojiPicker, .fileShelf, .snippets, .clipboardHistory:
