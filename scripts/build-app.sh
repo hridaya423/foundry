@@ -30,7 +30,9 @@ fi
 if [[ -n "${CODE_SIGN_IDENTITY:-}" ]]; then
     SIGNING_IDENTITY="$CODE_SIGN_IDENTITY"
 else
-    SIGNING_IDENTITY="$(security find-identity -v -p codesigning 2>/dev/null | sed -n 's/.*"\(.*\)"/\1/p' | sed -n '1p')"
+    # Notarization only accepts Developer ID, so prefer it over Apple Development.
+    IDENTITIES="$(security find-identity -v -p codesigning 2>/dev/null | sed -n 's/.*"\(.*\)"/\1/p')"
+    SIGNING_IDENTITY="$(print -r -- "$IDENTITIES" | grep -m1 '^Developer ID Application' || print -r -- "$IDENTITIES" | sed -n '1p')"
     SIGNING_IDENTITY="${SIGNING_IDENTITY:--}"
 fi
 
@@ -107,7 +109,7 @@ if find "$RESOURCE_BUNDLE_DIR" -type f -perm -111 -print -quit | grep -q .; then
     exit 1
 fi
 
-for required in NOTICE.txt background_removal_worker.py manifest.json background.js emoji.tsv; do
+for required in NOTICE.txt background_removal_worker.py manifest.json background.js emoji.tsv Geist-Regular.ttf; do
     if [[ ! -f "$RESOURCE_CONTENTS_DIR/$required" ]]; then
         echo "error: required resource is missing: $required" >&2
         exit 1

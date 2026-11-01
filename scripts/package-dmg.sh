@@ -1,6 +1,6 @@
 #!/bin/zsh
 # Stages build/Foundry.app with an /Applications shortcut into a compressed
-# read-only DMG with a branded window: dark background art (from
+# read-only DMG with a branded window: chalk background art (from
 # Supporting/DMGBackground.png — regenerate via scripts/render-dmg-background.swift),
 # fixed icon positions, a custom volume icon, and no toolbar/status bar.
 #
@@ -26,7 +26,7 @@ ICON_FILE="$ROOT_DIR/Supporting/AppIcon.icns"
 WINDOW_BOUNDS="{200, 120, 740, 480}"   # 540×360 — matches render-dmg-background.swift
 APP_ICON_POS="{130, 150}"
 APPS_ICON_POS="{410, 150}"
-ICON_SIZE=96
+ICON_SIZE=112
 
 if [[ ! -d "$APP_DIR" ]]; then
     echo "error: $APP_DIR does not exist — run scripts/build-app.sh first" >&2
@@ -54,7 +54,7 @@ branded_dmg() {
     # basename, so a stray "Foundry 1" mount still layouts correctly.
     local attach_out mount vol_name
     attach_out="$(hdiutil attach -readwrite -noverify -nobrowse "$rw_dmg" 2>/dev/null)"
-    mount="$(echo "$attach_out" | awk 'END {print $NF}')"
+    mount="$(echo "$attach_out" | awk -F'\t' '$NF ~ /^\/Volumes\// { m = $NF } END { print m }')"
     vol_name="$(basename "$mount")"
     if [[ -z "$mount" || ! -d "$mount" ]]; then
         echo "warning: could not determine mount point" >&2
@@ -66,10 +66,8 @@ branded_dmg() {
         cp -R "$APP_DIR" "$mount/$APP_NAME.app"
         ln -s /Applications "$mount/Applications"
         mkdir -p "$mount/.background"
-        # Both a 1x file (referenced by .DS_Store) and the @2x Retina variant
-        # Finder picks automatically; the 2x file also carries 144dpi metadata.
-        cp "$BG_FILE_1X" "$mount/.background/background.png"
-        cp "$BG_FILE" "$mount/.background/background@2x.png"
+        # One multi-resolution TIFF; Finder upscales a lone 1x PNG on Retina.
+        tiffutil -cathidpicheck "$BG_FILE_1X" "$BG_FILE" -out "$mount/.background/background.tiff" >/dev/null 2>&1
 
         # Custom volume icon. APFS honors .VolumeIcon.icns + the
         # kHasCustomIcon bit (0x0400) in the volume's com.apple.FinderInfo
@@ -92,7 +90,7 @@ tell application "Finder"
         set opts to icon view options of container window
         set arrangement of opts to not arranged
         set icon size of opts to $ICON_SIZE
-        set background picture of opts to file ".background:background.png"
+        set background picture of opts to file ".background:background.tiff"
         set position of item "$APP_NAME.app" of container window to $APP_ICON_POS
         set position of item "Applications" of container window to $APPS_ICON_POS
         close
