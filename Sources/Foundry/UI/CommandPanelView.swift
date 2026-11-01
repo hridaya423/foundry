@@ -77,6 +77,9 @@ struct CommandPanelView: View {
             }
 
             if state.compactCollapsed == false {
+                surfaceContent
+                    .id(surfaceSpec.id)
+
                 if state.showsWhatsNew && state.mode == .search && trimmedQuery.isEmpty {
                     HStack(alignment: .center, spacing: 6) {
                         InlineNotice(level: .info, text: LocalizedStringResource(stringLiteral: WhatsNew.summary), symbol: "sparkles",
@@ -91,9 +94,6 @@ struct CommandPanelView: View {
                 if shouldShowHomeAccessory {
                     homeAccessoryStrip
                 }
-
-                surfaceContent
-                    .id(surfaceSpec.id)
 
                 panelFooter
             }
@@ -605,7 +605,7 @@ struct CommandPanelView: View {
         .background(FoundryTheme.fillSubtle)
         .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
         .padding(.horizontal, 16)
-        .padding(.bottom, 4)
+        .padding(.vertical, 4)
         .animation(reduceMotion ? nil : FoundryTheme.Motion.state, value: fileShelf.files.count)
         .animation(reduceMotion ? nil : FoundryTheme.Motion.state, value: agents.sessions.count)
     }
