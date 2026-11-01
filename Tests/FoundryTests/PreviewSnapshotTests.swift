@@ -198,6 +198,9 @@ final class PreviewSnapshotTests: XCTestCase {
         state.session.results = []
         state.session.isHomeLoading = true
         try renderPanel(state, named: "loading", dir: dir)
+        state.session.isHomeLoading = false
+        state.router.openQuickAI()
+        try renderPanel(state, named: "quickai-empty", dir: dir)
         state.shutdown()
     }
 

@@ -60,6 +60,7 @@ final class QuickAIState {
         quickAILastFailedPrompt = nil
         quickAIError = nil
         let thread = AIChatThread(title: prompt.isEmpty ? "New Chat" : prompt, providerProfileID: selectedAIProfileID)
+        quickAIThreads.removeAll { $0.messages.isEmpty }
         quickAIThreads.insert(thread, at: 0)
         activeQuickAIThreadID = thread.id
         persistAIThreads()
@@ -70,10 +71,7 @@ final class QuickAIState {
 
     func submit() async {
         let prompt = quickAIQuery.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard prompt.isEmpty == false else {
-            quickAIStatus = String(localized: "Type a question first")
-            return
-        }
+        guard prompt.isEmpty == false else { return }
         quickAIQuery = ""
         quickAITask?.cancel()
         quickAIRequestID = nil
@@ -110,6 +108,15 @@ final class QuickAIState {
         persistAIThreads()
     }
 
+    func deleteThread(id: UUID) {
+        guard let deleted = quickAIThreads.first(where: { $0.id == id }) else { return }
+        quickAIThreads.removeAll { $0.id == id }
+        if activeQuickAIThreadID == id {
+            if let next = quickAIThreads.first { selectThread(next) } else { startNewThread(selectedAIProfileID: deleted.providerProfileID) }
+        }
+        persistAIThreads()
+    }
+
     var activeThread: AIChatThread? {
         quickAIThreads.first { $0.id == activeQuickAIThreadID }
     }
@@ -142,9 +149,11 @@ final class QuickAIState {
             applyInitialLoad(aiChatStore.loadResult())
         }
         guard initialLoadFailed == false else { return }
-        persistenceWriter.schedule(quickAIThreads)
+        persistenceWriter.schedule(savedThreads)
         persistenceWriter.flush()
     }
+
+    private var savedThreads: [AIChatThread] { quickAIThreads.filter { $0.messages.isEmpty == false } }
 
     private func persistAIThreads() {
         chatPersistenceTask?.cancel()
@@ -158,7 +167,7 @@ final class QuickAIState {
             guard let self else { return }
             await self.finishInitialLoad()
             guard Task.isCancelled == false, self.initialLoadFailed == false else { return }
-            writer.schedule(self.quickAIThreads)
+            writer.schedule(self.savedThreads)
         }
     }
 

@@ -289,7 +289,8 @@ struct CommandPanelView: View {
             (id: "quickAI",
              actions: state.quickAI.isQuickAILoading
                 ? [.init(label: "Stop", keys: "⌘.", emphasized: true), .init(label: "New Chat", keys: "⌘N"), .home]
-                : [.init(label: "Send", keys: "↵", emphasized: true), .init(label: "New Chat", keys: "⌘N"), .home])
+                : [.init(label: "Send", keys: "↵", emphasized: state.quickAI.quickAIQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false),
+                   .init(label: "New Chat", keys: "⌘N"), .home])
         case .emojiPicker:
             (id: "emoji",
              actions: [
