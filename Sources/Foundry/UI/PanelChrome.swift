@@ -83,7 +83,6 @@ struct ActionRow: View {
         .frame(height: 40)
         .background(RowBackground(isSelected: isSelected, isHovering: isHovering))
         .onHover { isHovering = $0 }
-        .pointerCursor()
     }
 
     private var iconName: String {

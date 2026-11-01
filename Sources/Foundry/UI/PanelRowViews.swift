@@ -89,6 +89,7 @@ private struct FavoriteTile: View {
     let shortcut: String?
     let action: () -> Void
 
+    @Environment(\.foundryHoverHighlightsArmed) private var hoverHighlightsArmed
     @State private var isHovering = false
 
     var body: some View {
@@ -108,13 +109,12 @@ private struct FavoriteTile: View {
             }
             .frame(maxWidth: .infinity)
             .padding(.vertical, 8)
-            .background(isHovering ? FoundryTheme.fillHover : Color.clear)
+            .background(isHovering && hoverHighlightsArmed ? FoundryTheme.fillHover : Color.clear)
             .clipShape(RoundedRectangle(cornerRadius: FoundryTheme.Radius.row, style: .continuous))
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .onHover { isHovering = $0 }
-        .pointerCursor()
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(result.title)
         .accessibilityAddTraits(.isButton)
@@ -309,7 +309,6 @@ struct ResultRow: View {
         .frame(height: compact ? 38 : 44)
         .background(RowBackground(isSelected: isSelected, isHovering: isHovering))
         .onHover { isHovering = $0 }
-        .pointerCursor()
     }
 
     private var dragProvider: (() -> NSItemProvider)? {

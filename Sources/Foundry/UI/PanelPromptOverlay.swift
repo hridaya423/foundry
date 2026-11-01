@@ -62,37 +62,45 @@ struct PanelPromptOverlay: View {
             if let picker = spec.picker {
                 HStack(spacing: 4) {
                     ForEach(Array(picker.options.enumerated()), id: \.offset) { index, option in
-                        Button(String(localized: option)) { selection = index }
-                            .buttonStyle(.plain)
-                            .font(FoundryTheme.bodySecondary)
-                            .foregroundStyle(selection == index ? FoundryTheme.textPrimary : FoundryTheme.textTertiary)
-                            .frame(maxWidth: .infinity)
-                            .frame(height: 26)
-                            .background(
-                                RoundedRectangle(cornerRadius: FoundryTheme.Radius.control, style: .continuous)
-                                    .fill(selection == index ? FoundryTheme.fillTint : FoundryTheme.fillSubtle)
-                            )
+                        Button { selection = index } label: {
+                            Text(String(localized: option))
+                                .font(FoundryTheme.bodySecondary)
+                                .foregroundStyle(selection == index ? FoundryTheme.textPrimary : FoundryTheme.textTertiary)
+                                .frame(maxWidth: .infinity)
+                                .frame(height: 26)
+                                .background(
+                                    RoundedRectangle(cornerRadius: FoundryTheme.Radius.control, style: .continuous)
+                                        .fill(selection == index ? FoundryTheme.fillTint : FoundryTheme.fillSubtle)
+                                )
+                                .contentShape(.rect)
+                        }
+                        .buttonStyle(.plain)
                     }
                 }
             }
 
             HStack(spacing: 8) {
                 if let cancelLabel = spec.cancelLabel {
-                    Button(String(localized: cancelLabel)) { resolve(.cancelled) }
-                        .buttonStyle(FoundryQuietButtonStyle())
-                        .font(FoundryTheme.bodySecondary)
-                        .foregroundStyle(FoundryTheme.textSecondary)
-                        .padding(.horizontal, 10)
-                        .frame(height: 26)
+                    Button { resolve(.cancelled) } label: {
+                        Text(String(localized: cancelLabel))
+                            .font(FoundryTheme.bodySecondary)
+                            .foregroundStyle(FoundryTheme.textSecondary)
+                            .padding(.horizontal, 10)
+                            .frame(height: 26)
+                            .contentShape(.rect)
+                    }
+                    .buttonStyle(FoundryQuietButtonStyle())
                 }
                 Spacer()
-                Button(String(localized: spec.confirmLabel), action: confirm)
-                    .font(FoundryTheme.body)
-                    .foregroundStyle(spec.isDestructive ? FoundryTheme.destructive : FoundryTheme.textPrimary)
-                    .padding(.horizontal, 13)
-                    .frame(height: FoundryTheme.Control.compact)
-                    .background(FoundryTheme.fillTint)
-                    .clipShape(RoundedRectangle(cornerRadius: FoundryTheme.Radius.control, style: .continuous))
+                Button(action: confirm) {
+                    Text(String(localized: spec.confirmLabel))
+                        .font(FoundryTheme.body)
+                        .foregroundStyle(spec.isDestructive ? FoundryTheme.destructive : FoundryTheme.textPrimary)
+                        .padding(.horizontal, 13)
+                        .frame(height: FoundryTheme.Control.compact)
+                        .background(FoundryTheme.fillTint, in: RoundedRectangle(cornerRadius: FoundryTheme.Radius.control, style: .continuous))
+                        .contentShape(.rect)
+                }
                     .buttonStyle(PressableButtonStyle())
                     .keyboardShortcut(.defaultAction)
             }

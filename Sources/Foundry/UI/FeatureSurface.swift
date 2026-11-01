@@ -219,14 +219,16 @@ struct InlineNotice: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
 
             if let actionTitle, let action {
-                Button(String(localized: actionTitle), action: action)
-                    .buttonStyle(.plain)
-                    .font(FoundryTheme.micro)
-                    .foregroundStyle(FoundryTheme.textPrimary)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 5)
-                    .background(FoundryTheme.fillTint)
-                    .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
+                Button(action: action) {
+                    Text(String(localized: actionTitle))
+                        .font(FoundryTheme.micro)
+                        .foregroundStyle(FoundryTheme.textPrimary)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 5)
+                        .background(FoundryTheme.fillTint, in: RoundedRectangle(cornerRadius: FoundryTheme.Radius.control, style: .continuous))
+                        .contentShape(.rect)
+                }
+                .buttonStyle(.plain)
             }
         }
         .padding(.horizontal, 10)
