@@ -46,4 +46,18 @@ final class FirstRunTests: XCTestCase {
         XCTAssertNil(later.actionFeedback)
         later.shutdown()
     }
+
+    func testTipAppearsAfterFiveLaunchesAndDismissalSticks() {
+        let localState = LocalStateStore()
+        localState.set(\.launchCount, 4)
+        let state = makeState(localState)
+        state.resetForOpen()
+        XCTAssertEqual(state.tip?.id, Tip.all[0].id)
+        state.dismissTip()
+        XCTAssertNil(state.tip)
+        state.panelWillClose()
+        state.resetForOpen()
+        XCTAssertNil(state.tip, "the next tip waits for tomorrow")
+        state.shutdown()
+    }
 }

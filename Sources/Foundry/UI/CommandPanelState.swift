@@ -97,6 +97,7 @@ final class CommandPanelState {
     var pendingSnippetArguments: SnippetArgumentRequest?
     var scriptOutput: ScriptOutput?
     private(set) var showsWhatsNew = false
+    private(set) var tip: Tip?
     private(set) var confettiBurstID = 0
 
     func presentSettings(_ link: SettingsDeepLink) {
@@ -158,12 +159,33 @@ final class CommandPanelState {
         showsWhatsNew = WhatsNew.shouldShow(configExistedAtLaunch: config.existedAtLaunch,
             seenVersion: config.current.localState.whatsNewSeenVersion)
         if config.existedAtLaunch == false { markWhatsNewSeen() }
+        localState.update { $0.launchCount += 1 }
     }
 
-    func dismissWhatsNew(showingGuide: Bool = false) {
+    static func dayStamp(_ date: Date) -> String {
+        date.formatted(.iso8601.year().month().day())
+    }
+
+    func refreshTip() {
+        guard showsWhatsNew == false else { return tip = nil }
+        let local = localState.snapshot
+        let day = Self.dayStamp(now())
+        tip = Tip.today(launchCount: local.launchCount, day: day, shownDay: local.tipShownDay, shownID: local.tipShownID,
+            dismissed: Set(local.tipsDismissed))
+        if let tip, local.tipShownDay != day || local.tipShownID != tip.id {
+            localState.update { $0.tipShownDay = day; $0.tipShownID = tip.id }
+        }
+    }
+
+    func dismissTip() {
+        guard let tip else { return }
+        localState.update { $0.tipsDismissed.append(tip.id) }
+        self.tip = nil
+    }
+
+    func dismissWhatsNew() {
         markWhatsNewSeen()
         showsWhatsNew = false
-        if showingGuide { router.openWelcomeGuide() }
     }
 
     private func markWhatsNewSeen() {

@@ -126,6 +126,10 @@ struct FoundryLocalState: Codable, Equatable, Sendable {
     var onboardingStep: Int?
     var accessibilityPrompted = false
     var screenRecordingPrompted = false
+    var launchCount = 0
+    var tipShownDay: String?
+    var tipShownID: String?
+    var tipsDismissed: [String] = []
     var firstRunHintShown = false
     var firstLaunchAcknowledged = false
     var whatsNewSeenVersion: String?
@@ -152,6 +156,10 @@ struct FoundryLocalState: Codable, Equatable, Sendable {
         onboardingStep = try container.decodeIfPresent(Int.self, forKey: .onboardingStep)
         accessibilityPrompted = try container.decodeIfPresent(Bool.self, forKey: .accessibilityPrompted) ?? false
         screenRecordingPrompted = try container.decodeIfPresent(Bool.self, forKey: .screenRecordingPrompted) ?? false
+        launchCount = try container.decodeIfPresent(Int.self, forKey: .launchCount) ?? 0
+        tipShownDay = try container.decodeIfPresent(String.self, forKey: .tipShownDay)
+        tipShownID = try container.decodeIfPresent(String.self, forKey: .tipShownID)
+        tipsDismissed = try container.decodeIfPresent([String].self, forKey: .tipsDismissed) ?? []
         firstRunHintShown = try container.decodeIfPresent(Bool.self, forKey: .firstRunHintShown) ?? false
         firstLaunchAcknowledged = try container.decodeIfPresent(Bool.self, forKey: .firstLaunchAcknowledged) ?? false
         whatsNewSeenVersion = try container.decodeIfPresent(String.self, forKey: .whatsNewSeenVersion)

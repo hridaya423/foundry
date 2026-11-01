@@ -35,6 +35,10 @@ struct CommandPanelView: View {
         return selectedResult
     }
 
+    private var homeNotice: String? {
+        state.showsWhatsNew ? WhatsNew.summary : state.tip?.text
+    }
+
     private var isHome: Bool {
         state.mode == .search
             && state.session.query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
@@ -80,12 +84,11 @@ struct CommandPanelView: View {
                 surfaceContent
                     .id(surfaceSpec.id)
 
-                if state.showsWhatsNew && state.mode == .search && trimmedQuery.isEmpty {
+                if state.mode == .search && trimmedQuery.isEmpty, let notice = homeNotice {
                     HStack(alignment: .center, spacing: 6) {
-                        InlineNotice(level: .info, text: LocalizedStringResource(stringLiteral: WhatsNew.summary), symbol: "sparkles",
-                            actionTitle: "Take the Tour") { state.dismissWhatsNew(showingGuide: true) }
-                        FoundryIconButton(systemName: "xmark", accessibilityLabel: String(localized: "Dismiss what's new")) {
-                            state.dismissWhatsNew()
+                        InlineNotice(level: .info, text: LocalizedStringResource(stringLiteral: notice), symbol: state.showsWhatsNew ? "sparkles" : "lightbulb")
+                        FoundryIconButton(systemName: "xmark", accessibilityLabel: String(localized: "Dismiss")) {
+                            if state.showsWhatsNew { state.dismissWhatsNew() } else { state.dismissTip() }
                         }
                     }
                     .padding(.horizontal, 16)
