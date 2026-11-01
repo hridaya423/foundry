@@ -130,6 +130,7 @@ struct FoundryLocalState: Codable, Equatable, Sendable {
     var tipShownDay: String?
     var tipShownID: String?
     var tipsDismissed: [String] = []
+    var loginNudgeDismissed = false
     var firstRunHintShown = false
     var firstLaunchAcknowledged = false
     var whatsNewSeenVersion: String?
@@ -160,6 +161,7 @@ struct FoundryLocalState: Codable, Equatable, Sendable {
         tipShownDay = try container.decodeIfPresent(String.self, forKey: .tipShownDay)
         tipShownID = try container.decodeIfPresent(String.self, forKey: .tipShownID)
         tipsDismissed = try container.decodeIfPresent([String].self, forKey: .tipsDismissed) ?? []
+        loginNudgeDismissed = try container.decodeIfPresent(Bool.self, forKey: .loginNudgeDismissed) ?? false
         firstRunHintShown = try container.decodeIfPresent(Bool.self, forKey: .firstRunHintShown) ?? false
         firstLaunchAcknowledged = try container.decodeIfPresent(Bool.self, forKey: .firstLaunchAcknowledged) ?? false
         whatsNewSeenVersion = try container.decodeIfPresent(String.self, forKey: .whatsNewSeenVersion)

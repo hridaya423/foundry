@@ -60,4 +60,31 @@ final class FirstRunTests: XCTestCase {
         XCTAssertNil(state.tip, "the next tip waits for tomorrow")
         state.shutdown()
     }
+
+    func testLoginNudgeShowsOnSecondLaunchWhenTheLoginItemIsOff() {
+        let localState = LocalStateStore()
+        localState.set(\.onboardingCompletedVersion, "1.3.0")
+        localState.set(\.launchCount, 1)
+        let state = makeState(localState)
+        state.loginItemIsOff = { true }
+        state.resetForOpen()
+        XCTAssertTrue(state.showsLoginNudge)
+        XCTAssertNil(state.tip, "one notice at a time")
+        state.answerLoginNudge(turnOn: false)
+        state.panelWillClose()
+        state.resetForOpen()
+        XCTAssertFalse(state.showsLoginNudge)
+        state.shutdown()
+    }
+
+    func testNoLoginNudgeWhenTheLoginItemIsOn() {
+        let localState = LocalStateStore()
+        localState.set(\.onboardingCompletedVersion, "1.3.0")
+        localState.set(\.launchCount, 3)
+        let state = makeState(localState)
+        state.loginItemIsOff = { false }
+        state.resetForOpen()
+        XCTAssertFalse(state.showsLoginNudge)
+        state.shutdown()
+    }
 }
