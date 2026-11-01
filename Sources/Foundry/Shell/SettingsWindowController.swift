@@ -17,12 +17,16 @@ final class SettingsWindowController: NSWindowController {
         window.title = String(localized: "Settings")
         window.minSize = NSSize(width: 680, height: 480)
         window.isReleasedWhenClosed = false
-        window.setFrameAutosaveName("FoundrySettings")
         window.contentViewController = NSHostingController(rootView: FoundryIncreaseContrastRoot {
             SettingsView(state: state)
         })
-        window.center()
+        Self.place(window, autosaveName: "FoundrySettings")
         super.init(window: window)
+    }
+
+    static func place(_ window: NSWindow, autosaveName: String) {
+        if window.setFrameUsingName(autosaveName) == false { window.center() }
+        window.setFrameAutosaveName(autosaveName)
     }
 
     @available(*, unavailable)

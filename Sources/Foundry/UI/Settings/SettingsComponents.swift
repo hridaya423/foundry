@@ -516,7 +516,7 @@ struct CommandSettingsRow: View {
                         .buttonStyle(.plain)
                         .font(FoundryTheme.caption)
                         .foregroundStyle(FoundryTheme.textTertiary)
-                        .help("Rectangle-style suggested shortcut")
+                        .help("Suggested shortcut")
                     }
                     Spacer()
                 }

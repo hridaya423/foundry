@@ -6,7 +6,7 @@ import FoundryDomain
 
 struct SettingsView: View {
     @Bindable var state: CommandPanelState
-    @State private var category: SettingsCategory = .general
+    @AppStorage("settings.lastPane") private var category: SettingsCategory = .general
     @State private var searchQuery = ""
     @State private var pendingAnchor: String?
     @State private var highlightedAnchor: String?
@@ -443,9 +443,9 @@ struct SettingsView: View {
 
             SettingsGroup {
                 HStack(spacing: 12) {
-                    SettingsLabel(title: "Pop to root", subtitle: "Reopening within this time restores the last mode")
+                    SettingsLabel(title: "Return to Home after", subtitle: "Reopening sooner than this resumes where you left off.")
                     Spacer()
-                    Picker("Pop to root", selection: Binding(
+                    Picker("Return to Home after", selection: Binding(
                         get: { state.settings.popToRootAfterSeconds },
                         set: { state.settings.setPopToRootAfter($0) }
                     )) {
@@ -978,6 +978,11 @@ struct SettingsView: View {
         }
     }
 
+    static func itemLimits(current: Int) -> [Int] {
+        let standard = [100, 250, 500, 1_000, 5_000].filter { $0 <= ClipboardConfig.maximumMaxItems }
+        return standard.contains(current) ? standard : (standard + [current]).sorted()
+    }
+
     private static func retentionLabel(days: Int) -> String {
         switch days {
         case 1: String(localized: "1 day")
@@ -1000,20 +1005,23 @@ struct SettingsView: View {
                 HStack {
                     SettingsLabel(title: "Retain items", subtitle: "Maximum number of entries")
                     Spacer()
-                    Stepper(
-                        value: Binding(
-                            get: { state.clipboardHistory.policy.maxItems },
-                            set: {
-                                applyRetention(
-                                    maxItems: $0,
-                                    maxBytes: state.clipboardHistory.policy.maxBytes,
-                                    maxAgeDays: Int(state.clipboardHistory.policy.maxAge / 86_400)
-                                )
-                            }
-                        ),
-                        in: 1...ClipboardConfig.maximumMaxItems,
-                        step: 50
-                    ) { Text("\(state.clipboardHistory.policy.maxItems)") }
+                    Picker("Retain items", selection: Binding(
+                        get: { state.clipboardHistory.policy.maxItems },
+                        set: {
+                            applyRetention(
+                                maxItems: $0,
+                                maxBytes: state.clipboardHistory.policy.maxBytes,
+                                maxAgeDays: Int(state.clipboardHistory.policy.maxAge / 86_400)
+                            )
+                        }
+                    )) {
+                        ForEach(Self.itemLimits(current: state.clipboardHistory.policy.maxItems), id: \.self) { limit in
+                            Text(limit.formatted()).tag(limit)
+                        }
+                    }
+                    .labelsHidden()
+                    .pickerStyle(.menu)
+                    .fixedSize()
                 }.padding(.horizontal, 12).padding(.vertical, 10)
                 SettingsDivider()
                 HStack {
