@@ -433,7 +433,7 @@ struct CommandPanelView: View {
                 guard state.insertTranslation() else { return false }
                 dismiss()
                 return true
-            })
+            }, targetAppName: state.actionRunner.directPasteService.targetName)
         case .developerTools:
             DeveloperToolsView(state: state.developerTools)
         case .mediaDownloads:

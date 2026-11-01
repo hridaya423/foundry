@@ -9,10 +9,11 @@ import FoundryDomain
 final class TranslatorState {
     @ObservationIgnored var onFeedback: ((ActionFeedback) -> Void)?
     var sourceText = "" { didSet { scheduleTranslation() } }
-    var sourceLanguage = "English" { didSet { scheduleTranslation() } }
-    var targetLanguage = "Spanish" { didSet { scheduleTranslation() } }
+    var sourceLanguage = "English" { didSet { languagesChanged() } }
+    var targetLanguage = "Spanish" { didSet { languagesChanged() } }
     private(set) var result = ""
     private(set) var translationError: String?
+    private(set) var offersAppleIntelligence = false
     private(set) var isTranslating = false
     private(set) var activeRequest: TranslationRequest?
     private(set) var requestVersion = 0
@@ -23,13 +24,33 @@ final class TranslatorState {
     private let debounce: Duration
     private var task: Task<Void, Never>?
     private var resetting = false
+    private let defaults: UserDefaults
 
-    init(availability: TranslationAvailability = .current, debounce: Duration = .milliseconds(450),
+    init(defaults: UserDefaults = .standard, availability: TranslationAvailability = .current, debounce: Duration = .milliseconds(450),
         translator: @escaping TranslationProvider.Translator = { await AppleTranslator.translate($0) }) {
         self.availability = availability
         self.debounce = debounce
         self.translator = translator
+        self.defaults = defaults
+        restoreLanguages()
     }
+
+    private func restoreLanguages() {
+        resetting = true
+        if let source = defaults.string(forKey: Self.sourceKey) { sourceLanguage = source }
+        if let target = defaults.string(forKey: Self.targetKey) { targetLanguage = target }
+        resetting = false
+    }
+
+    private func languagesChanged() {
+        guard resetting == false else { return }
+        defaults.set(sourceLanguage, forKey: Self.sourceKey)
+        defaults.set(targetLanguage, forKey: Self.targetKey)
+        scheduleTranslation()
+    }
+
+    private static let sourceKey = "translator.sourceLanguage"
+    private static let targetKey = "translator.targetLanguage"
 
     let languages = ["Arabic", "Chinese", "English", "French", "German", "Hindi", "Italian", "Japanese", "Korean", "Portuguese", "Russian", "Spanish"]
 
@@ -37,8 +58,6 @@ final class TranslatorState {
         resetting = true
         task?.cancel()
         sourceText = ""
-        sourceLanguage = "English"
-        targetLanguage = "Spanish"
         result = ""
         translationError = nil
         isTranslating = false
@@ -57,7 +76,9 @@ final class TranslatorState {
             result = ""; translationError = nil; needsAppleTranslationFallback = false
             isTranslating = true
             return
-        case let .failure(error): result = ""; translationError = error.message
+        case let .failure(error):
+            result = ""; translationError = error.message
+            if case .backend = error { offersAppleIntelligence = true }
         }
         isTranslating = false
         activeRequest = nil
@@ -81,7 +102,7 @@ final class TranslatorState {
         (sourceLanguage, targetLanguage) = (targetLanguage, sourceLanguage)
         if result.isEmpty == false { sourceText = result }
         resetting = false
-        scheduleTranslation()
+        languagesChanged()
     }
 
     func copyResult() {
@@ -96,6 +117,7 @@ final class TranslatorState {
     private func scheduleTranslation() {
         guard !resetting else { return }
         task?.cancel()
+        offersAppleIntelligence = false
         guard let request = makeRequest() else {
             result = ""; translationError = nil; isTranslating = false; activeRequest = nil
             return
@@ -107,10 +129,10 @@ final class TranslatorState {
         activeRequest = request
         if request.source == request.target { finish(.success(request.text), for: request); return }
         requestVersion += 1
-        isTranslating = true
         task = Task { [weak self] in
             do { try await Task.sleep(for: self?.debounce ?? .zero) } catch { return }
             guard !Task.isCancelled else { return }
+            self?.isTranslating = true
             let outcome = await self?.translator(request) ?? .failure(.cancelled)
             guard !Task.isCancelled else { return }
             await MainActor.run { self?.finish(outcome, for: request) }

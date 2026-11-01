@@ -4,8 +4,48 @@ import FoundryDomain
 
 final class TranslationTests: XCTestCase {
     @MainActor
+    func testLanguagePairPersists() {
+        let defaults = UserDefaults(suiteName: UUID().uuidString)!
+        let first = TranslatorState(defaults: defaults, availability: .translationFramework, translator: { _ in .success("") })
+        first.sourceLanguage = "French"
+        first.targetLanguage = "German"
+        first.reset()
+
+        let second = TranslatorState(defaults: defaults, availability: .translationFramework, translator: { _ in .success("") })
+
+        XCTAssertEqual(first.sourceLanguage, "French", "reset keeps the pair")
+        XCTAssertEqual(second.sourceLanguage, "French")
+        XCTAssertEqual(second.targetLanguage, "German")
+    }
+
+    @MainActor
+    func testOnlyBackendFailuresOfferAppleIntelligence() async {
+        let state = TranslatorState(defaults: UserDefaults(suiteName: UUID().uuidString)!, availability: .translationFramework,
+            debounce: .zero, translator: { request in .failure(request.text.contains("again") ? .backend("timeout") : .asset) })
+        state.sourceText = "hello"
+        try? await Task.sleep(for: .milliseconds(150))
+        XCTAssertNotNil(state.translationError)
+        XCTAssertFalse(state.offersAppleIntelligence, "a missing language is fixed in System Settings, not by another model")
+
+        state.sourceText = "hello again"
+        try? await Task.sleep(for: .milliseconds(150))
+        XCTAssertTrue(state.offersAppleIntelligence)
+    }
+
+    @MainActor
+    func testLoadingStateWaitsForDebounce() async {
+        let state = TranslatorState(defaults: UserDefaults(suiteName: UUID().uuidString)!, availability: .translationFramework,
+            debounce: .milliseconds(200), translator: { request in .success(request.text) })
+        state.sourceText = "hello"
+        XCTAssertFalse(state.isTranslating, "typing does not flash a spinner")
+        try? await Task.sleep(for: .milliseconds(400))
+        XCTAssertFalse(state.isTranslating)
+        XCTAssertEqual(state.result, "hello")
+    }
+
+    @MainActor
     func testEmptyInputCancelsRequestAndNeverSpins() async throws {
-        let state = TranslatorState(availability: .translationFramework, translator: { _ in
+        let state = TranslatorState(defaults: UserDefaults(suiteName: UUID().uuidString)!, availability: .translationFramework, translator: { _ in
             XCTFail("empty input must not invoke a translator")
             return .failure(.cancelled)
         })
@@ -21,7 +61,7 @@ final class TranslationTests: XCTestCase {
 
     @MainActor
     func testSameLanguageCompletesWithoutCallingBackend() async throws {
-        let state = TranslatorState(availability: .translationFramework, translator: { _ in
+        let state = TranslatorState(defaults: UserDefaults(suiteName: UUID().uuidString)!, availability: .translationFramework, translator: { _ in
             XCTFail("same-language translation must be resolved locally")
             return .failure(.cancelled)
         })
@@ -38,7 +78,7 @@ final class TranslationTests: XCTestCase {
     @MainActor
     func testSwapFeedsTranslationBackAsSourceAndTranslatesOnce() async throws {
         var requests: [TranslationRequest] = []
-        let state = TranslatorState(availability: .translationFramework, debounce: .zero, translator: { request in
+        let state = TranslatorState(defaults: UserDefaults(suiteName: UUID().uuidString)!, availability: .translationFramework, debounce: .zero, translator: { request in
             await MainActor.run { requests.append(request) }
             return .success(request.target.identifier == "es" ? "hola" : "hello")
         })
@@ -58,7 +98,7 @@ final class TranslationTests: XCTestCase {
     @MainActor
     func testStaleResponseCannotReplaceNewerRequest() async throws {
         let first = XCTestExpectation(description: "first request")
-        let state = TranslatorState(availability: .translationFramework, debounce: .zero, translator: { request in
+        let state = TranslatorState(defaults: UserDefaults(suiteName: UUID().uuidString)!, availability: .translationFramework, debounce: .zero, translator: { request in
             if request.text == "first" {
                 first.fulfill()
                 try? await Task.sleep(for: .milliseconds(100))
@@ -77,7 +117,7 @@ final class TranslationTests: XCTestCase {
 
     @MainActor
     func testMacOS14ReportsTypedUnavailableImmediately() {
-        let state = TranslatorState(availability: .unavailable)
+        let state = TranslatorState(defaults: UserDefaults(suiteName: UUID().uuidString)!, availability: .unavailable)
         state.sourceText = "hello"
 
         XCTAssertFalse(state.isTranslating)
@@ -135,7 +175,7 @@ final class TranslationTests: XCTestCase {
 
     @MainActor
     func testFrameworkSessionHandoffKeepsRequestPendingForSwiftUIAdapter() throws {
-        let state = TranslatorState(availability: .translationFramework, translator: { _ in .sessionRequired })
+        let state = TranslatorState(defaults: UserDefaults(suiteName: UUID().uuidString)!, availability: .translationFramework, translator: { _ in .sessionRequired })
         state.sourceText = "hello"
 
         let request = try XCTUnwrap(state.activeRequest)

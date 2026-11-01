@@ -8,6 +8,7 @@ import Translation
 struct TranslatorView: View {
     @Bindable var state: TranslatorState
     var insert: (() -> Bool)? = nil
+    var targetAppName: String?
 
     var body: some View {
         VStack(spacing: 14) {
@@ -42,30 +43,24 @@ struct TranslatorView: View {
                 }
 
                 if let translationError = state.translationError {
-                    Image(systemName: "exclamationmark.triangle.fill")
-                        .font(FoundryTheme.Glyph.xs)
-                        .foregroundStyle(FoundryTheme.warning)
-                    Text(translationError)
-                        .font(FoundryTheme.bodySecondary)
-                        .foregroundStyle(FoundryTheme.warning)
-                        .lineLimit(2)
-                }
-
-                if state.translationError != nil {
-                    FoundryActionButton(title: "Try Apple Intelligence", systemName: "apple.logo") {
-                        state.requestAppleIntelligence()
+                    if state.offersAppleIntelligence {
+                        InlineNotice(level: .warning, text: "\(translationError)", actionTitle: "Try Apple Intelligence",
+                            action: { state.requestAppleIntelligence() })
+                    } else {
+                        InlineNotice(level: .warning, text: "\(translationError)")
                     }
                 }
 
                 Spacer()
 
                 if state.result.isEmpty == false, let insert {
-                    FoundryActionButton(title: "Insert", systemName: "text.insert") {
+                    FoundryActionButton(title: "Replace", systemName: "text.insert") {
                         _ = insert()
                     }
-                    .help("Paste the translation into the previous app, replacing any selection")
+                    .help(String(localized: "Replace the selection in \(targetAppName ?? String(localized: "the previous app"))"))
                 }
             }
+            .frame(minHeight: FoundryTheme.Control.compact)
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 18)
@@ -252,9 +247,9 @@ struct TranslatorPane<Accessory: View>: View {
         .padding(18)
         .frame(maxWidth: .infinity, minHeight: 265, maxHeight: .infinity, alignment: .topLeading)
         .background(FoundryTheme.fillHover)
-        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: FoundryTheme.Radius.overlay, style: .continuous))
         .overlay(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
+            RoundedRectangle(cornerRadius: FoundryTheme.Radius.overlay, style: .continuous)
                 .stroke(FoundryTheme.fillTint, lineWidth: 1)
         )
     }
