@@ -233,43 +233,49 @@ struct FoundryStatusBanner: View {
 }
 
 struct FoundryEmptyState: View {
-    let symbol: String
-    let title: String
-    let message: String
-    var actionTitle: String?
+    var symbol: String?
+    let title: LocalizedStringResource
+    var message: LocalizedStringResource?
+    var actionTitle: LocalizedStringResource?
     var action: (() -> Void)?
 
     var body: some View {
         VStack(spacing: 10) {
-            Image(systemName: symbol)
-                .font(FoundryTheme.Glyph.xl)
-                .foregroundStyle(FoundryTheme.textSecondary)
-                .frame(width: 58, height: 58)
-                .background(FoundryTheme.fillHover)
-                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            if let symbol {
+                Image(systemName: symbol)
+                    .font(FoundryTheme.Glyph.xl)
+                    .foregroundStyle(FoundryTheme.textSecondary)
+                    .frame(width: 56, height: 56)
+                    .background(FoundryTheme.fillTint, in: RoundedRectangle(cornerRadius: FoundryTheme.Radius.overlay, style: .continuous))
+            }
 
             Text(title)
                 .font(FoundryTheme.body)
                 .foregroundStyle(FoundryTheme.textPrimary)
 
-            Text(message)
-                .font(FoundryTheme.bodySecondary)
-                .foregroundStyle(FoundryTheme.textSecondary)
-                .multilineTextAlignment(.center)
-                .fixedSize(horizontal: false, vertical: true)
-                .padding(.horizontal, 24)
+            if let message {
+                Text(message)
+                    .font(FoundryTheme.bodySecondary)
+                    .foregroundStyle(FoundryTheme.textSecondary)
+                    .multilineTextAlignment(.center)
+                    .lineLimit(2)
+                    .frame(maxWidth: 420)
+            }
 
             if let actionTitle, let action {
-                Button(actionTitle, action: action)
-                    .font(FoundryTheme.body)
-                    .foregroundStyle(FoundryTheme.textPrimary)
-                    .padding(.horizontal, 13)
-                    .frame(height: FoundryTheme.Control.compact)
-                    .background(FoundryTheme.fillTint)
-                    .clipShape(RoundedRectangle(cornerRadius: FoundryTheme.Radius.control, style: .continuous))
-                    .buttonStyle(PressableButtonStyle())
+                Button(action: action) {
+                    Text(actionTitle)
+                        .font(FoundryTheme.body)
+                        .foregroundStyle(FoundryTheme.textPrimary)
+                        .padding(.horizontal, 13)
+                        .frame(height: FoundryTheme.Control.compact)
+                        .background(FoundryTheme.fillTint, in: RoundedRectangle(cornerRadius: FoundryTheme.Radius.control, style: .continuous))
+                        .contentShape(.rect)
+                }
+                .buttonStyle(PressableButtonStyle())
             }
         }
+        .padding(.horizontal, 24)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .accessibilityElement(children: .combine)
     }

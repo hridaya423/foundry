@@ -345,6 +345,16 @@ final class PanelKeyboardTests: XCTestCase {
         state.shutdown()
     }
 
+    func testNoResultsOffersNavigableFallbacks() async {
+        let state = makeState()
+        state.session.query = "zzzq"
+        let filled = await waitUntilTrue { state.session.results.isEmpty == false }
+        XCTAssertTrue(filled)
+        XCTAssertTrue(state.session.navigableResults.contains { $0.title == "Ask AI about zzzq" })
+        XCTAssertEqual(state.session.selectedResultID, state.session.navigableResults.first?.id)
+        state.shutdown()
+    }
+
     func testShiftTabDoesNothingInSearch() {
         var tabs = 0
         let coordinator = LauncherSearchField.Coordinator(text: .constant(""), onTab: { tabs += 1 })

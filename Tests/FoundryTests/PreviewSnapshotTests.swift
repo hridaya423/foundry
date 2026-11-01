@@ -173,7 +173,8 @@ final class PreviewSnapshotTests: XCTestCase {
         state.session.toggleActions()
         try renderPanel(state, named: "actions", dir: dir)
         state.session.toggleActions()
-        state.session.isSearchLoading = true
+        state.session.results = []
+        state.session.isHomeLoading = true
         try renderPanel(state, named: "loading", dir: dir)
         state.shutdown()
     }

@@ -68,9 +68,9 @@ struct CommandPanelView: View {
                     LoadingHairline()
                 }
             }
-            .task(id: state.mode == .search && state.session.isSearchLoading) {
+            .task(id: state.mode == .search && (state.session.isSearchLoading || state.session.isHomeLoading)) {
                 showsLoadingHairline = false
-                guard state.mode == .search, state.session.isSearchLoading else { return }
+                guard state.mode == .search, state.session.isSearchLoading || state.session.isHomeLoading else { return }
                 try? await Task.sleep(for: .milliseconds(150))
                 guard Task.isCancelled == false else { return }
                 showsLoadingHairline = true
@@ -561,31 +561,25 @@ struct CommandPanelView: View {
         let hasQuery = trimmedQuery.isEmpty == false
         if let fileQuery = FileSearchProvider.fileQuery(state.session.query) {
             if state.session.isSearchLoading {
-                EmptyState(title: "Searching files", message: "Looking through your search folders with Spotlight.", isLoading: true)
+                Color.clear
             } else if fileQuery.isEmpty {
-                EmptyState(title: "Search Files", message: """
-                    Type a file name. Add kind:image or kind:pdf to narrow it. \
-                    Files you changed this week appear here.
-                    """, symbol: "doc.text.magnifyingglass")
+                FoundryEmptyState(symbol: "doc.text.magnifyingglass", title: "Search files",
+                    message: "Type a file name. Add kind:image or kind:pdf to narrow it.")
             } else if fileQuery.count < 2 {
-                EmptyState(title: "Search Files", message: "Keep typing a file name.", symbol: "doc.text.magnifyingglass")
+                FoundryEmptyState(symbol: "doc.text.magnifyingglass", title: "Search files", message: "Keep typing a file name.")
             } else {
-                EmptyState(title: "No files found",
-                    message: "No file names contain \u{201C}\(fileQuery)\u{201D}. Folders are set in Settings › File Search.",
-                    symbol: "doc.text.magnifyingglass")
+                FoundryEmptyState(symbol: "doc.text.magnifyingglass", title: "No files found",
+                    message: "No file names contain \u{201C}\(fileQuery)\u{201D}. Folders are set in Settings › File Search.")
             }
         } else if state.session.isHomeLoading && hasQuery == false {
-            EmptyState(title: "Loading Home", message: "Preparing your recent apps and commands.", isLoading: true)
+            HomeSkeleton()
         } else if state.session.isSearchLoading {
-            EmptyState(title: "Searching", message: "Looking through apps, commands, and files.", isLoading: true)
+            Color.clear
+        } else if hasQuery {
+            FoundryEmptyState(symbol: "magnifyingglass", title: "No results",
+                message: "Nothing matches \u{201C}\(trimmedQuery)\u{201D}. Turn on fallbacks in Settings to search the web or ask AI.")
         } else {
-            EmptyState(
-                title: hasQuery ? "No results" : "Start typing",
-                message: hasQuery
-                    ? "Nothing matches \u{201C}\(trimmedQuery)\u{201D}."
-                    : "Find apps, commands, emoji, system tools, and shelf actions.",
-                symbol: hasQuery ? "magnifyingglass" : "command"
-            )
+            FoundryEmptyState(symbol: "command", title: "Start typing", message: "Find apps, commands, emoji, system tools, and shelf actions.")
         }
     }
 

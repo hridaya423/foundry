@@ -205,3 +205,26 @@ struct LoadingHairline: View {
             }
     }
 }
+
+struct HomeSkeleton: View {
+    var body: some View {
+        VStack(spacing: 2) {
+            ForEach(0..<5, id: \.self) { index in
+                HStack(spacing: 12) {
+                    RoundedRectangle(cornerRadius: FoundryTheme.Radius.badge, style: .continuous)
+                        .frame(width: 24, height: 24)
+                    Capsule()
+                        .frame(width: [180, 140, 210, 120, 160][index], height: 9)
+                    Spacer()
+                }
+                .padding(.horizontal, FoundryTheme.Spacing.sm)
+                .frame(height: 40)
+            }
+            Spacer()
+        }
+        .foregroundStyle(FoundryTheme.fillTint)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 8)
+        .accessibilityLabel("Loading")
+    }
+}

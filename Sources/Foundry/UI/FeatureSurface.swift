@@ -183,52 +183,6 @@ struct FooterAction: View {
     }
 }
 
-struct EmptyState: View {
-    let title: LocalizedStringResource
-    var message: LocalizedStringResource? = nil
-    var symbol: String? = nil
-    var isLoading = false
-
-    var body: some View {
-        VStack(spacing: 14) {
-            Spacer()
-
-            if isLoading {
-                ProgressView()
-                    .controlSize(.small)
-                    .tint(FoundryTheme.textSecondary)
-            } else if let symbol {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 18, style: .continuous)
-                        .fill(FoundryTheme.fillTint)
-                        .frame(width: 68, height: 68)
-
-                    Image(systemName: symbol)
-                        .font(FoundryTheme.Glyph.xl)
-                        .foregroundStyle(FoundryTheme.textSecondary)
-                }
-            }
-
-            Text(title)
-                .font(isLoading ? FoundryTheme.body : FoundryTheme.title)
-                .foregroundStyle(FoundryTheme.textPrimary)
-
-            if let message {
-                Text(message)
-                    .font(FoundryTheme.bodySecondary)
-                    .foregroundStyle(FoundryTheme.textSecondary)
-                    .lineLimit(1)
-                    .truncationMode(.middle)
-                    .padding(.horizontal, 40)
-            }
-
-            Spacer()
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color.clear)
-    }
-}
-
 struct InlineNotice: View {
     enum Level {
         case info, warning, error
