@@ -145,4 +145,10 @@ private final class InMemorySnippetStore: SnippetStore, Sendable {
         storage.withLock { $0 = snippets }
         return .success(())
     }
+
+    func testImportSummaryNamesWhatWasNewAndWhatWasAlreadyThere() {
+        XCTAssertEqual(SnippetState.importSummary(added: 12, total: 15), "Imported 12 snippets · 3 already in your library")
+        XCTAssertEqual(SnippetState.importSummary(added: 4, total: 4), "Imported 4 snippets")
+        XCTAssertEqual(SnippetState.importSummary(added: 0, total: 6), "No new snippets in that file")
+    }
 }

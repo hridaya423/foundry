@@ -1,6 +1,7 @@
 import AppKit
 import Foundation
 import Observation
+import FoundryDomain
 
 @MainActor
 @Observable
@@ -213,6 +214,16 @@ final class SnippetState {
         return added
     }
 
+    @ObservationIgnored var onFeedback: ((ActionFeedback) -> Void)?
+
+    nonisolated static func importSummary(added: Int, total: Int) -> String {
+        guard added > 0 else { return String(localized: "No new snippets in that file") }
+        let skipped = total - added
+        return skipped > 0
+            ? String(localized: "Imported \(added) snippets · \(skipped) already in your library")
+            : String(localized: "Imported \(added) snippets")
+    }
+
     func importFromFile() {
         let panel = NSOpenPanel()
         panel.allowedContentTypes = [.json]
@@ -222,7 +233,8 @@ final class SnippetState {
         do {
             let data = try Data(contentsOf: url)
             let imported = try JSONDecoder().decode([RaycastSnippetFile].self, from: data)
-            add(imported.map { StoredSnippet(title: $0.name, content: $0.text, keyword: $0.keyword ?? "") })
+            let added = add(imported.map { StoredSnippet(title: $0.name, content: $0.text, keyword: $0.keyword ?? "") })
+            onFeedback?(.success(Self.importSummary(added: added, total: imported.count)))
         } catch {
             persistenceError = String(localized: "Could not import snippets: \(error.localizedDescription)")
         }
@@ -260,6 +272,7 @@ final class SnippetState {
                 encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
                 try encoder.encode(exported).write(to: url, options: .atomic)
             }
+            onFeedback?(.success(String(localized: "Exported \(items.count) snippets to \(url.lastPathComponent)")))
         } catch {
             persistenceError = String(localized: "Could not export snippets: \(error.localizedDescription)")
         }
