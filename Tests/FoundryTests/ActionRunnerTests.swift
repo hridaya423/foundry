@@ -110,6 +110,24 @@ final class ActionRunnerTests: XCTestCase {
         XCTAssertFalse(outcome.shouldDismissPanel)
     }
 
+    func testOCRWithoutScreenRecordingAsksBeforeCapturing() async {
+        let runner = ActionRunner(diagnostics: DiagnosticsService())
+        var asked: [String] = []
+        var requested: [PermissionKind] = []
+        runner.panel.canCaptureScreen = { false }
+        runner.panel.requestPrompt = { spec in
+            asked.append(String(localized: spec.title))
+            return PanelPromptResult(confirmed: true)
+        }
+        runner.panel.requestPermission = { requested.append($0) }
+        let request = CommandExecutionRequest(commandID: "test.ocr",
+            action: CommandAction(id: "test.ocr.run", title: "Read Text", behavior: RecognizeScreenTextAction()))
+        let outcome = await runner.execute(request) { _ in }
+        XCTAssertEqual(outcome, .cancelled)
+        XCTAssertEqual(asked, ["Allow Screen Recording to read text from the screen."])
+        XCTAssertEqual(requested, [.screenRecording])
+    }
+
     func testResetRankingRunsThroughTheExecutorBoundary() async {
         var resetCommandID: String?
         let runner = ActionRunner(

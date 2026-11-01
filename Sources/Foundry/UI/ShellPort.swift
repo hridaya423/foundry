@@ -27,6 +27,7 @@ protocol ShellPort: AnyObject {
     func openWelcomeGuide()
     func snippetExpansionChanged()
     func requestSnippetAccessibility()
+    func requestPermission(_ kind: PermissionKind)
     func openSnippetPrivacySettings()
     func resultExecuted()
 }

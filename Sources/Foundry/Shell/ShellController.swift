@@ -302,6 +302,10 @@ extension ShellController: ShellPort {
         snippetExpansion.requestAccessibilityAccess()
     }
 
+    func requestPermission(_ kind: PermissionKind) {
+        onboardingState.permissions.request(kind)
+    }
+
     func openSnippetPrivacySettings() {
         snippetExpansion.openAccessibilitySettings()
     }

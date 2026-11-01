@@ -16,6 +16,7 @@ final class RecordingShellPort: ShellPort {
     var onOpenWelcomeGuide: (() -> Void)?
     var onSnippetExpansionChanged: (() -> Void)?
     var onRequestSnippetAccessibility: (() -> Void)?
+    var requestedPermissions: [PermissionKind] = []
     var onOpenSnippetPrivacySettings: (() -> Void)?
     var onResultExecuted: (() -> Void)?
     var onEnsurePanelVisible: (() -> Void)?
@@ -33,6 +34,7 @@ final class RecordingShellPort: ShellPort {
     func openWelcomeGuide() { onOpenWelcomeGuide?() }
     func snippetExpansionChanged() { onSnippetExpansionChanged?() }
     func requestSnippetAccessibility() { onRequestSnippetAccessibility?() }
+    func requestPermission(_ kind: PermissionKind) { requestedPermissions.append(kind) }
     func openSnippetPrivacySettings() { onOpenSnippetPrivacySettings?() }
     func resultExecuted() { onResultExecuted?() }
     func ensurePanelVisible() { onEnsurePanelVisible?() }

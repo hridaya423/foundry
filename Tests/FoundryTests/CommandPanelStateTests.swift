@@ -252,7 +252,8 @@ final class CommandPanelStateTests: XCTestCase {
         let config = ConfigService(diagnostics: diagnostics, url: temporaryURL())
         let pasteboard = NSPasteboard(name: NSPasteboard.Name("CommandPanelStateTests.directPaste"))
         let target = DirectPasteTestTarget(processIdentifier: 42)
-        let directPaste = DirectPasteService(pasteboard: pasteboard, ownProcessIdentifier: 7) { target }
+        let directPaste = DirectPasteService(pasteboard: pasteboard, ownProcessIdentifier: 7, targetProvider: { target },
+            accessibilityTrusted: { true })
         let actionRunner = ActionRunner(diagnostics: diagnostics, directPasteService: directPaste)
         let pasteboardClient = TestClipboardPasteboard()
         let clipboard = ClipboardHistoryState(pasteboard: pasteboardClient, persistence: nil, configuration: config.current.clipboard)
@@ -317,6 +318,37 @@ final class CommandPanelStateTests: XCTestCase {
         state.mode = .clipboardHistory
         state.pasteOrCopySelectedClipboardItem()
         XCTAssertTrue(directPaste.hasPendingPaste)
+        state.shutdown()
+    }
+
+    func testPasteWithoutAccessibilityAsksInThePanelAndKeepsTheItemCopied() async {
+        let diagnostics = DiagnosticsService()
+        let config = ConfigService(diagnostics: diagnostics, url: temporaryURL())
+        let pasteboard = NSPasteboard(name: NSPasteboard.Name("CommandPanelStateTests.noAccessibility"))
+        let directPaste = DirectPasteService(pasteboard: pasteboard, ownProcessIdentifier: 7,
+            targetProvider: { DirectPasteTestTarget(processIdentifier: 42) }, accessibilityTrusted: { false })
+        let actionRunner = ActionRunner(diagnostics: diagnostics, directPasteService: directPaste)
+        let pasteboardClient = TestClipboardPasteboard()
+        let clipboard = ClipboardHistoryState(pasteboard: pasteboardClient, persistence: nil, configuration: config.current.clipboard)
+        let state = makeState(diagnostics: diagnostics, config: config, clipboard: clipboard, actionRunner: actionRunner)
+        let shell = RecordingShellPort()
+        state.shell = shell
+
+        let item = ClipboardHistoryItem(payload: .text("hello"))
+        pasteboardClient.snapshotValue = PasteboardSnapshot(types: [.string], payload: item.payload, sourceBundleIdentifier: "com.example")
+        pasteboardClient.changeCountValue += 1
+        clipboard.captureIfChanged()
+        clipboard.select(id: item.id)
+        directPaste.captureTarget()
+
+        XCTAssertFalse(state.directPasteSelectedClipboardItem(), "the panel stays open to ask")
+        XCTAssertFalse(directPaste.hasPendingPaste)
+        XCTAssertEqual(pasteboardClient.writtenPayloads.last, .text("hello"))
+        for _ in 0..<50 where state.pendingPrompt == nil { try? await Task.sleep(for: .milliseconds(10)) }
+        XCTAssertEqual(state.pendingPrompt.map { String(localized: $0.spec.confirmLabel) }, "Allow")
+        state.pendingPrompt?.resume(PanelPromptResult(confirmed: true))
+        for _ in 0..<50 where shell.requestedPermissions.isEmpty { try? await Task.sleep(for: .milliseconds(10)) }
+        XCTAssertEqual(shell.requestedPermissions, [.accessibility])
         state.shutdown()
     }
 

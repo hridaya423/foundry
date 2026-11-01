@@ -12,6 +12,10 @@ extension CommandPanelState {
             showActionFeedback(.failure(String(localized: "Select an item to paste.")))
             return false
         }
+        if pasteNeedsAccessibility() {
+            clipboardHistory.copySelected()
+            return false
+        }
         do {
             try actionRunner.directPasteService.stage(item.payload)
             return true
@@ -99,6 +103,10 @@ extension CommandPanelState {
 
     func insertOrCopySelectedSnippet() -> Bool {
         guard askForSnippetArguments(copyOnly: false) == false else { return false }
+        if pasteNeedsAccessibility() {
+            snippets.copySelected()
+            return false
+        }
         if directPasteSelectedSnippet() == false { snippets.copySelected() }
         return true
     }
@@ -133,6 +141,22 @@ extension CommandPanelState {
 
     func pasteOrCopySelectedClipboardItem() {
         directPasteSelectedClipboardItem()
+    }
+
+    /// Without Accessibility, paste cannot reach the other app. The item is
+    /// already copied; ask in the panel instead of failing after it closes.
+    func pasteNeedsAccessibility() -> Bool {
+        guard actionRunner.directPasteService.canPaste == false else { return false }
+        let app = actionRunner.directPasteService.targetName ?? String(localized: "other apps")
+        Task { @MainActor in
+            let answer = await requestPrompt(PanelPromptSpec(
+                title: "Allow Accessibility to paste into \(app).",
+                message: "Your item is copied. Press ⌘V to paste it now.",
+                confirmLabel: "Allow",
+                cancelLabel: "Not Now"))
+            if answer.confirmed { shell?.requestPermission(.accessibility) }
+        }
+        return true
     }
 }
 

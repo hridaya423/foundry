@@ -98,6 +98,8 @@ struct PanelPorts: Sendable {
     var requestPrompt: @MainActor @Sendable (PanelPromptSpec) async -> PanelPromptResult = { _ in .cancelled }
     /// nil = no Quick Look wiring; actions fall back to opening the file.
     var onQuickLook: (@MainActor @Sendable (URL) -> Void)?
+    var canCaptureScreen: @MainActor @Sendable () -> Bool = { CGPreflightScreenCaptureAccess() }
+    var requestPermission: @MainActor @Sendable (PermissionKind) -> Void = { _ in }
 }
 
 /// Behaviour for one result action. Implementations live next to the

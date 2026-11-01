@@ -23,10 +23,13 @@ struct TileWindowAction: ResultAction, Equatable {
                 .success(message: String(localized: "Restored previous window frame")),
                  feedback: .success(String(localized: "Restored previous window frame")))
         case .needsAccessibilityPermission:
-            return ctx.finish(
-                .stayOpen(message: String(localized: "Accessibility permission required for window control")),
-                feedback: .failure(String(localized: "Grant Accessibility access in System Settings to control windows"))
-            )
+            let answer = await ctx.panel.requestPrompt(PanelPromptSpec(
+                title: "Allow Accessibility to arrange windows.",
+                message: "Foundry moves and resizes the frontmost window. Nothing else.",
+                confirmLabel: "Allow",
+                cancelLabel: "Not Now"))
+            if answer.confirmed { await ctx.panel.requestPermission(.accessibility) }
+            return .stayOpen(message: String(localized: "Accessibility permission required for window control"))
         case let .failed(message):
             return ctx.finish(.failure(message: message, retryable: false), feedback: .failure(message))
         }

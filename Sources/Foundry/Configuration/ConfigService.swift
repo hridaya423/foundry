@@ -125,6 +125,7 @@ struct FoundryLocalState: Codable, Equatable, Sendable {
     var onboardingCompletedVersion: String?
     var onboardingStep: Int?
     var accessibilityPrompted = false
+    var screenRecordingPrompted = false
     var firstRunHintShown = false
     var firstLaunchAcknowledged = false
     var whatsNewSeenVersion: String?
@@ -150,6 +151,7 @@ struct FoundryLocalState: Codable, Equatable, Sendable {
         onboardingCompletedVersion = try container.decodeIfPresent(String.self, forKey: .onboardingCompletedVersion)
         onboardingStep = try container.decodeIfPresent(Int.self, forKey: .onboardingStep)
         accessibilityPrompted = try container.decodeIfPresent(Bool.self, forKey: .accessibilityPrompted) ?? false
+        screenRecordingPrompted = try container.decodeIfPresent(Bool.self, forKey: .screenRecordingPrompted) ?? false
         firstRunHintShown = try container.decodeIfPresent(Bool.self, forKey: .firstRunHintShown) ?? false
         firstLaunchAcknowledged = try container.decodeIfPresent(Bool.self, forKey: .firstLaunchAcknowledged) ?? false
         whatsNewSeenVersion = try container.decodeIfPresent(String.self, forKey: .whatsNewSeenVersion)

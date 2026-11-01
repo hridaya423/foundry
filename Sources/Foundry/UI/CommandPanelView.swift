@@ -341,8 +341,7 @@ struct CommandPanelView: View {
             FeatureTitle(symbol: "tray.full", title: "File Shelf")
         case .clipboardHistory:
             featureSearchField("Search clipboard history…", text: clipboardQueryBinding) {
-                state.pasteOrCopySelectedClipboardItem()
-                dismiss()
+                if state.directPasteSelectedClipboardItem() { dismiss() }
             }
         case .snippets:
             HStack(spacing: 12) {

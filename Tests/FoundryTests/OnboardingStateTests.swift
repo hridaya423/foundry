@@ -272,6 +272,20 @@ final class OnboardingStateTests: XCTestCase {
         XCTAssertEqual(opened, [PermissionKind.accessibility.settingsURL])
     }
 
+    func testScreenRecordingRequestOpensOneSystemSurfaceAtATime() {
+        var requests = 0
+        var opened: [URL] = []
+        let health = PermissionHealthState(accessibilityTrusted: { false }, localState: localState, open: { opened.append($0) },
+            screenCaptureAllowed: { false }, requestScreenCapture: { requests += 1 })
+        XCTAssertEqual(health.status(for: .screenRecording), .notGranted)
+        health.request(.screenRecording)
+        XCTAssertEqual(requests, 1)
+        XCTAssertEqual(opened, [])
+        health.request(.screenRecording)
+        XCTAssertEqual(requests, 1)
+        XCTAssertEqual(opened, [PermissionKind.screenRecording.settingsURL])
+    }
+
     func testAbandonTouchesNoOtherAppAndFallsBackToOptionSpace() {
         let state = makeState()
         state.panel.settings.setHotkey(.commandSpace)

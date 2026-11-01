@@ -151,6 +151,7 @@ final class CommandPanelState {
         actionRunner.panel.requestPrompt = { [weak self] spec in
             await self?.requestPrompt(spec) ?? .cancelled
         }
+        actionRunner.panel.requestPermission = { [weak self] kind in self?.shell?.requestPermission(kind) }
         self.widgetBoard.persistenceErrorHandler = { [weak self] error in
             self?.settings.showSettingsPersistenceError(error)
         }
