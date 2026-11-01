@@ -278,7 +278,7 @@ struct CommandPanelView: View {
             (id: "emoji",
              actions: [
                 .init(label: "Copy", keys: "↵"),
-                .init(label: "Tone \(state.emojiPicker.skinTone.isEmpty ? "·" : state.emojiPicker.skinTone)", keys: "⌘T"),
+                .init(label: "Skin Tone \(state.emojiPicker.skinTone)", keys: "⌘T"),
                 .home,
              ])
         case .fileConversion:
@@ -854,8 +854,10 @@ struct CommandPanelView: View {
         case .mediaDownload: return "Download"
         case .notesSearch: return "Note"
         case .aiResponse: return "AI"
-        case .macUtility: return "Utility"
-        case .browserTab, .browserBookmark, .browserHistory: return "Browser"
+        case .macUtility: return "System"
+        case .browserTab: return "Tab"
+        case .browserBookmark: return "Bookmark"
+        case .browserHistory: return "History"
         case .developerTool: return "Developer Tool"
         case nil: break
         }

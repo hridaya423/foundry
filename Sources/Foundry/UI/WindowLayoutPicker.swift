@@ -149,7 +149,7 @@ struct WindowLayoutManager: View {
                 .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
 
             VStack(alignment: .leading, spacing: 1) {
-                Text("Window management")
+                Text("Window layouts")
                     .font(FoundryTheme.body)
                     .foregroundStyle(FoundryTheme.textPrimary)
 

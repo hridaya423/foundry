@@ -28,7 +28,7 @@ struct StatusItemMenuModel: Equatable {
     init(hotkey: FoundryHotkey, clipboardPaused: Bool, hotkeyFailed: Bool, keepAwakeActive: Bool = false) {
         var items: [Item] = []
         if hotkeyFailed {
-            items.append(Item(kind: .hotkeyWarning, title: "\(hotkey.displayName) is unavailable — Choose Another Shortcut…", keyEquivalent: "",
+            items.append(Item(kind: .hotkeyWarning, title: "\(hotkey.displayName) Is Taken. Choose Another Shortcut…", keyEquivalent: "",
                 keyEquivalentModifierMask: []))
             items.append(Item(kind: .separator, title: "", keyEquivalent: "", keyEquivalentModifierMask: []))
         }

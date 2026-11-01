@@ -255,7 +255,7 @@ final class PanelSession {
                 let isDefault = appURL == defaultApp
                 actions.append(CommandAction(
                     id: "openwith.\(resultID).\(bundle?.bundleIdentifier ?? appURL.path)",
-                    title: "Open with \(name)\(isDefault ? " — Default" : "")",
+                    title: isDefault ? "Open with \(name) (Default)" : "Open with \(name)",
                     behavior: OpenFileWithAppAction(path: path, appPath: appURL.path)
                 ))
             }

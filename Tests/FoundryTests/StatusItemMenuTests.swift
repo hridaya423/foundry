@@ -20,7 +20,7 @@ final class StatusItemMenuTests: XCTestCase {
 
         let paused = StatusItemMenuModel(hotkey: .optionSpace, clipboardPaused: true, hotkeyFailed: true)
         XCTAssertEqual(paused.items.first?.kind, .hotkeyWarning)
-        XCTAssertEqual(paused.items.first.map { String(localized: $0.title) }, "⌥Space is unavailable — Choose Another Shortcut…")
+        XCTAssertEqual(paused.items.first.map { String(localized: $0.title) }, "⌥Space Is Taken. Choose Another Shortcut…")
         XCTAssertTrue(paused.items.contains { $0.kind == .clipboardPauseToggle && String(localized: $0.title) == "Resume Clipboard" })
 
         let awake = StatusItemMenuModel(hotkey: .optionSpace, clipboardPaused: false, hotkeyFailed: false, keepAwakeActive: true)
@@ -33,6 +33,6 @@ final class StatusItemMenuTests: XCTestCase {
 
         let openItem = model.items.first { $0.kind == .openFoundry }
         XCTAssertEqual(openItem.map { String(localized: $0.title) }, "Open Foundry (⌘A)")
-        XCTAssertEqual(model.items.first.map { String(localized: $0.title) }, "⌘A is unavailable — Choose Another Shortcut…")
+        XCTAssertEqual(model.items.first.map { String(localized: $0.title) }, "⌘A Is Taken. Choose Another Shortcut…")
     }
 }
