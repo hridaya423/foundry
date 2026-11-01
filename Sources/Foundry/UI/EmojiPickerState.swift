@@ -13,8 +13,7 @@ final class EmojiPickerState {
 
     private(set) var recentValues: [String]
 
-    private(set) var columns: Int
-    static let columnOptions = [10, 12, 14]
+    let columns = 12
     private let localState: LocalStateStore
     private static let recentLimit = 12
     private static let suggestedValues = ["👍", "😂", "❤️", "🔥", "🎉", "✅"]
@@ -25,8 +24,6 @@ final class EmojiPickerState {
     init(localState: LocalStateStore = .shared) {
         self.localState = localState
         self.recentValues = localState.get(\.emojiRecents)
-        let storedColumns = localState.get(\.emojiColumns) ?? 12
-        self.columns = Self.columnOptions.contains(storedColumns) ? storedColumns : 12
         let storedTone = localState.get(\.emojiSkinTone)
         self.skinTone = Self.skinTones.contains(storedTone) ? storedTone : ""
     }
@@ -39,11 +36,19 @@ final class EmojiPickerState {
         }
     }
 
-    func cycleColumns() {
-        guard let index = Self.columnOptions.firstIndex(of: columns) else { return }
-        columns = Self.columnOptions[(index + 1) % Self.columnOptions.count]
-        localState.set(\.emojiColumns, columns)
+    struct Cell: Identifiable, Hashable {
+        let id: String
+        let item: EmojiItem
     }
+
+    var recentCells: [Cell] {
+        guard query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return [] }
+        return recents.map { Cell(id: "recent:" + $0.id, item: $0) }
+    }
+
+    var resultCells: [Cell] { visibleEmoji.map { Cell(id: "all:" + $0.id, item: $0) } }
+
+    var cells: [Cell] { recentCells + resultCells }
 
     func recordRecent(_ value: String) {
         recentValues = Array(([value] + recentValues.filter { $0 != value }).prefix(Self.recentLimit))
@@ -85,14 +90,14 @@ final class EmojiPickerState {
     }
 
     var selectedEmoji: EmojiItem? {
-        let items = visibleEmoji
-        guard let selectedID else { return items.first }
-        return items.first { $0.id == selectedID } ?? items.first
+        let cells = cells
+        guard let selectedID else { return cells.first?.item }
+        return (cells.first { $0.id == selectedID } ?? cells.first)?.item
     }
 
     func reset() {
         query = ""
-        selectedID = visibleEmoji.first?.id
+        selectedID = cells.first?.id
     }
 
     func select(id: String) {
@@ -100,11 +105,11 @@ final class EmojiPickerState {
     }
 
     func moveSelection(offset: Int) {
-        let items = visibleEmoji
-        guard items.isEmpty == false else { return }
-        let currentIndex = selectedID.flatMap { id in items.firstIndex { $0.id == id } } ?? 0
-        let nextIndex = min(max(currentIndex + offset, 0), items.count - 1)
-        selectedID = items[nextIndex].id
+        let cells = cells
+        guard cells.isEmpty == false else { return }
+        let currentIndex = selectedID.flatMap { id in cells.firstIndex { $0.id == id } } ?? 0
+        let nextIndex = min(max(currentIndex + offset, 0), cells.count - 1)
+        selectedID = cells[nextIndex].id
     }
 
     func moveLeft() {
@@ -123,22 +128,19 @@ final class EmojiPickerState {
         moveSelection(offset: columns)
     }
 
-    @discardableResult
-    func copySelectedEmoji() -> String? {
+    func takeSelectedEmoji() -> String? {
         guard let selectedEmoji else { return nil }
         let value = toneAppliedValue(selectedEmoji)
-        NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(value, forType: .string)
         recordRecent(value)
         return value
     }
 
     private func keepSelectionValid() {
-        let items = visibleEmoji
-        if let selectedID, items.contains(where: { $0.id == selectedID }) {
+        let cells = cells
+        if let selectedID, cells.contains(where: { $0.id == selectedID }) {
             return
         }
-        selectedID = items.first?.id
+        selectedID = cells.first?.id
     }
 }
 

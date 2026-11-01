@@ -20,17 +20,33 @@ final class EmojiPickerStateTests: XCTestCase {
         XCTAssertEqual(state.recentValues.count, 12)
         XCTAssertEqual(EmojiPickerState(localState: localState).recentValues, state.recentValues, "persists across instances")
     }
-    func testColumnsCycleAndPersist() throws {
-        let localState = LocalStateStore()
-        let state = EmojiPickerState(localState: localState)
-        XCTAssertEqual(state.columns, 12)
-        state.cycleColumns()
-        XCTAssertEqual(state.columns, 14)
-        state.cycleColumns()
-        XCTAssertEqual(state.columns, 10)
-        XCTAssertEqual(EmojiPickerState(localState: localState).columns, 10)
-        localState.set(\.emojiColumns, 7)
-        XCTAssertEqual(EmojiPickerState(localState: localState).columns, 12, "invalid stored value falls back")
+    func testRecentAndAllHaveDistinctIDs() {
+        let state = EmojiPickerState(localState: LocalStateStore())
+        state.recordRecent("🔥")
+        let ids = state.cells.map(\.id)
+        XCTAssertEqual(Set(ids).count, ids.count, "🔥 appears in Recent and All with different ids")
+        XCTAssertTrue(ids.contains("recent:🔥"))
+        XCTAssertTrue(ids.contains("all:🔥"))
+    }
+
+    func testArrowsReachRecents() {
+        let state = EmojiPickerState(localState: LocalStateStore())
+        state.recordRecent("🔥")
+        state.reset()
+        XCTAssertEqual(state.selectedID, "recent:🔥")
+        state.moveRight()
+        XCTAssertEqual(state.selectedID, state.resultCells.first?.id)
+        state.moveLeft()
+        XCTAssertEqual(state.selectedEmoji?.value, "🔥")
+    }
+
+    func testCellValueCarriesSkinTone() {
+        let state = EmojiPickerState(localState: LocalStateStore())
+        state.setSkinTone("🏽")
+        let thumbs = state.resultCells.first { $0.item.value == "👍" }!
+        XCTAssertEqual(state.toneAppliedValue(thumbs.item), "👍🏽")
+        state.select(id: thumbs.id)
+        XCTAssertEqual(state.takeSelectedEmoji(), "👍🏽")
     }
 
     func testCommandDigitsPickASkinTone() {

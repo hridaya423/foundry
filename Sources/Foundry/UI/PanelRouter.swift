@@ -161,7 +161,7 @@ final class PanelRouter {
         beginFeatureMode(.translator)
         panel.translator.reset()
         if let text { panel.translator.sourceText = text }
-        if let language { panel.translator.targetLanguage = language.capitalized }
+        if let language { panel.translator.translate(into: language.capitalized) }
     }
 
     func openDeveloperTools(tool: String? = nil) {

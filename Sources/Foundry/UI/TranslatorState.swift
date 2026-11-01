@@ -24,33 +24,30 @@ final class TranslatorState {
     private let debounce: Duration
     private var task: Task<Void, Never>?
     private var resetting = false
-    private let defaults: UserDefaults
+    private let localState: LocalStateStore
 
-    init(defaults: UserDefaults = .standard, availability: TranslationAvailability = .current, debounce: Duration = .milliseconds(450),
+    init(localState: LocalStateStore = .shared, availability: TranslationAvailability = .current, debounce: Duration = .milliseconds(450),
         translator: @escaping TranslationProvider.Translator = { await AppleTranslator.translate($0) }) {
         self.availability = availability
         self.debounce = debounce
         self.translator = translator
-        self.defaults = defaults
+        self.localState = localState
         restoreLanguages()
     }
 
     private func restoreLanguages() {
         resetting = true
-        if let source = defaults.string(forKey: Self.sourceKey) { sourceLanguage = source }
-        if let target = defaults.string(forKey: Self.targetKey) { targetLanguage = target }
+        if let source = localState.get(\.translatorSourceLanguage) { sourceLanguage = source }
+        if let target = localState.get(\.translatorTargetLanguage) { targetLanguage = target }
         resetting = false
     }
 
     private func languagesChanged() {
         guard resetting == false else { return }
-        defaults.set(sourceLanguage, forKey: Self.sourceKey)
-        defaults.set(targetLanguage, forKey: Self.targetKey)
+        localState.set(\.translatorSourceLanguage, sourceLanguage)
+        localState.set(\.translatorTargetLanguage, targetLanguage)
         scheduleTranslation()
     }
-
-    private static let sourceKey = "translator.sourceLanguage"
-    private static let targetKey = "translator.targetLanguage"
 
     let languages = ["Arabic", "Chinese", "English", "French", "German", "Hindi", "Italian", "Japanese", "Korean", "Portuguese", "Russian", "Spanish"]
 
@@ -95,6 +92,12 @@ final class TranslatorState {
             guard !Task.isCancelled else { return }
             await MainActor.run { self?.finish(outcome, for: request) }
         }
+    }
+
+    func translate(into language: String) {
+        guard language != targetLanguage else { return }
+        if language == sourceLanguage { sourceLanguage = targetLanguage }
+        targetLanguage = language
     }
 
     func swapLanguages() {

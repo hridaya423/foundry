@@ -137,6 +137,8 @@ struct FoundryLocalState: Codable, Equatable, Sendable {
     var emojiRecents: [String] = []
     var emojiColumns: Int?
     var emojiSkinTone = ""
+    var translatorSourceLanguage: String?
+    var translatorTargetLanguage: String?
     var scriptDirectories: [String]?
     var trustedScriptDirectories: [String] = []
     var calculatorHistory: [[String]] = []
@@ -168,6 +170,8 @@ struct FoundryLocalState: Codable, Equatable, Sendable {
         emojiRecents = try container.decodeIfPresent([String].self, forKey: .emojiRecents) ?? []
         emojiColumns = try container.decodeIfPresent(Int.self, forKey: .emojiColumns)
         emojiSkinTone = try container.decodeIfPresent(String.self, forKey: .emojiSkinTone) ?? ""
+        translatorSourceLanguage = try container.decodeIfPresent(String.self, forKey: .translatorSourceLanguage)
+        translatorTargetLanguage = try container.decodeIfPresent(String.self, forKey: .translatorTargetLanguage)
         scriptDirectories = try container.decodeIfPresent([String].self, forKey: .scriptDirectories)
         trustedScriptDirectories = try container.decodeIfPresent([String].self, forKey: .trustedScriptDirectories) ?? []
         calculatorHistory = try container.decodeIfPresent([[String]].self, forKey: .calculatorHistory) ?? []

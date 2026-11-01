@@ -59,7 +59,7 @@ final class CommandPanelState {
     }()
     @ObservationIgnored lazy var translator: TranslatorState = {
         builtFeatures.insert(.translator)
-        let translator = TranslatorState()
+        let translator = TranslatorState(localState: localState)
         translator.onFeedback = { [weak self] feedback in self?.showActionFeedback(feedback) }
         return translator
     }()

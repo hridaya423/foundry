@@ -220,6 +220,9 @@ final class PreviewSnapshotTests: XCTestCase {
         state.moveSelectionDown()
         try renderPanel(state, named: "drop-chooser", dir: dir)
         state.cancelDrop()
+        state.open(.emojiPicker)
+        state.emojiPicker.reset()
+        try renderPanel(state, named: "emoji", dir: dir)
         state.shutdown()
     }
 

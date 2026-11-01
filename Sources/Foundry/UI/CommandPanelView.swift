@@ -294,7 +294,7 @@ struct CommandPanelView: View {
         case .emojiPicker:
             (id: "emoji",
              actions: [
-                .init(label: "Copy", keys: "↵"),
+                .init(label: "Paste", keys: "↵", emphasized: true),
                 .init(label: "Skin Tone \(state.emojiPicker.skinTone)", keys: "⌘T"),
                 .home,
              ])
@@ -342,7 +342,7 @@ struct CommandPanelView: View {
         case .emojiPicker:
             HStack(spacing: 8) {
                 featureSearchField("Search emoji and symbols…", text: emojiQueryBinding) {
-                    if state.copySelectedEmoji() { dismiss() }
+                    if state.pasteSelectedEmoji() { dismiss() }
                 }
                 EmojiSkinToneMenu(state: state.emojiPicker)
             }
@@ -394,7 +394,7 @@ struct CommandPanelView: View {
             QuickAISurfaceView(quickAI: state.quickAI, aiSettings: state.aiSettings, onOpenAISettings: { state.presentSettings(.ai) })
         case .emojiPicker:
             EmojiPickerView(state: state.emojiPicker) {
-                if state.copySelectedEmoji() { dismiss() }
+                if state.pasteSelectedEmoji() { dismiss() }
             }
         case .fileConversion:
             FileConversionView(state: state.fileConversion)
@@ -890,7 +890,13 @@ struct CommandPanelView: View {
             openSettings: state.router.openSettings,
             openWelcomeGuide: state.router.openWelcomeGuide
         ) {
-            if state.mode == .clipboardHistory, state.clipboardHistory.items.isEmpty == false {
+            if state.mode == .emojiPicker, let emoji = state.emojiPicker.selectedEmoji {
+                Text(emoji.name.capitalized)
+                    .font(FoundryTheme.caption)
+                    .foregroundStyle(FoundryTheme.textTertiary)
+                    .lineLimit(1)
+            }
+                        if state.mode == .clipboardHistory, state.clipboardHistory.items.isEmpty == false {
                 Text(state.clipboardHistory.countLabel)
                     .font(FoundryTheme.caption.monospacedDigit())
                     .foregroundStyle(FoundryTheme.textTertiary)

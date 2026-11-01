@@ -4,75 +4,50 @@ import SwiftUI
 struct EmojiPickerView: View {
     var state: EmojiPickerState
     let copyAndDismiss: () -> Void
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var columns: [GridItem] { Array(repeating: GridItem(.fixed(44), spacing: 10), count: state.columns) }
 
     var body: some View {
-        ScrollViewReader { proxy in
-            ScrollView {
-                VStack(alignment: .leading, spacing: 18) {
-                    if state.query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                        emojiSection(title: state.hasRecents ? "Recent" : "Suggested", items: state.recents)
-                    }
-
-                    emojiSection(title: state.query.isEmpty ? "All" : "Results", items: state.visibleEmoji) {
-                        Button(action: state.cycleColumns) {
-                            Image(systemName: "rectangle.grid.3x2")
-                                .font(FoundryTheme.Glyph.xs)
-                                .foregroundStyle(FoundryTheme.textTertiary)
-                                .frame(width: 24, height: 24)
-                                .background(FoundryTheme.fillHover)
-                                .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
+        if state.resultCells.isEmpty {
+            FoundryEmptyState(
+                symbol: "face.smiling",
+                title: "No emoji for “\(state.query)”",
+                message: "Try a feeling or an object, like “happy” or “pizza”."
+            )
+        } else {
+            ScrollViewReader { proxy in
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 18) {
+                        if state.recentCells.isEmpty == false {
+                            emojiSection(title: state.hasRecents ? "Recent" : "Suggested", cells: state.recentCells)
                         }
-                        .buttonStyle(.plain)
-                        .help("\(state.columns) columns — click to cycle 10, 12, 14")
-                        .accessibilityLabel("Grid columns, \(state.columns)")
+                        emojiSection(title: state.query.isEmpty ? "All" : "Results", cells: state.resultCells)
                     }
+                    .padding(.horizontal, 20)
+                    .padding(.vertical, 16)
                 }
-                .padding(.horizontal, 20)
-                .padding(.vertical, 16)
-            }
-            .scrollIndicators(.never)
-            .onChange(of: state.selectedID) { _, selectedID in
-                guard let selectedID else { return }
-                proxy.scrollTo(selectedID, anchor: .center)
+                .scrollIndicators(.never)
+                .onChange(of: state.selectedID) { _, selectedID in
+                    guard let selectedID else { return }
+                    proxy.scrollTo(selectedID)
+                }
             }
         }
     }
 
-    private func emojiSection<Trailing: View>(title: String, items: [EmojiItem], @ViewBuilder trailing: () -> Trailing = { EmptyView() }) -> some View {
+    private func emojiSection(title: String, cells: [EmojiPickerState.Cell]) -> some View {
         VStack(alignment: .leading, spacing: 12) {
-            HStack {
-            Text(title)
-                .font(FoundryTheme.micro)
-                .foregroundStyle(FoundryTheme.textQuaternary)
-                .textCase(.uppercase)
-                .tracking(0.5)
-            Spacer()
-            trailing()
-            }
-
-            if items.isEmpty {
-                Text("No matching emoji")
-                    .font(FoundryTheme.body)
-                    .foregroundStyle(FoundryTheme.textTertiary)
-                    .frame(height: 72)
-            } else {
-                    LazyVGrid(columns: columns, alignment: .leading, spacing: 10) {
-                        ForEach(items) { item in
-                            Button {
-                                state.select(id: item.id)
-                                copyAndDismiss()
-                            } label: {
-                                EmojiCell(
-                                    item: item,
-                                    isSelected: state.selectedID == item.id
-                                )
-                            }
-                            .buttonStyle(.plain)
-                            .id(item.id)
-                        }
+            FoundrySectionHeader(title: title)
+            LazyVGrid(columns: columns, alignment: .leading, spacing: 10) {
+                ForEach(cells) { cell in
+                    Button {
+                        state.select(id: cell.id)
+                        copyAndDismiss()
+                    } label: {
+                        EmojiCell(value: state.toneAppliedValue(cell.item), name: cell.item.name, isSelected: state.selectedID == cell.id)
+                    }
+                    .buttonStyle(.plain)
+                    .id(cell.id)
                 }
             }
         }
@@ -80,37 +55,20 @@ struct EmojiPickerView: View {
 }
 
 private struct EmojiCell: View {
-    let item: EmojiItem
+    let value: String
+    let name: String
     let isSelected: Bool
 
     @State private var isHovering = false
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-
-    private var fill: Color {
-        if isSelected { return FoundryTheme.stroke }
-        if isHovering { return FoundryTheme.fillTint }
-        return Color.clear
-    }
 
     var body: some View {
-        Text(item.value)
+        Text(value)
             .font(FoundryTheme.Glyph.lg)
             .frame(width: 44, height: 44)
-            .background(fill)
-            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .stroke(isSelected ? FoundryTheme.stroke : Color.clear, lineWidth: 1)
-            )
-            .scaleEffect(isHovering && isSelected == false ? 1.08 : 1)
-            .animation(reduceMotion ? nil : FoundryTheme.Motion.hover, value: isHovering)
-            .accessibilityLabel(item.name)
-            .accessibilityValue(isSelected ? "Selected" : "Not selected")
+            .background(RowBackground(isSelected: isSelected, isHovering: isHovering))
+            .onHover { isHovering = $0 }
+            .accessibilityLabel(name)
             .accessibilityAddTraits(isSelected ? .isSelected : [])
-            .onHover { hovering in
-                isHovering = hovering
-
-            }
     }
 }
 

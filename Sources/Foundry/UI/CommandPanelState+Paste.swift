@@ -6,10 +6,24 @@ import FoundryServices
 
 // Direct paste, snippet insertion, and clipboard/shelf image analysis.
 extension CommandPanelState {
-    func copySelectedEmoji() -> Bool {
-        guard let value = emojiPicker.copySelectedEmoji() else { return false }
-        notify(.success(String(localized: "Copied \(value)")), dismissed: true)
+    func pasteSelectedEmoji() -> Bool {
+        guard let value = emojiPicker.takeSelectedEmoji() else { return false }
+        if pasteNeedsAccessibility() {
+            copyEmoji(value)
+            return false
+        }
+        do {
+            try actionRunner.directPasteService.stage(.text(value))
+        } catch {
+            copyEmoji(value)
+            notify(.success(String(localized: "Copied \(value)")), dismissed: true)
+        }
         return true
+    }
+
+    private func copyEmoji(_ value: String) {
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(value, forType: .string)
     }
 
     @discardableResult
