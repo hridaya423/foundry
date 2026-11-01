@@ -290,7 +290,8 @@ final class AIProviderTests: XCTestCase {
         let configURL = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: configURL) }
         let config = ConfigService(diagnostics: DiagnosticsService(), url: configURL)
-        let state = QuickAIState(aiProvider: AIProvider(config: config, diagnostics: DiagnosticsService()))
+        let state = QuickAIState(aiProvider: AIProvider(config: config, diagnostics: DiagnosticsService()),
+            chatStore: AIChatStore(url: configURL.appendingPathExtension("chats")))
         let thread = AIChatThread(title: "Other chat")
         state.isQuickAILoading = true
 

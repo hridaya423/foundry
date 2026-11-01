@@ -437,4 +437,13 @@ final class ConfigServiceTests: XCTestCase {
 
         XCTAssertEqual(board.config.enabled, WidgetBoardConfig.default.enabled)
     }
+
+    func testDataFilesLiveBesideTheirConfig() {
+        let temporary = FileManager.default.temporaryDirectory.appendingPathComponent("foundry-data-\(UUID().uuidString).json")
+        let config = ConfigService(diagnostics: DiagnosticsService(), url: temporary)
+        XCTAssertEqual(config.dataURL("snippets.json").deletingLastPathComponent(), temporary.deletingLastPathComponent())
+        XCTAssertFalse(config.dataURL("snippets.json").path.contains("/.config/foundry/"))
+        let real = ConfigService.configURL.deletingLastPathComponent()
+        XCTAssertEqual(real.appendingPathComponent("snippets.json").path, real.path + "/snippets.json")
+    }
 }

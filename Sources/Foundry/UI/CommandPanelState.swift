@@ -115,7 +115,7 @@ final class CommandPanelState {
         actionRunner: ActionRunner,
         diagnostics: DiagnosticsService,
         config: ConfigService,
-        snippetStore: any SnippetStore = FileSnippetStore(),
+        snippetStore: (any SnippetStore)? = nil,
         mediaDownloadManager: MediaDownloadManager = MediaDownloadManager(),
         clipboardHistory: ClipboardHistoryState? = nil,
         localState: LocalStateStore = .shared
@@ -127,14 +127,15 @@ final class CommandPanelState {
         self.configService = config
         self.localState = localState
         self.clipboardHistory = clipboardHistory ?? ClipboardHistoryState(configuration: config.current.clipboard)
-        self.snippets = SnippetState(store: snippetStore, localState: localState)
+        self.snippets = SnippetState(store: snippetStore ?? FileSnippetStore(url: config.dataURL("snippets.json")), localState: localState)
         self.installedBrowsers = BrowserSource.allCases.filter(\.isInstalled)
         self.settings = SettingsStore(configService: config, diagnostics: diagnostics, registry: registry)
         self.router = PanelRouter(diagnostics: diagnostics)
         self.session = PanelSession(registry: registry, searchCoordinator: searchCoordinator, configService: config, diagnostics: diagnostics)
         self.widgetBoard = WidgetBoardState(configService: config, diagnostics: diagnostics)
         self.aiSettings = AISettingsState(config: config, diagnostics: diagnostics)
-        self.quickAI = QuickAIState(aiProvider: AIProvider(config: config, diagnostics: diagnostics))
+        self.quickAI = QuickAIState(aiProvider: AIProvider(config: config, diagnostics: diagnostics),
+            chatStore: AIChatStore(url: config.dataURL("ai-chats.json")))
         self.mediaDownloads = mediaDownloadManager
         settings.panel = self
         router.panel = self

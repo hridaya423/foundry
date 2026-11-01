@@ -389,6 +389,13 @@ final class ConfigService: Sendable {
 
     let existedAtLaunch: Bool
 
+    /// Where a data file lives: beside the app's config, or beside a test's own config so tests never touch ~/.config.
+    func dataURL(_ name: String) -> URL {
+        url == Self.configURL
+            ? url.deletingLastPathComponent().appendingPathComponent(name)
+            : url.deletingPathExtension().appendingPathExtension(name)
+    }
+
     /// Disk writes performed so far — surfaced for tests and diagnostics.
     var persistedWriteCount: Int { state.withLockUnchecked { $0.persistedWriteCount } }
 
