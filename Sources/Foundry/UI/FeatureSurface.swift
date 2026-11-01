@@ -187,11 +187,12 @@ struct FooterAction: View {
 
 struct InlineNotice: View {
     enum Level {
-        case info, warning, error
+        case info, success, warning, error
 
         var tint: Color {
             switch self {
             case .info: FoundryTheme.textSecondary
+            case .success: FoundryTheme.success
             case .warning: FoundryTheme.warning
             case .error: FoundryTheme.destructive
             }
@@ -200,6 +201,7 @@ struct InlineNotice: View {
         var defaultSymbol: String {
             switch self {
             case .info: "info.circle"
+            case .success: "checkmark.circle"
             case .warning, .error: "exclamationmark.triangle"
             }
         }

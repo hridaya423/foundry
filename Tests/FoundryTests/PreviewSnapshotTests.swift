@@ -7,7 +7,7 @@ import FoundryServices
 
 @MainActor
 final class PreviewSnapshotTests: XCTestCase {
-    func testRenderPreviews() throws {
+    func testRenderPreviews() async throws {
         guard let dir = ProcessInfo.processInfo.environment["FOUNDRY_QA_SNAPSHOT_DIR"] else { throw XCTSkip("snapshot dir not set") }
         let archive = FileManager.default.temporaryDirectory.appendingPathComponent("clip-snap-\(UUID()).json")
         let persistence = ClipboardHistoryPersistence(url: archive)
@@ -49,6 +49,13 @@ final class PreviewSnapshotTests: XCTestCase {
         shelf.select(id: shelf.files[1].id)
         for appearance in [NSAppearance.Name.aqua, .darkAqua] {
             try render(FileShelfView(state: shelf, convertSelected: { _ in }), name: "shelf", appearance: appearance)
+        }
+        let conversion = FileConversionState(assess: { _, _ in .ready })
+        conversion.setSource(url: URL(fileURLWithPath: "/tmp/photo.png"))
+        await conversion.refreshCapabilities()
+        conversion.convert()
+        for appearance in [NSAppearance.Name.aqua, .darkAqua] {
+            try render(FileConversionView(state: conversion), name: "conversion", appearance: appearance)
         }
 
         let snippetStore = FileSnippetStore(url: FileManager.default.temporaryDirectory.appendingPathComponent("snap-snippets-\(UUID()).json"))

@@ -2,6 +2,7 @@ import CoreGraphics
 import Foundation
 import ImageIO
 import UniformTypeIdentifiers
+import SwiftUI
 import XCTest
 @testable import Foundry
 import FoundryServices
@@ -21,6 +22,27 @@ final class FileConversionTests: XCTestCase {
         await state.refreshCapabilities()
         XCTAssertTrue(state.availableTargets.allSatisfy { state.capability(for: $0) != nil })
         XCTAssertTrue(state.capability(for: state.availableTargets.first { $0.route.engines.contains(.ffmpeg) }!)!.isSetupRequired)
+    }
+
+    func testSecondReturnWhileConvertingDoesNotCancel() {
+        XCTAssertEqual(FileConversionView.convertShortcut(isConverting: false), .defaultAction)
+        XCTAssertEqual(FileConversionView.convertShortcut(isConverting: true), KeyboardShortcut(".", modifiers: .command))
+    }
+
+    func testStatusCarriesLevel() {
+        let state = FileConversionState(assess: { _, _ in .ready })
+        state.setSource(url: URL(fileURLWithPath: "/tmp/photo.png"))
+        state.convert()
+        XCTAssertEqual(state.status, "Checking converter readiness…")
+        XCTAssertEqual(state.statusLevel, .warning)
+        state.cancel()
+        XCTAssertEqual(state.statusLevel, .info)
+    }
+
+    func testNameChipsShowTheRealOutputName() {
+        let source = URL(fileURLWithPath: "/tmp/photo.png")
+        XCTAssertEqual(FileConversionService.renderNameTemplate("{name}-converted", source: source, ext: "jpg"), "photo-converted")
+        XCTAssertEqual(FileConversionService.renderNameTemplate(nil, source: source, ext: "jpg"), "photo")
     }
 
     func testRefusingSetupDoesNotProvisionOrConvert() async {

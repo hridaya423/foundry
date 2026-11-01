@@ -65,7 +65,7 @@ extension FileConversionView {
                 )
             }
         }
-        .frame(height: 26)
+        .frame(height: FoundryTheme.Control.compact)
     }
 
     func statusIcon(for state_: FileConversionItemState) -> some View {
@@ -112,17 +112,8 @@ extension FileConversionView {
 
             if state.isConverting, let progress = state.progress {
                 progressBar(progress)
-            } else if let detail = statusDetail {
-                HStack(spacing: 6) {
-                    Image(systemName: detail.icon)
-                        .font(FoundryTheme.Glyph.xs)
-                    Text(detail.text)
-                        .font(FoundryTheme.caption)
-                        .lineLimit(2)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-                .foregroundStyle(detail.color)
-                .frame(maxWidth: .infinity, alignment: .leading)
+            } else if state.status.isEmpty == false {
+                InlineNotice(level: state.statusLevel, text: "\(state.status)")
             }
 
             if state.isConverting == false {
@@ -188,7 +179,7 @@ extension FileConversionView {
                 }
             }
             .progressViewStyle(.linear)
-            .tint(FoundryTheme.warning)
+            .tint(FoundryTheme.accent)
             if let status = progressLabel(progress) {
                 Text(status)
                     .font(FoundryTheme.caption)
@@ -220,7 +211,7 @@ extension FileConversionView {
                 }
                 Text(
                     state.isConverting
-                        ? "Cancel Conversion"
+                        ? "Cancel ⌘."
                         : state.sourceURLs.count > 1 ? "Convert \(state.sourceURLs.count) Files" : "Convert"
                 )
                     .font(FoundryTheme.body)
@@ -233,21 +224,19 @@ extension FileConversionView {
         }
         .buttonStyle(PressableButtonStyle())
         .disabled(state.isConverting == false && canConvert == false)
-        .keyboardShortcut(.defaultAction)
+        .keyboardShortcut(Self.convertShortcut(isConverting: state.isConverting))
+    }
+
+    static func convertShortcut(isConverting: Bool) -> KeyboardShortcut {
+        isConverting ? KeyboardShortcut(".", modifiers: .command) : .defaultAction
     }
 
     var convertButtonGlass: some View {
-        let shape = RoundedRectangle(cornerRadius: 13, style: .continuous)
-        return shape
-            .fill(reduceTransparency ? AnyShapeStyle(FoundryTheme.fillTint) : AnyShapeStyle(.ultraThinMaterial))
+        RoundedRectangle(cornerRadius: FoundryTheme.Radius.control, style: .continuous)
+            .fill(FoundryTheme.fillSelected)
             .overlay {
-                shape.fill(FoundryTheme.fillSelected)
+                RoundedRectangle(cornerRadius: FoundryTheme.Radius.control, style: .continuous).strokeBorder(FoundryTheme.stroke, lineWidth: 1)
             }
-            .overlay {
-                shape.strokeBorder(FoundryTheme.stroke, lineWidth: 1)
-            }
-            .compositingGroup()
-            .shadow(color: FoundryTheme.shadow, radius: 12, y: 6)
     }
 
     // MARK: Setup sheet
@@ -372,15 +361,6 @@ extension FileConversionView {
         let home = FileManager.default.homeDirectoryForCurrentUser.path
         let path = url.path
         return path.hasPrefix(home) ? "~" + path.dropFirst(home.count) : path
-    }
-
-    var statusDetail: (text: String, icon: String, color: Color)? {
-        if state.isConverting { return nil }
-        if state.status.isEmpty { return nil }
-        if state.outputURL != nil {
-            return (state.status, "checkmark.circle.fill", FoundryTheme.success)
-        }
-        return (state.status, "exclamationmark.triangle.fill", FoundryTheme.warning)
     }
 
     static func byteCount(of url: URL) -> Int64? {

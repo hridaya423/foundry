@@ -839,7 +839,7 @@ public enum FileConversionService {
 
     /// Renders `options.nameTemplate` — tokens `{name}`, `{date}`, `{ext}`.
     /// An empty or nameless template falls back to the source basename.
-    static func renderNameTemplate(_ template: String?, source: URL, ext: String, now: Date = Date()) -> String {
+    public static func renderNameTemplate(_ template: String?, source: URL, ext: String, now: Date = Date()) -> String {
         let original = source.deletingPathExtensionIfCompound().lastPathComponent
         guard let template, template.contains("{name}") else { return original }
         let stamp = nameStampFormatter.string(from: now)

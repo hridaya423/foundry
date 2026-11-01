@@ -81,12 +81,12 @@ struct FileConversionView: View {
             }
         }
         .frame(maxWidth: .infinity, minHeight: 250, maxHeight: .infinity, alignment: .topLeading)
-        .background(Color.primary.opacity(isDropTargeted ? 0.09 : 0.055))
-        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .background(isDropTargeted ? FoundryTheme.fillSelected : FoundryTheme.fillHover)
+        .clipShape(RoundedRectangle(cornerRadius: FoundryTheme.Radius.popover, style: .continuous))
         .overlay {
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
+            RoundedRectangle(cornerRadius: FoundryTheme.Radius.popover, style: .continuous)
                 .strokeBorder(
-                    isDropTargeted ? FoundryTheme.warning.opacity(FoundryTheme.Alpha.faint) : FoundryTheme.fillTint,
+                    isDropTargeted ? FoundryTheme.selectionBorder : FoundryTheme.fillTint,
                     style: StrokeStyle(
                         lineWidth: isDropTargeted ? 1.5 : 1,
                         dash: state.sourceURLs.isEmpty ? [6, 5] : []
@@ -102,7 +102,7 @@ struct FileConversionView: View {
             VStack(spacing: 10) {
                 Image(systemName: "arrow.down.doc")
                     .font(FoundryTheme.Glyph.xl)
-                    .foregroundStyle(isDropTargeted ? FoundryTheme.warning : FoundryTheme.textSecondary)
+                    .foregroundStyle(isDropTargeted ? FoundryTheme.accent : FoundryTheme.textSecondary)
                 Text(isDropTargeted ? "Drop to add files" : "Drop files here")
                     .font(FoundryTheme.body)
                     .foregroundStyle(FoundryTheme.textPrimary)
@@ -463,8 +463,8 @@ struct FileConversionView: View {
                         }
                     }
                     if kinds.contains(.maxPixelSize) {
-                        optionRow("Max Size") {
-                            optionChips([(nil, "Full"), (4096, "4K"), (2048, "2K"), (1024, "1K"), (512, "512")],
+                        optionRow("Longest Edge") {
+                            optionMenu("Longest Edge", [(nil, "Original"), (4096, "4096 px"), (2048, "2048 px"), (1024, "1024 px"), (512, "512 px")],
                                         get: { state.options.maxPixelSize },
                                         set: { state.options.maxPixelSize = $0 })
                         }
@@ -504,11 +504,18 @@ struct FileConversionView: View {
                 .transition(.opacity)
             }
             optionRow("Name") {
-                optionChips([(nil, "Same"), ("{name}-converted", "{name}-converted"), ("{name}-{date}", "{name}-{date}")],
+                optionMenu("Name", Self.nameTemplates.map { ($0, nameExample($0)) },
                             get: { state.options.nameTemplate },
                             set: { state.options.nameTemplate = $0 })
             }
         }
+    }
+
+    static let nameTemplates: [String?] = [nil, "{name}-converted", "{name}-{date}"]
+
+    private func nameExample(_ template: String?) -> String {
+        guard let source = state.sourceURLs.first else { return template ?? String(localized: "Same") }
+        return FileConversionService.renderNameTemplate(template, source: source, ext: state.selectedTarget?.id ?? "")
     }
 
     private var pagesBinding: Binding<String> {
@@ -523,10 +530,23 @@ struct FileConversionView: View {
             Text(label)
                 .font(FoundryTheme.micro)
                 .foregroundStyle(FoundryTheme.textQuaternary)
-                .frame(width: 58, alignment: .leading)
+                .frame(width: 84, alignment: .leading)
             content()
             Spacer(minLength: 0)
         }
+    }
+
+    private func optionMenu<Value: Hashable>(_ title: String, _ pairs: [(Value?, String)],
+                                            get: @escaping () -> Value?,
+                                            set: @escaping (Value?) -> Void) -> some View {
+        Picker(title, selection: Binding(get: get, set: set)) {
+            ForEach(Array(pairs.enumerated()), id: \.offset) { _, pair in
+                Text(pair.1).tag(pair.0)
+            }
+        }
+        .labelsHidden()
+        .pickerStyle(.menu)
+        .fixedSize()
     }
 
     private func optionChips<Value: Equatable>(_ pairs: [(Value?, String)],

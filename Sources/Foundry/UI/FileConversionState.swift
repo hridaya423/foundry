@@ -194,6 +194,15 @@ final class FileConversionState {
         Task { await refreshCapabilities() }
     }
 
+    var statusLevel: InlineNotice.Level {
+        switch phase {
+        case .failed: .error
+        case .completed: outputURLs.isEmpty ? .warning : .success
+        case .cancelled: .info
+        default: .warning
+        }
+    }
+
     func convert() {
         guard sourceURLs.isEmpty == false, let target = selectedTarget else { return }
         guard let capability = capabilities[target.id] else { status = String(localized: "Checking converter readiness…"); return }
