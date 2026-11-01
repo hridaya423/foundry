@@ -1,5 +1,6 @@
 import AppKit
 import SwiftUI
+import FoundryDomain
 
 
 struct FeatureHeader<Content: View, Trailing: View>: View {
@@ -166,6 +167,7 @@ struct KeycapHint: View {
             .frame(minWidth: 19, minHeight: 19)
             .background(FoundryTheme.fillTint, in: RoundedRectangle(cornerRadius: FoundryTheme.Radius.badge, style: .continuous))
             .fixedSize()
+            .accessibilityLabel(HotkeyFormatter.spoken(text))
     }
 }
 

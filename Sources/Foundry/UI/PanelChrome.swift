@@ -1,5 +1,6 @@
 import AppKit
 import SwiftUI
+import FoundryDomain
 
 struct FoundrySmoothedRectangle: InsettableShape {
     var cornerRadius: CGFloat
@@ -75,7 +76,7 @@ struct ActionRow: View {
 
             if let shortcut {
                 KeycapHint(text: shortcut)
-                    .accessibilityLabel("Shortcut \(shortcut)")
+                    .accessibilityLabel("Shortcut \(HotkeyFormatter.spoken(shortcut))")
             }
         }
         .padding(.horizontal, FoundryTheme.Spacing.sm)

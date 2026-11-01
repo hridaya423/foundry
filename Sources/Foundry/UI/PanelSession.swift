@@ -57,6 +57,11 @@ final class PanelSession {
     private var searchKeySpan: DiagnosticsService.Span?
     var favoriteResults: [CommandResult] = []
     var isCommandHeld = false
+    @ObservationIgnored var announce: (String) -> Void = { message in
+        guard NSWorkspace.shared.isVoiceOverEnabled else { return }
+        NSAccessibility.post(element: NSApp as Any, notification: .announcementRequested,
+            userInfo: [.announcement: message, .priority: NSAccessibilityPriorityLevel.high.rawValue])
+    }
     private(set) var runningAppBundleIDs: Set<String> = []
 
     let registry: CommandRegistry
@@ -333,6 +338,7 @@ final class PanelSession {
         let nextIndex = min(max(currentIndex + offset, 0), list.count - 1)
         selectedResultID = list[nextIndex].id
         selectionScrollToken = UUID()
+        announce("\(list[nextIndex].title), \(nextIndex + 1) of \(list.count)")
     }
 
     func refreshResults() {

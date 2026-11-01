@@ -130,6 +130,15 @@ final class PanelKeyboardTests: XCTestCase {
         state.shutdown()
     }
 
+    func testSelectionChangeAnnounces() {
+        let state = listState(count: 3)
+        var heard: [String] = []
+        state.session.announce = { heard.append($0) }
+        state.moveSelectionDown()
+        XCTAssertEqual(heard, ["Result, 2 of 3"])
+        state.shutdown()
+    }
+
     // MARK: What you see is what you navigate
 
     func testNavigableRowsMatchWhatTheViewRendersAtHome() {

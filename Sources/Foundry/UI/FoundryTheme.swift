@@ -101,8 +101,14 @@ enum FoundryTheme {
 
     static let textPrimary = Color.primary.opacity(0.97)
     static let textSecondary = Color.primary.opacity(0.74)
-    static let textTertiary = Color.primary.opacity(0.56)
-    static let textQuaternary = Color.primary.opacity(0.44)
+    static let textTertiary = contrastAware(0.56, increased: 0.74)
+    static let textQuaternary = contrastAware(0.44, increased: 0.60)
+
+    private static func contrastAware(_ alpha: CGFloat, increased: CGFloat) -> Color {
+        Color(nsColor: NSColor(name: nil) { _ in
+            NSColor.labelColor.withAlphaComponent(NSWorkspace.shared.accessibilityDisplayShouldIncreaseContrast ? increased : alpha)
+        })
+    }
 
     /// Barely-there wash for resting surfaces.
     static let fillSubtle = Color.primary.opacity(0.04)

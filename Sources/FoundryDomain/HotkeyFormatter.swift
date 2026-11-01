@@ -47,4 +47,27 @@ public enum HotkeyFormatter {
     public static func displayName(keyCode: UInt32, modifiers: UInt32) -> String {
         modifierString(modifiers) + (keyName(keyCode) ?? "?")
     }
+
+    static let spokenNames: [Character: String] = [
+        "⌃": "Control", "⌥": "Option", "⇧": "Shift", "⌘": "Command",
+        "↵": "Return", "↩": "Return", "⌫": "Delete", "⌦": "Forward Delete", "⇥": "Tab", "⎋": "Escape",
+        "↑": "Up Arrow", "↓": "Down Arrow", "←": "Left Arrow", "→": "Right Arrow",
+    ]
+
+    /// The chord as VoiceOver should read it, e.g. `⇧⌘C` → "Shift Command C".
+    public static func spoken(_ display: String) -> String {
+        if display.lowercased() == "esc" { return "Escape" }
+        var words: [String] = []
+        var rest = ""
+        for character in display {
+            if let name = spokenNames[character] {
+                if rest.isEmpty == false { words.append(rest); rest = "" }
+                words.append(name)
+            } else {
+                rest.append(character)
+            }
+        }
+        if rest.isEmpty == false { words.append(rest) }
+        return words.joined(separator: " ")
+    }
 }
