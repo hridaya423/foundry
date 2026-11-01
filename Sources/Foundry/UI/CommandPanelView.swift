@@ -389,7 +389,8 @@ struct CommandPanelView: View {
     private var surfaceContent: some View {
         switch state.mode {
         case .agents:
-            AgentShelfView(agents: state.agents, dismiss: dismiss)
+            AgentShelfView(agents: state.agents, dismiss: dismiss, openSettings: { state.presentSettings(.agents) },
+                explain: { state.showActionFeedback(.info($0)) })
         case .quickAI:
             QuickAISurfaceView(quickAI: state.quickAI, aiSettings: state.aiSettings, onOpenAISettings: { state.presentSettings(.ai) })
         case .emojiPicker:
@@ -891,6 +892,11 @@ struct CommandPanelView: View {
             openSettings: state.router.openSettings,
             openWelcomeGuide: state.router.openWelcomeGuide
         ) {
+            if state.mode == .agents {
+                Text("\(state.agents.sessions.count(where: \.status.isActive)) active")
+                    .font(FoundryTheme.caption.monospacedDigit())
+                    .foregroundStyle(FoundryTheme.textTertiary)
+            }
             if state.mode == .emojiPicker, let emoji = state.emojiPicker.selectedEmoji {
                 Text(emoji.name.capitalized)
                     .font(FoundryTheme.caption)

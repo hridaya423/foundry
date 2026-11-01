@@ -308,7 +308,7 @@ enum AgentProviderKind: String, Codable, Hashable, Sendable {
 
 }
 
-enum AgentSessionStatus: String, Codable, Hashable, Sendable {
+enum AgentSessionStatus: String, Codable, Hashable, Sendable, CaseIterable {
     case working = "Working"
     case needsInput = "Needs input"
     case reviewReady = "Review ready"
@@ -318,6 +318,14 @@ enum AgentSessionStatus: String, Codable, Hashable, Sendable {
     case failed = "Failed"
     case running = "Running"
     case recent = "Recent"
+
+    var label: String? {
+        switch self {
+        case .running: AgentSessionStatus.working.rawValue
+        case .recent: nil
+        default: rawValue
+        }
+    }
 
     var isActive: Bool {
         self == .working || self == .needsInput || self == .running || self == .reviewReady || self == .planning

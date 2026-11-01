@@ -1,5 +1,5 @@
 opacity-expression	14
-corner-radius	62
+corner-radius	58
 duration	0
 spring	0
 named-colour	7

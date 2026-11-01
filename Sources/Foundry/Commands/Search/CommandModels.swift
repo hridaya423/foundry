@@ -153,6 +153,7 @@ enum SettingsDeepLink: Hashable, Sendable {
     case scripts
     case ai
     case snippets
+    case agents
 
     init(result: CommandResult) {
         switch result.payload {
