@@ -96,8 +96,28 @@ struct OnboardingView: View {
             panel.searchHint = nil
             state.panelClosedWithoutLaunch()
         }
-        .onChange(of: state.step) { _, _ in keyboard.isRecording = false }
+        .onChange(of: state.step) { _, step in
+            keyboard.isRecording = false
+            announce(Self.spokenTitle(for: step, receipt: state.receipt))
+        }
+        .onChange(of: state.didLaunch) { _, launched in
+            if launched { announce(String(localized: "That’s the whole idea. \(launch.name) opened.")) }
+        }
         .onExitCommand { state.abandon() }
+    }
+
+    static func spokenTitle(for step: OnboardingStep, receipt: [String]) -> String {
+        switch step {
+        case .welcome: String(localized: "Welcome to Foundry")
+        case .shortcut: String(localized: "One keystroke opens everything")
+        case .bringYourStuff: String(localized: "Bring your snippets")
+        case .done: receipt.joined(separator: ". ")
+        }
+    }
+
+    private func announce(_ message: String) {
+        NSAccessibility.post(element: NSApp as Any, notification: .announcementRequested,
+            userInfo: [.announcement: message, .priority: NSAccessibilityPriorityLevel.high.rawValue])
     }
 
     /// A crossfade; the slight blur makes the two steps read as one change.

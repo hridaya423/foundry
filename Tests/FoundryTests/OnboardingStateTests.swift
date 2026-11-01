@@ -1,3 +1,5 @@
+import AppKit
+import SwiftUI
 import XCTest
 import FoundryServices
 @testable import Foundry
@@ -330,5 +332,28 @@ private final class LockedFlag: @unchecked Sendable {
     var value: Bool {
         get { lock.withLock { stored } }
         set { lock.withLock { stored = newValue } }
+    }
+}
+
+@MainActor
+final class OnboardingAccessibilityTests: XCTestCase {
+    private func luminance(_ color: Color) -> Double {
+        let ns = NSColor(color).usingColorSpace(.sRGB)!
+        func channel(_ c: CGFloat) -> Double {
+            let v = Double(c)
+            return v <= 0.04045 ? v / 12.92 : pow((v + 0.055) / 1.055, 2.4)
+        }
+        return 0.2126 * channel(ns.redComponent) + 0.7152 * channel(ns.greenComponent) + 0.0722 * channel(ns.blueComponent)
+    }
+
+    func testSkipSetupMeetsTextContrastOnInk() {
+        let ratio = (luminance(FoundryTheme.Brand.faint) + 0.05) / (luminance(FoundryTheme.Brand.ink) + 0.05)
+        XCTAssertGreaterThanOrEqual(ratio, 4.5)
+    }
+
+    func testEveryStepHasASpokenTitle() {
+        for step in OnboardingStep.allCases {
+            XCTAssertFalse(OnboardingView.spokenTitle(for: step, receipt: ["⌘ Space is yours"]).isEmpty)
+        }
     }
 }

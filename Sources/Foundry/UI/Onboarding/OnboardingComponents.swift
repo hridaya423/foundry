@@ -234,7 +234,7 @@ struct BrandSelectionMark: View {
     }
 }
 
-/// Seven tiles for seven steps: done ones dim, the current one orange.
+/// One tile per step: done ones dim, the current one orange.
 struct ProgressTiles: View {
     let current: Int
     let count: Int
