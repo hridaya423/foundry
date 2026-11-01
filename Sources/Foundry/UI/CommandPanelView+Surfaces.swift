@@ -39,17 +39,16 @@ extension CommandPanelView {
                                 .font(FoundryTheme.body)
                                 .foregroundStyle(FoundryTheme.textPrimary)
                             Spacer()
-                            Text(index == 0 ? "↵" : "⌘\(index + 1)")
-                                .font(FoundryTheme.micro)
-                                .foregroundStyle(FoundryTheme.textQuaternary)
+                            KeycapHint(text: index == state.dropSelection ? "↵" : "⌘\(index + 1)")
                         }
-                        .padding(.horizontal, 12)
+                        .padding(.horizontal, FoundryTheme.Spacing.sm)
                         .frame(height: 34)
-                        .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(FoundryTheme.fillSubtle))
+                        .background(RowBackground(isSelected: index == state.dropSelection, isHovering: false, cornerRadius: FoundryTheme.Radius.control))
                         .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
-                    .keyboardShortcut(index == 0 ? .defaultAction : KeyboardShortcut(.init(Character(UnicodeScalar(48 + index + 1)!)), modifiers: .command))
+                    .keyboardShortcut(KeyboardShortcut(.init(Character(UnicodeScalar(48 + index + 1)!)), modifiers: .command))
+                    .accessibilityAddTraits(index == state.dropSelection ? .isSelected : [])
                 }
             }
             .padding(.horizontal, 8)

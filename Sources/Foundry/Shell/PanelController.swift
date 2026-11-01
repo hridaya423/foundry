@@ -235,7 +235,7 @@ final class PanelController: NSObject, NSWindowDelegate {
         panel.titlebarAppearsTransparent = true
         panel.onReturn = { [weak self] in
             guard let state = self?.state else { return false }
-            return state.runSelectedFeatureAction() || state.runPrimaryFeatureAction()
+            return state.resolveSelectedDrop() || state.runSelectedFeatureAction() || state.runPrimaryFeatureAction()
         }
         panel.onCommandK = { [weak self] in
             self?.state.toggleActions { [weak self] in self?.hide(reason: .executed) }

@@ -11,6 +11,7 @@ struct SettingsView: View {
     @State private var pendingAnchor: String?
     @State private var highlightedAnchor: String?
     @State private var confirmingReset = false
+    @State private var confirmingModelRemoval = false
     @State private var pendingBackup: FoundryBackup?
     @State private var pendingRetention: ClipboardRetention?
     @FocusState private var searchFocused: Bool
@@ -268,6 +269,25 @@ struct SettingsView: View {
                 }
             } message: {
                 Text("Current files are kept next to the originals as .pre-import copies.")
+            }
+
+            if state.fileShelf.hasDetailedModelData {
+                SettingsGroup {
+                    HStack(spacing: 12) {
+                        SettingsLabel(title: "Background removal model", subtitle: "Used by Remove Background (Detailed) on the File Shelf")
+                        Spacer()
+                        Button("Remove Model Data…", role: .destructive) { confirmingModelRemoval = true }
+                            .controlSize(.small)
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 11)
+                }
+                .modifier(anchor("advanced.backgroundModel"))
+                .confirmationDialog("Delete the background-removal model?", isPresented: $confirmingModelRemoval) {
+                    Button("Delete Model", role: .destructive, action: state.fileShelf.removeBEN2Data)
+                } message: {
+                    Text("You can download it again later.")
+                }
             }
 
             SettingsGroup {

@@ -229,6 +229,40 @@ final class PanelKeyboardTests: XCTestCase {
         state.shutdown()
     }
 
+    func testDroppingOnTheShelfShelvesAndTheChooserFollowsArrowsAndReturn() throws {
+        let state = makeState()
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("drop-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let first = dir.appendingPathComponent("a.txt"), second = dir.appendingPathComponent("b.txt")
+        try Data("a".utf8).write(to: first)
+        try Data("b".utf8).write(to: second)
+
+        state.mode = .fileShelf
+        state.handleDroppedFiles([first])
+        XCTAssertNil(state.pendingDropURLs, "the shelf takes its own drops without asking")
+        XCTAssertEqual(state.fileShelf.files.map(\.url), [first])
+
+        state.handleDroppedFiles([URL(string: "https://foundry.app")!])
+        XCTAssertEqual(state.actionFeedback, .failure("Only files can go on the shelf. Drop them from Finder."))
+
+        state.showHome()
+        state.handleDroppedFiles([second])
+        XCTAssertEqual(state.dropSelection, 0)
+        state.moveSelectionDown()
+        XCTAssertEqual(state.dropChoices[state.dropSelection], .convert)
+        XCTAssertTrue(state.resolveSelectedDrop())
+        XCTAssertNil(state.pendingDropURLs)
+        XCTAssertEqual(state.mode, .fileConversion)
+        state.shutdown()
+    }
+
+    func testShelfHeaderCountsFilesAndSelection() {
+        XCTAssertEqual(FileShelfView.headerTitle(selected: 0, total: 1), "1 File")
+        XCTAssertEqual(FileShelfView.headerTitle(selected: 0, total: 3), "3 Files")
+        XCTAssertEqual(FileShelfView.headerTitle(selected: 2, total: 3), "2 of 3 Selected")
+    }
+
     func testDeveloperToolsPrimaryOutputIsTheFirstRow() {
         let state = makeState()
         state.developerTools.selectedTool = .base

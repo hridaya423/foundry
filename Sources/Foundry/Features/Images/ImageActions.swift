@@ -86,25 +86,32 @@ enum TextPreview {
 }
 
 struct ExtractTextFromImageAction: ResultAction, Equatable {
-    let path: String?
+    let paths: [String]
 
-    init(path: String? = nil) { self.path = path }
+    init(path: String? = nil) { paths = path.map { [$0] } ?? [] }
+    init(paths: [String]) { self.paths = paths }
 
     var icon: String? { "text.viewfinder" }
 
     func perform(_ ctx: ActionContext) async -> CommandOutcome {
-        let url = path.map { URL(fileURLWithPath: $0) } ?? pickImageFile(title: "Extract Text from Image")
-        guard let url else { return .cancelled }
+        let urls = paths.isEmpty ? pickImageFile(title: "Extract Text from Image").map { [$0] } : paths.map { URL(fileURLWithPath: $0) }
+        guard let urls, urls.isEmpty == false else { return .cancelled }
         do {
             ctx.emit(.status("Recognizing text…"))
-            let lines = try await VisionText.recognizeText(at: url)
-            let text = lines.joined(separator: "\n")
-            guard text.isEmpty == false else {
-                return .failure(message: String(localized: "No text found in \(url.lastPathComponent)"), retryable: false)
+            var sections: [String] = []
+            for url in urls {
+                let text = try await VisionText.recognizeText(at: url).joined(separator: "\n")
+                guard text.isEmpty == false else { continue }
+                sections.append(urls.count > 1 ? url.lastPathComponent + "\n" + text : text)
             }
+            guard sections.isEmpty == false else {
+                let name = urls.count == 1 ? urls[0].lastPathComponent : String(localized: "those images")
+                return .failure(message: String(localized: "No text found in \(name)"), retryable: false)
+            }
+            let text = sections.joined(separator: "\n\n")
             ctx.pasteboard.clearContents()
             ctx.pasteboard.setString(text, forType: .string)
-            ctx.diagnostics.log("OCR extracted \(lines.count) lines from \(url.lastPathComponent)")
+            ctx.diagnostics.log("OCR extracted text from \(sections.count) of \(urls.count) images")
             return .copied(content: text)
         } catch {
             ctx.diagnostics.log("OCR failed: \(error.localizedDescription)")

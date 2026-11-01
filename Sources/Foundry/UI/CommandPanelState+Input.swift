@@ -104,6 +104,10 @@ extension CommandPanelState {
     }
 
     private func moveSelection(offset: Int) {
+        if pendingDropURLs != nil {
+            dropSelection = min(max(dropSelection + offset, 0), dropChoices.count - 1)
+            return
+        }
         if session.featureActions != nil { return session.moveSelection(offset: offset) }
         switch mode {
         case .fileConversion, .camera, .translator, .scriptOutput: return

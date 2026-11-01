@@ -56,14 +56,12 @@ extension CommandPanelState {
         case .convert:
             router.openFileConverter(paths: urls.map(\.path))
         case .extractText:
-            for url in urls {
-                Task { @MainActor [weak self] in
-                    _ = await self?.execute(CommandAction(
-                        id: "drop.ocr.\(UUID().uuidString)",
-                        title: DropChoice.extractText.title,
-                        behavior: ExtractTextFromImageAction(path: url.path)
-                    ), commandID: "foundry.files")
-                }
+            Task { @MainActor [weak self] in
+                _ = await self?.execute(CommandAction(
+                    id: "drop.ocr.\(UUID().uuidString)",
+                    title: DropChoice.extractText.title,
+                    behavior: ExtractTextFromImageAction(paths: urls.map(\.path))
+                ), commandID: "foundry.files")
             }
         case .compress:
             for url in urls {
@@ -80,6 +78,12 @@ extension CommandPanelState {
 
     func cancelDrop() { pendingDropURLs = nil }
 
+    func resolveSelectedDrop() -> Bool {
+        guard dropChoices.indices.contains(dropSelection) else { return false }
+        resolveDrop(dropChoices[dropSelection])
+        return true
+    }
+
     func handleDroppedFiles(_ urls: [URL]) {
         if mode == .fileConversion {
             guard urls.isEmpty == false else { return }
@@ -87,13 +91,14 @@ extension CommandPanelState {
             return
         }
         guard urls.isEmpty == false else { return }
+        if mode == .fileShelf { return shelfFiles(urls) }
         pendingDropURLs = urls
     }
 
     private func shelfFiles(_ urls: [URL]) {
         let result = fileShelf.add(urls: urls)
         guard result.didReceiveFiles else {
-            showActionFeedback(.failure(String(localized: "Couldn't add those files")))
+            showActionFeedback(.failure(String(localized: "Only files can go on the shelf. Drop them from Finder.")))
             return
         }
         if result.addedCount > 0 {
@@ -104,8 +109,6 @@ extension CommandPanelState {
         } else if result.duplicateCount > 0 {
             let noun = result.duplicateCount == 1 ? "file is" : "files are"
             showActionFeedback(.info(String(localized: "Those \(noun) already on File Shelf")))
-        } else {
-            showActionFeedback(.failure(String(localized: "Couldn't add those files")))
         }
         if mode == .search {
             if session.query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {

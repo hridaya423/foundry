@@ -633,14 +633,14 @@ struct CommandPanelView: View {
                     VStack(spacing: 10) {
                         Image(systemName: "tray.and.arrow.down.fill")
                             .font(FoundryTheme.Glyph.xl)
-                        Text("Drop files to choose what to do")
+                        Text(state.mode == .fileShelf ? "Drop to add to the shelf" : "Drop to shelve, convert or compress")
                             .font(FoundryTheme.body)
                     }
                     .foregroundStyle(FoundryTheme.textPrimary)
                     .padding(.horizontal, 22)
                     .padding(.vertical, 16)
                     .background(FoundryTheme.scrim)
-                    .clipShape(FoundrySmoothedRectangle(cornerRadius: 18, smoothing: 0.75))
+                    .clipShape(FoundrySmoothedRectangle(cornerRadius: FoundryTheme.Radius.popover, smoothing: 0.75))
                     .transition(reduceMotion ? .opacity : .opacity.combined(with: .scale(scale: FoundryTheme.Motion.enterScale)))
                 }
             }

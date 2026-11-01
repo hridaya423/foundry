@@ -99,7 +99,8 @@ final class CommandPanelState {
     var searchHint: String?
 
     /// Files dropped on the panel surface pending the user's choice of action.
-    var pendingDropURLs: [URL]?
+    var pendingDropURLs: [URL]? { didSet { dropSelection = 0 } }
+    var dropSelection = 0
     var pendingPrompt: PendingPrompt?
     var pendingSnippetArguments: SnippetArgumentRequest?
     var scriptOutput: ScriptOutput?

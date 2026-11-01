@@ -43,6 +43,13 @@ final class PreviewSnapshotTests: XCTestCase {
         paused.isPaused = true
         clipboard.updateConfiguration(paused)
         try render(ClipboardHistoryView(state: clipboard), name: "clipboard-paused", appearance: .aqua)
+        let shelfFiles = [URL(fileURLWithPath: #filePath), URL(fileURLWithPath: "/Library/Desktop Pictures/Sonoma.heic"),
+                          URL(fileURLWithPath: "/System/Library/CoreServices/Finder.app")]
+        shelf.add(urls: shelfFiles)
+        shelf.select(id: shelf.files[1].id)
+        for appearance in [NSAppearance.Name.aqua, .darkAqua] {
+            try render(FileShelfView(state: shelf, convertSelected: { _ in }), name: "shelf", appearance: appearance)
+        }
 
         let snippetStore = FileSnippetStore(url: FileManager.default.temporaryDirectory.appendingPathComponent("snap-snippets-\(UUID()).json"))
         try snippetStore.save([
@@ -201,6 +208,11 @@ final class PreviewSnapshotTests: XCTestCase {
         state.session.isHomeLoading = false
         state.router.openQuickAI()
         try renderPanel(state, named: "quickai-empty", dir: dir)
+        state.showHome()
+        state.pendingDropURLs = [URL(fileURLWithPath: #filePath), URL(fileURLWithPath: "/System/Library/CoreServices/Finder.app")]
+        state.moveSelectionDown()
+        try renderPanel(state, named: "drop-chooser", dir: dir)
+        state.cancelDrop()
         state.shutdown()
     }
 

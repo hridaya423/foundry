@@ -65,6 +65,14 @@ final class FileShelfState {
         ben2Assessment = BEN2BackgroundRemovalService.assess()
     }
 
+    var isDetailedModelReady: Bool { ben2Assessment.modelState == .ready && ben2Assessment.runtimeState == .ready }
+
+    var hasDetailedModelData: Bool { ben2Assessment.modelState != .missing || ben2Assessment.runtimeState != .missing }
+
+    func removeBackgroundDetailed() {
+        isDetailedModelReady ? removeBackgroundWithBEN2() : setUpBEN2(thenRun: true)
+    }
+
     var experimentalEngines: [BackgroundRemovalEngine] {
         BackgroundRemovalEngine.experimental
     }
@@ -273,7 +281,7 @@ final class FileShelfState {
         removeBackground(using: .ben2)
     }
 
-    func setUpBEN2() {
+    func setUpBEN2(thenRun: Bool = false) {
         guard isSettingUpBEN2 == false else { return }
         isSettingUpBEN2 = true
         ben2SetupTask = Task { [weak self] in
@@ -283,9 +291,10 @@ final class FileShelfState {
                     self?.backgroundRemovalStatus = message
                 }
                 self?.ben2Assessment = BEN2BackgroundRemovalService.assess()
-                self?.backgroundRemovalStatus = String(localized: "BEN2 is ready")
+                self?.backgroundRemovalStatus = String(localized: "Detailed model is ready")
+                if thenRun { self?.removeBackgroundWithBEN2() }
             } catch is CancellationError {
-                self?.backgroundRemovalStatus = String(localized: "BEN2 setup cancelled")
+                self?.backgroundRemovalStatus = String(localized: "Model download cancelled")
             } catch {
                 self?.backgroundRemovalError = error.localizedDescription
             }
@@ -303,7 +312,7 @@ final class FileShelfState {
         do {
             try BEN2BackgroundRemovalService.removeData()
             ben2Assessment = BEN2BackgroundRemovalService.assess()
-            backgroundRemovalStatus = String(localized: "BEN2 data removed")
+            backgroundRemovalStatus = String(localized: "Model data removed")
         } catch { backgroundRemovalError = error.localizedDescription }
     }
 
