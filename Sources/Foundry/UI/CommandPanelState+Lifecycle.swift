@@ -11,6 +11,10 @@ extension CommandPanelState {
         defer { diagnostics.endSpan(span) }
         detachActiveAction()
         isPanelOpen = true
+        if localState.get(\.onboardingCompletedVersion) != nil, localState.get(\.firstRunHintShown) == false {
+            localState.set(\.firstRunHintShown, true)
+            searchHint = Self.firstRunHint
+        }
         let shouldRestore = lastClosedAt.map { now().timeIntervalSince($0) < settings.popToRootAfterSeconds } ?? false
         session.isSearchLoading = false
         clipboardHistory.start()
@@ -45,6 +49,7 @@ extension CommandPanelState {
         cancelPrompt()
         isPanelOpen = false
         session.isCommandHeld = false
+        if searchHint == Self.firstRunHint { searchHint = nil }
         lastClosedAt = now()
         session.homeRefreshID = UUID()
         session.isSearchLoading = false

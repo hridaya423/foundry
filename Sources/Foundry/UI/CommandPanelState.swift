@@ -311,7 +311,19 @@ final class CommandPanelState {
         if case .copied = outcome, let expression = result.payload.calculationExpression {
             CalculatorHistoryStore.shared.record(expression: expression, result: result.title)
         }
+        acknowledgeFirstLaunch(dismissed: outcome.shouldDismissPanel)
         return outcome
+    }
+
+    static let firstRunHint = String(localized: "Type an app, a file, or something you copied")
+
+    private func acknowledgeFirstLaunch(dismissed: Bool) {
+        guard localState.get(\.onboardingCompletedVersion) != nil, localState.get(\.firstLaunchAcknowledged) == false else { return }
+        localState.set(\.firstLaunchAcknowledged, true)
+        let hotkey = settings.hotkey
+        let chord = HotkeyFormatter.modifierString(hotkey.modifiers) + " " + (HotkeyFormatter.keyName(hotkey.keyCode) ?? "")
+        let note = ActionFeedback.info(String(localized: "That’s it. \(chord), a few letters, Return."))
+        if dismissed { shell?.showTransientNotice(note) } else { showActionFeedback(note) }
     }
 
     func executeCommand(commandID: String) async {
