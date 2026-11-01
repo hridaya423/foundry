@@ -367,7 +367,7 @@ struct CommandPanelView: View {
         case .translator:
             FeatureTitle(symbol: "globe", title: "Translate")
         case .developerTools:
-            FeatureTitle(symbol: "hammer", title: LocalizedStringResource("\(state.developerTools.selectedTool.rawValue)"))
+            FeatureTitle(symbol: "hammer", title: "Developer Tools", detail: state.developerTools.selectedTool.rawValue)
         case .mediaDownloads:
             FeatureTitle(symbol: "arrow.down.circle", title: "Downloads")
         case .scriptOutput:
@@ -658,7 +658,8 @@ struct CommandPanelView: View {
             ScrollView {
                 LazyVStack(spacing: isHome ? 2 : 3) {
                     if let selectedCalculatorResult {
-                        CalculatorResultCard(result: selectedCalculatorResult, alternatives: calculatorAlternativeResults) { result in
+                        CalculatorResultCard(result: selectedCalculatorResult, alternatives: calculatorAlternativeResults,
+                            query: state.session.query) { result in
                             state.session.select(resultID: result.id)
                         }
                         .padding(.bottom, 18)

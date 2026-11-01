@@ -53,8 +53,8 @@ struct DeveloperToolsView: View {
                 .padding(.horizontal, 8)
                 .frame(height: 28)
                 .frame(maxWidth: .infinity)
-                .background(Color.primary.opacity(state.selectedTool == tool ? 0.10 : 0.045))
-                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                .background(state.selectedTool == tool ? FoundryTheme.fillSelected : FoundryTheme.fillSubtle)
+                .clipShape(RoundedRectangle(cornerRadius: FoundryTheme.Radius.row, style: .continuous))
         }
         .buttonStyle(.plain)
         .accessibilityLabel(tool.rawValue)
@@ -216,7 +216,8 @@ struct DeveloperToolsView: View {
                             .foregroundStyle(FoundryTheme.textPrimary)
                             .textSelection(.enabled)
                             .lineLimit(1)
-                            .minimumScaleFactor(0.55)
+                            .truncationMode(.middle)
+                            .help(row.value)
                     }
 
                     Spacer(minLength: 0)
@@ -225,7 +226,7 @@ struct DeveloperToolsView: View {
                 .padding(.horizontal, 10)
                 .frame(height: 52)
                 .background(FoundryTheme.fillSubtle)
-                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                .clipShape(RoundedRectangle(cornerRadius: FoundryTheme.Radius.row, style: .continuous))
             }
         }
     }
@@ -237,7 +238,7 @@ struct DeveloperToolsView: View {
                 .foregroundStyle(FoundryTheme.textSecondary)
                 .frame(width: 28, height: 26)
                 .background(FoundryTheme.fillTint)
-                .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
+                .clipShape(RoundedRectangle(cornerRadius: FoundryTheme.Radius.control, style: .continuous))
         }
         .buttonStyle(.plain)
         .accessibilityLabel("Copy value")
@@ -260,7 +261,7 @@ struct DeveloperToolsView: View {
                         .foregroundStyle(FoundryTheme.textSecondary)
                         .frame(width: 28, height: 26)
                         .background(FoundryTheme.fillTint)
-                        .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
+                        .clipShape(RoundedRectangle(cornerRadius: FoundryTheme.Radius.control, style: .continuous))
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("Copy \(title)")
@@ -276,7 +277,7 @@ struct DeveloperToolsView: View {
             .padding(10)
             .frame(height: 112)
             .background(FoundryTheme.fillSubtle)
-            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: FoundryTheme.Radius.row, style: .continuous))
         }
     }
 }
@@ -285,9 +286,9 @@ private struct DeveloperPanelSurface: ViewModifier {
     func body(content: Content) -> some View {
         content
             .background(FoundryTheme.fillHover)
-            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: FoundryTheme.Radius.popover, style: .continuous))
             .overlay(
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                RoundedRectangle(cornerRadius: FoundryTheme.Radius.popover, style: .continuous)
                     .strokeBorder(FoundryTheme.fillTint, lineWidth: 1)
             )
     }
@@ -306,7 +307,7 @@ private struct DeveloperChip: View {
                 .padding(.horizontal, 9)
                 .frame(height: 26)
                 .background(isSelected ? FoundryTheme.fillSelected : FoundryTheme.fillSubtle)
-                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                .clipShape(RoundedRectangle(cornerRadius: FoundryTheme.Radius.row, style: .continuous))
         }
         .buttonStyle(.plain)
         .accessibilityLabel(title)
@@ -332,10 +333,10 @@ private struct DeveloperInputField: View {
                 .padding(.horizontal, 12)
                 .frame(height: 40)
                 .background(
-                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    RoundedRectangle(cornerRadius: FoundryTheme.Radius.row, style: .continuous)
                         .fill(FoundryTheme.fillHover)
                         .overlay(
-                            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            RoundedRectangle(cornerRadius: FoundryTheme.Radius.row, style: .continuous)
                                 .strokeBorder(FoundryTheme.fillTint, lineWidth: 1)
                         )
                 )
@@ -362,10 +363,10 @@ private struct DeveloperTextEditor: View {
                 .padding(8)
                 .frame(height: 88)
                 .background(
-                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    RoundedRectangle(cornerRadius: FoundryTheme.Radius.row, style: .continuous)
                         .fill(FoundryTheme.fillHover)
                         .overlay(
-                            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            RoundedRectangle(cornerRadius: FoundryTheme.Radius.row, style: .continuous)
                                 .strokeBorder(FoundryTheme.fillTint, lineWidth: 1)
                         )
                 )
@@ -390,7 +391,7 @@ private struct DeveloperErrorText: View {
     var body: some View {
         Text(message)
             .font(FoundryTheme.body)
-            .foregroundStyle(Color.red.opacity(FoundryTheme.Alpha.strong))
+            .foregroundStyle(FoundryTheme.destructive)
             .padding(.horizontal, 2)
     }
 }

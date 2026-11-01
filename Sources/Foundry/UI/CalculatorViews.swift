@@ -4,14 +4,17 @@ import SwiftUI
 struct CalculatorResultCard: View {
     let result: CommandResult
     var alternatives: [CommandResult] = []
+    var query = ""
     var executeAlternative: (CommandResult) -> Void = { _ in }
 
     private var expression: String {
-        result.subtitle ?? "Calculation"
+        result.subtitle ?? query.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
-    private var separator: String {
-        "→"
+    private var separator: String { Self.separator(for: result.title) }
+
+    static func separator(for value: String) -> String {
+        value.contains(" ") ? "→" : "="
     }
 
     var body: some View {
@@ -83,7 +86,7 @@ struct CalculatorValuePane: View {
                 .font(FoundryTheme.title)
                 .foregroundStyle(FoundryTheme.textPrimary)
                 .lineLimit(1)
-                .minimumScaleFactor(0.45)
+                .minimumScaleFactor(0.6)
 
             if let unit = splitValue.unit {
                 Menu {
@@ -152,13 +155,9 @@ struct CalculatorUseWithHeader: View {
 
     var body: some View {
         HStack(spacing: 10) {
-            Text("Use \"\(trimmedQuery)\" with…")
+            Text("Use “\(trimmedQuery)” with…")
                 .font(FoundryTheme.body)
                 .foregroundStyle(FoundryTheme.textSecondary)
-
-            Image(systemName: "gearshape")
-                .font(FoundryTheme.Glyph.sm)
-                .foregroundStyle(FoundryTheme.textTertiary)
 
             Spacer()
         }

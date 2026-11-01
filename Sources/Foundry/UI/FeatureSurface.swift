@@ -50,6 +50,7 @@ struct FeatureHeader<Content: View, Trailing: View>: View {
 struct FeatureTitle: View {
     let symbol: String
     let title: LocalizedStringResource
+    var detail: String?
 
     var body: some View {
         HStack(spacing: 12) {
@@ -60,6 +61,14 @@ struct FeatureTitle: View {
                 .font(FoundryTheme.title)
                 .foregroundStyle(FoundryTheme.textPrimary)
                 .lineLimit(1)
+            if let detail {
+                Text(detail)
+                    .font(FoundryTheme.caption)
+                    .foregroundStyle(FoundryTheme.textSecondary)
+                    .padding(.horizontal, FoundryTheme.Spacing.xs)
+                    .frame(height: 22)
+                    .background(FoundryTheme.fillTint, in: Capsule())
+            }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }

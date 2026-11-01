@@ -2,6 +2,12 @@ import XCTest
 @testable import Foundry
 
 final class CalculatorProviderTests: XCTestCase {
+    @MainActor
+    func testArithmeticUsesEqualsAndConversionsUseAnArrow() {
+        XCTAssertEqual(CalculatorResultCard.separator(for: "4"), "=")
+        XCTAssertEqual(CalculatorResultCard.separator(for: "9.20 Euro"), "→")
+    }
+
     func testTwoArgumentLogUsesSecondArgumentAsBase() async {
         let provider = CalculatorProvider()
         let result = await provider.results(matching: "log(8, 2)")
