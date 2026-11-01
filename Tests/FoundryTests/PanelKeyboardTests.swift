@@ -262,6 +262,21 @@ final class PanelKeyboardTests: XCTestCase {
         state.searchFooterActions(isWindowLayoutQuery: false).map { "\($0.keys) \(String(localized: $0.label))" }
     }
 
+    func testArrowsInFeatureModesNeverMoveTheHiddenRootList() {
+        let state = makeState()
+        state.session.results = [result("test.one"), result("test.two")]
+        state.session.selectedResultID = "test.one"
+        for mode in [CommandPanelState.Mode.mediaDownloads, .developerTools, .quickAI, .agents] {
+            state.mode = mode
+            state.moveSelectionDown()
+            XCTAssertEqual(state.session.selectedResultID, "test.one", "\(mode)")
+        }
+        state.mode = .search
+        state.moveSelectionDown()
+        XCTAssertEqual(state.session.selectedResultID, "test.two")
+        state.shutdown()
+    }
+
     func testFooterShowsNothingWhenNothingIsSelected() {
         let state = makeState()
         state.session.results = []

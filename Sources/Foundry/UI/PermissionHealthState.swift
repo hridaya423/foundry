@@ -57,11 +57,25 @@ enum PermissionStatus: Equatable {
 final class PermissionHealthState {
     private(set) var statuses: [PermissionKind: PermissionStatus] = [:]
     private let accessibilityTrusted: () -> Bool
+    private let localState: LocalStateStore
+    private let prompt: () -> Void
+    private let open: (URL) -> Void
     private var poll: Timer?
 
-    init(accessibilityTrusted: @escaping () -> Bool = { AXIsProcessTrusted() }) {
+    init(accessibilityTrusted: @escaping () -> Bool = { AXIsProcessTrusted() },
+        localState: LocalStateStore = .shared,
+        prompt: @escaping () -> Void = { PermissionHealthState.promptForAccessibility() },
+        open: @escaping (URL) -> Void = { NSWorkspace.shared.open($0) }) {
         self.accessibilityTrusted = accessibilityTrusted
+        self.localState = localState
+        self.prompt = prompt
+        self.open = open
         refresh()
+    }
+
+    nonisolated static func promptForAccessibility() {
+        let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary
+        _ = AXIsProcessTrustedWithOptions(options)
     }
 
     static func status(for kind: PermissionKind, accessibilityTrusted: Bool) -> PermissionStatus {
@@ -84,12 +98,15 @@ final class PermissionHealthState {
     func request(_ kind: PermissionKind) {
         switch kind {
         case .accessibility:
-            let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary
-            if AXIsProcessTrustedWithOptions(options) == false {
-                NSWorkspace.shared.open(kind.settingsURL)
+            guard accessibilityTrusted() == false else { break }
+            if localState.get(\.accessibilityPrompted) {
+                open(kind.settingsURL)
+            } else {
+                localState.set(\.accessibilityPrompted, true)
+                prompt()
             }
         case .automation:
-            NSWorkspace.shared.open(kind.settingsURL)
+            open(kind.settingsURL)
         }
         refresh()
     }

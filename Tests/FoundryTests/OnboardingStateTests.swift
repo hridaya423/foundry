@@ -182,6 +182,19 @@ final class OnboardingStateTests: XCTestCase {
         XCTAssertFalse(rival.holdsCommandSpace())
     }
 
+    func testAccessibilityRequestShowsTheSystemPromptFirstAndSettingsAfter() {
+        var prompts = 0
+        var opened: [URL] = []
+        let health = PermissionHealthState(accessibilityTrusted: { false }, localState: localState,
+            prompt: { prompts += 1 }, open: { opened.append($0) })
+        health.request(.accessibility)
+        XCTAssertEqual(prompts, 1)
+        XCTAssertEqual(opened, [])
+        health.request(.accessibility)
+        XCTAssertEqual(prompts, 1)
+        XCTAssertEqual(opened, [PermissionKind.accessibility.settingsURL])
+    }
+
     func testAbandonTouchesNoOtherAppAndFallsBackToOptionSpace() {
         let state = makeState()
         state.panel.settings.setHotkey(.commandSpace)

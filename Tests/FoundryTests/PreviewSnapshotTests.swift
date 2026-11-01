@@ -123,4 +123,35 @@ final class PreviewSnapshotTests: XCTestCase {
             }
         }
     }
+
+    func testRenderOverlaysAndNotices() throws {
+        guard let dir = ProcessInfo.processInfo.environment["FOUNDRY_QA_SNAPSHOT_DIR"] else { throw XCTSkip("snapshot dir not set") }
+        let spec = PanelPromptSpec.confirmation(title: "Move “Report.pdf” to the Trash?", message: "You can put it back from the Trash.",
+            confirmLabel: "Move to Trash", isDestructive: true)
+        let notice = InlineNotice(level: .error,
+            text: "The AI provider rejected the sign-in. Check the API key or account in Settings › AI.")
+        for appearance in [NSAppearance.Name.aqua, .darkAqua] {
+            let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 520, height: 260), styleMask: [.titled, .fullSizeContentView], backing: .buffered, defer: false)
+            window.appearance = NSAppearance(named: appearance)
+            let view = VStack(spacing: 24) {
+                FoundryGlassSurface(role: .floatingOverlay, shape: RoundedRectangle(cornerRadius: 16, style: .continuous)) {
+                    PanelPromptOverlay(spec: spec) { _ in }
+                }
+                .frame(width: 380)
+                notice.frame(width: 460)
+            }
+            .padding(24)
+            .frame(width: 520, height: 260)
+            .background(Color(nsColor: .windowBackgroundColor))
+            let host = NSHostingView(rootView: view)
+            host.frame = window.contentLayoutRect
+            window.contentView = host
+            RunLoop.main.run(until: Date().addingTimeInterval(0.4))
+            let rep = try XCTUnwrap(host.bitmapImageRepForCachingDisplay(in: host.bounds))
+            host.cacheDisplay(in: host.bounds, to: rep)
+            let name = "overlay-\(appearance == .aqua ? "light" : "dark").png"
+            try XCTUnwrap(rep.representation(using: .png, properties: [:])).write(to: URL(fileURLWithPath: dir).appendingPathComponent(name))
+        }
+    }
+
 }

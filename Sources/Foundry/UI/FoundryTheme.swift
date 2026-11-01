@@ -138,6 +138,8 @@ enum FoundryTheme {
     static let scrim = Color.black.opacity(0.20)
     /// Heavier dim for modal-on-modal moments.
     static let scrimStrong = Color.black.opacity(0.50)
+    static let overlaySurface = Color(nsColor: .windowBackgroundColor)
+    static let overlayStroke = Color(nsColor: .separatorColor)
     /// Drop shadows.
     static let shadow = Color.black.opacity(0.28)
     /// Hairline/secondary marks on dark surfaces.

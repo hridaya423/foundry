@@ -81,6 +81,7 @@ struct PanelPromptOverlay: View {
                     Button(String(localized: cancelLabel)) { resolve(.cancelled) }
                         .buttonStyle(FoundryQuietButtonStyle())
                         .font(FoundryTheme.bodySecondary)
+                        .foregroundStyle(FoundryTheme.textSecondary)
                         .padding(.horizontal, 10)
                         .frame(height: 26)
                 }

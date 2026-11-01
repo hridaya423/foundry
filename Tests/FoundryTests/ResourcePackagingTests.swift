@@ -24,6 +24,11 @@ final class ResourcePackagingTests: XCTestCase {
         XCTAssertFalse(entitlements.contains("com.apple.security.app-sandbox"))
     }
 
+    func testBuildPackagingExplainsAppleEvents() throws {
+        let buildScript = try String(contentsOf: rootURL().appendingPathComponent("scripts/build-app.sh"), encoding: .utf8)
+        XCTAssertTrue(buildScript.contains("<key>NSAppleEventsUsageDescription</key>"))
+    }
+
     func testPackageDeclaresOnlyCurrentResourceDirectories() throws {
         let package = try String(contentsOf: rootURL().appendingPathComponent("Package.swift"), encoding: .utf8)
 

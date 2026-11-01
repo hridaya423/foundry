@@ -12,6 +12,7 @@ struct SettingsView: View {
     @State private var highlightedAnchor: String?
     @State private var confirmingReset = false
     @State private var pendingBackup: FoundryBackup?
+    @State private var pendingRetention: ClipboardRetention?
     @FocusState private var searchFocused: Bool
 
     var body: some View {
@@ -284,6 +285,22 @@ struct SettingsView: View {
                 Text("Clipboard history and snippets are kept.")
             }
         }
+    }
+
+    private struct ClipboardRetention: Equatable {
+        let maxItems: Int
+        let maxBytes: Int
+        let maxAgeDays: Int
+        let removed: Int
+    }
+
+    private func applyRetention(maxItems: Int, maxBytes: Int, maxAgeDays: Int) {
+        let removed = state.clipboardHistory.itemsRemoved(maxItems: maxItems, maxBytes: maxBytes, maxAgeDays: maxAgeDays)
+        guard removed > 0 else {
+            state.settings.setClipboardRetention(maxItems: maxItems, maxBytes: maxBytes, maxAgeDays: maxAgeDays)
+            return
+        }
+        pendingRetention = ClipboardRetention(maxItems: maxItems, maxBytes: maxBytes, maxAgeDays: maxAgeDays, removed: removed)
     }
 
     private func exportBackup() {
@@ -963,7 +980,7 @@ struct SettingsView: View {
                         value: Binding(
                             get: { state.clipboardHistory.policy.maxItems },
                             set: {
-                                state.settings.setClipboardRetention(
+                                applyRetention(
                                     maxItems: $0,
                                     maxBytes: state.clipboardHistory.policy.maxBytes,
                                     maxAgeDays: Int(state.clipboardHistory.policy.maxAge / 86_400)
@@ -981,7 +998,7 @@ struct SettingsView: View {
                     Picker("Keep for", selection: Binding(
                         get: { Int(state.clipboardHistory.policy.maxAge / 86_400) },
                         set: {
-                            state.settings.setClipboardRetention(
+                            applyRetention(
                                 maxItems: state.clipboardHistory.policy.maxItems,
                                 maxBytes: state.clipboardHistory.policy.maxBytes,
                                 maxAgeDays: $0
@@ -1005,7 +1022,7 @@ struct SettingsView: View {
                         value: Binding(
                             get: { state.clipboardHistory.policy.maxBytes / (1_024 * 1_024) },
                             set: {
-                                state.settings.setClipboardRetention(
+                                applyRetention(
                                     maxItems: state.clipboardHistory.policy.maxItems,
                                     maxBytes: $0 * 1_024 * 1_024,
                                     maxAgeDays: Int(state.clipboardHistory.policy.maxAge / 86_400)
@@ -1026,6 +1043,17 @@ struct SettingsView: View {
             if let error = state.clipboardHistory.error {
                 SettingsNotice(text: "Couldn't load or save clipboard history: \(error.localizedDescription)", symbol: "exclamationmark.triangle")
             }
+        }
+        .confirmationDialog("Remove \(pendingRetention?.removed ?? 0) older clipboard items?",
+            isPresented: Binding(get: { pendingRetention != nil }, set: { if $0 == false { pendingRetention = nil } })) {
+            Button("Remove Items", role: .destructive) {
+                if let retention = pendingRetention {
+                    state.settings.setClipboardRetention(maxItems: retention.maxItems, maxBytes: retention.maxBytes, maxAgeDays: retention.maxAgeDays)
+                }
+                pendingRetention = nil
+            }
+        } message: {
+            Text("They don't fit the new limit. This can't be undone.")
         }
     }
 }

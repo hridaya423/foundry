@@ -124,6 +124,7 @@ struct FoundryLocalState: Codable, Equatable, Sendable {
     var firefoxConnectorPromptShown = false
     var onboardingCompletedVersion: String?
     var onboardingStep: Int?
+    var accessibilityPrompted = false
     var whatsNewSeenVersion: String?
     var emojiRecents: [String] = []
     var emojiColumns: Int?
@@ -146,6 +147,7 @@ struct FoundryLocalState: Codable, Equatable, Sendable {
         firefoxConnectorPromptShown = try container.decodeIfPresent(Bool.self, forKey: .firefoxConnectorPromptShown) ?? false
         onboardingCompletedVersion = try container.decodeIfPresent(String.self, forKey: .onboardingCompletedVersion)
         onboardingStep = try container.decodeIfPresent(Int.self, forKey: .onboardingStep)
+        accessibilityPrompted = try container.decodeIfPresent(Bool.self, forKey: .accessibilityPrompted) ?? false
         whatsNewSeenVersion = try container.decodeIfPresent(String.self, forKey: .whatsNewSeenVersion)
         emojiRecents = try container.decodeIfPresent([String].self, forKey: .emojiRecents) ?? []
         emojiColumns = try container.decodeIfPresent(Int.self, forKey: .emojiColumns)

@@ -16,7 +16,7 @@ enum FoundryMaterialRole {
         case .prominentControl:
             FoundryTheme.accent
         case .floatingOverlay:
-            FoundryTheme.scrimStrong
+            FoundryTheme.overlaySurface
         case .contentSurface:
             FoundryTheme.fillSubtle
         }
@@ -31,7 +31,7 @@ enum FoundryMaterialRole {
         case .prominentControl:
             Color.clear
         case .floatingOverlay:
-            FoundryTheme.fillSelected
+            FoundryTheme.overlayStroke
         case .contentSurface:
             FoundryTheme.fillTint
         }

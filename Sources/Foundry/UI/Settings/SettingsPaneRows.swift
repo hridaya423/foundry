@@ -40,6 +40,7 @@ struct AgentIntegrationRow: View {
 
 struct AISettingsSection: View {
     @Bindable var state: AISettingsState
+    @State private var confirmingRemoval = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -299,11 +300,14 @@ struct AISettingsSection: View {
                 }
 
                 if profile.kind != .appleFoundationModels {
-                    Button("Remove profile", role: .destructive) {
-                        state.removeSelectedAIProfile()
-                    }
+                    Button("Remove Profile…", role: .destructive) { confirmingRemoval = true }
                     .buttonStyle(.borderless)
                     .font(FoundryTheme.bodySecondary)
+                    .confirmationDialog("Remove \(profile.name)?", isPresented: $confirmingRemoval) {
+                        Button("Remove Profile", role: .destructive) { state.removeSelectedAIProfile() }
+                    } message: {
+                        Text("Its API key is deleted from the Keychain.")
+                    }
                 }
             }
         }

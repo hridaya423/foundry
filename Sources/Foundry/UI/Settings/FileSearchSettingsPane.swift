@@ -3,6 +3,7 @@ import SwiftUI
 
 struct FileSearchSettingsPane: View {
     var settings: SettingsStore
+    @State private var confirmingRestore = false
 
     var body: some View {
         let config = settings.fileSearch
@@ -36,10 +37,15 @@ struct FileSearchSettingsPane: View {
             }
             HStack(spacing: 8) {
                 Button("Add Folder…", action: addFolder)
-                Button("Restore Defaults") { settings.updateFileSearch { $0 = .default } }
+                Button("Restore Defaults…") { confirmingRestore = true }
                     .disabled(config == .default)
             }
             .controlSize(.small)
+            .confirmationDialog("Replace your search folders with the defaults?", isPresented: $confirmingRestore) {
+                Button("Replace", role: .destructive) { settings.updateFileSearch { $0 = .default } }
+            } message: {
+                Text("Folders and skipped names you added are removed. This can't be undone.")
+            }
 
             SettingsSectionLabel(title: "Skipped folders")
             SettingsGroup {

@@ -177,6 +177,8 @@ cat > "$CONTENTS_DIR/Info.plist" <<EOF
     <string>14.0</string>
     <key>LSUIElement</key>
     <true/>
+    <key>NSAppleEventsUsageDescription</key>
+    <string>Foundry asks apps for their selection, notes and tabs so its commands can act on them.</string>
     <key>NSCameraUsageDescription</key>
     <string>Foundry uses the camera to show a live preview when you open Camera.</string>
 </dict>

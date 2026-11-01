@@ -7,6 +7,7 @@ struct QuicklinksSettingsPane: View {
     var store: QuicklinkStore = .shared
     @State private var links: [Quicklink] = []
     @State private var error: String?
+    @State private var confirmingRestore = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -85,9 +86,14 @@ struct QuicklinksSettingsPane: View {
                 Button("Add Quicklink") { links.append(Quicklink(name: "", link: "")) }
                 Button("Import from Raycast…", action: importRaycast)
                 Spacer()
-                Button("Restore Defaults") { links = QuicklinkTemplate.defaults }
+                Button("Restore Defaults…") { confirmingRestore = true }
             }
             .controlSize(.small)
+            .confirmationDialog("Replace your \(links.count) quicklinks with the defaults?", isPresented: $confirmingRestore) {
+                Button("Replace", role: .destructive) { links = QuicklinkTemplate.defaults }
+            } message: {
+                Text("Quicklinks you added are removed. This can't be undone.")
+            }
 
             if let error {
                 SettingsNotice(text: LocalizedStringResource(stringLiteral: error), symbol: "exclamationmark.triangle")

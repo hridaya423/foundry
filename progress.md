@@ -251,3 +251,14 @@ Design: `anvil/docs/plans/2026-10-24-craft-pass-design.md`.
 - Evidence: three read-only audits (Opus 5.5) in docs/plans/2026-11-01-last-20-audits/{panel,features,onboarding}.md. P0 claims re-read in source before the plan was written.
 - Open decisions D1–D8 at the top of the plan (entrance motion, four-step onboarding, launch at login default, Camera cut, keep DevTools/Translator as modes, casing rule, favicon policy, commit granularity). Tasks implement the recommendation; change the task, not the bar, if the user picks otherwise.
 - Not started. The tree still carries the uncommitted mini port (Phase 0 lands it first).
+
+## 2026-11-01: website "last 20%" plan
+- Design: docs/plans/2026-11-01-foundry-last-20-design.md. Plan: docs/plans/2026-11-01-foundry-last-20.md (Phases 0, A brand, B truth, C craft, D verify).
+- In flight when the session ended: Codex gpt-6.1-sol imagegen logo concepts -> docs/brand/concepts/ (CONCEPTS.md, RESEARCH.md, PNGs); Sonnet 5.5 site research -> docs/brand/RESEARCH-websites.md.
+- Not done: live screenshots of the site. npm registry was unreachable or at 3 KB/s; node_modules/@next/swc-darwin-arm64 is a truncated download and `next dev` fails to load SWC. Fix: reinstall that package when the network is back (Task 0.1 notes).
+- Phase 0 done (3fbb8a2): port committed in three building commits; FoundryBackupTests compared re-encoded config bytes (the old intermittent failure), now compares decoded configs. Baseline in docs/benchmarks/2026-11-01-last-20-before.md. Design lint ratchet seeded. Not taken: panel.show and open-panel idle CPU (they put windows on screen).
+- Phase 1 done: 1.1 resume after quit, 1.2 inert exits (abandon falls back to ⌥Space when ⌘Space is held), 1.3 Home paints on reopen, 1.4 truthful footer, 1.5 snippet browsing, 1.6 Quick AI error notice and stream follow, 1.7 clipboard feedback, 1.9 overlay fallback ground (luminance 0.57 → window background), 1.10 four destructive confirmations, 1.11 one Accessibility surface per request plus NSAppleEventsUsageDescription.
+  - 1.8 was a false audit finding: navigableResults already returns [] outside search. Test kept as a guard.
+  - Found by looking: prompt Cancel rendered black in dark mode; now textSecondary. docs/qa/2026-11-01-last-20/phase1/overlay-*.png.
+  - Gate: 693 tests, 0 failures, 7 skipped; three lints pass.
+  - Note: other sessions edit anvil/ and foundry-ad/ in this checkout concurrently. Stage exact paths.
