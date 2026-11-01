@@ -93,7 +93,7 @@ struct MediaDownloadsView: View {
         noticeDismissTask = Task { @MainActor in
             try? await Task.sleep(for: .seconds(6))
             guard Task.isCancelled == false else { return }
-            withAnimation(.easeOut(duration: 0.2)) { notice = nil }
+            withAnimation(FoundryTheme.Motion.overlayOut) { notice = nil }
         }
     }
 
@@ -465,7 +465,7 @@ private struct MediaDownloadRow: View {
                         Capsule()
                             .fill(FoundryTheme.accent)
                             .scaleEffect(x: max(fraction, 0.01), y: 1, anchor: .leading)
-                            .animation(reduceMotion ? nil : .linear(duration: 0.18), value: fraction)
+                            .animation(reduceMotion ? nil : FoundryTheme.Motion.progress, value: fraction)
                     }
                     .frame(height: 3)
                     .accessibilityElement(children: .ignore)
@@ -490,7 +490,7 @@ private struct MediaDownloadRow: View {
         .padding(.horizontal, 12)
         .padding(.vertical, 11)
         .background(isHovering ? FoundryTheme.fillSubtle : .clear)
-        .animation(reduceMotion ? nil : .easeOut(duration: 0.12), value: isHovering)
+        .animation(reduceMotion ? nil : FoundryTheme.Motion.hover, value: isHovering)
         .onHover { isHovering = $0 }
         .contextMenu { rowMenu }
     }

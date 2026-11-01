@@ -62,7 +62,7 @@ struct FileConversionView: View {
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 16)
-        .animation(reduceMotion ? nil : .easeOut(duration: 0.16), value: state.sourceURLs)
+        .animation(reduceMotion ? nil : FoundryTheme.Motion.state, value: state.sourceURLs)
         .sheet(item: dependencySetupBinding, content: dependencySetupSheet)
     }
 
@@ -93,7 +93,7 @@ struct FileConversionView: View {
                     )
                 )
         }
-        .animation(reduceMotion ? nil : .easeOut(duration: 0.12), value: isDropTargeted)
+        .animation(reduceMotion ? nil : FoundryTheme.Motion.hover, value: isDropTargeted)
         .onDrop(of: [UTType.fileURL], isTargeted: $isDropTargeted, perform: handleDrop)
     }
 
@@ -549,7 +549,7 @@ struct FileConversionView: View {
                         )
                 }
                 .buttonStyle(.plain)
-                .animation(reduceMotion ? nil : .easeOut(duration: 0.10), value: selected)
+                .animation(reduceMotion ? nil : FoundryTheme.Motion.hover, value: selected)
             }
         }
     }

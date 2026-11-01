@@ -128,9 +128,7 @@ struct FileShelfView: View {
                     .scrollIndicators(.never)
                     .onChange(of: state.selectedID) { _, id in
                         guard let id else { return }
-                        withAnimation(reduceMotion ? nil : .easeOut(duration: 0.12)) {
-                            proxy.scrollTo(id, anchor: .center)
-                        }
+                        proxy.scrollTo(id, anchor: .center)
                     }
                 }
             }
@@ -259,8 +257,7 @@ struct FileShelfRow: View {
         .padding(.horizontal, 12)
         .frame(height: 48)
         .background(RowBackground(isSelected: isSelected, isHovering: isHovering, cornerRadius: 10))
-        .animation(reduceMotion ? nil : .easeOut(duration: 0.10), value: isSelected)
-        .animation(reduceMotion ? nil : .easeOut(duration: 0.12), value: isHovering)
+        .animation(reduceMotion ? nil : FoundryTheme.Motion.hover, value: isHovering)
         .onHover { hovering in
             isHovering = hovering
 

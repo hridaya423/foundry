@@ -89,7 +89,7 @@ struct CalculatorValuePane: View {
                 Menu {
                     ForEach(alternatives, id: \.id) { alternative in
                         Button(split(alternative.title).unit ?? alternative.title) {
-                            withAnimation(reduceMotion ? nil : .easeOut(duration: 0.16)) {
+                            withAnimation(reduceMotion ? nil : FoundryTheme.Motion.state) {
                                 if let code = currencyCode(in: alternative.title) {
                                     LocalStateStore.shared.set(\.preferredCurrencyQuote, code)
                                 }

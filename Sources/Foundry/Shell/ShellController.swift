@@ -206,7 +206,7 @@ final class ShellController {
 
         let outcome = await panelState.executeResult(result)
         if outcome.isSuccessful {
-            panelController.hide()
+            panelController.hide(reason: .executed)
         } else {
             showPanel()
         }

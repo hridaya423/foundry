@@ -56,7 +56,8 @@ final class PanelController: NSObject, NSWindowDelegate {
         guard frame.height != height else { return }
         frame.origin.y += frame.height - height
         frame.size.height = height
-        panel.setFrame(frame, display: true, animate: true)
+        panel.setFrame(frame, display: true, animate: false)
+        panel.invalidateShadow()
     }
 
     func show() {
@@ -73,12 +74,21 @@ final class PanelController: NSObject, NSWindowDelegate {
         panel.setFrame(frame(for: panel), display: false)
         panel.ignoresMouseEvents = false
         panel.inputEnabled = true
-        // The window appears at once; the content's own entrance carries it.
-        panel.alphaValue = 1
+        let fades = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion == false
+        panel.alphaValue = fades ? 0 : 1
         panel.contentView?.layoutSubtreeIfNeeded()
         panel.displayIfNeeded()
         panel.makeKeyAndOrderFront(nil)
         panel.orderFrontRegardless()
+        if fades {
+            NSAnimationContext.runAnimationGroup({ context in
+                context.duration = FoundryTheme.Motion.enterDuration
+                context.timingFunction = CAMediaTimingFunction(controlPoints: 0.23, 1, 0.32, 1)
+                panel.animator().alphaValue = 1
+            }, completionHandler: { [weak panel] in
+                MainActor.assumeIsolated { panel?.invalidateShadow() }
+            })
+        }
         CATransaction.setCompletionBlock { [diagnostics] in
             diagnostics.mark("panel.firstFrame")
         }
@@ -120,7 +130,12 @@ final class PanelController: NSObject, NSWindowDelegate {
         quickLook.show(url)
     }
 
-    func hide() {
+    enum HideReason {
+        case dismissed
+        case executed
+    }
+
+    func hide(reason: HideReason = .dismissed) {
         quickLook.close()
         SelectionSnapshot.clear()
         state.panelWillClose()
@@ -140,8 +155,9 @@ final class PanelController: NSObject, NSWindowDelegate {
             self.restoreFocusIfNeeded()
             self.completePendingPaste()
         }
+        guard reason == .dismissed else { return finishHide() }
         NSAnimationContext.runAnimationGroup({ context in
-            context.duration = 0.09
+            context.duration = FoundryTheme.Motion.exitDuration
             context.timingFunction = CAMediaTimingFunction(name: .easeIn)
             panel.animator().alphaValue = 0
         }, completionHandler: {
@@ -221,7 +237,7 @@ final class PanelController: NSObject, NSWindowDelegate {
         }
         panel.onActionShortcut = { [weak self] shortcut in
             guard let self else { return false }
-            let dismiss: @MainActor () -> Void = { [weak self] in self?.hide() }
+            let dismiss: @MainActor () -> Void = { [weak self] in self?.hide(reason: .executed) }
             return self.state.performActionShortcut(shortcut, dismiss: dismiss) || self.state.performModeShortcut(shortcut, dismiss: dismiss)
         }
         panel.onCommandComma = { [weak self] in
@@ -248,7 +264,7 @@ final class PanelController: NSObject, NSWindowDelegate {
 
         let rootView = FoundryIncreaseContrastRoot {
             CommandPanelView(state: state) { [weak self] in
-                self?.hide()
+                self?.hide(reason: .executed)
             }
         }
         let hostingView = NSHostingView(rootView: rootView)

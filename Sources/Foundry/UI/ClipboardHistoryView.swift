@@ -101,9 +101,7 @@ struct ClipboardHistoryView: View {
                         .scrollIndicators(.never)
                         .onChange(of: state.selectedID) { _, id in
                             guard let id else { return }
-                            withAnimation(reduceMotion ? nil : .easeOut(duration: 0.12)) {
-                                proxy.scrollTo(id, anchor: .center)
-                            }
+                            proxy.scrollTo(id, anchor: .center)
                         }
                     }
                 } preview: {
@@ -191,7 +189,7 @@ private struct ClipboardHistoryRow: View {
         .frame(height: 36)
         .background(RowBackground(isSelected: isSelected, isHovering: isHovering, cornerRadius: 8))
         .onHover { isHovering = $0 }
-        .animation(reduceMotion ? nil : .easeOut(duration: 0.12), value: isHovering)
+        .animation(reduceMotion ? nil : FoundryTheme.Motion.hover, value: isHovering)
         .accessibilityElement(children: .combine)
         .accessibilityAddTraits(isSelected ? .isSelected : [])
     }

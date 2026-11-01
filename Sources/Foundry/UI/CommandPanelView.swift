@@ -19,7 +19,6 @@ struct CommandPanelView: View {
     @State private var isDropTargeted = false
     @State private var visibleResultIDs: Set<String> = []
     /// Replayed on every open: the content settles from 97% (1.1's entrance).
-    @State private var presented = false
 
     init(state: CommandPanelState, dismiss: @escaping () -> Void) {
         self.state = state
@@ -78,15 +77,10 @@ struct CommandPanelView: View {
                 }
                 if shouldShowHomeAccessory {
                     homeAccessoryStrip
-                        .transition(reduceMotion ? .opacity : .opacity.combined(with: .move(edge: .top)))
                 }
 
-                ZStack {
-                    surfaceContent
-                        .id(surfaceSpec.id)
-                        .transition(.opacity)
-                }
-                .animation(reduceMotion ? nil : Animation.easeInOut(duration: 0.12), value: state.mode)
+                surfaceContent
+                    .id(surfaceSpec.id)
 
                 panelFooter
             }
@@ -133,10 +127,10 @@ struct CommandPanelView: View {
                         .shadow(color: FoundryTheme.shadow, radius: 24, y: 10)
                         .padding(.trailing, 12)
                         .padding(.bottom, 46)
-                        .transition(reduceMotion ? .opacity : .opacity.combined(with: .scale(scale: 0.96, anchor: .bottomTrailing)))
+                        .transition(reduceMotion ? .opacity : .opacity.combined(with: .scale(scale: FoundryTheme.Motion.enterScale, anchor: .bottomTrailing)))
                     }
                 }
-                .animation(reduceMotion ? nil : Animation.spring(response: 0.28, dampingFraction: 0.82), value: state.session.isShowingActions)
+                .animation(overlayAnimation(state.session.isShowingActions), value: state.session.isShowingActions)
             }
             .overlay(alignment: .bottom) {
                 Group {
@@ -148,10 +142,10 @@ struct CommandPanelView: View {
                         }
                         .shadow(color: FoundryTheme.shadow, radius: 24, y: 10)
                         .padding(.bottom, 46)
-                        .transition(reduceMotion ? .opacity : .opacity.combined(with: .scale(scale: 0.96, anchor: .bottom)))
+                        .transition(reduceMotion ? .opacity : .opacity.combined(with: .scale(scale: FoundryTheme.Motion.enterScale, anchor: .bottom)))
                     }
                 }
-                .animation(reduceMotion ? nil : Animation.spring(response: 0.28, dampingFraction: 0.82), value: state.pendingPrompt != nil)
+                .animation(overlayAnimation(state.pendingPrompt != nil), value: state.pendingPrompt != nil)
             }
             .overlay(alignment: .bottom) {
                 Group {
@@ -162,19 +156,14 @@ struct CommandPanelView: View {
                         }
                         .shadow(color: FoundryTheme.shadow, radius: 24, y: 10)
                         .padding(.bottom, 46)
-                        .transition(reduceMotion ? .opacity : .opacity.combined(with: .scale(scale: 0.96, anchor: .bottom)))
+                        .transition(reduceMotion ? .opacity : .opacity.combined(with: .scale(scale: FoundryTheme.Motion.enterScale, anchor: .bottom)))
                     }
                 }
-                .animation(reduceMotion ? nil : Animation.spring(response: 0.28, dampingFraction: 0.82), value: state.pendingDropURLs != nil)
+                .animation(overlayAnimation(state.pendingDropURLs != nil), value: state.pendingDropURLs != nil)
             }
             .overlay(ConfettiBurst(trigger: state.confettiBurstID))
 
         return animated
-            .scaleEffect(reduceMotion || presented ? 1 : 0.97)
-            .opacity(presented ? 1 : 0)
-            .onChange(of: state.presentationToken, initial: true) { _, _ in
-                replayPresentation()
-            }
             .onChange(of: state.mode) { _, _ in
                 inputFocused = true
             }
@@ -252,17 +241,12 @@ struct CommandPanelView: View {
         }
     }
 
-    private var innerHighlight: Color {
-        colorScheme == .dark ? FoundryTheme.onDarkFaint : FoundryTheme.dark(0.06)
+    private func overlayAnimation(_ shown: Bool) -> Animation? {
+        reduceMotion ? nil : (shown ? FoundryTheme.Motion.overlayIn : FoundryTheme.Motion.overlayOut)
     }
 
-    private func replayPresentation() {
-        presented = false
-        DispatchQueue.main.async {
-            withAnimation(.spring(response: 0.22, dampingFraction: 0.9)) {
-                presented = true
-            }
-        }
+    private var innerHighlight: Color {
+        colorScheme == .dark ? FoundryTheme.onDarkFaint : FoundryTheme.dark(0.06)
     }
 
     /// Per-mode metadata that isn't a view: the transition identity and the
@@ -609,8 +593,8 @@ struct CommandPanelView: View {
         .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
         .padding(.horizontal, 16)
         .padding(.bottom, 4)
-        .animation(reduceMotion ? nil : Animation.easeOut(duration: 0.14), value: fileShelf.files.count)
-        .animation(reduceMotion ? nil : Animation.easeOut(duration: 0.14), value: agents.sessions.count)
+        .animation(reduceMotion ? nil : FoundryTheme.Motion.state, value: fileShelf.files.count)
+        .animation(reduceMotion ? nil : FoundryTheme.Motion.state, value: agents.sessions.count)
     }
 
     private var dropOverlay: some View {
@@ -633,12 +617,7 @@ struct CommandPanelView: View {
                     .padding(.vertical, 16)
                     .background(FoundryTheme.scrim)
                     .clipShape(FoundrySmoothedRectangle(cornerRadius: 18, smoothing: 0.75))
-                    .phaseAnimator([false, true], trigger: isDropTargeted) { content, phase in
-                        content.scaleEffect(reduceMotion ? 1 : (phase ? 1.035 : 1.0))
-                    } animation: { _ in
-                        .easeInOut(duration: 0.55)
-                    }
-                     .transition(reduceMotion ? .opacity : .opacity.combined(with: .scale(scale: 0.96)))
+                    .transition(reduceMotion ? .opacity : .opacity.combined(with: .scale(scale: FoundryTheme.Motion.enterScale)))
                 }
             }
             .allowsHitTesting(false)
@@ -672,10 +651,7 @@ struct CommandPanelView: View {
                             CalculatorUseWithHeader(query: state.session.query)
                                 .padding(.bottom, 4)
                             ForEach(calculatorFallbackResults, id: \.id) { result in
-                                HomeResultRow(result: result, isSelected: state.session.selectedResultID == result.id, label: resultKindLabel(for: result))
-                                    .id(result.id)
-                                    .trackVisible(result.id, into: $visibleResultIDs)
-                                    .rowActivation(isSelected: state.session.selectedResultID == result.id) { execute(result) }
+                                resultRow(result, showKind: true)
                             }
                         }
                     }
@@ -701,10 +677,7 @@ struct CommandPanelView: View {
                         if suggestionResults.isEmpty == false {
                             HomeSectionHeader(title: "Recent")
                             ForEach(Array(suggestionResults.prefix(5)), id: \.id) { result in
-                                HomeResultRow(result: result, isSelected: state.session.selectedResultID == result.id, label: resultKindLabel(for: result))
-                                    .id(result.id)
-                                    .trackVisible(result.id, into: $visibleResultIDs)
-                                    .rowActivation(isSelected: state.session.selectedResultID == result.id) { execute(result) }
+                                resultRow(result, showKind: true)
                             }
                         }
 
@@ -712,10 +685,7 @@ struct CommandPanelView: View {
                             HomeSectionHeader(title: "Commands")
                                 .padding(.top, suggestionResults.isEmpty ? 0 : 12)
                             ForEach(Array(commandResults.prefix(5)), id: \.id) { result in
-                                HomeResultRow(result: result, isSelected: state.session.selectedResultID == result.id, label: resultKindLabel(for: result))
-                                    .id(result.id)
-                                    .trackVisible(result.id, into: $visibleResultIDs)
-                                    .rowActivation(isSelected: state.session.selectedResultID == result.id) { execute(result) }
+                                resultRow(result, showKind: true)
                             }
                         }
 

@@ -36,9 +36,7 @@ struct EmojiPickerView: View {
             .scrollIndicators(.never)
             .onChange(of: state.selectedID) { _, selectedID in
                 guard let selectedID else { return }
-                withAnimation(reduceMotion ? nil : .easeOut(duration: 0.12)) {
-                    proxy.scrollTo(selectedID, anchor: .center)
-                }
+                proxy.scrollTo(selectedID, anchor: .center)
             }
         }
     }
@@ -105,7 +103,7 @@ private struct EmojiCell: View {
                     .stroke(isSelected ? FoundryTheme.stroke : Color.clear, lineWidth: 1)
             )
             .scaleEffect(isHovering && isSelected == false ? 1.08 : 1)
-            .animation(reduceMotion ? nil : .easeOut(duration: 0.12), value: isHovering)
+            .animation(reduceMotion ? nil : FoundryTheme.Motion.hover, value: isHovering)
             .accessibilityLabel(item.name)
             .accessibilityValue(isSelected ? "Selected" : "Not selected")
             .accessibilityAddTraits(isSelected ? .isSelected : [])

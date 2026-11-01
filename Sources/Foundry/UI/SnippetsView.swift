@@ -328,7 +328,7 @@ private struct SnippetIconButton: View {
         .buttonStyle(.plain)
         .help(help)
         .accessibilityLabel(help)
-        .animation(reduceMotion ? nil : .easeOut(duration: 0.12), value: isHovering)
+        .animation(reduceMotion ? nil : FoundryTheme.Motion.hover, value: isHovering)
         .onHover { hovering in
             isHovering = hovering
 
@@ -379,7 +379,7 @@ private struct SnippetRow: View {
         .accessibilityAddTraits(isSelected ? .isSelected : [])
         .accessibilityHint("Select snippet")
         .onTapGesture(perform: select)
-        .animation(reduceMotion ? nil : .easeOut(duration: 0.10), value: isHovering)
+        .animation(reduceMotion ? nil : FoundryTheme.Motion.hover, value: isHovering)
         .onHover { hovering in
             isHovering = hovering
 

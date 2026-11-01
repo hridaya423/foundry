@@ -527,7 +527,7 @@ private struct RecordingDot: View {
             .frame(width: 8, height: 8)
             .phaseAnimator(active && reduceMotion == false ? [1, 0.25] : [1]) { dot, opacity in
                 dot.opacity(opacity)
-            } animation: { _ in .easeInOut(duration: 0.5) }
+            } animation: { _ in FoundryTheme.Motion.pulse }
     }
 }
 

@@ -29,7 +29,7 @@ final class SnapshotReferenceTests: XCTestCase {
 
         let rows = VStack(alignment: .leading, spacing: 0) {
             HomeSectionHeader(title: "Recent")
-            HomeResultRow(result: makeResult("r1", "Safari", icon: "safari"), isSelected: false, label: "App")
+            ResultRow(result: makeResult("r1", "Safari", icon: "safari"), isSelected: false, kindLabel: "App")
             FoundrySectionHeader(title: "Suggestions", count: "4 items")
             ResultRow(result: makeResult("r2", "Xcode", subtitle: "Developer Tools", icon: "hammer"),
                       isSelected: true, kindLabel: "App")

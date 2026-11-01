@@ -66,38 +66,6 @@ struct HomeSectionHeader: View {
     }
 }
 
-struct HomeResultRow: View {
-    let result: CommandResult
-    let isSelected: Bool
-    let label: String
-
-    @State private var isHovering = false
-
-    var body: some View {
-        HStack(spacing: 12) {
-            AppIcon(icon: result.icon, size: 26, cornerRadius: 6)
-                .scaleEffect(isSelected ? 1.04 : 1)
-
-            Text(result.title)
-                .font(FoundryTheme.rowTitle)
-                .foregroundStyle(FoundryTheme.textPrimary)
-                .lineLimit(1)
-
-            Spacer()
-
-            Text(label)
-                .font(FoundryTheme.rowDetail)
-                .foregroundStyle(FoundryTheme.textQuaternary)
-                .lineLimit(1)
-        }
-        .padding(.horizontal, FoundryTheme.Spacing.sm)
-        .frame(height: 40)
-        .background(RowBackground(isSelected: isSelected, isHovering: isHovering))
-        .onHover { isHovering = $0 }
-        .pointerCursor()
-    }
-}
-
 struct FavoritesRow: View {
     let results: [CommandResult]
     let onSelect: (CommandResult) -> Void

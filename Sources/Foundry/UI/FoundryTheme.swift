@@ -160,6 +160,7 @@ enum FoundryTheme {
         static let half: Double = 0.5
         static let strong: Double = 0.75
         static let faint: Double = 0.95
+        static let pressed: Double = 0.7
     }
 
     /// Foundry's brand orange — wordmark glow, celebration accents.
@@ -181,6 +182,24 @@ enum FoundryTheme {
     static let textOnDarkSurface = Color.white.opacity(0.97)
 
     // MARK: Spacing — 4/8/12/16/24
+
+    enum Motion {
+        static let press = Animation.timingCurve(0.23, 1, 0.32, 1, duration: 0.10)
+        static let release = Animation.timingCurve(0.23, 1, 0.32, 1, duration: 0.18)
+        static let hover = Animation.timingCurve(0.23, 1, 0.32, 1, duration: 0.10)
+        static let state = Animation.timingCurve(0.23, 1, 0.32, 1, duration: 0.14)
+        static let overlayIn = Animation.timingCurve(0.23, 1, 0.32, 1, duration: 0.15)
+        static let overlayOut = Animation.timingCurve(0.4, 0, 1, 1, duration: 0.10)
+        static let enterDuration: TimeInterval = 0.10
+        static let enterScale: CGFloat = 0.98
+        static let pressScale: CGFloat = 0.97
+        static let progress = Animation.linear(duration: 0.18)
+        static let pulse = Animation.easeInOut(duration: 0.5)
+        static let exitDuration: TimeInterval = 0.06
+        static let toastInDuration: TimeInterval = 0.12
+        static let toastHold: Duration = .seconds(1.6)
+        static let toastOutDuration: TimeInterval = 0.18
+    }
 
     enum Spacing {
         static let xxs: CGFloat = 4

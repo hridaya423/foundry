@@ -57,6 +57,16 @@ final class PanelShellTests: XCTestCase {
         XCTAssertTrue(orderedOut, "hide() must orderOut — an invisible-but-onscreen panel is a leak")
     }
 
+    func testExecutedHideLeavesTheScreenImmediately() {
+        let (state, _) = makeState()
+        let controller = PanelController(state: state, diagnostics: DiagnosticsService(), directPasteService: DirectPasteService(),
+            activation: FakeActivation(), otherWindowsVisible: { false })
+        controller.show()
+        XCTAssertTrue(controller.isVisible)
+        controller.hide(reason: .executed)
+        XCTAssertFalse(controller.isVisible)
+    }
+
     /// Focus goes back to the previously active app when nothing else of ours
     /// is on screen.
     func testHideRestoresFocusWhenNoOtherWindows() async {

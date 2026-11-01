@@ -137,9 +137,9 @@ struct FoundryQuietButtonStyle: ButtonStyle {
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .opacity(configuration.isPressed ? 0.55 : 1)
-            .scaleEffect(configuration.isPressed ? 0.97 : 1)
-            .animation(reduceMotion ? nil : .easeOut(duration: 0.12), value: configuration.isPressed)
+            .opacity(configuration.isPressed ? FoundryTheme.Alpha.pressed : 1)
+            .scaleEffect(configuration.isPressed ? FoundryTheme.Motion.pressScale : 1)
+            .animation(reduceMotion ? nil : (configuration.isPressed ? FoundryTheme.Motion.press : FoundryTheme.Motion.release), value: configuration.isPressed)
             .pointerCursor()
     }
 }
@@ -149,9 +149,9 @@ struct PressableButtonStyle: ButtonStyle {
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .scaleEffect(configuration.isPressed ? 0.975 : 1)
-            .opacity(configuration.isPressed ? 0.82 : 1)
-            .animation(reduceMotion ? nil : .easeOut(duration: 0.10), value: configuration.isPressed)
+            .scaleEffect(configuration.isPressed ? FoundryTheme.Motion.pressScale : 1)
+            .opacity(configuration.isPressed ? FoundryTheme.Alpha.pressed : 1)
+            .animation(reduceMotion ? nil : (configuration.isPressed ? FoundryTheme.Motion.press : FoundryTheme.Motion.release), value: configuration.isPressed)
             .pointerCursor()
     }
 }

@@ -1,7 +1,7 @@
-opacity-expression	19
-corner-radius	125
-duration	23
-spring	4
+opacity-expression	17
+corner-radius	124
+duration	0
+spring	0
 named-colour	8
 theme-escape	4
-pointing-hand	10
+pointing-hand	9
