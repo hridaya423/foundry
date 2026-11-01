@@ -76,6 +76,12 @@ struct ScriptOutput: Equatable, PanelFeature {
 }
 
 extension QuickAIState: PanelFeature {
+    func clearFilter() -> Bool {
+        guard quickAIQuery.isEmpty == false else { return false }
+        quickAIQuery = ""
+        return true
+    }
+
     func handleModeShortcut(
         _ shortcut: ActionShortcut,
         panel: CommandPanelState,

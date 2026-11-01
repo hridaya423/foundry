@@ -195,6 +195,10 @@ final class PanelRouter {
             panel.cancelPrompt()
             return true
         }
+        if panel.pendingSnippetArguments != nil {
+            panel.cancelSnippetArguments()
+            return true
+        }
         if panel.shell?.isQuickLookShowing == true {
             panel.shell?.closeQuickLook()
             return true

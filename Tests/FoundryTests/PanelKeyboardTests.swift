@@ -200,6 +200,28 @@ final class PanelKeyboardTests: XCTestCase {
         state.shutdown()
     }
 
+    func testEscapeClosesSnippetArgumentPromptFirst() {
+        let state = makeState()
+        state.mode = .snippets
+        state.pendingSnippetArguments = SnippetArgumentRequest(names: ["name"], copyOnly: false)
+        XCTAssertTrue(state.handleEscape())
+        XCTAssertNil(state.pendingSnippetArguments)
+        XCTAssertEqual(state.mode, .snippets)
+        state.shutdown()
+    }
+
+    func testEscapeClearsQuickAIComposerBeforeLeaving() {
+        let state = makeState()
+        state.mode = .quickAI
+        state.quickAI.quickAIQuery = "draft"
+        XCTAssertTrue(state.handleEscape())
+        XCTAssertEqual(state.quickAI.quickAIQuery, "")
+        XCTAssertEqual(state.mode, .quickAI)
+        XCTAssertTrue(state.handleEscape())
+        XCTAssertEqual(state.mode, .search)
+        state.shutdown()
+    }
+
     // MARK: What you see is what you navigate
 
     func testNavigableRowsMatchWhatTheViewRendersAtHome() {
