@@ -59,10 +59,17 @@ final class CommandPanelState {
         return state
     }()
     @ObservationIgnored lazy var camera: CameraPreviewState = { builtFeatures.insert(.camera); return CameraPreviewState() }()
-    @ObservationIgnored lazy var translator: TranslatorState = { builtFeatures.insert(.translator); return TranslatorState() }()
+    @ObservationIgnored lazy var translator: TranslatorState = {
+        builtFeatures.insert(.translator)
+        let translator = TranslatorState()
+        translator.onFeedback = { [weak self] feedback in self?.showActionFeedback(feedback) }
+        return translator
+    }()
     @ObservationIgnored lazy var developerTools: DeveloperToolsState = {
         builtFeatures.insert(.developerTools)
-        return DeveloperToolsState()
+        let tools = DeveloperToolsState()
+        tools.onFeedback = { [weak self] feedback in self?.showActionFeedback(feedback) }
+        return tools
     }()
     let widgetBoard: WidgetBoardState
     let aiSettings: AISettingsState
@@ -360,8 +367,11 @@ final class CommandPanelState {
         localState.set(\.firstLaunchAcknowledged, true)
         let hotkey = settings.hotkey
         let chord = HotkeyFormatter.modifierString(hotkey.modifiers) + " " + (HotkeyFormatter.keyName(hotkey.keyCode) ?? "")
-        let note = ActionFeedback.info(String(localized: "That’s it. \(chord), a few letters, Return."))
-        if dismissed { shell?.showTransientNotice(note) } else { showActionFeedback(note) }
+        notify(.info(String(localized: "That’s it. \(chord), a few letters, Return.")), dismissed: dismissed)
+    }
+
+    func notify(_ feedback: ActionFeedback, dismissed: Bool) {
+        if dismissed { shell?.showTransientNotice(feedback) } else { showActionFeedback(feedback) }
     }
 
     func executeCommand(commandID: String) async {

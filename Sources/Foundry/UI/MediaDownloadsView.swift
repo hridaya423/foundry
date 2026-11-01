@@ -1,4 +1,5 @@
 import AppKit
+import FoundryDomain
 import SwiftUI
 import UniformTypeIdentifiers
 
@@ -9,6 +10,7 @@ struct MediaDownloadsView: View {
     let retry: (MediaDownloadItem) -> Void
     let changeDestination: () -> Void
     var performHaptic: () -> Void = {}
+    var notify: (ActionFeedback) -> Void = { _ in }
 
     @State private var links = ""
     @State private var validationMessage: String?
@@ -323,7 +325,7 @@ struct MediaDownloadsView: View {
 
             VStack(spacing: 0) {
                 ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
-                    MediaDownloadRow(item: item, cancel: cancel, retry: retry, redownload: { _ = start(item.sourceURL) }) {
+                    MediaDownloadRow(item: item, cancel: cancel, retry: retry, redownload: { _ = start(item.sourceURL) }, notify: notify) {
                         manager.remove(id: item.id)
                     }
                     .overlay(
@@ -423,6 +425,7 @@ private struct MediaDownloadRow: View {
     let cancel: (UUID) -> Void
     let retry: (MediaDownloadItem) -> Void
     let redownload: () -> Void
+    let notify: (ActionFeedback) -> Void
     let remove: () -> Void
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var fileError: String?
@@ -586,6 +589,7 @@ private struct MediaDownloadRow: View {
             Button("Copy URL") {
                 NSPasteboard.general.clearContents()
                 NSPasteboard.general.setString(item.sourceURL, forType: .string)
+                notify(.success(String(localized: "Copied link")))
             }
         }
         if item.status == .failed || item.status == .cancelled {

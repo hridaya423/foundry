@@ -124,13 +124,13 @@ final class EmojiPickerState {
     }
 
     @discardableResult
-    func copySelectedEmoji() -> Bool {
-        guard let selectedEmoji else { return false }
+    func copySelectedEmoji() -> String? {
+        guard let selectedEmoji else { return nil }
         let value = toneAppliedValue(selectedEmoji)
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(value, forType: .string)
         recordRecent(value)
-        return true
+        return value
     }
 
     private func keepSelectionValid() {

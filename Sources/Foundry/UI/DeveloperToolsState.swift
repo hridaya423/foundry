@@ -1,10 +1,12 @@
 import AppKit
 import Foundation
 import Observation
+import FoundryDomain
 
 @MainActor
 @Observable
 final class DeveloperToolsState {
+    @ObservationIgnored var onFeedback: ((ActionFeedback) -> Void)?
     enum Tool: String, CaseIterable, Identifiable {
         case base = "Base Conversion"
         case bitwise = "Bit Operations"
@@ -156,6 +158,7 @@ final class DeveloperToolsState {
     func copy(_ value: String) {
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(value, forType: .string)
+        onFeedback?(.success(String(localized: "Copied \(value.prefix(40))")))
     }
 
     private func refreshBase() {

@@ -2,10 +2,12 @@ import AppKit
 import Combine
 import Foundation
 import Observation
+import FoundryDomain
 
 @MainActor
 @Observable
 final class TranslatorState {
+    @ObservationIgnored var onFeedback: ((ActionFeedback) -> Void)?
     var sourceText = "" { didSet { scheduleTranslation() } }
     var sourceLanguage = "English" { didSet { scheduleTranslation() } }
     var targetLanguage = "Spanish" { didSet { scheduleTranslation() } }
@@ -86,6 +88,7 @@ final class TranslatorState {
         guard result.isEmpty == false else { return }
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(result, forType: .string)
+        onFeedback?(.success(String(localized: "Copied translation")))
     }
 
     func languageCode(for name: String) -> String? { TranslationLanguage.parse(name)?.identifier }

@@ -104,7 +104,6 @@ extension DeveloperToolsState: PanelFeature {
     ) -> Bool {
         if shortcut.key == "\r", let output = primaryOutput {
             copy(output)
-            panel.showActionFeedback(.success(String(localized: "Copied \(output.prefix(40))")))
             return true
         }
         let tools = Tool.allCases
@@ -151,11 +150,9 @@ extension TranslatorState: PanelFeature {
             swapLanguages()
         case ("c", true) where result.isEmpty == false:
             copyResult()
-            panel.showActionFeedback(.success(String(localized: "Copied translation")))
         case ("\r", _) where result.isEmpty == false:
             if panel.insertTranslation() == false {
                 copyResult()
-                panel.showActionFeedback(.success(String(localized: "Copied translation")))
             }
             dismiss()
         default:
@@ -220,8 +217,9 @@ extension ClipboardHistoryState: PanelFeature {
         let filters = KindFilter.allCases
         switch shortcut.key {
         case "\r":
-            guard selectedItem != nil else { return false }
+            guard let item = selectedItem else { return false }
             copySelected()
+            panel.notify(.success(String(localized: "Copied \(item.title.prefix(40))")), dismissed: true)
             dismiss()
         case "p":
             togglePinSelected()

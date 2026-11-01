@@ -50,8 +50,9 @@ extension CommandPanelState {
             featureAction("paste", String(localized: "Paste"), icon: "text.insert", key: "\r") { [weak self] in
                 if self?.directPasteSelectedClipboardItem() == true { dismiss() }
             },
-            featureAction("copy", String(localized: "Copy"), icon: "doc.on.doc", key: "\r", modifiers: [.command]) {
+            featureAction("copy", String(localized: "Copy"), icon: "doc.on.doc", key: "\r", modifiers: [.command]) { [weak self] in
                 history.copySelected()
+                self?.notify(.success(String(localized: "Copied \(item.title.prefix(40))")), dismissed: true)
                 dismiss()
             },
         ]

@@ -6,6 +6,12 @@ import FoundryServices
 
 // Direct paste, snippet insertion, and clipboard/shelf image analysis.
 extension CommandPanelState {
+    func copySelectedEmoji() -> Bool {
+        guard let value = emojiPicker.copySelectedEmoji() else { return false }
+        notify(.success(String(localized: "Copied \(value)")), dismissed: true)
+        return true
+    }
+
     @discardableResult
     func directPasteSelectedClipboardItem() -> Bool {
         guard let item = clipboardHistory.selectedItem else {

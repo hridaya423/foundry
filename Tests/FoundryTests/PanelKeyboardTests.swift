@@ -175,6 +175,34 @@ final class PanelKeyboardTests: XCTestCase {
         state.shutdown()
     }
 
+    func testCopyingAClipboardItemConfirmsAfterThePanelCloses() {
+        let pasteboard = TestClipboardPasteboard()
+        let diagnostics = DiagnosticsService()
+        let config = ConfigService(diagnostics: diagnostics,
+            url: FileManager.default.temporaryDirectory.appendingPathComponent("foundry-kbd-\(UUID().uuidString).json"))
+        let clipboard = ClipboardHistoryState(pasteboard: pasteboard, persistence: nil, configuration: config.current.clipboard)
+        let registry = CommandRegistry(providers: [], usageRanking: UsageRankingStore(diagnostics: diagnostics), diagnostics: diagnostics,
+            configService: config)
+        let state = CommandPanelState(registry: registry, actionRunner: ActionRunner(diagnostics: diagnostics), diagnostics: diagnostics,
+            config: config, clipboardHistory: clipboard)
+        let shell = RecordingShellPort()
+        var notices: [ActionFeedback] = []
+        shell.onTransientNotice = { notices.append($0) }
+        state.shell = shell
+        pasteboard.snapshotValue = PasteboardSnapshot(types: [.string], payload: .text("ship it\nsecond line"), sourceBundleIdentifier: nil)
+        pasteboard.changeCountValue += 1
+        clipboard.captureIfChanged()
+        clipboard.select(id: clipboard.visibleItems[0].id)
+        state.mode = .clipboardHistory
+        var dismissed = false
+
+        XCTAssertTrue(state.performModeShortcut(ActionShortcut(key: "\r", modifiers: [.command]), dismiss: { dismissed = true }))
+
+        XCTAssertTrue(dismissed)
+        XCTAssertEqual(notices, [.success("Copied ship it")])
+        state.shutdown()
+    }
+
     func testSnippetActionsListInsertFirstAndDeleteLast() {
         let state = makeState()
         state.snippets.newSnippet()

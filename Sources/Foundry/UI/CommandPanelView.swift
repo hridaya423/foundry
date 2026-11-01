@@ -343,7 +343,7 @@ struct CommandPanelView: View {
         case .emojiPicker:
             HStack(spacing: 8) {
                 featureSearchField("Search emoji and symbols…", text: emojiQueryBinding) {
-                    if state.emojiPicker.copySelectedEmoji() { dismiss() }
+                    if state.copySelectedEmoji() { dismiss() }
                 }
                 EmojiSkinToneMenu(state: state.emojiPicker)
             }
@@ -397,7 +397,7 @@ struct CommandPanelView: View {
             QuickAISurfaceView(quickAI: state.quickAI, aiSettings: state.aiSettings, onOpenAISettings: { state.presentSettings(.ai) })
         case .emojiPicker:
             EmojiPickerView(state: state.emojiPicker) {
-                if state.emojiPicker.copySelectedEmoji() { dismiss() }
+                if state.copySelectedEmoji() { dismiss() }
             }
         case .fileConversion:
             FileConversionView(state: state.fileConversion)
@@ -450,7 +450,8 @@ struct CommandPanelView: View {
                 cancel: state.cancelDownload,
                 retry: state.retryDownload,
                 changeDestination: state.changeMediaDownloadFolder,
-                performHaptic: { state.performHaptic(.levelChange) }
+                performHaptic: { state.performHaptic(.levelChange) },
+                notify: state.showActionFeedback
             )
         case .scriptOutput:
             ScrollView {
