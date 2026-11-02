@@ -266,6 +266,9 @@ final class PreviewSnapshotTests: XCTestCase {
         state.mediaDownloads.moveSelection(offset: 1)
         state.mediaDownloads.moveSelection(offset: 1)
         try renderPanel(state, named: "media", dir: dir)
+        state.router.openDeveloperTools()
+        state.developerTools.baseInput = "255"
+        try renderPanel(state, named: "devtools", dir: dir)
         state.shutdown()
     }
 

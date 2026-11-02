@@ -18,6 +18,18 @@ final class DeveloperToolsState {
 
         var id: String { rawValue }
 
+        var chipTitle: LocalizedStringResource {
+            switch self {
+            case .base: "Base"
+            case .bitwise: "Bits"
+            case .base64: "Base64"
+            case .json: "JSON"
+            case .textCase: "Case"
+            case .timestamp: "Timestamp"
+            case .wordCount: "Words"
+            }
+        }
+
         init?(commandID: String) {
             switch commandID {
             case "base64": self = .base64

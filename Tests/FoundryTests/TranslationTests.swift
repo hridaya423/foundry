@@ -4,6 +4,22 @@ import FoundryDomain
 
 final class TranslationTests: XCTestCase {
     @MainActor
+    func testDetectedSourceDrivesTheRequestAndSwapUsesIt() async throws {
+        var sources: [String] = []
+        let state = TranslatorState(localState: LocalStateStore(), availability: .translationFramework, debounce: .zero, translator: { request in
+            await MainActor.run { sources.append(request.source.displayName) }
+            return .success("hello")
+        })
+        XCTAssertEqual(state.sourceLanguage, TranslatorState.detectLanguage)
+        state.sourceText = "Bonjour tout le monde, comment allez-vous aujourd’hui ?"
+        try await Task.sleep(for: .milliseconds(100))
+        XCTAssertEqual(state.detectedLanguage, "French")
+        XCTAssertEqual(sources, ["French"])
+        state.swapLanguages()
+        XCTAssertEqual(state.targetLanguage, "French")
+    }
+
+    @MainActor
     func testLanguagePairPersists() {
         let localState = LocalStateStore()
         let first = TranslatorState(localState: localState, availability: .translationFramework, translator: { _ in .success("") })

@@ -101,8 +101,15 @@ struct TranslatorView: View {
         .accessibilityLabel("Target language")
     }
 
+    private var sourceLabel: String {
+        guard state.sourceLanguage == TranslatorState.detectLanguage else { return state.sourceLanguage }
+        return state.detectedLanguage.map { String(localized: "\($0) (Detected)") } ?? TranslatorState.detectLanguage
+    }
+
     private var sourceLanguageMenu: some View {
         Menu {
+            Button(TranslatorState.detectLanguage) { state.sourceLanguage = TranslatorState.detectLanguage }
+            Divider()
             ForEach(state.languages, id: \.self) { language in
                 Button(language) {
                     state.sourceLanguage = language
@@ -110,7 +117,7 @@ struct TranslatorView: View {
             }
         } label: {
             HStack(spacing: 5) {
-                Text(state.sourceLanguage)
+                Text(sourceLabel)
                 Image(systemName: "chevron.down")
                     .font(FoundryTheme.Glyph.xs)
             }

@@ -35,36 +35,18 @@ struct DeveloperToolsView: View {
     }
 
     private var toolSwitcher: some View {
-        LazyVGrid(
-            columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 4),
-            spacing: 8
-        ) {
-            ForEach(DeveloperToolsState.Tool.allCases) { tool in
-                toolButton(tool)
+        HStack(spacing: FoundryTheme.Spacing.xs) {
+            ForEach(Array(DeveloperToolsState.Tool.allCases.enumerated()), id: \.element) { index, tool in
+                DeveloperChip(title: String(localized: tool.chipTitle), isSelected: state.selectedTool == tool) { state.selectedTool = tool }
+                    .accessibilityLabel(tool.rawValue)
+                    .help("\(tool.rawValue) · ⌘\(index + 1)")
             }
         }
     }
 
-    private func toolButton(_ tool: DeveloperToolsState.Tool) -> some View {
-        Button(action: { state.selectedTool = tool }) {
-            Text(tool.rawValue)
-                .font(FoundryTheme.micro)
-                .foregroundStyle(state.selectedTool == tool ? FoundryTheme.textPrimary : FoundryTheme.textSecondary)
-                .padding(.horizontal, 8)
-                .frame(height: 28)
-                .frame(maxWidth: .infinity)
-                .background(state.selectedTool == tool ? FoundryTheme.fillSelected : FoundryTheme.fillSubtle)
-                .clipShape(RoundedRectangle(cornerRadius: FoundryTheme.Radius.row, style: .continuous))
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel(tool.rawValue)
-        .accessibilityValue(state.selectedTool == tool ? "Selected" : "Not selected")
-        .accessibilityAddTraits(state.selectedTool == tool ? .isSelected : [])
-        .help("\(tool.rawValue) · ⌘\((DeveloperToolsState.Tool.allCases.firstIndex(of: tool) ?? 0) + 1)")
-    }
-
     private var baseTool: some View {
         VStack(alignment: .leading, spacing: 10) {
+            hint("Type a decimal, hex (0x), octal (0o) or binary (0b) number.")
             DeveloperInputField(title: "Input", placeholder: "255 or 0xff", text: $state.baseInput)
 
             if let error = state.baseError {
@@ -73,15 +55,13 @@ struct DeveloperToolsView: View {
                 resultGrid(state.baseRows)
             }
         }
-        .padding(.top, 4)
+        .padding(14)
+        .modifier(DeveloperPanelSurface())
     }
 
     private var bitTool: some View {
         VStack(alignment: .leading, spacing: 10) {
-            sectionHeader(
-                title: "Bit Operations",
-                subtitle: "Use decimal or prefixed inputs like 0xff. Search also supports 5 & 3, 5 << 1, and not 5 8."
-            )
+            hint("Use decimal or prefixed inputs like 0xff. Search also supports 5 & 3, 5 << 1, and not 5 8.")
 
             HStack(spacing: 8) {
                 ForEach(DeveloperToolsState.BitOperation.allCases) { operation in
@@ -120,7 +100,7 @@ struct DeveloperToolsView: View {
 
     private var base64Tool: some View {
         VStack(alignment: .leading, spacing: 10) {
-            sectionHeader(title: "Base64", subtitle: "Encode plain text or decode a Base64 value.")
+            hint("Encode plain text or decode a Base64 value.")
             HStack(spacing: 8) {
                 ForEach(DeveloperToolsState.Base64Operation.allCases) { operation in
                     DeveloperChip(title: operation.rawValue, isSelected: state.base64Operation == operation) {
@@ -141,7 +121,7 @@ struct DeveloperToolsView: View {
 
     private var jsonTool: some View {
         VStack(alignment: .leading, spacing: 10) {
-            sectionHeader(title: "Format JSON", subtitle: "Paste JSON to validate and pretty-print it.")
+            hint("Paste JSON to validate and pretty-print it.")
             DeveloperTextEditor(title: "JSON Input", placeholder: "{\"name\": \"Foundry\"}", text: $state.jsonInput)
             if let error = state.jsonError {
                 DeveloperErrorText(message: error)
@@ -155,7 +135,7 @@ struct DeveloperToolsView: View {
 
     private var caseTool: some View {
         VStack(alignment: .leading, spacing: 10) {
-            sectionHeader(title: "Change Case", subtitle: "Convert text into common identifier styles.")
+            hint("Convert text into common identifier styles.")
             DeveloperInputField(title: "Input", placeholder: "hello world", text: $state.caseInput)
             resultGrid(state.caseRows)
         }
@@ -165,7 +145,7 @@ struct DeveloperToolsView: View {
 
     private var timestampTool: some View {
         VStack(alignment: .leading, spacing: 10) {
-            sectionHeader(title: "Unix Timestamp", subtitle: "Convert Unix seconds, milliseconds, or ISO 8601 dates.")
+            hint("Convert Unix seconds, milliseconds, or ISO 8601 dates.")
             DeveloperInputField(title: "Input", placeholder: "1712345678", text: $state.timestampInput)
             if let error = state.timestampError {
                 DeveloperErrorText(message: error)
@@ -178,24 +158,19 @@ struct DeveloperToolsView: View {
     }
 
     private var wordCountTool: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            sectionHeader(title: "Word Count", subtitle: "Count words, characters, lines, and paragraphs as you type.")
+        VStack(alignment: .leading, spacing: 10) {
+            hint("Count words, characters, lines, and paragraphs as you type.")
             DeveloperTextEditor(title: "Text", placeholder: "Paste or type text to inspect", text: $state.wordCountInput)
             resultGrid(state.wordCountRows)
         }
-        .padding(18)
+        .padding(14)
         .modifier(DeveloperPanelSurface())
     }
 
-    private func sectionHeader(title: String, subtitle: String) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(title)
-                .font(FoundryTheme.body)
-                .foregroundStyle(FoundryTheme.textPrimary)
-            Text(subtitle)
-                .font(FoundryTheme.bodySecondary)
-                .foregroundStyle(FoundryTheme.textTertiary)
-        }
+    private func hint(_ text: LocalizedStringResource) -> some View {
+        Text(text)
+            .font(FoundryTheme.bodySecondary)
+            .foregroundStyle(FoundryTheme.textTertiary)
     }
 
     private func resultGrid(_ rows: [DeveloperToolsState.OutputRow]) -> some View {

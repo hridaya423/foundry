@@ -1,6 +1,7 @@
 import AppKit
 import Combine
 import Foundation
+import NaturalLanguage
 import Observation
 import FoundryDomain
 
@@ -9,8 +10,9 @@ import FoundryDomain
 final class TranslatorState {
     @ObservationIgnored var onFeedback: ((ActionFeedback) -> Void)?
     var sourceText = "" { didSet { scheduleTranslation() } }
-    var sourceLanguage = "English" { didSet { languagesChanged() } }
+    var sourceLanguage = TranslatorState.detectLanguage { didSet { languagesChanged() } }
     var targetLanguage = "Spanish" { didSet { languagesChanged() } }
+    private(set) var detectedLanguage: String?
     private(set) var result = ""
     private(set) var translationError: String?
     private(set) var offersAppleIntelligence = false
@@ -47,6 +49,15 @@ final class TranslatorState {
         localState.set(\.translatorSourceLanguage, sourceLanguage)
         localState.set(\.translatorTargetLanguage, targetLanguage)
         scheduleTranslation()
+    }
+
+    static let detectLanguage = "Detect Language"
+
+    nonisolated static func detect(_ text: String) -> String? {
+        let recognizer = NLLanguageRecognizer()
+        recognizer.processString(text)
+        guard let code = recognizer.dominantLanguage?.rawValue else { return nil }
+        return (TranslationLanguage.parse(code) ?? TranslationLanguage.parse(String(code.prefix(2))))?.displayName
     }
 
     let languages = ["Arabic", "Chinese", "English", "French", "German", "Hindi", "Italian", "Japanese", "Korean", "Portuguese", "Russian", "Spanish"]
@@ -102,7 +113,8 @@ final class TranslatorState {
 
     func swapLanguages() {
         resetting = true
-        (sourceLanguage, targetLanguage) = (targetLanguage, sourceLanguage)
+        let source = sourceLanguage == Self.detectLanguage ? detectedLanguage ?? "English" : sourceLanguage
+        (sourceLanguage, targetLanguage) = (targetLanguage, source)
         if result.isEmpty == false { sourceText = result }
         resetting = false
         languagesChanged()
@@ -122,7 +134,9 @@ final class TranslatorState {
         task?.cancel()
         offersAppleIntelligence = false
         guard let request = makeRequest() else {
-            result = ""; translationError = nil; isTranslating = false; activeRequest = nil
+            result = ""; isTranslating = false; activeRequest = nil
+            let undetected = sourceLanguage == Self.detectLanguage && sourceText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
+            translationError = undetected ? String(localized: "Foundry can’t tell which language this is. Choose it from the menu.") : nil
             return
         }
         guard availability == .translationFramework else {
@@ -142,5 +156,12 @@ final class TranslatorState {
         }
     }
 
-    private func makeRequest() -> TranslationRequest? { TranslationRequest(text: sourceText, source: sourceLanguage, target: targetLanguage) }
+    private func makeRequest() -> TranslationRequest? {
+        guard sourceLanguage == Self.detectLanguage else {
+            detectedLanguage = nil
+            return TranslationRequest(text: sourceText, source: sourceLanguage, target: targetLanguage)
+        }
+        detectedLanguage = Self.detect(sourceText)
+        return detectedLanguage.flatMap { TranslationRequest(text: sourceText, source: $0, target: targetLanguage) }
+    }
 }
