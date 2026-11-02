@@ -25,7 +25,7 @@ final class CommandRegistry: Sendable {
         config: ConfigService,
         diagnostics: DiagnosticsService,
         snippetStore: any SnippetStore = FileSnippetStore(),
-        usageRanking: UsageRankingStore? = nil
+        usageRanking: UsageRankingStore
     ) -> CommandRegistry {
         return CommandRegistry(
             providers: [
@@ -47,7 +47,7 @@ final class CommandRegistry: Sendable {
                 WindowManagementProvider(),
                 BuiltInCommandProvider()
             ],
-            usageRanking: usageRanking ?? UsageRankingStore(diagnostics: diagnostics),
+            usageRanking: usageRanking,
             diagnostics: diagnostics,
             configService: config
         )

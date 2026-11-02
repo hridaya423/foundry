@@ -14,7 +14,7 @@ final class CommandPanelStateTests: XCTestCase {
         )
         let registry = CommandRegistry(
             providers: [],
-            usageRanking: UsageRankingStore(diagnostics: diagnostics),
+            usageRanking: UsageRankingStore.scratch(diagnostics),
             diagnostics: diagnostics,
             configService: config
         )
@@ -39,7 +39,7 @@ final class CommandPanelStateTests: XCTestCase {
     func testUnavailableCommandHotkeyTellsTheUser() async {
         let diagnostics = DiagnosticsService()
         let config = ConfigService(diagnostics: diagnostics, url: FileManager.default.temporaryDirectory.appendingPathComponent("foundry-panel-missing-\(UUID().uuidString).json"))
-        let registry = CommandRegistry(providers: [], usageRanking: UsageRankingStore(diagnostics: diagnostics), diagnostics: diagnostics, configService: config)
+        let registry = CommandRegistry(providers: [], usageRanking: UsageRankingStore.scratch(diagnostics), diagnostics: diagnostics, configService: config)
         let state = CommandPanelState(registry: registry, actionRunner: ActionRunner(diagnostics: diagnostics), diagnostics: diagnostics, config: config)
 
         await state.executeCommand(commandID: "missing.command")
@@ -56,7 +56,7 @@ final class CommandPanelStateTests: XCTestCase {
         )
         let registry = CommandRegistry(
             providers: [],
-            usageRanking: UsageRankingStore(diagnostics: diagnostics),
+            usageRanking: UsageRankingStore.scratch(diagnostics),
             diagnostics: diagnostics,
             configService: config
         )
@@ -82,7 +82,7 @@ final class CommandPanelStateTests: XCTestCase {
         )
         let registry = CommandRegistry(
             providers: [],
-            usageRanking: UsageRankingStore(diagnostics: diagnostics),
+            usageRanking: UsageRankingStore.scratch(diagnostics),
             diagnostics: diagnostics,
             configService: config
         )
@@ -116,7 +116,7 @@ final class CommandPanelStateTests: XCTestCase {
         )
         let registry = CommandRegistry(
             providers: [URLCollisionProvider(), MediaDownloadProvider()],
-            usageRanking: UsageRankingStore(diagnostics: diagnostics),
+            usageRanking: UsageRankingStore.scratch(diagnostics),
             diagnostics: diagnostics,
             configService: config
         )
@@ -145,7 +145,7 @@ final class CommandPanelStateTests: XCTestCase {
         )
         let registry = CommandRegistry(
             providers: [],
-            usageRanking: UsageRankingStore(diagnostics: diagnostics),
+            usageRanking: UsageRankingStore.scratch(diagnostics),
             diagnostics: diagnostics,
             configService: config
         )
@@ -211,7 +211,7 @@ final class CommandPanelStateTests: XCTestCase {
         let pasteboard = TestClipboardPasteboard()
         let persistence = ClipboardHistoryPersistence(url: archiveURL)
         let clipboard = ClipboardHistoryState(pasteboard: pasteboard, persistence: persistence, configuration: config.current.clipboard)
-        let registry = CommandRegistry(providers: [], usageRanking: UsageRankingStore(diagnostics: diagnostics), diagnostics: diagnostics, configService: config)
+        let registry = CommandRegistry(providers: [], usageRanking: UsageRankingStore.scratch(diagnostics), diagnostics: diagnostics, configService: config)
         let actionRunner = ActionRunner(diagnostics: diagnostics)
         let shell = ShellController(registry: registry, actionRunner: actionRunner, config: config, diagnostics: diagnostics, clipboardHistory: clipboard)
         pasteboard.snapshotValue = PasteboardSnapshot(types: [.string], payload: .text("captured at launch"), sourceBundleIdentifier: "com.example")
@@ -378,7 +378,7 @@ final class CommandPanelStateTests: XCTestCase {
     func testReopenRestoresContextWithinPopToRootTimeout() {
         let diagnostics = DiagnosticsService()
         let config = ConfigService(diagnostics: diagnostics, url: temporaryURL())
-        let registry = CommandRegistry(providers: [], usageRanking: UsageRankingStore(diagnostics: diagnostics), diagnostics: diagnostics, configService: config)
+        let registry = CommandRegistry(providers: [], usageRanking: UsageRankingStore.scratch(diagnostics), diagnostics: diagnostics, configService: config)
         let state = CommandPanelState(registry: registry, actionRunner: ActionRunner(diagnostics: diagnostics), diagnostics: diagnostics, config: config)
         var clock = Date(timeIntervalSince1970: 1000)
         state.now = { clock }
@@ -448,7 +448,7 @@ final class CommandPanelStateTests: XCTestCase {
     func testReopenResetsAfterPopToRootTimeout() {
         let diagnostics = DiagnosticsService()
         let config = ConfigService(diagnostics: diagnostics, url: temporaryURL())
-        let registry = CommandRegistry(providers: [], usageRanking: UsageRankingStore(diagnostics: diagnostics), diagnostics: diagnostics, configService: config)
+        let registry = CommandRegistry(providers: [], usageRanking: UsageRankingStore.scratch(diagnostics), diagnostics: diagnostics, configService: config)
         let state = CommandPanelState(registry: registry, actionRunner: ActionRunner(diagnostics: diagnostics), diagnostics: diagnostics, config: config)
         var clock = Date(timeIntervalSince1970: 1000)
         state.now = { clock }
@@ -472,7 +472,7 @@ final class CommandPanelStateTests: XCTestCase {
     func testCompactCollapsedOnlyInSearchModeWithEmptyQuery() {
         let diagnostics = DiagnosticsService()
         let config = ConfigService(diagnostics: diagnostics, url: temporaryURL())
-        let registry = CommandRegistry(providers: [], usageRanking: UsageRankingStore(diagnostics: diagnostics), diagnostics: diagnostics, configService: config)
+        let registry = CommandRegistry(providers: [], usageRanking: UsageRankingStore.scratch(diagnostics), diagnostics: diagnostics, configService: config)
         let state = CommandPanelState(registry: registry, actionRunner: ActionRunner(diagnostics: diagnostics), diagnostics: diagnostics, config: config)
 
         XCTAssertFalse(state.compactCollapsed)
@@ -505,7 +505,7 @@ final class CommandPanelStateTests: XCTestCase {
     func testActionFilterIsIndependentOfQueryAndEscapeRestoresTheList() {
         let diagnostics = DiagnosticsService()
         let config = ConfigService(diagnostics: diagnostics, url: temporaryURL())
-        let registry = CommandRegistry(providers: [], usageRanking: UsageRankingStore(diagnostics: diagnostics), diagnostics: diagnostics, configService: config)
+        let registry = CommandRegistry(providers: [], usageRanking: UsageRankingStore.scratch(diagnostics), diagnostics: diagnostics, configService: config)
         let state = CommandPanelState(registry: registry, actionRunner: ActionRunner(diagnostics: diagnostics), diagnostics: diagnostics, config: config)
         let result = CommandResult(
             id: "test.file",
@@ -545,7 +545,7 @@ final class CommandPanelStateTests: XCTestCase {
     func testActionShortcutsAreAssignedOnceAndFireWithoutOpeningActions() async throws {
         let diagnostics = DiagnosticsService()
         let config = ConfigService(diagnostics: diagnostics, url: temporaryURL())
-        let registry = CommandRegistry(providers: [], usageRanking: UsageRankingStore(diagnostics: diagnostics), diagnostics: diagnostics, configService: config)
+        let registry = CommandRegistry(providers: [], usageRanking: UsageRankingStore.scratch(diagnostics), diagnostics: diagnostics, configService: config)
         let state = CommandPanelState(registry: registry, actionRunner: ActionRunner(diagnostics: diagnostics), diagnostics: diagnostics, config: config)
         let result = CommandResult(
             id: "test.shortcuts",
@@ -584,7 +584,7 @@ final class CommandPanelStateTests: XCTestCase {
     func testDeveloperToolsNumberChordsSwitchTools() {
         let diagnostics = DiagnosticsService()
         let config = ConfigService(diagnostics: diagnostics, url: temporaryURL())
-        let registry = CommandRegistry(providers: [], usageRanking: UsageRankingStore(diagnostics: diagnostics), diagnostics: diagnostics, configService: config)
+        let registry = CommandRegistry(providers: [], usageRanking: UsageRankingStore.scratch(diagnostics), diagnostics: diagnostics, configService: config)
         let state = CommandPanelState(registry: registry, actionRunner: ActionRunner(diagnostics: diagnostics), diagnostics: diagnostics, config: config)
         state.mode = .developerTools
         XCTAssertTrue(state.performModeShortcut(ActionShortcut(key: "3", modifiers: [.command])) {})
@@ -596,7 +596,7 @@ final class CommandPanelStateTests: XCTestCase {
     func testCommandYRequestsQuickLookForFileResultsOnly() {
         let diagnostics = DiagnosticsService()
         let config = ConfigService(diagnostics: diagnostics, url: temporaryURL())
-        let registry = CommandRegistry(providers: [], usageRanking: UsageRankingStore(diagnostics: diagnostics), diagnostics: diagnostics, configService: config)
+        let registry = CommandRegistry(providers: [], usageRanking: UsageRankingStore.scratch(diagnostics), diagnostics: diagnostics, configService: config)
         let state = CommandPanelState(registry: registry, actionRunner: ActionRunner(diagnostics: diagnostics), diagnostics: diagnostics, config: config)
         var lookedAt: [URL] = []
         let shell = RecordingShellPort()
@@ -620,7 +620,7 @@ final class CommandPanelStateTests: XCTestCase {
         let config = ConfigService(diagnostics: diagnostics, url: temporaryURL())
         let registry = CommandRegistry(
             providers: [FavoriteStubProvider()],
-            usageRanking: UsageRankingStore(diagnostics: diagnostics),
+            usageRanking: UsageRankingStore.scratch(diagnostics),
             diagnostics: diagnostics,
             configService: config
         )
@@ -661,7 +661,7 @@ final class CommandPanelStateTests: XCTestCase {
     }
 
     private func makeState(diagnostics: DiagnosticsService, config: ConfigService, clipboard: ClipboardHistoryState, actionRunner: ActionRunner? = nil) -> CommandPanelState {
-        let registry = CommandRegistry(providers: [], usageRanking: UsageRankingStore(diagnostics: diagnostics), diagnostics: diagnostics, configService: config)
+        let registry = CommandRegistry(providers: [], usageRanking: UsageRankingStore.scratch(diagnostics), diagnostics: diagnostics, configService: config)
         return CommandPanelState(registry: registry, actionRunner: actionRunner ?? ActionRunner(diagnostics: diagnostics), diagnostics: diagnostics, config: config, clipboardHistory: clipboard)
     }
 
@@ -677,7 +677,7 @@ final class CommandPanelStateTests: XCTestCase {
         )
         let registry = CommandRegistry(
             providers: [SlowSearchProvider()],
-            usageRanking: UsageRankingStore(diagnostics: diagnostics),
+            usageRanking: UsageRankingStore.scratch(diagnostics),
             diagnostics: diagnostics,
             configService: config
         )

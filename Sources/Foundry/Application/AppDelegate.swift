@@ -15,7 +15,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let config = ConfigService(diagnostics: diagnostics)
         LocalStateStore.shared.bind(to: config)
         let snippetStore = FileSnippetStore()
-        let usageRanking = UsageRankingStore(diagnostics: diagnostics)
+        let usageRanking = UsageRankingStore(diagnostics: diagnostics, url: UsageRankingStore.usageURL)
         let mediaDownloadManager = MediaDownloadManager()
         let directPasteService = DirectPasteService()
         let actionRunner = ActionRunner(

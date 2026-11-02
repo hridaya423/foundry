@@ -51,7 +51,7 @@ final class PanelKeyboardTests: XCTestCase {
         )
         let registry = CommandRegistry(
             providers: providers,
-            usageRanking: UsageRankingStore(diagnostics: diagnostics),
+            usageRanking: UsageRankingStore.scratch(diagnostics),
             diagnostics: diagnostics,
             configService: config
         )
@@ -95,6 +95,31 @@ final class PanelKeyboardTests: XCTestCase {
         state.session.results = (0..<count).map { result("test.r\($0)") }
         state.session.selectedResultID = "test.r0"
         return state
+    }
+
+    func testShelfCommandASelectsAllAndSpaceIsQuickLook() {
+        let state = makeState()
+        state.fileShelf.add(urls: [URL(fileURLWithPath: #filePath), URL(fileURLWithPath: "/System/Library/CoreServices/Finder.app")])
+        state.mode = .fileShelf
+        state.fileShelf.select(id: state.fileShelf.files[0].id)
+        XCTAssertTrue(state.spaceTogglesQuickLook())
+        XCTAssertTrue(state.performModeShortcut(ActionShortcut(key: "a", modifiers: [.command]), dismiss: {}))
+        XCTAssertEqual(state.fileShelf.selectedFiles.count, 2)
+    }
+
+    func testMediaActionsFollowTheSelectedDownload() {
+        let state = makeState()
+        state.mode = .mediaDownloads
+        XCTAssertEqual(state.featureActions(dismiss: {})?.actions.map(\.id), ["feature.open-folder", "feature.change-folder"])
+        let failed = UUID()
+        state.mediaDownloads.start(id: failed, sourceURL: "https://example.com/b.mp4")
+        state.mediaDownloads.fail(id: failed, message: "nope")
+        state.moveSelectionDown()
+        let ids = state.featureActions(dismiss: {})?.actions.map(\.id) ?? []
+        XCTAssertEqual(ids.first, "feature.retry")
+        XCTAssertEqual(ids.last, "feature.remove")
+        XCTAssertTrue(state.performModeShortcut(ActionShortcut(key: "\u{7f}", modifiers: [.command]), dismiss: {}))
+        XCTAssertTrue(state.mediaDownloads.items.isEmpty)
     }
 
     func testControlNAndPMoveSelection() {
@@ -146,7 +171,7 @@ final class PanelKeyboardTests: XCTestCase {
         let config = ConfigService(diagnostics: diagnostics,
             url: FileManager.default.temporaryDirectory.appendingPathComponent("foundry-kbd-\(UUID().uuidString).json"))
         let clipboard = ClipboardHistoryState(pasteboard: pasteboard, persistence: nil, configuration: config.current.clipboard)
-        let registry = CommandRegistry(providers: [], usageRanking: UsageRankingStore(diagnostics: diagnostics), diagnostics: diagnostics,
+        let registry = CommandRegistry(providers: [], usageRanking: UsageRankingStore.scratch(diagnostics), diagnostics: diagnostics,
             configService: config)
         let state = CommandPanelState(registry: registry, actionRunner: ActionRunner(diagnostics: diagnostics), diagnostics: diagnostics,
             config: config, clipboardHistory: clipboard)
@@ -181,7 +206,7 @@ final class PanelKeyboardTests: XCTestCase {
         let config = ConfigService(diagnostics: diagnostics,
             url: FileManager.default.temporaryDirectory.appendingPathComponent("foundry-kbd-\(UUID().uuidString).json"))
         let clipboard = ClipboardHistoryState(pasteboard: pasteboard, persistence: nil, configuration: config.current.clipboard)
-        let registry = CommandRegistry(providers: [], usageRanking: UsageRankingStore(diagnostics: diagnostics), diagnostics: diagnostics,
+        let registry = CommandRegistry(providers: [], usageRanking: UsageRankingStore.scratch(diagnostics), diagnostics: diagnostics,
             configService: config)
         let state = CommandPanelState(registry: registry, actionRunner: ActionRunner(diagnostics: diagnostics), diagnostics: diagnostics,
             config: config, clipboardHistory: clipboard)

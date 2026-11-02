@@ -27,7 +27,7 @@ final class WindowManagementProviderTests: XCTestCase {
         let diagnostics = DiagnosticsService()
         let registry = CommandRegistry(
             providers: [provider],
-            usageRanking: UsageRankingStore(diagnostics: diagnostics),
+            usageRanking: UsageRankingStore.scratch(diagnostics),
             diagnostics: diagnostics
         )
 

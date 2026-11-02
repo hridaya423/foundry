@@ -97,7 +97,7 @@ final class FileSearchTests: XCTestCase {
         let config = ConfigService(diagnostics: diagnostics, url: FileManager.default.temporaryDirectory.appendingPathComponent("\(UUID()).json"))
         let links = QuicklinkStore(url: FileManager.default.temporaryDirectory.appendingPathComponent("links-\(UUID()).json"))
         let providers: [CommandProvider] = [FileSearchProvider(scope: home) { _, _ in [] }, QuicklinkProvider(store: links)]
-        let registry = CommandRegistry(providers: providers, usageRanking: UsageRankingStore(diagnostics: diagnostics), diagnostics: diagnostics, configService: config)
+        let registry = CommandRegistry(providers: providers, usageRanking: UsageRankingStore.scratch(diagnostics), diagnostics: diagnostics, configService: config)
 
         let results = await registry.completeResults(matching: "zzqx plover", initialResults: [])
         XCTAssertEqual(results[0].primaryAction.behavior as? OpenQuickAIAction, OpenQuickAIAction(prompt: "zzqx plover"))
@@ -119,7 +119,7 @@ final class FileSearchTests: XCTestCase {
         fallbacks.move(.define, by: -10)
         try config.updateFallbacks(fallbacks)
         let registry = CommandRegistry(providers: [FileSearchProvider(scope: home) { _, _ in [] }],
-            usageRanking: UsageRankingStore(diagnostics: diagnostics), diagnostics: diagnostics, configService: config)
+            usageRanking: UsageRankingStore.scratch(diagnostics), diagnostics: diagnostics, configService: config)
 
         let results = await registry.completeResults(matching: "zzqxplover", initialResults: [])
         XCTAssertEqual(results.first?.primaryAction.behavior as? OpenURLAction, OpenURLAction("dict://zzqxplover"))
@@ -139,13 +139,13 @@ final class FileSearchTests: XCTestCase {
             try? await Task.sleep(for: .milliseconds(600))
             return ["/Users/test/Documents/report.txt"]
         }
-        let registry = CommandRegistry(providers: [BuiltInCommandProvider(), files], usageRanking: UsageRankingStore(diagnostics: diagnostics), diagnostics: diagnostics, configService: config)
+        let registry = CommandRegistry(providers: [BuiltInCommandProvider(), files], usageRanking: UsageRankingStore.scratch(diagnostics), diagnostics: diagnostics, configService: config)
 
         let results = await registry.completeResults(matching: "f report", initialResults: [])
         XCTAssertEqual(results.map(\.title), ["report.txt"])
 
         let empty = FileSearchProvider(scope: home) { _, _ in [] }
-        let emptyRegistry = CommandRegistry(providers: [BuiltInCommandProvider(), empty], usageRanking: UsageRankingStore(diagnostics: diagnostics), diagnostics: diagnostics, configService: config)
+        let emptyRegistry = CommandRegistry(providers: [BuiltInCommandProvider(), empty], usageRanking: UsageRankingStore.scratch(diagnostics), diagnostics: diagnostics, configService: config)
         let noFallbacks = await emptyRegistry.completeResults(matching: "f nothing", initialResults: [])
         XCTAssertTrue(noFallbacks.isEmpty)
     }

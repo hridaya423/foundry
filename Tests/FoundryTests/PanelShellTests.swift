@@ -24,7 +24,7 @@ final class PanelShellTests: XCTestCase {
         )
         let registry = CommandRegistry(
             providers: [],
-            usageRanking: UsageRankingStore(diagnostics: diagnostics),
+            usageRanking: UsageRankingStore.scratch(diagnostics),
             diagnostics: diagnostics,
             configService: config
         )

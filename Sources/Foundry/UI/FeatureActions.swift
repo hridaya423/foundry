@@ -39,6 +39,7 @@ extension CommandPanelState {
         case .clipboardHistory: clipboardActions(dismiss: dismiss)
         case .snippets: snippetActions(dismiss: dismiss)
         case .fileShelf: shelfActions()
+        case .mediaDownloads: mediaActions()
         default: nil
         }
     }
@@ -92,6 +93,61 @@ extension CommandPanelState {
         actions.append(featureAction("clear", String(localized: "Clear History…"), icon: "trash", key: "\u{7f}", modifiers: [.shift, .command],
             destructive: true) { [weak self] in self?.confirmClearClipboardHistory() })
         return (item.title, actions)
+    }
+
+    private func mediaActions() -> (title: String, actions: [CommandAction]) {
+        let manager = mediaDownloads
+        let folder = [
+            featureAction("open-folder", String(localized: "Open Download Folder"), icon: "folder", key: "o", modifiers: [.shift, .command]) {
+                NSWorkspace.shared.open(MediaDownloadDestination.folder)
+            },
+            featureAction("change-folder", String(localized: "Change Download Folder…"), icon: "folder.badge.gearshape") { [weak self] in
+                self?.changeMediaDownloadFolder()
+            },
+        ]
+        guard let item = manager.selectedItem else { return (String(localized: "Downloads"), folder) }
+        var actions: [CommandAction] = []
+        switch item.status {
+        case .completed:
+            actions.append(featureAction("open", String(localized: "Open"), icon: "arrow.up.forward.app", key: "\r") { [weak self] in
+                self?.openMediaDownload(item)
+            })
+            actions.append(featureAction("reveal", String(localized: "Show in Finder"), icon: "folder", key: "r", modifiers: [.command]) {
+                let files = item.progress.outputURLs.filter { FileManager.default.fileExists(atPath: $0.path) }
+                if files.isEmpty == false { NSWorkspace.shared.activateFileViewerSelecting(files) }
+            })
+        case .failed, .cancelled:
+            actions.append(featureAction("retry", String(localized: "Retry Download"), icon: "arrow.clockwise", key: "\r") { [weak self] in
+                self?.retryDownload(item)
+            })
+        case .active:
+            actions.append(featureAction("cancel", String(localized: "Cancel Download"), icon: "xmark.circle", key: ".", modifiers: [.command]) {
+                [weak self] in self?.cancelDownload(item.id)
+            })
+        }
+        if let url = URL(string: item.sourceURL) {
+            actions.append(featureAction("source", String(localized: "Open Source Page"), icon: "safari") { NSWorkspace.shared.open(url) })
+            actions.append(featureAction("copy-link", String(localized: "Copy Link"), icon: "link", key: "c", modifiers: [.shift, .command]) {
+                [weak self] in
+                NSPasteboard.general.clearContents()
+                NSPasteboard.general.setString(item.sourceURL, forType: .string)
+                self?.showActionFeedback(.success(String(localized: "Copied link")))
+            })
+        }
+        actions += folder
+        if item.status != .active {
+            actions.append(featureAction("remove", String(localized: "Remove from List"), icon: "xmark", key: "\u{7f}", modifiers: [.command],
+                destructive: true) { manager.removeSelected() })
+        }
+        return (item.progress.title, actions)
+    }
+
+    func openAgentSession(_ card: AgentSessionCard, dismiss: () -> Void = {}) {
+        guard AgentShelfView.canOpen(card) else {
+            return showActionFeedback(.info(String(localized: "\(card.provider.rawValue) doesn’t support jumping to a session yet.")))
+        }
+        agents.open(card)
+        dismiss()
     }
 
     private func snippetActions(dismiss: @escaping @MainActor @Sendable () -> Void) -> (title: String, actions: [CommandAction])? {
@@ -189,6 +245,10 @@ extension CommandPanelState {
 
     /// Return on a surface with no text field runs its first listed action.
     func runPrimaryFeatureAction() -> Bool {
+        if mode == .agents, session.isShowingActions == false, let selected = agents.selectedSession {
+            openAgentSession(selected)
+            return true
+        }
         guard mode == .fileShelf, session.isShowingActions == false,
               let run = featureActions(dismiss: {})?.actions.first.flatMap({ ($0.behavior as? PanelClosureAction)?.run }) else { return false }
         run()

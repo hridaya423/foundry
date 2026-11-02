@@ -82,7 +82,7 @@ final class PreviewSnapshotTests: XCTestCase {
         let diagnostics = DiagnosticsService()
         let config = ConfigService(diagnostics: diagnostics, url: FileManager.default.temporaryDirectory.appendingPathComponent("settings-\(UUID()).json"))
         let state = CommandPanelState(
-            registry: CommandRegistry(providers: [], usageRanking: UsageRankingStore(diagnostics: diagnostics), diagnostics: diagnostics, configService: config),
+            registry: CommandRegistry(providers: [], usageRanking: UsageRankingStore.scratch(diagnostics), diagnostics: diagnostics, configService: config),
             actionRunner: ActionRunner(diagnostics: diagnostics),
             diagnostics: diagnostics,
             config: config
@@ -226,7 +226,7 @@ final class PreviewSnapshotTests: XCTestCase {
         guard let dir = ProcessInfo.processInfo.environment["FOUNDRY_QA_SNAPSHOT_DIR"] else { throw XCTSkip("snapshot dir not set") }
         let diagnostics = DiagnosticsService()
         let config = ConfigService(diagnostics: diagnostics, url: FileManager.default.temporaryDirectory.appendingPathComponent("snap-\(UUID()).json"))
-        let registry = CommandRegistry(providers: [], usageRanking: UsageRankingStore(diagnostics: diagnostics), diagnostics: diagnostics, configService: config)
+        let registry = CommandRegistry(providers: [], usageRanking: UsageRankingStore.scratch(diagnostics), diagnostics: diagnostics, configService: config)
         let state = CommandPanelState(registry: registry, actionRunner: ActionRunner(diagnostics: diagnostics), diagnostics: diagnostics, config: config)
         let file = CommandResult(id: "file.a", title: "Report.pdf", subtitle: "~/Documents", icon: CommandIcon(fallback: "F", systemName: "doc"),
             payload: .file(URL(fileURLWithPath: "/tmp/Report.pdf")),
@@ -255,6 +255,17 @@ final class PreviewSnapshotTests: XCTestCase {
         state.open(.emojiPicker)
         state.emojiPicker.reset()
         try renderPanel(state, named: "emoji", dir: dir)
+        state.router.openMediaDownloads()
+        try renderPanel(state, named: "media-empty", dir: dir)
+        let done = UUID(), failed = UUID(), active = UUID()
+        state.mediaDownloads.start(id: done, sourceURL: "https://example.com/talk.mp4")
+        state.mediaDownloads.complete(id: done, message: "")
+        state.mediaDownloads.start(id: failed, sourceURL: "https://example.com/clip.mov")
+        state.mediaDownloads.fail(id: failed, message: "The server refused the request.")
+        state.mediaDownloads.start(id: active, sourceURL: "https://example.com/podcast.mp3")
+        state.mediaDownloads.moveSelection(offset: 1)
+        state.mediaDownloads.moveSelection(offset: 1)
+        try renderPanel(state, named: "media", dir: dir)
         state.shutdown()
     }
 
@@ -264,7 +275,7 @@ final class PreviewSnapshotTests: XCTestCase {
         let diagnostics = DiagnosticsService()
         let config = ConfigService(diagnostics: diagnostics, url: FileManager.default.temporaryDirectory.appendingPathComponent("snap-\(UUID()).json"))
         let clipboard = ClipboardHistoryState(pasteboard: pasteboard, persistence: nil, configuration: config.current.clipboard)
-        let registry = CommandRegistry(providers: [], usageRanking: UsageRankingStore(diagnostics: diagnostics), diagnostics: diagnostics, configService: config)
+        let registry = CommandRegistry(providers: [], usageRanking: UsageRankingStore.scratch(diagnostics), diagnostics: diagnostics, configService: config)
         let state = CommandPanelState(registry: registry, actionRunner: ActionRunner(diagnostics: diagnostics), diagnostics: diagnostics,
             config: config, clipboardHistory: clipboard)
         for text in ["Meeting notes for Thursday", "https://foundry.app/download"] {

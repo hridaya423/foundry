@@ -8,32 +8,37 @@ struct MediaDownloadsView: View {
     let start: (String) -> Int
     let cancel: (UUID) -> Void
     let retry: (MediaDownloadItem) -> Void
-    let changeDestination: () -> Void
     var performHaptic: () -> Void = {}
     var notify: (ActionFeedback) -> Void = { _ in }
     var siteIcons = true
 
-    @State private var links = ""
-    @State private var validationMessage: String?
-    @State private var selectedID: UUID?
     @State private var notice: MediaDownloadItem?
     @State private var noticedCompletions: Set<UUID> = []
     @State private var noticeDismissTask: Task<Void, Never>?
     @State private var isDropTargeted = false
-    @FocusState private var composerFocused: Bool
 
-    private var totalSpeedText: String? {
-        let speed = activeItems.compactMap(\.progress.speedBytesPerSecond).reduce(0, +)
-        guard speed > 0 else { return nil }
-        return ByteCountFormatter.string(fromByteCount: Int64(speed), countStyle: .binary) + "/s"
+    static func statusText(for manager: MediaDownloadManager) -> String? {
+        let active = manager.items.filter { $0.status == .active }
+        guard active.isEmpty == false else { return nil }
+        let speed = active.compactMap(\.progress.speedBytesPerSecond).reduce(0, +)
+        let count = String(localized: "\(active.count) downloading")
+        guard speed > 0 else { return count }
+        return count + " · " + ByteCountFormatter.string(fromByteCount: Int64(speed), countStyle: .binary) + "/s"
+    }
+
+    static func returnLabel(for manager: MediaDownloadManager) -> LocalizedStringResource {
+        guard manager.composerText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, let item = manager.selectedItem else {
+            return "Download"
+        }
+        switch item.status {
+        case .completed: return "Open"
+        case .failed, .cancelled: return "Retry"
+        case .active: return "Download"
+        }
     }
 
     private var activeItems: [MediaDownloadItem] {
         manager.items.filter { $0.status == .active }
-    }
-
-    private var linkCount: Int {
-        links.split(whereSeparator: \.isWhitespace).count
     }
 
     private var recentItems: [MediaDownloadItem] {
@@ -42,7 +47,11 @@ struct MediaDownloadsView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            composer
+            if let message = manager.composerMessage {
+                InlineNotice(level: .warning, text: LocalizedStringResource(stringLiteral: message))
+                    .padding(.horizontal, 20)
+                    .padding(.top, 12)
+            }
 
             if manager.items.isEmpty {
                 emptyState
@@ -57,27 +66,18 @@ struct MediaDownloadsView: View {
                     .transition(.move(edge: .bottom).combined(with: .opacity))
             }
         }
-        .background {
-            ZStack {
-                if let selectedID, manager.items.first(where: { $0.id == selectedID })?.status != .active {
-                    Button("") {
-                        manager.remove(id: selectedID)
-                        self.selectedID = nil
-                    }
-                    .keyboardShortcut(.delete, modifiers: [])
-                    .hidden()
-                    .accessibilityLabel("Remove selected download")
-                }
-                if composerFocused == false {
-                    Button("") { pasteLinks() }
-                        .keyboardShortcut("v", modifiers: .command)
-                        .hidden()
-                        .accessibilityLabel("Paste links")
-                }
+        .overlay {
+            if isDropTargeted {
+                RoundedRectangle(cornerRadius: FoundryTheme.Radius.overlay, style: .continuous)
+                    .strokeBorder(FoundryTheme.selectionBorder, lineWidth: 1)
+                    .padding(FoundryTheme.Spacing.xs)
+                    .allowsHitTesting(false)
             }
         }
+        .onDrop(of: [.url, .plainText], isTargeted: $isDropTargeted) { providers in
+            receiveDroppedLinks(providers)
+        }
         .onAppear {
-            composerFocused = manager.items.isEmpty
             noticedCompletions = Set(manager.items.filter { $0.status == .completed }.map(\.id))
         }
         .onChange(of: manager.items) { _, items in
@@ -148,143 +148,6 @@ struct MediaDownloadsView: View {
         .accessibilityHint("Reveal or open the downloaded file")
     }
 
-    private var composer: some View {
-        VStack(alignment: .leading, spacing: 7) {
-            HStack(spacing: 9) {
-                Image(systemName: "link")
-                    .font(FoundryTheme.Glyph.sm)
-                    .foregroundStyle(composerFocused ? FoundryTheme.accent : FoundryTheme.textTertiary)
-                    .frame(width: 30, height: 30)
-                    .background(FoundryTheme.fillHover)
-                    .clipShape(RoundedRectangle(cornerRadius: FoundryTheme.Radius.control, style: .continuous))
-
-                TextField("Paste one or more media links", text: $links, axis: .vertical)
-                    .textFieldStyle(.plain)
-                    .font(FoundryTheme.bodySecondary)
-                    .foregroundStyle(FoundryTheme.textPrimary)
-                    .lineLimit(1...3)
-                    .focused($composerFocused)
-                    .onChange(of: links) { _, _ in validationMessage = nil }
-                    .onSubmit(submit)
-                    .accessibilityLabel("Media links")
-                    .accessibilityHint("Paste one or more supported media URLs")
-
-                if links.isEmpty {
-                    Button("Paste", action: pasteLinks)
-                        .font(FoundryTheme.micro)
-                        .foregroundStyle(FoundryTheme.textSecondary)
-                        .buttonStyle(FoundryQuietButtonStyle())
-                        .transition(.opacity)
-                }
-
-                Button(action: submit) {
-                    HStack(spacing: 6) {
-                        Text("Download")
-                        Image(systemName: "arrow.down")
-                            .font(FoundryTheme.Glyph.xs)
-                    }
-                    .font(FoundryTheme.body)
-                    .foregroundStyle(FoundryTheme.prominentControlText.opacity(FoundryTheme.Alpha.strong))
-                    .padding(.horizontal, 13)
-                    .frame(height: 32)
-                    .background(FoundryTheme.prominentControlFill.opacity(links.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? 0.34 : 0.92))
-                    .clipShape(RoundedRectangle(cornerRadius: FoundryTheme.Radius.control, style: .continuous))
-                }
-                .buttonStyle(PressableButtonStyle())
-                .disabled(links.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-            }
-            .padding(.horizontal, 9)
-            .padding(.vertical, 7)
-            .background(FoundryTheme.scrim)
-            .clipShape(RoundedRectangle(cornerRadius: FoundryTheme.Radius.overlay, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: FoundryTheme.Radius.overlay, style: .continuous)
-                    .stroke(composerFocused || isDropTargeted ? FoundryTheme.accent.opacity(FoundryTheme.Alpha.half) : FoundryTheme.fillTint, lineWidth: 1)
-            )
-            .onDrop(of: [.url, .plainText], isTargeted: $isDropTargeted) { providers in
-                receiveDroppedLinks(providers)
-            }
-
-            if let validationMessage {
-                Label(validationMessage, systemImage: "exclamationmark.circle.fill")
-                    .font(FoundryTheme.caption)
-                    .foregroundStyle(FoundryTheme.warning)
-                    .transition(.opacity)
-                    .padding(.leading, 4)
-            } else {
-                HStack(spacing: 5) {
-                    Text("YouTube, playlists, social video, or direct media")
-                    Text("·")
-                    Text("↵ to download")
-                        .font(FoundryTheme.mono)
-                    Spacer()
-                    if linkCount > 1 {
-                        Text("\(linkCount) links")
-                            .font(FoundryTheme.micro)
-                            .foregroundStyle(FoundryTheme.accent)
-                            .padding(.horizontal, 7)
-                            .padding(.vertical, 2)
-                            .background(FoundryTheme.accentTintFill)
-                            .clipShape(Capsule())
-                            .contentTransition(.numericText())
-                    }
-                    if manager.activeCount > 0 {
-                        Text("\(manager.activeCount) downloading")
-                            .foregroundStyle(FoundryTheme.accent)
-                            .contentTransition(.numericText())
-                    }
-                }
-                .font(FoundryTheme.caption)
-                .foregroundStyle(FoundryTheme.textQuaternary)
-                .padding(.horizontal, 4)
-            }
-
-            HStack {
-                Button {
-                    NSWorkspace.shared.open(MediaDownloadDestination.folder)
-                } label: {
-                    Label(MediaDownloadDestination.folder.lastPathComponent, systemImage: "folder")
-                }
-                .help(MediaDownloadDestination.folder.path)
-                .buttonStyle(FoundryQuietButtonStyle())
-
-                Button("Change", action: changeDestination)
-                    .buttonStyle(FoundryQuietButtonStyle())
-
-                if let totalSpeedText {
-                    Text(totalSpeedText)
-                        .foregroundStyle(FoundryTheme.accent)
-                        .contentTransition(.numericText())
-                        .help("Combined download speed")
-                }
-
-                Spacer()
-
-                Menu {
-                    capabilityMenuItem(manager.capabilities.direct)
-                    capabilityMenuItem(manager.capabilities.cobalt)
-                    capabilityMenuItem(manager.capabilities.youtube)
-                } label: {
-                    Label("Supported links", systemImage: "info.circle")
-                }
-                .menuStyle(.borderlessButton)
-                .fixedSize()
-            }
-            .font(FoundryTheme.caption)
-            .foregroundStyle(FoundryTheme.textSecondary)
-            .padding(.horizontal, 4)
-        }
-        .padding(.horizontal, 20)
-        .padding(.top, 12)
-        .padding(.bottom, 10)
-        .background(FoundryTheme.fillSubtle)
-        .overlay(alignment: .bottom) {
-            Rectangle()
-                .fill(FoundryTheme.fillTint)
-                .frame(height: 1)
-        }
-    }
-
     private var queue: some View {
         ScrollView {
             LazyVStack(spacing: 18) {
@@ -326,13 +189,14 @@ struct MediaDownloadsView: View {
 
             VStack(spacing: 0) {
                 ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
-                    MediaDownloadRow(item: item, isSelected: selectedID == item.id,
+                    MediaDownloadRow(item: item, isSelected: manager.selectedID == item.id,
                         faviconURL: Self.faviconURL(for: item.sourceURL, siteIcons: siteIcons),
                         cancel: cancel, retry: retry, redownload: { _ = start(item.sourceURL) }, notify: notify) {
                         manager.remove(id: item.id)
                     }
-                    .onTapGesture { selectedID = selectedID == item.id ? nil : item.id }
-                    .accessibilityHint(item.status == .active ? "" : "Delete removes this row")
+                    .id(item.id)
+                    .onTapGesture { manager.selectedID = manager.selectedID == item.id ? nil : item.id }
+                    .accessibilityHint(item.status == .active ? "" : "Command-Delete removes this row")
                     if index < items.count - 1 {
                         Rectangle()
                             .fill(FoundryTheme.fillHover)
@@ -351,24 +215,27 @@ struct MediaDownloadsView: View {
     }
 
     private var emptyState: some View {
-        FoundryEmptyState(
-            symbol: "arrow.down",
-            title: "Download a video or audio file",
-            message: "Paste a link above. Follow its progress here, then open the saved file in Finder.",
-            actionTitle: "Open download folder",
-            action: { NSWorkspace.shared.open(MediaDownloadDestination.folder) }
-        )
-    }
-
-    private func submit() {
-        let count = start(links)
-        guard count > 0 else {
-            validationMessage = String(localized: "Paste a full video or audio URL, starting with https://.")
-            return
+        VStack(spacing: FoundryTheme.Spacing.sm) {
+            FoundryEmptyState(
+                symbol: "arrow.down",
+                title: "Download a video or audio file",
+                message: "Paste a YouTube, playlist, social video or direct media link above, then press Return.",
+                actionTitle: "Open Download Folder",
+                action: { NSWorkspace.shared.open(MediaDownloadDestination.folder) }
+            )
+            Menu {
+                capabilityMenuItem(manager.capabilities.direct)
+                capabilityMenuItem(manager.capabilities.cobalt)
+                capabilityMenuItem(manager.capabilities.youtube)
+            } label: {
+                Label("Supported links", systemImage: "info.circle")
+            }
+            .menuStyle(.borderlessButton)
+            .fixedSize()
+            .font(FoundryTheme.caption)
+            .foregroundStyle(FoundryTheme.textTertiary)
         }
-        links = MediaDownloadProvider.remainingInput(after: links)
-        validationMessage = Self.skippedMessage(remaining: links)
-        composerFocused = true
+        .frame(maxHeight: .infinity)
     }
 
     static func skippedMessage(remaining: String) -> String? {
@@ -382,15 +249,6 @@ struct MediaDownloadsView: View {
     static func faviconURL(for source: String, siteIcons: Bool) -> URL? {
         guard siteIcons, let host = URL(string: source)?.host, host.isEmpty == false else { return nil }
         return URL(string: "https://icons.duckduckgo.com/ip3/\(host).ico")
-    }
-
-    private func pasteLinks() {
-        guard let pasted = NSPasteboard.general.string(forType: .string), pasted.isEmpty == false else {
-            validationMessage = String(localized: "The clipboard does not contain a link.")
-            return
-        }
-        links = pasted
-        composerFocused = true
     }
 
     private func receiveDroppedLinks(_ providers: [NSItemProvider]) -> Bool {
@@ -416,9 +274,7 @@ struct MediaDownloadsView: View {
     private func appendDroppedLink(_ text: String) {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard trimmed.isEmpty == false else { return }
-        links = links.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? trimmed : links + "\n" + trimmed
-        validationMessage = nil
-        composerFocused = true
+        manager.pasteText(trimmed)
     }
 
     @ViewBuilder

@@ -284,7 +284,7 @@ struct CommandPanelView: View {
         switch state.mode {
         case .agents:
             (id: "agents",
-             actions: [.home])
+             actions: [.init(label: "Open", keys: "↵", emphasized: true), .home])
         case .quickAI:
             (id: "quickAI",
              actions: state.quickAI.isQuickAILoading
@@ -303,7 +303,7 @@ struct CommandPanelView: View {
              actions: [.init(label: "Convert", keys: "↵", emphasized: true), .home])
         case .fileShelf:
             (id: "shelf",
-             actions: [.init(label: "Open", keys: "↵", emphasized: true), .actions])
+             actions: [.init(label: "Open", keys: "↵", emphasized: true), .init(label: "Quick Look", keys: "Space"), .actions])
         case .clipboardHistory:
             (id: "clipboard",
              actions: [
@@ -322,7 +322,8 @@ struct CommandPanelView: View {
             (id: "developerTools",
              actions: [.init(label: "Copy", keys: "⌘↵", emphasized: true), .home])
         case .mediaDownloads:
-            (id: "mediaDownloads", actions: [.home])
+            (id: "mediaDownloads",
+             actions: [.init(label: MediaDownloadsView.returnLabel(for: state.mediaDownloads), keys: "↵", emphasized: true), .actions])
         case .scriptOutput:
             (id: "scriptOutput", actions: [.init(label: "Copy Output", keys: "⌘↵", emphasized: true), .home])
         case .search:
@@ -369,7 +370,12 @@ struct CommandPanelView: View {
         case .developerTools:
             FeatureTitle(symbol: "hammer", title: "Developer Tools", detail: state.developerTools.selectedTool.rawValue)
         case .mediaDownloads:
-            FeatureTitle(symbol: "arrow.down.circle", title: "Downloads")
+            featureSearchField("Paste media links…", text: Binding(
+                get: { state.mediaDownloads.composerText },
+                set: { state.mediaDownloads.composerText = $0; state.mediaDownloads.composerMessage = nil }
+            )) {
+                state.submitMediaLinks()
+            }
         case .scriptOutput:
             FeatureTitle(symbol: "terminal", title: LocalizedStringResource(stringLiteral: state.scriptOutput?.title ?? "Script Output"))
         case .search:
@@ -389,8 +395,8 @@ struct CommandPanelView: View {
     private var surfaceContent: some View {
         switch state.mode {
         case .agents:
-            AgentShelfView(agents: state.agents, dismiss: dismiss, openSettings: { state.presentSettings(.agents) },
-                explain: { state.showActionFeedback(.info($0)) })
+            AgentShelfView(agents: state.agents, openSettings: { state.presentSettings(.agents) },
+                open: { state.openAgentSession($0, dismiss: dismiss) })
         case .quickAI:
             QuickAISurfaceView(quickAI: state.quickAI, aiSettings: state.aiSettings, onOpenAISettings: { state.presentSettings(.ai) })
         case .emojiPicker:
@@ -443,7 +449,6 @@ struct CommandPanelView: View {
                 start: state.startMediaDownloads,
                 cancel: state.cancelDownload,
                 retry: state.retryDownload,
-                changeDestination: state.changeMediaDownloadFolder,
                 performHaptic: { state.performHaptic(.levelChange) },
                 notify: state.showActionFeedback,
                 siteIcons: state.settings.quicklinkSiteIcons
@@ -896,6 +901,12 @@ struct CommandPanelView: View {
                 Text("\(state.agents.sessions.count(where: \.status.isActive)) active")
                     .font(FoundryTheme.caption.monospacedDigit())
                     .foregroundStyle(FoundryTheme.textTertiary)
+            }
+            if state.mode == .mediaDownloads, let status = MediaDownloadsView.statusText(for: state.mediaDownloads) {
+                Text(status)
+                    .font(FoundryTheme.caption.monospacedDigit())
+                    .foregroundStyle(FoundryTheme.textTertiary)
+                    .contentTransition(.numericText())
             }
             if state.mode == .emojiPicker, let emoji = state.emojiPicker.selectedEmoji {
                 Text(emoji.name.capitalized)

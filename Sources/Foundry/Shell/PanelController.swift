@@ -391,8 +391,10 @@ final class FoundryPanel: NSPanel {
         let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
         let key = event.charactersIgnoringModifiers?.lowercased()
         switch (flags, key, event.keyCode) {
-        case (.command, "v", _), (.command, "a", _), (.command, "z", _), (.command, "x", _):
+        case (.command, "v", _), (.command, "z", _), (.command, "x", _):
             return true
+        case (.command, "a", _):
+            return editor.string.isEmpty == false
         case ([.command, .shift], "z", _):
             return true
         case (.command, "c", _):

@@ -133,7 +133,7 @@ final class SnippetStateTests: XCTestCase {
         let config = ConfigService(diagnostics: diagnostics,
             url: FileManager.default.temporaryDirectory.appendingPathComponent("foundry-snip-\(UUID().uuidString).json"))
         let state = CommandPanelState(
-            registry: CommandRegistry(providers: [], usageRanking: UsageRankingStore(diagnostics: diagnostics), diagnostics: diagnostics,
+            registry: CommandRegistry(providers: [], usageRanking: UsageRankingStore.scratch(diagnostics), diagnostics: diagnostics,
                 configService: config),
             actionRunner: ActionRunner(diagnostics: diagnostics), diagnostics: diagnostics, config: config,
             snippetStore: InMemorySnippetStore(snippets: [

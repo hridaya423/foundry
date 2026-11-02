@@ -52,8 +52,12 @@ extension CommandPanelState {
     /// swallows the event so it never reaches the query field. ⌘Y takes
     /// the same path through `performModeShortcut`.
     func spaceTogglesQuickLook() -> Bool {
-        guard mode == .search, session.isShowingActions == false,
-              case let .file(url)? = session.selectedResult?.payload else { return false }
+        guard session.isShowingActions == false else { return false }
+        if mode == .fileShelf, let url = fileShelf.selectedFile?.url {
+            shell?.quickLook(url)
+            return true
+        }
+        guard mode == .search, case let .file(url)? = session.selectedResult?.payload else { return false }
         shell?.quickLook(url)
         return true
     }
@@ -111,10 +115,10 @@ extension CommandPanelState {
         if session.featureActions != nil { return session.moveSelection(offset: offset) }
         switch mode {
         case .fileConversion, .translator, .scriptOutput: return
-        case .emojiPicker, .fileShelf, .snippets, .clipboardHistory:
+        case .emojiPicker, .fileShelf, .snippets, .clipboardHistory, .mediaDownloads, .agents:
             feature(for: mode)?.handleMove(offset)
             return
-        case .search, .mediaDownloads, .developerTools, .quickAI, .agents:
+        case .search, .developerTools, .quickAI:
             session.moveSelection(offset: offset)
         }
     }

@@ -40,7 +40,7 @@ final class UsageRankingStore: Sendable {
     private let state: OSAllocatedUnfairLock<State>
     private let persistedRevision = OSAllocatedUnfairLock(initialState: 0)
 
-    init(diagnostics: DiagnosticsService, url: URL = UsageRankingStore.usageURL) {
+    init(diagnostics: DiagnosticsService, url: URL) {
         self.diagnostics = diagnostics
         self.storageURL = url
         let usage = Self.load(from: url) ?? StoredUsage()

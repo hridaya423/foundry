@@ -20,7 +20,7 @@ final class RankingGoldenTests: XCTestCase {
         Case(query: "als", top: ["Almost Maximize Window", "Open Notifications Settings", "Random Data"]),
         Case(query: "saf", top: ["Safari"]),
         Case(query: "term", top: ["Terminal"]),
-        Case(query: "sys", top: ["Open System Settings", "Open Software Update Settings", "Open Console"]),
+        Case(query: "sys", top: ["Open System Settings", "Open Console", "Open Software Update Settings"]),
         Case(query: "cl", top: ["Clipboard History", "Clear Clipboard", "Create Snippet from Clipboard"]),
         Case(query: "mail", top: ["Mail", "Open Internet Accounts Settings", "File Shelf"]),
         Case(query: "calc", top: ["Calculator"]),
@@ -35,8 +35,8 @@ final class RankingGoldenTests: XCTestCase {
         Case(query: "audio", top: ["Open Sound Settings"]),
         Case(query: "left", top: ["Tile Window Left Half", "Tile Window Left Third", "Tile Window Left Two Thirds"]),
         Case(query: "max", top: ["Maximize Window", "Maximize Window Height", "Almost Maximize Window"]),
-        Case(query: "center", top: ["Center Window", "Tile Window Center Third", "Tile Window Center Two Thirds"]),
-        Case(query: "trans", top: ["Translate", "Convert File", "Open Transfer or Reset Settings"]),
+        Case(query: "center", top: ["Center Window", "Tile Window Center Two Thirds", "Tile Window Center Half"]),
+        Case(query: "trans", top: ["Open Transfer or Reset Settings", "Convert File", "Translate"]),
         Case(query: "shelf", top: ["File Shelf"]),
         Case(query: "convert", top: ["Convert File", "Change Case", "Open Bluetooth Settings"]),
         Case(query: "downloads", top: ["Downloads"]),
@@ -44,7 +44,7 @@ final class RankingGoldenTests: XCTestCase {
         Case(query: "ai", top: ["Ask AI", "Mail", "Paste Clipboard as Plain Text"]),
         Case(query: "capture", top: ["Capture Text from Screen", "Open Screenshot"]),
         Case(query: "confetti", top: ["Make Confetti"]),
-        Case(query: "settings", top: ["Open System Settings", "Open Foundry Settings", "Open Storage Settings"]),
+        Case(query: "settings", top: ["Open System Settings", "Open VPN Settings", "Open Focus Settings"]),
         Case(query: "notes", top: ["Notes"]),
         Case(query: "xcode", top: ["Xcode", "Read QR Code", "Wi-Fi QR Code"]),
     ]
@@ -100,7 +100,7 @@ final class RankingGoldenTests: XCTestCase {
             try writeApp(named: name, to: appRoot)
         }
 
-        let usage = UsageRankingStore(diagnostics: diagnostics)
+        let usage = UsageRankingStore.scratch(diagnostics)
         usage.recordExecution(resultID: "foundry.clipboard-history", query: "cl")
 
         return CommandRegistry(

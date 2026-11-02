@@ -555,3 +555,37 @@ private final class OutputCollector: Sendable {
         storage.withLock { $0.append(line) }
     }
 }
+
+@MainActor
+final class MediaDownloadSelectionTests: XCTestCase {
+    func testArrowsWalkActiveThenRecentAndRemoveKeepsAPlace() {
+        let manager = MediaDownloadManager()
+        let done = UUID(), failed = UUID(), active = UUID()
+        manager.start(id: done, sourceURL: "https://example.com/a.mp4")
+        manager.complete(id: done, message: "")
+        manager.start(id: failed, sourceURL: "https://example.com/b.mp4")
+        manager.fail(id: failed, message: "nope")
+        manager.start(id: active, sourceURL: "https://example.com/c.mp4")
+
+        XCTAssertEqual(manager.listedItems.map(\.id), [active, failed, done])
+        manager.moveSelection(offset: 1)
+        XCTAssertEqual(manager.selectedID, active)
+        manager.removeSelected()
+        XCTAssertEqual(manager.listedItems.count, 3)
+        manager.moveSelection(offset: 1)
+        manager.removeSelected()
+        XCTAssertEqual(manager.listedItems.map(\.id), [active, done])
+        XCTAssertEqual(manager.selectedID, done)
+        manager.moveSelection(offset: -5)
+        XCTAssertEqual(manager.selectedID, active)
+    }
+
+    func testPastedLinksAppendOnNewLines() {
+        let manager = MediaDownloadManager()
+        manager.composerMessage = "old"
+        manager.pasteText("https://example.com/a.mp4")
+        manager.pasteText("https://example.com/b.mp4")
+        XCTAssertEqual(manager.composerText, "https://example.com/a.mp4\nhttps://example.com/b.mp4")
+        XCTAssertNil(manager.composerMessage)
+    }
+}

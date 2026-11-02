@@ -8,7 +8,7 @@ final class SearchLatencyBenchmarkTests: XCTestCase {
         guard let out = ProcessInfo.processInfo.environment["FOUNDRY_BENCH_OUT"] else { throw XCTSkip("set FOUNDRY_BENCH_OUT") }
         let diagnostics = DiagnosticsService()
         let config = ConfigService(diagnostics: diagnostics, url: FileManager.default.temporaryDirectory.appendingPathComponent("bench-\(UUID().uuidString).json"))
-        let registry = CommandRegistry.defaultRegistry(config: config, diagnostics: diagnostics)
+        let registry = CommandRegistry.defaultRegistry(config: config, diagnostics: diagnostics, usageRanking: .scratch(diagnostics))
         let coordinator = CommandSearchCoordinator(registry: registry, diagnostics: diagnostics)
         _ = await registry.homeResults()
 

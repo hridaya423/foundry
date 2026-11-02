@@ -8,7 +8,7 @@ final class CommandSearchCoordinatorTests: XCTestCase {
     func testAStaleSearchCannotPublishAfterANewerQueryStarts() async throws {
         let registry = CommandRegistry(
             providers: [QueryProvider()],
-            usageRanking: UsageRankingStore(diagnostics: DiagnosticsService()),
+            usageRanking: UsageRankingStore.scratch(DiagnosticsService()),
             diagnostics: DiagnosticsService()
         )
         let coordinator = CommandSearchCoordinator(registry: registry, diagnostics: DiagnosticsService())
@@ -38,7 +38,7 @@ final class CommandSearchCoordinatorTests: XCTestCase {
         let probe = SearchReleaseProbe()
         let registry = CommandRegistry(
             providers: [SlowResultProvider(probe: probe)],
-            usageRanking: UsageRankingStore(diagnostics: DiagnosticsService()),
+            usageRanking: UsageRankingStore.scratch(DiagnosticsService()),
             diagnostics: DiagnosticsService()
         )
         let coordinator = CommandSearchCoordinator(registry: registry, diagnostics: DiagnosticsService())

@@ -66,7 +66,7 @@ final class CommandContractsTests: XCTestCase {
         )
         let registry = CommandRegistry(
             providers: [],
-            usageRanking: UsageRankingStore(diagnostics: DiagnosticsService()),
+            usageRanking: UsageRankingStore.scratch(DiagnosticsService()),
             diagnostics: DiagnosticsService(),
             configService: config
         )
@@ -94,7 +94,7 @@ final class CommandContractsTests: XCTestCase {
         let config = ConfigService(diagnostics: DiagnosticsService(),
             url: FileManager.default.temporaryDirectory.appendingPathComponent("foundry-wh-\(UUID().uuidString).json"))
         let state = CommandPanelState(
-            registry: CommandRegistry(providers: [], usageRanking: UsageRankingStore(diagnostics: DiagnosticsService()),
+            registry: CommandRegistry(providers: [], usageRanking: UsageRankingStore.scratch(DiagnosticsService()),
                 diagnostics: DiagnosticsService(), configService: config),
             actionRunner: ActionRunner(diagnostics: DiagnosticsService()), diagnostics: DiagnosticsService(), config: config)
         let mine = FoundryHotkey(keyCode: 1, modifiers: 256, displayName: "⌘S")
@@ -155,7 +155,7 @@ final class CommandContractsTests: XCTestCase {
 
         let registry = CommandRegistry(
             providers: [TestCommandProvider()],
-            usageRanking: UsageRankingStore(diagnostics: DiagnosticsService()),
+            usageRanking: UsageRankingStore.scratch(DiagnosticsService()),
             diagnostics: DiagnosticsService(),
             configService: config
         )
@@ -168,7 +168,7 @@ final class CommandContractsTests: XCTestCase {
         let provider = ConditionalProvider()
         let registry = CommandRegistry(
             providers: [provider],
-            usageRanking: UsageRankingStore(diagnostics: DiagnosticsService()),
+            usageRanking: UsageRankingStore.scratch(DiagnosticsService()),
             diagnostics: DiagnosticsService()
         )
 
@@ -182,7 +182,7 @@ final class CommandContractsTests: XCTestCase {
     func testDeferredProviderCanSupplyCheapSupplementalResultsWithoutActivation() async {
         let registry = CommandRegistry(
             providers: [SupplementalProvider()],
-            usageRanking: UsageRankingStore(diagnostics: DiagnosticsService()),
+            usageRanking: UsageRankingStore.scratch(DiagnosticsService()),
             diagnostics: DiagnosticsService()
         )
 
@@ -194,7 +194,7 @@ final class CommandContractsTests: XCTestCase {
     func testCommandCatalogSurfacesProviderFailures() async {
         let registry = CommandRegistry(
             providers: [CatalogFailingProvider()],
-            usageRanking: UsageRankingStore(diagnostics: DiagnosticsService()),
+            usageRanking: UsageRankingStore.scratch(DiagnosticsService()),
             diagnostics: DiagnosticsService()
         )
 
@@ -207,7 +207,7 @@ final class CommandContractsTests: XCTestCase {
         let provider = CountingCommandProvider()
         let registry = CommandRegistry(
             providers: [provider],
-            usageRanking: UsageRankingStore(diagnostics: DiagnosticsService()),
+            usageRanking: UsageRankingStore.scratch(DiagnosticsService()),
             diagnostics: DiagnosticsService()
         )
 

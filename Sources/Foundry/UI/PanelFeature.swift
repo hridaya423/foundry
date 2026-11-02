@@ -52,7 +52,9 @@ extension CommandPanelState {
         case .developerTools: developerTools
         case .quickAI: quickAI
         case .scriptOutput: scriptOutput
-        case .search, .mediaDownloads, .fileConversion, .agents:
+        case .mediaDownloads: mediaDownloads
+        case .agents: agents
+        case .search, .fileConversion:
             nil
         }
     }
@@ -236,7 +238,31 @@ extension ClipboardHistoryState: PanelFeature {
     }
 }
 
+extension AgentMonitorState: PanelFeature {
+    func handleMove(_ offset: Int) {
+        moveSelection(offset: offset)
+    }
+}
+
+extension MediaDownloadManager: PanelFeature {
+    func handleMove(_ offset: Int) {
+        moveSelection(offset: offset)
+    }
+
+    func pasteText(_ text: String) {
+        let trimmed = composerText.trimmingCharacters(in: .whitespacesAndNewlines)
+        composerText = trimmed.isEmpty ? text : trimmed + "\n" + text
+        composerMessage = nil
+    }
+}
+
 extension FileShelfState: PanelFeature {
+    func handleModeShortcut(_ shortcut: ActionShortcut, panel: CommandPanelState, dismiss: @MainActor () -> Void) -> Bool {
+        guard shortcut == ActionShortcut(key: "a", modifiers: [.command]), files.isEmpty == false else { return false }
+        selectAll()
+        return true
+    }
+
     func handleMove(_ offset: Int) {
         moveSelection(offset: offset)
     }

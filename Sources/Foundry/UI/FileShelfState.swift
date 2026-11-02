@@ -192,6 +192,12 @@ final class FileShelfState {
         selectionAnchorID = id
     }
 
+    func selectAll() {
+        selectedIDs = Set(files.map(\.id))
+        selectedID = selectedID ?? files.first?.id
+        selectionAnchorID = selectionAnchorID ?? selectedID
+    }
+
     func toggleSelection(id: String) {
         guard files.contains(where: { $0.id == id }) else { return }
         if selectedIDs.contains(id) {

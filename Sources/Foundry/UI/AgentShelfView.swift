@@ -2,10 +2,8 @@ import SwiftUI
 
 struct AgentShelfView: View {
     var agents: AgentMonitorState
-    let dismiss: () -> Void
     var openSettings: () -> Void = {}
-    var explain: (String) -> Void = { _ in }
-    @State private var selectedProvider: AgentProviderKind?
+    var open: (AgentSessionCard) -> Void = { _ in }
 
     private var providerTabs: [AgentProviderKind] { Self.tabs(for: agents.sessions) }
 
@@ -25,7 +23,11 @@ struct AgentShelfView: View {
     }
 
     private var filteredSessions: [AgentSessionCard] {
-        Self.sessions(for: selectedProvider, in: agents.sessions)
+        Self.sessions(for: agents.selectedProvider, in: agents.sessions)
+    }
+
+    static func canOpen(_ session: AgentSessionCard) -> Bool {
+        session.capabilities.intersection([.jumpApplication, .jumpTerminal, .jumpTask]).isEmpty == false
     }
 
     nonisolated static func sessions(for provider: AgentProviderKind?, in sessions: [AgentSessionCard]) -> [AgentSessionCard] {
@@ -78,9 +80,13 @@ struct AgentShelfView: View {
                     .padding(.vertical, 14)
                 }
                 .scrollIndicators(.never)
-                .id(selectedProvider?.rawValue ?? "all")
-                .onChange(of: selectedProvider) { _, _ in
+                .id(agents.selectedProvider?.rawValue ?? "all")
+                .onChange(of: agents.selectedProvider) { _, _ in
                     proxy.scrollTo("agent-shelf-top", anchor: .top)
+                }
+                .onChange(of: agents.selectedSessionID) { _, id in
+                    guard let id else { return }
+                    proxy.scrollTo(id, anchor: .center)
                 }
             }
         }
@@ -119,7 +125,7 @@ struct AgentShelfView: View {
 
     private func providerTab(title: String, provider: AgentProviderKind?, count: Int) -> some View {
         Button {
-            selectedProvider = provider
+            agents.selectedProvider = provider
         } label: {
             HStack(spacing: 6) {
                 if let provider {
@@ -131,14 +137,14 @@ struct AgentShelfView: View {
                     .font(FoundryTheme.micro)
                     .foregroundStyle(FoundryTheme.textQuaternary)
             }
-            .foregroundStyle(selectedProvider == provider ? FoundryTheme.textPrimary : FoundryTheme.textTertiary)
+            .foregroundStyle(agents.selectedProvider == provider ? FoundryTheme.textPrimary : FoundryTheme.textTertiary)
             .padding(.horizontal, 10)
             .frame(height: 28)
-            .background(selectedProvider == provider ? FoundryTheme.fillSelected : FoundryTheme.fillSubtle)
+            .background(agents.selectedProvider == provider ? FoundryTheme.fillSelected : FoundryTheme.fillSubtle)
             .clipShape(Capsule())
             .overlay(
                 Capsule()
-                    .stroke(selectedProvider == provider ? FoundryTheme.separator : FoundryTheme.fillHover, lineWidth: 1)
+                    .stroke(agents.selectedProvider == provider ? FoundryTheme.separator : FoundryTheme.fillHover, lineWidth: 1)
             )
         }
         .buttonStyle(.plain)
@@ -152,13 +158,8 @@ struct AgentShelfView: View {
                 .tracking(0.8)
             VStack(spacing: 0) {
                 ForEach(Array(sessions.enumerated()), id: \.element.id) { index, session in
-                    AgentShelfRow(session: session) {
-                        guard AgentShelfRow.canOpen(session) else {
-                            return explain(String(localized: "\(session.provider.rawValue) doesn’t support jumping to a session yet."))
-                        }
-                        agents.open(session)
-                        dismiss()
-                    }
+                    AgentShelfRow(session: session, isSelected: agents.selectedSessionID == session.id) { open(session) }
+                        .id(session.id)
                     if index < sessions.count - 1 {
                         Rectangle()
                             .fill(FoundryTheme.fillHover)
@@ -179,6 +180,7 @@ struct AgentShelfView: View {
 
 private struct AgentShelfRow: View {
     let session: AgentSessionCard
+    let isSelected: Bool
     let open: () -> Void
     @State private var hovering = false
 
@@ -215,10 +217,11 @@ private struct AgentShelfRow: View {
                 Image(systemName: "arrow.up.right")
                     .font(FoundryTheme.Glyph.xs)
                     .foregroundStyle(FoundryTheme.textTertiary)
-                    .opacity(hovering ? 1 : 0.25)
+                    .opacity(hovering || isSelected ? 1 : 0.25)
             }
             .padding(.horizontal, 10)
             .frame(height: 52)
+            .background(RowBackground(isSelected: isSelected, isHovering: hovering))
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -230,10 +233,6 @@ private struct AgentShelfRow: View {
             guard let value, value.isEmpty == false else { return nil }
             return value
         }.joined(separator: " · ")
-    }
-
-    static func canOpen(_ session: AgentSessionCard) -> Bool {
-        session.capabilities.intersection([.jumpApplication, .jumpTerminal, .jumpTask]).isEmpty == false
     }
 
     private var statusColor: Color { session.status.color }
