@@ -441,45 +441,6 @@ private struct AppleGroundedAnswer {
     let sourceURLs: [String]
 }
 
-@available(macOS 26.0, *)
-private struct AppleSystemContextTool: Tool {
-    let name = "system_context"
-    let description = "Gets the exact current local date, time, timezone, frontmost app, and computer name. Always use this for any question about " +
-        "now, today, the date, day, month, year, or time."
-    let observer: AppleToolObserver
-
-    @Generable
-    struct Arguments {}
-
-    func call(arguments: Arguments) async throws -> String {
-        observer.started(name)
-        let result = SystemContext.current()
-        observer.finished(name, result: result)
-        return result
-    }
-}
-
-@available(macOS 26.0, *)
-private struct AppleWebSearchTool: Tool {
-    let name = "web_search"
-    let description = "Searches the live web. Use for current events, recent facts, latest releases, weather, prices, scores, or information that " +
-        "may have changed."
-    let observer: AppleToolObserver
-
-    @Generable
-    struct Arguments {
-        @Guide(description: "A focused web search query")
-        let query: String
-    }
-
-    func call(arguments: Arguments) async throws -> String {
-        observer.started(name)
-        let result = await WebSearch.search(arguments.query)
-        observer.finished(name, result: result)
-        return result
-    }
-}
-
 #endif
 
 enum AppleAgentClient {

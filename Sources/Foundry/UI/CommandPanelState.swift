@@ -228,10 +228,6 @@ final class CommandPanelState {
         }
     }
 
-    var clipboardCaptureEnabled: Bool {
-        configService.current.clipboard.isEnabled
-    }
-
     var accessibilityTrusted: Bool { AXIsProcessTrusted() }
 
     var snippetExpansionWarning: LocalizedStringResource? {

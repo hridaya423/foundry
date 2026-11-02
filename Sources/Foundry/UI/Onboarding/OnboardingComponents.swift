@@ -85,21 +85,6 @@ struct BrandSecondaryButtonStyle: ButtonStyle {
     }
 }
 
-/// A full-width list row that is itself the choice.
-struct BrandRowButtonStyle: ButtonStyle {
-    @Environment(\.isEnabled) private var isEnabled
-    @State private var hovering = false
-
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .contentShape(Rectangle())
-            .background(hovering && isEnabled ? Brand.rowHover : .clear)
-            .opacity(isEnabled ? (configuration.isPressed ? 0.8 : 1) : 0.6)
-            .animation(Brand.Motion.state, value: hovering)
-            .onHover { hovering = $0 }
-    }
-}
-
 struct BrandQuietButtonStyle: ButtonStyle {
     /// For ways out the user rarely needs, like skipping setup.
     var dim = false
@@ -213,24 +198,6 @@ struct BrandKbd: View {
                 shape.fill(Brand.line)
                     .overlay(shape.fill(Brand.rowTop).padding(.bottom, 2).padding([.horizontal, .top], 1))
             }
-    }
-}
-
-/// A radio in the website's squared tile language, for one-of-many rows.
-struct BrandSelectionMark: View {
-    let selected: Bool
-
-    var body: some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: 5, style: .continuous)
-                .strokeBorder(selected ? Brand.accent : Brand.line, lineWidth: 1.5)
-            RoundedRectangle(cornerRadius: 2, style: .continuous)
-                .fill(Brand.accent)
-                .frame(width: 10, height: 10)
-                .opacity(selected ? 1 : 0)
-        }
-        .frame(width: 20, height: 20)
-        .animation(Brand.Motion.state, value: selected)
     }
 }
 

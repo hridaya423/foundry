@@ -143,27 +143,6 @@ struct OpenURLWithAppAction: ResultAction, Equatable {
     }
 }
 
-struct OpenConfigFolderAction: ResultAction, Equatable {
-    var icon: String? { "arrow.up.right.square" }
-
-    func perform(_ ctx: ActionContext) async -> CommandOutcome {
-        let folder = ConfigService.configURL.deletingLastPathComponent()
-        do {
-            try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-            if NSWorkspace.shared.open(folder) == false {
-                return ctx.finish(
-                    .failure(message: String(localized: "Could not open Foundry folder"), retryable: true),
-                     feedback: .failure(String(localized: "Could not open Foundry folder")))
-            }
-            return .success(message: String(localized: "Opened Foundry folder"))
-        } catch {
-            return ctx.finish(
-                .failure(message: String(localized: "Could not create Foundry folder"), retryable: true),
-                 feedback: .failure(String(localized: "Could not create Foundry folder")))
-        }
-    }
-}
-
 struct OpenFileWithAppAction: ResultAction, Equatable {
     let path: String
     let appPath: String

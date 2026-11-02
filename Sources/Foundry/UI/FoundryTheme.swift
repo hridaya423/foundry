@@ -150,7 +150,6 @@ enum FoundryTheme {
     static let shadow = Color.black.opacity(0.28)
     /// Hairline/secondary marks on dark surfaces.
     static let onDarkFaint = Color.white.opacity(0.12)
-    static let onDarkSubtle = Color.white.opacity(0.26)
 
     /// Computed dark/light alpha — e.g. `dark(0.46 * intensity)` — for the
     /// rare site whose alpha is derived rather than constant.
@@ -183,8 +182,6 @@ enum FoundryTheme {
     ]
 
     /// Near-solid primary for the one prominent control per surface.
-    static let prominentControlFill = Color.primary.opacity(0.92)
-    static let prominentControlText = Color(nsColor: .controlBackgroundColor)
     static let textOnDarkSurface = Color.white.opacity(0.97)
 
     // MARK: Spacing — 4/8/12/16/24
@@ -242,8 +239,6 @@ enum FoundryTheme {
         static let faint = Color(red: 0.522, green: 0.490, blue: 0.455)
         static let line = Color(red: 0.282, green: 0.251, blue: 0.224)
         static let rowTop = Color(red: 0.141, green: 0.125, blue: 0.110)
-        static let rowHover = Color.white.opacity(0.035)
-        static let rowSelected = Color.white.opacity(0.06)
         static let accent = Color(red: 0.980, green: 0.392, blue: 0.157)
         static let accentDeep = Color(red: 0.941, green: 0.294, blue: 0.063)
         static let accentChip = ink.opacity(0.14)

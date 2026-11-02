@@ -321,12 +321,6 @@ extension FileConversionView {
         Dictionary(grouping: state.availableTargets, by: \.category)
     }
 
-    var groupedTargetCategories: [FileConversionTarget.Category] {
-        FileConversionTarget.Category.allCases.filter { groupedTargets[$0]?.isEmpty == false }
-    }
-
-
-
     var filteredTargets: [FileConversionTarget.Category: [FileConversionTarget]] {
         let query = formatFilter.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         guard query.isEmpty == false else { return groupedTargets }

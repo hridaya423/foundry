@@ -332,12 +332,6 @@ final class SettingsStore {
         updateClipboard(configuration)
     }
 
-    func setClipboardEnabled(_ enabled: Bool) {
-        var configuration = configService.current.clipboard
-        configuration.isEnabled = enabled
-        updateClipboard(configuration)
-    }
-
     func setSnippetExpansionEnabled(_ enabled: Bool) {
         var next = snippetExpansion
         next.isEnabled = enabled
