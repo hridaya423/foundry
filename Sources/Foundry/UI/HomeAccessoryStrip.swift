@@ -2,9 +2,19 @@ import AppKit
 import SwiftUI
 
 struct HomeAccessoryStrip: View {
+    static func clipboardSummary(_ item: ClipboardHistoryItem?) -> (value: String, caption: String) {
+        guard let item else { return (String(localized: "Empty"), String(localized: "nothing copied")) }
+        switch item.payload {
+        case let .text(text): return (String(localized: "\(text.count) chars"), item.kindLabel.lowercased())
+        case let .files(urls): return (urls.count == 1 ? String(localized: "1 file") : String(localized: "\(urls.count) files"), String(localized: "files"))
+        case .image: return (String(localized: "Image"), String(localized: "image"))
+        }
+    }
+
     var board: WidgetBoardState
     var agents: AgentMonitorState
     var fileShelf: FileShelfState
+    var clipboard: ClipboardHistoryState
     var onAgentOpen: (() -> Void)? = nil
     var onShelfOpen: (() -> Void)? = nil
     var compactMaximum = 4
@@ -96,7 +106,8 @@ struct HomeAccessoryStrip: View {
         case .network:
             StatWidget(symbol: "network", title: "Network", value: board.metrics.localIPAddressDisplay, caption: "local IP")
         case .clipboard:
-            DynamicStatWidget(symbol: "doc.on.clipboard", title: "Clipboard", caption: WidgetSystemInfo.clipboardCaption) { WidgetSystemInfo.clipboardValue }
+            let summary = Self.clipboardSummary(clipboard.items.max { $0.createdAt < $1.createdAt })
+            StatWidget(symbol: "doc.on.clipboard", title: "Clipboard", value: summary.value, caption: summary.caption)
         case .downloads:
             StatWidget(symbol: "arrow.down.circle", title: "Downloads", value: "\(board.downloads.count) files",
                 caption: board.downloads.newestName ?? "Downloads")
@@ -196,19 +207,6 @@ private struct StatWidget: View {
         .accessibilityElement(children: .combine)
         .accessibilityLabel(title)
         .accessibilityValue("\(value), \(caption)")
-    }
-}
-
-private struct DynamicStatWidget: View {
-    let symbol: String
-    let title: String
-    let caption: String
-    let value: () -> String
-
-    var body: some View {
-        TimelineView(.periodic(from: .now, by: 10)) { _ in
-            StatWidget(symbol: symbol, title: title, value: value(), caption: caption)
-        }
     }
 }
 
@@ -325,18 +323,6 @@ private struct AgentProviderBadge: View {
             .frame(width: 23, height: 23)
             .background(FoundryTheme.fillHover)
             .clipShape(RoundedRectangle(cornerRadius: FoundryTheme.Radius.control, style: .continuous))
-    }
-}
-
-private enum WidgetSystemInfo {
-    static var clipboardValue: String {
-        guard let text = NSPasteboard.general.string(forType: .string), text.isEmpty == false else { return "Empty" }
-        return "\(text.count) chars"
-    }
-
-    static var clipboardCaption: String {
-        NSPasteboard.general.string(forType: .string)?.components(separatedBy: .newlines).first?.trimmingCharacters(
-            in: .whitespacesAndNewlines).isEmpty == false ? "text" : "no text"
     }
 }
 

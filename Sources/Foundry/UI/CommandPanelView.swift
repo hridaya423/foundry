@@ -606,6 +606,7 @@ struct CommandPanelView: View {
             board: widgetBoard,
             agents: agents,
             fileShelf: fileShelf,
+            clipboard: state.clipboardHistory,
             onAgentOpen: state.router.openAgents,
             onShelfOpen: state.router.openFileShelf,
             compactMaximum: 4,
