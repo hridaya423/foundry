@@ -2,7 +2,6 @@ import SwiftUI
 
 enum SettingsCategory: String, CaseIterable, Identifiable {
     case general
-    case appearance
     case commands
     case quicklinks
     case snippets
@@ -22,7 +21,6 @@ enum SettingsCategory: String, CaseIterable, Identifiable {
     var title: String {
         switch self {
         case .general: "General"
-        case .appearance: "Appearance"
         case .commands: "Commands"
         case .quicklinks: "Quicklinks"
         case .snippets: "Snippets"
@@ -42,7 +40,6 @@ enum SettingsCategory: String, CaseIterable, Identifiable {
     var symbol: String {
         switch self {
         case .general: "gearshape"
-        case .appearance: "circle.lefthalf.filled"
         case .commands: "command"
         case .quicklinks: "link"
         case .snippets: "curlybraces"
@@ -68,7 +65,7 @@ struct SettingsAnchor: ViewModifier {
         content
             .id(id)
             .overlay(
-                RoundedRectangle(cornerRadius: 11, style: .continuous)
+                RoundedRectangle(cornerRadius: FoundryTheme.Radius.row, style: .continuous)
                     .stroke(FoundryTheme.stroke, lineWidth: highlighted ? 2 : 0)
                     .allowsHitTesting(false)
             )

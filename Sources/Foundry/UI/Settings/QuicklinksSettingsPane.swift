@@ -8,6 +8,7 @@ struct QuicklinksSettingsPane: View {
     @State private var links: [Quicklink] = []
     @State private var error: String?
     @State private var confirmingRestore = false
+    @State private var removed: (link: Quicklink, index: Int)?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -41,7 +42,8 @@ struct QuicklinksSettingsPane: View {
                                 .frame(width: 70)
                             TextField("https://example.com/search?q={argument}", text: $link.link)
                             Button {
-                                links.removeAll { $0.id == link.id }
+                                guard let index = links.firstIndex(where: { $0.id == link.id }) else { return }
+                                removed = (links.remove(at: index), index)
                             } label: {
                                 Image(systemName: "minus.circle")
                             }
@@ -80,6 +82,14 @@ struct QuicklinksSettingsPane: View {
                     .padding(.vertical, 8)
                     .opacity(link.isEnabled ? 1 : 0.55)
                     if link.id != links.last?.id { SettingsDivider() }
+                }
+            }
+
+            if let removed {
+                InlineNotice(level: .info, text: "Removed \u{201C}\(removed.link.name.isEmpty ? removed.link.link : removed.link.name)\u{201D}",
+                    actionTitle: "Undo") {
+                    links.insert(removed.link, at: min(removed.index, links.count))
+                    self.removed = nil
                 }
             }
 

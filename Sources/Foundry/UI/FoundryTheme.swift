@@ -228,6 +228,7 @@ enum FoundryTheme {
 
     enum Control {
         static let compact: CGFloat = 30
+        static let settingsColumn: CGFloat = 140
     }
 
     /// The website's language (anvil/app/foundry/foundry.css) for brand

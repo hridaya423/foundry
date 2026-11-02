@@ -17,9 +17,12 @@ struct SettingsView: View {
     @FocusState private var searchFocused: Bool
 
     var body: some View {
-        HStack(spacing: 0) {
+        NavigationSplitView {
             settingsRail
-            Divider()
+                .frame(minWidth: 210)
+                .navigationSplitViewColumnWidth(min: 210, ideal: 210, max: 260)
+                .toolbar(removing: .sidebarToggle)
+        } detail: {
             detailPane
         }
         .onAppear {
@@ -62,9 +65,30 @@ struct SettingsView: View {
         SettingsSearch.matches(searchQuery)
     }
 
+    private var isSearching: Bool {
+        searchQuery.trimmingCharacters(in: .whitespaces).isEmpty == false
+    }
+
     private var settingsRail: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            HStack(spacing: 7) {
+        List(selection: railSelection) {
+            if isSearching == false {
+                ForEach(SettingsCategory.allCases) { item in
+                    Label(item.title, systemImage: item.symbol).tag(item.rawValue)
+                }
+            } else if searchMatches.isEmpty {
+                Text("No settings match \u{201C}\(searchQuery)\u{201D}")
+                    .font(FoundryTheme.bodySecondary)
+                    .foregroundStyle(FoundryTheme.textTertiary)
+                    .selectionDisabled()
+            } else {
+                ForEach(searchMatches) { item in
+                    Label(item.title, systemImage: item.pane.symbol).tag(item.id)
+                }
+            }
+        }
+        .listStyle(.sidebar)
+        .safeAreaInset(edge: .top, spacing: 0) {
+            HStack(spacing: FoundryTheme.Spacing.xs) {
                 Image(systemName: "magnifyingglass")
                     .font(FoundryTheme.Glyph.xs)
                     .foregroundStyle(FoundryTheme.textTertiary)
@@ -74,61 +98,28 @@ struct SettingsView: View {
                     .focused($searchFocused)
                     .onSubmit { if let first = searchMatches.first { reveal(first) } }
             }
-            .padding(.horizontal, 9)
-            .frame(height: 30)
+            .padding(.horizontal, FoundryTheme.Spacing.sm)
+            .frame(height: FoundryTheme.Control.compact)
             .background(FoundryTheme.fillHover, in: RoundedRectangle(cornerRadius: FoundryTheme.Radius.control, style: .continuous))
-            .padding(.bottom, 10)
-
-            ScrollView {
-                if searchQuery.trimmingCharacters(in: .whitespaces).isEmpty {
-                    ForEach(SettingsCategory.allCases) { item in
-                        railButton(title: item.title, symbol: item.symbol, isSelected: category == item) {
-                            select(item)
-                        }
-                    }
-                } else if searchMatches.isEmpty {
-                    Text("No settings match \u{201C}\(searchQuery)\u{201D}")
-                        .font(FoundryTheme.bodySecondary)
-                        .foregroundStyle(FoundryTheme.textTertiary)
-                        .padding(.horizontal, 9)
-                        .padding(.top, 4)
-                } else {
-                    ForEach(searchMatches) { item in
-                        railButton(title: item.title, symbol: item.pane.symbol, isSelected: highlightedAnchor == item.anchorID && category == item.pane) {
-                            reveal(item)
-                        }
-                    }
-                }
-            }
-            .scrollIndicators(.never)
+            .padding(.horizontal, FoundryTheme.Spacing.md)
+            .padding(.bottom, FoundryTheme.Spacing.xs)
         }
-        .frame(width: 176, alignment: .leading)
-        .padding(12)
     }
 
-    private func railButton(title: String, symbol: String, isSelected: Bool, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            HStack(spacing: 9) {
-                Image(systemName: symbol)
-                    .font(FoundryTheme.Glyph.sm)
-                    .frame(width: 18)
-                Text(title)
-                    .font(FoundryTheme.body)
-                    .lineLimit(1)
+    private var railSelection: Binding<String?> {
+        Binding(
+            get: {
+                guard isSearching else { return category.rawValue }
+                return searchMatches.first { $0.anchorID == highlightedAnchor && $0.pane == category }?.id
+            },
+            set: { id in
+                if let item = searchMatches.first(where: { $0.id == id }) {
+                    reveal(item)
+                } else if let id, let item = SettingsCategory(rawValue: id) {
+                    select(item)
+                }
             }
-            .foregroundStyle(isSelected ? FoundryTheme.textPrimary : FoundryTheme.textSecondary)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.horizontal, 9)
-            .frame(height: 30)
-            .background(
-                RoundedRectangle(cornerRadius: FoundryTheme.Radius.control, style: .continuous)
-                    .fill(isSelected ? FoundryTheme.fillSelected : Color.clear)
-            )
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel(title)
-        .accessibilityAddTraits(isSelected ? .isSelected : [])
+        )
     }
 
     private func select(_ item: SettingsCategory) {
@@ -149,13 +140,6 @@ struct SettingsView: View {
 
     private var detailPane: some View {
         VStack(alignment: .leading, spacing: 0) {
-            Text(category.title)
-                .font(FoundryTheme.title)
-                .foregroundStyle(FoundryTheme.textPrimary)
-                .padding(.horizontal, 24)
-                .padding(.top, 20)
-                .padding(.bottom, 12)
-
             if let error = state.settings.configLoadError {
                 SettingsNotice(
                     text: "Foundry could not load its settings. Editing is disabled until they are reset. \(error)",
@@ -179,8 +163,6 @@ struct SettingsView: View {
                         switch category {
                         case .general:
                             generalContent
-                        case .appearance:
-                            appearanceContent
                         case .commands:
                             FallbackSettingsPane(settings: state.settings).modifier(anchor("commands.fallbacks"))
                             windowHotkeysContent.modifier(anchor("commands.windowHotkeys"))
@@ -211,8 +193,8 @@ struct SettingsView: View {
                             aboutContent
                         }
                     }
-                    .padding(.horizontal, 24)
-                    .padding(.bottom, 20)
+                    .padding(.horizontal, FoundryTheme.Spacing.lg)
+                    .padding(.vertical, FoundryTheme.Spacing.md)
                     .frame(maxWidth: 720, alignment: .leading)
                 }
                 .onChange(of: pendingAnchor) { _, anchor in
@@ -225,6 +207,7 @@ struct SettingsView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .navigationTitle(category.title)
     }
 
     private func anchor(_ id: String) -> SettingsAnchor {
@@ -385,7 +368,7 @@ struct SettingsView: View {
                             SettingsLabel(title: "Global shortcut", subtitle: "Open Foundry from anywhere")
                             Spacer()
                             ShortcutRecorder(hotkey: state.settings.hotkey, onChange: state.settings.setHotkey)
-                                .frame(width: 120, height: 30)
+                                .frame(width: FoundryTheme.Control.settingsColumn, height: FoundryTheme.Control.compact)
                         }
                     }
                     .padding(.horizontal, 12)
@@ -457,7 +440,7 @@ struct SettingsView: View {
                     }
                     .labelsHidden()
                     .pickerStyle(.menu)
-                    .frame(width: 130)
+                    .frame(width: FoundryTheme.Control.settingsColumn, alignment: .trailing)
                 }
                 .padding(.horizontal, 12)
                 .padding(.vertical, 11)
@@ -466,6 +449,9 @@ struct SettingsView: View {
 
             compactModeGroup
                 .modifier(anchor("general.compact"))
+
+            panelContrastGroup
+                .modifier(anchor("general.contrast"))
 
             SettingsGroup {
                 HStack(spacing: 12) {
@@ -481,7 +467,7 @@ struct SettingsView: View {
                     }
                     .labelsHidden()
                     .pickerStyle(.menu)
-                    .frame(width: 110)
+                    .frame(width: FoundryTheme.Control.settingsColumn, alignment: .trailing)
                 }
                 .padding(.horizontal, 12)
                 .padding(.vertical, 11)
@@ -528,7 +514,7 @@ struct SettingsView: View {
                 }
                 .labelsHidden()
                 .pickerStyle(.menu)
-                .frame(width: 130)
+                .frame(width: FoundryTheme.Control.settingsColumn, alignment: .trailing)
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 11)
@@ -551,7 +537,7 @@ struct SettingsView: View {
                     SettingsLabel(title: "Accessibility", subtitle: state.accessibilityTrusted ? "Ready" : "Not granted")
                     Spacer()
                     if !state.accessibilityTrusted {
-                        Button("Request access") { state.settings.requestSnippetExpansionAccessibility() }
+                        Button("Request Access") { state.settings.requestSnippetExpansionAccessibility() }
                             .buttonStyle(.bordered)
                             .controlSize(.small)
                     }
@@ -564,75 +550,33 @@ struct SettingsView: View {
                 SettingsDivider()
                 VStack(alignment: .leading, spacing: 10) {
                     SettingsLabel(title: "Expand after", subtitle: "Keywords expand when one of these is typed")
-                    HStack(spacing: 8) {
+                    HStack(spacing: FoundryTheme.Spacing.md) {
                         ForEach(snippetDelimiterOptions, id: \.delimiter) { option in
-                            Button {
-                                state.settings.setSnippetExpansionDelimiter(option.delimiter,
-                                    enabled: !state.settings.snippetExpansion.delimiters.contains(option.delimiter))
-                            } label: {
-                                Text(option.label)
-                                    .font(FoundryTheme.micro)
-                                    .foregroundStyle(state.settings.snippetExpansion.delimiters.contains(
-                                        option.delimiter) ? FoundryTheme.textPrimary : FoundryTheme.textTertiary)
-                                    .padding(.horizontal, 11)
-                                    .frame(height: 26)
-                                    .background(
-                                        Capsule()
-                                            .fill(state.settings.snippetExpansion.delimiters.contains(
-                                                option.delimiter) ? FoundryTheme.accentTintFill : FoundryTheme.fillHover)
-                                            .overlay(
-                                                Capsule()
-                                                    .strokeBorder(
-                                                        state.settings.snippetExpansion.delimiters.contains(option.delimiter)
-                                                            ? FoundryTheme.accent.opacity(FoundryTheme.Alpha.half)
-                                                            : FoundryTheme.fillTint,
-                                                        lineWidth: 1
-                                                    )
-                                            )
-                                    )
-                            }
-                            .buttonStyle(PressableButtonStyle())
-                            .accessibilityLabel("Expand after \(option.label)")
-                            .accessibilityValue(state.settings.snippetExpansion.delimiters.contains(option.delimiter) ? "On" : "Off")
+                            Toggle(option.label, isOn: Binding(
+                                get: { state.settings.snippetExpansion.delimiters.contains(option.delimiter) },
+                                set: { state.settings.setSnippetExpansionDelimiter(option.delimiter, enabled: $0) }
+                            ))
+                            .toggleStyle(.checkbox)
                         }
                     }
+                    .font(FoundryTheme.bodySecondary)
                 }
                 .padding(.horizontal, 12)
                 .padding(.vertical, 11)
                 SettingsDivider()
-                VStack(alignment: .leading, spacing: 10) {
+                HStack(spacing: 12) {
                     SettingsLabel(title: "Return key in search", subtitle: "What Return does on a snippet result")
-                    HStack(spacing: 8) {
-                        ForEach(snippetPrimaryActionOptions, id: \.insert) { option in
-                            Button {
-                                state.settings.setSnippetInsertAsPrimary(option.insert)
-                            } label: {
-                                Text(option.label)
-                                    .font(FoundryTheme.micro)
-                                    .foregroundStyle(state.settings.snippetExpansion.insertAsPrimary
-                                        == option.insert ? FoundryTheme.textPrimary : FoundryTheme.textTertiary)
-                                    .padding(.horizontal, 11)
-                                    .frame(height: 26)
-                                    .background(
-                                        Capsule()
-                                            .fill(state.settings.snippetExpansion.insertAsPrimary
-                                                == option.insert ? FoundryTheme.accentTintFill : FoundryTheme.fillHover)
-                                            .overlay(
-                                                Capsule()
-                                                    .strokeBorder(
-                                                        state.settings.snippetExpansion.insertAsPrimary == option.insert
-                                                            ? FoundryTheme.accent.opacity(FoundryTheme.Alpha.half)
-                                                            : FoundryTheme.fillTint,
-                                                        lineWidth: 1
-                                                    )
-                                            )
-                                    )
-                            }
-                            .buttonStyle(PressableButtonStyle())
-                            .accessibilityLabel("Return key \(option.label)")
-                            .accessibilityValue(state.settings.snippetExpansion.insertAsPrimary == option.insert ? "Selected" : "")
-                        }
+                    Spacer()
+                    Picker("Return key in search", selection: Binding(
+                        get: { state.settings.snippetExpansion.insertAsPrimary },
+                        set: { state.settings.setSnippetInsertAsPrimary($0) }
+                    )) {
+                        Text("Insert").tag(true)
+                        Text("Copy").tag(false)
                     }
+                    .labelsHidden()
+                    .pickerStyle(.segmented)
+                    .frame(width: FoundryTheme.Control.settingsColumn, alignment: .trailing)
                 }
                 .padding(.horizontal, 12)
                 .padding(.vertical, 11)
@@ -651,15 +595,6 @@ struct SettingsView: View {
 
     private var snippetDelimiterOptions: [(label: String, delimiter: String)] {
         [("Space", " "), ("Return", "\n"), ("Tab", "\t"), ("Quote", "'"), ("Backtick", "`")]
-    }
-
-    private var snippetPrimaryActionOptions: [(label: String, insert: Bool)] {
-        [("Insert", true), ("Copy", false)]
-    }
-
-    private var appearanceContent: some View {
-        panelContrastGroup
-            .modifier(anchor("appearance.contrast"))
     }
 
     private var compactModeGroup: some View {
@@ -857,39 +792,6 @@ struct SettingsView: View {
                 }
             }
 
-            SettingsSectionLabel(title: "Tracked sessions", value: "\(state.agents.sessions.count)")
-            SettingsGroup {
-                if state.agents.sessions.isEmpty {
-                    Text("No active or recent agent sessions.")
-                        .font(FoundryTheme.bodySecondary)
-                        .foregroundStyle(FoundryTheme.textTertiary)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 12)
-                } else {
-                    LazyVStack(spacing: 0) {
-                        ForEach(state.agents.sessions.prefix(6)) { session in
-                            HStack(spacing: 9) {
-                                Image(systemName: session.provider.symbol)
-                                    .font(FoundryTheme.Glyph.sm)
-                                    .foregroundStyle(FoundryTheme.textSecondary)
-                                    .frame(width: 22)
-                                SettingsLabel(
-                                    title: LocalizedStringResource(stringLiteral: session.title),
-                                    subtitle: LocalizedStringResource(
-                                        stringLiteral: "\(session.provider.rawValue) · \(session.status.rawValue)"
-                                    )
-                                )
-                                Spacer()
-                                Text(session.origin.rawValue)
-                                    .font(FoundryTheme.caption)
-                                    .foregroundStyle(FoundryTheme.textQuaternary)
-                            }
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 9)
-                        }
-                    }
-                }
-            }
         }
     }
 
@@ -1021,7 +923,7 @@ struct SettingsView: View {
                     }
                     .labelsHidden()
                     .pickerStyle(.menu)
-                    .fixedSize()
+                    .frame(width: FoundryTheme.Control.settingsColumn, alignment: .trailing)
                 }.padding(.horizontal, 12).padding(.vertical, 10)
                 SettingsDivider()
                 HStack {
@@ -1044,7 +946,7 @@ struct SettingsView: View {
                     }
                     .labelsHidden()
                     .pickerStyle(.menu)
-                    .frame(width: 130)
+                    .frame(width: FoundryTheme.Control.settingsColumn, alignment: .trailing)
                 }.padding(.horizontal, 12).padding(.vertical, 10)
                 SettingsDivider()
                 HStack {
@@ -1064,6 +966,7 @@ struct SettingsView: View {
                         in: (ClipboardConfig.minimumMaxBytes / (1_024 * 1_024))...(ClipboardConfig.maximumMaxBytes / (1_024 * 1_024)),
                         step: 256
                     ) { Text("\(state.clipboardHistory.policy.maxBytes / (1_024 * 1_024)) MB") }
+                    .frame(width: FoundryTheme.Control.settingsColumn, alignment: .trailing)
                 }.padding(.horizontal, 12).padding(.vertical, 10)
                 SettingsDivider()
                 ExcludedAppsRow(

@@ -25,10 +25,10 @@ struct SettingsGroup<Content: View>: View {
         VStack(alignment: .leading, spacing: 0, content: content)
             .padding(.horizontal, 2)
             .background(FoundryTheme.fillSubtle)
-            .clipShape(RoundedRectangle(cornerRadius: 11, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: FoundryTheme.Radius.row, style: .continuous))
             .overlay(
-                RoundedRectangle(cornerRadius: 11, style: .continuous)
-                    .stroke(FoundryTheme.fillSubtle, lineWidth: 1)
+                RoundedRectangle(cornerRadius: FoundryTheme.Radius.row, style: .continuous)
+                    .stroke(FoundryTheme.separator, lineWidth: 1)
             )
     }
 }
@@ -146,7 +146,7 @@ struct SettingsTextFieldRow: View {
                         .textFieldStyle(.plain)
                         .font(FoundryTheme.body)
                         .foregroundStyle(FoundryTheme.textPrimary)
-                        .onSubmit { commit(text) }
+                        .modifier(CommitOnBlur { commit(text) })
                 }
                 Spacer()
             }
@@ -154,13 +154,27 @@ struct SettingsTextFieldRow: View {
                 Text(error)
                     .font(FoundryTheme.caption)
                     .foregroundStyle(FoundryTheme.destructive)
-                    .padding(.leading, 44)
+                    .padding(.leading, 82)
             }
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 11)
         .onAppear { text = value }
         .onChange(of: value) { _, newValue in text = newValue }
+    }
+}
+
+struct CommitOnBlur: ViewModifier {
+    let commit: () -> Void
+    @FocusState private var isFocused: Bool
+
+    func body(content: Content) -> some View {
+        content
+            .focused($isFocused)
+            .onSubmit(commit)
+            .onChange(of: isFocused) { wasFocused, nowFocused in
+                if wasFocused, nowFocused == false { commit() }
+            }
     }
 }
 
@@ -180,7 +194,7 @@ struct SettingsSecureFieldRow: View {
                 .textFieldStyle(.plain)
                 .font(FoundryTheme.body)
                 .foregroundStyle(FoundryTheme.textPrimary)
-                .onSubmit { commit(value) }
+                .modifier(CommitOnBlur { commit(value) })
             Button("Save") {
                 commit(value)
             }
@@ -196,29 +210,19 @@ struct ShortcutRecorder: NSViewRepresentable {
     let hotkey: FoundryHotkey
     var placeholder: String? = nil
     let onChange: (FoundryHotkey) -> Void
-
-    func makeCoordinator() -> Coordinator { Coordinator(onChange: onChange) }
+    var onClear: (() -> Void)? = nil
 
     func makeNSView(context: Context) -> ShortcutRecorderView {
         let view = ShortcutRecorderView()
-        view.onHotkey = context.coordinator.record
-        view.hotkey = hotkey
-        view.placeholder = placeholder
+        updateNSView(view, context: context)
         return view
     }
 
     func updateNSView(_ view: ShortcutRecorderView, context: Context) {
         view.hotkey = hotkey
         view.placeholder = placeholder
-        view.onHotkey = context.coordinator.record
-    }
-
-    final class Coordinator {
-        let onChange: (FoundryHotkey) -> Void
-
-        init(onChange: @escaping (FoundryHotkey) -> Void) { self.onChange = onChange }
-
-        func record(_ hotkey: FoundryHotkey) { onChange(hotkey) }
+        view.onHotkey = onChange
+        view.onClear = onClear
     }
 }
 
@@ -226,16 +230,23 @@ final class ShortcutRecorderView: NSView {
     var hotkey = FoundryHotkey.commandSpace { didSet { needsDisplay = true } }
     var placeholder: String? { didSet { needsDisplay = true } }
     var onHotkey: ((FoundryHotkey) -> Void)?
-    private var isRecording = false { didSet { needsDisplay = true } }
+    var onClear: (() -> Void)?
+    private(set) var isRecording = false { didSet { needsDisplay = true } }
 
     override var acceptsFirstResponder: Bool { true }
+    override var canBecomeKeyView: Bool { true }
+    override var focusRingMaskBounds: NSRect { bounds }
+
+    override func drawFocusRingMask() {
+        NSBezierPath(roundedRect: bounds, xRadius: FoundryTheme.Radius.control, yRadius: FoundryTheme.Radius.control).fill()
+    }
 
     override func draw(_ dirtyRect: NSRect) {
         let background = isRecording ? NSColor.labelColor.withAlphaComponent(0.14) : NSColor.labelColor.withAlphaComponent(0.08)
         background.setFill()
-        NSBezierPath(roundedRect: bounds, xRadius: 8, yRadius: 8).fill()
+        NSBezierPath(roundedRect: bounds, xRadius: FoundryTheme.Radius.control, yRadius: FoundryTheme.Radius.control).fill()
 
-        let text = isRecording ? "Press shortcut…" : (placeholder ?? hotkey.displayName)
+        let text = isRecording ? String(localized: "Press shortcut…") : (placeholder ?? hotkey.displayName)
         let attributes: [NSAttributedString.Key: Any] = [
             .font: NSFont.systemFont(ofSize: 13, weight: .semibold),
             .foregroundColor: NSColor.labelColor.withAlphaComponent(isRecording ? 0.7 : 0.95)
@@ -250,18 +261,43 @@ final class ShortcutRecorderView: NSView {
     }
 
     override func keyDown(with event: NSEvent) {
+        let plain = event.modifierFlags.intersection([.command, .option, .control, .shift]).isEmpty
+        guard isRecording else {
+            switch (Int(event.keyCode), plain) {
+            case (kVK_Space, true), (kVK_Return, true):
+                isRecording = true
+            case (kVK_Delete, true) where onClear != nil, (kVK_ForwardDelete, true) where onClear != nil:
+                onClear?()
+            default:
+                super.keyDown(with: event)
+            }
+            return
+        }
+        if Int(event.keyCode) == kVK_Escape, plain {
+            isRecording = false
+            return
+        }
         guard let recorded = FoundryHotkey(recording: event) else {
             NSSound.beep()
             return
         }
         isRecording = false
         onHotkey?(recorded)
-        window?.makeFirstResponder(nil)
     }
 
     override func resignFirstResponder() -> Bool {
         isRecording = false
         return super.resignFirstResponder()
+    }
+
+    override func isAccessibilityElement() -> Bool { true }
+    override func accessibilityRole() -> NSAccessibility.Role? { .button }
+    override func accessibilityLabel() -> String? { isRecording ? String(localized: "Press shortcut…") : (placeholder ?? hotkey.displayName) }
+
+    override func accessibilityPerformPress() -> Bool {
+        isRecording = true
+        window?.makeFirstResponder(self)
+        return true
     }
 }
 
@@ -282,14 +318,14 @@ struct ActiveWidgetRow: View {
                 .frame(width: 20)
             SettingsLabel(title: kind.title, subtitle: kind.summary)
             Spacer()
-            SettingsIconButton(symbol: "chevron.up", label: "Move \(kind.title) up", action: moveUp)
-                .disabled(isFirst)
-                .opacity(isHovering ? (isFirst ? 0.3 : 1) : 0.12)
-            SettingsIconButton(symbol: "chevron.down", label: "Move \(kind.title) down", action: moveDown)
-                .disabled(isLast)
-                .opacity(isHovering ? (isLast ? 0.3 : 1) : 0.12)
-            SettingsIconButton(symbol: "minus", label: "Remove \(kind.title)", action: remove, tint: FoundryTheme.destructive)
-                .opacity(isHovering ? 1 : 0.12)
+            HStack(spacing: 10) {
+                SettingsIconButton(symbol: "chevron.up", label: "Move \(kind.title) up", action: moveUp)
+                    .disabled(isFirst)
+                SettingsIconButton(symbol: "chevron.down", label: "Move \(kind.title) down", action: moveDown)
+                    .disabled(isLast)
+                SettingsIconButton(symbol: "minus", label: "Remove \(kind.title)", action: remove, tint: FoundryTheme.destructive)
+            }
+            .opacity(isHovering ? 1 : 0.5)
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 8)
@@ -336,7 +372,7 @@ struct SettingsIconButton: View {
                 .foregroundStyle(tint)
                 .frame(width: 28, height: 28)
                 .background(FoundryTheme.fillTint)
-                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                .clipShape(RoundedRectangle(cornerRadius: FoundryTheme.Radius.control, style: .continuous))
         }
         .buttonStyle(.plain)
         .accessibilityLabel(Text(label))
@@ -361,7 +397,7 @@ struct ConfigFieldRow: View {
                 .textFieldStyle(.plain)
                 .font(FoundryTheme.body)
                 .foregroundStyle(FoundryTheme.textPrimary)
-                .onSubmit { commit(text) }
+                .modifier(CommitOnBlur { commit(text) })
             Spacer()
         }
         .padding(.horizontal, 12)
@@ -480,7 +516,7 @@ struct CommandSettingsRow: View {
                         .textFieldStyle(.plain)
                         .font(FoundryTheme.bodySecondary)
                         .foregroundStyle(FoundryTheme.textSecondary)
-                        .onSubmit { commitAliases(aliasesText) }
+                        .modifier(CommitOnBlur { commitAliases(aliasesText) })
                     Spacer()
                     if row.preference.aliases.isEmpty == false || row.preference.favoriteRank != nil || row.preference.isEnabled == false
                         || row.preference.globalHotkey != nil || row.preference.fallbackEligible == false {
@@ -501,9 +537,10 @@ struct CommandSettingsRow: View {
                             FoundryHotkey(keyCode: $0.keyCode, modifiers: $0.modifiers, displayName: $0.displayName)
                         } ?? FoundryHotkey(keyCode: 0, modifiers: 0, displayName: "Set shortcut"),
                         placeholder: row.preference.globalHotkey == nil ? "Set shortcut" : nil,
-                        onChange: { setHotkey($0) }
+                        onChange: { setHotkey($0) },
+                        onClear: { setHotkey(nil) }
                     )
-                    .frame(width: 132, height: 28)
+                    .frame(width: FoundryTheme.Control.settingsColumn, height: FoundryTheme.Control.compact)
                     if row.preference.globalHotkey != nil {
                         Button("Clear") { setHotkey(nil) }
                             .buttonStyle(.plain)

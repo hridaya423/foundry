@@ -237,7 +237,7 @@ struct AISettingsSection: View {
                                             .font(FoundryTheme.body)
                                             .foregroundStyle(FoundryTheme.success)
                                         Spacer()
-                                        Button("Sign out") { state.logoutCodex() }
+                                        Button("Sign Out") { state.logoutCodex() }
                                             .buttonStyle(.bordered)
                                             .controlSize(.small)
                                     }
@@ -246,7 +246,7 @@ struct AISettingsSection: View {
                                         Button("Sign in with ChatGPT") { state.loginCodexBrowser() }
                                             .buttonStyle(.borderedProminent)
                                             .controlSize(.small)
-                                        Button("Use device code") { state.requestCodexDeviceLogin() }
+                                        Button("Use Device Code") { state.requestCodexDeviceLogin() }
                                             .buttonStyle(.bordered)
                                             .controlSize(.small)
                                     }
@@ -257,7 +257,7 @@ struct AISettingsSection: View {
                                         .foregroundStyle(FoundryTheme.textSecondary)
                                         .fixedSize(horizontal: false, vertical: true)
                                     HStack(spacing: 8) {
-                                        Button("Finish device login") { state.completeCodexDeviceLogin() }
+                                        Button("Finish Device Login") { state.completeCodexDeviceLogin() }
                                             .buttonStyle(.borderedProminent)
                                             .controlSize(.small)
                                         Button("Cancel") { state.cancelCodexLogin() }

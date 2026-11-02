@@ -77,6 +77,38 @@ final class PreviewSnapshotTests: XCTestCase {
         }
     }
 
+    func testRenderSettings() throws {
+        guard let dir = ProcessInfo.processInfo.environment["FOUNDRY_QA_SNAPSHOT_DIR"] else { throw XCTSkip("snapshot dir not set") }
+        let diagnostics = DiagnosticsService()
+        let config = ConfigService(diagnostics: diagnostics, url: FileManager.default.temporaryDirectory.appendingPathComponent("settings-\(UUID()).json"))
+        let state = CommandPanelState(
+            registry: CommandRegistry(providers: [], usageRanking: UsageRankingStore(diagnostics: diagnostics), diagnostics: diagnostics, configService: config),
+            actionRunner: ActionRunner(diagnostics: diagnostics),
+            diagnostics: diagnostics,
+            config: config
+        )
+        for pane in ["general", "agents", "clipboard"] {
+            let defaults = try XCTUnwrap(UserDefaults(suiteName: "settings-snap-\(UUID())"))
+            defaults.set(pane, forKey: "settings.lastPane")
+            for appearance in [NSAppearance.Name.aqua, .darkAqua] {
+                let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 820, height: 600),
+                    styleMask: [.titled, .closable, .resizable, .fullSizeContentView], backing: .buffered, defer: false)
+                window.appearance = NSAppearance(named: appearance)
+                window.contentViewController = NSHostingController(rootView: SettingsView(state: state).defaultAppStorage(defaults))
+                window.setContentSize(NSSize(width: 820, height: 600))
+                window.orderFront(nil)
+                RunLoop.main.run(until: Date().addingTimeInterval(0.8))
+                let name = "settings-\(pane)-\(appearance == .aqua ? "light" : "dark").png"
+                let capture = Process()
+                capture.executableURL = URL(fileURLWithPath: "/usr/sbin/screencapture")
+                capture.arguments = ["-x", "-o", "-l", "\(window.windowNumber)", URL(fileURLWithPath: dir).appendingPathComponent(name).path]
+                try capture.run()
+                capture.waitUntilExit()
+                window.orderOut(nil)
+            }
+        }
+    }
+
     /// 5.2 row anatomy: 40pt single-line rows, 24pt icons, inline subtitle,
     /// alias badge + bordered keycap + kind label, fill-only selection,
     /// Title Case 11pt semibold section headers.

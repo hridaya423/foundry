@@ -10,7 +10,7 @@ final class SettingsWindowController: NSWindowController {
     init(state: CommandPanelState) {
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 820, height: 600),
-            styleMask: [.titled, .closable, .miniaturizable, .resizable],
+            styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
             backing: .buffered,
             defer: false
         )
