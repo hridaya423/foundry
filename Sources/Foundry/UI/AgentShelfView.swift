@@ -152,10 +152,7 @@ struct AgentShelfView: View {
 
     private func section(title: String, sessions: [AgentSessionCard]) -> some View {
         VStack(alignment: .leading, spacing: 7) {
-            Text("\(title.uppercased()) · \(sessions.count)")
-                .font(FoundryTheme.micro)
-                .foregroundStyle(FoundryTheme.textQuaternary)
-                .tracking(0.8)
+            FoundrySectionHeader(title: title, count: "\(sessions.count)")
             VStack(spacing: 0) {
                 ForEach(Array(sessions.enumerated()), id: \.element.id) { index, session in
                     AgentShelfRow(session: session, isSelected: agents.selectedSessionID == session.id) { open(session) }

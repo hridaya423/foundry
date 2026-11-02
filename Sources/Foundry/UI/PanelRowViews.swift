@@ -43,9 +43,8 @@ struct HomeSectionHeader: View {
 
     var body: some View {
         HStack {
-            Text(title.uppercased())
+            Text(title)
                 .font(FoundryTheme.micro)
-                .tracking(0.4)
                 .foregroundStyle(FoundryTheme.sectionHeader)
             Spacer()
             if let action {

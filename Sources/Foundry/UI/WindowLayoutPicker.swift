@@ -498,9 +498,7 @@ private struct UtilitySection<Content: View>: View {
         VStack(alignment: .leading, spacing: 5) {
             Text(title)
                 .font(FoundryTheme.micro)
-                .tracking(0.55)
                 .foregroundStyle(FoundryTheme.textQuaternary)
-                .textCase(.uppercase)
             content
         }
     }

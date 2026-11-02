@@ -31,8 +31,6 @@ struct CalculatorResultCard: View {
             Text("Calculator")
                 .font(FoundryTheme.micro)
                 .foregroundStyle(FoundryTheme.textQuaternary)
-                .textCase(.uppercase)
-                .tracking(0.5)
 
             Spacer()
         }

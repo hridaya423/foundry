@@ -11,8 +11,6 @@ extension CommandPanelView {
                 Text("Dropped \(state.pendingDropURLs?.count ?? 0) file\((state.pendingDropURLs?.count ?? 0) == 1 ? "" : "s")")
                     .font(FoundryTheme.micro)
                     .foregroundStyle(FoundryTheme.textQuaternary)
-                    .textCase(.uppercase)
-                    .tracking(0.4)
                 Spacer()
                 Text("esc")
                     .font(FoundryTheme.micro)

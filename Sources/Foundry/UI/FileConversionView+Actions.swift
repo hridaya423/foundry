@@ -313,8 +313,6 @@ extension FileConversionView {
         Text(text)
             .font(FoundryTheme.micro)
             .foregroundStyle(FoundryTheme.textQuaternary)
-            .textCase(.uppercase)
-            .tracking(0.5)
     }
 
     var groupedTargets: [FileConversionTarget.Category: [FileConversionTarget]] {
@@ -337,8 +335,6 @@ extension FileConversionView {
         Text(text)
             .font(FoundryTheme.micro)
             .foregroundStyle(FoundryTheme.textQuaternary)
-            .textCase(.uppercase)
-            .tracking(0.5)
     }
 
     var fieldBackground: some View {

@@ -52,7 +52,7 @@ struct FileConversionView: View {
             .frame(width: 300)
 
             VStack(alignment: .leading, spacing: 10) {
-                sectionTitle("Convert To")
+                sectionTitle("Convert to")
                     .frame(height: FoundryTheme.Control.glyph, alignment: .bottomLeading)
 
                 settingsCard
@@ -581,7 +581,7 @@ struct FileConversionView: View {
 
     private var saveToSection: some View {
         VStack(alignment: .leading, spacing: 6) {
-            fieldLabel("Save To")
+            fieldLabel("Save to")
 
             Button { state.chooseOutputFolder() } label: {
                 HStack(spacing: 8) {
