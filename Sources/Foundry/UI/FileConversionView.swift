@@ -20,7 +20,7 @@ struct FileConversionView: View {
                             .font(FoundryTheme.micro)
                             .foregroundStyle(FoundryTheme.textSecondary)
                             .padding(.horizontal, 6)
-                            .frame(height: 16)
+                            .frame(height: FoundryTheme.Control.glyph)
                             .background(FoundryTheme.fillTint)
                             .clipShape(Capsule())
                     }
@@ -44,7 +44,7 @@ struct FileConversionView: View {
                         .accessibilityLabel("Clear all files")
                     }
                 }
-                .frame(height: 18)
+                .frame(height: FoundryTheme.Control.glyph)
 
                 sourceCard
                 Spacer(minLength: 0)
@@ -53,7 +53,7 @@ struct FileConversionView: View {
 
             VStack(alignment: .leading, spacing: 10) {
                 sectionTitle("Convert To")
-                    .frame(height: 18, alignment: .bottomLeading)
+                    .frame(height: FoundryTheme.Control.glyph, alignment: .bottomLeading)
 
                 settingsCard
                 Spacer(minLength: 0)
@@ -212,7 +212,7 @@ struct FileConversionView: View {
             .accessibilityLabel("Remove \(url.lastPathComponent)")
         }
         .padding(.horizontal, 16)
-        .frame(height: 34)
+        .frame(height: FoundryTheme.Control.field)
     }
 
     private func extBadge(_ ext: String) -> some View {
@@ -221,7 +221,7 @@ struct FileConversionView: View {
             .foregroundStyle(FoundryTheme.textSecondary)
             .tracking(0.5)
             .padding(.horizontal, 7)
-            .frame(height: 20)
+            .frame(height: FoundryTheme.Control.line)
             .background(FoundryTheme.fillTint)
             .clipShape(Capsule())
     }
@@ -304,8 +304,8 @@ struct FileConversionView: View {
         .padding(16)
         .frame(maxWidth: .infinity, minHeight: 250, maxHeight: .infinity, alignment: .topLeading)
         .background(FoundryTheme.fillHover)
-        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(FoundryTheme.fillTint, lineWidth: 1))
+        .clipShape(RoundedRectangle(cornerRadius: FoundryTheme.Radius.popover, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: FoundryTheme.Radius.popover, style: .continuous).stroke(FoundryTheme.fillTint, lineWidth: 1))
     }
 
     // MARK: Format
@@ -333,7 +333,7 @@ struct FileConversionView: View {
                     }
                 }
                 .padding(.horizontal, 10)
-                .frame(height: 26)
+                .frame(height: FoundryTheme.Control.mini)
                 .background(fieldBackground)
             }
 
@@ -378,7 +378,7 @@ struct FileConversionView: View {
                         .foregroundStyle(FoundryTheme.textTertiary)
                 }
                 .padding(.horizontal, 12)
-                .frame(height: 46)
+                .frame(height: FoundryTheme.Control.rowTall)
                 .background(fieldBackground)
             }
             .menuStyle(.button)
@@ -427,8 +427,11 @@ struct FileConversionView: View {
             .padding(.horizontal, 12)
             .padding(.vertical, 9)
             .background(FoundryTheme.warning.opacity(FoundryTheme.Alpha.subtle))
-            .clipShape(RoundedRectangle(cornerRadius: 11, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: 11, style: .continuous).stroke(FoundryTheme.warning.opacity(FoundryTheme.Alpha.tint), lineWidth: 1))
+            .clipShape(RoundedRectangle(cornerRadius: FoundryTheme.Radius.row, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: FoundryTheme.Radius.row, style: .continuous)
+                    .stroke(FoundryTheme.warning.opacity(FoundryTheme.Alpha.tint), lineWidth: 1)
+            )
         }
     }
 
@@ -488,7 +491,7 @@ struct FileConversionView: View {
                                 .font(FoundryTheme.bodySecondary)
                                 .foregroundStyle(FoundryTheme.textPrimary)
                                 .padding(.horizontal, 10)
-                                .frame(height: 26)
+                                .frame(height: FoundryTheme.Control.mini)
                                 .background(fieldBackground)
                                 .accessibilityLabel("PDF pages to convert")
                         }
@@ -560,7 +563,7 @@ struct FileConversionView: View {
                         .font(FoundryTheme.micro)
                         .foregroundStyle(selected ? FoundryTheme.textPrimary : FoundryTheme.textTertiary)
                         .padding(.horizontal, 9)
-                        .frame(height: 24)
+                        .frame(height: FoundryTheme.Control.mini)
                         .background(
                             Capsule().fill(selected ? FoundryTheme.fillEmphasis : FoundryTheme.fillHover)
                         )
@@ -596,7 +599,7 @@ struct FileConversionView: View {
                         .foregroundStyle(FoundryTheme.textQuaternary)
                 }
                 .padding(.horizontal, 12)
-                .frame(height: 36)
+                .frame(height: FoundryTheme.Control.field)
                 .background(fieldBackground)
             }
             .buttonStyle(.plain)

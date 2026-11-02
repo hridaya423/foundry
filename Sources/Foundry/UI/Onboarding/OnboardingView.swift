@@ -344,7 +344,7 @@ struct OnboardingView: View {
                             Spacer()
                         }
                         .padding(.horizontal, 18)
-                        .frame(height: 52)
+                        .frame(height: FoundryTheme.Control.rowDouble)
                         .accessibilityElement(children: .combine)
                         BrandDivider()
                     }
@@ -423,7 +423,7 @@ private struct RecordingDot: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
-        RoundedRectangle(cornerRadius: 2, style: .continuous)
+        RoundedRectangle(cornerRadius: FoundryTheme.Radius.tile, style: .continuous)
             .fill(Brand.accent)
             .frame(width: 8, height: 8)
             .phaseAnimator(active && reduceMotion == false ? [1, 0.25] : [1]) { dot, opacity in
@@ -450,7 +450,7 @@ private struct StatusLine: View {
             Text(text).foregroundStyle(kind == .problem ? Brand.text : Brand.muted)
         }
         .font(Brand.rowDetail)
-        .frame(height: 20)
+        .frame(height: FoundryTheme.Control.line)
     }
 }
 
@@ -485,10 +485,10 @@ private struct ShortcutField: View {
             .tracking(Brand.bodyTracking)
             .padding(.leading, 14)
             .padding(.trailing, 6)
-            .frame(height: 40)
+            .frame(height: FoundryTheme.Control.row)
             .background(BrandRowSurface(radius: 8, lifted: hovering))
             .overlay {
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                RoundedRectangle(cornerRadius: FoundryTheme.Radius.control, style: .continuous)
                     .strokeBorder(Brand.accent, lineWidth: 1)
                     .opacity(recording ? 1 : 0)
             }

@@ -161,7 +161,7 @@ private struct ClipboardHistoryRow: View {
             }
         }
         .padding(.horizontal, FoundryTheme.Spacing.sm)
-        .frame(height: 40)
+        .frame(height: FoundryTheme.Control.row)
         .background(RowBackground(isSelected: isSelected, isHovering: isHovering))
         .onHover { isHovering = $0 }
         .animation(reduceMotion ? nil : FoundryTheme.Motion.hover, value: isHovering)
@@ -297,7 +297,7 @@ private struct ClipboardFilterChip: View {
             .font(FoundryTheme.caption)
             .foregroundStyle(isSelected ? FoundryTheme.textPrimary : FoundryTheme.textSecondary)
             .padding(.horizontal, FoundryTheme.Spacing.xs)
-            .frame(height: 24)
+            .frame(height: FoundryTheme.Control.mini)
             .background(Capsule(style: .continuous).fill(isSelected ? FoundryTheme.accentTintFill : FoundryTheme.fillHover))
             .contentShape(Capsule())
         }
@@ -320,7 +320,7 @@ private struct ClipboardCardButton: View {
                 .foregroundStyle(FoundryTheme.textTertiary)
                 .frame(width: 24, height: 24)
                 .background(FoundryTheme.fillHover)
-                .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
+                .clipShape(RoundedRectangle(cornerRadius: FoundryTheme.Radius.control, style: .continuous))
         }
         .buttonStyle(PressableButtonStyle())
         .accessibilityLabel(label)
@@ -352,7 +352,7 @@ struct ClipboardImagePreview: View {
                     .resizable()
                     .aspectRatio(contentMode: .fit)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    .clipShape(RoundedRectangle(cornerRadius: FoundryTheme.Radius.control, style: .continuous))
                     .accessibilityLabel("Copied image")
             }
         }

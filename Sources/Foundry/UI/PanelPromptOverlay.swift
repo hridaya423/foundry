@@ -53,7 +53,7 @@ struct PanelPromptOverlay: View {
                 .font(FoundryTheme.body)
                 .foregroundStyle(FoundryTheme.textPrimary)
                 .padding(.horizontal, 10)
-                .frame(height: 30)
+                .frame(height: FoundryTheme.Control.compact)
                 .background(FoundryTheme.fillSubtle, in: RoundedRectangle(cornerRadius: FoundryTheme.Radius.control, style: .continuous))
                 .focused($focusedField, equals: index)
                 .onSubmit(confirm)
@@ -67,7 +67,7 @@ struct PanelPromptOverlay: View {
                                 .font(FoundryTheme.bodySecondary)
                                 .foregroundStyle(selection == index ? FoundryTheme.textPrimary : FoundryTheme.textTertiary)
                                 .frame(maxWidth: .infinity)
-                                .frame(height: 26)
+                                .frame(height: FoundryTheme.Control.mini)
                                 .background(
                                     RoundedRectangle(cornerRadius: FoundryTheme.Radius.control, style: .continuous)
                                         .fill(selection == index ? FoundryTheme.fillTint : FoundryTheme.fillSubtle)
@@ -86,7 +86,7 @@ struct PanelPromptOverlay: View {
                             .font(FoundryTheme.bodySecondary)
                             .foregroundStyle(FoundryTheme.textSecondary)
                             .padding(.horizontal, 10)
-                            .frame(height: 26)
+                            .frame(height: FoundryTheme.Control.mini)
                             .contentShape(.rect)
                     }
                     .buttonStyle(FoundryQuietButtonStyle())

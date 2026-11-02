@@ -148,10 +148,10 @@ extension FileConversionView {
             .font(FoundryTheme.micro)
             .foregroundStyle(FoundryTheme.textSecondary)
             .frame(maxWidth: .infinity)
-            .frame(height: 28)
+            .frame(height: FoundryTheme.Control.compact)
             .background(FoundryTheme.fillHover)
-            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).stroke(FoundryTheme.fillTint, lineWidth: 1))
+            .clipShape(RoundedRectangle(cornerRadius: FoundryTheme.Radius.control, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: FoundryTheme.Radius.control, style: .continuous).stroke(FoundryTheme.fillTint, lineWidth: 1))
         }
         .buttonStyle(PressableButtonStyle())
     }
@@ -217,10 +217,10 @@ extension FileConversionView {
                     .font(FoundryTheme.body)
             }
             .frame(maxWidth: .infinity)
-            .frame(height: 42)
+            .frame(height: FoundryTheme.Control.row)
             .foregroundStyle(FoundryTheme.textPrimary)
             .background(convertButtonGlass)
-            .opacity(state.isConverting || canConvert ? 1 : 0.45)
+            .opacity(state.isConverting || canConvert ? 1 : FoundryTheme.Alpha.half)
         }
         .buttonStyle(PressableButtonStyle())
         .disabled(state.isConverting == false && canConvert == false)
@@ -245,7 +245,7 @@ extension FileConversionView {
         VStack(alignment: .leading, spacing: 14) {
             HStack(spacing: 12) {
                 ZStack {
-                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    RoundedRectangle(cornerRadius: FoundryTheme.Radius.row, style: .continuous)
                         .fill(FoundryTheme.warning.opacity(FoundryTheme.Alpha.tint))
                     Image(systemName: "shippingbox")
                         .font(FoundryTheme.Glyph.md)
@@ -281,8 +281,8 @@ extension FileConversionView {
             .padding(.vertical, 10)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(FoundryTheme.fillHover)
-            .clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: 9, style: .continuous).stroke(FoundryTheme.fillTint, lineWidth: 1))
+            .clipShape(RoundedRectangle(cornerRadius: FoundryTheme.Radius.control, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: FoundryTheme.Radius.control, style: .continuous).stroke(FoundryTheme.fillTint, lineWidth: 1))
 
             HStack(spacing: 6) {
                 if let bytes = setup.plan.estimatedDownloadBytes {
@@ -342,10 +342,10 @@ extension FileConversionView {
     }
 
     var fieldBackground: some View {
-        RoundedRectangle(cornerRadius: 10, style: .continuous)
+        RoundedRectangle(cornerRadius: FoundryTheme.Radius.row, style: .continuous)
             .fill(FoundryTheme.fillHover)
             .overlay(
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                RoundedRectangle(cornerRadius: FoundryTheme.Radius.row, style: .continuous)
                     .stroke(FoundryTheme.fillTint, lineWidth: 1)
             )
     }

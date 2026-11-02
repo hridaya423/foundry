@@ -88,7 +88,7 @@ final class TransientNoticeController {
                     .font(FoundryTheme.body)
                     .foregroundStyle(FoundryTheme.textPrimary)
                     .padding(.horizontal, 14)
-                    .frame(minHeight: 32)
+                    .frame(minHeight: FoundryTheme.Control.compact)
             }
         }
     }

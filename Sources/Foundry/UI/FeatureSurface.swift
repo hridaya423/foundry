@@ -32,7 +32,7 @@ struct FeatureHeader<Content: View, Trailing: View>: View {
             trailing
         }
         .padding(.horizontal, 22)
-        .frame(height: 60)
+        .frame(height: FoundryTheme.Panel.headerHeight)
         .background(Color.clear)
         .overlay(alignment: .bottom) {
             if showsHairline {
@@ -41,7 +41,7 @@ struct FeatureHeader<Content: View, Trailing: View>: View {
                     startPoint: .top,
                     endPoint: .bottom
                 )
-                .frame(height: 4)
+                .frame(height: FoundryTheme.Control.track)
             }
         }
     }
@@ -66,7 +66,7 @@ struct FeatureTitle: View {
                     .font(FoundryTheme.caption)
                     .foregroundStyle(FoundryTheme.textSecondary)
                     .padding(.horizontal, FoundryTheme.Spacing.xs)
-                    .frame(height: 22)
+                    .frame(height: FoundryTheme.Control.line)
                     .background(FoundryTheme.fillTint, in: Capsule())
             }
         }
@@ -121,7 +121,7 @@ struct PanelFooter<Status: View>: View {
             }
         }
         .padding(.horizontal, 16)
-        .frame(height: 38)
+        .frame(height: FoundryTheme.Panel.footerHeight)
     }
 }
 
@@ -248,6 +248,6 @@ struct InlineNotice: View {
         .padding(.horizontal, 10)
         .padding(.vertical, 8)
         .background(level.tint.opacity(FoundryTheme.Alpha.subtle))
-        .clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: FoundryTheme.Radius.control, style: .continuous))
     }
 }

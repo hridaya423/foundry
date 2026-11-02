@@ -89,7 +89,7 @@ struct ConfettiBurst: View {
             case 0:
                 return Path(ellipseIn: CGRect(x: -r, y: -r, width: size, height: size))
             case 1:
-                return Path(roundedRect: CGRect(x: -r, y: -r * 0.7, width: size, height: size * 0.7), cornerRadius: 1)
+                return Path(roundedRect: CGRect(x: -r, y: -r * 0.7, width: size, height: size * 0.7), cornerRadius: FoundryTheme.Radius.tile)
             case 2:
                 var path = Path()
                 path.move(to: CGPoint(x: 0, y: -r))

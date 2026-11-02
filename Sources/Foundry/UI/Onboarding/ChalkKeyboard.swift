@@ -194,7 +194,7 @@ private struct BoardKeyView: View {
     let pressed: Bool
     let hot: Bool
 
-    private let shape = RoundedRectangle(cornerRadius: 9, style: .continuous)
+    private let shape = RoundedRectangle(cornerRadius: FoundryTheme.Radius.control, style: .continuous)
     private var travel: CGFloat { key.isHalf ? 1.5 : 3 }
 
     var body: some View {

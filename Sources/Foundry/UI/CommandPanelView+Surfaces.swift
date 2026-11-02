@@ -20,10 +20,10 @@ extension CommandPanelView {
                     .padding(.horizontal, 6)
                     .padding(.vertical, 2)
                     .background(FoundryTheme.fillTint)
-                    .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
+                    .clipShape(RoundedRectangle(cornerRadius: FoundryTheme.Radius.badge, style: .continuous))
             }
             .padding(.horizontal, 20)
-            .frame(height: 40)
+            .frame(height: FoundryTheme.Control.row)
 
             VStack(spacing: 2) {
                 ForEach(Array(state.dropChoices.enumerated()), id: \.offset) { index, choice in
@@ -42,7 +42,7 @@ extension CommandPanelView {
                             KeycapHint(text: index == state.dropSelection ? "↵" : "⌘\(index + 1)")
                         }
                         .padding(.horizontal, FoundryTheme.Spacing.sm)
-                        .frame(height: 34)
+                        .frame(height: FoundryTheme.Control.field)
                         .background(RowBackground(isSelected: index == state.dropSelection, isHovering: false, cornerRadius: FoundryTheme.Radius.control))
                         .contentShape(Rectangle())
                     }

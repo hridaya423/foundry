@@ -27,12 +27,11 @@ struct WindowLayoutPicker: View {
                     }
                     .font(FoundryTheme.caption)
                     .foregroundStyle(FoundryTheme.textSecondary)
-                    .frame(minHeight: 24)
+                    .frame(minHeight: FoundryTheme.Control.mini)
                     .padding(.horizontal, 4)
                     .contentShape(.rect)
                 }
                 .buttonStyle(.plain)
-                .pointerCursor()
                 .accessibilityLabel("Show all window layouts")
             }
             .padding(.horizontal, 2)
@@ -73,12 +72,12 @@ private struct CompactLayoutButton: View {
                 Spacer(minLength: 0)
             }
             .padding(.horizontal, 8)
-            .frame(height: 40)
+            .frame(height: FoundryTheme.Control.row)
             .background(isHovering ? FoundryTheme.fillTint : FoundryTheme.fillSubtle)
-            .clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: FoundryTheme.Radius.control, style: .continuous))
             .overlay {
-                RoundedRectangle(cornerRadius: 9, style: .continuous)
-                    .strokeBorder(Color.primary.opacity(isHovering ? 0.16 : 0.08), lineWidth: 0.5)
+                RoundedRectangle(cornerRadius: FoundryTheme.Radius.control, style: .continuous)
+                    .strokeBorder(isHovering ? FoundryTheme.selectionBorder : FoundryTheme.fillTint, lineWidth: 0.5)
             }
         }
         .buttonStyle(PressableButtonStyle())
@@ -146,7 +145,7 @@ struct WindowLayoutManager: View {
                 .foregroundStyle(FoundryTheme.accent)
                 .frame(width: 28, height: 28)
                 .background(FoundryTheme.accentSubtle)
-                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                .clipShape(RoundedRectangle(cornerRadius: FoundryTheme.Radius.control, style: .continuous))
 
             VStack(alignment: .leading, spacing: 1) {
                 Text("Window layouts")
@@ -161,11 +160,11 @@ struct WindowLayoutManager: View {
             Spacer()
         }
         .padding(.horizontal, 18)
-        .frame(height: 50)
+        .frame(height: FoundryTheme.Control.rowDouble)
         .overlay(alignment: .bottom) {
             Rectangle()
                 .fill(FoundryTheme.fillTint)
-                .frame(height: 1)
+                .frame(height: FoundryTheme.hairline)
         }
     }
 
@@ -179,7 +178,7 @@ struct WindowLayoutManager: View {
                 }
                 Spacer(minLength: 0)
             }
-            .frame(height: 30)
+            .frame(height: FoundryTheme.Control.compact)
 
             SpatialLayoutGrid(
                 results: family.placements.compactMap { resultByPlacement[$0] },
@@ -374,9 +373,9 @@ private struct FamilyTab: View {
                 .font(isSelected ? FoundryTheme.micro : FoundryTheme.caption)
                 .foregroundStyle(isSelected ? FoundryTheme.textPrimary : FoundryTheme.textSecondary)
                 .padding(.horizontal, 10)
-                .frame(height: 26)
+                .frame(height: FoundryTheme.Control.mini)
                 .background(isSelected ? FoundryTheme.fillSelected : (isHovering ? FoundryTheme.fillHover : Color.clear))
-                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                .clipShape(RoundedRectangle(cornerRadius: FoundryTheme.Radius.control, style: .continuous))
         }
         .buttonStyle(.plain)
         .onHover { isHovering = $0 }
@@ -438,9 +437,9 @@ private struct SpatialLayoutButton: View {
             .frame(maxWidth: .infinity)
             .frame(height: height)
             .background(tileBackground)
-            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: FoundryTheme.Radius.row, style: .continuous))
             .overlay {
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                RoundedRectangle(cornerRadius: FoundryTheme.Radius.row, style: .continuous)
                     .strokeBorder(tileBorder, lineWidth: isSelected ? 1 : 0.5)
             }
         }
@@ -542,9 +541,9 @@ private struct UtilityActionButton: View {
                 }
             }
             .padding(.horizontal, 8)
-            .frame(height: 29)
+            .frame(height: FoundryTheme.Control.compact)
             .background(controlBackground)
-            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: FoundryTheme.Radius.control, style: .continuous))
         }
         .buttonStyle(PressableButtonStyle())
         .disabled(result == nil)
@@ -581,12 +580,12 @@ private struct UtilityIconButton: View {
                 .font(FoundryTheme.Glyph.xs)
                 .foregroundStyle(isSelected ? FoundryTheme.accent : FoundryTheme.textSecondary)
                 .frame(maxWidth: .infinity)
-                .frame(height: 28)
+                .frame(height: FoundryTheme.Control.compact)
                 .background(controlBackground)
-                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                .clipShape(RoundedRectangle(cornerRadius: FoundryTheme.Radius.control, style: .continuous))
                 .overlay {
-                    RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .strokeBorder(Color.primary.opacity(isHovering ? 0.12 : 0.05), lineWidth: 0.5)
+                    RoundedRectangle(cornerRadius: FoundryTheme.Radius.control, style: .continuous)
+                        .strokeBorder(isHovering ? FoundryTheme.separator : FoundryTheme.fillSubtle, lineWidth: 0.5)
                 }
         }
         .buttonStyle(PressableButtonStyle())
@@ -618,16 +617,16 @@ private struct LayoutDiagram: View {
             let content = bounds.insetBy(dx: inset, dy: inset)
 
             ZStack {
-                RoundedRectangle(cornerRadius: 5, style: .continuous)
+                RoundedRectangle(cornerRadius: FoundryTheme.Radius.badge, style: .continuous)
                     .fill(FoundryTheme.fillHover)
                     .overlay {
-                        RoundedRectangle(cornerRadius: 5, style: .continuous)
-                            .stroke(Color.primary.opacity(isSelected ? 0.26 : 0.15), lineWidth: 1)
+                        RoundedRectangle(cornerRadius: FoundryTheme.Radius.badge, style: .continuous)
+                            .stroke(isSelected ? FoundryTheme.stroke : FoundryTheme.selectionBorder, lineWidth: 1)
                     }
 
                 ForEach(Array((placement?.previewWindows(in: content) ?? []).enumerated()), id: \.offset) { _, window in
-                    RoundedRectangle(cornerRadius: 2.5, style: .continuous)
-                        .fill(window.isActive ? FoundryTheme.accent.opacity(isSelected ? 0.95 : 0.6) : FoundryTheme.separator)
+                    RoundedRectangle(cornerRadius: FoundryTheme.Radius.tile, style: .continuous)
+                        .fill(window.isActive ? (isSelected ? FoundryTheme.accent : FoundryTheme.accentStrong) : FoundryTheme.separator)
                         .frame(width: window.frame.width, height: window.frame.height)
                         .position(x: window.frame.midX, y: window.frame.midY)
                 }

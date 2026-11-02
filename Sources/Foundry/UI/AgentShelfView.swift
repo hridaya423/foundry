@@ -48,7 +48,7 @@ struct AgentShelfView: View {
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 14) {
                         Color.clear
-                            .frame(height: 0)
+                            .frame(height: .zero)
                             .id("agent-shelf-top")
                         if active.isEmpty == false {
                             section(title: "Active", sessions: active)
@@ -139,7 +139,7 @@ struct AgentShelfView: View {
             }
             .foregroundStyle(agents.selectedProvider == provider ? FoundryTheme.textPrimary : FoundryTheme.textTertiary)
             .padding(.horizontal, 10)
-            .frame(height: 28)
+            .frame(height: FoundryTheme.Control.compact)
             .background(agents.selectedProvider == provider ? FoundryTheme.fillSelected : FoundryTheme.fillSubtle)
             .clipShape(Capsule())
             .overlay(
@@ -163,7 +163,7 @@ struct AgentShelfView: View {
                     if index < sessions.count - 1 {
                         Rectangle()
                             .fill(FoundryTheme.fillHover)
-                            .frame(height: 1)
+                            .frame(height: FoundryTheme.hairline)
                             .padding(.leading, 48)
                     }
                 }
@@ -217,10 +217,10 @@ private struct AgentShelfRow: View {
                 Image(systemName: "arrow.up.right")
                     .font(FoundryTheme.Glyph.xs)
                     .foregroundStyle(FoundryTheme.textTertiary)
-                    .opacity(hovering || isSelected ? 1 : 0.25)
+                    .opacity(hovering || isSelected ? 1 : FoundryTheme.Alpha.half)
             }
             .padding(.horizontal, 10)
-            .frame(height: 52)
+            .frame(height: FoundryTheme.Control.rowDouble)
             .background(RowBackground(isSelected: isSelected, isHovering: hovering))
             .contentShape(Rectangle())
         }

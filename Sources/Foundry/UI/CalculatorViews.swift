@@ -60,11 +60,11 @@ struct CalculatorResultCard: View {
 
             CalculatorValuePane(value: result.title, alternatives: alternatives, executeAlternative: executeAlternative)
         }
-        .frame(height: 112)
+        .frame(height: FoundryTheme.Control.preview)
         .background(FoundryTheme.fillHover)
-        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: FoundryTheme.Radius.overlay, style: .continuous))
         .overlay(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
+            RoundedRectangle(cornerRadius: FoundryTheme.Radius.overlay, style: .continuous)
                 .stroke(FoundryTheme.fillTint, lineWidth: 1)
         )
     }
@@ -111,7 +111,7 @@ struct CalculatorValuePane: View {
                     .font(FoundryTheme.body)
                     .foregroundStyle(FoundryTheme.textSecondary)
                     .padding(.horizontal, 10)
-                    .frame(height: 26)
+                    .frame(height: FoundryTheme.Control.mini)
                     .background(FoundryTheme.fillTint)
                     .clipShape(Capsule())
                 }

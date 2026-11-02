@@ -58,7 +58,7 @@ struct ActionRow: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            RoundedRectangle(cornerRadius: 7, style: .continuous)
+            RoundedRectangle(cornerRadius: FoundryTheme.Radius.control, style: .continuous)
                 .fill(FoundryTheme.fillTint)
                 .overlay(
                     Image(systemName: iconName)
@@ -80,7 +80,7 @@ struct ActionRow: View {
             }
         }
         .padding(.horizontal, FoundryTheme.Spacing.sm)
-        .frame(height: 40)
+        .frame(height: FoundryTheme.Control.row)
         .background(RowBackground(isSelected: isSelected, isHovering: isHovering))
         .onHover { isHovering = $0 }
     }
@@ -213,7 +213,7 @@ struct LoadingHairline: View {
     var body: some View {
         Rectangle()
             .fill(FoundryTheme.accent)
-            .frame(height: 1)
+            .frame(height: FoundryTheme.hairline)
             .opacity(dimmed ? FoundryTheme.Alpha.subtle : FoundryTheme.Alpha.half)
             .accessibilityHidden(true)
             .onAppear {
@@ -235,7 +235,7 @@ struct HomeSkeleton: View {
                     Spacer()
                 }
                 .padding(.horizontal, FoundryTheme.Spacing.sm)
-                .frame(height: 40)
+                .frame(height: FoundryTheme.Control.row)
             }
             Spacer()
         }

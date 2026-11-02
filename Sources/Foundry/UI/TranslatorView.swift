@@ -92,7 +92,7 @@ struct TranslatorView: View {
             .font(FoundryTheme.body)
             .foregroundStyle(FoundryTheme.textSecondary)
             .padding(.horizontal, 10)
-            .frame(height: 26)
+            .frame(height: FoundryTheme.Control.mini)
             .background(FoundryTheme.fillTint)
             .clipShape(Capsule())
         }
@@ -124,7 +124,7 @@ struct TranslatorView: View {
             .font(FoundryTheme.body)
             .foregroundStyle(FoundryTheme.textSecondary)
             .padding(.horizontal, 10)
-            .frame(height: 26)
+            .frame(height: FoundryTheme.Control.mini)
             .background(FoundryTheme.fillTint)
             .clipShape(Capsule())
         }

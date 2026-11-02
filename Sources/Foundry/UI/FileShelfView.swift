@@ -228,7 +228,7 @@ struct FileShelfRow: View {
             }
         }
         .padding(.horizontal, FoundryTheme.Spacing.sm)
-        .frame(height: 48)
+        .frame(height: FoundryTheme.Control.rowTall)
         .background(RowBackground(isSelected: isSelected, isHovering: isHovering))
         .animation(reduceMotion ? nil : FoundryTheme.Motion.hover, value: isHovering)
         .onHover { isHovering = $0 }
@@ -270,7 +270,7 @@ struct ShelfIconStack: View {
                 FileIcon(path: file.url.path) { Color.clear }
                     .frame(width: 34, height: 34)
                     .background(FoundryTheme.stroke)
-                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    .clipShape(RoundedRectangle(cornerRadius: FoundryTheme.Radius.control, style: .continuous))
                     .rotationEffect(.degrees(Double(index - 1) * 5))
                     .offset(x: CGFloat(index) * 13)
             }

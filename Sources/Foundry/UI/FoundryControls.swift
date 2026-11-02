@@ -154,14 +154,7 @@ struct PressableButtonStyle: ButtonStyle {
     }
 }
 
-extension View {
-    /// The pointing hand, for controls that navigate away like links.
-    func pointerCursor() -> some View {
-        onHover { hovering in
-            if hovering { NSCursor.pointingHand.set() } else { NSCursor.arrow.set() }
-        }
-    }
-}
+
 
 struct FoundrySectionHeader: View {
     let title: String

@@ -199,7 +199,7 @@ struct DeveloperToolsView: View {
                     compactCopyButton(value: row.value)
                 }
                 .padding(.horizontal, 10)
-                .frame(height: 52)
+                .frame(height: FoundryTheme.Control.rowDouble)
                 .background(FoundryTheme.fillSubtle)
                 .clipShape(RoundedRectangle(cornerRadius: FoundryTheme.Radius.row, style: .continuous))
             }
@@ -250,7 +250,7 @@ struct DeveloperToolsView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
             .padding(10)
-            .frame(height: 112)
+            .frame(height: FoundryTheme.Control.preview)
             .background(FoundryTheme.fillSubtle)
             .clipShape(RoundedRectangle(cornerRadius: FoundryTheme.Radius.row, style: .continuous))
         }
@@ -280,7 +280,7 @@ private struct DeveloperChip: View {
                 .font(FoundryTheme.micro)
                 .foregroundStyle(isSelected ? FoundryTheme.textPrimary : FoundryTheme.textSecondary)
                 .padding(.horizontal, 9)
-                .frame(height: 26)
+                .frame(height: FoundryTheme.Control.mini)
                 .background(isSelected ? FoundryTheme.fillSelected : FoundryTheme.fillSubtle)
                 .clipShape(RoundedRectangle(cornerRadius: FoundryTheme.Radius.row, style: .continuous))
         }
@@ -306,7 +306,7 @@ private struct DeveloperInputField: View {
                 .font(FoundryTheme.body)
                 .foregroundStyle(FoundryTheme.textPrimary)
                 .padding(.horizontal, 12)
-                .frame(height: 40)
+                .frame(height: FoundryTheme.Control.row)
                 .background(
                     RoundedRectangle(cornerRadius: FoundryTheme.Radius.row, style: .continuous)
                         .fill(FoundryTheme.fillHover)
@@ -336,7 +336,7 @@ private struct DeveloperTextEditor: View {
                 .foregroundStyle(FoundryTheme.textPrimary)
                 .scrollContentBackground(.hidden)
                 .padding(8)
-                .frame(height: 88)
+                .frame(height: FoundryTheme.Control.editor)
                 .background(
                     RoundedRectangle(cornerRadius: FoundryTheme.Radius.row, style: .continuous)
                         .fill(FoundryTheme.fillHover)

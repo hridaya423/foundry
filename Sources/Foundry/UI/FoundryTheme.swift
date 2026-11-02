@@ -69,7 +69,7 @@ enum FoundryTheme {
     /// 12/regular monospaced — code, paths, hotkey hints.
     static let mono = Font.system(size: 12, weight: .regular, design: .monospaced)
     /// 13.5/medium — launcher result titles, as 1.1 shipped them.
-    static let rowTitle = Font.system(size: 13.5, weight: .medium)
+    static let rowTitle = Font.system(size: 13, weight: .medium)
     /// 12/regular — the detail line and kind label under/beside a result.
     static let rowDetail = Font.system(size: 12, weight: .regular)
 
@@ -118,15 +118,15 @@ enum FoundryTheme {
     static let fillTint = Color.primary.opacity(0.08)
     /// The selected row's fill; `selectionBorder` outlines it.
     static let fillSelected = Color.primary.opacity(0.10)
-    static let selectionBorder = Color.primary.opacity(0.16)
+    static let selectionBorder = Color.primary.opacity(0.15)
     static let highContrastSelection = Color.primary.opacity(0.18)
     static let highContrastSelectionBorder = Color.accentColor
     /// Tracked-caps section headers on the panel.
-    static let sectionHeader = Color.primary.opacity(0.70)
+    static let sectionHeader = textSecondary
     /// Hairlines between rows and surfaces.
     static let separator = Color.primary.opacity(0.12)
     /// The strongest neutral fill (pressed controls, drop zones).
-    static let fillEmphasis = Color.primary.opacity(0.14)
+    static let fillEmphasis = selectionBorder
     /// Visible borders around floating surfaces.
     static let stroke = Color.primary.opacity(0.18)
 
@@ -150,6 +150,15 @@ enum FoundryTheme {
     static let shadow = Color.black.opacity(0.28)
     /// Hairline/secondary marks on dark surfaces.
     static let onDarkFaint = Color.white.opacity(0.12)
+    static let onLightFaint = Color.black.opacity(0.06)
+
+    /// The backdrop's washes, scaled by Panel contrast.
+    enum Backdrop {
+        static let darkWash: Double = 0.46
+        static let lightWash: Double = 0.26
+        static let glowTop: Double = 0.07
+        static let glowMid: Double = 0.016
+    }
 
     /// Computed dark/light alpha — e.g. `dark(0.46 * intensity)` — for the
     /// rare site whose alpha is derived rather than constant.
@@ -215,6 +224,7 @@ enum FoundryTheme {
     // MARK: Radii — 6 badge, 8 control, 10 row, 14 overlay, 26 panel
 
     enum Radius {
+        static let tile: CGFloat = 2
         static let badge: CGFloat = 6
         static let control: CGFloat = 8
         static let row: CGFloat = 10
@@ -223,9 +233,26 @@ enum FoundryTheme {
         static let panel: CGFloat = 26
     }
 
+    static let hairline: CGFloat = 1
+
     enum Control {
+        static let track: CGFloat = 4
+        static let glyph: CGFloat = 18
+        static let line: CGFloat = 20
+        static let mini: CGFloat = 24
         static let compact: CGFloat = 30
+        static let field: CGFloat = 36
+        static let row: CGFloat = 40
+        static let rowTall: CGFloat = 48
+        static let rowDouble: CGFloat = 52
+        static let editor: CGFloat = 88
+        static let preview: CGFloat = 112
         static let settingsColumn: CGFloat = 140
+    }
+
+    enum Panel {
+        static let headerHeight: CGFloat = 60
+        static let footerHeight: CGFloat = 38
     }
 
     /// The website's language (anvil/app/foundry/foundry.css) for brand
@@ -307,11 +334,10 @@ extension AgentSessionStatus {
     /// the home accessory strip.
     var color: Color {
         switch self {
-        case .working, .running: Color(red: 0.42, green: 0.90, blue: 0.67)
+        case .working, .running: FoundryTheme.success
         case .needsInput: FoundryTheme.warning
-        case .reviewReady: Color(red: 0.52, green: 0.72, blue: 1.0)
+        case .reviewReady, .completed: FoundryTheme.accent
         case .planning: Color(red: 0.70, green: 0.62, blue: 1.0)
-        case .completed: Color(red: 0.44, green: 0.72, blue: 1.0)
         case .failed: FoundryTheme.destructive
         case .idle, .recent: FoundryTheme.textQuaternary
         }

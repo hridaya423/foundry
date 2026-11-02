@@ -1,7 +1,0 @@
-opacity-expression	11
-corner-radius	52
-duration	0
-spring	0
-named-colour	7
-theme-escape	4
-pointing-hand	3

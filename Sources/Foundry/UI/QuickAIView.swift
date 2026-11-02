@@ -16,7 +16,7 @@ struct QuickAIHeaderControlsView: View {
                 onSubmit: { Task { await quickAI.submit() } }
             )
             .focused($inputFocused)
-            .frame(height: 42)
+            .frame(height: FoundryTheme.Control.row)
 
             if quickAI.isQuickAILoading {
                 FoundryIconButton(systemName: "stop.circle.fill", accessibilityLabel: "Stop answering", tint: FoundryTheme.textSecondary) {
@@ -95,7 +95,7 @@ struct QuickAISurfaceView: View {
                             .padding(.top, 2)
                     }
 
-                    Color.clear.frame(height: 1).id(Self.bottomID)
+                    Color.clear.frame(height: FoundryTheme.hairline).id(Self.bottomID)
                 }
                 .padding(.horizontal, 28)
                 .padding(.vertical, 24)
@@ -496,7 +496,7 @@ private struct QuickAIThreadPicker: View {
                 .foregroundStyle(FoundryTheme.textTertiary)
         }
         .padding(.horizontal, FoundryTheme.Spacing.xs)
-        .frame(height: 28)
+        .frame(height: FoundryTheme.Control.compact)
         .background(RowBackground(isSelected: thread.id == selected?.id, isHovering: false, cornerRadius: FoundryTheme.Radius.control))
         .contentShape(Rectangle())
         .onTapGesture { open(thread) }

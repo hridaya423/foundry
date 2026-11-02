@@ -136,7 +136,7 @@ struct CommandPanelView: View {
                         .font(FoundryTheme.body)
                         .foregroundStyle(actionFeedbackColor(actionFeedback))
                         .padding(.horizontal, 12)
-                        .frame(minHeight: 30)
+                        .frame(minHeight: FoundryTheme.Control.compact)
                 }
                     .padding(.bottom, 50)
                     .padding(.horizontal, 18)
@@ -275,7 +275,7 @@ struct CommandPanelView: View {
     }
 
     private var innerHighlight: Color {
-        colorScheme == .dark ? FoundryTheme.onDarkFaint : FoundryTheme.dark(0.06)
+        colorScheme == .dark ? FoundryTheme.onDarkFaint : FoundryTheme.onLightFaint
     }
 
     /// Per-mode metadata that isn't a view: the transition identity and the
@@ -522,7 +522,7 @@ struct CommandPanelView: View {
                         .foregroundStyle(FoundryTheme.textQuaternary)
                 }
                 .foregroundStyle(FoundryTheme.textSecondary)
-                .frame(height: 30)
+                .frame(height: FoundryTheme.Control.compact)
                 .padding(.horizontal, 8)
             }
             .buttonStyle(FoundryQuietButtonStyle())
@@ -613,9 +613,9 @@ struct CommandPanelView: View {
             compactHeight: 44
         )
         .padding(.horizontal, 10)
-        .frame(height: 54)
+        .frame(height: FoundryTheme.Control.rowDouble)
         .background(FoundryTheme.fillSubtle)
-        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: FoundryTheme.Radius.overlay, style: .continuous))
         .padding(.horizontal, 16)
         .padding(.vertical, 4)
         .animation(reduceMotion ? nil : FoundryTheme.Motion.state, value: fileShelf.files.count)

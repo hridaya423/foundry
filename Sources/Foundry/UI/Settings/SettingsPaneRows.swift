@@ -30,7 +30,7 @@ struct AgentIntegrationRow: View {
                     .padding(.horizontal, 9)
                     .padding(.vertical, 6)
                     .background(FoundryTheme.fillTint)
-                    .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
+                    .clipShape(RoundedRectangle(cornerRadius: FoundryTheme.Radius.control, style: .continuous))
             }
         }
         .padding(.horizontal, 10)
@@ -99,8 +99,8 @@ struct AISettingsSection: View {
                             }
                             .padding(.horizontal, 12)
                             .padding(.vertical, 10)
-                            .background(Color.primary.opacity(state.selectedAIProfileID == profile.id ? 0.07 : 0))
-                            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                            .background(state.selectedAIProfileID == profile.id ? FoundryTheme.fillSelected : Color.clear)
+                            .clipShape(RoundedRectangle(cornerRadius: FoundryTheme.Radius.control, style: .continuous))
                         }
                         .buttonStyle(.plain)
                         .overlay(alignment: .bottom) {

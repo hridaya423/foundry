@@ -62,7 +62,7 @@ struct SettingsDivider: View {
     var body: some View {
         Rectangle()
             .fill(FoundryTheme.fillTint)
-            .frame(height: 1)
+            .frame(height: FoundryTheme.hairline)
             .padding(.horizontal, 12)
     }
 }
@@ -325,7 +325,7 @@ struct ActiveWidgetRow: View {
                     .disabled(isLast)
                 SettingsIconButton(symbol: "minus", label: "Remove \(kind.title)", action: remove, tint: FoundryTheme.destructive)
             }
-            .opacity(isHovering ? 1 : 0.5)
+            .opacity(isHovering ? 1 : FoundryTheme.Alpha.half)
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 8)
@@ -666,7 +666,7 @@ struct ExcludedAppsRow: View {
                         .font(FoundryTheme.caption)
                         .foregroundStyle(FoundryTheme.textSecondary)
                         .padding(.horizontal, 9)
-                        .frame(height: 24)
+                        .frame(height: FoundryTheme.Control.mini)
                         .background(
                             Capsule(style: .continuous).fill(FoundryTheme.fillTint)
                         )

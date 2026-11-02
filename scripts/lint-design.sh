@@ -3,15 +3,11 @@
 # opacity, radius and duration must come from the token file so the UI stays
 # one vocabulary.
 #
-# Rules listed in scripts/lint-design-ratchet.txt may hold at most their
-# allowed count; a count may only go down. Every other rule allows none.
-#
 # Usage: scripts/lint-design.sh
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 THEME="$ROOT/Sources/Foundry/UI/FoundryTheme.swift"
-RATCHET="$ROOT/scripts/lint-design-ratchet.txt"
 
 matches() {
     find "$ROOT/Sources" -name '*.swift' ! -path "$THEME" -print0 \
@@ -20,23 +16,14 @@ matches() {
         || true
 }
 
-allowance() {
-    [[ -f $RATCHET ]] || { echo 0; return; }
-    awk -F'\t' -v rule="$1" '$1 == rule { print $2; found = 1 } END { if (!found) print 0 }' "$RATCHET"
-}
-
 failed=0
 check() {
-    local name=$1 pattern=$2 found count allowed
+    local name=$1 pattern=$2 found
     found=$(matches "$pattern")
-    count=$(printf '%s' "$found" | grep -c . || true)
-    allowed=$(allowance "$name")
-    if (( count > allowed )); then
-        echo "error: $name — $count found, $allowed allowed:" >&2
+    if [[ -n $found ]]; then
+        echo "error: $name:" >&2
         echo "$found" >&2
         failed=1
-    elif (( count < allowed )); then
-        echo "note: $name — $count found, ratchet allows $allowed; lower it in $(basename "$RATCHET")" >&2
     fi
 }
 
@@ -50,5 +37,6 @@ check spring '\.spring\('
 check named-colour '(^|[^S])Color\.(red|green|blue|orange|yellow)\b'
 check theme-escape 'FoundryTheme\.(dark|light|primary)\([0-9]'
 check pointing-hand 'pointerCursor\(\)'
+check frame-height 'frame\((min)?[hH]eight: *[0-9]'
 
 exit $failed

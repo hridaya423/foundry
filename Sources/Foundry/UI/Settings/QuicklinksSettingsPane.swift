@@ -80,7 +80,7 @@ struct QuicklinksSettingsPane: View {
                     .controlSize(.small)
                     .padding(.horizontal, 12)
                     .padding(.vertical, 8)
-                    .opacity(link.isEnabled ? 1 : 0.55)
+                    .opacity(link.isEnabled ? 1 : FoundryTheme.Alpha.half)
                     if link.id != links.last?.id { SettingsDivider() }
                 }
             }

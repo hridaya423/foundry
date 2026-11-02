@@ -95,7 +95,7 @@ private struct FavoriteTile: View {
     var body: some View {
         Button(action: action) {
             VStack(spacing: 5) {
-                AppIcon(icon: result.icon, size: 30, cornerRadius: 8)
+                AppIcon(icon: result.icon, size: 30, cornerRadius: FoundryTheme.Radius.control)
                 ZStack {
                     Text(result.title)
                         .lineLimit(1)
@@ -143,7 +143,7 @@ struct MediaResultRow: View {
                         .font(FoundryTheme.micro)
                         .foregroundStyle(FoundryTheme.textSecondary)
                         .padding(.horizontal, 7)
-                        .frame(height: 18)
+                        .frame(height: FoundryTheme.Control.glyph)
                         .background(FoundryTheme.fillTint)
                         .clipShape(Capsule())
                 }
@@ -198,7 +198,7 @@ struct MediaThumbnail: View {
 
     var body: some View {
         ZStack {
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
+            RoundedRectangle(cornerRadius: FoundryTheme.Radius.row, style: .continuous)
                 .fill(FoundryTheme.fillTint)
 
             if let url = icon.thumbnailURL {
@@ -264,7 +264,7 @@ struct ResultRow: View {
 
     private var row: some View {
         HStack(spacing: 12) {
-            AppIcon(icon: result.icon, size: 28, cornerRadius: 7)
+            AppIcon(icon: result.icon, size: 28, cornerRadius: FoundryTheme.Radius.control)
                 .scaleEffect(isSelected ? 1.04 : 1)
 
             VStack(alignment: .leading, spacing: 2) {
@@ -326,8 +326,8 @@ private struct ResultBadge: View {
             .foregroundStyle(FoundryTheme.textTertiary)
             .lineLimit(1)
             .padding(.horizontal, 6)
-            .frame(height: 20)
-            .background(FoundryTheme.fillHover, in: RoundedRectangle(cornerRadius: 5, style: .continuous))
+            .frame(height: FoundryTheme.Control.line)
+            .background(FoundryTheme.fillHover, in: RoundedRectangle(cornerRadius: FoundryTheme.Radius.badge, style: .continuous))
     }
 }
 

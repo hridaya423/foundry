@@ -40,14 +40,14 @@ struct BrandPrimaryButtonStyle: ButtonStyle {
     @State private var hovering = false
 
     func makeBody(configuration: Configuration) -> some View {
-        let shape = RoundedRectangle(cornerRadius: 11, style: .continuous)
+        let shape = RoundedRectangle(cornerRadius: FoundryTheme.Radius.row, style: .continuous)
         HStack(spacing: 12) {
             configuration.label
             if ready {
                 Image(systemName: "return")
                     .font(FoundryTheme.Glyph.xs.weight(.semibold))
                     .frame(width: 22, height: 22)
-                    .background(Brand.accentChip, in: RoundedRectangle(cornerRadius: 5, style: .continuous))
+                    .background(Brand.accentChip, in: RoundedRectangle(cornerRadius: FoundryTheme.Radius.badge, style: .continuous))
             }
         }
         .font(Brand.button)
@@ -77,7 +77,7 @@ struct BrandSecondaryButtonStyle: ButtonStyle {
             .tracking(Brand.bodyTracking)
             .foregroundStyle(Brand.text)
             .padding(.horizontal, 16)
-            .frame(height: 40)
+            .frame(height: FoundryTheme.Control.row)
             .background(BrandRowSurface(radius: 6, lifted: hovering))
             .scaleEffect(configuration.isPressed ? 0.98 : 1)
             .animation(configuration.isPressed ? Brand.Motion.press : Brand.Motion.release, value: configuration.isPressed)
@@ -96,7 +96,7 @@ struct BrandQuietButtonStyle: ButtonStyle {
             .tracking(Brand.bodyTracking)
             .foregroundStyle(hovering ? Brand.text : (dim ? Brand.faint : Brand.muted))
             .contentShape(Rectangle())
-            .opacity(configuration.isPressed ? 0.7 : 1)
+            .opacity(configuration.isPressed ? FoundryTheme.Alpha.pressed : 1)
             .animation(Brand.Motion.state, value: hovering)
             .onHover { hovering = $0 }
     }
@@ -126,9 +126,9 @@ struct BrandToggleStyle: ToggleStyle {
                 configuration.label
                 Spacer(minLength: 0)
                 ZStack(alignment: configuration.isOn ? .trailing : .leading) {
-                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                    RoundedRectangle(cornerRadius: FoundryTheme.Radius.badge, style: .continuous)
                         .fill(configuration.isOn ? Brand.accent : Brand.tileIdle)
-                    RoundedRectangle(cornerRadius: 4, style: .continuous)
+                    RoundedRectangle(cornerRadius: FoundryTheme.Radius.badge, style: .continuous)
                         .fill(Brand.text)
                         .frame(width: 18, height: 18)
                         .shadow(color: Brand.tileShadow, radius: 1, y: 1)
@@ -152,13 +152,13 @@ struct BrandList<Content: View>: View {
     var body: some View {
         VStack(spacing: 0) { content }
             .background(BrandRowSurface())
-            .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: FoundryTheme.Radius.badge, style: .continuous))
     }
 }
 
 struct BrandDivider: View {
     var body: some View {
-        Rectangle().fill(Brand.line).frame(height: 1)
+        Rectangle().fill(Brand.line).frame(height: FoundryTheme.hairline)
     }
 }
 
@@ -194,7 +194,7 @@ struct BrandKbd: View {
             .padding(.horizontal, 7)
             .frame(minWidth: 26, minHeight: 24)
             .background {
-                let shape = RoundedRectangle(cornerRadius: 5, style: .continuous)
+                let shape = RoundedRectangle(cornerRadius: FoundryTheme.Radius.badge, style: .continuous)
                 shape.fill(Brand.line)
                     .overlay(shape.fill(Brand.rowTop).padding(.bottom, 2).padding([.horizontal, .top], 1))
             }
@@ -209,7 +209,7 @@ struct ProgressTiles: View {
     var body: some View {
         HStack(spacing: 6) {
             ForEach(0..<count, id: \.self) { index in
-                RoundedRectangle(cornerRadius: 2, style: .continuous)
+                RoundedRectangle(cornerRadius: FoundryTheme.Radius.tile, style: .continuous)
                     .fill(index == current ? Brand.accent : (index < current ? Brand.tileDone : Brand.tileIdle))
                     .frame(width: 10, height: 10)
             }

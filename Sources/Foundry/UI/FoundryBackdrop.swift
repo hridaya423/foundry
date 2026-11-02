@@ -39,8 +39,8 @@ struct FoundryBackdrop: View {
 
     private var panelWash: Color {
         colorScheme == .dark
-            ? FoundryTheme.dark(0.46 * intensity)
-            : FoundryTheme.light(0.26 * intensity)
+            ? FoundryTheme.dark(FoundryTheme.Backdrop.darkWash * intensity)
+            : FoundryTheme.light(FoundryTheme.Backdrop.lightWash * intensity)
     }
 
     var body: some View {
@@ -48,7 +48,11 @@ struct FoundryBackdrop: View {
             if isOpaque {
                 Color(nsColor: .windowBackgroundColor)
                 LinearGradient(
-                    colors: [FoundryTheme.primary(0.07 * intensity), FoundryTheme.primary(0.016 * intensity), Color.clear],
+                    colors: [
+                        FoundryTheme.primary(FoundryTheme.Backdrop.glowTop * intensity),
+                        FoundryTheme.primary(FoundryTheme.Backdrop.glowMid * intensity),
+                        Color.clear,
+                    ],
                     startPoint: .top,
                     endPoint: .center
                 )

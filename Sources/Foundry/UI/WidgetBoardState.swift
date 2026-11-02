@@ -363,8 +363,8 @@ extension SystemMetrics {
     }
 
     var batteryTint: Color {
-        if isCharging { return Color.green.opacity(FoundryTheme.Alpha.faint) }
-        if let batteryPercent, batteryPercent <= 20 { return Color.red.opacity(FoundryTheme.Alpha.faint) }
+        if isCharging { return FoundryTheme.success }
+        if let batteryPercent, batteryPercent <= 20 { return FoundryTheme.destructive }
         return FoundryTheme.textSecondary
     }
 
@@ -418,10 +418,10 @@ extension SystemMetrics {
 
     var thermalTint: Color {
         switch thermal {
-        case .nominal: return Color.green.opacity(FoundryTheme.Alpha.strong)
-        case .fair: return Color.yellow.opacity(FoundryTheme.Alpha.faint)
-        case .serious: return Color.orange.opacity(FoundryTheme.Alpha.faint)
-        case .critical: return Color.red.opacity(FoundryTheme.Alpha.faint)
+        case .nominal: return FoundryTheme.success
+        case .fair: return FoundryTheme.warning
+        case .serious: return FoundryTheme.warning
+        case .critical: return FoundryTheme.destructive
         @unknown default: return FoundryTheme.textSecondary
         }
     }

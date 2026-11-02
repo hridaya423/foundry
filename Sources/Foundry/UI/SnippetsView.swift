@@ -49,7 +49,7 @@ struct SnippetsView: View {
                 .help("Import or export snippets")
                 SnippetIconButton(symbol: "plus", help: "New snippet", action: state.newSnippet)
             }
-            .frame(height: 30)
+            .frame(height: FoundryTheme.Control.compact)
 
             if state.allTags.isEmpty == false {
                 ScrollView(.horizontal, showsIndicators: false) {
@@ -153,7 +153,7 @@ struct SnippetsView: View {
                     SnippetIconButton(symbol: "arrow.down.doc", help: "Insert snippet", action: { _ = insert() })
                     SnippetIconButton(symbol: "trash", help: "Delete snippet", destructive: true, action: delete)
                 }
-                .frame(height: 30)
+                .frame(height: FoundryTheme.Control.compact)
                 SnippetEditor(state: state, monospace: monospace)
                 if let duplicate = state.duplicateKeyword {
                     InlineNotice(level: .warning,
@@ -201,7 +201,7 @@ struct SnippetsView: View {
                 .font(FoundryTheme.caption)
                 .foregroundStyle(selected ? FoundryTheme.textPrimary : FoundryTheme.textSecondary)
                 .padding(.horizontal, 8)
-                .frame(height: 22)
+                .frame(height: FoundryTheme.Control.line)
                 .background(
                     Capsule(style: .continuous)
                         .fill(selected ? FoundryTheme.accentTintFill : FoundryTheme.fillHover)
@@ -303,12 +303,12 @@ private struct SnippetRow: View {
                     .foregroundStyle(FoundryTheme.textSecondary)
                     .lineLimit(1)
                     .padding(.horizontal, 6)
-                    .frame(height: 20)
+                    .frame(height: FoundryTheme.Control.line)
                     .background(FoundryTheme.fillTint, in: RoundedRectangle(cornerRadius: FoundryTheme.Radius.badge, style: .continuous))
             }
         }
         .padding(.horizontal, FoundryTheme.Spacing.sm)
-        .frame(height: 44)
+        .frame(height: FoundryTheme.Control.row)
         .background(RowBackground(isSelected: isSelected, isHovering: isHovering))
         .contentShape(Rectangle())
         .accessibilityElement(children: .combine)
@@ -341,7 +341,7 @@ struct SnippetEditor: View {
                 .font(FoundryTheme.body)
                 .foregroundStyle(FoundryTheme.textPrimary)
                 .padding(.horizontal, 13)
-                .frame(height: 40)
+                .frame(height: FoundryTheme.Control.row)
                 .background(fieldBackground)
 
             HStack(spacing: 10) {
@@ -389,7 +389,7 @@ struct SnippetEditor: View {
                     }
                     .foregroundStyle(FoundryTheme.textSecondary)
                     .padding(.horizontal, 10)
-                    .frame(height: 24)
+                    .frame(height: FoundryTheme.Control.mini)
                     .background(
                         Capsule()
                             .fill(FoundryTheme.fillHover)
@@ -448,7 +448,7 @@ struct SnippetEditor: View {
                 .foregroundStyle(FoundryTheme.textPrimary)
         }
         .padding(.horizontal, 12)
-        .frame(height: 36)
+        .frame(height: FoundryTheme.Control.field)
         .frame(maxWidth: .infinity)
         .background(fieldBackground)
     }
@@ -600,7 +600,7 @@ struct SnippetArgumentPrompt: View {
                             .font(FoundryTheme.bodySecondary)
                             .foregroundStyle(FoundryTheme.textPrimary)
                             .padding(.horizontal, 12)
-                            .frame(height: 32)
+                            .frame(height: FoundryTheme.Control.compact)
                             .background(FoundryTheme.fillHover, in: RoundedRectangle(cornerRadius: FoundryTheme.Radius.control, style: .continuous))
                             .focused($focused, equals: name)
                             .onSubmit(submit)
@@ -611,7 +611,7 @@ struct SnippetArgumentPrompt: View {
                                 .font(FoundryTheme.bodySecondary)
                                 .foregroundStyle(FoundryTheme.textSecondary)
                                 .padding(.horizontal, 10)
-                                .frame(height: 26)
+                                .frame(height: FoundryTheme.Control.mini)
                                 .contentShape(.rect)
                         }
                         .buttonStyle(FoundryQuietButtonStyle())

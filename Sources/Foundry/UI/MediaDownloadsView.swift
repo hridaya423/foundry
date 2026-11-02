@@ -200,7 +200,7 @@ struct MediaDownloadsView: View {
                     if index < items.count - 1 {
                         Rectangle()
                             .fill(FoundryTheme.fillHover)
-                            .frame(height: 1)
+                            .frame(height: FoundryTheme.hairline)
                             .padding(.leading, 48)
                     }
                 }
@@ -317,7 +317,7 @@ private struct MediaDownloadRow: View {
                             .font(FoundryTheme.mono)
                             .foregroundStyle(FoundryTheme.textSecondary)
                             .padding(.horizontal, 6)
-                            .frame(height: 18)
+                            .frame(height: FoundryTheme.Control.glyph)
                             .background(FoundryTheme.fillTint)
                             .clipShape(Capsule())
                     }
@@ -338,7 +338,7 @@ private struct MediaDownloadRow: View {
                             .scaleEffect(x: max(fraction, 0.01), y: 1, anchor: .leading)
                             .animation(reduceMotion ? nil : FoundryTheme.Motion.progress, value: fraction)
                     }
-                    .frame(height: 3)
+                    .frame(height: FoundryTheme.Control.track)
                     .accessibilityElement(children: .ignore)
                     .accessibilityLabel("Download progress")
                     .accessibilityValue("\(Int(fraction * 100)) percent")

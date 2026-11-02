@@ -37,11 +37,11 @@ struct HomeAccessoryStrip: View {
         .frame(height: compactHeight + 6)
         .background {
             if compactBackground {
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                RoundedRectangle(cornerRadius: FoundryTheme.Radius.overlay, style: .continuous)
                     .fill(FoundryTheme.fillSubtle)
             }
         }
-        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: FoundryTheme.Radius.overlay, style: .continuous))
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Home accessories")
     }
@@ -120,10 +120,10 @@ private struct CompactFileShelfWidget: View {
 
                     if shelf.files.count > 3 {
                         Text("+\(shelf.files.count - 3)")
-                            .font(FoundryTheme.Strip.mono(9, weight: .bold))
+                            .font(FoundryTheme.Strip.mono(10, weight: .semibold))
                             .foregroundStyle(FoundryTheme.textOnDarkSurface)
                             .padding(.horizontal, 4)
-                            .frame(height: 16)
+                            .frame(height: FoundryTheme.Control.glyph)
                             .background(FoundryTheme.scrimStrong)
                             .clipShape(Capsule())
                     }
@@ -135,7 +135,7 @@ private struct CompactFileShelfWidget: View {
                         .foregroundStyle(FoundryTheme.textPrimary)
                         .lineLimit(1)
                     Text(shelf.compactSummary)
-                        .font(FoundryTheme.Strip.text(9.5, weight: .medium))
+                        .font(FoundryTheme.Strip.text(10, weight: .medium))
                         .foregroundStyle(shelf.isRemovingBackground ? FoundryTheme.accent : FoundryTheme.textSecondary)
                         .lineLimit(1)
                         .truncationMode(.middle)
@@ -185,7 +185,7 @@ private struct StatWidget: View {
                     .minimumScaleFactor(0.55)
 
                 Text(title)
-                    .font(FoundryTheme.Strip.text(9.5, weight: .semibold))
+                    .font(FoundryTheme.Strip.text(11, weight: .semibold))
                     .foregroundStyle(FoundryTheme.textQuaternary)
                     .lineLimit(1)
             }
@@ -254,7 +254,7 @@ private struct AgentWidgetRow: View {
                         .truncationMode(.tail)
 
                     Text(statusLabel)
-                        .font(FoundryTheme.Strip.text(9.5, weight: .medium))
+                        .font(FoundryTheme.Strip.text(10, weight: .medium))
                         .foregroundStyle(statusColor)
                         .lineLimit(1)
                 }
@@ -262,7 +262,7 @@ private struct AgentWidgetRow: View {
 
                 if additionalCount > 0 {
                     Text("+\(additionalCount)")
-                        .font(FoundryTheme.Strip.text(9, weight: .bold))
+                        .font(FoundryTheme.Strip.text(11, weight: .semibold))
                         .foregroundStyle(FoundryTheme.textSecondary)
                         .padding(.horizontal, 5)
                         .padding(.vertical, 2)
@@ -274,16 +274,15 @@ private struct AgentWidgetRow: View {
                 Image(systemName: "arrow.up.right")
                     .font(FoundryTheme.glyph(8, weight: .bold))
                     .foregroundStyle(FoundryTheme.textTertiary)
-                    .opacity(isHovering ? 0.9 : 0.35)
+                    .opacity(isHovering ? FoundryTheme.Alpha.faint : FoundryTheme.Alpha.half)
                     .frame(width: 16)
             }
             .padding(.horizontal, 0)
-            .frame(height: 38)
+            .frame(height: FoundryTheme.Control.field)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .onHover { isHovering = $0 }
-        .pointerCursor()
         .accessibilityElement(children: .combine)
         .accessibilityLabel(session.title)
         .accessibilityValue(statusLabel)
@@ -325,7 +324,7 @@ private struct AgentProviderBadge: View {
         AgentProviderIcon(provider: provider, size: 23)
             .frame(width: 23, height: 23)
             .background(FoundryTheme.fillHover)
-            .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: FoundryTheme.Radius.control, style: .continuous))
     }
 }
 
@@ -375,7 +374,7 @@ private struct SystemWidget: View {
                         .frame(width: max(4, geometry.size.width * min(max(value / 100, 0), 1)))
                 }
             }
-            .frame(height: 5)
+            .frame(height: FoundryTheme.Control.track)
 
             Text(display)
                 .font(FoundryTheme.Strip.mono(10, weight: .semibold))
@@ -435,7 +434,7 @@ private struct StockWidget: View {
 
     private var changeColor: Color {
         guard let snapshot else { return FoundryTheme.textTertiary }
-        return snapshot.changePercent >= 0 ? Color.green.opacity(FoundryTheme.Alpha.faint) : Color.red.opacity(FoundryTheme.Alpha.faint)
+        return snapshot.changePercent >= 0 ? FoundryTheme.success : FoundryTheme.destructive
     }
 
     var body: some View {
@@ -494,7 +493,7 @@ private struct CompactDateWidget: View {
                         .foregroundStyle(FoundryTheme.textPrimary)
                         .monospacedDigit()
                     Text(context.date.formatted(.dateTime.weekday(.abbreviated).month(.abbreviated)))
-                        .font(FoundryTheme.Strip.text(9.5, weight: .semibold))
+                        .font(FoundryTheme.Strip.text(11, weight: .semibold))
                         .foregroundStyle(FoundryTheme.textSecondary)
                         .lineLimit(1)
                 }
@@ -525,7 +524,7 @@ private struct ClockWidget: View {
                         .font(FoundryTheme.Strip.mono(12, weight: .semibold))
                         .foregroundStyle(FoundryTheme.textPrimary)
                     Text(TimeZone.current.localizedName(for: .shortStandard, locale: .current) ?? TimeZone.current.identifier)
-                        .font(FoundryTheme.Strip.text(9.5, weight: .semibold))
+                        .font(FoundryTheme.Strip.text(11, weight: .semibold))
                         .foregroundStyle(FoundryTheme.textQuaternary)
                         .lineLimit(1)
                 }
