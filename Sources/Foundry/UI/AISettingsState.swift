@@ -30,6 +30,7 @@ final class AISettingsState {
     private let diagnostics: DiagnosticsService
     private let aiCredentialStore: AICredentialStore
     private let codexOAuthService: OpenAICodexOAuthService
+    private let modelListFetcher: @Sendable (AIProviderProfile) async -> AIModelListResult
     private var aiProfileTestTask: Task<Void, Never>?
     private var aiModelTask: Task<Void, Never>?
     private var codexOAuthTask: Task<Void, Never>?
@@ -38,12 +39,14 @@ final class AISettingsState {
         config: ConfigService,
         diagnostics: DiagnosticsService,
         credentialStore: any AICredentialStore = KeychainAICredentialStore(),
-        codexOAuthService: OpenAICodexOAuthService = .shared
+        codexOAuthService: OpenAICodexOAuthService = .shared,
+        modelListFetcher: @escaping @Sendable (AIProviderProfile) async -> AIModelListResult = { await AITransportRouter.models(profile: $0) }
     ) {
         self.configService = config
         self.diagnostics = diagnostics
         self.aiCredentialStore = credentialStore
         self.codexOAuthService = codexOAuthService
+        self.modelListFetcher = modelListFetcher
         self.isOllamaEnabled = config.current.ai.isOllamaEnabled
         self.ollamaHost = config.current.ai.ollamaHost
         self.ollamaModel = config.current.ai.ollamaModel
@@ -372,15 +375,23 @@ final class AISettingsState {
         }
         aiModelTask?.cancel()
         aiModelsLoading = true
+        let fetcher = modelListFetcher
         aiModelTask = Task { [weak self] in
-            let models = await AITransportRouter.models(profile: profile)
+            let result = await fetcher(profile)
             guard Task.isCancelled == false else { return }
             await MainActor.run {
                 guard let self else { return }
-                self.aiAvailableModels = models
                 self.aiModelsLoading = false
-                if models.isEmpty == false {
-                    self.aiProfileStatus = String(localized: "Found \(models.count) model\(models.count == 1 ? "" : "s").")
+                switch result {
+                case let .loaded(models):
+                    self.aiAvailableModels = models
+                    self.aiProfileStatus = models.isEmpty
+                        ? String(localized: "This endpoint reported no models.")
+                        : String(localized: "Found \(models.count) model\(models.count == 1 ? "" : "s").")
+                case let .failed(message):
+                    self.aiAvailableModels = []
+                    self.aiProfileStatus = String(localized: "Could not load models. \(message)")
+                    self.aiProfileStatusIsError = true
                 }
             }
         }

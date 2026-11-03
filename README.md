@@ -20,6 +20,7 @@ Press **⌘Space** anywhere to open the launcher. First-run setup takes ⌘Space
 - Scriptable conversion entry points: `open -a Foundry --convert <paths>`, Finder Open With, and Dock drops
 - Settings backup and import
 - Calculator with unit conversions, equations, and a last-10 history
+- Time zone lookups and conversions (`now in sf`, `12pm est`)
 - Currency exchange via Frankfurter with the rate date shown
 - Translator with live language switching
 - Media downloads for direct links, Cobalt, and automatic YouTube support through yt-dlp, with favicons, file thumbnails, context menus, a completion toast, and aggregate speed

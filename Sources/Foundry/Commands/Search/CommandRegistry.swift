@@ -31,6 +31,7 @@ final class CommandRegistry: Sendable {
             providers: [
                 AppSearchProvider(diagnostics: diagnostics),
                 CalculatorProvider(),
+                TimeConversionProvider(),
                 DeveloperToolsProvider(),
                 MacUtilitiesProvider(),
                 TranslationProvider(),

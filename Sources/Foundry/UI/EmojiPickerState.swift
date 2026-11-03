@@ -41,8 +41,10 @@ final class EmojiPickerState {
         let item: EmojiItem
     }
 
+    var hasQuery: Bool { query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false }
+
     var recentCells: [Cell] {
-        guard query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return [] }
+        guard hasQuery == false else { return [] }
         return recents.map { Cell(id: "recent:" + $0.id, item: $0) }
     }
 

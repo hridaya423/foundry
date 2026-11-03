@@ -13,6 +13,11 @@ struct AIConnectionTestResult: Equatable, Sendable {
     }
 }
 
+enum AIModelListResult: Equatable, Sendable {
+    case loaded([AIModel])
+    case failed(String)
+}
+
 enum AITransportError: Error, Equatable, Sendable {
     case configuration(String)
     case authentication

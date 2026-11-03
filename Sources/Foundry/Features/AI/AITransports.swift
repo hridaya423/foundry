@@ -62,16 +62,16 @@ enum AITransportRouter {
         }
     }
 
-    static func models(profile: AIProviderProfile) async -> [AIModel] {
+    static func models(profile: AIProviderProfile) async -> AIModelListResult {
         switch profile.kind {
         case .openAI, .openAICompatible:
             return await OpenAICompatibleTransport.models(profile: profile, credentials: credentials)
         case .ollama:
             return await OllamaTransport.models(profile: profile)
         case .openAISubscription:
-            return CodexModelPolicy.models
+            return .loaded(CodexModelPolicy.models)
         default:
-            return []
+            return .loaded([])
         }
     }
 }

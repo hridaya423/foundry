@@ -40,6 +40,12 @@ final class FirefoxConnectorInstaller {
                 diagnostics.log("Opened Firefox connector for approval")
             } catch {
                 diagnostics.log("Could not prepare Firefox connector: \(error.localizedDescription)")
+                _ = await requestPrompt(PanelPromptSpec(
+                    title: "Couldn't set up the Firefox connector",
+                    message: "\(error.localizedDescription) Firefox tabs stay searchable through your other browsers.",
+                    confirmLabel: "OK",
+                    cancelLabel: nil
+                ))
             }
         }
     }

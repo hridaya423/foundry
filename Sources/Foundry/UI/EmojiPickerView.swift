@@ -21,7 +21,7 @@ struct EmojiPickerView: View {
                         if state.recentCells.isEmpty == false {
                             emojiSection(title: state.hasRecents ? "Recent" : "Suggested", cells: state.recentCells)
                         }
-                        emojiSection(title: state.query.isEmpty ? "All" : "Results", cells: state.resultCells)
+                        emojiSection(title: state.hasQuery ? "Results" : "All", cells: state.resultCells)
                     }
                     .padding(.horizontal, 20)
                     .padding(.vertical, 16)

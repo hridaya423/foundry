@@ -29,6 +29,16 @@ final class EmojiPickerStateTests: XCTestCase {
         XCTAssertTrue(ids.contains("all:🔥"))
     }
 
+    func testWhitespaceQueryCountsAsNoQuery() {
+        let state = EmojiPickerState(localState: LocalStateStore())
+        state.query = "   "
+        XCTAssertFalse(state.hasQuery)
+        XCTAssertFalse(state.recentCells.isEmpty)
+        state.query = "fire"
+        XCTAssertTrue(state.hasQuery)
+        XCTAssertTrue(state.recentCells.isEmpty)
+    }
+
     func testArrowsReachRecents() {
         let state = EmojiPickerState(localState: LocalStateStore())
         state.recordRecent("🔥")
