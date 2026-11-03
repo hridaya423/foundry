@@ -1,10 +1,12 @@
 import AppKit
 import Foundation
 import Observation
+import FoundryDomain
 
 @MainActor
 @Observable
 final class DeveloperToolsState {
+    @ObservationIgnored var onFeedback: ((ActionFeedback) -> Void)?
     enum Tool: String, CaseIterable, Identifiable {
         case base = "Base Conversion"
         case bitwise = "Bit Operations"
@@ -15,6 +17,18 @@ final class DeveloperToolsState {
         case wordCount = "Word Count"
 
         var id: String { rawValue }
+
+        var chipTitle: LocalizedStringResource {
+            switch self {
+            case .base: "Base"
+            case .bitwise: "Bits"
+            case .base64: "Base64"
+            case .json: "JSON"
+            case .textCase: "Case"
+            case .timestamp: "Timestamp"
+            case .wordCount: "Words"
+            }
+        }
 
         init?(commandID: String) {
             switch commandID {
@@ -139,9 +153,24 @@ final class DeveloperToolsState {
         refreshWordCount()
     }
 
+    /// The value ⌘↵ copies: the first output of the open tool.
+    var primaryOutput: String? {
+        let value: String? = switch selectedTool {
+        case .base: baseRows.first?.value
+        case .bitwise: bitRows.first?.value
+        case .base64: base64Output
+        case .json: jsonOutput
+        case .textCase: caseRows.first?.value
+        case .timestamp: timestampRows.first?.value
+        case .wordCount: wordCountRows.first?.value
+        }
+        return value.flatMap { $0.isEmpty ? nil : $0 }
+    }
+
     func copy(_ value: String) {
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(value, forType: .string)
+        onFeedback?(.success(String(localized: "Copied \(value.prefix(40))")))
     }
 
     private func refreshBase() {
@@ -153,7 +182,7 @@ final class DeveloperToolsState {
         }
         guard let rows = DeveloperToolsEngine.baseConversion(from: trimmed) else {
             baseRows = []
-            baseError = "Enter a decimal value, prefixed value like 0xff, or radix notation like 16 ff."
+            baseError = String(localized: "Enter a decimal value, prefixed value like 0xff, or radix notation like 16 ff.")
             return
         }
         baseRows = rows.map { OutputRow(label: $0.label, value: $0.value) }
@@ -164,7 +193,7 @@ final class DeveloperToolsState {
         guard let lhs = DeveloperToolsEngine.parseUnsignedInteger(bitLeftInput) else {
             bitExpression = ""
             bitRows = []
-            bitError = "Enter a valid left value like 5, 0xff, or 0b1010."
+            bitError = String(localized: "Enter a valid left value like 5, 0xff, or 0b1010.")
             return
         }
 
@@ -238,7 +267,7 @@ final class DeveloperToolsState {
             : DeveloperToolsEngine.base64Decode(trimmed)
         guard let output else {
             base64Output = ""
-            base64Error = "Enter valid Base64 text to decode."
+            base64Error = String(localized: "That isn’t valid Base64. It should look like SGVsbG8gd29ybGQ= (letters, digits, + and /, padded with =).")
             return
         }
         base64Output = output
@@ -254,11 +283,22 @@ final class DeveloperToolsState {
         }
         guard let output = DeveloperToolsEngine.formatJSON(input) else {
             jsonOutput = ""
-            jsonError = "Enter valid JSON."
+            let problem = Self.jsonProblem(in: input).map { ": \($0)" } ?? ""
+            jsonError = String(localized: "That isn’t valid JSON\(problem). Example: {\"name\": \"Foundry\", \"tags\": [1, 2]}")
             return
         }
         jsonOutput = output
         jsonError = nil
+    }
+
+    static func jsonProblem(in input: String) -> String? {
+        do {
+            _ = try JSONSerialization.jsonObject(with: Data(input.utf8), options: [.fragmentsAllowed])
+            return nil
+        } catch {
+            guard let detail = (error as NSError).userInfo[NSDebugDescriptionErrorKey] as? String, detail.isEmpty == false else { return nil }
+            return detail.prefix(1).lowercased() + detail.dropFirst().trimmingCharacters(in: CharacterSet(charactersIn: "."))
+        }
     }
 
     private func refreshCase() {

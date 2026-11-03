@@ -34,10 +34,11 @@ final class MediaDownloadProvider: CommandProvider {
         let dedupeNote = duplicates > 0 ? " (\(duplicates) duplicate\(duplicates == 1 ? "" : "s") skipped)" : ""
         let title = isBatch ? "Download \(urls.count) Media Links\(dedupeNote)" : (isPlaylist ? "Download Playlist" : "Download Media")
         let detail = isBatch ? "add all links to the download queue" : (isPlaylist ? "all videos in this playlist" : url.lastPathComponent)
-        let service = isBatch ? "parallel downloads" : (isYouTube ? "YouTube · yt-dlp (automatic setup)" : (isDirectFile ? "Direct link · stays on this Mac" : "supported media · yt-dlp"))
-        let primaryKind: CommandActionKind = isBatch
-            ? .downloadMediaBatch(urls: urls.map(\.absoluteString))
-            : .downloadMedia(url: url.absoluteString)
+        let service = isBatch ? "parallel downloads" : (isYouTube ? "YouTube · yt-dlp (automatic setup)" : (
+            isDirectFile ? "Direct link · stays on this Mac" : "supported media · yt-dlp"))
+        let primaryBehavior: any ResultAction = isBatch
+            ? DownloadMediaBatchAction(urls: urls.map(\.absoluteString))
+            : DownloadMediaAction(url: url.absoluteString)
         let thumbnailURL = isYouTube ? Self.youtubeThumbnailURL(for: url) : nil
         return [
             CommandResult(
@@ -46,12 +47,14 @@ final class MediaDownloadProvider: CommandProvider {
                 subtitle: "\(url.absoluteString)\n\(detail) · save via \(service) to \(MediaDownloadDestination.folder.lastPathComponent)",
                 icon: CommandIcon(fallback: "DL", systemName: "arrow.down.circle", thumbnailURL: thumbnailURL),
                 route: .mediaDownload,
-                primaryAction: CommandAction(id: "media.download.perform", title: isBatch ? "Download All" : "Download", kind: primaryKind),
+                payload: .command,
+                primaryAction: CommandAction(id: "media.download.perform", title: isBatch ? "Download All" : "Download", behavior: primaryBehavior),
                 secondaryActions: [
-                    CommandAction(id: "media.download.open-manager", title: "View Downloads", kind: .openMediaDownloads),
-                    CommandAction(id: "media.download.open-folder", title: "Open Download Folder", kind: .openURL(MediaDownloadDestination.folder.absoluteString)),
-                    CommandAction(id: "media.download.choose-folder", title: "Change Download Folder", kind: .chooseMediaDownloadFolder),
-                    CommandAction(id: "media.download.copy-url", title: "Copy URL", kind: .copyToClipboard(url.absoluteString))
+                    CommandAction(id: "media.download.open-manager", title: "View Downloads", behavior: OpenMediaDownloadsAction()),
+                    CommandAction(id: "media.download.open-folder", title: "Open Download Folder",
+                        behavior: OpenURLAction(MediaDownloadDestination.folder.absoluteString)),
+                    CommandAction(id: "media.download.choose-folder", title: "Change Download Folder", behavior: ChooseMediaDownloadFolderAction()),
+                    CommandAction(id: "media.download.copy-url", title: "Copy URL", behavior: CopyToClipboardAction(url.absoluteString))
                 ]
             )
         ]

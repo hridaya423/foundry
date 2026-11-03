@@ -1,0 +1,41 @@
+{
+ "summary": "Best moments for 'one loud sharp clack' in fs-174427_domino-sound-effect.ogg (kind=event; searched all 1.3 s: 2 windows of ~1.0 s (edges snapped to the sound) to locate events, none returned + 17 onset-based candidates (one stage)): 0:00.14-0:01.26 (1.12 s event, z +3.8 strong); 0:00.05-0:00.13 (0.08 s stroke, z -1.7 no match, tail cut). start/end are sample trims in seconds (strokes / events start 5 ms before the attack; windows are snapped to the sound; a 'head cut' / 'tail cut' trim cuts into a sound).",
+ "path": "audio/assets/tiles/fs-174427_domino-sound-effect.ogg",
+ "query": "one loud sharp clack",
+ "query_kind": "event",
+ "query_kind_score": 0.027,
+ "duration": 1.291,
+ "n_candidates": 17,
+ "n_windows": 0,
+ "n_events": 17,
+ "segments": [
+  {
+   "start": 0.145,
+   "end": 1.265,
+   "duration": 1.12,
+   "score": 3.88,
+   "z": 3.88,
+   "cosine": 0.34,
+   "verdict": "strong",
+   "kind": "event",
+   "peak_dbfs": -4.4,
+   "head_db": -41.0,
+   "tail_db": -36.5,
+   "cut": ""
+  },
+  {
+   "start": 0.046,
+   "end": 0.13,
+   "duration": 0.084,
+   "score": -2.2,
+   "z": -1.7,
+   "cosine": -0.153,
+   "verdict": "no match",
+   "kind": "stroke",
+   "peak_dbfs": -38.6,
+   "head_db": -54.8,
+   "tail_db": -1.5,
+   "cut": "tail cut"
+  }
+ ]
+}

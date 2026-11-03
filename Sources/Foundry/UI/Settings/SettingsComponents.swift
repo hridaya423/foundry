@@ -3,26 +3,41 @@ import Carbon
 import SwiftUI
 import FoundryDomain
 
+/// Runs an NSOpenPanel/NSSavePanel as a sheet on the key window — the
+/// Settings window when the call came from its UI — falling back to
+/// app-modal only when no window is available.
+@MainActor
+func runFilePanelAsSheet(_ panel: NSSavePanel) async -> Bool {
+    guard let window = NSApp.keyWindow ?? NSApp.mainWindow else {
+        return panel.runModal() == .OK
+    }
+    return await withCheckedContinuation { continuation in
+        panel.beginSheetModal(for: window) { response in
+            continuation.resume(returning: response == .OK)
+        }
+    }
+}
+
 struct SettingsGroup<Content: View>: View {
     @ViewBuilder let content: () -> Content
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0, content: content)
             .padding(.horizontal, 2)
-            .background(Color.primary.opacity(0.035))
-            .clipShape(RoundedRectangle(cornerRadius: 11, style: .continuous))
+            .background(FoundryTheme.fillSubtle)
+            .clipShape(RoundedRectangle(cornerRadius: FoundryTheme.Radius.row, style: .continuous))
             .overlay(
-                RoundedRectangle(cornerRadius: 11, style: .continuous)
-                    .stroke(Color.primary.opacity(0.045), lineWidth: 1)
+                RoundedRectangle(cornerRadius: FoundryTheme.Radius.row, style: .continuous)
+                    .stroke(FoundryTheme.separator, lineWidth: 1)
             )
     }
 }
 
 struct SettingsSectionLabel: View {
-    let title: String
+    let title: LocalizedStringResource
     let value: String?
 
-    init(title: String, value: String? = nil) {
+    init(title: LocalizedStringResource, value: String? = nil) {
         self.title = title
         self.value = value
     }
@@ -30,13 +45,13 @@ struct SettingsSectionLabel: View {
     var body: some View {
         HStack {
             Text(title)
-                .font(FoundryTheme.body(size: 13, weight: .semibold))
-                .foregroundStyle(FoundryTheme.primaryText.opacity(0.78))
+                .font(FoundryTheme.body)
+                .foregroundStyle(FoundryTheme.textSecondary)
             Spacer()
             if let value {
                 Text(value)
-                    .font(FoundryTheme.body(size: 12, weight: .medium))
-                    .foregroundStyle(FoundryTheme.mutedText)
+                    .font(FoundryTheme.bodySecondary)
+                    .foregroundStyle(FoundryTheme.textTertiary)
             }
         }
         .padding(.horizontal, 2)
@@ -46,32 +61,32 @@ struct SettingsSectionLabel: View {
 struct SettingsDivider: View {
     var body: some View {
         Rectangle()
-            .fill(Color.primary.opacity(0.07))
-            .frame(height: 1)
+            .fill(FoundryTheme.fillTint)
+            .frame(height: FoundryTheme.hairline)
             .padding(.horizontal, 12)
     }
 }
 
 struct SettingsLabel: View {
-    let title: String
-    let subtitle: String
+    let title: LocalizedStringResource
+    let subtitle: LocalizedStringResource
 
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(title)
-                .font(FoundryTheme.body(size: 14, weight: .medium))
-                .foregroundStyle(FoundryTheme.primaryText)
+                .font(FoundryTheme.body)
+                .foregroundStyle(FoundryTheme.textPrimary)
             Text(subtitle)
-                .font(FoundryTheme.body(size: 12, weight: .regular))
-                .foregroundStyle(FoundryTheme.mutedText)
+                .font(FoundryTheme.bodySecondary)
+                .foregroundStyle(FoundryTheme.textTertiary)
                 .fixedSize(horizontal: false, vertical: true)
         }
     }
 }
 
 struct SettingsToggleRow: View {
-    let title: String
-    let subtitle: String
+    let title: LocalizedStringResource
+    let subtitle: LocalizedStringResource
     let isOn: Bool
     let set: (Bool) -> Void
 
@@ -82,8 +97,8 @@ struct SettingsToggleRow: View {
             Toggle("", isOn: Binding(get: { isOn }, set: { value in set(value) }))
                 .labelsHidden()
                 .toggleStyle(.switch)
-                .accessibilityLabel(title)
-                .accessibilityValue(isOn ? "On" : "Off")
+                .accessibilityLabel(Text(title))
+                .accessibilityValue(isOn ? String(localized: "On") : String(localized: "Off"))
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 12)
@@ -91,9 +106,9 @@ struct SettingsToggleRow: View {
 }
 
 struct SettingsNotice: View {
-    let text: String
+    let text: LocalizedStringResource
     let symbol: String
-    var actionTitle: String? = nil
+    var actionTitle: LocalizedStringResource? = nil
     var action: (() -> Void)? = nil
 
     var body: some View {
@@ -102,15 +117,15 @@ struct SettingsNotice: View {
 }
 
 struct SettingsTextFieldRow: View {
-    let title: String
-    let placeholder: String
+    let title: LocalizedStringResource
+    let placeholder: LocalizedStringResource
     let value: String
     let error: String?
     let commit: (String) -> Void
 
     @State private var text: String
 
-    init(title: String, placeholder: String, value: String, error: String?, commit: @escaping (String) -> Void) {
+    init(title: LocalizedStringResource, placeholder: LocalizedStringResource, value: String, error: String?, commit: @escaping (String) -> Void) {
         self.title = title
         self.placeholder = placeholder
         self.value = value
@@ -123,23 +138,23 @@ struct SettingsTextFieldRow: View {
         VStack(alignment: .leading, spacing: 5) {
             HStack(spacing: 10) {
                 Text(title)
-                    .font(FoundryTheme.body(size: 13, weight: .medium))
-                    .foregroundStyle(FoundryTheme.primaryText)
+                    .font(FoundryTheme.body)
+                    .foregroundStyle(FoundryTheme.textPrimary)
                     .frame(width: 72, alignment: .leading)
                 VStack(alignment: .leading, spacing: 2) {
-                    TextField(placeholder, text: $text)
+                    TextField(String(localized: placeholder), text: $text)
                         .textFieldStyle(.plain)
-                        .font(FoundryTheme.body(size: 14, weight: .medium))
-                        .foregroundStyle(FoundryTheme.primaryText)
-                        .onSubmit { commit(text) }
+                        .font(FoundryTheme.body)
+                        .foregroundStyle(FoundryTheme.textPrimary)
+                        .modifier(CommitOnBlur { commit(text) })
                 }
                 Spacer()
             }
             if let error {
                 Text(error)
-                    .font(FoundryTheme.body(size: 11, weight: .medium))
-                    .foregroundStyle(FoundryTheme.error)
-                    .padding(.leading, 44)
+                    .font(FoundryTheme.caption)
+                    .foregroundStyle(FoundryTheme.destructive)
+                    .padding(.leading, 82)
             }
         }
         .padding(.horizontal, 12)
@@ -149,23 +164,37 @@ struct SettingsTextFieldRow: View {
     }
 }
 
+struct CommitOnBlur: ViewModifier {
+    let commit: () -> Void
+    @FocusState private var isFocused: Bool
+
+    func body(content: Content) -> some View {
+        content
+            .focused($isFocused)
+            .onSubmit(commit)
+            .onChange(of: isFocused) { wasFocused, nowFocused in
+                if wasFocused, nowFocused == false { commit() }
+            }
+    }
+}
+
 struct SettingsSecureFieldRow: View {
-    let title: String
-    let placeholder: String
+    let title: LocalizedStringResource
+    let placeholder: LocalizedStringResource
     @Binding var value: String
     let commit: (String) -> Void
 
     var body: some View {
         HStack(spacing: 10) {
             Text(title)
-                .font(FoundryTheme.body(size: 13, weight: .medium))
-                .foregroundStyle(FoundryTheme.primaryText)
+                .font(FoundryTheme.body)
+                .foregroundStyle(FoundryTheme.textPrimary)
                 .frame(width: 72, alignment: .leading)
-            SecureField(placeholder, text: $value)
+            SecureField(String(localized: placeholder), text: $value)
                 .textFieldStyle(.plain)
-                .font(FoundryTheme.body(size: 14, weight: .medium))
-                .foregroundStyle(FoundryTheme.primaryText)
-                .onSubmit { commit(value) }
+                .font(FoundryTheme.body)
+                .foregroundStyle(FoundryTheme.textPrimary)
+                .modifier(CommitOnBlur { commit(value) })
             Button("Save") {
                 commit(value)
             }
@@ -181,29 +210,19 @@ struct ShortcutRecorder: NSViewRepresentable {
     let hotkey: FoundryHotkey
     var placeholder: String? = nil
     let onChange: (FoundryHotkey) -> Void
-
-    func makeCoordinator() -> Coordinator { Coordinator(onChange: onChange) }
+    var onClear: (() -> Void)? = nil
 
     func makeNSView(context: Context) -> ShortcutRecorderView {
         let view = ShortcutRecorderView()
-        view.onHotkey = context.coordinator.record
-        view.hotkey = hotkey
-        view.placeholder = placeholder
+        updateNSView(view, context: context)
         return view
     }
 
     func updateNSView(_ view: ShortcutRecorderView, context: Context) {
         view.hotkey = hotkey
         view.placeholder = placeholder
-        view.onHotkey = context.coordinator.record
-    }
-
-    final class Coordinator {
-        let onChange: (FoundryHotkey) -> Void
-
-        init(onChange: @escaping (FoundryHotkey) -> Void) { self.onChange = onChange }
-
-        func record(_ hotkey: FoundryHotkey) { onChange(hotkey) }
+        view.onHotkey = onChange
+        view.onClear = onClear
     }
 }
 
@@ -211,16 +230,23 @@ final class ShortcutRecorderView: NSView {
     var hotkey = FoundryHotkey.commandSpace { didSet { needsDisplay = true } }
     var placeholder: String? { didSet { needsDisplay = true } }
     var onHotkey: ((FoundryHotkey) -> Void)?
-    private var isRecording = false { didSet { needsDisplay = true } }
+    var onClear: (() -> Void)?
+    private(set) var isRecording = false { didSet { needsDisplay = true } }
 
     override var acceptsFirstResponder: Bool { true }
+    override var canBecomeKeyView: Bool { true }
+    override var focusRingMaskBounds: NSRect { bounds }
+
+    override func drawFocusRingMask() {
+        NSBezierPath(roundedRect: bounds, xRadius: FoundryTheme.Radius.control, yRadius: FoundryTheme.Radius.control).fill()
+    }
 
     override func draw(_ dirtyRect: NSRect) {
         let background = isRecording ? NSColor.labelColor.withAlphaComponent(0.14) : NSColor.labelColor.withAlphaComponent(0.08)
         background.setFill()
-        NSBezierPath(roundedRect: bounds, xRadius: 8, yRadius: 8).fill()
+        NSBezierPath(roundedRect: bounds, xRadius: FoundryTheme.Radius.control, yRadius: FoundryTheme.Radius.control).fill()
 
-        let text = isRecording ? "Press shortcut…" : (placeholder ?? hotkey.displayName)
+        let text = isRecording ? String(localized: "Press shortcut…") : (placeholder ?? hotkey.displayName)
         let attributes: [NSAttributedString.Key: Any] = [
             .font: NSFont.systemFont(ofSize: 13, weight: .semibold),
             .foregroundColor: NSColor.labelColor.withAlphaComponent(isRecording ? 0.7 : 0.95)
@@ -235,27 +261,28 @@ final class ShortcutRecorderView: NSView {
     }
 
     override func keyDown(with event: NSEvent) {
-        let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
-        let modifiers = carbonModifiers(from: flags)
-        guard modifiers & UInt32(cmdKey | optionKey | controlKey) != 0 else {
+        let plain = event.modifierFlags.intersection([.command, .option, .control, .shift]).isEmpty
+        guard isRecording else {
+            switch (Int(event.keyCode), plain) {
+            case (kVK_Space, true), (kVK_Return, true):
+                isRecording = true
+            case (kVK_Delete, true) where onClear != nil, (kVK_ForwardDelete, true) where onClear != nil:
+                onClear?()
+            default:
+                super.keyDown(with: event)
+            }
+            return
+        }
+        if Int(event.keyCode) == kVK_Escape, plain {
+            isRecording = false
+            return
+        }
+        guard let recorded = FoundryHotkey(recording: event) else {
             NSSound.beep()
             return
         }
-        guard let keyName = keyName(for: event) else {
-            NSSound.beep()
-            return
-        }
-
-        var parts: [String] = []
-        if modifiers & UInt32(cmdKey) != 0 { parts.append("⌘") }
-        if modifiers & UInt32(optionKey) != 0 { parts.append("⌥") }
-        if modifiers & UInt32(controlKey) != 0 { parts.append("⌃") }
-        if modifiers & UInt32(shiftKey) != 0 { parts.append("⇧") }
-        parts.append(keyName)
-
         isRecording = false
-        onHotkey?(FoundryHotkey(keyCode: UInt32(event.keyCode), modifiers: modifiers, displayName: parts.joined()))
-        window?.makeFirstResponder(nil)
+        onHotkey?(recorded)
     }
 
     override func resignFirstResponder() -> Bool {
@@ -263,32 +290,14 @@ final class ShortcutRecorderView: NSView {
         return super.resignFirstResponder()
     }
 
-    private func carbonModifiers(from flags: NSEvent.ModifierFlags) -> UInt32 {
-        var modifiers: UInt32 = 0
-        if flags.contains(.command) { modifiers |= UInt32(cmdKey) }
-        if flags.contains(.option) { modifiers |= UInt32(optionKey) }
-        if flags.contains(.control) { modifiers |= UInt32(controlKey) }
-        if flags.contains(.shift) { modifiers |= UInt32(shiftKey) }
-        return modifiers
-    }
+    override func isAccessibilityElement() -> Bool { true }
+    override func accessibilityRole() -> NSAccessibility.Role? { .button }
+    override func accessibilityLabel() -> String? { isRecording ? String(localized: "Press shortcut…") : (placeholder ?? hotkey.displayName) }
 
-    private func keyName(for event: NSEvent) -> String? {
-        let names: [UInt16: String] = [
-            UInt16(kVK_Return): "↩",
-            UInt16(kVK_Tab): "⇥",
-            UInt16(kVK_Space): "Space",
-            UInt16(kVK_Delete): "⌫",
-            UInt16(kVK_Escape): "Esc",
-            UInt16(kVK_LeftArrow): "←",
-            UInt16(kVK_RightArrow): "→",
-            UInt16(kVK_UpArrow): "↑",
-            UInt16(kVK_DownArrow): "↓"
-        ]
-        if let name = names[event.keyCode] { return name }
-        guard let characters = event.charactersIgnoringModifiers?.trimmingCharacters(in: .whitespacesAndNewlines), characters.isEmpty == false else {
-            return nil
-        }
-        return characters.uppercased()
+    override func accessibilityPerformPress() -> Bool {
+        isRecording = true
+        window?.makeFirstResponder(self)
+        return true
     }
 }
 
@@ -304,19 +313,19 @@ struct ActiveWidgetRow: View {
     var body: some View {
         HStack(spacing: 10) {
             Image(systemName: kind.symbol)
-                .font(.system(size: 14, weight: .medium))
-                .foregroundStyle(FoundryTheme.secondaryText)
+                .font(FoundryTheme.Glyph.sm)
+                .foregroundStyle(FoundryTheme.textSecondary)
                 .frame(width: 20)
             SettingsLabel(title: kind.title, subtitle: kind.summary)
             Spacer()
-            SettingsIconButton(symbol: "chevron.up", label: "Move \(kind.title) up", action: moveUp)
-                .disabled(isFirst)
-                .opacity(isHovering ? (isFirst ? 0.3 : 1) : 0.12)
-            SettingsIconButton(symbol: "chevron.down", label: "Move \(kind.title) down", action: moveDown)
-                .disabled(isLast)
-                .opacity(isHovering ? (isLast ? 0.3 : 1) : 0.12)
-            SettingsIconButton(symbol: "minus", label: "Remove \(kind.title)", action: remove, tint: FoundryTheme.error)
-                .opacity(isHovering ? 1 : 0.12)
+            HStack(spacing: 10) {
+                SettingsIconButton(symbol: "chevron.up", label: "Move \(kind.title) up", action: moveUp)
+                    .disabled(isFirst)
+                SettingsIconButton(symbol: "chevron.down", label: "Move \(kind.title) down", action: moveDown)
+                    .disabled(isLast)
+                SettingsIconButton(symbol: "minus", label: "Remove \(kind.title)", action: remove, tint: FoundryTheme.destructive)
+            }
+            .opacity(isHovering ? 1 : FoundryTheme.Alpha.half)
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 8)
@@ -333,49 +342,47 @@ struct AvailableWidgetRow: View {
         Button(action: add) {
             HStack(spacing: 10) {
                 Image(systemName: kind.symbol)
-                    .font(.system(size: 14, weight: .medium))
-                    .foregroundStyle(FoundryTheme.secondaryText)
+                    .font(FoundryTheme.Glyph.sm)
+                    .foregroundStyle(FoundryTheme.textSecondary)
                     .frame(width: 20)
                 SettingsLabel(title: kind.title, subtitle: kind.summary)
                 Spacer()
                 Image(systemName: "plus")
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(FoundryTheme.secondaryText)
+                    .font(FoundryTheme.Glyph.sm)
+                    .foregroundStyle(FoundryTheme.textSecondary)
                     .frame(width: 24, height: 24)
             }
             .padding(.horizontal, 10)
             .padding(.vertical, 8)
         }
         .buttonStyle(.plain)
-        .pointerCursor()
     }
 }
 
 struct SettingsIconButton: View {
     let symbol: String
-    let label: String
+    let label: LocalizedStringResource
     let action: () -> Void
-    var tint: Color = FoundryTheme.secondaryText
+    var tint: Color = FoundryTheme.textSecondary
 
     var body: some View {
         Button(action: action) {
             Image(systemName: symbol)
-                .font(.system(size: 12, weight: .semibold))
+                .font(FoundryTheme.Glyph.xs)
                 .foregroundStyle(tint)
                 .frame(width: 28, height: 28)
-                .background(Color.primary.opacity(0.07))
-                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                .background(FoundryTheme.fillTint)
+                .clipShape(RoundedRectangle(cornerRadius: FoundryTheme.Radius.control, style: .continuous))
         }
         .buttonStyle(.plain)
-        .accessibilityLabel(label)
-        .help(label)
-        .pointerCursor()
+        .accessibilityLabel(Text(label))
+        .help(Text(label))
     }
 }
 
 struct ConfigFieldRow: View {
-    let title: String
-    let placeholder: String
+    let title: LocalizedStringResource
+    let placeholder: LocalizedStringResource
     let initialValue: String
     let commit: (String) -> Void
     @State private var text = ""
@@ -383,14 +390,14 @@ struct ConfigFieldRow: View {
     var body: some View {
         HStack(spacing: 10) {
             Text(title)
-                .font(FoundryTheme.body(size: 13, weight: .medium))
-                .foregroundStyle(FoundryTheme.primaryText)
+                .font(FoundryTheme.body)
+                .foregroundStyle(FoundryTheme.textPrimary)
                 .frame(width: 112, alignment: .leading)
-            TextField(placeholder, text: $text)
+            TextField(String(localized: placeholder), text: $text)
                 .textFieldStyle(.plain)
-                .font(FoundryTheme.body(size: 14, weight: .medium))
-                .foregroundStyle(FoundryTheme.primaryText)
-                .onSubmit { commit(text) }
+                .font(FoundryTheme.body)
+                .foregroundStyle(FoundryTheme.textPrimary)
+                .modifier(CommitOnBlur { commit(text) })
             Spacer()
         }
         .padding(.horizontal, 12)
@@ -409,6 +416,8 @@ struct CommandSettingsRow: View {
     let setFallbackEligible: (Bool) -> Void
     let reset: () -> Void
     let toggleExpanded: () -> Void
+    /// Owner of a chord (`launcher`/commandID) or nil when free.
+    let hotkeyConflict: (UInt32, UInt32) -> String?
 
     @State private var aliasesText: String
 
@@ -421,7 +430,8 @@ struct CommandSettingsRow: View {
         setHotkey: @escaping (FoundryHotkey?) -> Void,
         setFallbackEligible: @escaping (Bool) -> Void,
         reset: @escaping () -> Void,
-        toggleExpanded: @escaping () -> Void
+        toggleExpanded: @escaping () -> Void,
+        hotkeyConflict: @escaping (UInt32, UInt32) -> String?
     ) {
         self.row = row
         self.isExpanded = isExpanded
@@ -432,12 +442,18 @@ struct CommandSettingsRow: View {
         self.setFallbackEligible = setFallbackEligible
         self.reset = reset
         self.toggleExpanded = toggleExpanded
+        self.hotkeyConflict = hotkeyConflict
         _aliasesText = State(initialValue: row.preference.aliases.joined(separator: ", "))
     }
 
     private var suggestedHotkey: CommandHotkey? {
         guard row.id.hasPrefix("window.") else { return nil }
-        return WindowPlacement(rawValue: String(row.id.dropFirst(7)))?.suggestedHotkey
+        guard let suggested = WindowPlacement(rawValue: String(row.id.dropFirst(7)))?.suggestedHotkey else {
+            return nil
+        }
+        // Never offer a chord that's already bound elsewhere.
+        guard hotkeyConflict(suggested.keyCode, suggested.modifiers) == nil else { return nil }
+        return suggested
     }
 
     var body: some View {
@@ -447,12 +463,12 @@ struct CommandSettingsRow: View {
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(row.title)
-                        .font(FoundryTheme.body(size: 14, weight: .semibold))
-                        .foregroundStyle(row.preference.isEnabled ? FoundryTheme.primaryText : FoundryTheme.mutedText)
+                        .font(FoundryTheme.body)
+                        .foregroundStyle(row.preference.isEnabled ? FoundryTheme.textPrimary : FoundryTheme.textTertiary)
                         .lineLimit(1)
                     Text(row.subtitle)
-                        .font(FoundryTheme.body(size: 11, weight: .regular))
-                        .foregroundStyle(FoundryTheme.mutedText)
+                        .font(FoundryTheme.caption)
+                        .foregroundStyle(FoundryTheme.textTertiary)
                         .lineLimit(1)
                 }
 
@@ -462,8 +478,8 @@ struct CommandSettingsRow: View {
                     setFavorite(row.preference.favoriteRank == nil)
                 } label: {
                     Image(systemName: row.preference.favoriteRank == nil ? "star" : "star.fill")
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(row.preference.favoriteRank == nil ? FoundryTheme.mutedText : FoundryTheme.accent)
+                        .font(FoundryTheme.Glyph.xs)
+                        .foregroundStyle(row.preference.favoriteRank == nil ? FoundryTheme.textTertiary : FoundryTheme.accent)
                         .frame(width: 26, height: 26)
                 }
                 .buttonStyle(.plain)
@@ -482,8 +498,8 @@ struct CommandSettingsRow: View {
                     toggleExpanded()
                 } label: {
                     Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(FoundryTheme.mutedText)
+                        .font(FoundryTheme.Glyph.xs)
+                        .foregroundStyle(FoundryTheme.textTertiary)
                         .frame(width: 26, height: 26)
                 }
                 .buttonStyle(.plain)
@@ -493,49 +509,51 @@ struct CommandSettingsRow: View {
             if isExpanded {
                 HStack(spacing: 8) {
                     Text("Aliases")
-                        .font(FoundryTheme.body(size: 11, weight: .medium))
-                        .foregroundStyle(FoundryTheme.mutedText)
+                        .font(FoundryTheme.caption)
+                        .foregroundStyle(FoundryTheme.textTertiary)
                         .frame(width: 48, alignment: .leading)
                     TextField("comma separated", text: $aliasesText)
                         .textFieldStyle(.plain)
-                        .font(FoundryTheme.body(size: 12, weight: .regular))
-                        .foregroundStyle(FoundryTheme.secondaryText)
-                        .onSubmit { commitAliases(aliasesText) }
+                        .font(FoundryTheme.bodySecondary)
+                        .foregroundStyle(FoundryTheme.textSecondary)
+                        .modifier(CommitOnBlur { commitAliases(aliasesText) })
                     Spacer()
-                    if row.preference.aliases.isEmpty == false || row.preference.favoriteRank != nil || row.preference.isEnabled == false || row.preference.globalHotkey != nil || row.preference.fallbackEligible == false {
+                    if row.preference.aliases.isEmpty == false || row.preference.favoriteRank != nil || row.preference.isEnabled == false
+                        || row.preference.globalHotkey != nil || row.preference.fallbackEligible == false {
                         Button("Reset") { reset() }
                             .buttonStyle(.plain)
-                            .font(FoundryTheme.body(size: 11, weight: .medium))
-                            .foregroundStyle(FoundryTheme.mutedText)
+                            .font(FoundryTheme.caption)
+                            .foregroundStyle(FoundryTheme.textTertiary)
                     }
                 }
 
                 HStack(spacing: 8) {
                     Text("Hotkey")
-                        .font(FoundryTheme.body(size: 11, weight: .medium))
-                        .foregroundStyle(FoundryTheme.mutedText)
+                        .font(FoundryTheme.caption)
+                        .foregroundStyle(FoundryTheme.textTertiary)
                         .frame(width: 48, alignment: .leading)
                     ShortcutRecorder(
                         hotkey: row.preference.globalHotkey.map {
                             FoundryHotkey(keyCode: $0.keyCode, modifiers: $0.modifiers, displayName: $0.displayName)
                         } ?? FoundryHotkey(keyCode: 0, modifiers: 0, displayName: "Set shortcut"),
                         placeholder: row.preference.globalHotkey == nil ? "Set shortcut" : nil,
-                        onChange: { setHotkey($0) }
+                        onChange: { setHotkey($0) },
+                        onClear: { setHotkey(nil) }
                     )
-                    .frame(width: 132, height: 28)
+                    .frame(width: FoundryTheme.Control.settingsColumn, height: FoundryTheme.Control.compact)
                     if row.preference.globalHotkey != nil {
                         Button("Clear") { setHotkey(nil) }
                             .buttonStyle(.plain)
-                            .font(FoundryTheme.body(size: 11, weight: .medium))
-                            .foregroundStyle(FoundryTheme.mutedText)
+                            .font(FoundryTheme.caption)
+                            .foregroundStyle(FoundryTheme.textTertiary)
                     } else if let suggested = suggestedHotkey {
                         Button("Use \(suggested.displayName)") {
                             setHotkey(FoundryHotkey(keyCode: suggested.keyCode, modifiers: suggested.modifiers, displayName: suggested.displayName))
                         }
                         .buttonStyle(.plain)
-                        .font(FoundryTheme.body(size: 11, weight: .medium))
-                        .foregroundStyle(FoundryTheme.mutedText)
-                        .help("Rectangle-style suggested shortcut")
+                        .font(FoundryTheme.caption)
+                        .foregroundStyle(FoundryTheme.textTertiary)
+                        .help("Suggested shortcut")
                     }
                     Spacer()
                 }
@@ -545,8 +563,8 @@ struct CommandSettingsRow: View {
                     set: { setFallbackEligible($0) }
                 ))
                 .toggleStyle(.switch)
-                .font(FoundryTheme.body(size: 11, weight: .medium))
-                .foregroundStyle(FoundryTheme.mutedText)
+                .font(FoundryTheme.caption)
+                .foregroundStyle(FoundryTheme.textTertiary)
             }
         }
         .padding(.horizontal, 10)
@@ -574,12 +592,12 @@ struct CommandSettingsIcon: View {
                     .scaledToFit()
             } else if let systemName = icon.systemName {
                 Image(systemName: systemName)
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(FoundryTheme.secondaryText)
+                    .font(FoundryTheme.Glyph.sm)
+                    .foregroundStyle(FoundryTheme.textSecondary)
             } else {
                 Text(icon.fallback)
-                    .font(FoundryTheme.body(size: 10, weight: .bold))
-                    .foregroundStyle(FoundryTheme.secondaryText)
+                    .font(FoundryTheme.micro)
+                    .foregroundStyle(FoundryTheme.textSecondary)
             }
         }
         .frame(width: 28, height: 28)
@@ -609,8 +627,8 @@ struct ExcludedAppsRow: View {
         VStack(alignment: .leading, spacing: 9) {
             HStack(spacing: 10) {
                 Text(title)
-                    .font(FoundryTheme.body(size: 13, weight: .medium))
-                    .foregroundStyle(FoundryTheme.primaryText)
+                    .font(FoundryTheme.body)
+                    .foregroundStyle(FoundryTheme.textPrimary)
                     .frame(width: 112, alignment: .leading)
 
                 Menu {
@@ -640,17 +658,17 @@ struct ExcludedAppsRow: View {
                                 .lineLimit(1)
                             Button { remove(bundleID) } label: {
                                 Image(systemName: "xmark")
-                                    .font(.system(size: 8, weight: .bold))
+                                    .font(FoundryTheme.Glyph.xs)
                             }
                             .buttonStyle(.plain)
                             .accessibilityLabel("Remove \(appName(for: bundleID))")
                         }
-                        .font(FoundryTheme.body(size: 11, weight: .medium))
-                        .foregroundStyle(FoundryTheme.secondaryText)
+                        .font(FoundryTheme.caption)
+                        .foregroundStyle(FoundryTheme.textSecondary)
                         .padding(.horizontal, 9)
-                        .frame(height: 24)
+                        .frame(height: FoundryTheme.Control.mini)
                         .background(
-                            Capsule(style: .continuous).fill(Color.primary.opacity(0.07))
+                            Capsule(style: .continuous).fill(FoundryTheme.fillTint)
                         )
                     }
                 }
@@ -658,8 +676,8 @@ struct ExcludedAppsRow: View {
 
             TextField("Or type a bundle ID, e.g. com.example.app", text: $manualID)
                 .textFieldStyle(.plain)
-                .font(FoundryTheme.mono(size: 12, weight: .regular))
-                .foregroundStyle(FoundryTheme.secondaryText)
+                .font(FoundryTheme.mono)
+                .foregroundStyle(FoundryTheme.textSecondary)
                 .onSubmit {
                     let value = manualID.trimmingCharacters(in: .whitespacesAndNewlines)
                     guard value.isEmpty == false else { return }

@@ -2,10 +2,17 @@ import SwiftUI
 
 struct AgentShelfView: View {
     var agents: AgentMonitorState
-    let dismiss: () -> Void
-    @State private var selectedProvider: AgentProviderKind?
+    var openSettings: () -> Void = {}
+    var open: (AgentSessionCard) -> Void = { _ in }
 
-    private let providerTabs: [AgentProviderKind] = [.cursor, .codex, .opencode, .claude]
+    private var providerTabs: [AgentProviderKind] { Self.tabs(for: agents.sessions) }
+
+    nonisolated static func tabs(for sessions: [AgentSessionCard]) -> [AgentProviderKind] {
+        let preferred: [AgentProviderKind] = [.claude, .codex, .cursor, .opencode]
+        let present = Set(sessions.map(\.provider))
+        let others = present.subtracting(preferred).sorted { $0.rawValue < $1.rawValue }
+        return preferred.filter(present.contains) + others
+    }
 
     private var active: [AgentSessionCard] {
         filteredSessions.filter { $0.status.isActive }
@@ -16,7 +23,11 @@ struct AgentShelfView: View {
     }
 
     private var filteredSessions: [AgentSessionCard] {
-        Self.sessions(for: selectedProvider, in: agents.sessions)
+        Self.sessions(for: agents.selectedProvider, in: agents.sessions)
+    }
+
+    static func canOpen(_ session: AgentSessionCard) -> Bool {
+        session.capabilities.intersection([.jumpApplication, .jumpTerminal, .jumpTask]).isEmpty == false
     }
 
     nonisolated static func sessions(for provider: AgentProviderKind?, in sessions: [AgentSessionCard]) -> [AgentSessionCard] {
@@ -26,44 +37,18 @@ struct AgentShelfView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            HStack(spacing: 10) {
-                shelfIcon
-                VStack(alignment: .leading, spacing: 1) {
-                    Text("Agent Shelf")
-                        .font(FoundryTheme.body(size: 14, weight: .semibold))
-                        .foregroundStyle(FoundryTheme.primaryText)
-                    Text("\(active.count) active · \(filteredSessions.count) tracked · \(agents.socketListening ? "live" : "live updates off")")
-                        .font(FoundryTheme.body(size: 11, weight: .medium))
-                        .foregroundStyle(FoundryTheme.mutedText)
-                }
-                Spacer()
-                Button(action: agents.refresh) {
-                    Image(systemName: "arrow.clockwise")
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(FoundryTheme.secondaryText)
-                        .frame(width: 28, height: 28)
-                        .background(Color.primary.opacity(0.06))
-                        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-                }
-                .buttonStyle(.plain)
-                .pointerCursor()
-                .help("Refresh sessions")
-                .accessibilityLabel("Refresh sessions")
+            if agents.socketListening == false {
+                InlineNotice(level: .warning, text: "Live updates are off. Open Settings › Agents.", actionTitle: "Open Settings", action: openSettings)
+                    .padding(.horizontal, 18)
+                    .padding(.top, 10)
             }
-            .padding(.horizontal, 18)
-            .padding(.vertical, 12)
-
-            Rectangle()
-                .fill(Color.primary.opacity(0.07))
-                .frame(height: 1)
-
             providerTabsView
 
             ScrollViewReader { proxy in
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 14) {
                         Color.clear
-                            .frame(height: 0)
+                            .frame(height: .zero)
                             .id("agent-shelf-top")
                         if active.isEmpty == false {
                             section(title: "Active", sessions: active)
@@ -75,18 +60,18 @@ struct AgentShelfView: View {
                             HStack(spacing: 8) {
                                 ProgressView().controlSize(.small)
                                 Text("Looking for agent sessions…")
-                                    .font(FoundryTheme.body(size: 12, weight: .medium))
-                                    .foregroundStyle(FoundryTheme.mutedText)
+                                    .font(FoundryTheme.bodySecondary)
+                                    .foregroundStyle(FoundryTheme.textTertiary)
                             }
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 38)
                         } else if filteredSessions.isEmpty {
                             FoundryEmptyState(
                                 symbol: "sparkles.rectangle.stack",
-                                title: selectedProvider.map { "No \($0.rawValue) sessions found" } ?? "No agent sessions found",
-                                message: "Provider hooks, plugins, and desktop catalogs appear here.",
-                                actionTitle: "Refresh",
-                                action: agents.refresh
+                                title: "No agent sessions yet",
+                                message: "Install a bridge in Settings › Agents to see Claude Code, Codex, Cursor and OpenCode here.",
+                                actionTitle: "Open Agent Settings",
+                                action: openSettings
                             )
                             .padding(.vertical, 38)
                         }
@@ -95,107 +80,104 @@ struct AgentShelfView: View {
                     .padding(.vertical, 14)
                 }
                 .scrollIndicators(.never)
-                .id(selectedProvider?.rawValue ?? "all")
-                .onChange(of: selectedProvider) { _, _ in
+                .id(agents.selectedProvider?.rawValue ?? "all")
+                .onChange(of: agents.selectedProvider) { _, _ in
                     proxy.scrollTo("agent-shelf-top", anchor: .top)
+                }
+                .onChange(of: agents.selectedSessionID) { _, id in
+                    guard let id else { return }
+                    proxy.scrollTo(id, anchor: .center)
                 }
             }
         }
     }
 
     private var providerTabsView: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 6) {
-                providerTab(title: "All", provider: nil, count: agents.sessions.count)
-                ForEach(providerTabs, id: \.self) { provider in
-                    providerTab(
-                        title: provider.rawValue,
-                        provider: provider,
-                        count: agents.sessions.count(where: { $0.provider == provider })
-                    )
+        HStack(spacing: 8) {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 6) {
+                    providerTab(title: "All", provider: nil, count: agents.sessions.count)
+                    ForEach(providerTabs, id: \.self) { provider in
+                        providerTab(
+                            title: provider.rawValue,
+                            provider: provider,
+                            count: agents.sessions.count(where: { $0.provider == provider })
+                        )
+                    }
                 }
             }
-            .padding(.horizontal, 18)
-            .padding(.vertical, 8)
+            .scrollClipDisabled()
+            .scrollIndicators(.never)
+            Button(action: agents.refresh) {
+                Image(systemName: "arrow.clockwise")
+                    .font(FoundryTheme.Glyph.xs)
+                    .foregroundStyle(FoundryTheme.textSecondary)
+                    .frame(width: 28, height: 28)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .help("Refresh sessions")
+            .accessibilityLabel("Refresh sessions")
         }
-        .scrollClipDisabled()
-        .scrollIndicators(.never)
+        .padding(.horizontal, 18)
+        .padding(.vertical, 8)
     }
 
     private func providerTab(title: String, provider: AgentProviderKind?, count: Int) -> some View {
         Button {
-            selectedProvider = provider
+            agents.selectedProvider = provider
         } label: {
             HStack(spacing: 6) {
                 if let provider {
                     AgentProviderIcon(provider: provider, size: 16)
                 }
                 Text(title)
-                    .font(FoundryTheme.body(size: 11, weight: .semibold))
+                    .font(FoundryTheme.micro)
                 Text("\(count)")
-                    .font(FoundryTheme.body(size: 10, weight: .bold))
-                    .foregroundStyle(FoundryTheme.faintText)
+                    .font(FoundryTheme.micro)
+                    .foregroundStyle(FoundryTheme.textQuaternary)
             }
-            .foregroundStyle(selectedProvider == provider ? FoundryTheme.primaryText : FoundryTheme.mutedText)
+            .foregroundStyle(agents.selectedProvider == provider ? FoundryTheme.textPrimary : FoundryTheme.textTertiary)
             .padding(.horizontal, 10)
-            .frame(height: 28)
-            .background(selectedProvider == provider ? Color.primary.opacity(0.11) : Color.primary.opacity(0.045))
+            .frame(height: FoundryTheme.Control.compact)
+            .background(agents.selectedProvider == provider ? FoundryTheme.fillSelected : FoundryTheme.fillSubtle)
             .clipShape(Capsule())
             .overlay(
                 Capsule()
-                    .stroke(selectedProvider == provider ? Color.primary.opacity(0.12) : Color.primary.opacity(0.05), lineWidth: 1)
+                    .stroke(agents.selectedProvider == provider ? FoundryTheme.separator : FoundryTheme.fillHover, lineWidth: 1)
             )
         }
         .buttonStyle(.plain)
-        .pointerCursor()
     }
 
     private func section(title: String, sessions: [AgentSessionCard]) -> some View {
         VStack(alignment: .leading, spacing: 7) {
-            Text("\(title.uppercased()) · \(sessions.count)")
-                .font(FoundryTheme.body(size: 10, weight: .bold))
-                .foregroundStyle(FoundryTheme.faintText)
-                .tracking(0.8)
+            FoundrySectionHeader(title: title, count: "\(sessions.count)")
             VStack(spacing: 0) {
                 ForEach(Array(sessions.enumerated()), id: \.element.id) { index, session in
-                    AgentShelfRow(session: session) {
-                        agents.open(session)
-                        dismiss()
-                    }
+                    AgentShelfRow(session: session, isSelected: agents.selectedSessionID == session.id) { open(session) }
+                        .id(session.id)
                     if index < sessions.count - 1 {
                         Rectangle()
-                            .fill(Color.primary.opacity(0.055))
-                            .frame(height: 1)
+                            .fill(FoundryTheme.fillHover)
+                            .frame(height: FoundryTheme.hairline)
                             .padding(.leading, 48)
                     }
                 }
             }
-            .background(Color.primary.opacity(0.035))
-            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .background(FoundryTheme.fillSubtle)
+            .clipShape(RoundedRectangle(cornerRadius: FoundryTheme.Radius.row, style: .continuous))
             .overlay(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .stroke(Color.primary.opacity(0.05), lineWidth: 1)
+                RoundedRectangle(cornerRadius: FoundryTheme.Radius.row, style: .continuous)
+                    .stroke(FoundryTheme.fillHover, lineWidth: 1)
             )
-        }
-    }
-
-    @ViewBuilder
-    private var shelfIcon: some View {
-        let providers = Set(filteredSessions.map(\.provider))
-        if let selectedProvider {
-            AgentProviderIcon(provider: selectedProvider, size: 24)
-        } else if providers.count == 1, let provider = providers.first {
-            AgentProviderIcon(provider: provider, size: 24)
-        } else {
-            Image(systemName: "sparkles.rectangle.stack")
-                .font(.system(size: 14, weight: .semibold))
-                .foregroundStyle(FoundryTheme.secondaryText)
         }
     }
 }
 
 private struct AgentShelfRow: View {
     let session: AgentSessionCard
+    let isSelected: Bool
     let open: () -> Void
     @State private var hovering = false
 
@@ -204,42 +186,43 @@ private struct AgentShelfRow: View {
             HStack(spacing: 11) {
                 AgentProviderIcon(provider: session.provider, size: 30)
                     .frame(width: 30, height: 30)
-                    .background(statusColor.opacity(0.10))
-                    .clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
+                    .background(statusColor.opacity(FoundryTheme.Alpha.subtle))
+                    .clipShape(RoundedRectangle(cornerRadius: FoundryTheme.Radius.control, style: .continuous))
                 VStack(alignment: .leading, spacing: 3) {
                     Text(session.title)
-                        .font(FoundryTheme.body(size: 13, weight: .semibold))
-                        .foregroundStyle(FoundryTheme.primaryText)
+                        .font(FoundryTheme.body)
+                        .foregroundStyle(FoundryTheme.textPrimary)
                         .lineLimit(1)
                     Text(detail)
-                        .font(FoundryTheme.body(size: 10.5, weight: .regular))
-                        .foregroundStyle(FoundryTheme.mutedText)
+                        .font(FoundryTheme.caption)
+                        .foregroundStyle(FoundryTheme.textTertiary)
                         .lineLimit(1)
                 }
                 Spacer(minLength: 8)
                 VStack(alignment: .trailing, spacing: 3) {
-                    Text(session.status.rawValue)
-                        .font(FoundryTheme.body(size: 10, weight: .semibold))
-                        .foregroundStyle(statusColor)
+                    if let label = session.status.label {
+                        Text(label)
+                            .font(FoundryTheme.micro)
+                            .foregroundStyle(statusColor)
+                    }
                     if let updatedAt = session.updatedAt {
                         Text(Self.relative.localizedString(for: updatedAt, relativeTo: Date()))
-                            .font(FoundryTheme.body(size: 9.5, weight: .medium))
-                            .foregroundStyle(FoundryTheme.faintText)
+                            .font(FoundryTheme.caption)
+                            .foregroundStyle(FoundryTheme.textQuaternary)
                     }
                 }
                 Image(systemName: "arrow.up.right")
-                    .font(.system(size: 9, weight: .bold))
-                    .foregroundStyle(FoundryTheme.mutedText)
-                    .opacity(hovering ? 1 : 0.25)
+                    .font(FoundryTheme.Glyph.xs)
+                    .foregroundStyle(FoundryTheme.textTertiary)
+                    .opacity(hovering || isSelected ? 1 : FoundryTheme.Alpha.half)
             }
             .padding(.horizontal, 10)
-            .frame(height: 52)
+            .frame(height: FoundryTheme.Control.rowDouble)
+            .background(RowBackground(isSelected: isSelected, isHovering: hovering))
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .disabled(canOpen == false)
         .onHover { hovering = $0 }
-        .pointerCursor()
     }
 
     private var detail: String {
@@ -249,21 +232,7 @@ private struct AgentShelfRow: View {
         }.joined(separator: " · ")
     }
 
-    private var canOpen: Bool {
-        session.capabilities.intersection([.jumpApplication, .jumpTerminal, .jumpTask]).isEmpty == false
-    }
-
-    private var statusColor: Color {
-        switch session.status {
-        case .working, .running: Color(red: 0.42, green: 0.90, blue: 0.67)
-        case .needsInput: Color(red: 1.0, green: 0.76, blue: 0.35)
-        case .reviewReady: Color(red: 0.52, green: 0.72, blue: 1.0)
-        case .planning: Color(red: 0.70, green: 0.62, blue: 1.0)
-        case .completed: Color(red: 0.44, green: 0.72, blue: 1.0)
-        case .failed: Color(red: 1.0, green: 0.38, blue: 0.38)
-        case .idle, .recent: FoundryTheme.faintText
-        }
-    }
+    private var statusColor: Color { session.status.color }
 
     private static let relative: RelativeDateTimeFormatter = {
         let formatter = RelativeDateTimeFormatter()

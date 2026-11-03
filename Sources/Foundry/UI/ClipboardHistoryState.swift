@@ -79,8 +79,10 @@ final class ClipboardHistoryState {
     private var visibleItemsCacheQuery = ""
     var isMonitoring: Bool { timer != nil }
 
-    init(pasteboard: PasteboardClient = SystemPasteboardClient(), persistence: (any ClipboardHistoryPersisting)? = ClipboardHistoryStore(), configuration: ClipboardConfig = .default) {
-        self.pasteboard = pasteboard; self.persistence = persistence; persistenceWriter = persistence.map(ClipboardHistoryPersistenceWriter.init); lastChangeCount = pasteboard.changeCount
+    init(pasteboard: PasteboardClient = SystemPasteboardClient(), persistence: (any ClipboardHistoryPersisting)? = ClipboardHistoryStore(),
+        configuration: ClipboardConfig = .default) {
+        self.pasteboard = pasteboard; self.persistence = persistence; persistenceWriter = persistence.map(
+            ClipboardHistoryPersistenceWriter.init); lastChangeCount = pasteboard.changeCount
         self.policy = Self.policy(for: configuration)
         self.isPaused = configuration.isPaused
         self.excludedBundleIdentifiers = configuration.excludedBundleIdentifiers
@@ -94,11 +96,18 @@ final class ClipboardHistoryState {
             guard normalizedQuery.isEmpty == false else { return true }
             if case let .text(value) = item.payload, value.localizedCaseInsensitiveContains(normalizedQuery) { return true }
             return item.title.lowercased().contains(normalizedQuery) || item.subtitle.lowercased().contains(normalizedQuery)
+                || item.sourceBundleIdentifier?.lowercased().contains(normalizedQuery) == true
         }
         let visibleItems = matching.filter(\.isPinned) + matching.filter { $0.isPinned == false }
         visibleItemsCacheQuery = normalizedQuery
         visibleItemsCache = visibleItems
         return visibleItems
+    }
+    var countLabel: String {
+        let shown = visibleItems.count
+        return shown == items.count
+            ? String(localized: "\(items.count) items")
+            : String(localized: "\(shown) of \(items.count) items")
     }
     var selectedItem: ClipboardHistoryItem? {
         guard let item = visibleItems.first(where: { $0.id == selectedID }) ?? visibleItems.first else { return nil }
@@ -152,15 +161,22 @@ final class ClipboardHistoryState {
     func copySelected() { if let item = selectedItem { copy(item) } }
     func copy(_ item: ClipboardHistoryItem) { pasteboard.write(hydrated(item).payload); lastChangeCount = pasteboard.changeCount }
 
+    var canMergeSelectedWithPrevious: Bool { mergedWithPrevious != nil }
+
+    private var mergedWithPrevious: String? {
+        guard let id = selectedItem?.id,
+              let index = items.firstIndex(where: { $0.id == id }), index > 0,
+              case let .text(current) = items[index].payload,
+              case let .text(previous) = items[index - 1].payload else { return nil }
+        return previous + "\n\n" + current
+    }
+
     /// Copies the selected text merged with the entry copied after it (the
     /// row above it in history). Returns false when either side isn't text.
     @discardableResult
     func copyMergedWithPreviousSelected() -> Bool {
-        guard let id = selectedItem?.id,
-              let index = items.firstIndex(where: { $0.id == id }), index > 0,
-              case let .text(current) = items[index].payload,
-              case let .text(previous) = items[index - 1].payload else { return false }
-        pasteboard.write(.text(previous + "\n\n" + current))
+        guard let merged = mergedWithPrevious else { return false }
+        pasteboard.write(.text(merged))
         lastChangeCount = pasteboard.changeCount
         return true
     }
@@ -171,7 +187,13 @@ final class ClipboardHistoryState {
     }
     func removeSelected() { guard let id = selectedItem?.id else { return }; items.removeAll { $0.id == id }; persist(); keepSelectionValid() }
     func clear() { items.removeAll(); persist(); selectedID = nil }
-    func report(_ error: Error) { self.error = error }
+    func itemsRemoved(maxItems: Int, maxBytes: Int, maxAgeDays: Int) -> Int {
+        var candidate = policy
+        candidate.maxItems = maxItems
+        candidate.maxBytes = maxBytes
+        candidate.maxAge = TimeInterval(maxAgeDays) * 86_400
+        return items.count - candidate.bounded(items).count
+    }
     func updatePolicy(maxItems: Int, maxBytes: Int, maxAgeDays: Int) {
         policy = ClipboardHistoryPolicy(
             maxItems: maxItems,
@@ -196,7 +218,8 @@ final class ClipboardHistoryState {
         ClipboardHistoryPolicy(maxItems: configuration.maxItems, maxBytes: configuration.maxBytes, maxAge: TimeInterval(configuration.maxAgeDays) * 86_400)
     }
     func addSelectedFiles(to fileShelf: FileShelfState) { if let urls = selectedItem?.payload, case .files(let urls) = urls { fileShelf.add(urls: urls) } }
-    func captureIfChanged() { guard pasteboard.changeCount != lastChangeCount else { return }; lastChangeCount = pasteboard.changeCount; captureCurrentPasteboard() }
+    func captureIfChanged() { guard pasteboard.changeCount
+        != lastChangeCount else { return }; lastChangeCount = pasteboard.changeCount; captureCurrentPasteboard() }
     func waitForPersistenceForTesting() async { await persistenceTask?.value }
     func shutdown() async {
         stop()
@@ -217,7 +240,7 @@ final class ClipboardHistoryState {
         let item: ClipboardHistoryItem
         switch snapshot.payload {
         case .text(let value):
-            guard value.utf8.count <= policy.maxTextBytes else { return }
+            guard value.utf8.count <= policy.maxTextBytes, ClipboardHistoryPolicy.looksLikeSecret(value) == false else { return }
             item = ClipboardHistoryItem(payload: .text(value), sourceBundleIdentifier: snapshot.sourceBundleIdentifier)
         case .image(let data):
             guard data.count <= policy.maxImageBytes else { return }

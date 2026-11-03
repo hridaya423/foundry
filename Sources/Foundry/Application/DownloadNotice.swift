@@ -1,5 +1,4 @@
 import AppKit
-import Darwin
 
 @MainActor
 enum DownloadNotice {
@@ -7,45 +6,31 @@ enum DownloadNotice {
         Bundle.main.bundlePath.contains("/AppTranslocation/")
     }
 
-    private static var isQuarantined: Bool {
-        Bundle.main.bundlePath.withCString { getxattr($0, "com.apple.quarantine", nil, 0, 0, 0) >= 0 }
+    /// Launch-time warning for a copy still running from the disk image,
+    /// rendered through the in-panel prompt. The requestPrompt seam must
+    /// already be wired; it defaults to decline so nothing modal runs under tests.
+    static func showIfNeeded(
+        requestPrompt: @MainActor (PanelPromptSpec) async -> PanelPromptResult = { _ in .cancelled }
+    ) async {
+        guard isTranslocated else { return }
+        await showTranslocatedNotice(requestPrompt: requestPrompt)
     }
 
-    static func showIfNeeded(localState: LocalStateStore = .shared) {
-        if isTranslocated {
-            showTranslocatedAlert()
-            return
-        }
-        guard isQuarantined, localState.get(\.downloadedNoticeShown) == false else { return }
-        let alert = NSAlert()
-        alert.messageText = "Foundry isn't notarized yet"
-        alert.informativeText = """
-            You downloaded Foundry directly, so macOS may warn that the developer can't be verified. \
-            That's expected for this build — if it refuses to open now or after an update, go to \
-            System Settings → Privacy & Security → Security → Open Anyway.
-            """
-        alert.alertStyle = .informational
-        alert.addButton(withTitle: "OK")
-        alert.addButton(withTitle: "Open Privacy & Security")
-        if alert.runModal() == .alertSecondButtonReturn,
-           let url = URL(string: "x-apple.systempreferences:com.apple.settings.PrivacySecurity.extension") {
-            NSWorkspace.shared.open(url)
-        }
-        localState.set(\.downloadedNoticeShown, true)
-    }
-
-    private static func showTranslocatedAlert() {
-        let alert = NSAlert()
-        alert.messageText = "Move Foundry to Applications"
-        alert.informativeText = """
-            You're running Foundry straight from the disk image, so macOS is keeping it in a \
-            temporary sandbox. Features like launch at login won't work until it's installed. \
-            Quit, drag Foundry into Applications from the DMG window, then open it again.
-            """
-        alert.alertStyle = .warning
-        alert.addButton(withTitle: "Quit")
-        alert.addButton(withTitle: "Continue Anyway")
-        if alert.runModal() == .alertFirstButtonReturn {
+    private static func showTranslocatedNotice(
+        requestPrompt: @MainActor (PanelPromptSpec) async -> PanelPromptResult
+    ) async {
+        let prompt = await requestPrompt(PanelPromptSpec(
+            title: "Move Foundry to Applications",
+            message: """
+                You're running Foundry straight from the disk image, so macOS is keeping it in a \
+                temporary sandbox. Features like launch at login won't work until it's installed. \
+                Quit, drag Foundry into Applications from the DMG window, then open it again.
+                """,
+            confirmLabel: "Quit",
+            cancelLabel: "Continue Anyway",
+            isDestructive: true
+        ))
+        if prompt.confirmed {
             NSApp.terminate(nil)
         }
     }

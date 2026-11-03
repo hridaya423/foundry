@@ -20,6 +20,21 @@ final class FileSearchTests: XCTestCase {
         XCTAssertEqual(FileSearchProvider.filter(paths, scope: home), ["/Users/test/Documents/Report.pdf"])
     }
 
+    func testSearchCoversEveryConfiguredFolderAndHonoursSkippedNames() async {
+        let config = FileSearchConfig(folders: ["/Users/test/work", "/Volumes/Projects"], excludedFolders: ["build"])
+        let provider = FileSearchProvider(settings: { config }) { _, scope in
+            ["\(scope.path)/report.txt", "\(scope.path)/build/report.txt", "\(scope.path)/Library/report.txt"]
+        }
+        let paths = await provider.results(matching: "f report").compactMap { result -> String? in
+            if case let .file(url) = result.payload { return url.path }
+            return nil
+        }
+        XCTAssertEqual(Set(paths), ["/Users/test/work/report.txt", "/Users/test/work/Library/report.txt", "/Volumes/Projects/report.txt",
+            "/Volumes/Projects/Library/report.txt"])
+        let decoded = try? JSONDecoder().decode(FileSearchConfig.self, from: Data(#"{"folders":[]}"#.utf8))
+        XCTAssertEqual(decoded, .default)
+    }
+
     func testPrefixGatesFileModeAndStripsSpotlightMetacharacters() {
         let provider = FileSearchProvider(scope: home) { _, _ in [] }
         XCTAssertFalse(provider.isActive(for: "report"))
@@ -33,7 +48,7 @@ final class FileSearchTests: XCTestCase {
     func testSearchFilesCommandFillsThePrefix() async {
         let provider = FileSearchProvider(scope: home) { _, _ in [] }
         let results = await provider.results(matching: "search fi")
-        XCTAssertEqual(results.map(\.primaryAction.kind), [.fillQuery("f ")])
+        XCTAssertEqual(results.map { $0.primaryAction.behavior as? FillQueryAction }, [FillQueryAction("f ")])
     }
 
     func testResultsOpenTheFileAndSitInTheFilesSection() async throws {
@@ -46,24 +61,24 @@ final class FileSearchTests: XCTestCase {
         XCTAssertEqual(results.count, FileSearchProvider.resultLimit)
         let first = try XCTUnwrap(results.first)
         XCTAssertEqual(first.title, "report-1.txt")
-        XCTAssertEqual(first.primaryAction.kind, .openURL("file:///Users/test/Documents/report-1.txt"))
+        XCTAssertEqual(first.primaryAction.behavior as? OpenURLAction, OpenURLAction("file:///Users/test/Documents/report-1.txt"))
         XCTAssertEqual(ResultSection.of(first), .files)
     }
 
     func testFileResultExposesFinderStyleActions() {
         let path = "/Users/test/Documents/report-1.txt"
         let result = FileSearchProvider.result(path)
-        let kinds = result.secondaryActions.map(\.kind)
+        let behaviors = result.secondaryActions.map(\.behavior)
 
-        XCTAssertTrue(kinds.contains(.revealFile(path: path)))
-        XCTAssertTrue(kinds.contains(.copyFile(path: path)))
-        XCTAssertTrue(kinds.contains(.copyToClipboard(path)))
-        XCTAssertTrue(kinds.contains(.addToFileShelf(path: path)))
-        XCTAssertTrue(kinds.contains(.openFileConverter(path: path)))
-        XCTAssertTrue(kinds.contains(.compressFile(path: path)))
-        XCTAssertTrue(kinds.contains(.renameFile(path: path)))
-        XCTAssertTrue(kinds.contains(.moveToTrash(path: path)))
-        XCTAssertTrue(result.secondaryActions.contains { $0.kind.isDestructive })
+        XCTAssertTrue(behaviors.contains { $0 as? RevealFileAction == RevealFileAction(path: path) })
+        XCTAssertTrue(behaviors.contains { $0 as? CopyFileAction == CopyFileAction(path: path) })
+        XCTAssertTrue(behaviors.contains { $0 as? CopyToClipboardAction == CopyToClipboardAction(path) })
+        XCTAssertTrue(behaviors.contains { $0 as? AddToFileShelfAction == AddToFileShelfAction(path: path) })
+        XCTAssertTrue(behaviors.contains { $0 as? OpenFileConverterAction == OpenFileConverterAction(path: path) })
+        XCTAssertTrue(behaviors.contains { $0 as? CompressFileAction == CompressFileAction(path: path) })
+        XCTAssertTrue(behaviors.contains { $0 as? RenameFileAction == RenameFileAction(path: path) })
+        XCTAssertTrue(behaviors.contains { $0 as? MoveToTrashAction == MoveToTrashAction(path: path) })
+        XCTAssertTrue(result.secondaryActions.contains { $0.isDestructive })
     }
 
     func testCancelledSearchPublishesNothing() async {
@@ -82,20 +97,39 @@ final class FileSearchTests: XCTestCase {
         let config = ConfigService(diagnostics: diagnostics, url: FileManager.default.temporaryDirectory.appendingPathComponent("\(UUID()).json"))
         let links = QuicklinkStore(url: FileManager.default.temporaryDirectory.appendingPathComponent("links-\(UUID()).json"))
         let providers: [CommandProvider] = [FileSearchProvider(scope: home) { _, _ in [] }, QuicklinkProvider(store: links)]
-        let registry = CommandRegistry(providers: providers, usageRanking: UsageRankingStore(diagnostics: diagnostics), diagnostics: diagnostics, configService: config)
+        let registry = CommandRegistry(providers: providers, usageRanking: UsageRankingStore.scratch(diagnostics), diagnostics: diagnostics, configService: config)
 
         let results = await registry.completeResults(matching: "zzqx plover", initialResults: [])
-        XCTAssertEqual(results.map(\.primaryAction.kind), [
-            .openQuickAI(prompt: "zzqx plover"),
-            .openURL("https://www.google.com/search?q=zzqx%20plover"),
-            .fillQuery("f zzqx plover")
-        ])
+        XCTAssertEqual(results[0].primaryAction.behavior as? OpenQuickAIAction, OpenQuickAIAction(prompt: "zzqx plover"))
+        XCTAssertEqual(results[1].primaryAction.behavior as? OpenURLAction, OpenURLAction("https://www.google.com/search?q=zzqx%20plover"))
+        XCTAssertEqual(results[2].primaryAction.behavior as? FillQueryAction, FillQueryAction("f zzqx plover"))
 
         var preference = CommandPreference()
         preference.fallbackEligible = false
         try config.updateCommandPreference(preference, for: FileSearchProvider.commandID)
         let withoutFiles = await registry.completeResults(matching: "zzqx plover", initialResults: [])
         XCTAssertEqual(withoutFiles.count, 2)
+    }
+
+    func testFallbackOrderAndDefineFollowSettings() async throws {
+        let diagnostics = DiagnosticsService()
+        let config = ConfigService(diagnostics: diagnostics, url: FileManager.default.temporaryDirectory.appendingPathComponent("\(UUID()).json"))
+        var fallbacks = FallbackConfig.default
+        fallbacks.disabled = [.askAI]
+        fallbacks.move(.define, by: -10)
+        try config.updateFallbacks(fallbacks)
+        let registry = CommandRegistry(providers: [FileSearchProvider(scope: home) { _, _ in [] }],
+            usageRanking: UsageRankingStore.scratch(diagnostics), diagnostics: diagnostics, configService: config)
+
+        let results = await registry.completeResults(matching: "zzqxplover", initialResults: [])
+        XCTAssertEqual(results.first?.primaryAction.behavior as? OpenURLAction, OpenURLAction("dict://zzqxplover"))
+        XCTAssertEqual(results.dropFirst().first?.primaryAction.behavior as? FillQueryAction, FillQueryAction("f zzqxplover"))
+        XCTAssertEqual(results.count, 2)
+        XCTAssertNil(CommandRegistry.defineResult(for: "two words"))
+
+        let decoded = try JSONDecoder().decode(FallbackConfig.self, from: Data(#"{"order":["define","bogus","define"]}"#.utf8))
+        XCTAssertEqual(decoded.order, [.define, .suggestions, .askAI, .searchWeb, .searchFiles])
+        XCTAssertEqual(decoded.disabled, FallbackConfig.default.disabled)
     }
 
     func testFileModeShowsOnlyFilesEvenWhenSpotlightIsSlowerThanTheDeferredBudget() async {
@@ -105,13 +139,13 @@ final class FileSearchTests: XCTestCase {
             try? await Task.sleep(for: .milliseconds(600))
             return ["/Users/test/Documents/report.txt"]
         }
-        let registry = CommandRegistry(providers: [BuiltInCommandProvider(), files], usageRanking: UsageRankingStore(diagnostics: diagnostics), diagnostics: diagnostics, configService: config)
+        let registry = CommandRegistry(providers: [BuiltInCommandProvider(), files], usageRanking: UsageRankingStore.scratch(diagnostics), diagnostics: diagnostics, configService: config)
 
         let results = await registry.completeResults(matching: "f report", initialResults: [])
         XCTAssertEqual(results.map(\.title), ["report.txt"])
 
         let empty = FileSearchProvider(scope: home) { _, _ in [] }
-        let emptyRegistry = CommandRegistry(providers: [BuiltInCommandProvider(), empty], usageRanking: UsageRankingStore(diagnostics: diagnostics), diagnostics: diagnostics, configService: config)
+        let emptyRegistry = CommandRegistry(providers: [BuiltInCommandProvider(), empty], usageRanking: UsageRankingStore.scratch(diagnostics), diagnostics: diagnostics, configService: config)
         let noFallbacks = await emptyRegistry.completeResults(matching: "f nothing", initialResults: [])
         XCTAssertTrue(noFallbacks.isEmpty)
     }
@@ -166,21 +200,6 @@ final class FileSearchTests: XCTestCase {
         // "Display Settings.pdf" (word-boundary prefix) beats the
         // mid-word/fuzzy "display-photo" and the non-matching "notes".
         XCTAssertEqual(results.map(\.title).first, "Display Settings.pdf")
-    }
-
-    func testCameraCommandIsHiddenByDefaultUntilEnabled() async throws {
-        let diagnostics = DiagnosticsService()
-        let config = ConfigService(diagnostics: diagnostics, url: FileManager.default.temporaryDirectory.appendingPathComponent("\(UUID()).json"))
-        let registry = CommandRegistry(providers: [CameraCommandProvider()], usageRanking: UsageRankingStore(diagnostics: diagnostics), diagnostics: diagnostics, configService: config)
-
-        let hidden = await registry.completeResults(matching: "camera", initialResults: [])
-        XCTAssertFalse(hidden.contains { $0.id == "foundry.camera" })
-
-        var preference = CommandPreference()
-        preference.isEnabled = true
-        try config.updateCommandPreference(preference, for: "foundry.camera")
-        let shown = await registry.completeResults(matching: "camera", initialResults: [])
-        XCTAssertTrue(shown.contains { $0.id == "foundry.camera" })
     }
 
 }

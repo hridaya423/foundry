@@ -29,8 +29,8 @@ struct AgentProviderIcon: View {
                 .aspectRatio(contentMode: .fit)
         } else {
             Image(systemName: provider.symbol)
-                .font(.system(size: size * 0.52, weight: .semibold))
-                .foregroundStyle(FoundryTheme.secondaryText)
+                .font(FoundryTheme.glyph(size * 0.52))
+                .foregroundStyle(FoundryTheme.textSecondary)
         }
     }
 

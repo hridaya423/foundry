@@ -7,7 +7,11 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "tiles": "node scripts/build-foundry-tiles.mjs"
+    "tiles": "node scripts/build-foundry-tiles.mjs",
+    "qa": "node scripts/qa.mjs",
+    "tokens": "node scripts/build-tokens.mjs",
+    "prebuild": "node scripts/build-tokens.mjs",
+    "test": "node --import ./scripts/resolve-ts.mjs --test scripts/*.test.mjs"
   },
   "dependencies": {
     "motion": "^12.40.0",
@@ -17,6 +21,7 @@
     "three": "^0.185.1"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.14.0",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
@@ -24,6 +29,8 @@
     "@types/three": "^0.185.4",
     "eslint": "^9",
     "eslint-config-next": "16.2.7",
+    "lighthouse": "^13.6.0",
+    "playwright": "^1.64.1",
     "polygon-clipping": "^0.15.7",
     "tailwindcss": "^4",
     "typescript": "^5"

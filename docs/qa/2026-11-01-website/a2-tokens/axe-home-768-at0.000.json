@@ -1,0 +1,36 @@
+[
+  {
+    "id": "aria-allowed-role",
+    "impact": "minor",
+    "tags": [
+      "cat.aria",
+      "best-practice"
+    ],
+    "description": "Ensure role attribute has an appropriate value for the element",
+    "help": "ARIA role should be appropriate for the element",
+    "helpUrl": "https://dequeuniversity.com/rules/axe/4.14/aria-allowed-role?application=playwright",
+    "nodes": [
+      {
+        "any": [
+          {
+            "id": "aria-allowed-role",
+            "data": [
+              "tabpanel"
+            ],
+            "relatedNodes": [],
+            "impact": "minor",
+            "message": "ARIA role tabpanel is not allowed for given element"
+          }
+        ],
+        "all": [],
+        "none": [],
+        "impact": "minor",
+        "html": "<article id=\"tool-panel\" class=\"tool-example\" role=\"tabpanel\" aria-labelledby=\"tool-tab-calculator\" data-tool=\"calculator\">",
+        "target": [
+          "#tool-panel"
+        ],
+        "failureSummary": "Fix any of the following:\n  ARIA role tabpanel is not allowed for given element"
+      }
+    ]
+  }
+]

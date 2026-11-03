@@ -7,6 +7,7 @@ import UniformTypeIdentifiers
 struct FileConversionView: View {
     var state: FileConversionState
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+@Environment(\.accessibilityReduceTransparency) var reduceTransparency
     @State private var isDropTargeted = false
 
     var body: some View {
@@ -16,36 +17,34 @@ struct FileConversionView: View {
                     sectionTitle("Sources")
                     if state.sourceURLs.isEmpty == false {
                         Text("\(state.sourceURLs.count)")
-                            .font(FoundryTheme.body(size: 10, weight: .bold))
-                            .foregroundStyle(FoundryTheme.secondaryText)
+                            .font(FoundryTheme.micro)
+                            .foregroundStyle(FoundryTheme.textSecondary)
                             .padding(.horizontal, 6)
-                            .frame(height: 16)
-                            .background(Color.primary.opacity(0.08))
+                            .frame(height: FoundryTheme.Control.glyph)
+                            .background(FoundryTheme.fillTint)
                             .clipShape(Capsule())
                     }
                     Spacer()
                     if state.sourceURLs.isEmpty == false {
                         Button { state.chooseSourceFile() } label: {
                             Image(systemName: "plus")
-                                .font(.system(size: 11, weight: .bold))
+                                .font(FoundryTheme.Glyph.xs)
                         }
                         .buttonStyle(PressableButtonStyle())
-                        .foregroundStyle(FoundryTheme.secondaryText)
+                        .foregroundStyle(FoundryTheme.textSecondary)
                         .help("Add files")
                         .accessibilityLabel("Add files")
-                        .pointerCursor()
                         Button { state.startOver() } label: {
                             Image(systemName: "xmark")
-                                .font(.system(size: 10, weight: .bold))
+                                .font(FoundryTheme.Glyph.xs)
                         }
                         .buttonStyle(PressableButtonStyle())
-                        .foregroundStyle(FoundryTheme.faintText)
+                        .foregroundStyle(FoundryTheme.textQuaternary)
                         .help("Clear all files")
                         .accessibilityLabel("Clear all files")
-                        .pointerCursor()
                     }
                 }
-                .frame(height: 18)
+                .frame(height: FoundryTheme.Control.glyph)
 
                 sourceCard
                 Spacer(minLength: 0)
@@ -53,8 +52,8 @@ struct FileConversionView: View {
             .frame(width: 300)
 
             VStack(alignment: .leading, spacing: 10) {
-                sectionTitle("Convert To")
-                    .frame(height: 18, alignment: .bottomLeading)
+                sectionTitle("Convert to")
+                    .frame(height: FoundryTheme.Control.glyph, alignment: .bottomLeading)
 
                 settingsCard
                 Spacer(minLength: 0)
@@ -63,7 +62,7 @@ struct FileConversionView: View {
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 16)
-        .animation(reduceMotion ? nil : .easeOut(duration: 0.16), value: state.sourceURLs)
+        .animation(reduceMotion ? nil : FoundryTheme.Motion.state, value: state.sourceURLs)
         .sheet(item: dependencySetupBinding, content: dependencySetupSheet)
     }
 
@@ -82,19 +81,19 @@ struct FileConversionView: View {
             }
         }
         .frame(maxWidth: .infinity, minHeight: 250, maxHeight: .infinity, alignment: .topLeading)
-        .background(Color.primary.opacity(isDropTargeted ? 0.09 : 0.055))
-        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .background(isDropTargeted ? FoundryTheme.fillSelected : FoundryTheme.fillHover)
+        .clipShape(RoundedRectangle(cornerRadius: FoundryTheme.Radius.popover, style: .continuous))
         .overlay {
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
+            RoundedRectangle(cornerRadius: FoundryTheme.Radius.popover, style: .continuous)
                 .strokeBorder(
-                    isDropTargeted ? FoundryTheme.warning.opacity(0.9) : Color.primary.opacity(0.07),
+                    isDropTargeted ? FoundryTheme.selectionBorder : FoundryTheme.fillTint,
                     style: StrokeStyle(
                         lineWidth: isDropTargeted ? 1.5 : 1,
                         dash: state.sourceURLs.isEmpty ? [6, 5] : []
                     )
                 )
         }
-        .animation(reduceMotion ? nil : .easeOut(duration: 0.12), value: isDropTargeted)
+        .animation(reduceMotion ? nil : FoundryTheme.Motion.hover, value: isDropTargeted)
         .onDrop(of: [UTType.fileURL], isTargeted: $isDropTargeted, perform: handleDrop)
     }
 
@@ -102,21 +101,20 @@ struct FileConversionView: View {
         Button { state.chooseSourceFile() } label: {
             VStack(spacing: 10) {
                 Image(systemName: "arrow.down.doc")
-                    .font(.system(size: 30, weight: .light))
-                    .foregroundStyle(isDropTargeted ? FoundryTheme.warning : FoundryTheme.secondaryText)
+                    .font(FoundryTheme.Glyph.xl)
+                    .foregroundStyle(isDropTargeted ? FoundryTheme.accent : FoundryTheme.textSecondary)
                 Text(isDropTargeted ? "Drop to add files" : "Drop files here")
-                    .font(FoundryTheme.body(size: 14, weight: .semibold))
-                    .foregroundStyle(FoundryTheme.primaryText)
+                    .font(FoundryTheme.body)
+                    .foregroundStyle(FoundryTheme.textPrimary)
                 Text("or click to choose — images, documents,\nmedia, archives")
-                    .font(FoundryTheme.body(size: 11.5, weight: .regular))
-                    .foregroundStyle(FoundryTheme.faintText)
+                    .font(FoundryTheme.caption)
+                    .foregroundStyle(FoundryTheme.textQuaternary)
                     .multilineTextAlignment(.center)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .pointerCursor()
         .accessibilityLabel("Choose or drop files to convert")
     }
 
@@ -127,7 +125,7 @@ struct FileConversionView: View {
             }
 
             if state.sourceURLs.count > 1 {
-                Divider().overlay(Color.primary.opacity(0.07)).padding(.leading, 16)
+                Divider().overlay(FoundryTheme.fillTint).padding(.leading, 16)
                 ScrollView {
                     LazyVStack(spacing: 0) {
                         ForEach(Array(state.sourceURLs.dropFirst()), id: \.self) { url in
@@ -144,16 +142,15 @@ struct FileConversionView: View {
 
             HStack(spacing: 6) {
                 Image(systemName: "plus")
-                    .font(.system(size: 9, weight: .bold))
+                    .font(FoundryTheme.Glyph.xs)
                 Text("Drop more files or click to add")
-                    .font(FoundryTheme.body(size: 11, weight: .medium))
+                    .font(FoundryTheme.caption)
             }
-            .foregroundStyle(FoundryTheme.faintText)
+            .foregroundStyle(FoundryTheme.textQuaternary)
             .frame(maxWidth: .infinity)
             .padding(.vertical, 9)
             .contentShape(Rectangle())
             .onTapGesture { state.chooseSourceFile() }
-            .pointerCursor()
         }
     }
 
@@ -164,8 +161,8 @@ struct FileConversionView: View {
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(url.lastPathComponent)
-                    .font(FoundryTheme.body(size: 14, weight: .semibold))
-                    .foregroundStyle(FoundryTheme.primaryText)
+                    .font(FoundryTheme.body)
+                    .foregroundStyle(FoundryTheme.textPrimary)
                     .lineLimit(1)
                     .truncationMode(.middle)
                 HStack(spacing: 5) {
@@ -175,8 +172,8 @@ struct FileConversionView: View {
                     }
                     Text(prettyFolder(url.deletingLastPathComponent()))
                 }
-                .font(FoundryTheme.body(size: 11.5, weight: .regular))
-                .foregroundStyle(FoundryTheme.mutedText)
+                .font(FoundryTheme.caption)
+                .foregroundStyle(FoundryTheme.textTertiary)
                 .lineLimit(1)
                 .truncationMode(.middle)
             }
@@ -192,41 +189,40 @@ struct FileConversionView: View {
             FileIcon(path: url.path) { Color.clear }
                 .frame(width: 20, height: 20)
             Text(url.lastPathComponent)
-                .font(FoundryTheme.body(size: 12, weight: .medium))
-                .foregroundStyle(FoundryTheme.secondaryText)
+                .font(FoundryTheme.bodySecondary)
+                .foregroundStyle(FoundryTheme.textSecondary)
                 .lineLimit(1)
                 .truncationMode(.middle)
             Spacer(minLength: 4)
             if let size = Self.fileSize(of: url) {
                 Text(size)
-                    .font(FoundryTheme.body(size: 11, weight: .regular))
-                    .foregroundStyle(FoundryTheme.faintText)
+                    .font(FoundryTheme.caption)
+                    .foregroundStyle(FoundryTheme.textQuaternary)
             }
             extBadge(ConversionGraph.normalizedExtension(of: url))
             Button { state.removeSource(url: url) } label: {
                 Image(systemName: "xmark")
-                    .font(.system(size: 8, weight: .bold))
-                    .foregroundStyle(FoundryTheme.faintText)
+                    .font(FoundryTheme.Glyph.xs)
+                    .foregroundStyle(FoundryTheme.textQuaternary)
                     .frame(width: 18, height: 18)
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .help("Remove \(url.lastPathComponent)")
             .accessibilityLabel("Remove \(url.lastPathComponent)")
-            .pointerCursor()
         }
         .padding(.horizontal, 16)
-        .frame(height: 34)
+        .frame(height: FoundryTheme.Control.field)
     }
 
     private func extBadge(_ ext: String) -> some View {
         Text(ext.isEmpty ? "FILE" : ext.uppercased())
-            .font(FoundryTheme.body(size: 9.5, weight: .bold))
-            .foregroundStyle(FoundryTheme.secondaryText)
+            .font(FoundryTheme.micro)
+            .foregroundStyle(FoundryTheme.textSecondary)
             .tracking(0.5)
             .padding(.horizontal, 7)
-            .frame(height: 20)
-            .background(Color.primary.opacity(0.08))
+            .frame(height: FoundryTheme.Control.line)
+            .background(FoundryTheme.fillTint)
             .clipShape(Capsule())
     }
 
@@ -258,7 +254,7 @@ struct FileConversionView: View {
 
     // MARK: - Settings
 
-    private var canConvert: Bool {
+    var canConvert: Bool {
         state.sourceURLs.isEmpty == false && state.selectedTarget != nil && state.isConverting == false
     }
 
@@ -277,14 +273,14 @@ struct FileConversionView: View {
                 Spacer(minLength: 0)
                 VStack(spacing: 8) {
                     Image(systemName: "questionmark.folder")
-                        .font(.system(size: 26, weight: .light))
-                        .foregroundStyle(FoundryTheme.mutedText)
+                        .font(FoundryTheme.Glyph.lg)
+                        .foregroundStyle(FoundryTheme.textTertiary)
                     Text("No converter for this file yet")
-                        .font(FoundryTheme.body(size: 13, weight: .semibold))
-                        .foregroundStyle(FoundryTheme.primaryText)
+                        .font(FoundryTheme.body)
+                        .foregroundStyle(FoundryTheme.textPrimary)
                     Text("Images, documents, archives and PDFs work out of the box. Audio and video need FFmpeg.")
-                        .font(FoundryTheme.body(size: 11.5, weight: .regular))
-                        .foregroundStyle(FoundryTheme.faintText)
+                        .font(FoundryTheme.caption)
+                        .foregroundStyle(FoundryTheme.textQuaternary)
                         .multilineTextAlignment(.center)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -294,11 +290,11 @@ struct FileConversionView: View {
                 Spacer(minLength: 0)
                 VStack(spacing: 8) {
                     Image(systemName: "arrow.triangle.2.circlepath")
-                        .font(.system(size: 24, weight: .light))
-                        .foregroundStyle(FoundryTheme.faintText)
+                        .font(FoundryTheme.Glyph.lg)
+                        .foregroundStyle(FoundryTheme.textQuaternary)
                     Text("Add a file to see the formats\nit can become.")
-                        .font(FoundryTheme.body(size: 12, weight: .regular))
-                        .foregroundStyle(FoundryTheme.faintText)
+                        .font(FoundryTheme.bodySecondary)
+                        .foregroundStyle(FoundryTheme.textQuaternary)
                         .multilineTextAlignment(.center)
                 }
                 .frame(maxWidth: .infinity)
@@ -307,9 +303,9 @@ struct FileConversionView: View {
         }
         .padding(16)
         .frame(maxWidth: .infinity, minHeight: 250, maxHeight: .infinity, alignment: .topLeading)
-        .background(Color.primary.opacity(0.055))
-        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(Color.primary.opacity(0.07), lineWidth: 1))
+        .background(FoundryTheme.fillHover)
+        .clipShape(RoundedRectangle(cornerRadius: FoundryTheme.Radius.popover, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: FoundryTheme.Radius.popover, style: .continuous).stroke(FoundryTheme.fillTint, lineWidth: 1))
     }
 
     // MARK: Format
@@ -321,23 +317,23 @@ struct FileConversionView: View {
             if state.availableTargets.count > 8 {
                 HStack(spacing: 6) {
                     Image(systemName: "magnifyingglass")
-                        .font(.system(size: 10, weight: .medium))
-                        .foregroundStyle(FoundryTheme.faintText)
+                        .font(FoundryTheme.Glyph.xs)
+                        .foregroundStyle(FoundryTheme.textQuaternary)
                     TextField("Filter formats…", text: $formatFilter)
                         .textFieldStyle(.plain)
-                        .font(FoundryTheme.body(size: 12, weight: .medium))
-                        .foregroundStyle(FoundryTheme.primaryText)
+                        .font(FoundryTheme.bodySecondary)
+                        .foregroundStyle(FoundryTheme.textPrimary)
                     if formatFilter.isEmpty == false {
                         Button { formatFilter = "" } label: {
                             Image(systemName: "xmark.circle.fill")
-                                .font(.system(size: 10))
-                                .foregroundStyle(FoundryTheme.faintText)
+                                .font(FoundryTheme.Glyph.xs)
+                                .foregroundStyle(FoundryTheme.textQuaternary)
                         }
                         .buttonStyle(.plain)
                     }
                 }
                 .padding(.horizontal, 10)
-                .frame(height: 26)
+                .frame(height: FoundryTheme.Control.mini)
                 .background(fieldBackground)
             }
 
@@ -360,8 +356,8 @@ struct FileConversionView: View {
                 HStack(spacing: 10) {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(state.selectedTarget?.title ?? "Choose format")
-                            .font(FoundryTheme.body(size: 14, weight: .semibold))
-                            .foregroundStyle(FoundryTheme.primaryText)
+                            .font(FoundryTheme.body)
+                            .foregroundStyle(FoundryTheme.textPrimary)
                         HStack(spacing: 5) {
                             if let target = state.selectedTarget {
                                 Text(target.category.rawValue)
@@ -373,22 +369,21 @@ struct FileConversionView: View {
                                 Text(capability.readinessLabel)
                             }
                         }
-                        .font(FoundryTheme.body(size: 10.5, weight: .medium))
-                        .foregroundStyle(FoundryTheme.faintText)
+                        .font(FoundryTheme.caption)
+                        .foregroundStyle(FoundryTheme.textQuaternary)
                     }
                     Spacer(minLength: 0)
                     Image(systemName: "chevron.up.chevron.down")
-                        .font(.system(size: 10, weight: .semibold))
-                        .foregroundStyle(FoundryTheme.mutedText)
+                        .font(FoundryTheme.Glyph.xs)
+                        .foregroundStyle(FoundryTheme.textTertiary)
                 }
                 .padding(.horizontal, 12)
-                .frame(height: 46)
+                .frame(height: FoundryTheme.Control.rowTall)
                 .background(fieldBackground)
             }
             .menuStyle(.button)
             .buttonStyle(.plain)
             .menuIndicator(.hidden)
-            .pointerCursor()
         }
     }
 
@@ -402,7 +397,7 @@ struct FileConversionView: View {
         switch capability.state {
         case .ready: return FoundryTheme.success
         case .setupRequired: return FoundryTheme.warning
-        case .unavailable, .degraded: return FoundryTheme.error
+        case .unavailable, .degraded: return FoundryTheme.destructive
         }
     }
 
@@ -413,32 +408,34 @@ struct FileConversionView: View {
            case let .setupRequired(plan) = capability.state {
             HStack(spacing: 10) {
             Image(systemName: "shippingbox")
-                .font(.system(size: 13, weight: .medium))
+                .font(FoundryTheme.Glyph.sm)
                 .foregroundStyle(FoundryTheme.warning)
             VStack(alignment: .leading, spacing: 2) {
                 Text("Requires \(missingEngineNames(plan))")
-                    .font(FoundryTheme.body(size: 12, weight: .semibold))
-                    .foregroundStyle(FoundryTheme.primaryText)
+                    .font(FoundryTheme.body)
+                    .foregroundStyle(FoundryTheme.textPrimary)
                 Text("Installed once via Homebrew")
-                    .font(FoundryTheme.body(size: 11, weight: .regular))
-                    .foregroundStyle(FoundryTheme.faintText)
+                    .font(FoundryTheme.caption)
+                    .foregroundStyle(FoundryTheme.textQuaternary)
             }
             Spacer(minLength: 0)
             Button("Set Up") { state.convert() }
                 .buttonStyle(PressableButtonStyle())
-                .font(FoundryTheme.body(size: 11.5, weight: .semibold))
-                .foregroundStyle(FoundryTheme.secondaryText)
-                .pointerCursor()
+                .font(FoundryTheme.micro)
+                .foregroundStyle(FoundryTheme.textSecondary)
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 9)
-            .background(FoundryTheme.warning.opacity(0.10))
-            .clipShape(RoundedRectangle(cornerRadius: 11, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: 11, style: .continuous).stroke(FoundryTheme.warning.opacity(0.25), lineWidth: 1))
+            .background(FoundryTheme.warning.opacity(FoundryTheme.Alpha.subtle))
+            .clipShape(RoundedRectangle(cornerRadius: FoundryTheme.Radius.row, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: FoundryTheme.Radius.row, style: .continuous)
+                    .stroke(FoundryTheme.warning.opacity(FoundryTheme.Alpha.tint), lineWidth: 1)
+            )
         }
     }
 
-    private func missingEngineNames(_ plan: SetupPlan) -> String {
+    func missingEngineNames(_ plan: SetupPlan) -> String {
         let names = plan.commands.compactMap { command -> String? in
             command.arguments.last.flatMap { formula in
                 switch formula {
@@ -469,8 +466,8 @@ struct FileConversionView: View {
                         }
                     }
                     if kinds.contains(.maxPixelSize) {
-                        optionRow("Max Size") {
-                            optionChips([(nil, "Full"), (4096, "4K"), (2048, "2K"), (1024, "1K"), (512, "512")],
+                        optionRow("Longest Edge") {
+                            optionMenu("Longest Edge", [(nil, "Original"), (4096, "4096 px"), (2048, "2048 px"), (1024, "1024 px"), (512, "512 px")],
                                         get: { state.options.maxPixelSize },
                                         set: { state.options.maxPixelSize = $0 })
                         }
@@ -491,10 +488,10 @@ struct FileConversionView: View {
                         optionRow("Pages") {
                             TextField("All pages — e.g. 1-3, 5", text: pagesBinding)
                                 .textFieldStyle(.plain)
-                                .font(FoundryTheme.body(size: 12, weight: .medium))
-                                .foregroundStyle(FoundryTheme.primaryText)
+                                .font(FoundryTheme.bodySecondary)
+                                .foregroundStyle(FoundryTheme.textPrimary)
                                 .padding(.horizontal, 10)
-                                .frame(height: 26)
+                                .frame(height: FoundryTheme.Control.mini)
                                 .background(fieldBackground)
                                 .accessibilityLabel("PDF pages to convert")
                         }
@@ -510,11 +507,18 @@ struct FileConversionView: View {
                 .transition(.opacity)
             }
             optionRow("Name") {
-                optionChips([(nil, "Same"), ("{name}-converted", "{name}-converted"), ("{name}-{date}", "{name}-{date}")],
+                optionMenu("Name", Self.nameTemplates.map { ($0, nameExample($0)) },
                             get: { state.options.nameTemplate },
                             set: { state.options.nameTemplate = $0 })
             }
         }
+    }
+
+    static let nameTemplates: [String?] = [nil, "{name}-converted", "{name}-{date}"]
+
+    private func nameExample(_ template: String?) -> String {
+        guard let source = state.sourceURLs.first else { return template ?? String(localized: "Same") }
+        return FileConversionService.renderNameTemplate(template, source: source, ext: state.selectedTarget?.id ?? "")
     }
 
     private var pagesBinding: Binding<String> {
@@ -527,12 +531,25 @@ struct FileConversionView: View {
     private func optionRow<Content: View>(_ label: String, @ViewBuilder content: () -> Content) -> some View {
         HStack(alignment: .center, spacing: 8) {
             Text(label)
-                .font(FoundryTheme.body(size: 11, weight: .semibold))
-                .foregroundStyle(FoundryTheme.faintText)
-                .frame(width: 58, alignment: .leading)
+                .font(FoundryTheme.micro)
+                .foregroundStyle(FoundryTheme.textQuaternary)
+                .frame(width: 84, alignment: .leading)
             content()
             Spacer(minLength: 0)
         }
+    }
+
+    private func optionMenu<Value: Hashable>(_ title: String, _ pairs: [(Value?, String)],
+                                            get: @escaping () -> Value?,
+                                            set: @escaping (Value?) -> Void) -> some View {
+        Picker(title, selection: Binding(get: get, set: set)) {
+            ForEach(Array(pairs.enumerated()), id: \.offset) { _, pair in
+                Text(pair.1).tag(pair.0)
+            }
+        }
+        .labelsHidden()
+        .pickerStyle(.menu)
+        .fixedSize()
     }
 
     private func optionChips<Value: Equatable>(_ pairs: [(Value?, String)],
@@ -543,20 +560,19 @@ struct FileConversionView: View {
                 let selected = get() == pair.0
                 Button { set(pair.0) } label: {
                     Text(pair.1)
-                        .font(FoundryTheme.body(size: 11, weight: .semibold))
-                        .foregroundStyle(selected ? FoundryTheme.primaryText : FoundryTheme.mutedText)
+                        .font(FoundryTheme.micro)
+                        .foregroundStyle(selected ? FoundryTheme.textPrimary : FoundryTheme.textTertiary)
                         .padding(.horizontal, 9)
-                        .frame(height: 24)
+                        .frame(height: FoundryTheme.Control.mini)
                         .background(
-                            Capsule().fill(selected ? Color.primary.opacity(0.14) : Color.primary.opacity(0.05))
+                            Capsule().fill(selected ? FoundryTheme.fillEmphasis : FoundryTheme.fillHover)
                         )
                         .overlay(
-                            Capsule().strokeBorder(selected ? Color.primary.opacity(0.22) : Color.primary.opacity(0.06), lineWidth: 1)
+                            Capsule().strokeBorder(selected ? FoundryTheme.stroke : FoundryTheme.fillHover, lineWidth: 1)
                         )
                 }
                 .buttonStyle(.plain)
-                .animation(reduceMotion ? nil : .easeOut(duration: 0.10), value: selected)
-                .pointerCursor()
+                .animation(reduceMotion ? nil : FoundryTheme.Motion.hover, value: selected)
             }
         }
     }
@@ -565,29 +581,28 @@ struct FileConversionView: View {
 
     private var saveToSection: some View {
         VStack(alignment: .leading, spacing: 6) {
-            fieldLabel("Save To")
+            fieldLabel("Save to")
 
             Button { state.chooseOutputFolder() } label: {
                 HStack(spacing: 8) {
                     Image(systemName: "folder")
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundStyle(FoundryTheme.mutedText)
+                        .font(FoundryTheme.Glyph.xs)
+                        .foregroundStyle(FoundryTheme.textTertiary)
                     Text(prettyFolder(state.outputFolderURL))
-                        .font(FoundryTheme.body(size: 12.5, weight: .medium))
-                        .foregroundStyle(FoundryTheme.primaryText)
+                        .font(FoundryTheme.bodySecondary)
+                        .foregroundStyle(FoundryTheme.textPrimary)
                         .lineLimit(1)
                         .truncationMode(.middle)
                     Spacer(minLength: 0)
                     Image(systemName: "chevron.right")
-                        .font(.system(size: 9, weight: .bold))
-                        .foregroundStyle(FoundryTheme.faintText)
+                        .font(FoundryTheme.Glyph.xs)
+                        .foregroundStyle(FoundryTheme.textQuaternary)
                 }
                 .padding(.horizontal, 12)
-                .frame(height: 36)
+                .frame(height: FoundryTheme.Control.field)
                 .background(fieldBackground)
             }
             .buttonStyle(.plain)
-            .pointerCursor()
         }
     }
 
@@ -597,17 +612,17 @@ struct FileConversionView: View {
             let name = previewOutputName(for: source, target: target)
             HStack(spacing: 5) {
                 Image(systemName: "arrow.right")
-                    .font(.system(size: 9, weight: .bold))
-                    .foregroundStyle(FoundryTheme.faintText)
+                    .font(FoundryTheme.Glyph.xs)
+                    .foregroundStyle(FoundryTheme.textQuaternary)
                 Text(name)
-                    .font(FoundryTheme.body(size: 11, weight: .regular))
-                    .foregroundStyle(FoundryTheme.faintText)
+                    .font(FoundryTheme.caption)
+                    .foregroundStyle(FoundryTheme.textQuaternary)
                     .lineLimit(1)
                     .truncationMode(.middle)
                 if state.sourceURLs.count > 1 {
                     Text("+ \(state.sourceURLs.count - 1) more")
-                        .font(FoundryTheme.body(size: 11, weight: .regular))
-                        .foregroundStyle(FoundryTheme.faintText)
+                        .font(FoundryTheme.caption)
+                        .foregroundStyle(FoundryTheme.textQuaternary)
                 }
             }
         }
@@ -627,396 +642,5 @@ struct FileConversionView: View {
 
     // MARK: Results
 
-    @ViewBuilder
-    private var resultsSection: some View {
-        if state.itemOutcomes.isEmpty == false {
-            VStack(alignment: .leading, spacing: 6) {
-                fieldLabel("Results")
-                ScrollView {
-                    LazyVStack(spacing: 2) {
-                        ForEach(state.itemOutcomes) { outcome in
-                            resultRow(outcome)
-                        }
-                    }
-                }
-                .scrollIndicators(.never)
-                .frame(maxHeight: 120)
-            }
-            .transition(.opacity.combined(with: .move(edge: .bottom)))
-        }
-    }
-
-    private func resultRow(_ outcome: FileConversionItemOutcome) -> some View {
-        HStack(spacing: 9) {
-            statusIcon(for: outcome.state)
-                .frame(width: 16)
-            Text(outcome.sourceURL.lastPathComponent)
-                .font(FoundryTheme.body(size: 11.5, weight: .medium))
-                .foregroundStyle(FoundryTheme.secondaryText)
-                .lineLimit(1)
-                .truncationMode(.middle)
-            if let outputURL = outcome.outputURL {
-                Image(systemName: "arrow.right")
-                    .font(.system(size: 8, weight: .bold))
-                    .foregroundStyle(FoundryTheme.faintText)
-                Text(outputURL.lastPathComponent)
-                    .font(FoundryTheme.body(size: 11.5, weight: .medium))
-                    .foregroundStyle(FoundryTheme.primaryText)
-                    .lineLimit(1)
-                    .truncationMode(.middle)
-            }
-            Spacer(minLength: 4)
-            if let message = outcome.failure?.message, outcome.state == .failed {
-                Text(message)
-                    .font(FoundryTheme.body(size: 10.5, weight: .regular))
-                    .foregroundStyle(FoundryTheme.error)
-                    .lineLimit(1)
-                    .truncationMode(.middle)
-                    .help(message)
-            }
-            if let outputURL = outcome.outputURL {
-                sizeDelta(source: outcome.sourceURL, output: outputURL)
-                FoundryIconButton(
-                    systemName: "eye",
-                    accessibilityLabel: "Quick Look \(outputURL.lastPathComponent)",
-                    action: { state.onQuickLookOutput?(outputURL) }
-                )
-                FoundryIconButton(
-                    systemName: "square.and.arrow.up",
-                    accessibilityLabel: "Share \(outputURL.lastPathComponent)",
-                    action: { state.onShareOutput?(outputURL) }
-                )
-            }
-        }
-        .frame(height: 26)
-    }
-
-    private func statusIcon(for state_: FileConversionItemState) -> some View {
-        Group {
-            switch state_ {
-            case .pending:
-                Image(systemName: "circle")
-                    .foregroundStyle(FoundryTheme.faintText)
-            case .processing:
-                ProgressView().controlSize(.mini)
-            case .completed:
-                Image(systemName: "checkmark.circle.fill")
-                    .foregroundStyle(FoundryTheme.success)
-            case .failed:
-                Image(systemName: "xmark.circle.fill")
-                    .foregroundStyle(FoundryTheme.error)
-            case .cancelled:
-                Image(systemName: "slash.circle")
-                    .foregroundStyle(FoundryTheme.mutedText)
-            }
-        }
-        .font(.system(size: 12, weight: .medium))
-    }
-
-    @ViewBuilder
-    private func sizeDelta(source: URL, output: URL) -> some View {
-        let inSize = Self.byteCount(of: source)
-        let outSize = Self.byteCount(of: output)
-        if let inSize, let outSize, inSize > 0 {
-            let ratio = Double(outSize) / Double(inSize)
-            let delta = ratio - 1
-            let color: Color = delta < -0.02 ? FoundryTheme.success : (delta > 0.05 ? FoundryTheme.warning : FoundryTheme.faintText)
-            Text("\(Self.formatBytes(outSize)) (\(delta >= 0 ? "+" : "")\(Int((delta * 100).rounded()))%)")
-                .font(FoundryTheme.body(size: 10.5, weight: .medium))
-                .foregroundStyle(color)
-        }
-    }
-
-    // MARK: Actions
-
-    private var actionArea: some View {
-        VStack(spacing: 8) {
-            convertButton
-
-            if state.isConverting, let progress = state.progress {
-                progressBar(progress)
-            } else if let detail = statusDetail {
-                HStack(spacing: 6) {
-                    Image(systemName: detail.icon)
-                        .font(.system(size: 11, weight: .semibold))
-                    Text(detail.text)
-                        .font(FoundryTheme.body(size: 11.5, weight: .medium))
-                        .lineLimit(2)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-                .foregroundStyle(detail.color)
-                .frame(maxWidth: .infinity, alignment: .leading)
-            }
-
-            if state.isConverting == false {
-                HStack(spacing: 8) {
-                    if state.outputURLs.isEmpty == false {
-                        secondaryButton(state.outputURLs.count == 1 ? "Reveal in Finder" : "Reveal Outputs", icon: "folder") {
-                            state.revealOutput()
-                        }
-                    }
-                    if state.itemOutcomes.contains(where: { $0.state == .failed || $0.state == .cancelled }) {
-                        secondaryButton("Retry Failed", icon: "arrow.clockwise") {
-                            state.retryFailed()
-                        }
-                    }
-                    if state.itemOutcomes.isEmpty == false || state.outputURLs.isEmpty == false {
-                        secondaryButton("New Batch", icon: "plus") {
-                            state.startOver()
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    private func secondaryButton(_ title: String, icon: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            HStack(spacing: 5) {
-                Image(systemName: icon)
-                    .font(.system(size: 10, weight: .semibold))
-                Text(title)
-            }
-            .font(FoundryTheme.body(size: 11.5, weight: .semibold))
-            .foregroundStyle(FoundryTheme.secondaryText)
-            .frame(maxWidth: .infinity)
-            .frame(height: 28)
-            .background(Color.primary.opacity(0.06))
-            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).stroke(Color.primary.opacity(0.08), lineWidth: 1))
-        }
-        .buttonStyle(PressableButtonStyle())
-        .pointerCursor()
-    }
-
-    private func progressBar(_ progress: OperationProgress) -> some View {
-        VStack(spacing: 5) {
-            Group {
-                switch progress {
-                case let .items(completed, total):
-                    if let total, total > 0 {
-                        ProgressView(value: Double(completed), total: Double(total))
-                    } else {
-                        ProgressView()
-                    }
-                case let .bytes(completed, total):
-                    if let total, total > 0 {
-                        ProgressView(value: Double(completed), total: Double(total))
-                    } else {
-                        ProgressView()
-                    }
-                case .artifactBytes:
-                    ProgressView()
-                case .indeterminate:
-                    ProgressView()
-                }
-            }
-            .progressViewStyle(.linear)
-            .tint(FoundryTheme.warning)
-            if let status = progressLabel(progress) {
-                Text(status)
-                    .font(FoundryTheme.body(size: 10.5, weight: .medium))
-                    .foregroundStyle(FoundryTheme.faintText)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-            }
-        }
-    }
-
-    private func progressLabel(_ progress: OperationProgress) -> String? {
-        switch progress {
-        case let .items(completed, total):
-            guard let total else { return "Working…" }
-            return "\(completed) of \(total) files"
-        case let .bytes(completed, _):
-            return Self.formatBytes(completed)
-        default:
-            return nil
-        }
-    }
-
-    private var convertButton: some View {
-        Button { state.isConverting ? state.cancel() : state.convert() } label: {
-            HStack(spacing: 8) {
-                if state.isConverting {
-                    ProgressView()
-                        .controlSize(.small)
-                        .tint(FoundryTheme.primaryText)
-                }
-                Text(
-                    state.isConverting
-                        ? "Cancel Conversion"
-                        : state.sourceURLs.count > 1 ? "Convert \(state.sourceURLs.count) Files" : "Convert"
-                )
-                    .font(FoundryTheme.body(size: 14, weight: .bold))
-            }
-            .frame(maxWidth: .infinity)
-            .frame(height: 42)
-            .foregroundStyle(FoundryTheme.primaryText)
-            .background(convertButtonGlass)
-            .opacity(state.isConverting || canConvert ? 1 : 0.45)
-        }
-        .buttonStyle(PressableButtonStyle())
-        .disabled(state.isConverting == false && canConvert == false)
-        .keyboardShortcut(.defaultAction)
-        .pointerCursor()
-    }
-
-    private var convertButtonGlass: some View {
-        let shape = RoundedRectangle(cornerRadius: 13, style: .continuous)
-        return shape
-            .fill(.ultraThinMaterial)
-            .overlay {
-                shape.fill(Color.primary.opacity(0.10))
-            }
-            .overlay {
-                shape.strokeBorder(Color.primary.opacity(0.16), lineWidth: 1)
-            }
-            .compositingGroup()
-            .shadow(color: Color.black.opacity(0.28), radius: 12, y: 6)
-    }
-
-    // MARK: Setup sheet
-
-    private func dependencySetupSheet(_ setup: DependencySetup) -> some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack(spacing: 12) {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 10, style: .continuous)
-                        .fill(FoundryTheme.warning.opacity(0.14))
-                    Image(systemName: "shippingbox")
-                        .font(.system(size: 17, weight: .medium))
-                        .foregroundStyle(FoundryTheme.warning)
-                }
-                .frame(width: 38, height: 38)
-
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Install \(missingEngineNames(setup.plan))")
-                        .font(FoundryTheme.body(size: 15, weight: .bold))
-                    Text("Needed to convert to \(setup.target.title)")
-                        .font(FoundryTheme.body(size: 12, weight: .regular))
-                        .foregroundStyle(FoundryTheme.mutedText)
-                }
-            }
-
-            Text(setup.plan.disclosure)
-                .font(FoundryTheme.body(size: 12, weight: .regular))
-                .foregroundStyle(FoundryTheme.secondaryText)
-                .fixedSize(horizontal: false, vertical: true)
-
-            VStack(alignment: .leading, spacing: 6) {
-                ForEach(Array(setup.plan.commands.enumerated()), id: \.offset) { _, command in
-                    Text(([command.executable] + command.arguments).joined(separator: " "))
-                        .font(FoundryTheme.mono(size: 11.5, weight: .medium))
-                        .foregroundStyle(FoundryTheme.primaryText)
-                        .textSelection(.enabled)
-                        .lineLimit(1)
-                        .truncationMode(.middle)
-                }
-            }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 10)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Color.primary.opacity(0.06))
-            .clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: 9, style: .continuous).stroke(Color.primary.opacity(0.08), lineWidth: 1))
-
-            HStack(spacing: 6) {
-                if let bytes = setup.plan.estimatedDownloadBytes {
-                    Label("~\(Self.formatBytes(bytes)) download", systemImage: "arrow.down.circle")
-                }
-                Label(setup.plan.mutationScope, systemImage: "externaldrive")
-                Label(setup.plan.cleanupOwnership, systemImage: "trash")
-            }
-            .font(FoundryTheme.body(size: 10.5, weight: .medium))
-            .foregroundStyle(FoundryTheme.faintText)
-
-            HStack {
-                Button("Cancel", role: .cancel) { state.cancelDependencySetup() }
-                    .keyboardShortcut(.cancelAction)
-                Spacer()
-                Button("Install Only") { Task { await state.installTool() } }
-                Button("Install and Convert") { Task { await state.installToolAndConvert() } }
-                    .keyboardShortcut(.defaultAction)
-            }
-        }
-        .padding(22)
-        .frame(width: 480)
-    }
-
-    // MARK: Helpers
-
-    private func sectionTitle(_ text: String) -> some View {
-        Text(text)
-            .font(FoundryTheme.body(size: 11, weight: .semibold))
-            .foregroundStyle(FoundryTheme.faintText)
-            .textCase(.uppercase)
-            .tracking(0.5)
-    }
-
-    private var groupedTargets: [FileConversionTarget.Category: [FileConversionTarget]] {
-        Dictionary(grouping: state.availableTargets, by: \.category)
-    }
-
-    private var groupedTargetCategories: [FileConversionTarget.Category] {
-        FileConversionTarget.Category.allCases.filter { groupedTargets[$0]?.isEmpty == false }
-    }
-
-    @State private var formatFilter = ""
-
-    private var filteredTargets: [FileConversionTarget.Category: [FileConversionTarget]] {
-        let query = formatFilter.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        guard query.isEmpty == false else { return groupedTargets }
-        return groupedTargets.mapValues { targets in
-            targets.filter { $0.title.lowercased().contains(query) || $0.outputExtension.lowercased().contains(query) }
-        }
-    }
-
-    private var filteredTargetCategories: [FileConversionTarget.Category] {
-        FileConversionTarget.Category.allCases.filter { filteredTargets[$0]?.isEmpty == false }
-    }
-
-    private func fieldLabel(_ text: String) -> some View {
-        Text(text)
-            .font(FoundryTheme.body(size: 10.5, weight: .semibold))
-            .foregroundStyle(FoundryTheme.faintText)
-            .textCase(.uppercase)
-            .tracking(0.5)
-    }
-
-    private var fieldBackground: some View {
-        RoundedRectangle(cornerRadius: 10, style: .continuous)
-            .fill(Color.primary.opacity(0.06))
-            .overlay(
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .stroke(Color.primary.opacity(0.08), lineWidth: 1)
-            )
-    }
-
-    private func prettyFolder(_ url: URL?) -> String {
-        guard let url else { return "Choose folder" }
-        let home = FileManager.default.homeDirectoryForCurrentUser.path
-        let path = url.path
-        return path.hasPrefix(home) ? "~" + path.dropFirst(home.count) : path
-    }
-
-    private var statusDetail: (text: String, icon: String, color: Color)? {
-        if state.isConverting { return nil }
-        if state.status.isEmpty { return nil }
-        if state.outputURL != nil {
-            return (state.status, "checkmark.circle.fill", FoundryTheme.success)
-        }
-        return (state.status, "exclamationmark.triangle.fill", FoundryTheme.warning)
-    }
-
-    static func byteCount(of url: URL) -> Int64? {
-        url.fileResourceValues([.fileSizeKey])?.fileSize.map { Int64($0) }
-    }
-
-    static func fileSize(of url: URL) -> String? {
-        byteCount(of: url).map(formatBytes)
-    }
-
-    static func formatBytes(_ bytes: Int64) -> String {
-        ByteCountFormatter.string(fromByteCount: bytes, countStyle: .file)
-    }
+    @State var formatFilter = ""
 }

@@ -1,3 +1,4 @@
+import os
 import XCTest
 @testable import Foundry
 import FoundryDomain
@@ -10,7 +11,8 @@ final class CommandContractsTests: XCTestCase {
             title: "Foundry Home",
             subtitle: "Open Foundry Home",
             icon: CommandIcon(fallback: "HM", systemName: "house"),
-            primaryAction: CommandAction(id: "foundry.dashboard.open", title: "Open", kind: .openHome),
+            payload: .command,
+            primaryAction: CommandAction(id: "foundry.dashboard.open", title: "Open", behavior: OpenHomeAction()),
             secondaryActions: []
         )
 
@@ -58,12 +60,13 @@ final class CommandContractsTests: XCTestCase {
             title: "Test Command",
             subtitle: nil,
             icon: CommandIcon(fallback: "T"),
-            primaryAction: CommandAction(id: "test.command.primary", title: "Primary", kind: .log("primary")),
-            secondaryActions: [CommandAction(id: "test.command.secondary", title: "Secondary", kind: .log("secondary"))]
+            payload: .command,
+            primaryAction: CommandAction(id: "test.command.primary", title: "Primary", behavior: LogAction("primary")),
+            secondaryActions: [CommandAction(id: "test.command.secondary", title: "Secondary", behavior: LogAction("secondary"))]
         )
         let registry = CommandRegistry(
             providers: [],
-            usageRanking: UsageRankingStore(diagnostics: DiagnosticsService()),
+            usageRanking: UsageRankingStore.scratch(DiagnosticsService()),
             diagnostics: DiagnosticsService(),
             configService: config
         )
@@ -73,12 +76,12 @@ final class CommandContractsTests: XCTestCase {
             diagnostics: DiagnosticsService(),
             config: config
         )
-        state.results = [result]
-        state.selectedResultID = result.id
+        state.session.results = [result]
+        state.session.selectedResultID = result.id
 
-        XCTAssertEqual(state.selectedActions.first?.id, "test.command.secondary")
+        XCTAssertEqual(state.session.selectedActions.first?.id, "test.command.secondary")
 
-        state.setCommandHotkey(
+        state.settings.setCommandHotkey(
             FoundryHotkey(keyCode: 0, modifiers: 256, displayName: "⌘A"),
             for: result.id
         )
@@ -86,10 +89,31 @@ final class CommandContractsTests: XCTestCase {
         state.shutdown()
     }
 
+    @MainActor
+    func testSuggestedWindowHotkeysFillOnlyFreeLayoutsAndChords() {
+        let config = ConfigService(diagnostics: DiagnosticsService(),
+            url: FileManager.default.temporaryDirectory.appendingPathComponent("foundry-wh-\(UUID().uuidString).json"))
+        let state = CommandPanelState(
+            registry: CommandRegistry(providers: [], usageRanking: UsageRankingStore.scratch(DiagnosticsService()),
+                diagnostics: DiagnosticsService(), configService: config),
+            actionRunner: ActionRunner(diagnostics: DiagnosticsService()), diagnostics: DiagnosticsService(), config: config)
+        let mine = FoundryHotkey(keyCode: 1, modifiers: 256, displayName: "⌘S")
+        state.settings.setCommandHotkey(mine, for: "window.leftHalf")
+        let center = WindowHotkeySuggestions.all.first { $0.placement == .center }!.hotkey
+        state.settings.setCommandHotkey(center, for: "some.other.command")
+
+        XCTAssertEqual(state.settings.applySuggestedWindowHotkeys(), 4)
+        let hotkeys = config.current.commandPreferences
+        XCTAssertEqual(hotkeys["window.leftHalf"]?.globalHotkey?.displayName, "⌘S")
+        XCTAssertEqual(hotkeys["window.rightHalf"]?.globalHotkey?.displayName, "⌃⌥→")
+        XCTAssertNil(hotkeys["window.center"]?.globalHotkey)
+        state.shutdown()
+    }
+
     func testExecutionRequestPreservesInvocationContext() {
         let request = CommandExecutionRequest(
             commandID: "foundry.test",
-            action: CommandAction(id: "foundry.test.open", title: "Open", kind: .openHome),
+            action: CommandAction(id: "foundry.test.open", title: "Open", behavior: OpenHomeAction()),
             source: .external,
             arguments: ["path": "/tmp/example"],
             context: ["frontmostApplication": "Terminal"]
@@ -114,7 +138,7 @@ final class CommandContractsTests: XCTestCase {
     }
 
     func testActionDescriptorMarksDestructiveActions() {
-        let action = CommandAction(id: "foundry.quit.perform", title: "Quit", kind: .quit)
+        let action = CommandAction(id: "foundry.quit.perform", title: "Quit", behavior: QuitAction())
 
         XCTAssertTrue(action.descriptor.isDestructive)
         XCTAssertEqual(action.descriptor.confirmation, .destructive)
@@ -131,7 +155,7 @@ final class CommandContractsTests: XCTestCase {
 
         let registry = CommandRegistry(
             providers: [TestCommandProvider()],
-            usageRanking: UsageRankingStore(diagnostics: DiagnosticsService()),
+            usageRanking: UsageRankingStore.scratch(DiagnosticsService()),
             diagnostics: DiagnosticsService(),
             configService: config
         )
@@ -144,7 +168,7 @@ final class CommandContractsTests: XCTestCase {
         let provider = ConditionalProvider()
         let registry = CommandRegistry(
             providers: [provider],
-            usageRanking: UsageRankingStore(diagnostics: DiagnosticsService()),
+            usageRanking: UsageRankingStore.scratch(DiagnosticsService()),
             diagnostics: DiagnosticsService()
         )
 
@@ -158,7 +182,7 @@ final class CommandContractsTests: XCTestCase {
     func testDeferredProviderCanSupplyCheapSupplementalResultsWithoutActivation() async {
         let registry = CommandRegistry(
             providers: [SupplementalProvider()],
-            usageRanking: UsageRankingStore(diagnostics: DiagnosticsService()),
+            usageRanking: UsageRankingStore.scratch(DiagnosticsService()),
             diagnostics: DiagnosticsService()
         )
 
@@ -170,7 +194,7 @@ final class CommandContractsTests: XCTestCase {
     func testCommandCatalogSurfacesProviderFailures() async {
         let registry = CommandRegistry(
             providers: [CatalogFailingProvider()],
-            usageRanking: UsageRankingStore(diagnostics: DiagnosticsService()),
+            usageRanking: UsageRankingStore.scratch(DiagnosticsService()),
             diagnostics: DiagnosticsService()
         )
 
@@ -183,7 +207,7 @@ final class CommandContractsTests: XCTestCase {
         let provider = CountingCommandProvider()
         let registry = CommandRegistry(
             providers: [provider],
-            usageRanking: UsageRankingStore(diagnostics: DiagnosticsService()),
+            usageRanking: UsageRankingStore.scratch(DiagnosticsService()),
             diagnostics: DiagnosticsService()
         )
 
@@ -204,7 +228,8 @@ final class CommandContractsTests: XCTestCase {
             title: "Favorite Command",
             subtitle: "Open the favorite",
             icon: CommandIcon(fallback: "F"),
-            primaryAction: CommandAction(id: "favorite.open", title: "Open", kind: .openHome),
+            payload: .command,
+            primaryAction: CommandAction(id: "favorite.open", title: "Open", behavior: OpenHomeAction()),
             secondaryActions: []
         ).descriptor(providerID: "foundry.builtin")
         let other = CommandResult(
@@ -212,7 +237,8 @@ final class CommandContractsTests: XCTestCase {
             title: "Other Command",
             subtitle: "Open another command",
             icon: CommandIcon(fallback: "O"),
-            primaryAction: CommandAction(id: "other.open", title: "Open", kind: .openHome),
+            payload: .command,
+            primaryAction: CommandAction(id: "other.open", title: "Open", behavior: OpenHomeAction()),
             secondaryActions: []
         ).descriptor(providerID: "foundry.system")
         var preference = CommandPreference()
@@ -237,7 +263,8 @@ final class CommandContractsTests: XCTestCase {
                 title: "Test Command",
                 subtitle: nil,
                 icon: CommandIcon(fallback: "T"),
-                    primaryAction: CommandAction(id: "test.command.open", title: "Open", kind: .openHome),
+                    payload: .command,
+                    primaryAction: CommandAction(id: "test.command.open", title: "Open", behavior: OpenHomeAction()),
                 secondaryActions: []
             )]
         }
@@ -258,7 +285,8 @@ final class CommandContractsTests: XCTestCase {
                 title: "Conditional Command",
                 subtitle: nil,
                 icon: CommandIcon(fallback: "C"),
-                primaryAction: CommandAction(id: "conditional.command.open", title: "Open", kind: .openHome),
+                payload: .command,
+                primaryAction: CommandAction(id: "conditional.command.open", title: "Open", behavior: OpenHomeAction()),
                 secondaryActions: []
             )]
         }
@@ -280,7 +308,8 @@ final class CommandContractsTests: XCTestCase {
                 title: "Cached Result",
                 subtitle: nil,
                 icon: CommandIcon(fallback: "C"),
-                primaryAction: CommandAction(id: "supplemental.cached.open", title: "Open", kind: .openHome),
+                payload: .command,
+                primaryAction: CommandAction(id: "supplemental.cached.open", title: "Open", behavior: OpenHomeAction()),
                 secondaryActions: []
             )]
         }
@@ -302,7 +331,7 @@ final class CommandContractsTests: XCTestCase {
         }
     }
 
-    private final class CountingCommandProvider: CommandProvider, @unchecked Sendable {
+    private final class CountingCommandProvider: CommandProvider, Sendable {
         let id = "counting.provider"
         let counter = CallCounter()
 
@@ -315,7 +344,8 @@ final class CommandContractsTests: XCTestCase {
                 title: "Counting Command",
                 subtitle: "Test",
                 icon: CommandIcon(fallback: "C"),
-                    primaryAction: CommandAction(id: "counting.command.open", title: "Open", kind: .openHome),
+                    payload: .command,
+                    primaryAction: CommandAction(id: "counting.command.open", title: "Open", behavior: OpenHomeAction()),
                 secondaryActions: []
             )]
         }

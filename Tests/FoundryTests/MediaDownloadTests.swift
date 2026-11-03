@@ -1,3 +1,4 @@
+import os
 import Foundation
 import XCTest
 @testable import Foundry
@@ -5,6 +6,18 @@ import FoundryDomain
 import FoundryServices
 
 final class MediaDownloadTests: XCTestCase {
+    func testFaviconsFollowTheSiteIconsSetting() {
+        XCTAssertNil(MediaDownloadsView.faviconURL(for: "https://www.youtube.com/watch?v=x", siteIcons: false),
+            "no request to icons.duckduckgo.com when Site icons is off")
+        XCTAssertEqual(MediaDownloadsView.faviconURL(for: "https://www.youtube.com/watch?v=x", siteIcons: true)?.host, "icons.duckduckgo.com")
+    }
+
+    func testSkippedLinksMessageCountsWhatWasLeft() {
+        XCTAssertNil(MediaDownloadsView.skippedMessage(remaining: "  \n"))
+        XCTAssertEqual(MediaDownloadsView.skippedMessage(remaining: "ftp://a"), "1 link isn’t supported and was left in the box.")
+        XCTAssertEqual(MediaDownloadsView.skippedMessage(remaining: "ftp://a\nnot-a-link"), "2 links aren’t supported and were left in the box.")
+    }
+
     func testProgressThrottleAlwaysPublishesSignificantUpdates() {
         let throttle = MediaProgressThrottle()
         let ordinary = MediaDownloadProgress(phase: .downloading, title: "Video", message: "Downloading", bytesReceived: 1, totalBytes: 10, fractionCompletedOverride: nil, speedBytesPerSecond: nil, estimatedTimeRemaining: nil, currentItem: nil, totalItems: nil)
@@ -349,7 +362,7 @@ final class MediaDownloadTests: XCTestCase {
             action: CommandAction(
                 id: "test.media.progress.perform",
                 title: "Download",
-                kind: .downloadMedia(url: "https://example.com/video.mp4")
+                behavior: DownloadMediaAction(url: "https://example.com/video.mp4")
             )
         )
 
@@ -375,7 +388,7 @@ final class MediaDownloadTests: XCTestCase {
         let urls = ["https://example.com/one.mp4", "https://example.com/two.mp4"]
         let request = CommandExecutionRequest(
             commandID: "test.media.batch",
-            action: CommandAction(id: "test.media.batch.perform", title: "Download All", kind: .downloadMediaBatch(urls: urls))
+            action: CommandAction(id: "test.media.batch.perform", title: "Download All", behavior: DownloadMediaBatchAction(urls: urls))
         )
 
         let outcome = await runner.execute(request) { _ in }
@@ -436,29 +449,23 @@ private struct RejectingProcessRunner: ProcessRunning {
     }
 }
 
-private final class ExecutableAvailability: @unchecked Sendable {
-    private let lock = NSLock()
-    private var ytDLPInstalled = false
+private final class ExecutableAvailability: Sendable {
+    private let ytDLPInstalled = OSAllocatedUnfairLock(initialState: false)
 
     func exists(_ path: String) -> Bool {
-        lock.lock()
-        defer { lock.unlock() }
-        return path == "/opt/homebrew/bin/brew" || (path == "/opt/homebrew/bin/yt-dlp" && ytDLPInstalled)
+        let installed = ytDLPInstalled.withLock { $0 }
+        return path == "/opt/homebrew/bin/brew" || (path == "/opt/homebrew/bin/yt-dlp" && installed)
     }
 
     func installYTDLP() {
-        lock.lock()
-        ytDLPInstalled = true
-        lock.unlock()
+        ytDLPInstalled.withLock { $0 = true }
     }
 }
 
-private final class AutoInstallingProcessRunner: ProcessRunning, @unchecked Sendable {
-    private let lock = NSLock()
+private final class AutoInstallingProcessRunner: ProcessRunning, Sendable {
     private let availability: ExecutableAvailability
     private let installDelay: Duration
-    private var recordedPaths: [String] = []
-    private var recordedArguments: [[String]] = []
+    private let recorded = OSAllocatedUnfairLock(uncheckedState: (paths: [String](), arguments: [[String]]()))
 
     init(availability: ExecutableAvailability, installDelay: Duration = .zero) {
         self.availability = availability
@@ -466,15 +473,11 @@ private final class AutoInstallingProcessRunner: ProcessRunning, @unchecked Send
     }
 
     var paths: [String] {
-        lock.lock()
-        defer { lock.unlock() }
-        return recordedPaths
+        recorded.withLockUnchecked { $0.paths }
     }
 
     var arguments: [[String]] {
-        lock.lock()
-        defer { lock.unlock() }
-        return recordedArguments
+        recorded.withLockUnchecked { $0.arguments }
     }
 
     func run(path: String, arguments: [String], timeout _: TimeInterval, outputLimit _: Int, environment _: [String: String]?, currentDirectoryURL _: URL?, onOutput _: (@Sendable (ProcessOutputLine) -> Void)?) async throws -> ProcessResult {
@@ -486,10 +489,10 @@ private final class AutoInstallingProcessRunner: ProcessRunning, @unchecked Send
     }
 
     private func record(_ path: String, arguments: [String]) {
-        lock.lock()
-        recordedPaths.append(path)
-        recordedArguments.append(arguments)
-        lock.unlock()
+        recorded.withLockUnchecked { box in
+            box.paths.append(path)
+            box.arguments.append(arguments)
+        }
     }
 }
 
@@ -541,19 +544,48 @@ private actor RecordingMediaDownloadService: MediaDownloading {
     func urls() -> [String] { recordedURLs }
 }
 
-private final class OutputCollector: @unchecked Sendable {
-    private let lock = NSLock()
-    private var storage: [ProcessOutputLine] = []
+private final class OutputCollector: Sendable {
+    private let storage = OSAllocatedUnfairLock<[ProcessOutputLine]>(initialState: [])
 
     var lines: [ProcessOutputLine] {
-        lock.lock()
-        defer { lock.unlock() }
-        return storage
+        storage.withLock { $0 }
     }
 
     func append(_ line: ProcessOutputLine) {
-        lock.lock()
-        storage.append(line)
-        lock.unlock()
+        storage.withLock { $0.append(line) }
+    }
+}
+
+@MainActor
+final class MediaDownloadSelectionTests: XCTestCase {
+    func testArrowsWalkActiveThenRecentAndRemoveKeepsAPlace() {
+        let manager = MediaDownloadManager()
+        let done = UUID(), failed = UUID(), active = UUID()
+        manager.start(id: done, sourceURL: "https://example.com/a.mp4")
+        manager.complete(id: done, message: "")
+        manager.start(id: failed, sourceURL: "https://example.com/b.mp4")
+        manager.fail(id: failed, message: "nope")
+        manager.start(id: active, sourceURL: "https://example.com/c.mp4")
+
+        XCTAssertEqual(manager.listedItems.map(\.id), [active, failed, done])
+        manager.moveSelection(offset: 1)
+        XCTAssertEqual(manager.selectedID, active)
+        manager.removeSelected()
+        XCTAssertEqual(manager.listedItems.count, 3)
+        manager.moveSelection(offset: 1)
+        manager.removeSelected()
+        XCTAssertEqual(manager.listedItems.map(\.id), [active, done])
+        XCTAssertEqual(manager.selectedID, done)
+        manager.moveSelection(offset: -5)
+        XCTAssertEqual(manager.selectedID, active)
+    }
+
+    func testPastedLinksAppendOnNewLines() {
+        let manager = MediaDownloadManager()
+        manager.composerMessage = "old"
+        manager.pasteText("https://example.com/a.mp4")
+        manager.pasteText("https://example.com/b.mp4")
+        XCTAssertEqual(manager.composerText, "https://example.com/a.mp4\nhttps://example.com/b.mp4")
+        XCTAssertNil(manager.composerMessage)
     }
 }

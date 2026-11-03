@@ -4,14 +4,17 @@ import SwiftUI
 struct CalculatorResultCard: View {
     let result: CommandResult
     var alternatives: [CommandResult] = []
+    var query = ""
     var executeAlternative: (CommandResult) -> Void = { _ in }
 
     private var expression: String {
-        result.subtitle ?? "Calculation"
+        result.subtitle ?? query.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
-    private var separator: String {
-        "→"
+    private var separator: String { Self.separator(for: result.title) }
+
+    static func separator(for value: String) -> String {
+        value.contains(" ") ? "→" : "="
     }
 
     var body: some View {
@@ -26,10 +29,8 @@ struct CalculatorResultCard: View {
     private var header: some View {
         HStack(spacing: 0) {
             Text("Calculator")
-                .font(FoundryTheme.body(size: 11, weight: .semibold))
-                .foregroundStyle(FoundryTheme.faintText)
-                .textCase(.uppercase)
-                .tracking(0.5)
+                .font(FoundryTheme.micro)
+                .foregroundStyle(FoundryTheme.textQuaternary)
 
             Spacer()
         }
@@ -42,27 +43,27 @@ struct CalculatorResultCard: View {
 
             VStack(spacing: 0) {
                 Rectangle()
-                    .fill(Color.primary.opacity(0.08))
+                    .fill(FoundryTheme.fillTint)
                     .frame(width: 1)
 
                 Text(separator)
-                    .font(.system(size: 32, weight: .regular))
-                    .foregroundStyle(FoundryTheme.secondaryText)
+                    .font(FoundryTheme.title)
+                    .foregroundStyle(FoundryTheme.textSecondary)
                     .frame(width: 72, height: 54)
 
                 Rectangle()
-                    .fill(Color.primary.opacity(0.08))
+                    .fill(FoundryTheme.fillTint)
                     .frame(width: 1)
             }
 
             CalculatorValuePane(value: result.title, alternatives: alternatives, executeAlternative: executeAlternative)
         }
-        .frame(height: 112)
-        .background(Color.primary.opacity(0.05))
-        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .frame(height: FoundryTheme.Control.preview)
+        .background(FoundryTheme.fillHover)
+        .clipShape(RoundedRectangle(cornerRadius: FoundryTheme.Radius.overlay, style: .continuous))
         .overlay(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .stroke(Color.primary.opacity(0.07), lineWidth: 1)
+            RoundedRectangle(cornerRadius: FoundryTheme.Radius.overlay, style: .continuous)
+                .stroke(FoundryTheme.fillTint, lineWidth: 1)
         )
     }
 }
@@ -80,16 +81,16 @@ struct CalculatorValuePane: View {
     var body: some View {
         VStack(spacing: 8) {
             Text(splitValue.amount)
-                .font(FoundryTheme.display(size: 36, weight: .bold))
-                .foregroundStyle(FoundryTheme.primaryText)
+                .font(FoundryTheme.title)
+                .foregroundStyle(FoundryTheme.textPrimary)
                 .lineLimit(1)
-                .minimumScaleFactor(0.45)
+                .minimumScaleFactor(0.6)
 
             if let unit = splitValue.unit {
                 Menu {
                     ForEach(alternatives, id: \.id) { alternative in
                         Button(split(alternative.title).unit ?? alternative.title) {
-                            withAnimation(reduceMotion ? nil : .easeOut(duration: 0.16)) {
+                            withAnimation(reduceMotion ? nil : FoundryTheme.Motion.state) {
                                 if let code = currencyCode(in: alternative.title) {
                                     LocalStateStore.shared.set(\.preferredCurrencyQuote, code)
                                 }
@@ -102,14 +103,14 @@ struct CalculatorValuePane: View {
                         Text(unit)
                         if alternatives.isEmpty == false {
                             Image(systemName: "chevron.down")
-                                .font(.system(size: 9, weight: .bold))
+                                .font(FoundryTheme.Glyph.xs)
                         }
                     }
-                    .font(FoundryTheme.body(size: 13, weight: .semibold))
-                    .foregroundStyle(FoundryTheme.secondaryText)
+                    .font(FoundryTheme.body)
+                    .foregroundStyle(FoundryTheme.textSecondary)
                     .padding(.horizontal, 10)
-                    .frame(height: 26)
-                    .background(Color.primary.opacity(0.07))
+                    .frame(height: FoundryTheme.Control.mini)
+                    .background(FoundryTheme.fillTint)
                     .clipShape(Capsule())
                 }
                 .menuStyle(.borderlessButton)
@@ -152,13 +153,9 @@ struct CalculatorUseWithHeader: View {
 
     var body: some View {
         HStack(spacing: 10) {
-            Text("Use \"\(trimmedQuery)\" with…")
-                .font(FoundryTheme.body(size: 13, weight: .semibold))
-                .foregroundStyle(FoundryTheme.secondaryText)
-
-            Image(systemName: "gearshape")
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(FoundryTheme.mutedText)
+            Text("Use “\(trimmedQuery)” with…")
+                .font(FoundryTheme.body)
+                .foregroundStyle(FoundryTheme.textSecondary)
 
             Spacer()
         }

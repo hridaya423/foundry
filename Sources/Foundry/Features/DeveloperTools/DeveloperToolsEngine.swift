@@ -1,5 +1,6 @@
 import Foundation
 import FoundryServices
+import os
 
 enum DeveloperToolsEngine {
     enum BitwiseOperation {
@@ -55,7 +56,8 @@ enum DeveloperToolsEngine {
         do {
             object = try JSONSerialization.jsonObject(with: data)
         } catch {
-            if let decoded = base64Decode(input), let decodedData = decoded.data(using: .utf8), let nested = try? JSONSerialization.jsonObject(with: decodedData) {
+            if let decoded = base64Decode(input), let decodedData = decoded.data(using: .utf8),
+                let nested = try? JSONSerialization.jsonObject(with: decodedData) {
                 object = nested
             } else {
                 return nil
@@ -99,7 +101,7 @@ enum DeveloperToolsEngine {
                 return [
                     TimestampConversion(label: "Unix seconds", value: String(Int(date.timeIntervalSince1970.rounded()))),
                     TimestampConversion(label: "Unix milliseconds", value: String(Int((date.timeIntervalSince1970 * 1000).rounded()))),
-                    TimestampConversion(label: "ISO 8601", value: iso8601Formatter.string(from: date))
+                    TimestampConversion(label: "ISO 8601", value: iso8601Formatter.withLockUnchecked { $0.string(from: date) })
                 ]
             }
         }
@@ -264,7 +266,7 @@ enum DeveloperToolsEngine {
 
     private static func conversions(for date: Date) -> [TimestampConversion] {
         [
-            TimestampConversion(label: "ISO 8601", value: iso8601Formatter.string(from: date)),
+            TimestampConversion(label: "ISO 8601", value: iso8601Formatter.withLockUnchecked { $0.string(from: date) }),
             TimestampConversion(label: "Unix seconds", value: String(Int(date.timeIntervalSince1970.rounded()))),
             TimestampConversion(label: "Unix milliseconds", value: String(Int((date.timeIntervalSince1970 * 1000).rounded()))),
             TimestampConversion(label: "Local", value: localDateFormatter.string(from: date))
@@ -298,11 +300,11 @@ enum DeveloperToolsEngine {
         "exercitation", "ullamco", "laboris", "nisi", "ut", "aliquip", "ex", "ea", "commodo", "consequat"
     ]
 
-    nonisolated(unsafe) private static let iso8601Formatter: ISO8601DateFormatter = {
+    private static let iso8601Formatter = OSAllocatedUnfairLock<ISO8601DateFormatter>(uncheckedState: {
         let formatter = ISO8601DateFormatter()
         formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
         return formatter
-    }()
+    }())
 
     private static let localDateFormatter: DateFormatter = {
         let formatter = DateFormatter()

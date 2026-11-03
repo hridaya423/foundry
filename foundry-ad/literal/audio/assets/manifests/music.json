@@ -1,0 +1,392 @@
+[
+ {
+  "id": "mk-196",
+  "category": "music",
+  "file": "audio/assets/music/mk-196.mp3",
+  "title": "Deep House",
+  "author": "Arulo",
+  "source": "mixkit",
+  "page_url": "https://mixkit.co/free-stock-music/house/",
+  "download_url": "https://assets.mixkit.co/music/196/196.mp3",
+  "license": "Mixkit Stock Music Free License",
+  "license_url": "https://mixkit.co/license/#musicFree",
+  "attribution": null,
+  "need": "music",
+  "rank": 1,
+  "best_segment": [
+   0.0,
+   156.8
+  ],
+  "notes": "Arulo, 'Deep House', 2:37. Grid-fitted tempo 124.00 BPM (bar 1.935 s), key G minor (bass chroma: G 1.00, G# .73, F# .55, A .54), tech house z +3.9 / house z +3.8 (earshot describe), earshot rank #1 of 15 for 'minimal tech house, dry punchy kick, space for sound effects' (z +3.6 strong). Loudness -14.8 LUFS, LRA 4.2 LU, true peak +0.6 dBTP, 54 clipped samples only (the cleanest master of the set: room for foley). STRUCTURE (per-bar RMS dB overall / <150 Hz / >1.5 kHz): bars 0-7 (0-15.5 s) sparse intro -19/-21/-29 with low-frequency content already present (<150 Hz at -21 dB); bar 8 at 15.48 s the full groove enters (+4 dB, -15/-16/-27) = the DROP-IN, lands on a bar line; bars 8-23 (15.5-46.5 s) groove; bar 24 at 46.5 s the highs strip away (hi -27 to -40 dB) and the track runs thin until bar 38 (73.5 s); bar 39 (75.5 s) highs return as the build; bar 40 at 77.4 s ONE BAR WITH THE KICK AND BASS OUT (overall -29 dB, 12 dB under median); bar 41 at 79.3 s FULL RETURN = the strongest drop (-15/-17/-25); bars 41-72 groove to 141 s; bars 73-80 (141.3-155 s) fade out to digital silence from about 155 s. MAPPING: to land the drop on 17.5 s play from 0 and repeat bar 7 once (1.94 s) so bar 8 hits at 17.42 s (80 ms early: or stretch 0.45 % to 123.4 BPM); or take bars 38-41 (73.5-81.2 s: 2-bar build, 1-bar kick-out, drop) as the build into 17.5 s. A clean ending exists at any bar line + the logo note in G.",
+  "licence_seen": {
+   "text": "Mixkit Stock Music Free License (listed on the page as free: \"Assets under the Mixkit Free License can be used in both commercial and non-commercial projects\", mixkit.co home)",
+   "url": "https://mixkit.co/license/",
+   "page": "https://mixkit.co/free-stock-music/house/",
+   "read_on": "2026-11-01",
+   "caveat": "The licence text itself is loaded in a script-driven modal; the page text fetched without a browser only lists the licence names. NOT read in full: confirm the Stock Music Free License modal at https://mixkit.co/license/ before the film ships; never register the film with Content ID."
+  },
+  "analysis": {
+   "duration": 156.779,
+   "codec": "mp3",
+   "kbps": 256,
+   "src_rate": 44100,
+   "channels": 2,
+   "peak_dbfs": 0.55,
+   "lufs": -14.81,
+   "noise_floor_dbfs": -33.5,
+   "clipped_samples": 54,
+   "attack_at": 0.005,
+   "centroid_hz": 2572,
+   "rolloff95_hz": 9733,
+   "onsets": [
+    0.255,
+    0.395,
+    0.511,
+    0.743,
+    0.882,
+    0.998,
+    1.115,
+    1.231,
+    1.463,
+    1.718,
+    1.858,
+    1.974
+   ],
+   "bpm_grid_fit": 124.0,
+   "first_downbeat_s": 0.0,
+   "bar_s": 1.935,
+   "tempo_librosa": 123.05,
+   "key_librosa": "G minor"
+  },
+  "earshot": {
+   "realness": 0.884,
+   "realness_verdict": "real or pro-produced",
+   "realness_trim": [
+    0.0,
+    60.0
+   ],
+   "match": {
+    "query": "minimal tech house with a dry punchy kick drum, sparse, space for sound effects on top",
+    "z": 4.19,
+    "verdict": "strong",
+    "p_vs_alts": 0.998,
+    "window": [
+     0.0,
+     60.0
+    ]
+   }
+  }
+ },
+ {
+  "id": "mk-623",
+  "category": "music",
+  "file": "audio/assets/music/mk-623.mp3",
+  "title": "Deep Urban",
+  "author": "Eugenio Mininni",
+  "source": "mixkit",
+  "page_url": "https://mixkit.co/free-stock-music/house/",
+  "download_url": "https://assets.mixkit.co/music/623/623.mp3",
+  "license": "Mixkit Stock Music Free License",
+  "license_url": "https://mixkit.co/license/#musicFree",
+  "attribution": null,
+  "need": "music",
+  "rank": 2,
+  "best_segment": [
+   0.0,
+   120.0
+  ],
+  "notes": "Eugenio Mininni, 'Deep Urban', 4:49 (use the first 2 min). 124.00 BPM (bar 1.935 s), key A minor (bass chroma A 1.00, E .84, G# .82, F .78), earshot genre 'tech house music' z +3.8 (the only top tag that names tech house first), 'a professionally mixed and mastered music track' z +1.7. But it is the loudest and the most limited master: -9.4 LUFS, LRA 6.3 LU, peak +2.8 dBFS in decode, 2,764 clipped samples; earshot rank only #13 (z +2.2 weak) for the 'sparse, space for foley' query: denser than mk-196. STRUCTURE: bars 0-7 (0-15.5 s) NO KICK (overall -19 dB, <150 Hz -31 dB); bar 8 at 15.48 s kick + bass enter: low band -31 to -13 dB (+18 dB), overall +4 dB = the cleanest drop-in; groove to bar 37 (71.7 s); bar 38 (73.6 s) bass thins; bars 40-43 (77.5-85.2 s) kick/bass out (<150 Hz -36..-43 dB); bars 44-58 (85-114 s) a lower loop (overall -14..-18 dB, <150 Hz about -32 dB); bars 59-61 (114.2-118.1 s) 3-bar bass rebuild (-28, -21, -16 dB); bar 62 at 120.0 s FULL DROP (<150 Hz -13 dB); outro bars 124+ (240 s). MAPPING: intro 0-15.5 s then drop-in at 17.4 s with one repeated intro bar; or the second drop (bars 59-62: 114.2-120.0 s) as the 17.5 s build + drop.",
+  "licence_seen": {
+   "text": "Mixkit Stock Music Free License (listed on the page as free: \"Assets under the Mixkit Free License can be used in both commercial and non-commercial projects\", mixkit.co home)",
+   "url": "https://mixkit.co/license/",
+   "page": "https://mixkit.co/free-stock-music/house/",
+   "read_on": "2026-11-01",
+   "caveat": "The licence text itself is loaded in a script-driven modal; the page text fetched without a browser only lists the licence names. NOT read in full: confirm the Stock Music Free License modal at https://mixkit.co/license/ before the film ships; never register the film with Content ID."
+  },
+  "analysis": {
+   "duration": 288.692,
+   "codec": "mp3",
+   "kbps": 256,
+   "src_rate": 44100,
+   "channels": 2,
+   "peak_dbfs": 2.83,
+   "lufs": -9.41,
+   "noise_floor_dbfs": -33.8,
+   "clipped_samples": 2764,
+   "attack_at": 0.002,
+   "centroid_hz": 2155,
+   "rolloff95_hz": 9646,
+   "onsets": [
+    0.163,
+    0.395,
+    0.743,
+    0.998,
+    1.115,
+    1.231,
+    1.37,
+    1.486,
+    1.602,
+    1.718,
+    1.858,
+    1.974
+   ],
+   "bpm_grid_fit": 124.0,
+   "first_downbeat_s": 0.04,
+   "bar_s": 1.935,
+   "tempo_librosa": 123.05,
+   "key_librosa": "A minor"
+  },
+  "earshot": {
+   "realness": 0.839,
+   "realness_verdict": "real or pro-produced",
+   "realness_trim": [
+    0.0,
+    60.0
+   ],
+   "match": {
+    "query": "minimal tech house with a dry punchy kick drum, sparse, space for sound effects on top",
+    "z": 3.02,
+    "verdict": "strong",
+    "p_vs_alts": 0.461,
+    "window": [
+     0.0,
+     60.0
+    ]
+   }
+  }
+ },
+ {
+  "id": "mk-133",
+  "category": "music",
+  "file": "audio/assets/music/mk-133.mp3",
+  "title": "Dub Techno Groove",
+  "author": "Alejandro Magaña (A. M.)",
+  "source": "mixkit",
+  "page_url": "https://mixkit.co/free-stock-music/techno/",
+  "download_url": "https://assets.mixkit.co/music/133/133.mp3",
+  "license": "Mixkit Stock Music Free License",
+  "license_url": "https://mixkit.co/license/#musicFree",
+  "attribution": null,
+  "need": "music",
+  "rank": 3,
+  "best_segment": [
+   0.0,
+   95.7
+  ],
+  "notes": "Alejandro Magaña (A. M.), 'Dub Techno Groove', 1:42. 123.00 BPM (bar 1.951 s), key G (bass chroma G 1.00, A .95, G# .94), earshot genre techno z +4.0 / 'a punchy kick drum pattern' z +1.9. -9.3 LUFS, LRA only 1.9 LU, true peak +0.6 dBTP, 784 clipped samples, earshot rank #4 (z +3.4 strong). A cold-start groove (no sparse intro: all bars -12 dB overall, kick present from 0.1 s). STRUCTURE: bars 0-13 (0.1-27.4 s) groove; bars 14-15 (27.4-31.3 s) a 2-bar stop (<150 Hz -22/-21 dB, overall -17/-16: kick out, 5 dB lower); bar 16 at 31.3 s full return (-10/-11/-20) = the drop; 32 bars of groove (-10 dB flat) to bar 47 (93.8 s); bar 48 (93.8-95.7 s) last kick, then the tail to 101.5 s. Short (95 s of material) and flat: use it only if the film needs a groove that starts cold on frame 0.",
+  "licence_seen": {
+   "text": "Mixkit Stock Music Free License (listed on the page as free: \"Assets under the Mixkit Free License can be used in both commercial and non-commercial projects\", mixkit.co home)",
+   "url": "https://mixkit.co/license/",
+   "page": "https://mixkit.co/free-stock-music/techno/",
+   "read_on": "2026-11-01",
+   "caveat": "The licence text itself is loaded in a script-driven modal; the page text fetched without a browser only lists the licence names. NOT read in full: confirm the Stock Music Free License modal at https://mixkit.co/license/ before the film ships; never register the film with Content ID."
+  },
+  "analysis": {
+   "duration": 101.544,
+   "codec": "mp3",
+   "kbps": 256,
+   "src_rate": 48000,
+   "channels": 2,
+   "peak_dbfs": 0.62,
+   "lufs": -9.3,
+   "noise_floor_dbfs": -22.7,
+   "clipped_samples": 784,
+   "attack_at": 0.082,
+   "centroid_hz": 2462,
+   "rolloff95_hz": 9926,
+   "onsets": [
+    0.093,
+    0.372,
+    0.859,
+    0.975,
+    1.091,
+    1.695,
+    1.834,
+    1.95,
+    2.067,
+    2.368,
+    2.67,
+    2.81
+   ],
+   "bpm_grid_fit": 123.0,
+   "first_downbeat_s": 0.102,
+   "bar_s": 1.951,
+   "tempo_librosa": 123.05,
+   "key_librosa": "G minor"
+  },
+  "earshot": {
+   "realness": 0.832,
+   "realness_verdict": "real or pro-produced",
+   "realness_trim": [
+    0.0,
+    60.0
+   ],
+   "match": {
+    "query": "minimal tech house with a dry punchy kick drum, sparse, space for sound effects on top",
+    "z": 3.4,
+    "verdict": "strong",
+    "p_vs_alts": 0.65,
+    "window": [
+     0.0,
+     60.0
+    ]
+   }
+  }
+ },
+ {
+  "id": "mk-745",
+  "category": "music",
+  "file": "audio/assets/music/mk-745.mp3",
+  "title": "House Vibez",
+  "author": "Lily J",
+  "source": "mixkit",
+  "page_url": "https://mixkit.co/free-stock-music/house/",
+  "download_url": "https://assets.mixkit.co/music/745/745.mp3",
+  "license": "Mixkit Stock Music Free License",
+  "license_url": "https://mixkit.co/license/#musicFree",
+  "attribution": null,
+  "need": "music",
+  "rank": 4,
+  "best_segment": [
+   0.0,
+   111.5
+  ],
+  "notes": "Lily J, 'House Vibez', 1:52, 320 kbps. 122.0 BPM (bar 1.967 s), key G (bass chroma G 1.00, F .92, E .84), earshot house z +3.3. -10.8 LUFS, LRA 3.8 LU, 174 clipped samples, but bandwidth only to 16.3 kHz (95 % rolloff 9.5 kHz is normal; the spectrum is cut above 16 kHz) and realness only 'uncertain' (0.73, 4 of 28 windows lean synthesized). STRUCTURE: bars 0-4 (0-9.9 s) intro with no highs (-12/-15 dB); bar 8 at 15.8 s full groove; bar 24 at 47.3 s highs fall away; bars 26-31 (51.2-61.0 s) A 12 SECOND BREAKDOWN: kick/bass fade out (<150 Hz -22, -26, -31, -37, -42 dB, a filter-down), highs drift up (-22 dB), bar 31 (61.0 s) kick returns quiet; bar 32 at 63.0 s FULL DROP (<150 Hz -42 to -12 dB: +30 dB; the biggest low-end jump of the five). MAPPING: bars 26-32 (51.2-65 s) as the 7-bar build and drop; for a 16-17.5 s build into a drop use bars 28-32 (55.1-63.0 s, 8 s).",
+  "licence_seen": {
+   "text": "Mixkit Stock Music Free License (listed on the page as free: \"Assets under the Mixkit Free License can be used in both commercial and non-commercial projects\", mixkit.co home)",
+   "url": "https://mixkit.co/license/",
+   "page": "https://mixkit.co/free-stock-music/house/",
+   "read_on": "2026-11-01",
+   "caveat": "The licence text itself is loaded in a script-driven modal; the page text fetched without a browser only lists the licence names. NOT read in full: confirm the Stock Music Free License modal at https://mixkit.co/license/ before the film ships; never register the film with Content ID."
+  },
+  "analysis": {
+   "duration": 111.465,
+   "codec": "mp3",
+   "kbps": 320,
+   "src_rate": 44100,
+   "channels": 2,
+   "peak_dbfs": 1.02,
+   "lufs": -10.82,
+   "noise_floor_dbfs": -19.9,
+   "clipped_samples": 174,
+   "attack_at": 0.053,
+   "centroid_hz": 1755,
+   "rolloff95_hz": 9506,
+   "onsets": [
+    0.07,
+    0.58,
+    1.068,
+    1.556,
+    2.043,
+    2.554,
+    3.042,
+    3.529,
+    4.017,
+    4.528,
+    4.992,
+    5.48
+   ],
+   "bpm_grid_fit": 122.0,
+   "first_downbeat_s": 0.061,
+   "bar_s": 1.967,
+   "tempo_librosa": 123.05,
+   "key_librosa": "C major"
+  },
+  "earshot": {
+   "realness": 0.746,
+   "realness_verdict": "uncertain",
+   "realness_trim": [
+    0.0,
+    60.0
+   ],
+   "match": {
+    "query": "minimal tech house with a dry punchy kick drum, sparse, space for sound effects on top",
+    "z": 2.76,
+    "verdict": "plausible",
+    "p_vs_alts": 0.993,
+    "window": [
+     0.0,
+     60.0
+    ]
+   }
+  }
+ },
+ {
+  "id": "mk-113",
+  "category": "music",
+  "file": "audio/assets/music/mk-113.mp3",
+  "title": "House Fest",
+  "author": "Alejandro Magaña (A. M.)",
+  "source": "mixkit",
+  "page_url": "https://mixkit.co/free-stock-music/house/",
+  "download_url": "https://assets.mixkit.co/music/113/113.mp3",
+  "license": "Mixkit Stock Music Free License",
+  "license_url": "https://mixkit.co/license/#musicFree",
+  "attribution": null,
+  "need": "music",
+  "rank": 5,
+  "best_segment": [
+   0.0,
+   135.5
+  ],
+  "notes": "Alejandro Magaña (A. M.), 'House Fest', 2:16. 124.00 BPM (bar 1.935 s), key G minor (analysis), earshot rank #2 of 15 (z +3.6 strong, 'techno music' z +4.2), realness 0.94. -10.7 LUFS, LRA 1.8 LU, true peak +0.7 dBTP, 100 clipped samples. Flat: bars 0-7 (0-15.5 s) -14 dB, bar 8 (15.5 s) +3 dB groove entry, no further break; fades from bar 64 (123.9 s). Intro length is right for the 17.5 s drop-in (+1 repeated bar) but there is no build / stop to use; weakest structure of the five. Less limited than mk-623 (-10.7 vs -9.4 LUFS).",
+  "licence_seen": {
+   "text": "Mixkit Stock Music Free License (listed on the page as free: \"Assets under the Mixkit Free License can be used in both commercial and non-commercial projects\", mixkit.co home)",
+   "url": "https://mixkit.co/license/",
+   "page": "https://mixkit.co/free-stock-music/house/",
+   "read_on": "2026-11-01",
+   "caveat": "The licence text itself is loaded in a script-driven modal; the page text fetched without a browser only lists the licence names. NOT read in full: confirm the Stock Music Free License modal at https://mixkit.co/license/ before the film ships; never register the film with Content ID."
+  },
+  "analysis": {
+   "duration": 135.552,
+   "codec": "mp3",
+   "kbps": 256,
+   "src_rate": 48000,
+   "channels": 2,
+   "peak_dbfs": 0.7,
+   "lufs": -10.75,
+   "noise_floor_dbfs": -32.7,
+   "clipped_samples": 100,
+   "attack_at": 0.026,
+   "centroid_hz": 2707,
+   "rolloff95_hz": 9959,
+   "onsets": [
+    0.07,
+    0.302,
+    0.534,
+    0.789,
+    1.022,
+    1.161,
+    1.254,
+    1.509,
+    1.741,
+    1.997,
+    2.136,
+    2.229
+   ],
+   "bpm_grid_fit": 124.0,
+   "first_downbeat_s": 0.04,
+   "bar_s": 1.935,
+   "tempo_librosa": 123.05,
+   "key_librosa": "G minor"
+  },
+  "earshot": {
+   "realness": 0.96,
+   "realness_verdict": "real or pro-produced",
+   "realness_trim": [
+    0.0,
+    60.0
+   ],
+   "match": {
+    "query": "minimal tech house with a dry punchy kick drum, sparse, space for sound effects on top",
+    "z": 3.83,
+    "verdict": "strong",
+    "p_vs_alts": 0.836,
+    "window": [
+     0.0,
+     60.0
+    ]
+   }
+  }
+ }
+]

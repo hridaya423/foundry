@@ -1,0 +1,183 @@
+{
+ "_doc": "Literal. (24 s loop). Real recordings only, credited in CREDITS.md. Built by real-sound/scripts/mix.py from this file and one fragment per category in audio/design/. Cue frames come from out/cues.json, generated from the picture by tools/cues.mjs.",
+ "duration": 24.0,
+ "cues": "out/cues.json",
+ "include": [
+  "audio/design/music.json",
+  "audio/design/tiles.json",
+  "audio/design/keys.json",
+  "audio/design/fx.json"
+ ],
+ "_buses_doc": "Music dips 7 dB under each typed query so the keys read (summon to Return), recovers on the Return. It dips 3 dB under the 432 seat and the digit flips (5.2-6.2), 3 dB under the HELLO and こんにちは flips (8.3-9.4) and 2 dB under the QR landing (11.15-11.8) so the tiles read over the hats. It lifts 1.5 dB over the break before the drop and hits at +0 on 14.0, then eases 4 dB down by 16.2 so the wordmark's clacks read. The music edit stops on 18.4. From 22.2 the bus sits at -7, the level the film opens at, so the loop seam has no level step.",
+ "buses": {
+  "music": {
+   "gain_db": 0.0,
+   "auto": [
+    [
+     0.0,
+     -7
+    ],
+    [
+     1.68,
+     -7
+    ],
+    [
+     1.78,
+     0
+    ],
+    [
+     3.95,
+     0
+    ],
+    [
+     4.05,
+     -7
+    ],
+    [
+     4.93,
+     -7
+    ],
+    [
+     5.03,
+     0
+    ],
+    [
+     5.15,
+     0
+    ],
+    [
+     5.22,
+     -3
+    ],
+    [
+     6.15,
+     -3
+    ],
+    [
+     6.3,
+     0
+    ],
+    [
+     6.45,
+     0
+    ],
+    [
+     6.55,
+     -7
+    ],
+    [
+     7.68,
+     -7
+    ],
+    [
+     7.78,
+     0
+    ],
+    [
+     8.25,
+     0
+    ],
+    [
+     8.32,
+     -3
+    ],
+    [
+     9.4,
+     -3
+    ],
+    [
+     9.55,
+     0
+    ],
+    [
+     9.95,
+     0
+    ],
+    [
+     10.05,
+     -7
+    ],
+    [
+     10.68,
+     -7
+    ],
+    [
+     10.78,
+     0
+    ],
+    [
+     11.1,
+     0
+    ],
+    [
+     11.15,
+     -2
+    ],
+    [
+     11.8,
+     -2
+    ],
+    [
+     11.9,
+     0
+    ],
+    [
+     12.45,
+     0
+    ],
+    [
+     12.55,
+     -6
+    ],
+    [
+     13.0,
+     -6
+    ],
+    [
+     13.2,
+     1.5
+    ],
+    [
+     13.99,
+     1.5
+    ],
+    [
+     14.0,
+     0
+    ],
+    [
+     15.0,
+     0
+    ],
+    [
+     16.2,
+     -4.0
+    ],
+    [
+     21.4,
+     -4.0
+    ],
+    [
+     22.2,
+     -7.0
+    ],
+    [
+     24.0,
+     -7.0
+    ]
+   ]
+  },
+  "amb": {
+   "gain_db": 0.0
+  },
+  "sfx": {
+   "gain_db": 0.0
+  }
+ },
+ "_master_doc": "-14 LUFS for web and social. Ceiling 0.77 linear leaves room for the AAC encode.",
+ "master": {
+  "lufs": -14,
+  "ceiling": 0.77,
+  "no_glue": true
+ }
+}

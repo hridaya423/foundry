@@ -1,0 +1,45 @@
+{
+  "widths": [
+    1440,
+    768,
+    390,
+    320
+  ],
+  "heights": {
+    "1440": 900,
+    "768": 1024,
+    "390": 844,
+    "320": 700
+  },
+  "routes": [
+    {
+      "path": "/",
+      "stops": [
+        0,
+        0.84,
+        1.3,
+        1.86,
+        2.92,
+        3.36
+      ]
+    },
+    {
+      "path": "/methodology"
+    },
+    {
+      "path": "/proof"
+    },
+    {
+      "path": "/changelog"
+    },
+    {
+      "path": "/privacy"
+    },
+    {
+      "path": "/brand"
+    },
+    {
+      "path": "/missing-page"
+    }
+  ]
+}

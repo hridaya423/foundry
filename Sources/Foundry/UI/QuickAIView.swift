@@ -16,10 +16,10 @@ struct QuickAIHeaderControlsView: View {
                 onSubmit: { Task { await quickAI.submit() } }
             )
             .focused($inputFocused)
-            .frame(height: 42)
+            .frame(height: FoundryTheme.Control.row)
 
             if quickAI.isQuickAILoading {
-                FoundryIconButton(systemName: "stop.circle.fill", accessibilityLabel: "Stop answering", tint: FoundryTheme.secondaryText) {
+                FoundryIconButton(systemName: "stop.circle.fill", accessibilityLabel: "Stop answering", tint: FoundryTheme.textSecondary) {
                     quickAI.stop()
                 }
                 .help("Stop (⌘.)")
@@ -27,12 +27,11 @@ struct QuickAIHeaderControlsView: View {
 
             Button { isShowingThreads = true } label: {
                  Image(systemName: "text.bubble")
-                     .font(.system(size: 15, weight: .medium))
-                     .foregroundStyle(FoundryTheme.secondaryText)
+                     .font(FoundryTheme.Glyph.sm)
+                     .foregroundStyle(FoundryTheme.textSecondary)
                      .frame(width: 30, height: 30)
              }
              .buttonStyle(.plain)
-             .pointerCursor()
              .help("Chats")
              .accessibilityLabel("Chats")
              .popover(isPresented: $isShowingThreads, arrowEdge: .bottom) {
@@ -47,55 +46,71 @@ struct QuickAIHeaderControlsView: View {
 
 struct QuickAISurfaceView: View {
     @Bindable var quickAI: QuickAIState
-    var onOpenAISettings: (() -> Void)?
+    var aiSettings: AISettingsState
+    var onOpenAISettings: () -> Void
 
     var body: some View {
-        ScrollView {
-            LazyVStack(alignment: .leading, spacing: 18) {
-                if let active = quickAI.activeThread, active.messages.isEmpty, quickAI.isQuickAILoading == false {
-                    QuickAIEmptyState { prompt in
-                        quickAI.quickAIQuery = prompt
-                        Task { await quickAI.submit() }
-                    }
-                } else if let active = quickAI.activeThread {
-                    ForEach(active.messages) { message in
-                        quickAIMessageRow(message)
-                    }
-                }
-
-                if quickAI.isQuickAILoading,
-                   quickAI.quickAIStatus.hasPrefix("Using ") == false,
-                   quickAI.quickAIStatus.hasPrefix("Finished ") == false {
-                    QuickAIActivityRow(status: quickAI.quickAIStatus)
-                }
-
-                if quickAI.quickAIResponse.isEmpty == false,
-                   quickAI.isQuickAILoading || quickAI.quickAIThreads.first(where: { $0.id == quickAI.activeQuickAIThreadID })?.messages.last?.content != quickAI.quickAIResponse {
-                    AIFormattedText(content: quickAI.quickAIResponse)
-                        .font(FoundryTheme.body(size: 15, weight: .regular))
-                        .foregroundStyle(FoundryTheme.primaryText)
-                        .textSelection(.enabled)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                }
-
-                if quickAI.quickAILastFailedPrompt != nil, quickAI.isQuickAILoading == false {
-                    HStack(spacing: 10) {
-                        FoundryActionButton(title: "Retry", systemName: "arrow.clockwise") {
-                            quickAI.retry()
+        ScrollViewReader { proxy in
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 18) {
+                    if let active = quickAI.activeThread, active.messages.isEmpty, quickAI.isQuickAILoading == false {
+                        QuickAIEmptyState { prompt in
+                            quickAI.quickAIQuery = prompt
+                            Task { await quickAI.submit() }
                         }
-                        if let onOpenAISettings {
-                            FoundryActionButton(title: "AI Settings", systemName: "gear") {
-                                onOpenAISettings()
+                    } else if let active = quickAI.activeThread {
+                        ForEach(active.messages) { message in
+                            quickAIMessageRow(message)
+                        }
+                    }
+
+                    if quickAI.isQuickAILoading,
+                       quickAI.quickAIStatus.hasPrefix("Using ") == false,
+                       quickAI.quickAIStatus.hasPrefix("Finished ") == false {
+                        QuickAIActivityRow(status: quickAI.quickAIStatus)
+                    }
+
+                    if quickAI.quickAIResponse.isEmpty == false,
+                       quickAI.isQuickAILoading || quickAI.quickAIThreads.first(where: { $0.id
+                           == quickAI.activeQuickAIThreadID })?.messages.last?.content != quickAI.quickAIResponse {
+                        AIFormattedText(content: quickAI.quickAIResponse)
+                            .font(FoundryTheme.bodySecondary)
+                            .foregroundStyle(FoundryTheme.textPrimary)
+                            .textSelection(.enabled)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+
+                    if let error = quickAI.quickAIError, quickAI.isQuickAILoading == false {
+                        InlineNotice(level: .error, text: "\(error)")
+                    }
+
+                    if quickAI.quickAILastFailedPrompt != nil, quickAI.isQuickAILoading == false {
+                        HStack(spacing: 10) {
+                            FoundryActionButton(title: "Retry", systemName: "arrow.clockwise") {
+                                quickAI.retry()
                             }
+                            QuickAIModelMenu(quickAI: quickAI, aiSettings: aiSettings, title: "Switch Model", openAISettings: onOpenAISettings)
+                            FoundryActionButton(title: "AI Settings…", systemName: "gear", action: onOpenAISettings)
                         }
+                            .padding(.top, 2)
                     }
-                        .padding(.top, 2)
+
+                    Color.clear.frame(height: FoundryTheme.hairline).id(Self.bottomID)
                 }
+                .padding(.horizontal, 28)
+                .padding(.vertical, 24)
             }
-            .padding(.horizontal, 28)
-            .padding(.vertical, 24)
+            .onChange(of: quickAI.quickAIResponse) {
+                guard quickAI.isQuickAILoading else { return }
+                proxy.scrollTo(Self.bottomID, anchor: .bottom)
+            }
+            .onChange(of: quickAI.activeThread?.messages.count) {
+                proxy.scrollTo(Self.bottomID, anchor: .bottom)
+            }
         }
     }
+
+    private static let bottomID = "quickAI.bottom"
 
     @ViewBuilder
     private func quickAIMessageRow(_ message: AIChatMessage) -> some View {
@@ -105,13 +120,13 @@ struct QuickAISurfaceView: View {
         } else {
             HStack(alignment: .firstTextBaseline, spacing: 12) {
                 Image(systemName: message.role == .user ? "person.crop.circle" : "sparkles")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(FoundryTheme.faintText)
+                    .font(FoundryTheme.Glyph.sm)
+                    .foregroundStyle(FoundryTheme.textQuaternary)
                     .frame(width: 20)
 
                 AIFormattedText(content: message.content)
-                    .font(FoundryTheme.body(size: 15, weight: .regular))
-                    .foregroundStyle(message.role == .user ? FoundryTheme.secondaryText : FoundryTheme.primaryText)
+                    .font(FoundryTheme.bodySecondary)
+                    .foregroundStyle(message.role == .user ? FoundryTheme.textSecondary : FoundryTheme.textPrimary)
                     .textSelection(.enabled)
                     .frame(maxWidth: .infinity, alignment: .leading)
 
@@ -127,30 +142,23 @@ private struct QuickAIEmptyState: View {
     let ask: (String) -> Void
 
     private static let suggestions = [
-        "Summarize what's on my clipboard",
+        "Summarize what’s on my clipboard",
         "Explain a shell command",
         "Draft a short, friendly reply"
     ]
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Ask anything")
-                .font(FoundryTheme.body(size: 17, weight: .semibold))
-                .foregroundStyle(FoundryTheme.primaryText)
-            Text("Answers stream here. Press ⌘N for a new chat, ⌘. to stop.")
-                .font(FoundryTheme.body(size: 12, weight: .regular))
-                .foregroundStyle(FoundryTheme.mutedText)
+        VStack(alignment: .leading, spacing: FoundryTheme.Spacing.xs) {
             ForEach(Self.suggestions, id: \.self) { suggestion in
                 Button { ask(suggestion) } label: {
                     Label(suggestion, systemImage: "sparkles")
-                        .font(FoundryTheme.body(size: 13, weight: .medium))
-                        .foregroundStyle(FoundryTheme.secondaryText)
+                        .font(FoundryTheme.body)
+                        .foregroundStyle(FoundryTheme.textSecondary)
                         .padding(.horizontal, 12)
                         .padding(.vertical, 8)
-                        .background(Color.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                        .background(FoundryTheme.fillHover, in: RoundedRectangle(cornerRadius: FoundryTheme.Radius.control, style: .continuous))
                 }
                 .buttonStyle(PressableButtonStyle())
-                .pointerCursor()
             }
         }
         .padding(.top, 8)
@@ -169,12 +177,11 @@ private struct CopyMessageButton: View {
             Task { try? await Task.sleep(for: .seconds(1.2)); copied = false }
         } label: {
             Image(systemName: copied ? "checkmark" : "doc.on.doc")
-                .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(FoundryTheme.faintText)
+                .font(FoundryTheme.Glyph.xs)
+                .foregroundStyle(FoundryTheme.textQuaternary)
                 .frame(width: 22, height: 22)
         }
         .buttonStyle(.plain)
-        .pointerCursor()
         .accessibilityLabel(copied ? "Copied" : "Copy answer")
         .help("Copy answer")
     }
@@ -184,15 +191,7 @@ private struct QuickAIActivityRow: View {
     let status: String
 
     var body: some View {
-        let presentation = QuickAIToolPresentation.activity(for: status)
-        HStack(spacing: 10) {
-            Image(systemName: presentation.icon)
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(FoundryTheme.faintText)
-                .frame(width: 20)
-
-            QuickAIShimmerLabel(text: presentation.label)
-        }
+        QuickAIActivityLabel(text: QuickAIToolPresentation.activity(for: status).label)
     }
 }
 
@@ -204,28 +203,27 @@ private struct QuickAIToolEventRow: View {
     var body: some View {
         let presentation = QuickAIToolPresentation.tool(named: name, running: isRunning)
         VStack(alignment: .leading, spacing: 6) {
-            HStack(spacing: 10) {
-                Image(systemName: presentation.icon)
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(FoundryTheme.faintText)
-                    .frame(width: 20)
-
-                if isRunning {
-                    QuickAIShimmerLabel(text: presentation.label)
-                } else {
+            if isRunning {
+                QuickAIActivityLabel(text: presentation.label)
+            } else {
+                HStack(spacing: 10) {
+                    Image(systemName: presentation.icon)
+                        .font(FoundryTheme.Glyph.sm)
+                        .foregroundStyle(FoundryTheme.textQuaternary)
+                        .frame(width: 20)
                     Text(presentation.label)
-                        .font(FoundryTheme.body(size: 14, weight: .medium))
-                        .foregroundStyle(FoundryTheme.secondaryText)
+                        .font(FoundryTheme.body)
+                        .foregroundStyle(FoundryTheme.textSecondary)
                     Image(systemName: "checkmark")
-                        .font(.system(size: 9, weight: .bold))
-                        .foregroundStyle(FoundryTheme.faintText)
+                        .font(FoundryTheme.Glyph.xs)
+                        .foregroundStyle(FoundryTheme.textQuaternary)
                 }
             }
 
             if let result, result.isEmpty == false {
                 Text(result)
-                    .font(FoundryTheme.body(size: 11, weight: .regular))
-                    .foregroundStyle(FoundryTheme.mutedText)
+                    .font(FoundryTheme.caption)
+                    .foregroundStyle(FoundryTheme.textTertiary)
                     .lineLimit(4)
                     .padding(.leading, 30)
             }
@@ -233,13 +231,19 @@ private struct QuickAIToolEventRow: View {
     }
 }
 
-private struct QuickAIShimmerLabel: View {
+private struct QuickAIActivityLabel: View {
     let text: String
 
     var body: some View {
-        Text(text)
-            .font(FoundryTheme.body(size: 14, weight: .medium))
-            .foregroundStyle(FoundryTheme.secondaryText)
+        HStack(spacing: 10) {
+            ProgressView()
+                .controlSize(.mini)
+                .frame(width: 20)
+            Text(text)
+                .font(FoundryTheme.body)
+                .foregroundStyle(FoundryTheme.textSecondary)
+        }
+        .accessibilityElement(children: .combine)
     }
 }
 
@@ -372,7 +376,7 @@ private final class QuickAITextView: NSScrollView {
         textViewContent.textContainer?.containerSize = NSSize(width: 0, height: CGFloat.greatestFiniteMagnitude)
         textViewContent.placeholderRef = { [weak self] in self?.placeholder ?? "" }
         textViewContent.submitAction = { [weak self] in self?.onSubmit?() }
-        textViewContent.font = NSFont.systemFont(ofSize: 21, weight: .regular)
+        textViewContent.font = NSFont.systemFont(ofSize: 20, weight: .regular)
         textViewContent.textColor = .labelColor
         textViewContent.insertionPointColor = .controlAccentColor
         textViewContent.isAutomaticTextCompletionEnabled = false
@@ -408,10 +412,11 @@ private final class QuickAITextViewContent: NSTextView {
         super.draw(dirtyRect)
         guard string.isEmpty, let placeholder = placeholderRef?(), placeholder.isEmpty == false else { return }
         let attrs: [NSAttributedString.Key: Any] = [
-            .font: font ?? NSFont.systemFont(ofSize: 21),
-            .foregroundColor: NSColor.labelColor.withAlphaComponent(0.34)
+            .font: font ?? NSFont.systemFont(ofSize: 20),
+            .foregroundColor: NSColor.placeholderTextColor
         ]
-        placeholder.draw(in: NSRect(x: 4, y: 10, width: bounds.width - 8, height: 24), withAttributes: attrs)
+        let x = textContainerInset.width + (textContainer?.lineFragmentPadding ?? 0)
+        placeholder.draw(at: NSPoint(x: x, y: textContainerInset.height), withAttributes: attrs)
     }
 }
 
@@ -420,39 +425,146 @@ private struct QuickAIThreadPicker: View {
     let onNewChat: () -> Void
     @Binding var isPresented: Bool
     @State private var filter = ""
+    @State private var selectedID: UUID?
 
     private var threads: [AIChatThread] {
+        let saved = quickAI.quickAIThreads.filter { $0.messages.isEmpty == false }
         let needle = filter.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        guard needle.isEmpty == false else { return quickAI.quickAIThreads }
-        return quickAI.quickAIThreads.filter { $0.title.lowercased().contains(needle) }
+        guard needle.isEmpty == false else { return saved }
+        return saved.filter { $0.title.lowercased().contains(needle) }
+    }
+
+    private var selected: AIChatThread? {
+        threads.first { $0.id == selectedID } ?? threads.first
     }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             TextField("Search chats…", text: $filter)
                 .textFieldStyle(.roundedBorder)
+                .onKeyPress(.upArrow) { move(-1) }
+                .onKeyPress(.downArrow) { move(1) }
+                .onKeyPress(.return) {
+                    guard let selected else { return .ignored }
+                    open(selected)
+                    return .handled
+                }
+                .onKeyPress(keys: [.delete]) { press in
+                    guard press.modifiers.contains(.command), let selected else { return .ignored }
+                    quickAI.deleteThread(id: selected.id)
+                    return .handled
+                }
             Button("New Chat") { onNewChat() }
                 .keyboardShortcut("n")
             Divider()
             if threads.isEmpty {
-                Text(quickAI.quickAIThreads.isEmpty ? "No chats yet" : "No matching chats")
-                    .font(FoundryTheme.body(size: 12, weight: .regular))
-                    .foregroundStyle(FoundryTheme.faintText)
+                Text(filter.isEmpty ? "No chats yet" : "No matching chats")
+                    .font(FoundryTheme.bodySecondary)
+                    .foregroundStyle(FoundryTheme.textTertiary)
                     .frame(maxWidth: .infinity, alignment: .center)
                     .padding(.vertical, 10)
             } else {
-                List(threads) { thread in
-                    Button(thread.title) {
-                        quickAI.selectThread(thread)
-                        isPresented = false
+                ScrollViewReader { proxy in
+                    ScrollView {
+                        LazyVStack(spacing: 2) {
+                            ForEach(threads) { thread in
+                                row(thread)
+                                    .id(thread.id)
+                            }
+                        }
                     }
-                    .buttonStyle(.plain)
+                    .scrollIndicators(.never)
+                    .onChange(of: selectedID) { _, id in
+                        if let id { proxy.scrollTo(id) }
+                    }
                 }
-                .listStyle(.plain)
-                .scrollIndicators(.never)
             }
         }
         .padding(10)
-        .frame(width: 260, height: 300)
+        .frame(width: 280, height: 320)
+    }
+
+    private func row(_ thread: AIChatThread) -> some View {
+        HStack(spacing: 8) {
+            Text(thread.title)
+                .font(FoundryTheme.bodySecondary)
+                .foregroundStyle(FoundryTheme.textPrimary)
+                .lineLimit(1)
+            Spacer(minLength: 4)
+            Text(Self.relative.localizedString(for: thread.updatedAt, relativeTo: .now))
+                .font(FoundryTheme.caption.monospacedDigit())
+                .foregroundStyle(FoundryTheme.textTertiary)
+        }
+        .padding(.horizontal, FoundryTheme.Spacing.xs)
+        .frame(height: FoundryTheme.Control.compact)
+        .background(RowBackground(isSelected: thread.id == selected?.id, isHovering: false, cornerRadius: FoundryTheme.Radius.control))
+        .contentShape(Rectangle())
+        .onTapGesture { open(thread) }
+        .accessibilityElement(children: .combine)
+        .accessibilityAddTraits(thread.id == selected?.id ? [.isButton, .isSelected] : .isButton)
+        .accessibilityAction { open(thread) }
+    }
+
+    private func move(_ offset: Int) -> KeyPress.Result {
+        guard threads.isEmpty == false else { return .ignored }
+        let index = threads.firstIndex { $0.id == selected?.id } ?? 0
+        selectedID = threads[min(max(index + offset, 0), threads.count - 1)].id
+        return .handled
+    }
+
+    private func open(_ thread: AIChatThread) {
+        quickAI.selectThread(thread)
+        isPresented = false
+    }
+
+    private static let relative: RelativeDateTimeFormatter = {
+        let formatter = RelativeDateTimeFormatter()
+        formatter.unitsStyle = .abbreviated
+        return formatter
+    }()
+}
+
+struct QuickAIModelMenu: View {
+    var quickAI: QuickAIState
+    var aiSettings: AISettingsState
+    var title: LocalizedStringResource?
+    let openAISettings: () -> Void
+
+    private var currentID: UUID? { quickAI.activeProfileID ?? aiSettings.defaultAIProfileID }
+
+    func choose(_ id: UUID) { quickAI.useProfile(id) }
+
+    var body: some View {
+        Menu {
+            ForEach(aiSettings.aiProfiles.filter(\.enabled)) { profile in
+                Button { choose(profile.id) } label: {
+                    if profile.id == currentID { Label(profile.name, systemImage: "checkmark") } else { Text(profile.name) }
+                }
+            }
+            Divider()
+            Button("AI Settings…", action: openAISettings)
+        } label: {
+            HStack(spacing: 6) {
+                Image(systemName: "sparkles")
+                    .font(FoundryTheme.Glyph.xs)
+                if let title {
+                    Text(title)
+                        .font(FoundryTheme.body)
+                } else {
+                    Text(aiSettings.aiProfiles.first { $0.id == currentID }?.name ?? String(localized: "Choose a model"))
+                        .font(FoundryTheme.body)
+                        .lineLimit(1)
+                }
+            }
+            .foregroundStyle(FoundryTheme.textSecondary)
+            .padding(.horizontal, title == nil ? 0 : FoundryTheme.Spacing.md)
+            .frame(height: FoundryTheme.Control.compact)
+            .contentShape(Rectangle())
+        }
+        .menuStyle(.button)
+        .buttonStyle(FoundryQuietButtonStyle())
+        .menuIndicator(.hidden)
+        .fixedSize()
+        .accessibilityLabel("Model")
     }
 }

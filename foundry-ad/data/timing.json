@@ -1,0 +1,63 @@
+{
+  "fps": 60,
+  "duration": 15.0,
+  "beat": 0.46875,
+  "strike": 1.875,
+  "scenes": [
+    {
+      "id": "open",
+      "beats": 3
+    },
+    {
+      "id": "convert",
+      "beats": 3
+    },
+    {
+      "id": "paste",
+      "beats": 3
+    },
+    {
+      "id": "speak",
+      "beats": 3
+    },
+    {
+      "id": "snap",
+      "beats": 2
+    },
+    {
+      "id": "ask",
+      "beats": 2
+    }
+  ],
+  "first": 3.75,
+  "end": 11.25,
+  "music": [
+    {
+      "src": "assets/audio/music/score15-b.mp3",
+      "at": 0,
+      "from": 0.0,
+      "to": 3.77,
+      "fadeIn": 0.3,
+      "fadeOut": 0.05,
+      "gain": -4.0,
+      "lowpass": {
+        "from": 1.875,
+        "hz": 900
+      }
+    },
+    {
+      "src": "assets/audio/music/drive15-b.mp3",
+      "at": 3.746,
+      "from": 0.028,
+      "gain": 0.0,
+      "fadeOut": 0.8
+    },
+    {
+      "src": "assets/audio/music/score15-b.mp3",
+      "at": 11.2377,
+      "from": 11.2507,
+      "gain": -3.0,
+      "fadeIn": 0.004
+    }
+  ]
+}

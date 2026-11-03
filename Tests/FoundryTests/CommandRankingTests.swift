@@ -10,7 +10,7 @@ final class CommandRankingTests: XCTestCase {
                 SlowProvider(),
                 TestProvider(results: [command(id: "test.fast", title: "Fast Result")])
             ],
-            usageRanking: UsageRankingStore(diagnostics: DiagnosticsService()),
+            usageRanking: UsageRankingStore.scratch(DiagnosticsService()),
             diagnostics: DiagnosticsService()
         )
         let startedAt = Date()
@@ -27,7 +27,7 @@ final class CommandRankingTests: XCTestCase {
                 FailingProvider(),
                 TestProvider(results: [command(id: "test.healthy", title: "Healthy Result")])
             ],
-            usageRanking: UsageRankingStore(diagnostics: DiagnosticsService()),
+            usageRanking: UsageRankingStore.scratch(DiagnosticsService()),
             diagnostics: DiagnosticsService()
         )
 
@@ -40,7 +40,7 @@ final class CommandRankingTests: XCTestCase {
         let probe = OverlapProbe()
         let registry = CommandRegistry(
             providers: [CancellationInsensitiveProvider(probe: probe)],
-            usageRanking: UsageRankingStore(diagnostics: DiagnosticsService()),
+            usageRanking: UsageRankingStore.scratch(DiagnosticsService()),
             diagnostics: DiagnosticsService()
         )
 
@@ -56,7 +56,7 @@ final class CommandRankingTests: XCTestCase {
         let probe = InvocationProbe()
         let registry = CommandRegistry(
             providers: [RecoveringSlowProvider(probe: probe)],
-            usageRanking: UsageRankingStore(diagnostics: DiagnosticsService()),
+            usageRanking: UsageRankingStore.scratch(DiagnosticsService()),
             diagnostics: DiagnosticsService()
         )
 
@@ -73,7 +73,7 @@ final class CommandRankingTests: XCTestCase {
         let completion = CompletionProbe()
         let registry = CommandRegistry(
             providers: [NonCooperativeProvider(probe: probe)],
-            usageRanking: UsageRankingStore(diagnostics: DiagnosticsService()),
+            usageRanking: UsageRankingStore.scratch(DiagnosticsService()),
             diagnostics: DiagnosticsService()
         )
 
@@ -142,7 +142,7 @@ final class CommandRankingTests: XCTestCase {
 
         let registry = CommandRegistry(
             providers: [FallbackProvider()],
-            usageRanking: UsageRankingStore(diagnostics: DiagnosticsService()),
+            usageRanking: UsageRankingStore.scratch(DiagnosticsService()),
             diagnostics: DiagnosticsService(),
             configService: config
         )
@@ -162,7 +162,7 @@ final class CommandRankingTests: XCTestCase {
 
         let registry = CommandRegistry(
             providers: [BuiltInCommandProvider()],
-            usageRanking: UsageRankingStore(diagnostics: DiagnosticsService()),
+            usageRanking: UsageRankingStore.scratch(DiagnosticsService()),
             diagnostics: DiagnosticsService(),
             configService: config
         )
@@ -177,7 +177,7 @@ final class CommandRankingTests: XCTestCase {
                 command(id: "test.relevant", title: "Open Project"),
                 command(id: "test.noisy", title: "Unrelated Result")
             ])],
-            usageRanking: UsageRankingStore(diagnostics: DiagnosticsService()),
+            usageRanking: UsageRankingStore.scratch(DiagnosticsService()),
             diagnostics: DiagnosticsService()
         )
 
@@ -191,7 +191,7 @@ final class CommandRankingTests: XCTestCase {
                 command(id: "test.calculation", title: "4", route: .calculator),
                 command(id: "test.static", title: "Calculator")
             ])],
-            usageRanking: UsageRankingStore(diagnostics: DiagnosticsService()),
+            usageRanking: UsageRankingStore.scratch(DiagnosticsService()),
             diagnostics: DiagnosticsService()
         )
 
@@ -205,7 +205,7 @@ final class CommandRankingTests: XCTestCase {
                 command(id: "test.history", title: "History Result", route: .browserHistory),
                 command(id: "test.tab", title: "Tab Result", route: .browserTab)
             ])],
-            usageRanking: UsageRankingStore(diagnostics: DiagnosticsService()),
+            usageRanking: UsageRankingStore.scratch(DiagnosticsService()),
             diagnostics: DiagnosticsService()
         )
 
@@ -219,7 +219,7 @@ final class CommandRankingTests: XCTestCase {
                 command(id: "test.download", title: "youtube.com video", route: .mediaDownload),
                 command(id: "test.emoji", title: "Emoji & Symbols", aliases: ["characters"])
             ])],
-            usageRanking: UsageRankingStore(diagnostics: DiagnosticsService()),
+            usageRanking: UsageRankingStore.scratch(DiagnosticsService()),
             diagnostics: DiagnosticsService()
         )
 
@@ -233,7 +233,7 @@ final class CommandRankingTests: XCTestCase {
                 TestProvider(results: [command(id: "test.noisy", title: "Kill Port 6")]),
                 MediaDownloadProvider()
             ],
-            usageRanking: UsageRankingStore(diagnostics: DiagnosticsService()),
+            usageRanking: UsageRankingStore.scratch(DiagnosticsService()),
             diagnostics: DiagnosticsService()
         )
         let query = "https://www.youtube.com/watch?v=video"
@@ -251,7 +251,7 @@ final class CommandRankingTests: XCTestCase {
                 command(id: "test.keyword", title: "Character Tools", searchKeywords: ["characters"]),
                 command(id: "test.title", title: "Characters")
             ])],
-            usageRanking: UsageRankingStore(diagnostics: DiagnosticsService()),
+            usageRanking: UsageRankingStore.scratch(DiagnosticsService()),
             diagnostics: DiagnosticsService()
         )
 
@@ -312,7 +312,7 @@ final class CommandRankingTests: XCTestCase {
                 TestProvider(results: [command(id: "app.com.tailscale", title: "Tailscale")], id: "test.apps"),
                 TestProvider(results: [command(id: "command.window.almost-maximize", title: "Almost Maximize Window")], id: "test.commands"),
             ],
-            usageRanking: UsageRankingStore(diagnostics: DiagnosticsService()),
+            usageRanking: UsageRankingStore.scratch(DiagnosticsService()),
             diagnostics: DiagnosticsService()
         )
 
@@ -329,7 +329,7 @@ final class CommandRankingTests: XCTestCase {
                 TestProvider(results: [command(id: "app.com.fanimax", title: "Fanimax Pro")], id: "test.apps"),
                 TestProvider(results: [command(id: "command.window.maximize", title: "Maximize Window")], id: "test.commands"),
             ],
-            usageRanking: UsageRankingStore(diagnostics: DiagnosticsService()),
+            usageRanking: UsageRankingStore.scratch(DiagnosticsService()),
             diagnostics: DiagnosticsService()
         )
 
@@ -348,7 +348,7 @@ final class CommandRankingTests: XCTestCase {
                 TestProvider(results: [app], id: "test.a"),
                 TestProvider(results: [cmd], id: "test.b"),
             ],
-            usageRanking: UsageRankingStore(diagnostics: DiagnosticsService()),
+            usageRanking: UsageRankingStore.scratch(DiagnosticsService()),
             diagnostics: DiagnosticsService()
         )
         let reversed = CommandRegistry(
@@ -356,7 +356,7 @@ final class CommandRankingTests: XCTestCase {
                 TestProvider(results: [cmd], id: "test.b"),
                 TestProvider(results: [app], id: "test.a"),
             ],
-            usageRanking: UsageRankingStore(diagnostics: DiagnosticsService()),
+            usageRanking: UsageRankingStore.scratch(DiagnosticsService()),
             diagnostics: DiagnosticsService()
         )
         let query = "zzz no lexical match"
@@ -396,7 +396,7 @@ final class CommandRankingTests: XCTestCase {
                 command(id: "test.z", title: "Thing"),
                 command(id: "test.a", title: "Thing")
             ])],
-            usageRanking: UsageRankingStore(diagnostics: DiagnosticsService()),
+            usageRanking: UsageRankingStore.scratch(DiagnosticsService()),
             diagnostics: DiagnosticsService()
         )
 
@@ -452,7 +452,8 @@ final class CommandRankingTests: XCTestCase {
             searchAliases: aliases,
             searchKeywords: searchKeywords,
             route: route,
-            primaryAction: CommandAction(id: id + ".open", title: "Open", kind: .openHome),
+            payload: .command,
+            primaryAction: CommandAction(id: id + ".open", title: "Open", behavior: OpenHomeAction()),
             secondaryActions: []
         )
     }
@@ -543,7 +544,8 @@ final class CommandRankingTests: XCTestCase {
                 title: "Fallback result",
                 subtitle: nil,
                 icon: CommandIcon(fallback: "F"),
-                primaryAction: CommandAction(id: "test.fallback.open", title: "Open", kind: .openHome),
+                payload: .command,
+                primaryAction: CommandAction(id: "test.fallback.open", title: "Open", behavior: OpenHomeAction()),
                 secondaryActions: []
             )]
         }

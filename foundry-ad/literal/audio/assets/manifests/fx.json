@@ -1,0 +1,1137 @@
+[
+ {
+  "id": "fs-509528",
+  "category": "fx",
+  "file": "audio/assets/fx/fs-509528_alfaia-hit.ogg",
+  "title": "Alfaia Hit",
+  "author": "Sassaby",
+  "source": "freesound",
+  "page_url": "https://freesound.org/people/Sassaby/sounds/509528/",
+  "download_url": "https://cdn.freesound.org/previews/509/509528_2771755-hq.ogg",
+  "license": "CC0 1.0",
+  "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+  "attribution": null,
+  "need": "drop_hit",
+  "rank": 1,
+  "best_segment": [
+   0.0,
+   1.8
+  ],
+  "notes": "One hit on an Alfaia (rope-tuned goat-skin Maracatu bass drum), 3.6 s, peak -4.2 dBFS. First 250 ms: 25-90 Hz 0, 90-250 -5, 250-2k -9, 2-8k -20, 8-16k -41. Sub-heavy, rounder than the timpani; centroid 289 Hz, rolloff 7.9 kHz; decays 20 dB in 1.0 s and 40 dB in 2.4 s: gate at 1.8 s. Real hide drum, un-pitched: the safe choice for an untuned boom. earshot reads the first 1.5 s as 'a kick drum' z +3.3 / 'a sub bass drop' z +3.2 / 'a big drum hit' z +3.0 and match for 'a big deep drum impact hit with sub bass' is strong (z 3.7 on 0-1.5 s).",
+  "licence_seen": {
+   "text": "Creative Commons 0",
+   "url": "http://creativecommons.org/publicdomain/zero/1.0/",
+   "page": "https://freesound.org/people/Sassaby/sounds/509528/",
+   "read_on": "2026-11-01",
+   "page_author": "Sassaby",
+   "page_title": "Alfaia Hit"
+  },
+  "analysis": {
+   "duration": 3.6,
+   "codec": "vorbis",
+   "kbps": 192,
+   "src_rate": 44100,
+   "channels": 2,
+   "peak_dbfs": -7.19,
+   "lufs": -28.56,
+   "noise_floor_dbfs": -81.8,
+   "clipped_samples": 0,
+   "attack_at": 0.0,
+   "centroid_hz": 289,
+   "rolloff95_hz": 7886,
+   "onsets": [
+    0.07,
+    0.116,
+    0.255,
+    0.348,
+    0.418,
+    0.627,
+    0.673,
+    0.766,
+    0.952,
+    1.463,
+    1.556,
+    1.834
+   ]
+  },
+  "earshot": {
+   "realness": 0.957,
+   "realness_verdict": "real or pro-produced",
+   "realness_trim": [
+    0.0,
+    1.8
+   ],
+   "match": {
+    "query": "a big deep drum impact hit with sub bass",
+    "z": 3.75,
+    "verdict": "strong",
+    "p_vs_alts": 0.998
+   },
+   "trims": {}
+  }
+ },
+ {
+  "id": "fs-573252",
+  "category": "fx",
+  "file": "audio/assets/fx/fs-573252_massive-timpani-3.ogg",
+  "title": "Massive Timpani 3.wav",
+  "author": "Sorinious_Genious",
+  "source": "freesound",
+  "page_url": "https://freesound.org/people/Sorinious_Genious/sounds/573252/",
+  "download_url": "https://cdn.freesound.org/previews/573/573252_12517458-hq.ogg",
+  "license": "CC0 1.0",
+  "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+  "attribution": null,
+  "need": "drop_hit",
+  "rank": 2,
+  "best_segment": [
+   0.0,
+   1.5
+  ],
+  "notes": "Concert timpani, hard hit, 'low- as well as high-end', dry (author tags: acoustic, dry, big drum). 4.0 s stereo, peak -2.5 dBFS. First 250 ms band balance re the loudest band: 25-90 Hz -5 dB, 90-250 Hz 0, 250 Hz-2 kHz 0, 2-8 kHz -16, 8-16 kHz -45 = the broadband real hit with a short top transient the brief asked for. Decays 20 dB in 0.40 s and 40 dB in 1.04 s: cut at 1.5 s so the tail is gone before 20.5 s. Pitched (timpani): tune within +-2 st to the track's root. Realness: whole file 0.80 (real or pro-produced) but the 0-1.5 s trim reads UNCERTAIN (p_real 0.59; the sample is a clean pitched drum with very pure partials, which the detector reads as synth-like; the author's page says acoustic, dry, a real timpani, and the 4 s file decays naturally 20 dB in 0.4 s). Keep it as the pitched layer only; the alfaia is the primary. earshot reads 0-1.5 s as 'a big drum hit' (z +3.8) but the combined query only scores plausible (z 2.65), below the alfaia, so it is second. Siblings 573253 (hit 2, -20 dB at 0.22 s, realness 0.73 uncertain) and 573254 (hit 1, 0.38 uncertain).",
+  "licence_seen": {
+   "text": "Creative Commons 0",
+   "url": "http://creativecommons.org/publicdomain/zero/1.0/",
+   "page": "https://freesound.org/people/Sorinious_Genious/sounds/573252/",
+   "read_on": "2026-11-01",
+   "page_author": "Sorinious_Genious",
+   "page_title": "Massive Timpani 3.wav"
+  },
+  "analysis": {
+   "duration": 4.0,
+   "codec": "vorbis",
+   "kbps": 192,
+   "src_rate": 44100,
+   "channels": 2,
+   "peak_dbfs": 0.02,
+   "lufs": -17.96,
+   "noise_floor_dbfs": -200.0,
+   "clipped_samples": 2,
+   "attack_at": 0.011,
+   "centroid_hz": 1111,
+   "rolloff95_hz": 8505,
+   "onsets": [
+    0.07
+   ]
+  },
+  "earshot": {
+   "realness": 0.587,
+   "realness_verdict": "uncertain",
+   "realness_trim": [
+    0.0,
+    1.5
+   ],
+   "match": {
+    "query": "a big deep drum impact hit with sub bass",
+    "z": 2.65,
+    "verdict": "plausible",
+    "p_vs_alts": 0.921
+   },
+   "trims": {}
+  }
+ },
+ {
+  "id": "fs-77302",
+  "category": "fx",
+  "file": "audio/assets/fx/fs-77302_tamburo-xd-18-kick-low-jazz-3-single.ogg",
+  "title": "Tamburo XD 18 kick - low jazz 3 single.wav",
+  "author": "bigjoedrummer",
+  "source": "freesound",
+  "page_url": "https://freesound.org/people/bigjoedrummer/sounds/77302/",
+  "download_url": "https://cdn.freesound.org/previews/77/77302_1105584-hq.ogg",
+  "license": "CC0 1.0",
+  "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+  "attribution": null,
+  "need": "drop_hit",
+  "rank": 3,
+  "best_segment": [
+   0.0,
+   1.0
+  ],
+  "notes": "18-inch kick drum tuned low for jazz, single hit (bigjoedrummer), 1.4 s, peak +2.2 dBFS in the preview (-3 dB first). Bands: 25-90 Hz 0, 90-250 -5, 250-2k -10, 2-8k -27: a kick, tighter than the timpani and 0.4 s long. Good as the 'body' layer under 573252's top transient. Floor digital zero.",
+  "licence_seen": {
+   "text": "Creative Commons 0",
+   "url": "http://creativecommons.org/publicdomain/zero/1.0/",
+   "page": "https://freesound.org/people/bigjoedrummer/sounds/77302/",
+   "read_on": "2026-11-01",
+   "page_author": "bigjoedrummer",
+   "page_title": "Tamburo XD 18 kick - low jazz 3 single.wav"
+  },
+  "analysis": {
+   "duration": 1.395,
+   "codec": "vorbis",
+   "kbps": 192,
+   "src_rate": 44100,
+   "channels": 2,
+   "peak_dbfs": -0.24,
+   "lufs": -19.65,
+   "noise_floor_dbfs": -200.0,
+   "clipped_samples": 0,
+   "attack_at": 0.003,
+   "centroid_hz": 604,
+   "rolloff95_hz": 8365,
+   "onsets": [
+    0.07
+   ]
+  },
+  "earshot": {
+   "realness": 0.964,
+   "realness_verdict": "real or pro-produced",
+   "realness_trim": [
+    0.0,
+    1.0
+   ],
+   "match": {
+    "query": "a big deep drum impact hit with sub bass",
+    "z": 3.58,
+    "verdict": "strong",
+    "p_vs_alts": 0.614
+   },
+   "trims": {}
+  }
+ },
+ {
+  "id": "fs-410707",
+  "category": "fx",
+  "file": "audio/assets/fx/fs-410707_symphonic-concert-bass-drum-vel09.ogg",
+  "title": "Symphonic_Concert_Bass_Drum_Vel09.wav",
+  "author": "pjcohen",
+  "source": "freesound",
+  "page_url": "https://freesound.org/people/pjcohen/sounds/410707/",
+  "download_url": "https://cdn.freesound.org/previews/410/410707_394391-hq.ogg",
+  "license": "CC BY 4.0",
+  "license_url": "https://creativecommons.org/licenses/by/4.0/",
+  "attribution": "\"Symphonic_Concert_Bass_Drum_Vel09.wav\" by pjcohen (https://freesound.org/people/pjcohen/sounds/410707/), licensed under CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/)",
+  "need": "drop_hit",
+  "rank": 4,
+  "best_segment": [
+   0.0,
+   3.0
+  ],
+  "notes": "Ludwig 40 x 18 inch suspended concert bass drum, overhead mics (pjcohen), vel 09, 5.7 s, peak -18 dBFS (needs +14 dB). Bands: 25-90 Hz 0, 90-250 -4, 250-2k -20, 2-8k -59: a pure sub boom with no top transient, so 'broadband' only if layered under the timpani. Realness 0.76 (uncertain, a hair under the 0.77 pass line). Layer 1 under 573252. CC BY 4.0: needs credit.",
+  "licence_seen": {
+   "text": "Attribution 4.0",
+   "url": "https://creativecommons.org/licenses/by/4.0/",
+   "page": "https://freesound.org/people/pjcohen/sounds/410707/",
+   "read_on": "2026-11-01",
+   "page_author": "pjcohen",
+   "page_title": "Symphonic_Concert_Bass_Drum_Vel09.wav"
+  },
+  "analysis": {
+   "duration": 5.748,
+   "codec": "vorbis",
+   "kbps": 192,
+   "src_rate": 44100,
+   "channels": 2,
+   "peak_dbfs": -19.27,
+   "lufs": -39.19,
+   "noise_floor_dbfs": -92.5,
+   "clipped_samples": 0,
+   "attack_at": 0.002,
+   "centroid_hz": 1297,
+   "rolloff95_hz": 9861,
+   "onsets": [
+    0.07,
+    0.209,
+    0.511,
+    0.813,
+    0.929,
+    1.115,
+    1.277,
+    4.18,
+    4.551,
+    4.992,
+    5.132
+   ]
+  },
+  "earshot": {
+   "realness": 0.788,
+   "realness_verdict": "real or pro-produced",
+   "realness_trim": [
+    0.0,
+    3.0
+   ],
+   "match": {
+    "query": "a big deep drum impact hit with sub bass",
+    "z": 3.29,
+    "verdict": "strong",
+    "p_vs_alts": 0.996
+   },
+   "trims": {}
+  }
+ },
+ {
+  "id": "fs-447852",
+  "category": "fx",
+  "file": "audio/assets/fx/fs-447852_ceramic-bowl-tone-cloth-mallet-02.ogg",
+  "title": "ceramic bowl - tone - cloth mallet 02.wav",
+  "author": "Anthousai",
+  "source": "freesound",
+  "page_url": "https://freesound.org/people/Anthousai/sounds/447852/",
+  "download_url": "https://cdn.freesound.org/previews/447/447852_5923045-hq.ogg",
+  "license": "CC0 1.0",
+  "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+  "attribution": null,
+  "need": "logo_note",
+  "rank": 1,
+  "best_segment": [
+   0.0,
+   4.1
+  ],
+  "notes": "Ceramic bowl struck with a CLOTH MALLET (Anthousai, Tascam DR-40, 96 kHz): same glazed-ceramic family as the tiles. 4.1 s, stereo, soft attack. Main partial 955 Hz (A#5 +42 cents, about 59 cents under B5) with a second partial at 2.25 kHz (C#7 +24 c). For a G-minor track (mk-196): resample by -2.4 % to land on B-flat 5 (932 Hz, the minor third) or by +3.4 % to land on B5; for A minor (mk-623) -1.42 st lands on A5 (880 Hz, the tonic), inside the +-2 st limit. Decay: -30 dB at 1.45 s, -60 dB at 4.08 s: ends in silence. Realness 0.96.",
+  "licence_seen": {
+   "text": "Creative Commons 0",
+   "url": "http://creativecommons.org/publicdomain/zero/1.0/",
+   "page": "https://freesound.org/people/Anthousai/sounds/447852/",
+   "read_on": "2026-11-01",
+   "page_author": "Anthousai",
+   "page_title": "ceramic bowl - tone - cloth mallet 02.wav"
+  },
+  "analysis": {
+   "duration": 4.114,
+   "codec": "vorbis",
+   "kbps": 199,
+   "src_rate": 96000,
+   "channels": 2,
+   "peak_dbfs": -0.02,
+   "lufs": -19.23,
+   "noise_floor_dbfs": -58.9,
+   "clipped_samples": 0,
+   "attack_at": 0.002,
+   "centroid_hz": 1307,
+   "rolloff95_hz": 8773,
+   "onsets": [
+    0.07,
+    0.163,
+    0.232,
+    0.302,
+    0.395,
+    0.464,
+    0.604,
+    0.65,
+    0.813,
+    0.859,
+    0.975,
+    1.022
+   ]
+  },
+  "earshot": {
+   "realness": 0.957,
+   "realness_verdict": "real or pro-produced",
+   "realness_trim": [
+    0.0,
+    4.1
+   ],
+   "match": {
+    "query": "one soft struck bell-like note with a long clean tail",
+    "z": 3.61,
+    "verdict": "strong",
+    "p_vs_alts": 0.028
+   },
+   "trims": {}
+  }
+ },
+ {
+  "id": "fs-420490",
+  "category": "fx",
+  "file": "audio/assets/fx/fs-420490_medium-a.ogg",
+  "title": "Medium A#.wav",
+  "author": "Macsat-Rd",
+  "source": "freesound",
+  "page_url": "https://freesound.org/people/Macsat-Rd/sounds/420490/",
+  "download_url": "https://cdn.freesound.org/previews/420/420490_7287741-hq.ogg",
+  "license": "CC0 1.0",
+  "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+  "attribution": null,
+  "need": "logo_note",
+  "rank": 2,
+  "best_segment": [
+   0.0,
+   2.2
+  ],
+  "notes": "Celesta 'Medium A#' (Macsat-Rd, Tascam DR-40 field recording): B-flat 4 at 468.8 Hz (+10 cents) with the B-flat 5 octave at 937.5 Hz, 2.2 s, peak -21.9 dBFS (needs +18 dB), stereo, floor -48.0 dBFS (above the -55 gate: a real room under the note, raising +18 dB lifts it to -30), realness 1.00 (real). It is the minor third of G minor. The file ends before the note decays (not under -30 dB at 2.2 s): fade the last 0.5 s. All the celesta notes of the set are +9..+10 cents sharp: resample -0.55 %.",
+  "licence_seen": {
+   "text": "Creative Commons 0",
+   "url": "http://creativecommons.org/publicdomain/zero/1.0/",
+   "page": "https://freesound.org/people/Macsat-Rd/sounds/420490/",
+   "read_on": "2026-11-01",
+   "page_author": "Macsat-Rd",
+   "page_title": "Medium A#.wav"
+  },
+  "analysis": {
+   "duration": 2.205,
+   "codec": "vorbis",
+   "kbps": 192,
+   "src_rate": 48000,
+   "channels": 2,
+   "peak_dbfs": -21.89,
+   "lufs": -33.25,
+   "noise_floor_dbfs": -48.0,
+   "clipped_samples": 0,
+   "attack_at": 0.017,
+   "centroid_hz": 705,
+   "rolloff95_hz": 6089,
+   "onsets": [
+    0.07,
+    0.186,
+    1.254,
+    1.881
+   ]
+  },
+  "earshot": {
+   "realness": 0.997,
+   "realness_verdict": "real or pro-produced",
+   "realness_trim": [
+    0.0,
+    2.2
+   ],
+   "match": {
+    "query": "one soft struck bell-like note with a long clean tail",
+    "z": 2.84,
+    "verdict": "plausible",
+    "p_vs_alts": 0.633
+   },
+   "trims": {}
+  }
+ },
+ {
+  "id": "fs-348916",
+  "category": "fx",
+  "file": "audio/assets/fx/fs-348916_glockenspiel-38-d4-03.ogg",
+  "title": "Glockenspiel_38_d4_03",
+  "author": "cabled_mess",
+  "source": "freesound",
+  "page_url": "https://freesound.org/people/cabled_mess/sounds/348916/",
+  "download_url": "https://cdn.freesound.org/previews/348/348916_5450487-hq.ogg",
+  "license": "CC0 1.0",
+  "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+  "attribution": null,
+  "need": "logo_note",
+  "rank": 3,
+  "best_segment": [
+   0.0,
+   3.0
+  ],
+  "notes": "Small educational glockenspiel D (file named d4, sounds D7 2348 Hz, -1 cent): the FIFTH of G minor, a pure tone, 3.6 s, 96 kHz mono, floor -75.7 dBFS, peak -0.1 dBFS (-12 dB). Decay -30 dB at 1.33 s, -60 dB at 2.88 s. 2.3 kHz is high but under the 9-14 kHz fatigue band. Sibling 348918 is E7 (2637 Hz, the fifth of A minor, for mk-623) and 348911 is C7.",
+  "licence_seen": {
+   "text": "Creative Commons 0",
+   "url": "http://creativecommons.org/publicdomain/zero/1.0/",
+   "page": "https://freesound.org/people/cabled_mess/sounds/348916/",
+   "read_on": "2026-11-01",
+   "page_author": "cabled_mess",
+   "page_title": "Glockenspiel_38_d4_03"
+  },
+  "analysis": {
+   "duration": 3.607,
+   "codec": "vorbis",
+   "kbps": 101,
+   "src_rate": 96000,
+   "channels": 1,
+   "peak_dbfs": -0.08,
+   "lufs": -21.33,
+   "noise_floor_dbfs": -75.7,
+   "clipped_samples": 0,
+   "attack_at": 0.0,
+   "centroid_hz": 2449,
+   "rolloff95_hz": 9593,
+   "onsets": [
+    0.348,
+    0.859,
+    0.975,
+    1.161,
+    1.277,
+    1.509,
+    1.672,
+    1.858,
+    2.136,
+    2.485,
+    2.647,
+    2.694
+   ]
+  },
+  "earshot": {
+   "realness": 0.982,
+   "realness_verdict": "real or pro-produced",
+   "realness_trim": [
+    0.0,
+    3.0
+   ],
+   "match": {
+    "query": "one soft struck bell-like note with a long clean tail",
+    "z": 3.26,
+    "verdict": "strong",
+    "p_vs_alts": 0.046
+   },
+   "trims": {}
+  }
+ },
+ {
+  "id": "fs-420497",
+  "category": "fx",
+  "file": "audio/assets/fx/fs-420497_medium-g.ogg",
+  "title": "Medium G.wav",
+  "author": "Macsat-Rd",
+  "source": "freesound",
+  "page_url": "https://freesound.org/people/Macsat-Rd/sounds/420497/",
+  "download_url": "https://cdn.freesound.org/previews/420/420497_7287741-hq.ogg",
+  "license": "CC0 1.0",
+  "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+  "attribution": null,
+  "need": "logo_note",
+  "rank": 4,
+  "best_segment": [
+   0.0,
+   1.09
+  ],
+  "notes": "Celesta 'Medium G': G5 788 Hz (+9 cents), the tonic of G minor (mk-196 root), but only 1.09 s long with the tail cut off, peak -24 dBFS (needs +20 dB), floor -50.2 dBFS. Only if the tonic matters more than a long tail; fade out the last 0.3 s.",
+  "licence_seen": {
+   "text": "Creative Commons 0",
+   "url": "http://creativecommons.org/publicdomain/zero/1.0/",
+   "page": "https://freesound.org/people/Macsat-Rd/sounds/420497/",
+   "read_on": "2026-11-01",
+   "page_author": "Macsat-Rd",
+   "page_title": "Medium G.wav"
+  },
+  "analysis": {
+   "duration": 1.09,
+   "codec": "vorbis",
+   "kbps": 192,
+   "src_rate": 48000,
+   "channels": 2,
+   "peak_dbfs": -24.11,
+   "lufs": -39.59,
+   "noise_floor_dbfs": -50.2,
+   "clipped_samples": 0,
+   "attack_at": 0.002,
+   "centroid_hz": 1460,
+   "rolloff95_hz": 7110,
+   "onsets": [
+    0.07,
+    0.418,
+    0.511,
+    0.604,
+    0.743,
+    0.859,
+    0.998
+   ]
+  },
+  "earshot": {
+   "realness": 0.987,
+   "realness_verdict": "real or pro-produced",
+   "realness_trim": [
+    0.0,
+    1.09
+   ],
+   "match": {
+    "query": "one soft struck bell-like note with a long clean tail",
+    "z": 2.73,
+    "verdict": "plausible",
+    "p_vs_alts": 0.107
+   },
+   "trims": {}
+  }
+ },
+ {
+  "id": "fs-348918",
+  "category": "fx",
+  "file": "audio/assets/fx/fs-348918_glockenspiel-40-e4-01.ogg",
+  "title": "Glockenspiel_40_e4_01",
+  "author": "cabled_mess",
+  "source": "freesound",
+  "page_url": "https://freesound.org/people/cabled_mess/sounds/348918/",
+  "download_url": "https://cdn.freesound.org/previews/348/348918_5450487-hq.ogg",
+  "license": "CC0 1.0",
+  "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+  "attribution": null,
+  "need": "logo_note",
+  "rank": 5,
+  "best_segment": [
+   0.0,
+   3.2
+  ],
+  "notes": "Glockenspiel E (file e4, sounds E7 2637 Hz, 0 cents): the fifth of A minor (the key of mk-623), 3.25 s, 96 kHz mono, floor -81.9 dBFS, peak -0.2 dBFS. Decay -30 dB at 1.03 s, -60 dB at 2.23 s. Use only if the film uses the A-minor track.",
+  "licence_seen": {
+   "text": "Creative Commons 0",
+   "url": "http://creativecommons.org/publicdomain/zero/1.0/",
+   "page": "https://freesound.org/people/cabled_mess/sounds/348918/",
+   "read_on": "2026-11-01",
+   "page_author": "cabled_mess",
+   "page_title": "Glockenspiel_40_e4_01"
+  },
+  "analysis": {
+   "duration": 3.246,
+   "codec": "vorbis",
+   "kbps": 96,
+   "src_rate": 96000,
+   "channels": 1,
+   "peak_dbfs": -0.23,
+   "lufs": -25.13,
+   "noise_floor_dbfs": -81.9,
+   "clipped_samples": 0,
+   "attack_at": 0.0,
+   "centroid_hz": 3512,
+   "rolloff95_hz": 9700,
+   "onsets": [
+    0.07,
+    0.348,
+    1.3,
+    1.556,
+    1.765,
+    1.95,
+    2.067,
+    2.438,
+    2.694,
+    3.019,
+    3.204
+   ]
+  },
+  "earshot": {
+   "realness": 0.962,
+   "realness_verdict": "real or pro-produced",
+   "realness_trim": [
+    0.0,
+    3.2
+   ],
+   "match": {
+    "query": "one soft struck bell-like note with a long clean tail",
+    "z": 2.67,
+    "verdict": "plausible",
+    "p_vs_alts": 0.024
+   },
+   "trims": {}
+  }
+ },
+ {
+  "id": "fs-240712",
+  "category": "fx",
+  "file": "audio/assets/fx/fs-240712_reverse-mapex-ride.ogg",
+  "title": "Reverse Mapex Ride.mp3",
+  "author": "MarcusGraham325",
+  "source": "freesound",
+  "page_url": "https://freesound.org/people/MarcusGraham325/sounds/240712/",
+  "download_url": "https://cdn.freesound.org/previews/240/240712_3552082-hq.ogg",
+  "license": "CC0 1.0",
+  "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+  "attribution": null,
+  "need": "riser",
+  "rank": 1,
+  "best_segment": [
+   0.0,
+   6.17
+  ],
+  "notes": "A REVERSED 20-inch Mapex ride cymbal, SM57, no reverb or effects (author). 6.2 s, mono, builds from -36 dB to 0 dB re peak over the whole file and ends AT its crescendo (cut on the peak, last 0.5 s is the loudest): align the end 30-250 ms before the 17.5 s hit. Peak -0.5 dBFS. Dull (rolloff95 7.4 kHz, the author warns of 'lack of high end'): add a +4 dB shelf over 6 kHz if it needs air. earshot rank for a real riser: z +5.0 strong, 'a reverse cymbal swell' z +5.2.",
+  "licence_seen": {
+   "text": "Creative Commons 0",
+   "url": "http://creativecommons.org/publicdomain/zero/1.0/",
+   "page": "https://freesound.org/people/MarcusGraham325/sounds/240712/",
+   "read_on": "2026-11-01",
+   "page_author": "MarcusGraham325",
+   "page_title": "Reverse Mapex Ride.mp3"
+  },
+  "analysis": {
+   "duration": 6.177,
+   "codec": "vorbis",
+   "kbps": 110,
+   "src_rate": 44100,
+   "channels": 1,
+   "peak_dbfs": -0.53,
+   "lufs": -12.44,
+   "noise_floor_dbfs": -49.6,
+   "clipped_samples": 0,
+   "attack_at": 4.499,
+   "centroid_hz": 1365,
+   "rolloff95_hz": 7366,
+   "onsets": [
+    0.07,
+    0.116,
+    0.255,
+    0.488,
+    0.673,
+    0.836,
+    1.045,
+    1.207,
+    1.347,
+    1.556,
+    1.741,
+    1.881
+   ]
+  },
+  "earshot": {
+   "realness": 0.963,
+   "realness_verdict": "real or pro-produced",
+   "realness_trim": [
+    0.0,
+    6.17
+   ],
+   "match": {
+    "query": "a cymbal roll swelling and building tension",
+    "z": 4.1,
+    "verdict": "strong",
+    "p_vs_alts": 1.0
+   },
+   "trims": {}
+  }
+ },
+ {
+  "id": "fs-85487",
+  "category": "fx",
+  "file": "audio/assets/fx/fs-85487_cymbal-roll-quiet.ogg",
+  "title": "cymbal_roll_quiet.wav",
+  "author": "davidjwoll",
+  "source": "freesound",
+  "page_url": "https://freesound.org/people/davidjwoll/sounds/85487/",
+  "download_url": "https://cdn.freesound.org/previews/85/85487_1384877-hq.ogg",
+  "license": "CC0 1.0",
+  "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+  "attribution": null,
+  "need": "riser",
+  "rank": 2,
+  "best_segment": [
+   0.5,
+   3.9
+  ],
+  "notes": "Crescendo roll from soft to medium on a 19-inch crash with MALLETS (davidjwoll), 13.5 s, stereo, floor -78 dBFS, peak -15.7 dBFS (needs +10 dB). Envelope (0.5 s steps): -55, -16, -12, -9, -6, -4, -1, 0 dB at 3.8 s then decays: use 0.5-3.9 s (3.4 s rise) and cut on the peak, or let the decay run into the drop. Siblings 85486 (soft to loud, rise 0.5-2.8 s, peak -6.9 dBFS) and 85488 (rise 0.5-3.2 s, peak -16.1 dBFS). Real mallets: the 'cymbal roll with mallets' riser the brief asked for.",
+  "licence_seen": {
+   "text": "Creative Commons 0",
+   "url": "http://creativecommons.org/publicdomain/zero/1.0/",
+   "page": "https://freesound.org/people/davidjwoll/sounds/85487/",
+   "read_on": "2026-11-01",
+   "page_author": "davidjwoll",
+   "page_title": "cymbal_roll_quiet.wav"
+  },
+  "analysis": {
+   "duration": 13.52,
+   "codec": "vorbis",
+   "kbps": 192,
+   "src_rate": 44100,
+   "channels": 2,
+   "peak_dbfs": -18.15,
+   "lufs": -30.71,
+   "noise_floor_dbfs": -95.9,
+   "clipped_samples": 0,
+   "attack_at": 0.789,
+   "centroid_hz": 3318,
+   "rolloff95_hz": 10389,
+   "onsets": [
+    0.232,
+    0.348,
+    0.534,
+    0.697,
+    0.859,
+    1.045,
+    1.091,
+    1.277,
+    1.44,
+    1.533,
+    1.718,
+    1.788
+   ]
+  },
+  "earshot": {
+   "realness": 0.866,
+   "realness_verdict": "real or pro-produced",
+   "realness_trim": [
+    0.5,
+    3.9
+   ],
+   "match": {
+    "query": "a cymbal roll swelling and building tension",
+    "z": 4.69,
+    "verdict": "strong",
+    "p_vs_alts": 1.0
+   },
+   "trims": {
+    "loud version": {
+     "range": [
+      0.5,
+      2.9
+     ],
+     "match_z": 4.72,
+     "match": "strong",
+     "p_real": 0.825,
+     "realness": "real or pro-produced"
+    }
+   }
+  }
+ },
+ {
+  "id": "fs-383903",
+  "category": "fx",
+  "file": "audio/assets/fx/fs-383903_reverse-crash-cymbal-projection.ogg",
+  "title": "Reverse Crash Cymbal Projection",
+  "author": "deleted_user_7146007",
+  "source": "freesound",
+  "page_url": "https://freesound.org/people/deleted_user_7146007/sounds/383903/",
+  "download_url": "https://cdn.freesound.org/previews/383/383903_7146007-hq.ogg",
+  "license": "CC0 1.0",
+  "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+  "attribution": null,
+  "need": "riser",
+  "rank": 3,
+  "best_segment": [
+   5.0,
+   8.3
+  ],
+  "notes": "Reverse crash cymbal ('Reverse Crash Cymbal Projection'), 8.9 s, stereo, builds -47 dB to 0 dB over 8 s and ends at the peak (8.2 s). Use the last 3.3 s (5.0-8.3 s). The file peaks at +3.6 dBFS in the Freesound preview: lower by 6 dB before use (true clipping cannot be verified in the lossy preview).",
+  "licence_seen": {
+   "text": "Creative Commons 0",
+   "url": "http://creativecommons.org/publicdomain/zero/1.0/",
+   "page": "https://freesound.org/people/deleted_user_7146007/sounds/383903/",
+   "read_on": "2026-11-01",
+   "page_author": "deleted_user_7146007",
+   "page_title": "Reverse Crash Cymbal Projection"
+  },
+  "analysis": {
+   "duration": 8.917,
+   "codec": "vorbis",
+   "kbps": 192,
+   "src_rate": 48000,
+   "channels": 2,
+   "peak_dbfs": 0.46,
+   "lufs": -10.89,
+   "noise_floor_dbfs": -61.4,
+   "clipped_samples": 8,
+   "attack_at": 6.704,
+   "centroid_hz": 2429,
+   "rolloff95_hz": 8494,
+   "onsets": [
+    0.07,
+    0.464,
+    0.627,
+    1.068,
+    1.393,
+    1.533,
+    1.649,
+    1.858,
+    2.368,
+    2.531,
+    2.879,
+    3.251
+   ]
+  },
+  "earshot": {
+   "realness": 0.845,
+   "realness_verdict": "real or pro-produced",
+   "realness_trim": [
+    5.0,
+    8.3
+   ],
+   "match": {
+    "query": "a cymbal roll swelling and building tension",
+    "z": 3.52,
+    "verdict": "strong",
+    "p_vs_alts": 0.999
+   },
+   "trims": {}
+  }
+ },
+ {
+  "id": "fs-219836",
+  "category": "fx",
+  "file": "audio/assets/fx/fs-219836_cymbal-swell-3.ogg",
+  "title": "Cymbal Swell 3.wav",
+  "author": "rubberduckie",
+  "source": "freesound",
+  "page_url": "https://freesound.org/people/rubberduckie/sounds/219836/",
+  "download_url": "https://cdn.freesound.org/previews/219/219836_1610257-hq.ogg",
+  "license": "CC0 1.0",
+  "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+  "attribution": null,
+  "need": "riser",
+  "rank": 4,
+  "best_segment": [
+   1.0,
+   5.4
+  ],
+  "notes": "Cymbal swell with padded mallets (rubberduckie), 10.8 s, stereo, slow smooth build -39 dB to 0 dB at 5.2 s, floor -65 dBFS, peak -12.7 dBFS. Longer, gentler build than 85487: use if the riser must start at 13.5 s. Siblings 219834 (abrupt: nothing until 4 s, then -46 to 0 dB in 2 s) and 219835 (48 s).",
+  "licence_seen": {
+   "text": "Creative Commons 0",
+   "url": "http://creativecommons.org/publicdomain/zero/1.0/",
+   "page": "https://freesound.org/people/rubberduckie/sounds/219836/",
+   "read_on": "2026-11-01",
+   "page_author": "rubberduckie",
+   "page_title": "Cymbal Swell 3.wav"
+  },
+  "analysis": {
+   "duration": 10.8,
+   "codec": "vorbis",
+   "kbps": 192,
+   "src_rate": 48000,
+   "channels": 2,
+   "peak_dbfs": -12.69,
+   "lufs": -24.33,
+   "noise_floor_dbfs": -65.4,
+   "clipped_samples": 0,
+   "attack_at": 3.605,
+   "centroid_hz": 2882,
+   "rolloff95_hz": 8785,
+   "onsets": [
+    0.139
+   ]
+  },
+  "earshot": {
+   "realness": 0.944,
+   "realness_verdict": "real or pro-produced",
+   "realness_trim": [
+    1.0,
+    5.4
+   ],
+   "match": {
+    "query": "a cymbal roll swelling and building tension",
+    "z": 4.13,
+    "verdict": "strong",
+    "p_vs_alts": 1.0
+   },
+   "trims": {}
+  }
+ },
+ {
+  "id": "fs-614151",
+  "category": "fx",
+  "file": "audio/assets/fx/fs-614151_swishes-13-fast.ogg",
+  "title": "Swishes_13_fast.wav",
+  "author": "videofueralle",
+  "source": "freesound",
+  "page_url": "https://freesound.org/people/videofueralle/sounds/614151/",
+  "download_url": "https://cdn.freesound.org/previews/614/614151_1130120-hq.ogg",
+  "license": "CC0 1.0",
+  "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+  "attribution": null,
+  "need": "swish",
+  "rank": 1,
+  "best_segment": [
+   0.15,
+   1.05
+  ],
+  "notes": "'Swishes 13 fast' (videofueralle; swishes made by hand with a flexible spiral hose, chosen by the author because bamboo ones were too fast), 1.19 s, stereo, floor -63.3 dBFS, peak -11.8 dBFS (+8 dB). Envelope: rises from 0.30 s (-20 dB) to the apex at 0.56 s (0.26 s rise, inside the 100-450 ms ahead window) and falls to -20 dB at 0.81 s. Air only, no tonal swoosh (earshot: 'a fast whoosh', z strong). Siblings in the same set: 614155 'strong fast' (apex 0.86 s, 0.33 s rise), 614162 'hill curve' (apex 1.03 s), 614166 (apex 0.79 s, 0.12 s rise).",
+  "licence_seen": {
+   "text": "Creative Commons 0",
+   "url": "http://creativecommons.org/publicdomain/zero/1.0/",
+   "page": "https://freesound.org/people/videofueralle/sounds/614151/",
+   "read_on": "2026-11-01",
+   "page_author": "videofueralle",
+   "page_title": "Swishes_13_fast.wav"
+  },
+  "analysis": {
+   "duration": 1.186,
+   "codec": "vorbis",
+   "kbps": 192,
+   "src_rate": 48000,
+   "channels": 2,
+   "peak_dbfs": -13.65,
+   "lufs": -35.43,
+   "noise_floor_dbfs": -63.3,
+   "clipped_samples": 0,
+   "attack_at": 0.307,
+   "centroid_hz": 1968,
+   "rolloff95_hz": 9312,
+   "onsets": [
+    0.07,
+    0.441,
+    0.488
+   ]
+  },
+  "earshot": {
+   "realness": 0.985,
+   "realness_verdict": "real or pro-produced",
+   "realness_trim": [
+    0.15,
+    1.05
+   ],
+   "match": {
+    "query": "a short air swish with a clear peak",
+    "z": 3.23,
+    "verdict": "strong",
+    "p_vs_alts": 1.0
+   },
+   "trims": {}
+  }
+ },
+ {
+  "id": "fs-614155",
+  "category": "fx",
+  "file": "audio/assets/fx/fs-614155_swishes-16-strong-fast.ogg",
+  "title": "Swishes_16_strong_fast.wav",
+  "author": "videofueralle",
+  "source": "freesound",
+  "page_url": "https://freesound.org/people/videofueralle/sounds/614155/",
+  "download_url": "https://cdn.freesound.org/previews/614/614155_1130120-hq.ogg",
+  "license": "CC0 1.0",
+  "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+  "attribution": null,
+  "need": "swish",
+  "rank": 2,
+  "best_segment": [
+   0.3,
+   1.4
+  ],
+  "notes": "'Swishes 16 strong fast' (same spiral-hose set), 2.5 s, floor -61.5 dBFS, peak -8.9 dBFS. -20 dB span 0.53-1.13 s, apex 0.86 s (0.33 s rise, 0.27 s fall): more weight than 614151, for the loop dive at 25 s.",
+  "licence_seen": {
+   "text": "Creative Commons 0",
+   "url": "http://creativecommons.org/publicdomain/zero/1.0/",
+   "page": "https://freesound.org/people/videofueralle/sounds/614155/",
+   "read_on": "2026-11-01",
+   "page_author": "videofueralle",
+   "page_title": "Swishes_16_strong_fast.wav"
+  },
+  "analysis": {
+   "duration": 2.507,
+   "codec": "vorbis",
+   "kbps": 192,
+   "src_rate": 48000,
+   "channels": 2,
+   "peak_dbfs": -11.21,
+   "lufs": -30.21,
+   "noise_floor_dbfs": -61.5,
+   "clipped_samples": 0,
+   "attack_at": 0.533,
+   "centroid_hz": 1783,
+   "rolloff95_hz": 9337,
+   "onsets": [
+    0.464,
+    0.604,
+    0.766
+   ]
+  },
+  "earshot": {
+   "realness": 0.989,
+   "realness_verdict": "real or pro-produced",
+   "realness_trim": [
+    0.3,
+    1.4
+   ],
+   "match": {
+    "query": "a short air swish with a clear peak",
+    "z": 3.28,
+    "verdict": "strong",
+    "p_vs_alts": 1.0
+   },
+   "trims": {}
+  }
+ },
+ {
+  "id": "fs-706676",
+  "category": "fx",
+  "file": "audio/assets/fx/fs-706676_whoosh-bamboo-1.ogg",
+  "title": "Whoosh Bamboo 1",
+  "author": "Sadiquecat",
+  "source": "freesound",
+  "page_url": "https://freesound.org/people/Sadiquecat/sounds/706676/",
+  "download_url": "https://cdn.freesound.org/previews/706/706676_5287430-hq.ogg",
+  "license": "CC0 1.0",
+  "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+  "attribution": null,
+  "need": "swish",
+  "rank": 3,
+  "best_segment": [
+   0.0,
+   0.92
+  ],
+  "notes": "Bamboo stick swung in front of the mics, slowed to 50 % (Sadiquecat; the author says it copies qubodup 60013), 0.92 s, 96 kHz stereo, floor -59.6 dBFS, peak -12.3 dBFS, rolloff95 7.5 kHz (slow-down dulled it). Apex 0.32 s, 0.20 s rise, 0.34 s fall. Siblings 706677 (0.55 s, apex 0.16) and 706678 (0.69 s, apex 0.19) are lower and shorter.",
+  "licence_seen": {
+   "text": "Creative Commons 0",
+   "url": "http://creativecommons.org/publicdomain/zero/1.0/",
+   "page": "https://freesound.org/people/Sadiquecat/sounds/706676/",
+   "read_on": "2026-11-01",
+   "page_author": "Sadiquecat",
+   "page_title": "Whoosh Bamboo 1"
+  },
+  "analysis": {
+   "duration": 0.923,
+   "codec": "vorbis",
+   "kbps": 205,
+   "src_rate": 96000,
+   "channels": 2,
+   "peak_dbfs": -12.27,
+   "lufs": -28.0,
+   "noise_floor_dbfs": -59.6,
+   "clipped_samples": 0,
+   "attack_at": 0.118,
+   "centroid_hz": 1079,
+   "rolloff95_hz": 7548,
+   "onsets": [
+    0.07,
+    0.232,
+    0.279,
+    0.813
+   ]
+  },
+  "earshot": {
+   "realness": 0.869,
+   "realness_verdict": "real or pro-produced",
+   "realness_trim": [
+    0.0,
+    0.92
+   ],
+   "match": {
+    "query": "a short air swish with a clear peak",
+    "z": 2.55,
+    "verdict": "plausible",
+    "p_vs_alts": 1.0
+   },
+   "trims": {}
+  }
+ },
+ {
+  "id": "fs-614162",
+  "category": "fx",
+  "file": "audio/assets/fx/fs-614162_swishes-8-hill-curve.ogg",
+  "title": "Swishes_8_hill_curve.wav",
+  "author": "videofueralle",
+  "source": "freesound",
+  "page_url": "https://freesound.org/people/videofueralle/sounds/614162/",
+  "download_url": "https://cdn.freesound.org/previews/614/614162_1130120-hq.ogg",
+  "license": "CC0 1.0",
+  "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+  "attribution": null,
+  "need": "swish",
+  "rank": 4,
+  "best_segment": [
+   0.5,
+   1.5
+  ],
+  "notes": "'Swishes 8 hill curve' (same spiral-hose set), 2.4 s, floor -63.4 dBFS, peak -13.3 dBFS (+10 dB). -20 dB span 0.84-1.26 s, apex 1.03 s, symmetric hill: use for the slower push at 2.0 s.",
+  "licence_seen": {
+   "text": "Creative Commons 0",
+   "url": "http://creativecommons.org/publicdomain/zero/1.0/",
+   "page": "https://freesound.org/people/videofueralle/sounds/614162/",
+   "read_on": "2026-11-01",
+   "page_author": "videofueralle",
+   "page_title": "Swishes_8_hill_curve.wav"
+  },
+  "analysis": {
+   "duration": 2.41,
+   "codec": "vorbis",
+   "kbps": 192,
+   "src_rate": 48000,
+   "channels": 2,
+   "peak_dbfs": -15.14,
+   "lufs": -33.9,
+   "noise_floor_dbfs": -63.4,
+   "clipped_samples": 0,
+   "attack_at": 0.862,
+   "centroid_hz": 1363,
+   "rolloff95_hz": 9047,
+   "onsets": [
+    0.673,
+    0.906,
+    0.952
+   ]
+  },
+  "earshot": {
+   "realness": 0.974,
+   "realness_verdict": "real or pro-produced",
+   "realness_trim": [
+    0.5,
+    1.5
+   ],
+   "match": {
+    "query": "a short air swish with a clear peak",
+    "z": 3.03,
+    "verdict": "strong",
+    "p_vs_alts": 0.999
+   },
+   "trims": {}
+  }
+ }
+]

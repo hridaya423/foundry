@@ -1,3 +1,4 @@
+import os
 import Foundation
 import XCTest
 @testable import Foundry
@@ -116,9 +117,13 @@ final class LibraryPersistenceTests: XCTestCase {
     }
 }
 
-private final class InMemorySnippetStore: SnippetStore, @unchecked Sendable {
+private final class InMemorySnippetStore: SnippetStore, Sendable {
     let url = URL(fileURLWithPath: "/tmp/in-memory-snippets.json")
-    var snippets: [StoredSnippet] = []
+    private let storage = OSAllocatedUnfairLock<[StoredSnippet]>(initialState: [])
+    var snippets: [StoredSnippet] {
+        get { storage.withLock { $0 } }
+        set { storage.withLock { $0 = newValue } }
+    }
     func load() -> [StoredSnippet] { snippets }
     @discardableResult func save(_ snippets: [StoredSnippet]) -> Result<Void, Error> { self.snippets = snippets; return .success(()) }
 }

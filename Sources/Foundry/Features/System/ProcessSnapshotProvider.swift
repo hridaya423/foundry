@@ -15,7 +15,7 @@ protocol ProcessSnapshotProviding: Sendable {
     func capture() -> [ProcessInfoRow]
 }
 
-final class NativeProcessSnapshotProvider: @unchecked Sendable, ProcessSnapshotProviding {
+final class NativeProcessSnapshotProvider: Sendable, ProcessSnapshotProviding {
     func capture() -> [ProcessInfoRow] {
         let byteCount = proc_listpids(UInt32(PROC_ALL_PIDS), 0, nil, 0)
         guard byteCount > 0 else { return [] }

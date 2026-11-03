@@ -15,13 +15,8 @@ enum ResultSection: String, CaseIterable {
         case .notesSearch: return .notes
         default: break
         }
-        if result.id.hasPrefix("file.") { return .files }
-        switch result.primaryAction.kind {
-        case .openApp: return .applications
-        case .openQuickAI: return .fallback
-        case .copySnippet, .pasteSnippet, .pasteText, .createSnippetFromClipboard, .importSnippets, .exportSnippets: return .snippets
-        default: return .commands
-        }
+        if case .file = result.payload { return .files }
+        return result.primaryAction.behavior.resultSection ?? .commands
     }
 
     static func group(_ results: [CommandResult]) -> [(section: ResultSection, results: [CommandResult])] {

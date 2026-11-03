@@ -2,25 +2,30 @@ import * as THREE from "three";
 import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import { createTileGeometry } from "../tile-geometry";
+import { color } from "../tokens";
 import { createChalkMaterial } from "../tile-material";
 import { createFlightPath, tilePose, type Tile } from "../tile-motion";
 import { writeClipboardTilePose } from "./clipboard-motion";
 import { downloadPoints, downloadStart, writeDownloadTilePose } from "./download-motion";
-import { memoryStart, memoryTargets, memoryCarryCount, writeMemoryTilePose } from "./memory-motion";
-import { toolTargets, toolTileCount, writeToolsTilePose } from "./tools-motion";
-import { writeMediaTilePose } from "./media-motion";
+import { methodologyFigureTargets } from "../methodology-figure";
+import { memorySettled, memoryStart, memoryTargets, memoryTileCount, writeMemoryTilePose } from "./memory-motion";
+import { toolExamples, toolsEnter, toolTargets, toolTileCount, writeToolsTilePose } from "./tools-motion";
 import { createShelfTiles, phase, heroLift, introProgress, writePeelExitPose, writeShelfPose, type ShelfLayout, type ShelfPose } from "./shelf-motion";
 
-export function createShelfScene(canvas: HTMLCanvasElement, tiles: Tile[]) {
+const yieldToMain = () => new Promise((resolve) => setTimeout(resolve, 0));
+
+export async function createShelfScene(canvas: HTMLCanvasElement, tiles: Tile[]) {
+  const small = canvas.clientWidth < 900;
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, powerPreference: "low-power" });
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, small ? 2 : 1.5));
   renderer.setClearColor(0x0f0d0c, 0);
   renderer.outputColorSpace = THREE.SRGBColorSpace;
-  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.enabled = !small;
   renderer.shadowMap.type = THREE.PCFShadowMap;
   const scene = new THREE.Scene();
   const camera = new THREE.OrthographicCamera(0, 1280, 0, -720, 0.1, 4000);
   camera.position.z = 1800;
+  await yieldToMain();
   const pmrem = new THREE.PMREMGenerator(renderer);
   const room = new RoomEnvironment();
   const environment = pmrem.fromScene(room, 0.04);
@@ -28,6 +33,7 @@ export function createShelfScene(canvas: HTMLCanvasElement, tiles: Tile[]) {
   scene.environmentIntensity = 0.35;
   room.dispose();
   pmrem.dispose();
+  await yieldToMain();
   scene.add(new THREE.AmbientLight(0xffffff, 0.7));
   const key = new THREE.DirectionalLight(0xfffaf4, 2.2);
   key.position.set(-300, 500, 1600);
@@ -53,8 +59,8 @@ export function createShelfScene(canvas: HTMLCanvasElement, tiles: Tile[]) {
     shader.fragmentShader = shader.fragmentShader.replace("#include <color_fragment>", "diffuseColor.rgb *= mix(vColor.rgb, vTileFace, vFront);");
   };
   tileMaterial.customProgramCacheKey = () => "foundry-shelf-face";
-  const chalk = new THREE.Color("#c6bbab");
-  const side = new THREE.Color("#f36f39");
+  const chalk = new THREE.Color(color.chalk);
+  const side = new THREE.Color(color["orange-side"]);
   const paint = (geometry: THREE.BufferGeometry, face: THREE.Color) => {
     const position = geometry.getAttribute("position");
     const colors = new Float32Array(position.count * 3);
@@ -74,10 +80,7 @@ export function createShelfScene(canvas: HTMLCanvasElement, tiles: Tile[]) {
   const backgroundIndices = inventory.flatMap(({ cell }, index) => cell.kind === "image" && !cell.subject ? [index] : []);
   const carried = Array.from({ length: 48 }, (_, index) => backgroundIndices[Math.floor(index * backgroundIndices.length / 48)]);
   const ribbonIndices = inventory.map((_, index) => carried.indexOf(index));
-  const toolsCarry = carried;
-  const toolsOrder = [...toolsCarry, ...inventory.map((_, index) => index).filter(index => !toolsCarry.includes(index))];
-  const toolsIndices = inventory.map((_, index) => toolsOrder.indexOf(index));
-  const capacity = Math.max(inventory.length, toolTileCount, memoryCarryCount);
+  const capacity = Math.max(inventory.length, toolTileCount, memoryTileCount);
   const faceColors = new THREE.InstancedBufferAttribute(new Float32Array(capacity * 3), 3);
   faceColors.setUsage(THREE.DynamicDrawUsage);
   square.setAttribute("tileFace", faceColors);
@@ -106,6 +109,7 @@ export function createShelfScene(canvas: HTMLCanvasElement, tiles: Tile[]) {
       parts.push(geometry);
     }
   }
+  await yieldToMain();
   const merged = mergeGeometries(parts);
   parts.forEach((geometry) => geometry.dispose());
   if (merged) {
@@ -132,19 +136,21 @@ export function createShelfScene(canvas: HTMLCanvasElement, tiles: Tile[]) {
   let draws = 0;
   let toolPoints: ReturnType<typeof toolTargets>[];
   let memoryPoints: ReturnType<typeof memoryTargets>;
-  const orange = new THREE.Color("#ef672e");
-  let closingPoints: ReturnType<typeof downloadPoints> = [];
+  let closingPoints: ReturnType<typeof downloadPoints>;
+  let figurePoints: ReturnType<typeof methodologyFigureTargets>;
+  const orange = new THREE.Color(color["orange-mid"]);
 
   return {
     resize(next: ShelfLayout) {
       layout = next;
-      closingPoints = downloadPoints(next.width, next.height);
       renderer.setSize(next.width, next.height, false);
       camera.right = next.width;
       camera.bottom = -next.height;
       camera.updateProjectionMatrix();
-      toolPoints = Array.from({ length: 6 }, (_, index) => toolTargets(next.width, next.height, index));
+      toolPoints = toolExamples.map((_, index) => toolTargets(next.width, next.height, index));
       memoryPoints = memoryTargets(next.width, next.height);
+      closingPoints = downloadPoints(next.width, next.height);
+      figurePoints = methodologyFigureTargets(next.width);
       const scale = next.wordmark.width / 1672;
       path = createFlightPath({
         paletteX: (next.palette.x - next.wordmark.x) / scale,
@@ -153,7 +159,10 @@ export function createShelfScene(canvas: HTMLCanvasElement, tiles: Tile[]) {
       plane.scale.set(next.width * 1.5, next.height * 1.5, 1);
       plane.position.set(next.width / 2, -next.height / 2, -12);
     },
-    render(progress: number, clipboardFocus: number, mediaPortrait: number, toolSelection: number, toolReveal: number, toolTransition: number, toolPrevious: number) {
+    compile() {
+      return renderer.compileAsync(scene, camera);
+    },
+    render(progress: number, departure: number, clipboardBelt: number, toolSelection: number, toolReveal: number, toolTransition: number, toolPrevious: number) {
       const intro = introProgress(progress);
       const scale = layout.wordmark.width / 1672;
       const lift = heroLift(progress, layout.height);
@@ -161,14 +170,25 @@ export function createShelfScene(canvas: HTMLCanvasElement, tiles: Tile[]) {
         const original = index < inventory.length;
         const sourceIndex = index % inventory.length;
         const entry = inventory[sourceIndex];
-        const source = tilePose(entry.tile, intro, path);
-        writeShelfPose(pose, entry, source, Math.min(progress, ribbonIndices[sourceIndex] >= 0 ? 0.875 : 1), layout);
-        writeClipboardTilePose(pose, ribbonIndices[sourceIndex], Math.min(progress, 1.9), layout, clipboardFocus);
-        writeMediaTilePose(pose, ribbonIndices[sourceIndex], Math.min(progress, 1.9), layout, mediaPortrait);
+        writeShelfPose(pose, entry, tilePose(entry.tile, intro, path), Math.min(progress, ribbonIndices[sourceIndex] >= 0 ? .875 : 1), layout);
+        writeClipboardTilePose(pose, ribbonIndices[sourceIndex], Math.min(progress, toolsEnter), layout, clipboardBelt);
         if (!original) pose.sx = pose.sy = 0;
-        const toolIndex = original ? toolsIndices[index] : index;
-        writeToolsTilePose(pose, toolIndex, Math.min(progress, memoryStart), layout, toolSelection, toolReveal, toolPoints[toolSelection], toolPoints[toolPrevious], toolTransition);
-        writeMemoryTilePose(pose, index, Math.min(progress, downloadStart), layout, memoryPoints);
+        writeToolsTilePose(pose, index, Math.min(progress, memoryStart), layout, toolSelection, toolReveal, toolPoints[toolSelection], toolPoints[toolPrevious], toolTransition);
+        writeMemoryTilePose(pose, index, Math.min(progress, downloadStart), memoryPoints);
+        if (departure > 0) {
+          const target = figurePoints[index];
+          if (target && memoryPoints[index]?.accent) {
+            pose.x += (target.x - pose.x) * departure;
+            pose.y += (target.y - pose.y) * departure;
+            pose.z *= 1 - departure;
+            pose.rx *= 1 - departure;
+            pose.sx += (target.size / 24 - pose.sx) * departure;
+            pose.sy += (target.size / 24 - pose.sy) * departure;
+          } else {
+            pose.sx *= 1 - Math.min(1, departure * 2);
+            pose.sy *= 1 - Math.min(1, departure * 2);
+          }
+        }
         writeDownloadTilePose(pose, index, progress, layout, closingPoints);
         object.position.set(pose.x, -pose.y, pose.z);
         object.rotation.set(pose.rx, pose.ry, -pose.rz);
@@ -176,8 +196,8 @@ export function createShelfScene(canvas: HTMLCanvasElement, tiles: Tile[]) {
         object.updateMatrix();
         instances.setMatrixAt(index, object.matrix);
         face.copy(sourceColors[sourceIndex]).lerp(colors[sourceIndex], pose.color);
-        if (progress > 1.9) face.lerp(toolFace.copy(chalk).lerp(orange, pose.color), phase(progress, 1.9, 2.14));
-        if (progress > memoryStart) face.lerp(memoryPoints[index]?.accent ? orange : chalk, phase(progress, memoryStart, memoryStart + .18));
+        if (progress > toolsEnter) face.lerp(toolFace.copy(chalk).lerp(orange, pose.color), phase(progress, toolsEnter, toolsEnter + .16));
+        if (progress > memoryStart) face.lerp(memoryPoints[index]?.accent ? orange : chalk, phase(progress, memoryStart, memorySettled));
         if (progress > downloadStart) face.lerp(chalk, phase(progress, downloadStart, downloadStart + .2));
         faceColors.setXYZ(index, face.r, face.g, face.b);
       }
@@ -194,7 +214,7 @@ export function createShelfScene(canvas: HTMLCanvasElement, tiles: Tile[]) {
         mesh.rotation.set(pose.rx, pose.ry, -pose.rz);
         mesh.scale.set(pose.sx * 24 / tile.width, pose.sy * 24 / tile.height, Math.min(pose.sx, pose.sy));
       }
-      plane.visible = progress < 1.96;
+      plane.visible = progress < toolsEnter;
       renderer.render(scene, camera);
       canvas.dataset.progress = progress.toFixed(4);
       canvas.dataset.drawCalls = String(renderer.info.render.calls);

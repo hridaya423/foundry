@@ -2,8 +2,9 @@ import AppKit
 import Foundation
 import FoundryDomain
 import FoundryServices
+import os
 
-final class BrowserProvider: CommandProvider, @unchecked Sendable {
+final class BrowserProvider: CommandProvider, Sendable {
     let id = "foundry.browsers"
 
     var searchPolicy: CommandProviderSearchPolicy {
@@ -34,8 +35,9 @@ final class BrowserProvider: CommandProvider, @unchecked Sendable {
             allRecords.append(contentsOf: records(for: source, kind: browserRequest.kind))
         }
 
+        let prepared = SearchScoring.PreparedQuery(query: browserRequest.search)
         return allRecords
-            .filter { browserRequest.search.isEmpty || $0.matches(browserRequest.search, sensitivity: request.sensitivity) }
+            .filter { browserRequest.search.isEmpty || $0.matches(prepared, sensitivity: request.sensitivity) }
             .map(makeResult)
     }
 
@@ -46,7 +48,7 @@ final class BrowserProvider: CommandProvider, @unchecked Sendable {
     func cachedResults(matching query: String, sensitivity: SearchSensitivity = .medium) -> [CommandResult] {
         let search = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         guard search.count >= 2, let tabs = liveTabsCache.value(for: selectedMainBrowser) else { return [] }
-        return tabs.filter { $0.matches(search, sensitivity: sensitivity) }.prefix(50).map(makeResult)
+        return tabs.filter { $0.matches(SearchScoring.PreparedQuery(query: search), sensitivity: sensitivity) }.prefix(50).map(makeResult)
     }
 
     func supplementalResults(matching query: String, sensitivity: SearchSensitivity) -> [CommandResult] {
@@ -57,8 +59,9 @@ final class BrowserProvider: CommandProvider, @unchecked Sendable {
         let request = BrowserSearchRequest(query: query)
         guard request.isBrowserIntent, request.search.count >= 2 else { return [] }
         let source = selectedMainBrowser
+        let prepared = SearchScoring.PreparedQuery(query: request.search)
         return records(for: source, kind: nil)
-            .filter { $0.matches(request.search, sensitivity: sensitivity) }
+            .filter { $0.matches(prepared, sensitivity: sensitivity) }
             .prefix(50)
             .map(makeResult)
     }
@@ -143,7 +146,8 @@ final class BrowserProvider: CommandProvider, @unchecked Sendable {
                 return SafariBookmarkParser.parse(object).compactMap { makeBookmark($0, source: source) }
             }
         case .firefox:
-            let query = "SELECT moz_bookmarks.id, moz_bookmarks.title, moz_places.url FROM moz_bookmarks JOIN moz_places ON moz_places.id = moz_bookmarks.fk WHERE moz_bookmarks.type = 1 AND moz_places.url IS NOT NULL LIMIT 500;"
+            let query = "SELECT moz_bookmarks.id, moz_bookmarks.title, moz_places.url FROM moz_bookmarks JOIN moz_places ON moz_places.id = " +
+                "moz_bookmarks.fk WHERE moz_bookmarks.type = 1 AND moz_places.url IS NOT NULL LIMIT 500;"
             return source.bookmarkFiles(in: homeDirectory).flatMap { file in
                 LocalSQLite.rows(database: file, query: query).compactMap { row in
                     guard let url = row["url"] else { return nil }
@@ -152,9 +156,9 @@ final class BrowserProvider: CommandProvider, @unchecked Sendable {
             }
         default:
             return source.bookmarkFiles(in: homeDirectory).flatMap { file in
-                let object = BestEffort.attempt("read bookmarks \(file.lastPathComponent)") {
+                let object = (BestEffort.attempt("read bookmarks \(file.lastPathComponent)") {
                     try JSONSerialization.jsonObject(with: Data(contentsOf: file))
-                }
+                })
                 guard let object else { return [BrowserRecord]() }
                 return ChromeBookmarkParser.parse(object).compactMap { makeBookmark($0, source: source) }
             }
@@ -188,18 +192,21 @@ final class BrowserProvider: CommandProvider, @unchecked Sendable {
         let script: String
         switch source {
         case .safari:
-            script = "function run() { const app = Application('Safari'); return JSON.stringify(app.windows().flatMap(w => w.tabs().map(t => ({title: t.name(), url: t.url()})))); }"
+            script = "function run() { const app = Application('Safari'); return JSON.stringify(app.windows().flatMap(w => w.tabs().map(t => " +
+                "({title: t.name(), url: t.url()})))); }"
         default:
-            script = "function run() { const app = Application('\(source.applicationName)'); return JSON.stringify(app.windows().flatMap(w => w.tabs().map(t => ({title: t.title(), url: t.url()})))); }"
+            script = "function run() { const app = Application('\(source.applicationName)'); return JSON.stringify(app.windows().flatMap(w => " +
+                "w.tabs().map(t => ({title: t.title(), url: t.url()})))); }"
         }
         guard let output = runOSAScript(script), let data = output.data(using: .utf8) else { return [] }
-        let tabs = BestEffort.attempt("decode \(source.rawValue) live tabs") {
+        let tabs = (BestEffort.attempt("decode \(source.rawValue) live tabs") {
             try JSONDecoder().decode([LiveTab].self, from: data)
-        }
+        })
         guard let tabs else { return [] }
         let records: [BrowserRecord] = tabs.compactMap { tab in
             guard let url = URL(string: tab.url), url.scheme != nil else { return nil }
-            return BrowserRecord(id: "tab-\(source.rawValue)-\(tab.url)", kind: .tab, browser: source, title: tab.title.isEmpty ? tab.url : tab.title, subtitle: "Open tab - \(source.displayName)", url: url, icon: "rectangle.on.rectangle")
+            return BrowserRecord(id: "tab-\(source.rawValue)-\(tab.url)", kind: .tab, browser: source,
+                title: tab.title.isEmpty ? tab.url : tab.title, subtitle: "Open tab - \(source.displayName)", url: url, icon: "rectangle.on.rectangle")
         }
         liveTabsCache.store(records, for: source)
         return records
@@ -234,13 +241,14 @@ final class BrowserProvider: CommandProvider, @unchecked Sendable {
         guard let values = file.fileResourceValues([.contentModificationDateKey]),
               let modifiedAt = values.contentModificationDate,
               Date().timeIntervalSince(modifiedAt) < 600 else { return nil }
-        let payload = BestEffort.attempt("read Firefox live tabs") {
+        let payload = (BestEffort.attempt("read Firefox live tabs") {
             try JSONDecoder().decode(FirefoxLiveTabs.self, from: Data(contentsOf: file))
-        }
+        })
         guard let payload else { return nil }
         return payload.tabs.enumerated().compactMap { index, tab in
             guard let url = URL(string: tab.url), url.scheme != nil else { return nil }
-            return BrowserRecord(id: "tab-firefox-live-\(index)-\(tab.url)", kind: .tab, browser: .firefox, title: tab.title.isEmpty ? tab.url : tab.title, subtitle: "Open tab - Firefox", url: url, icon: "rectangle.on.rectangle")
+            return BrowserRecord(id: "tab-firefox-live-\(index)-\(tab.url)", kind: .tab, browser: .firefox,
+                title: tab.title.isEmpty ? tab.url : tab.title, subtitle: "Open tab - Firefox", url: url, icon: "rectangle.on.rectangle")
         }
     }
 
@@ -267,15 +275,16 @@ final class BrowserProvider: CommandProvider, @unchecked Sendable {
             subtitle: record.subtitle,
             icon: CommandIcon(fallback: record.browser.abbreviation, systemName: record.icon),
             route: route,
+            payload: .url(record.url),
             primaryAction: CommandAction(
                 id: "browser.open.\(record.id)",
                 title: "Open in \(record.browser.displayName)",
-                kind: .runProcess(
+                behavior: RunProcessAction(
                     path: "/usr/bin/open",
                     arguments: ["-a", record.browser.applicationName, record.url.absoluteString]
                 )
             ),
-            secondaryActions: [CommandAction(id: "browser.copy.\(record.id)", title: "Copy URL", kind: .copyToClipboard(record.url.absoluteString))]
+            secondaryActions: [CommandAction(id: "browser.copy.\(record.id)", title: "Copy URL", behavior: CopyToClipboardAction(record.url.absoluteString))]
         )
     }
 
@@ -285,10 +294,11 @@ final class BrowserProvider: CommandProvider, @unchecked Sendable {
             title: browser.displayName,
             subtitle: "Search tabs, history, and bookmarks with: \(browser.rawValue) <text>",
             icon: CommandIcon(fallback: browser.abbreviation, systemName: "globe"),
+            payload: .command,
             primaryAction: CommandAction(
                 id: "foundry.browser.launch.\(browser.rawValue)",
                 title: "Open",
-                kind: .runProcess(path: "/usr/bin/open", arguments: ["-a", browser.applicationName])
+                behavior: RunProcessAction(path: "/usr/bin/open", arguments: ["-a", browser.applicationName])
             ),
             secondaryActions: []
         )
@@ -438,7 +448,8 @@ enum BrowserSource: String, CaseIterable, Sendable, Hashable {
 
     func historyDatabases(in home: URL) -> [URL] {
         if self == .safari { return existing([home.appendingPathComponent("Library/Safari/History.db")]) }
-        return profileDirectories(in: home).map { $0.appendingPathComponent("places.sqlite") }.filter { FileManager.default.fileExists(atPath: $0.path) || self != .firefox }.compactMap { file in
+        return profileDirectories(in: home).map { $0.appendingPathComponent("places.sqlite") }.filter { FileManager.default.fileExists(
+            atPath: $0.path) || self != .firefox }.compactMap { file in
             let history = self == .firefox ? file : file.deletingLastPathComponent().appendingPathComponent("History")
             return FileManager.default.fileExists(atPath: history.path) ? history : nil
         }
@@ -501,14 +512,13 @@ enum BrowserSource: String, CaseIterable, Sendable, Hashable {
 
 enum BrowserRecordKind: Sendable, Equatable, Hashable { case tab, history, bookmark }
 
-private final class BrowserLiveTabsCache: @unchecked Sendable {
+private final class BrowserLiveTabsCache: Sendable {
     private struct Entry {
         let createdAt: Date
         let records: [BrowserRecord]
     }
 
-    private let lock = NSLock()
-    private var entries: [BrowserSource: Entry] = [:]
+    private let entries = OSAllocatedUnfairLock<[BrowserSource: Entry]>(initialState: [:])
     private let lifetime: TimeInterval
 
     init(lifetime: TimeInterval) {
@@ -516,31 +526,29 @@ private final class BrowserLiveTabsCache: @unchecked Sendable {
     }
 
     func value(for source: BrowserSource) -> [BrowserRecord]? {
-        lock.lock()
-        defer { lock.unlock() }
-        guard let entry = entries[source], Date().timeIntervalSince(entry.createdAt) < lifetime else {
-            entries[source] = nil
-            return nil
+        entries.withLock { entries in
+            guard let entry = entries[source], Date().timeIntervalSince(entry.createdAt) < lifetime else {
+                entries[source] = nil
+                return nil
+            }
+            return entry.records
         }
-        return entry.records
     }
 
     func store(_ records: [BrowserRecord], for source: BrowserSource) {
-        lock.lock()
-        entries[source] = Entry(createdAt: Date(), records: records)
-        lock.unlock()
+        entries.withLock { $0[source] = Entry(createdAt: Date(), records: records) }
     }
 }
 
-final class BrowserRecordsLoadGate: @unchecked Sendable {
-    private let lock = NSLock()
-    private var locks: [BrowserRecordsCache.Key: NSLock] = [:]
+final class BrowserRecordsLoadGate: Sendable {
+    private let locks = OSAllocatedUnfairLock<[BrowserRecordsCache.Key: NSLock]>(initialState: [:])
 
     func withLock<T>(for key: BrowserRecordsCache.Key, _ body: () -> T) -> T {
-        lock.lock()
-        let keyLock = locks[key] ?? NSLock()
-        locks[key] = keyLock
-        lock.unlock()
+        let keyLock = locks.withLock { locks in
+            let keyLock = locks[key] ?? NSLock()
+            locks[key] = keyLock
+            return keyLock
+        }
 
         keyLock.lock()
         defer { keyLock.unlock() }
@@ -548,7 +556,7 @@ final class BrowserRecordsLoadGate: @unchecked Sendable {
     }
 }
 
-final class BrowserRecordsCache: @unchecked Sendable {
+final class BrowserRecordsCache: Sendable {
     struct Key: Hashable, Sendable {
         let source: BrowserSource
         let kind: BrowserRecordKind?
@@ -559,24 +567,21 @@ final class BrowserRecordsCache: @unchecked Sendable {
         let records: [BrowserRecord]
     }
 
-    private let lock = NSLock()
-    private var entries: [Key: Entry] = [:]
+    private let entries = OSAllocatedUnfairLock<[Key: Entry]>(initialState: [:])
     private let lifetime: TimeInterval = 60
 
     func value(for key: Key) -> [BrowserRecord]? {
-        lock.lock()
-        defer { lock.unlock() }
-        guard let entry = entries[key], Date().timeIntervalSince(entry.createdAt) < lifetime else {
-            entries[key] = nil
-            return nil
+        entries.withLock { entries in
+            guard let entry = entries[key], Date().timeIntervalSince(entry.createdAt) < lifetime else {
+                entries[key] = nil
+                return nil
+            }
+            return entry.records
         }
-        return entry.records
     }
 
     func store(_ records: [BrowserRecord], for key: Key) {
-        lock.lock()
-        entries[key] = Entry(createdAt: Date(), records: records)
-        lock.unlock()
+        entries.withLock { $0[key] = Entry(createdAt: Date(), records: records) }
     }
 }
 
@@ -589,7 +594,7 @@ struct BrowserRecord: Sendable {
     let url: URL
     let icon: String
 
-    func matches(_ query: String, sensitivity: SearchSensitivity = .medium) -> Bool {
+    func matches(_ query: SearchScoring.PreparedQuery, sensitivity: SearchSensitivity = .medium) -> Bool {
         SearchScoring.match(
             query: query,
             title: title,
@@ -626,7 +631,7 @@ enum FirefoxSessionParser {
 
     static func parse(_ data: Data) -> FirefoxSession? {
         guard let json = decode(data),
-              let root = try? JSONSerialization.jsonObject(with: json) as? [String: Any],
+              let root = (BestEffort.attempt("browser session JSON") { try JSONSerialization.jsonObject(with: json) }) as? [String: Any],
               let windows = root["windows"] as? [[String: Any]] else { return nil }
 
         let tabs = windows.flatMap { window in

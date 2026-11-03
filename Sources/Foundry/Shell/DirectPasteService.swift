@@ -76,6 +76,12 @@ final class DirectPasteService {
         self.sendLeft = sendLeft
     }
 
+    var targetProcessIdentifier: pid_t? { target?.processIdentifier }
+    var canPaste: Bool { accessibilityTrusted() }
+    var targetName: String? {
+        targetProcessIdentifier.flatMap { NSRunningApplication(processIdentifier: $0)?.localizedName }
+    }
+
     func captureTarget() {
         guard let candidate = targetProvider(), candidate.processIdentifier != ownProcessIdentifier else { return }
         target = candidate

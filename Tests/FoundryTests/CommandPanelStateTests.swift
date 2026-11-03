@@ -1,3 +1,4 @@
+import os
 import XCTest
 @testable import Foundry
 import FoundryDomain
@@ -13,7 +14,7 @@ final class CommandPanelStateTests: XCTestCase {
         )
         let registry = CommandRegistry(
             providers: [],
-            usageRanking: UsageRankingStore(diagnostics: diagnostics),
+            usageRanking: UsageRankingStore.scratch(diagnostics),
             diagnostics: diagnostics,
             configService: config
         )
@@ -30,7 +31,7 @@ final class CommandPanelStateTests: XCTestCase {
         state.showHome()
 
         XCTAssertEqual(state.mode, .search, "Expected Home to use search mode")
-        XCTAssertTrue(state.query.isEmpty)
+        XCTAssertTrue(state.session.query.isEmpty)
         XCTAssertEqual(state.fileShelf.files.map(\.url), [fileURL])
         state.shutdown()
     }
@@ -38,7 +39,7 @@ final class CommandPanelStateTests: XCTestCase {
     func testUnavailableCommandHotkeyTellsTheUser() async {
         let diagnostics = DiagnosticsService()
         let config = ConfigService(diagnostics: diagnostics, url: FileManager.default.temporaryDirectory.appendingPathComponent("foundry-panel-missing-\(UUID().uuidString).json"))
-        let registry = CommandRegistry(providers: [], usageRanking: UsageRankingStore(diagnostics: diagnostics), diagnostics: diagnostics, configService: config)
+        let registry = CommandRegistry(providers: [], usageRanking: UsageRankingStore.scratch(diagnostics), diagnostics: diagnostics, configService: config)
         let state = CommandPanelState(registry: registry, actionRunner: ActionRunner(diagnostics: diagnostics), diagnostics: diagnostics, config: config)
 
         await state.executeCommand(commandID: "missing.command")
@@ -55,7 +56,7 @@ final class CommandPanelStateTests: XCTestCase {
         )
         let registry = CommandRegistry(
             providers: [],
-            usageRanking: UsageRankingStore(diagnostics: diagnostics),
+            usageRanking: UsageRankingStore.scratch(diagnostics),
             diagnostics: diagnostics,
             configService: config
         )
@@ -81,7 +82,7 @@ final class CommandPanelStateTests: XCTestCase {
         )
         let registry = CommandRegistry(
             providers: [],
-            usageRanking: UsageRankingStore(diagnostics: diagnostics),
+            usageRanking: UsageRankingStore.scratch(diagnostics),
             diagnostics: diagnostics,
             configService: config
         )
@@ -115,7 +116,7 @@ final class CommandPanelStateTests: XCTestCase {
         )
         let registry = CommandRegistry(
             providers: [URLCollisionProvider(), MediaDownloadProvider()],
-            usageRanking: UsageRankingStore(diagnostics: diagnostics),
+            usageRanking: UsageRankingStore.scratch(diagnostics),
             diagnostics: diagnostics,
             configService: config
         )
@@ -126,12 +127,12 @@ final class CommandPanelStateTests: XCTestCase {
             config: config
         )
 
-        state.query = "http://127.0.0.1:8765/video.mp4"
-        for _ in 0..<40 where state.selectedResult?.route != .mediaDownload {
+        state.session.query = "http://127.0.0.1:8765/video.mp4"
+        for _ in 0..<40 where state.session.selectedResult?.route != .mediaDownload {
             try await Task.sleep(for: .milliseconds(10))
         }
 
-        XCTAssertEqual(state.selectedResult?.route, .mediaDownload)
+        XCTAssertEqual(state.session.selectedResult?.route, .mediaDownload)
         state.shutdown()
     }
 
@@ -144,7 +145,7 @@ final class CommandPanelStateTests: XCTestCase {
         )
         let registry = CommandRegistry(
             providers: [],
-            usageRanking: UsageRankingStore(diagnostics: diagnostics),
+            usageRanking: UsageRankingStore.scratch(diagnostics),
             diagnostics: diagnostics,
             configService: config
         )
@@ -154,19 +155,20 @@ final class CommandPanelStateTests: XCTestCase {
             diagnostics: diagnostics,
             config: config
         )
-        state.results = [CommandResult(
+        state.session.results = [CommandResult(
             id: "test.background-download",
             title: "Download",
             subtitle: nil,
             icon: CommandIcon(fallback: "D"),
+            payload: .command,
             primaryAction: CommandAction(
                 id: "test.background-download.perform",
                 title: "Download",
-                kind: .downloadMedia(url: "https://example.com/file.mp4")
+                behavior: DownloadMediaAction(url: "https://example.com/file.mp4")
             ),
             secondaryActions: []
         )]
-        state.selectedResultID = "test.background-download"
+        state.session.selectedResultID = "test.background-download"
 
         let execution = Task { await state.executeSelectedResult() }
         try await Task.sleep(for: .milliseconds(20))
@@ -209,7 +211,7 @@ final class CommandPanelStateTests: XCTestCase {
         let pasteboard = TestClipboardPasteboard()
         let persistence = ClipboardHistoryPersistence(url: archiveURL)
         let clipboard = ClipboardHistoryState(pasteboard: pasteboard, persistence: persistence, configuration: config.current.clipboard)
-        let registry = CommandRegistry(providers: [], usageRanking: UsageRankingStore(diagnostics: diagnostics), diagnostics: diagnostics, configService: config)
+        let registry = CommandRegistry(providers: [], usageRanking: UsageRankingStore.scratch(diagnostics), diagnostics: diagnostics, configService: config)
         let actionRunner = ActionRunner(diagnostics: diagnostics)
         let shell = ShellController(registry: registry, actionRunner: actionRunner, config: config, diagnostics: diagnostics, clipboardHistory: clipboard)
         pasteboard.snapshotValue = PasteboardSnapshot(types: [.string], payload: .text("captured at launch"), sourceBundleIdentifier: "com.example")
@@ -234,9 +236,9 @@ final class CommandPanelStateTests: XCTestCase {
         let clipboard = ClipboardHistoryState(pasteboard: TestClipboardPasteboard(), persistence: nil, configuration: config.current.clipboard)
         let state = makeState(diagnostics: diagnostics, config: config, clipboard: clipboard)
 
-        state.setClipboardPaused(true)
-        state.setClipboardRetention(maxItems: 12, maxBytes: 2 * 1024 * 1024)
-        state.setClipboardExcludedBundleIdentifiers("com.example, com.example, com.other")
+        state.settings.setClipboardPaused(true)
+        state.settings.setClipboardRetention(maxItems: 12, maxBytes: 2 * 1024 * 1024)
+        state.settings.setClipboardExcludedBundleIdentifiers("com.example, com.example, com.other")
 
         XCTAssertTrue(clipboard.isPaused)
         XCTAssertEqual(config.current.clipboard.maxItems, 12)
@@ -250,7 +252,8 @@ final class CommandPanelStateTests: XCTestCase {
         let config = ConfigService(diagnostics: diagnostics, url: temporaryURL())
         let pasteboard = NSPasteboard(name: NSPasteboard.Name("CommandPanelStateTests.directPaste"))
         let target = DirectPasteTestTarget(processIdentifier: 42)
-        let directPaste = DirectPasteService(pasteboard: pasteboard, ownProcessIdentifier: 7) { target }
+        let directPaste = DirectPasteService(pasteboard: pasteboard, ownProcessIdentifier: 7, targetProvider: { target },
+            accessibilityTrusted: { true })
         let actionRunner = ActionRunner(diagnostics: diagnostics, directPasteService: directPaste)
         let pasteboardClient = TestClipboardPasteboard()
         let clipboard = ClipboardHistoryState(pasteboard: pasteboardClient, persistence: nil, configuration: config.current.clipboard)
@@ -258,7 +261,8 @@ final class CommandPanelStateTests: XCTestCase {
 
         clipboard.select(id: clipboard.items.first?.id ?? "missing")
         XCTAssertFalse(state.directPasteSelectedClipboardItem())
-        XCTAssertNotNil(clipboard.error)
+        XCTAssertEqual(state.actionFeedback, .failure("Select an item to paste."))
+        XCTAssertNil(clipboard.error)
 
         let item = ClipboardHistoryItem(payload: .text("hello"))
         pasteboardClient.snapshotValue = PasteboardSnapshot(types: [.string], payload: item.payload, sourceBundleIdentifier: "com.example")
@@ -269,6 +273,27 @@ final class CommandPanelStateTests: XCTestCase {
 
         XCTAssertTrue(state.directPasteSelectedClipboardItem())
         XCTAssertTrue(directPaste.hasPendingPaste)
+        state.shutdown()
+    }
+
+    func testPasteWithNoTargetAppCopiesAndSaysSo() {
+        let diagnostics = DiagnosticsService()
+        let config = ConfigService(diagnostics: diagnostics, url: temporaryURL())
+        let pasteboard = NSPasteboard(name: NSPasteboard.Name("CommandPanelStateTests.noTarget"))
+        let directPaste = DirectPasteService(pasteboard: pasteboard, ownProcessIdentifier: 7) { nil }
+        let actionRunner = ActionRunner(diagnostics: diagnostics, directPasteService: directPaste)
+        let pasteboardClient = TestClipboardPasteboard()
+        let clipboard = ClipboardHistoryState(pasteboard: pasteboardClient, persistence: nil, configuration: config.current.clipboard)
+        let state = makeState(diagnostics: diagnostics, config: config, clipboard: clipboard, actionRunner: actionRunner)
+        let item = ClipboardHistoryItem(payload: .text("hello"))
+        pasteboardClient.snapshotValue = PasteboardSnapshot(types: [.string], payload: item.payload, sourceBundleIdentifier: "com.example")
+        pasteboardClient.changeCountValue += 1
+        clipboard.captureIfChanged()
+        clipboard.select(id: item.id)
+
+        XCTAssertFalse(state.directPasteSelectedClipboardItem())
+        XCTAssertEqual(state.actionFeedback, .info("Copied. Press ⌘V where you want it."))
+        XCTAssertEqual(pasteboardClient.writtenPayloads, [.text("hello")])
         state.shutdown()
     }
 
@@ -293,6 +318,37 @@ final class CommandPanelStateTests: XCTestCase {
         state.mode = .clipboardHistory
         state.pasteOrCopySelectedClipboardItem()
         XCTAssertTrue(directPaste.hasPendingPaste)
+        state.shutdown()
+    }
+
+    func testPasteWithoutAccessibilityAsksInThePanelAndKeepsTheItemCopied() async {
+        let diagnostics = DiagnosticsService()
+        let config = ConfigService(diagnostics: diagnostics, url: temporaryURL())
+        let pasteboard = NSPasteboard(name: NSPasteboard.Name("CommandPanelStateTests.noAccessibility"))
+        let directPaste = DirectPasteService(pasteboard: pasteboard, ownProcessIdentifier: 7,
+            targetProvider: { DirectPasteTestTarget(processIdentifier: 42) }, accessibilityTrusted: { false })
+        let actionRunner = ActionRunner(diagnostics: diagnostics, directPasteService: directPaste)
+        let pasteboardClient = TestClipboardPasteboard()
+        let clipboard = ClipboardHistoryState(pasteboard: pasteboardClient, persistence: nil, configuration: config.current.clipboard)
+        let state = makeState(diagnostics: diagnostics, config: config, clipboard: clipboard, actionRunner: actionRunner)
+        let shell = RecordingShellPort()
+        state.shell = shell
+
+        let item = ClipboardHistoryItem(payload: .text("hello"))
+        pasteboardClient.snapshotValue = PasteboardSnapshot(types: [.string], payload: item.payload, sourceBundleIdentifier: "com.example")
+        pasteboardClient.changeCountValue += 1
+        clipboard.captureIfChanged()
+        clipboard.select(id: item.id)
+        directPaste.captureTarget()
+
+        XCTAssertFalse(state.directPasteSelectedClipboardItem(), "the panel stays open to ask")
+        XCTAssertFalse(directPaste.hasPendingPaste)
+        XCTAssertEqual(pasteboardClient.writtenPayloads.last, .text("hello"))
+        for _ in 0..<50 where state.pendingPrompt == nil { try? await Task.sleep(for: .milliseconds(10)) }
+        XCTAssertEqual(state.pendingPrompt.map { String(localized: $0.spec.confirmLabel) }, "Allow")
+        state.pendingPrompt?.resume(PanelPromptResult(confirmed: true))
+        for _ in 0..<50 where shell.requestedPermissions.isEmpty { try? await Task.sleep(for: .milliseconds(10)) }
+        XCTAssertEqual(shell.requestedPermissions, [.accessibility])
         state.shutdown()
     }
 
@@ -322,7 +378,7 @@ final class CommandPanelStateTests: XCTestCase {
     func testReopenRestoresContextWithinPopToRootTimeout() {
         let diagnostics = DiagnosticsService()
         let config = ConfigService(diagnostics: diagnostics, url: temporaryURL())
-        let registry = CommandRegistry(providers: [], usageRanking: UsageRankingStore(diagnostics: diagnostics), diagnostics: diagnostics, configService: config)
+        let registry = CommandRegistry(providers: [], usageRanking: UsageRankingStore.scratch(diagnostics), diagnostics: diagnostics, configService: config)
         let state = CommandPanelState(registry: registry, actionRunner: ActionRunner(diagnostics: diagnostics), diagnostics: diagnostics, config: config)
         var clock = Date(timeIntervalSince1970: 1000)
         state.now = { clock }
@@ -333,12 +389,13 @@ final class CommandPanelStateTests: XCTestCase {
             title: "Test",
             subtitle: nil,
             icon: CommandIcon(fallback: "T"),
-            primaryAction: CommandAction(id: "test.open", title: "Open", kind: .openSettings),
+            payload: .command,
+            primaryAction: CommandAction(id: "test.open", title: "Open", behavior: OpenSettingsAction()),
             secondaryActions: []
         )
-        state.query = "tes"
-        state.results = [result]
-        state.selectedResultID = result.id
+        state.session.query = "tes"
+        state.session.results = [result]
+        state.session.selectedResultID = result.id
         state.mode = .translator
         state.panelWillClose()
 
@@ -346,23 +403,59 @@ final class CommandPanelStateTests: XCTestCase {
         state.resetForOpen()
 
         XCTAssertEqual(state.mode, .translator)
-        XCTAssertTrue(state.query.isEmpty)
-        XCTAssertTrue(state.results.isEmpty)
-        XCTAssertNil(state.selectedResultID)
+        XCTAssertEqual(state.session.query, "tes")
+        XCTAssertEqual(state.session.results.map(\.id), ["test.result"])
+        XCTAssertEqual(state.session.selectedResultID, "test.result")
         state.shutdown()
+    }
+
+    func testTranslatorChordsWaitForAResultAndSwapWithOrWithoutShift() {
+        let diagnostics = DiagnosticsService()
+        let config = ConfigService(diagnostics: diagnostics, url: temporaryURL())
+        let state = makeState(diagnostics: diagnostics, config: config, clipboard: ClipboardHistoryState(persistence: nil))
+        state.router.openTranslator(language: "french")
+        XCTAssertFalse(state.performModeShortcut(ActionShortcut(key: "c", modifiers: [.shift, .command])) {})
+        XCTAssertFalse(state.performModeShortcut(ActionShortcut(key: "\r", modifiers: [.command])) {})
+        let before = state.translator.targetLanguage
+        XCTAssertTrue(state.performModeShortcut(ActionShortcut(key: "s", modifiers: [.command])) {})
+        XCTAssertNotEqual(state.translator.targetLanguage, before)
+        state.shutdown()
+    }
+
+    func testWhatsNewShowsOnceForUpgradersOnly() throws {
+        let diagnostics = DiagnosticsService()
+        let fresh = ConfigService(diagnostics: diagnostics, url: temporaryURL())
+        let freshState = makeState(diagnostics: diagnostics, config: fresh, clipboard: ClipboardHistoryState(persistence: nil))
+        XCTAssertFalse(freshState.showsWhatsNew)
+        XCTAssertEqual(fresh.current.localState.whatsNewSeenVersion, WhatsNew.version, "fresh installs never see it later")
+        freshState.shutdown()
+
+        let url = temporaryURL()
+        try JSONEncoder().encode(FoundryConfig()).write(to: url)
+        let upgraded = ConfigService(diagnostics: diagnostics, url: url)
+        let state = makeState(diagnostics: diagnostics, config: upgraded, clipboard: ClipboardHistoryState(persistence: nil))
+        XCTAssertTrue(state.showsWhatsNew)
+        state.dismissWhatsNew()
+        XCTAssertFalse(state.showsWhatsNew)
+        upgraded.flush()
+        state.shutdown()
+        let reopened = makeState(diagnostics: diagnostics, config: ConfigService(diagnostics: diagnostics, url: url),
+            clipboard: ClipboardHistoryState(persistence: nil))
+        XCTAssertFalse(reopened.showsWhatsNew)
+        reopened.shutdown()
     }
 
     func testReopenResetsAfterPopToRootTimeout() {
         let diagnostics = DiagnosticsService()
         let config = ConfigService(diagnostics: diagnostics, url: temporaryURL())
-        let registry = CommandRegistry(providers: [], usageRanking: UsageRankingStore(diagnostics: diagnostics), diagnostics: diagnostics, configService: config)
+        let registry = CommandRegistry(providers: [], usageRanking: UsageRankingStore.scratch(diagnostics), diagnostics: diagnostics, configService: config)
         let state = CommandPanelState(registry: registry, actionRunner: ActionRunner(diagnostics: diagnostics), diagnostics: diagnostics, config: config)
         var clock = Date(timeIntervalSince1970: 1000)
         state.now = { clock }
 
         state.resetForOpen()
-        state.query = "tes"
-        state.results = [CommandResult(id: "test.result", title: "Test", subtitle: nil, icon: CommandIcon(fallback: "T"), primaryAction: CommandAction(id: "test.open", title: "Open", kind: .openSettings), secondaryActions: [])]
+        state.session.query = "tes"
+        state.session.results = [CommandResult(id: "test.result", title: "Test", subtitle: nil, icon: CommandIcon(fallback: "T"), payload: .command, primaryAction: CommandAction(id: "test.open", title: "Open", behavior: OpenSettingsAction()), secondaryActions: [])]
         state.mode = .translator
         state.panelWillClose()
 
@@ -370,30 +463,30 @@ final class CommandPanelStateTests: XCTestCase {
         state.resetForOpen()
 
         XCTAssertEqual(state.mode, .search)
-        XCTAssertTrue(state.query.isEmpty)
-        XCTAssertTrue(state.results.isEmpty)
-        XCTAssertNil(state.selectedResultID)
+        XCTAssertTrue(state.session.query.isEmpty)
+        XCTAssertTrue(state.session.results.isEmpty)
+        XCTAssertNil(state.session.selectedResultID)
         state.shutdown()
     }
 
     func testCompactCollapsedOnlyInSearchModeWithEmptyQuery() {
         let diagnostics = DiagnosticsService()
         let config = ConfigService(diagnostics: diagnostics, url: temporaryURL())
-        let registry = CommandRegistry(providers: [], usageRanking: UsageRankingStore(diagnostics: diagnostics), diagnostics: diagnostics, configService: config)
+        let registry = CommandRegistry(providers: [], usageRanking: UsageRankingStore.scratch(diagnostics), diagnostics: diagnostics, configService: config)
         let state = CommandPanelState(registry: registry, actionRunner: ActionRunner(diagnostics: diagnostics), diagnostics: diagnostics, config: config)
 
         XCTAssertFalse(state.compactCollapsed)
-        state.setWindowMode(.compact)
+        state.settings.setWindowMode(.compact)
         XCTAssertTrue(state.compactCollapsed)
 
-        state.query = "saf"
+        state.session.query = "saf"
         XCTAssertFalse(state.compactCollapsed)
 
-        state.query = ""
-        state.isShowingActions = true
+        state.session.query = ""
+        state.session.isShowingActions = true
         XCTAssertFalse(state.compactCollapsed)
 
-        state.isShowingActions = false
+        state.session.isShowingActions = false
         state.mode = .translator
         XCTAssertFalse(state.compactCollapsed)
         state.shutdown()
@@ -402,73 +495,75 @@ final class CommandPanelStateTests: XCTestCase {
     func testHomeSuggestionColdStartRules() {
         let running: Set<String> = ["com.apple.Safari"]
 
-        XCTAssertTrue(HomeSuggestionRules.isSuggestible(resultID: "app.com.apple.Safari", runningBundleIDs: running, hasUsage: false))
-        XCTAssertTrue(HomeSuggestionRules.isSuggestible(resultID: "app.com.apple.Terminal", runningBundleIDs: [], hasUsage: true))
-        XCTAssertFalse(HomeSuggestionRules.isSuggestible(resultID: "app.com.apple.Terminal", runningBundleIDs: running, hasUsage: false))
-        XCTAssertFalse(HomeSuggestionRules.isSuggestible(resultID: "app.com.apple.BluetoothFileExchange", runningBundleIDs: ["com.apple.BluetoothFileExchange"], hasUsage: true))
-        XCTAssertFalse(HomeSuggestionRules.isSuggestible(resultID: "foundry.clipboard", runningBundleIDs: running, hasUsage: true))
+        XCTAssertTrue(HomeSuggestionRules.isSuggestible(payload: .app(identity: "com.apple.Safari"), runningBundleIDs: running, hasUsage: false))
+        XCTAssertTrue(HomeSuggestionRules.isSuggestible(payload: .app(identity: "com.apple.Terminal"), runningBundleIDs: [], hasUsage: true))
+        XCTAssertFalse(HomeSuggestionRules.isSuggestible(payload: .app(identity: "com.apple.Terminal"), runningBundleIDs: running, hasUsage: false))
+        XCTAssertFalse(HomeSuggestionRules.isSuggestible(payload: .app(identity: "com.apple.BluetoothFileExchange"), runningBundleIDs: ["com.apple.BluetoothFileExchange"], hasUsage: true))
+        XCTAssertFalse(HomeSuggestionRules.isSuggestible(payload: .command, runningBundleIDs: running, hasUsage: true))
     }
 
     func testActionFilterIsIndependentOfQueryAndEscapeRestoresTheList() {
         let diagnostics = DiagnosticsService()
         let config = ConfigService(diagnostics: diagnostics, url: temporaryURL())
-        let registry = CommandRegistry(providers: [], usageRanking: UsageRankingStore(diagnostics: diagnostics), diagnostics: diagnostics, configService: config)
+        let registry = CommandRegistry(providers: [], usageRanking: UsageRankingStore.scratch(diagnostics), diagnostics: diagnostics, configService: config)
         let state = CommandPanelState(registry: registry, actionRunner: ActionRunner(diagnostics: diagnostics), diagnostics: diagnostics, config: config)
         let result = CommandResult(
             id: "test.file",
             title: "Report",
             subtitle: nil,
             icon: CommandIcon(fallback: "F"),
-            primaryAction: CommandAction(id: "open", title: "Open", kind: .log("open")),
+            payload: .command,
+            primaryAction: CommandAction(id: "open", title: "Open", behavior: LogAction("open")),
             secondaryActions: [
-                CommandAction(id: "copy-file", title: "Copy File", kind: .copyFile(path: "/tmp/report")),
-                CommandAction(id: "copy", title: "Copy Path", kind: .copyToClipboard("/tmp/report"))
+                CommandAction(id: "copy-file", title: "Copy File", behavior: CopyFileAction(path: "/tmp/report")),
+                CommandAction(id: "copy", title: "Copy Path", behavior: CopyToClipboardAction("/tmp/report"))
             ]
         )
-        state.results = [result]
-        state.selectedResultID = result.id
+        state.session.results = [result]
+        state.session.selectedResultID = result.id
 
-        state.toggleActions()
-        state.actionFilter = "copy pa"
-        XCTAssertEqual(state.visibleActions.map(\.id), ["copy"])
-        XCTAssertEqual(state.selectedActionID, "copy")
-        XCTAssertEqual(state.query, "")
+        state.session.toggleActions()
+        state.session.actionFilter = "copy pa"
+        XCTAssertEqual(state.session.visibleActions.map(\.id), ["copy"])
+        XCTAssertEqual(state.session.selectedActionID, "copy")
+        XCTAssertEqual(state.session.query, "")
 
-        state.actionFilter = "zzz"
-        XCTAssertTrue(state.visibleActions.isEmpty)
-        XCTAssertNil(state.selectedActionID)
+        state.session.actionFilter = "zzz"
+        XCTAssertTrue(state.session.visibleActions.isEmpty)
+        XCTAssertNil(state.session.selectedActionID)
 
         XCTAssertTrue(state.handleEscape())
-        XCTAssertTrue(state.isShowingActions, "first escape clears the filter")
-        XCTAssertEqual(state.visibleActions.count, state.selectedActions.count)
+        XCTAssertTrue(state.session.isShowingActions, "first escape clears the filter")
+        XCTAssertEqual(state.session.visibleActions.count, state.session.selectedActions.count)
         XCTAssertTrue(state.handleEscape())
-        XCTAssertFalse(state.isShowingActions)
-        XCTAssertEqual(state.results.map(\.id), [result.id], "escape keeps the result list")
-        XCTAssertEqual(state.selectedResultID, result.id)
+        XCTAssertFalse(state.session.isShowingActions)
+        XCTAssertEqual(state.session.results.map(\.id), [result.id], "escape keeps the result list")
+        XCTAssertEqual(state.session.selectedResultID, result.id)
         state.shutdown()
     }
 
     func testActionShortcutsAreAssignedOnceAndFireWithoutOpeningActions() async throws {
         let diagnostics = DiagnosticsService()
         let config = ConfigService(diagnostics: diagnostics, url: temporaryURL())
-        let registry = CommandRegistry(providers: [], usageRanking: UsageRankingStore(diagnostics: diagnostics), diagnostics: diagnostics, configService: config)
+        let registry = CommandRegistry(providers: [], usageRanking: UsageRankingStore.scratch(diagnostics), diagnostics: diagnostics, configService: config)
         let state = CommandPanelState(registry: registry, actionRunner: ActionRunner(diagnostics: diagnostics), diagnostics: diagnostics, config: config)
         let result = CommandResult(
             id: "test.shortcuts",
             title: "Report",
             subtitle: nil,
             icon: CommandIcon(fallback: "F"),
-            primaryAction: CommandAction(id: "open", title: "Open", kind: .log("open")),
+            payload: .command,
+            primaryAction: CommandAction(id: "open", title: "Open", behavior: LogAction("open")),
             secondaryActions: [
-                CommandAction(id: "copy", title: "Copy", kind: .copyToClipboard("a")),
-                CommandAction(id: "copy2", title: "Copy Path", kind: .copyToClipboard("b")),
-                CommandAction(id: "delete", title: "Delete Snippet", kind: .deleteSnippet(id: "x"))
+                CommandAction(id: "copy", title: "Copy", behavior: CopyToClipboardAction("a")),
+                CommandAction(id: "copy2", title: "Copy Path", behavior: CopyToClipboardAction("b")),
+                CommandAction(id: "delete", title: "Delete Snippet", behavior: DeleteSnippetAction(id: "x"))
             ]
         )
-        state.results = [result]
-        state.selectedResultID = result.id
+        state.session.results = [result]
+        state.session.selectedResultID = result.id
 
-        let shortcuts = state.actionShortcuts
+        let shortcuts = state.session.actionShortcuts
         XCTAssertNil(shortcuts["open"])
         XCTAssertEqual(shortcuts["copy"], .secondary)
         XCTAssertEqual(shortcuts["copy2"]?.display, "⇧⌘C")
@@ -478,18 +573,18 @@ final class CommandPanelStateTests: XCTestCase {
 
         XCTAssertFalse(state.performActionShortcut(ActionShortcut(key: "j", modifiers: [.command])) {})
         XCTAssertTrue(state.performActionShortcut(ActionShortcut(key: "d", modifiers: [.command])) {})
-        XCTAssertFalse(state.isShowingActions)
-        for _ in 0..<100 where state.commandPreferences[result.id]?.favoriteRank == nil {
+        XCTAssertFalse(state.session.isShowingActions)
+        for _ in 0..<100 where state.settings.commandPreferences[result.id]?.favoriteRank == nil {
             try await Task.sleep(nanoseconds: 20_000_000)
         }
-        XCTAssertNotNil(state.commandPreferences[result.id]?.favoriteRank)
+        XCTAssertNotNil(state.settings.commandPreferences[result.id]?.favoriteRank)
         state.shutdown()
     }
 
     func testDeveloperToolsNumberChordsSwitchTools() {
         let diagnostics = DiagnosticsService()
         let config = ConfigService(diagnostics: diagnostics, url: temporaryURL())
-        let registry = CommandRegistry(providers: [], usageRanking: UsageRankingStore(diagnostics: diagnostics), diagnostics: diagnostics, configService: config)
+        let registry = CommandRegistry(providers: [], usageRanking: UsageRankingStore.scratch(diagnostics), diagnostics: diagnostics, configService: config)
         let state = CommandPanelState(registry: registry, actionRunner: ActionRunner(diagnostics: diagnostics), diagnostics: diagnostics, config: config)
         state.mode = .developerTools
         XCTAssertTrue(state.performModeShortcut(ActionShortcut(key: "3", modifiers: [.command])) {})
@@ -501,18 +596,20 @@ final class CommandPanelStateTests: XCTestCase {
     func testCommandYRequestsQuickLookForFileResultsOnly() {
         let diagnostics = DiagnosticsService()
         let config = ConfigService(diagnostics: diagnostics, url: temporaryURL())
-        let registry = CommandRegistry(providers: [], usageRanking: UsageRankingStore(diagnostics: diagnostics), diagnostics: diagnostics, configService: config)
+        let registry = CommandRegistry(providers: [], usageRanking: UsageRankingStore.scratch(diagnostics), diagnostics: diagnostics, configService: config)
         let state = CommandPanelState(registry: registry, actionRunner: ActionRunner(diagnostics: diagnostics), diagnostics: diagnostics, config: config)
         var lookedAt: [URL] = []
-        state.onQuickLook = { lookedAt.append($0) }
-        state.results = [
-            CommandResult(id: "file./tmp/report.pdf", title: "report.pdf", subtitle: nil, icon: CommandIcon(fallback: "F"), primaryAction: CommandAction(id: "open", title: "Open", kind: .log("open")), secondaryActions: []),
-            CommandResult(id: "app.safari", title: "Safari", subtitle: nil, icon: CommandIcon(fallback: "S"), primaryAction: CommandAction(id: "open", title: "Open", kind: .log("open")), secondaryActions: []),
+        let shell = RecordingShellPort()
+        shell.onQuickLook = { lookedAt.append($0) }
+        state.shell = shell
+        state.session.results = [
+            CommandResult(id: "file./tmp/report.pdf", title: "report.pdf", subtitle: nil, icon: CommandIcon(fallback: "F"), payload: .file(URL(fileURLWithPath: "/tmp/report.pdf")), primaryAction: CommandAction(id: "open", title: "Open", behavior: LogAction("open")), secondaryActions: []),
+            CommandResult(id: "app.safari", title: "Safari", subtitle: nil, icon: CommandIcon(fallback: "S"), payload: .command, primaryAction: CommandAction(id: "open", title: "Open", behavior: LogAction("open")), secondaryActions: []),
         ]
-        state.selectedResultID = "app.safari"
+        state.session.selectedResultID = "app.safari"
         XCTAssertFalse(state.performModeShortcut(ActionShortcut(key: "y", modifiers: [.command])) {})
         XCTAssertTrue(lookedAt.isEmpty)
-        state.selectedResultID = "file./tmp/report.pdf"
+        state.session.selectedResultID = "file./tmp/report.pdf"
         XCTAssertTrue(state.performModeShortcut(ActionShortcut(key: "y", modifiers: [.command])) {})
         XCTAssertEqual(lookedAt, [URL(fileURLWithPath: "/tmp/report.pdf")])
         state.shutdown()
@@ -523,7 +620,7 @@ final class CommandPanelStateTests: XCTestCase {
         let config = ConfigService(diagnostics: diagnostics, url: temporaryURL())
         let registry = CommandRegistry(
             providers: [FavoriteStubProvider()],
-            usageRanking: UsageRankingStore(diagnostics: diagnostics),
+            usageRanking: UsageRankingStore.scratch(diagnostics),
             diagnostics: diagnostics,
             configService: config
         )
@@ -533,37 +630,38 @@ final class CommandPanelStateTests: XCTestCase {
             title: "Favorite Me",
             subtitle: nil,
             icon: CommandIcon(fallback: "F"),
-            primaryAction: CommandAction(id: "test.favorite.open", title: "Open", kind: .log("fav")),
+            payload: .command,
+            primaryAction: CommandAction(id: "test.favorite.open", title: "Open", behavior: LogAction("fav")),
             secondaryActions: []
         )
-        state.results = [result]
-        state.selectedResultID = result.id
+        state.session.results = [result]
+        state.session.selectedResultID = result.id
 
-        let addAction = state.selectedActions.first { action in
-            if case .toggleFavorite = action.kind { return true }
+        let addAction = state.session.selectedActions.first { action in
+            if action.behavior is ToggleFavoriteAction { return true }
             return false
         }
         XCTAssertEqual(addAction?.title, "Add to Favorites")
 
-        state.toggleFavorite(commandID: result.id)
-        XCTAssertTrue(state.commandPreferences[result.id]?.favoriteRank != nil)
-        XCTAssertEqual(state.selectedActions.first { $0.id == addAction?.id }?.title, "Remove from Favorites")
+        state.settings.toggleFavorite(commandID: result.id)
+        XCTAssertTrue(state.settings.commandPreferences[result.id]?.favoriteRank != nil)
+        XCTAssertEqual(state.session.selectedActions.first { $0.id == addAction?.id }?.title, "Remove from Favorites")
 
-        for _ in 0..<100 where state.favoriteResults.isEmpty {
+        for _ in 0..<100 where state.session.favoriteResults.isEmpty {
             try await Task.sleep(nanoseconds: 20_000_000)
         }
-        XCTAssertEqual(state.favoriteResults.map(\.id), [result.id])
+        XCTAssertEqual(state.session.favoriteResults.map(\.id), [result.id])
 
-        state.toggleFavorite(commandID: result.id)
-        for _ in 0..<100 where state.favoriteResults.isEmpty == false {
+        state.settings.toggleFavorite(commandID: result.id)
+        for _ in 0..<100 where state.session.favoriteResults.isEmpty == false {
             try await Task.sleep(nanoseconds: 20_000_000)
         }
-        XCTAssertTrue(state.favoriteResults.isEmpty)
+        XCTAssertTrue(state.session.favoriteResults.isEmpty)
         state.shutdown()
     }
 
     private func makeState(diagnostics: DiagnosticsService, config: ConfigService, clipboard: ClipboardHistoryState, actionRunner: ActionRunner? = nil) -> CommandPanelState {
-        let registry = CommandRegistry(providers: [], usageRanking: UsageRankingStore(diagnostics: diagnostics), diagnostics: diagnostics, configService: config)
+        let registry = CommandRegistry(providers: [], usageRanking: UsageRankingStore.scratch(diagnostics), diagnostics: diagnostics, configService: config)
         return CommandPanelState(registry: registry, actionRunner: actionRunner ?? ActionRunner(diagnostics: diagnostics), diagnostics: diagnostics, config: config, clipboardHistory: clipboard)
     }
 
@@ -579,7 +677,7 @@ final class CommandPanelStateTests: XCTestCase {
         )
         let registry = CommandRegistry(
             providers: [SlowSearchProvider()],
-            usageRanking: UsageRankingStore(diagnostics: diagnostics),
+            usageRanking: UsageRankingStore.scratch(diagnostics),
             diagnostics: diagnostics,
             configService: config
         )
@@ -590,14 +688,14 @@ final class CommandPanelStateTests: XCTestCase {
             config: config
         )
 
-        state.query = "slow"
+        state.session.query = "slow"
         try await Task.sleep(for: .milliseconds(15))
-        XCTAssertTrue(state.isSearchLoading)
+        XCTAssertTrue(state.session.isSearchLoading)
 
-        for _ in 0..<30 where state.isSearchLoading {
+        for _ in 0..<30 where state.session.isSearchLoading {
             try await Task.sleep(for: .milliseconds(10))
         }
-        XCTAssertFalse(state.isSearchLoading)
+        XCTAssertFalse(state.session.isSearchLoading)
         state.shutdown()
     }
 
@@ -619,13 +717,32 @@ final class CommandPanelStateTests: XCTestCase {
     }
 }
 
-final class TestClipboardPasteboard: PasteboardClient, @unchecked Sendable {
-    var changeCountValue = 0
-    var snapshotValue: PasteboardSnapshot?
-    var writtenPayloads: [ClipboardPayload] = []
+final class TestClipboardPasteboard: PasteboardClient, Sendable {
+    private struct Box {
+        var changeCountValue = 0
+        var snapshotValue: PasteboardSnapshot?
+        var writtenPayloads: [ClipboardPayload] = []
+    }
+
+    private let box = OSAllocatedUnfairLock(uncheckedState: Box())
+
+    var changeCountValue: Int {
+        get { box.withLockUnchecked { $0.changeCountValue } }
+        set { box.withLockUnchecked { $0.changeCountValue = newValue } }
+    }
+
+    var snapshotValue: PasteboardSnapshot? {
+        get { box.withLockUnchecked { $0.snapshotValue } }
+        set { box.withLockUnchecked { $0.snapshotValue = newValue } }
+    }
+
+    var writtenPayloads: [ClipboardPayload] {
+        box.withLockUnchecked { $0.writtenPayloads }
+    }
+
     var changeCount: Int { changeCountValue }
     func snapshot() -> PasteboardSnapshot? { snapshotValue }
-    func write(_ payload: ClipboardPayload) { writtenPayloads.append(payload) }
+    func write(_ payload: ClipboardPayload) { box.withLockUnchecked { $0.writtenPayloads.append(payload) } }
 }
 
 private final class DirectPasteTestTarget: NSObject, DirectPasteTarget {
@@ -645,7 +762,8 @@ private struct URLCollisionProvider: CommandProvider {
             title: "Kill Port 127",
             subtitle: "Unrelated immediate result",
             icon: CommandIcon(fallback: "P"),
-            primaryAction: CommandAction(id: "test.kill-port.perform", title: "Run", kind: .log("collision")),
+            payload: .command,
+            primaryAction: CommandAction(id: "test.kill-port.perform", title: "Run", behavior: LogAction("collision")),
             secondaryActions: []
         )]
     }
@@ -662,7 +780,8 @@ private struct FavoriteStubProvider: CommandProvider {
             title: "Favorite Me",
             subtitle: nil,
             icon: CommandIcon(fallback: "F"),
-            primaryAction: CommandAction(id: "test.favorite.open", title: "Open", kind: .log("fav")),
+            payload: .command,
+            primaryAction: CommandAction(id: "test.favorite.open", title: "Open", behavior: LogAction("fav")),
             secondaryActions: []
         )]
     }

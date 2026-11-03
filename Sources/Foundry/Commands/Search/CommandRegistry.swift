@@ -25,7 +25,7 @@ final class CommandRegistry: Sendable {
         config: ConfigService,
         diagnostics: DiagnosticsService,
         snippetStore: any SnippetStore = FileSnippetStore(),
-        usageRanking: UsageRankingStore? = nil
+        usageRanking: UsageRankingStore
     ) -> CommandRegistry {
         return CommandRegistry(
             providers: [
@@ -38,17 +38,16 @@ final class CommandRegistry: Sendable {
                 AppleNotesProvider(),
                 BrowserProvider(),
                 LibraryProvider(store: snippetStore),
-                QuicklinkProvider(),
+                QuicklinkProvider(siteIcons: { config.current.quicklinkSiteIcons }),
                 ShortcutsProvider(),
                 ScriptCommandProvider(),
-                FileSearchProvider(),
+                FileSearchProvider(settings: { config.current.fileSearch }),
                 MediaDownloadProvider(),
-                CameraCommandProvider(),
                 SystemCommandProvider(),
                 WindowManagementProvider(),
                 BuiltInCommandProvider()
             ],
-            usageRanking: usageRanking ?? UsageRankingStore(diagnostics: diagnostics),
+            usageRanking: usageRanking,
             diagnostics: diagnostics,
             configService: config
         )
@@ -62,7 +61,8 @@ final class CommandRegistry: Sendable {
         let activeProviders = enabledProviders.filter {
             $0.searchPolicy.tier == .immediate && $0.isActive(for: query)
         }
-        let (providerCandidates, timings) = await collectCandidates(query: query, providers: activeProviders, aliases: customAliases, timeout: .milliseconds(80))
+        let (providerCandidates, timings) = await collectCandidates(query: query, providers: activeProviders, aliases: customAliases,
+            timeout: .milliseconds(80), priority: .userInitiated)
         var candidates = providerCandidates.filter { isCommandEnabled($0.result) }
         let sensitivity = configService?.current.searchSensitivity ?? .medium
 
@@ -78,7 +78,8 @@ final class CommandRegistry: Sendable {
             results: Array(ranker.ordered(ranker.deduplicated(candidates), query: query).prefix(Self.resultLimit(for: query))),
             completedProviderIDs: Set(timings.compactMap { timing in
                 timing.status == .success ? timing.providerID : nil
-            })
+            }),
+            providerTimings: timings
         )
     }
 
@@ -92,7 +93,8 @@ final class CommandRegistry: Sendable {
             provider.searchPolicy.tier == .deferred || completedProviderIDs.contains(provider.id) == false
         }
         let collectSpan = diagnostics.startSpan("search.phase2.collect")
-        let (providerCandidates, timings) = await collectCandidates(query: query, providers: providers, aliases: customAliases, timeout: .milliseconds(250))
+        let (providerCandidates, timings) = await collectCandidates(query: query, providers: providers, aliases: customAliases,
+            timeout: .milliseconds(250), priority: .utility)
         diagnostics.endSpan(collectSpan)
         var candidates = initialResults.enumerated().map { index, result in
             RankCandidate(result: result, providerID: "foundry.immediate", sourceOrder: index)
@@ -141,12 +143,34 @@ final class CommandRegistry: Sendable {
             title: "Ask AI about \(prompt)",
             subtitle: "Open the research assistant",
             icon: CommandIcon(fallback: "AI", systemName: "sparkles"),
-            primaryAction: CommandAction(id: "ai.quick", title: "Ask AI", kind: .openQuickAI(prompt: prompt)),
+            payload: .aiPrompt,
+            primaryAction: CommandAction(id: "ai.quick", title: "Ask AI", behavior: OpenQuickAIAction(prompt: prompt)),
             secondaryActions: []
         )
-        let web = trailing.filter { $0.id.hasPrefix("quicklink.") }
-        let files = trailing.filter { $0.id.hasPrefix("quicklink.") == false }
-        return Array((leading.prefix(8) + [askAI] + web + files).prefix(Self.resultLimit(for: query)))
+        let isQuicklink: (CommandResult) -> Bool = { if case .quicklink = $0.payload { return true }; return false }
+        let groups: [FallbackKind: [CommandResult]] = [
+            .suggestions: Array(leading.prefix(8)),
+            .askAI: [askAI],
+            .searchWeb: trailing.filter(isQuicklink),
+            .searchFiles: trailing.filter { isQuicklink($0) == false },
+            .define: Self.defineResult(for: prompt).map { [$0] } ?? []
+        ]
+        let order = (configService?.current.fallbacks ?? .default).enabledInOrder
+        return Array(order.flatMap { groups[$0] ?? [] }.prefix(Self.resultLimit(for: query)))
+    }
+
+    static func defineResult(for word: String) -> CommandResult? {
+        guard word.isEmpty == false, word.contains(where: \.isWhitespace) == false, word.count <= 40,
+              let encoded = word.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) else { return nil }
+        return CommandResult(
+            id: "foundry.define.\(word.lowercased())",
+            title: "Define \u{201C}\(word)\u{201D}",
+            subtitle: "Dictionary",
+            icon: CommandIcon(fallback: "DI", systemName: "character.book.closed"),
+            payload: .command,
+            primaryAction: CommandAction(id: "define.open", title: "Open in Dictionary", behavior: OpenURLAction("dict://\(encoded)")),
+            secondaryActions: []
+        )
     }
 
     func homeResults() async -> [CommandResult] {
@@ -173,11 +197,11 @@ final class CommandRegistry: Sendable {
         let sorted = ranker.ordered(allCandidates.filter { isCommandEnabled($0.result) }, query: nil)
 
         let apps = sorted.filter { result in
-            if case .openApp = result.primaryAction.kind { return true }
+            if case .app = result.payload { return true }
             return false
         }
         let commands = sorted.filter { result in
-            if case .openApp = result.primaryAction.kind { return false }
+            if case .app = result.payload { return false }
             return true
         }
 
@@ -249,7 +273,8 @@ final class CommandRegistry: Sendable {
         query: String,
         providers: [CommandProvider],
         aliases: [String: [String]],
-        timeout: Duration
+        timeout: Duration,
+        priority: TaskPriority
     ) async -> ([RankCandidate], [ProviderSearchTiming]) {
         let config = configService?.current
         return await providerScheduler.search(
@@ -258,7 +283,8 @@ final class CommandRegistry: Sendable {
             aliases: aliases,
             sensitivity: config?.searchSensitivity ?? .medium,
             snippetInsertAsPrimary: config?.snippetExpansion.insertAsPrimary ?? true,
-            timeout: timeout
+            timeout: timeout,
+            priority: priority
         )
     }
 
@@ -278,14 +304,12 @@ final class CommandRegistry: Sendable {
         enabledProviders.filter { $0.searchPolicy.includesSupplementalResults }
     }
 
-    static let defaultDisabledCommandIDs: Set<String> = ["foundry.camera"]
-
     private func isCommandEnabled(_ result: CommandResult) -> Bool {
         let preferences = configService?.current.commandPreferences
         if CommandSettingsCatalog.isSystemSettingsPane(result.id), preferences?[CommandSettingsCatalog.systemSettingsID]?.isEnabled == false {
             return false
         }
-        return preferences?[result.id]?.isEnabled ?? !Self.defaultDisabledCommandIDs.contains(result.id)
+        return preferences?[result.id]?.isEnabled ?? true
     }
 
     private func isMediaQuery(_ query: String) -> Bool {
@@ -311,6 +335,7 @@ final class CommandRegistry: Sendable {
 struct CommandSearchPhase: Sendable {
     let results: [CommandResult]
     let completedProviderIDs: Set<String>
+    var providerTimings: [ProviderSearchTiming] = []
 }
 
 private actor CommandCatalogCache {

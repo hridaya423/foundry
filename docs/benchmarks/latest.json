@@ -1,0 +1,82 @@
+{
+  "capturedAt": "2026-10-08",
+  "figures": [
+    {
+      "id": "open-latency",
+      "value": 19.11,
+      "unit": "ms",
+      "label": "Hotkey to panel on screen, p50, with p95 25.6 ms, on Apple M4 Pro",
+      "sentence": "The panel is on screen 19.1 ms after the hotkey at p50 and 25.6 ms at p95. Each is the worse of two order-swapped runs of 30. Tinycast 0.11.3 took 64.7 to 66.7 ms at p50 in the same runs. This is a staged build that keeps the panel mapped, run on battery. It has not been re-run on 1.2.0.",
+      "machine": "MacBook Pro, Apple M4 Pro, macOS 27.0, battery power",
+      "version": "Foundry 1.1.0",
+      "date": "2026-09-29",
+      "source": "docs/benchmarks/2026-09-29-foundry-1.1-tinycast-0.11.3-mbp-reverse.json"
+    },
+    {
+      "id": "open-latency-release-build",
+      "value": 104.38,
+      "unit": "ms",
+      "label": "Hotkey to panel on screen, p50, with p95 134.4 ms, earlier 1.1.0 build",
+      "sentence": "The earlier 1.1.0 build took 99.9 to 104.4 ms at p50 to show the panel. Raycast 2.5.3 took 17.5 to 17.9 ms in the same runs. Raycast opens faster than that build did. The staged build above keeps the panel mapped, which the Tinycast report credits for the change.",
+      "machine": "MacBook Pro, Apple M4 Pro, macOS 27.0, AC power",
+      "version": "Foundry 1.1.0",
+      "date": "2026-09-29",
+      "source": "docs/benchmarks/2026-09-29-foundry-1.1-raycast-2.5.3-mbp-reverse.json"
+    },
+    {
+      "id": "memory-vs-raycast",
+      "value": 81.4,
+      "unit": "%",
+      "label": "Less warmed memory vs Raycast 2.5.3",
+      "sentence": "Foundry used 115.2 MB and Raycast 620.2 MB in the worse of two order-swapped runs. The better run was 90.0% less. Each number is the median of 15 footprint samples, on AC power.",
+      "machine": "MacBook Pro, Apple M4 Pro, macOS 27.0, AC power",
+      "version": "Foundry 1.1.0, Raycast 2.5.3.0",
+      "date": "2026-09-29",
+      "source": "docs/benchmarks/2026-09-29-foundry-1.1-raycast-2.5.3-mbp-reverse.json"
+    },
+    {
+      "id": "memory-vs-tinycast",
+      "value": 120.03,
+      "unit": "MB",
+      "label": "Warmed memory vs Tinycast 0.11.3, worse run. Tinycast uses less",
+      "sentence": "Tinycast is lighter. It used 40.4 to 40.6 MB. Foundry used 60.5 to 120.0 MB, depending on run order. Each number is the median of 15 footprint samples, on battery.",
+      "machine": "MacBook Pro, Apple M4 Pro, macOS 27.0, battery power",
+      "version": "Foundry 1.1.0, Tinycast 0.11.3",
+      "date": "2026-09-29",
+      "source": "docs/benchmarks/2026-09-29-foundry-1.1-tinycast-0.11.3-mbp-forward.json"
+    },
+    {
+      "id": "app-size",
+      "value": 8.1,
+      "unit": "MB",
+      "label": "App size on disk",
+      "sentence": "The 1.2.0 app is 8,100 KB on disk. It was 14,604 KB in 1.1 before symbols were stripped. In the September runs Tinycast 0.11.3 was 13.6 MB and Raycast 2.5.3 was 224 MB. The 1.2 size comes from a report table. No raw record exists for it.",
+      "machine": "Not machine dependent",
+      "version": "Foundry 1.2.0",
+      "date": "2026-10-08",
+      "source": "docs/benchmarks/2026-10-08-foundry-1.2-report.md"
+    },
+    {
+      "id": "search-latency",
+      "value": 16.82,
+      "unit": "ms",
+      "label": "Keystroke to results, p50, with p95 35.6 ms, inside the app",
+      "sentence": "Results are ready 16.8 ms after a keystroke at p50 and 35.6 ms at p95, over 132 samples. This is engine time in a test. It leaves out drawing and window server time. The 2026-10-12 report lists lower numbers from another machine and has no raw record, so they are not used.",
+      "machine": "Apple M4, in-process test",
+      "version": "Foundry 1.2.0",
+      "date": "2026-10-08",
+      "source": "docs/benchmarks/2026-10-08-foundry-1.2-search-latency.json"
+    },
+    {
+      "id": "dependencies",
+      "value": 0,
+      "unit": "dependencies",
+      "label": "Third-party Swift packages",
+      "sentence": "Package.swift declares 0 third-party Swift packages. Experimental background removal installs pinned Python wheels when it runs. Its NOTICE.txt lists them.",
+      "machine": "Not machine dependent",
+      "version": "Foundry 1.2.0",
+      "date": "2026-11-01",
+      "source": "Package.swift"
+    }
+  ]
+}

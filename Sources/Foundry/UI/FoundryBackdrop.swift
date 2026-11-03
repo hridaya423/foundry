@@ -39,17 +39,20 @@ struct FoundryBackdrop: View {
 
     private var panelWash: Color {
         colorScheme == .dark
-            ? Color.black.opacity(0.46 * intensity)
-            : Color.white.opacity(0.26 * intensity)
+            ? FoundryTheme.dark(FoundryTheme.Backdrop.darkWash * intensity)
+            : FoundryTheme.light(FoundryTheme.Backdrop.lightWash * intensity)
     }
 
     var body: some View {
         ZStack {
             if isOpaque {
                 Color(nsColor: .windowBackgroundColor)
-                Color.black.opacity(0.42 * intensity)
                 LinearGradient(
-                    colors: [Color.primary.opacity(0.07 * intensity), Color.primary.opacity(0.016 * intensity), Color.clear],
+                    colors: [
+                        FoundryTheme.primary(FoundryTheme.Backdrop.glowTop * intensity),
+                        FoundryTheme.primary(FoundryTheme.Backdrop.glowMid * intensity),
+                        Color.clear,
+                    ],
                     startPoint: .top,
                     endPoint: .center
                 )

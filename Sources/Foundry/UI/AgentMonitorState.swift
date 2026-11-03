@@ -11,6 +11,27 @@ final class AgentMonitorState {
     private(set) var hasLoaded = false
     private(set) var integrationStatuses: [AgentBridgeProvider: AgentIntegrationStatus] = [:]
     private(set) var integrationError: String?
+    var selectedProvider: AgentProviderKind? {
+        didSet { selectedSessionID = nil }
+    }
+    var selectedSessionID: String?
+
+    var shelfSessions: [AgentSessionCard] {
+        let filtered = AgentShelfView.sessions(for: selectedProvider, in: sessions)
+        return filtered.filter(\.status.isActive) + filtered.filter { $0.status.isActive == false }
+    }
+
+    var selectedSession: AgentSessionCard? {
+        selectedSessionID.flatMap { id in shelfSessions.first { $0.id == id } }
+    }
+
+    func moveSelection(offset: Int) {
+        let visible = shelfSessions
+        guard visible.isEmpty == false else { return }
+        let current = selectedSessionID.flatMap { id in visible.firstIndex { $0.id == id } }
+        let next = current.map { min(max($0 + offset, 0), visible.count - 1) } ?? (offset > 0 ? 0 : visible.count - 1)
+        selectedSessionID = visible[next].id
+    }
 
     private let sessionStore = AgentSessionStore()
     private let titleService = AgentTitleService()
@@ -308,7 +329,7 @@ enum AgentProviderKind: String, Codable, Hashable, Sendable {
 
 }
 
-enum AgentSessionStatus: String, Codable, Hashable, Sendable {
+enum AgentSessionStatus: String, Codable, Hashable, Sendable, CaseIterable {
     case working = "Working"
     case needsInput = "Needs input"
     case reviewReady = "Review ready"
@@ -318,6 +339,14 @@ enum AgentSessionStatus: String, Codable, Hashable, Sendable {
     case failed = "Failed"
     case running = "Running"
     case recent = "Recent"
+
+    var label: String? {
+        switch self {
+        case .running: AgentSessionStatus.working.rawValue
+        case .recent: nil
+        default: rawValue
+        }
+    }
 
     var isActive: Bool {
         self == .working || self == .needsInput || self == .running || self == .reviewReady || self == .planning

@@ -3,21 +3,25 @@ import XCTest
 @testable import Foundry
 
 final class StatusItemMenuTests: XCTestCase {
+    private func titles(_ model: StatusItemMenuModel) -> [String] {
+        model.items.map { String(localized: $0.title) }.filter { $0.isEmpty == false }
+    }
+
     func testMenuItemsReflectState() {
         let ready = StatusItemMenuModel(hotkey: .optionSpace, clipboardPaused: false, hotkeyFailed: false)
         XCTAssertEqual(
             ready.items.map(\.kind),
             [.openFoundry, .clipboardHistory, .clipboardPauseToggle, .keepAwake, .separator, .settings, .welcomeGuide, .separator, .quit]
         )
-        XCTAssertEqual(ready.items.map(\.title).filter { $0.isEmpty == false }, ["Open Foundry", "Clipboard History", "Pause Clipboard", "Keep Awake", "Settings…", "Welcome Guide", "Quit Foundry"])
+        XCTAssertEqual(titles(ready), ["Open Foundry", "Clipboard History", "Pause Clipboard", "Keep Awake", "Settings…", "Welcome Guide", "Quit Foundry"])
         let openItem = ready.items.first { $0.kind == .openFoundry }
         XCTAssertEqual(openItem?.keyEquivalent, " ")
         XCTAssertEqual(openItem?.keyEquivalentModifierMask, .option)
 
         let paused = StatusItemMenuModel(hotkey: .optionSpace, clipboardPaused: true, hotkeyFailed: true)
         XCTAssertEqual(paused.items.first?.kind, .hotkeyWarning)
-        XCTAssertEqual(paused.items.first?.title, "⌥ Space is unavailable — Choose Another Shortcut…")
-        XCTAssertTrue(paused.items.contains { $0.kind == .clipboardPauseToggle && $0.title == "Resume Clipboard" })
+        XCTAssertEqual(paused.items.first.map { String(localized: $0.title) }, "⌥Space Is Taken. Choose Another Shortcut…")
+        XCTAssertTrue(paused.items.contains { $0.kind == .clipboardPauseToggle && String(localized: $0.title) == "Resume Clipboard" })
 
         let awake = StatusItemMenuModel(hotkey: .optionSpace, clipboardPaused: false, hotkeyFailed: false, keepAwakeActive: true)
         XCTAssertTrue(awake.items.contains { $0.kind == .keepAwake && $0.isOn })
@@ -28,7 +32,7 @@ final class StatusItemMenuTests: XCTestCase {
         let model = StatusItemMenuModel(hotkey: hotkey, clipboardPaused: false, hotkeyFailed: true)
 
         let openItem = model.items.first { $0.kind == .openFoundry }
-        XCTAssertEqual(openItem?.title, "Open Foundry (⌘A)")
-        XCTAssertEqual(model.items.first?.title, "⌘A is unavailable — Choose Another Shortcut…")
+        XCTAssertEqual(openItem.map { String(localized: $0.title) }, "Open Foundry (⌘A)")
+        XCTAssertEqual(model.items.first.map { String(localized: $0.title) }, "⌘A Is Taken. Choose Another Shortcut…")
     }
 }

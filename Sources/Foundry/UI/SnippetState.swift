@@ -1,6 +1,7 @@
 import AppKit
 import Foundation
 import Observation
+import FoundryDomain
 
 @MainActor
 @Observable
@@ -84,18 +85,20 @@ final class SnippetState {
         return sortedItems
     }
 
+    private(set) var freshSnippetID: String?
     var selectedItem: StoredSnippet? {
         visibleItems.first { $0.id == selectedID } ?? visibleItems.first
     }
 
-    var duplicateKeywords: [String] {
-        Dictionary(grouping: items.filter { !$0.keyword.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }, by: { $0.keyword.trimmingCharacters(in: .whitespacesAndNewlines) })
-            .filter { $0.value.count > 1 }
-            .keys.sorted()
-    }
-
-    var expansionAvailabilityMessage: String {
-        "Auto-expansion is unavailable in secure fields and excluded apps."
+    /// The duplicated keyword to warn about: the selected snippet's when it
+    /// clashes, otherwise the first clash in the library.
+    var duplicateKeyword: (keyword: String, count: Int)? {
+        let counts = Dictionary(grouping: items.map { $0.keyword.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { $0.isEmpty == false },
+            by: { $0 }).mapValues(\.count).filter { $0.value > 1 }
+        let selected = selectedItem?.keyword.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let keyword = selected.flatMap({ counts[$0] == nil ? nil : $0 }) ?? counts.keys.sorted().first,
+              let count = counts[keyword] else { return nil }
+        return (keyword, count)
     }
 
     func load() {
@@ -120,19 +123,35 @@ final class SnippetState {
     func newSnippet() {
         let snippet = StoredSnippet(title: "Untitled Snippet")
         items.insert(snippet, at: 0)
+        freshSnippetID = snippet.id
         selectedID = snippet.id
         persist()
     }
 
     func updateSelected(title: String, content: String, keyword: String, tags: [String]) {
         guard let selectedID, let index = items.firstIndex(where: { $0.id == selectedID }) else { return }
-        items[index].title = title.isEmpty ? "Untitled Snippet" : title
-        items[index].content = String(content.prefix(contentLimit))
-        items[index].keyword = keyword.trimmingCharacters(in: .whitespacesAndNewlines)
-        items[index].tags = tags.filter { $0.isEmpty == false }
-        items[index].updatedAt = Date()
+        var edited = items[index]
+        edited.title = title.isEmpty ? "Untitled Snippet" : title
+        edited.content = String(content.prefix(contentLimit))
+        edited.keyword = keyword.trimmingCharacters(in: .whitespacesAndNewlines)
+        edited.tags = tags.filter { $0.isEmpty == false }
+        guard edited.title != items[index].title || edited.content != items[index].content
+            || edited.keyword != items[index].keyword || edited.tags != items[index].tags else { return }
+        edited.updatedAt = Date()
+        items[index] = edited
         invalidateVisibleItems()
         schedulePersist()
+    }
+
+    func duplicateSelected() {
+        guard let selectedItem else { return }
+        var copy = StoredSnippet(title: String(localized: "\(selectedItem.title) copy"), content: selectedItem.content, tags: selectedItem.tags)
+        copy.keyword = ""
+        items.insert(copy, at: 0)
+        items = sorted(items)
+        invalidateVisibleItems()
+        selectedID = copy.id
+        persist()
     }
 
     func togglePinnedSelected() {
@@ -150,10 +169,10 @@ final class SnippetState {
         persist()
     }
 
-    func copySelected() {
+    func copySelected(arguments: [String: String] = [:]) {
         guard let selectedItem else { return }
         NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(SnippetRenderer.render(selectedItem.content).text, forType: .string)
+        NSPasteboard.general.setString(SnippetRenderer.render(selectedItem.content, arguments: arguments).text, forType: .string)
         markUsed(id: selectedItem.id)
     }
 
@@ -176,6 +195,37 @@ final class SnippetState {
         selectedID = id
     }
 
+    @discardableResult
+    func add(_ incoming: [StoredSnippet]) -> Int {
+        flushPendingPersistence()
+        var added = 0
+        for var snippet in incoming {
+            snippet.title = snippet.title.trimmingCharacters(in: .whitespacesAndNewlines)
+            snippet.content = String(snippet.content.trimmingCharacters(in: .whitespacesAndNewlines).prefix(contentLimit))
+            guard snippet.title.isEmpty == false, snippet.content.isEmpty == false,
+                  items.contains(where: { $0.title == snippet.title && $0.content == snippet.content }) == false else { continue }
+            items.insert(snippet, at: 0)
+            added += 1
+        }
+        guard added > 0 else { return 0 }
+        items = sorted(items)
+        invalidateVisibleItems()
+        keepSelectionValid()
+        persist()
+        selectedID = items.first?.id
+        return added
+    }
+
+    @ObservationIgnored var onFeedback: ((ActionFeedback) -> Void)?
+
+    nonisolated static func importSummary(added: Int, total: Int) -> String {
+        guard added > 0 else { return String(localized: "No new snippets in that file") }
+        let skipped = total - added
+        return skipped > 0
+            ? String(localized: "Imported \(added) snippets · \(skipped) already in your library")
+            : String(localized: "Imported \(added) snippets")
+    }
+
     func importFromFile() {
         let panel = NSOpenPanel()
         panel.allowedContentTypes = [.json]
@@ -185,23 +235,10 @@ final class SnippetState {
         do {
             let data = try Data(contentsOf: url)
             let imported = try JSONDecoder().decode([RaycastSnippetFile].self, from: data)
-            flushPendingPersistence()
-            var added = 0
-            for item in imported {
-                let title = item.name.trimmingCharacters(in: .whitespacesAndNewlines)
-                let content = item.text.trimmingCharacters(in: .whitespacesAndNewlines)
-                guard title.isEmpty == false, content.isEmpty == false else { continue }
-                if items.contains(where: { $0.title == title && $0.content == content }) { continue }
-                items.insert(StoredSnippet(title: title, content: String(content.prefix(contentLimit)), keyword: item.keyword ?? ""), at: 0)
-                added += 1
-            }
-            items = sorted(items)
-            invalidateVisibleItems()
-            keepSelectionValid()
-            persist()
-            if added > 0 { selectedID = items.first?.id }
+            let added = add(imported.map { StoredSnippet(title: $0.name, content: $0.text, keyword: $0.keyword ?? "") })
+            onFeedback?(.success(Self.importSummary(added: added, total: imported.count)))
         } catch {
-            persistenceError = "Could not import snippets: \(error.localizedDescription)"
+            persistenceError = String(localized: "Could not import snippets: \(error.localizedDescription)")
         }
     }
 
@@ -237,8 +274,9 @@ final class SnippetState {
                 encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
                 try encoder.encode(exported).write(to: url, options: .atomic)
             }
+            onFeedback?(.success(String(localized: "Exported \(items.count) snippets to \(url.lastPathComponent)")))
         } catch {
-            persistenceError = "Could not export snippets: \(error.localizedDescription)"
+            persistenceError = String(localized: "Could not export snippets: \(error.localizedDescription)")
         }
     }
 
@@ -261,7 +299,7 @@ final class SnippetState {
         case .success:
             persistenceError = nil
         case let .failure(error):
-            persistenceError = "Could not save snippets: \(error.localizedDescription)"
+            persistenceError = String(localized: "Could not save snippets: \(error.localizedDescription)")
         }
     }
 
@@ -296,7 +334,7 @@ final class SnippetState {
     }
 }
 
-private struct RaycastSnippetFile: Codable {
+struct RaycastSnippetFile: Codable {
     let name: String
     let text: String
     let keyword: String?

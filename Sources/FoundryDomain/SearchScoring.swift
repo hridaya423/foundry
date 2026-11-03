@@ -108,6 +108,11 @@ public enum SearchScoring {
         public let normalized: String
         let tokens: [String]
         let tokenCharacters: [[Character]]
+        /// Character multiset lower bound per token — lets the fuzzy matcher
+        /// and ``probableMatch`` skip provably-impossible candidates.
+        /// prove "impossible" pairs in one instruction instead of running the
+        /// alignment/edit-distance dynamic programs.
+        public let tokenMasks: [UInt64]
 
         public init(query: String) {
             self.init(normalized: SearchScoring.normalize(query))
@@ -117,6 +122,7 @@ public enum SearchScoring {
             self.normalized = normalized
             tokens = normalized.split(separator: " ").map(String.init)
             tokenCharacters = tokens.map(Array.init)
+            tokenMasks = tokenCharacters.map(SearchScoring.characterMask)
         }
     }
 
@@ -142,10 +148,24 @@ public enum SearchScoring {
         aliases: [String],
         sensitivity: SearchSensitivity = .medium
     ) -> SearchMatch? {
-        let normalizedQuery = PreparedQuery(query: query)
-        guard normalizedQuery.normalized.isEmpty == false else { return nil }
+        match(query: PreparedQuery(query: query), title: title, subtitle: subtitle,
+            keywords: keywords, aliases: aliases, sensitivity: sensitivity)
+    }
+
+    /// Prepared-query variant — providers scoring a catalog should build the
+    /// `PreparedQuery` once per search instead of re-normalizing the query
+    /// against every candidate.
+    public static func match(
+        query: PreparedQuery,
+        title: String,
+        subtitle: String?,
+        keywords: [String],
+        aliases: [String],
+        sensitivity: SearchSensitivity = .medium
+    ) -> SearchMatch? {
+        guard query.normalized.isEmpty == false else { return nil }
         return matchNormalized(
-            query: normalizedQuery,
+            query: query,
             title: title,
             subtitle: subtitle,
             keywords: keywords,
@@ -250,10 +270,13 @@ public enum SearchScoring {
     ) -> SearchMatch? {
         let queryTokens = query.tokens
         guard queryTokens.isEmpty == false else { return nil }
-        let aliasMatches = aliases.compactMap { aliasMatch(query: query.normalized, queryTokenCount: queryTokens.count, alias: valuesAreNormalized ? $0 : normalize($0)) }
-        let titleMatches = [textMatch(query: query, candidate: title, field: .title, sensitivity: sensitivity, allowFuzzy: allowFuzzy, isNormalized: valuesAreNormalized)].compactMap { $0 }
+        let aliasMatches = aliases.compactMap { aliasMatch(query: query.normalized, queryTokenCount: queryTokens.count,
+            alias: valuesAreNormalized ? $0 : normalize($0)) }
+        let titleMatches = [textMatch(query: query, candidate: title, field: .title, sensitivity: sensitivity, allowFuzzy: allowFuzzy,
+            isNormalized: valuesAreNormalized)].compactMap { $0 }
         let subtitleMatches = [subtitle].compactMap { value in
-            value.flatMap { textMatch(query: query, candidate: $0, field: .subtitle, sensitivity: sensitivity, allowFuzzy: allowFuzzy, isNormalized: valuesAreNormalized) }
+            value.flatMap { textMatch(query: query, candidate: $0, field: .subtitle, sensitivity: sensitivity, allowFuzzy: allowFuzzy,
+                isNormalized: valuesAreNormalized) }
         }
         let keywordMatches = keywords.compactMap { keyword in
             textMatch(query: query, candidate: keyword, field: .keyword, sensitivity: sensitivity, allowFuzzy: allowFuzzy, isNormalized: valuesAreNormalized)
@@ -289,33 +312,40 @@ public enum SearchScoring {
         )
     }
 
-    private static func textMatch(query: PreparedQuery, candidate: String, field: SearchMatchField, sensitivity: SearchSensitivity, allowFuzzy: Bool, isNormalized: Bool = false) -> SearchMatch? {
+    private static func textMatch(query: PreparedQuery, candidate: String, field: SearchMatchField, sensitivity: SearchSensitivity, allowFuzzy: Bool,
+        isNormalized: Bool = false) -> SearchMatch? {
         let normalizedCandidate = isNormalized ? candidate : normalize(candidate)
         guard normalizedCandidate.isEmpty == false else { return nil }
+        // Field-level coverability: no query token may be further than
+        // `editLimit` characters outside this field's character multiset.
+        // Sound for every match kind — non-fuzzy kinds need zero misses.
+        guard probableMatch(query: query, searchableMask: characterMask(normalizedCandidate), sensitivity: sensitivity) else { return nil }
         let queryString = query.normalized
         let queryTokens = query.tokens
 
-        let candidateTokens = normalizedCandidate.split(separator: " ").map(String.init)
+        let candidateTokens = normalizedCandidate.split(separator: " ")
         guard queryTokens.isEmpty == false, candidateTokens.isEmpty == false else { return nil }
 
         let details: MatchDetails
         if normalizedCandidate == queryString {
             details = MatchDetails(kind: .exact, matchedTokenCount: queryTokens.count, exactTokenCount: queryTokens.count, editDistance: 0, fuzzyScore: nil)
         } else if normalizedCandidate.hasPrefix(queryString + " ") || normalizedCandidate.hasPrefix(queryString) {
-            details = MatchDetails(kind: .phrasePrefix, matchedTokenCount: queryTokens.count, exactTokenCount: queryTokens.count, editDistance: nil, fuzzyScore: nil)
+            details = MatchDetails(kind: .phrasePrefix, matchedTokenCount: queryTokens.count, exactTokenCount: queryTokens.count, editDistance: nil,
+                fuzzyScore: nil)
         } else if let tokenDetails = tokenMatchDetails(queryTokens: queryTokens, candidateTokens: candidateTokens) {
             details = tokenDetails
         } else if let compactTokenDetails = compactTokenMatchDetails(queryTokens: queryTokens, candidateTokens: candidateTokens) {
             details = compactTokenDetails
         } else {
-            let acronym = candidateTokens.compactMap(\.first).map(String.init).joined()
+            let acronym = String(candidateTokens.compactMap(\.first))
             if queryTokens.count == 1, acronym.hasPrefix(queryString), queryString.count >= 2 {
                 details = MatchDetails(kind: .acronym, matchedTokenCount: queryTokens.count, exactTokenCount: 0, editDistance: nil, fuzzyScore: nil)
             } else if queryString.count >= 2, normalizedCandidate.contains(queryString) {
                 details = MatchDetails(kind: .contains, matchedTokenCount: queryTokens.count, exactTokenCount: 0, editDistance: nil, fuzzyScore: nil)
             } else {
                 guard allowFuzzy,
-                      let fuzzy = fuzzyDetails(queryTokens: queryTokens, queryTokenCharacters: query.tokenCharacters, candidateTokens: candidateTokens, sensitivity: sensitivity) else {
+                      let fuzzy = fuzzyDetails(query: query,
+                          candidateTokens: candidateTokens, sensitivity: sensitivity) else {
                     return nil
                 }
                 details = fuzzy
@@ -350,7 +380,9 @@ public enum SearchScoring {
         }
     }
 
-    private static func fuzzyDetails(queryTokens: [String], queryTokenCharacters: [[Character]], candidateTokens: [String], sensitivity: SearchSensitivity) -> MatchDetails? {
+    private static func fuzzyDetails(query: PreparedQuery, candidateTokens: [Substring],
+        sensitivity: SearchSensitivity) -> MatchDetails? {
+        let queryTokens = query.tokens
         let minimumQueryLength: Int
         let densityThreshold: Double
         switch sensitivity {
@@ -366,16 +398,22 @@ public enum SearchScoring {
         }
         guard queryTokens.allSatisfy({ $0.count >= minimumQueryLength || queryTokens.count > 1 }) else { return nil }
 
-        let queryCharacters = queryTokenCharacters
+        let queryCharacters = query.tokenCharacters
         let candidateCharacters = candidateTokens.map(Array.init)
+        let candidateMasks = candidateCharacters.map(characterMask)
         var score = 0
         var editDistance = 0
         var exactTokenCount = 0
         var candidateIndex = 0
-        let editLimit = sensitivity == .low || queryTokens.joined().count >= 6 ? 2 : 1
+        let editLimit = fuzzyEditLimit(queryTokens: queryTokens, sensitivity: sensitivity)
         for (tokenIndex, token) in queryTokens.enumerated() {
             var bestMatch: (index: Int, alignment: FuzzyAlignment, distance: Int?)?
             for index in candidateTokens.indices where index >= candidateIndex {
+                // A pair can only match within `editLimit` edits if at most
+                // `editLimit` query characters are absent from the candidate —
+                // the mask difference is a lower bound on the true distance,
+                // so this skips provably-impossible pairs without the DP.
+                if (query.tokenMasks[tokenIndex] & ~candidateMasks[index]).nonzeroBitCount > editLimit { continue }
                 let alignment: FuzzyAlignment?
                 let distance: Int?
                 if let fuzzyAlignment = fuzzyAlignment(pattern: queryCharacters[tokenIndex], candidate: candidateCharacters[index]) {
@@ -403,7 +441,7 @@ public enum SearchScoring {
             score += alignment.score
             let tokenDistance = bestMatch.distance ?? editDistanceBetween(queryCharacters[tokenIndex], candidateCharacters[bestMatch.index])
             editDistance += tokenDistance
-            if candidateTokens[bestMatch.index] == token { exactTokenCount += 1 }
+            if candidateTokens[bestMatch.index].elementsEqual(token) { exactTokenCount += 1 }
 
             let density = Double(token.count) / Double(max(candidateTokens[bestMatch.index].count, 1))
             guard density >= densityThreshold else { return nil }
@@ -460,6 +498,39 @@ public enum SearchScoring {
         return FuzzyAlignment(score: score)
     }
 
+    /// Necessary condition for ANY match kind: every query token's characters
+    /// must be coverable by the candidate blob within `editLimit` misses —
+    /// the mask difference lower-bounds edit distance. Providers iterating a
+    /// catalog can precompute one mask per item (title + subtitle + keywords)
+    /// and skip `match`/`matchPrepared` entirely for impossible candidates.
+    public static func probableMatch(query: PreparedQuery, searchableMask: UInt64, sensitivity: SearchSensitivity = .medium) -> Bool {
+        let limit = fuzzyEditLimit(queryTokens: query.tokens, sensitivity: sensitivity)
+        return query.tokenMasks.allSatisfy { ($0 & ~searchableMask).nonzeroBitCount <= limit }
+    }
+
+    /// 64-bit character multiset bound: a-z → bits 0-25, 0-9 → 26-35, any
+    /// other scalar → bit 63. `a & ~b` popcount is a lower bound on how many
+    /// `a` characters cannot be covered by `b`, which bounds edit distance.
+    public static func characterMask(_ value: String) -> UInt64 {
+        var mask: UInt64 = 0
+        for scalar in value.unicodeScalars {
+            switch scalar {
+            case "a"..."z": mask |= 1 &<< (scalar.value - 97)
+            case "0"..."9": mask |= 1 &<< (scalar.value - 48 + 26)
+            default: mask |= 1 &<< 63
+            }
+        }
+        return mask
+    }
+
+    private static func characterMask(_ characters: [Character]) -> UInt64 {
+        characterMask(String(characters))
+    }
+
+    private static func fuzzyEditLimit(queryTokens: [String], sensitivity: SearchSensitivity) -> Int {
+        sensitivity == .low || queryTokens.joined().count >= 6 ? 2 : 1
+    }
+
     private static func boundaryBonus(at index: Int, in candidate: [Character]) -> Int {
         guard index == 0 else {
             let previous = candidate[index - 1]
@@ -468,7 +539,7 @@ public enum SearchScoring {
         return 8
     }
 
-    private static func tokenMatchDetails(queryTokens: [String], candidateTokens: [String]) -> MatchDetails? {
+    private static func tokenMatchDetails(queryTokens: [String], candidateTokens: [Substring]) -> MatchDetails? {
         guard queryTokens.count <= candidateTokens.count else { return nil }
 
         var candidateIndex = 0
@@ -484,7 +555,7 @@ public enum SearchScoring {
         return MatchDetails(kind: .tokenMatch, matchedTokenCount: queryTokens.count, exactTokenCount: matchedExact, editDistance: nil, fuzzyScore: nil)
     }
 
-    private static func compactTokenMatchDetails(queryTokens: [String], candidateTokens: [String]) -> MatchDetails? {
+    private static func compactTokenMatchDetails(queryTokens: [String], candidateTokens: [Substring]) -> MatchDetails? {
         var candidateIndex = 0
         var matchedExact = 0
 

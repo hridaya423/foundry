@@ -1,6 +1,7 @@
 import Foundation
 import FoundryDomain
 import FoundryServices
+import os
 
 enum ScriptOutputMode: String, Codable, Hashable, Sendable {
     case silent, compact, fullOutput, inline
@@ -59,7 +60,7 @@ enum ScriptDirectives {
     }
 }
 
-final class ScriptDirectoryStore: @unchecked Sendable {
+final class ScriptDirectoryStore: Sendable {
     static let shared = ScriptDirectoryStore()
     static let defaultDirectory = ConfigService.configURL.deletingLastPathComponent().appendingPathComponent("scripts").path
 
@@ -92,11 +93,10 @@ final class ScriptDirectoryStore: @unchecked Sendable {
     }
 }
 
-final class ScriptCommandProvider: CommandProvider, @unchecked Sendable {
+final class ScriptCommandProvider: CommandProvider, Sendable {
     let id = "foundry.scripts"
     private let store: ScriptDirectoryStore
-    private let lock = NSLock()
-    private var cache: [String: (modified: Date?, scripts: [ScriptCommand])] = [:]
+    private let cache = OSAllocatedUnfairLock<[String: (modified: Date?, scripts: [ScriptCommand])]>(initialState: [:])
 
     init(store: ScriptDirectoryStore = .shared) {
         self.store = store
@@ -105,6 +105,7 @@ final class ScriptCommandProvider: CommandProvider, @unchecked Sendable {
     func search(_ request: CommandSearchRequest) async -> [CommandResult] {
         let query = request.query.trimmingCharacters(in: .whitespaces)
         guard query.isEmpty == false else { return [] }
+        let prepared = SearchScoring.PreparedQuery(query: query)
         return scripts().compactMap { script in
             let id = "script.\(script.path)"
             let aliases = request.customAliases[id] ?? []
@@ -112,7 +113,8 @@ final class ScriptCommandProvider: CommandProvider, @unchecked Sendable {
                 let argument = query.dropFirst(script.title.count).trimmingCharacters(in: .whitespaces)
                 return result(script, id: id, aliases: aliases, argument: argument)
             }
-            guard SearchScoring.match(query: query, title: script.title, subtitle: script.packageName, keywords: ["script"], aliases: aliases, sensitivity: request.sensitivity) != nil else { return nil }
+            guard SearchScoring.match(query: prepared, title: script.title, subtitle: script.packageName, keywords: ["script"], aliases: aliases,
+                sensitivity: request.sensitivity) != nil else { return nil }
             return result(script, id: id, aliases: aliases, argument: nil)
         }
     }
@@ -120,8 +122,9 @@ final class ScriptCommandProvider: CommandProvider, @unchecked Sendable {
     private func result(_ script: ScriptCommand, id: String, aliases: [String], argument: String?) -> CommandResult {
         let needsArgument = script.arguments.contains { $0.optional == false } && (argument ?? "").isEmpty
         let primary = needsArgument
-            ? CommandAction(id: "\(id).fill", title: "Enter \(script.arguments[0].placeholder)", kind: .fillQuery("\(script.title) "))
-            : CommandAction(id: "\(id).run", title: "Run Script", kind: .runScript(path: script.path, arguments: argument.map { [$0] } ?? [], mode: script.mode))
+            ? CommandAction(id: "\(id).fill", title: "Enter \(script.arguments[0].placeholder)", behavior: FillQueryAction("\(script.title) "))
+            : CommandAction(id: "\(id).run", title: "Run Script", behavior: RunScriptAction(path: script.path,
+                arguments: argument.map { [$0] } ?? [], mode: script.mode))
         let subtitle = needsArgument ? "Type \(script.arguments.map(\.placeholder).joined(separator: ", "))" : (script.packageName ?? "Script Command")
         return CommandResult(
             id: id,
@@ -130,17 +133,21 @@ final class ScriptCommandProvider: CommandProvider, @unchecked Sendable {
             icon: CommandIcon(fallback: script.icon.map { String($0.prefix(2)) } ?? "SH", systemName: "terminal"),
             searchAliases: aliases,
             searchKeywords: ["script"],
+            payload: .script(path: script.path),
             primaryAction: primary,
-            secondaryActions: []
+            secondaryActions: [
+                CommandAction(id: "\(id).reveal", title: "Show in Finder", behavior: RevealFileAction(path: script.path)),
+                CommandAction(id: "\(id).copy-path", title: "Copy Path", behavior: CopyToClipboardAction(script.path))
+            ]
         )
     }
 
     func scripts() -> [ScriptCommand] {
         store.directories.flatMap { directory -> [ScriptCommand] in
             let modified = FileManager.default.attributesIfPresent(atPath: directory)?[.modificationDate] as? Date
-            if let cached = lock.withLock({ cache[directory] }), cached.modified == modified { return cached.scripts }
+            if let cached = cache.withLock({ $0[directory] }), cached.modified == modified { return cached.scripts }
             let scripts = Self.scan(directory)
-            lock.withLock { cache[directory] = (modified, scripts) }
+            cache.withLock { $0[directory] = (modified, scripts) }
             return scripts
         }
     }

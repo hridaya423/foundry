@@ -1,19 +1,18 @@
-# regenerable media: tools/seq.py, tools/cutout.py, tools/final.sh (sound: see AGENTS.md)
 renders/
-assets/seq/
-assets/audio/
-snapshots/
-__pycache__/
-out/
-# sound layer: the kit (sfx.py kit), search downloads (sfx.py search), cuts, stems and mixes
 audio/kit/
 audio/candidates/
-audio/own/
-audio/stems/
 audio/browse/
-audio/*.wav
-# the score: only the chosen take and ending (tools/score.py TAKE/END) are kept; other takes and previews are local
-audio/music/*
-!audio/music/take-16.*
-!audio/music/end-16-3.*
-!audio/music/takes.png
+audit/bar/
+audit/refs/work/
+audit/refs/sheets/
+__pycache__/
+*.pyc
+node_modules/
+.DS_Store
+audit/gauntlet/*/r*/ab/
+audit/gauntlet/*/r*/critic/
+audio/music/gen*.log
+audio/stems/
+audio/mix.wav
+audio/music.wav
+audio/voice.wav

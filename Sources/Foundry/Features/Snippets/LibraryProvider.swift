@@ -1,6 +1,7 @@
 import Foundation
 import FoundryDomain
 import FoundryServices
+import os
 
 final class LibraryProvider: CommandProvider {
     let id = "foundry.library"
@@ -13,6 +14,7 @@ final class LibraryProvider: CommandProvider {
     func search(_ request: CommandSearchRequest) async -> [CommandResult] {
         let trimmed = request.query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard trimmed.isEmpty == false else { return [] }
+        let prepared = SearchScoring.PreparedQuery(query: trimmed)
 
         let snippetResults = snippetsCache.current()
             .sorted { lhs, rhs in
@@ -21,7 +23,7 @@ final class LibraryProvider: CommandProvider {
             }
             .filter { snippet in
                 SearchScoring.match(
-                    query: trimmed,
+                    query: prepared,
                     title: snippet.title,
                     subtitle: snippet.content,
                     keywords: [snippet.keyword] + snippet.tags,
@@ -31,8 +33,8 @@ final class LibraryProvider: CommandProvider {
             }
             .prefix(32)
             .map { snippet in
-                let insertAction = CommandAction(id: "snippet.insert.\(snippet.id)", title: "Insert Snippet", kind: .pasteSnippet(id: snippet.id))
-                let copyAction = CommandAction(id: "snippet.copy.\(snippet.id)", title: "Copy Snippet", kind: .copySnippet(id: snippet.id))
+                let insertAction = CommandAction(id: "snippet.insert.\(snippet.id)", title: "Insert Snippet", behavior: PasteSnippetAction(id: snippet.id))
+                let copyAction = CommandAction(id: "snippet.copy.\(snippet.id)", title: "Copy Snippet", behavior: CopySnippetAction(id: snippet.id))
                 let insertPrimary = request.snippetInsertAsPrimary
                 return CommandResult(
                     id: "snippet.\(snippet.id)",
@@ -43,12 +45,14 @@ final class LibraryProvider: CommandProvider {
                         snippet.content.replacingOccurrences(of: "\n", with: " "),
                     ].compactMap { $0 }.joined(separator: " • "),
                     icon: CommandIcon(fallback: "SN", systemName: "curlybraces"),
-                    searchKeywords: [snippet.keyword] + snippet.tags,
+                    searchAliases: [snippet.keyword].filter { $0.isEmpty == false },
+                    searchKeywords: snippet.tags,
+                    payload: .snippet(id: snippet.id),
                     primaryAction: insertPrimary ? insertAction : copyAction,
                     secondaryActions: [
                         insertPrimary ? copyAction : insertAction,
-                        CommandAction(id: "snippet.open.\(snippet.id)", title: "Open Snippets", kind: .openSnippets),
-                        CommandAction(id: "snippet.delete.\(snippet.id)", title: "Delete Snippet", kind: .deleteSnippet(id: snippet.id))
+                        CommandAction(id: "snippet.edit.\(snippet.id)", title: "Edit Snippet", behavior: EditSnippetAction(id: snippet.id)),
+                        CommandAction(id: "snippet.delete.\(snippet.id)", title: "Delete Snippet", behavior: DeleteSnippetAction(id: snippet.id))
                     ]
                 )
             }
@@ -57,11 +61,9 @@ final class LibraryProvider: CommandProvider {
     }
 }
 
-private final class StoredSnippetCache: @unchecked Sendable {
+private final class StoredSnippetCache: Sendable {
     private let store: any SnippetStore
-    private let lock = NSLock()
-    private var signature: StoredSnippetFileSignature?
-    private var snippets: [StoredSnippet] = []
+    private let state = OSAllocatedUnfairLock<(signature: StoredSnippetFileSignature?, snippets: [StoredSnippet])>(initialState: (nil, []))
 
     init(store: any SnippetStore) {
         self.store = store
@@ -74,13 +76,13 @@ private final class StoredSnippetCache: @unchecked Sendable {
             modificationDate: values?.contentModificationDate,
             fileSize: values?.fileSize
         )
-        return lock.withLock {
-            if signature == nextSignature {
-                return snippets
+        return state.withLockUnchecked { state in
+            if state.signature == nextSignature {
+                return state.snippets
             }
-            snippets = store.load()
-            signature = nextSignature
-            return snippets
+            state.snippets = store.load()
+            state.signature = nextSignature
+            return state.snippets
         }
     }
 }

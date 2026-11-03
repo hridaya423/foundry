@@ -3,10 +3,12 @@ import FoundryServices
 
 enum OpenAICompatibleTransport {
     static func respond(profile: AIProviderProfile, messages: [[String: Any]], tools: [AgentTool], credentials: AICredentialStore) async -> AgentModelResponse {
-        guard let url = AITransportSupport.endpoint(profile, path: "chat/completions") else { return .failure("The endpoint URL isn't valid. Fix it in Settings › AI.", .configuration) }
+        guard let url = AITransportSupport.endpoint(profile,
+            path: "chat/completions") else { return .failure("The endpoint URL isn't valid. Fix it in Settings › AI.", .configuration) }
         do {
             let apiKey = try AITransportSupport.apiKey(profile, store: credentials)
-            if profile.authentication == .apiKey, apiKey == nil { return .failure("Add an API key for \(profile.name) before sending requests.", .configuration) }
+            if profile.authentication == .apiKey, apiKey == nil { return .failure("Add an API key for \(profile.name) before sending requests.",
+                .configuration) }
             var request = URLRequest(url: url)
             request.httpMethod = "POST"
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -34,7 +36,9 @@ enum OpenAICompatibleTransport {
             if let apiKey { request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization") }
             let (data, response) = try await AITransportSupport.requestData(request, timeout: profile.requestOptions.timeoutSeconds)
             if let error = AITransportSupport.classify(response) { return .failure(error.message) }
-            guard (try? JSONSerialization.jsonObject(with: data)) != nil else { return .failure("Provider returned invalid model data.") }
+            guard (BestEffort.attempt("provider model catalog") { try JSONSerialization.jsonObject(with: data) }) != nil else {
+                return .failure("Provider returned invalid model data.")
+            }
             return .success("Connected to \(profile.name).")
         } catch {
             return .failure(AITransportSupport.failureMessage(error))
@@ -49,7 +53,8 @@ enum OpenAICompatibleTransport {
             var request = URLRequest(url: url)
             if let apiKey { request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization") }
             let (data, response) = try await AITransportSupport.requestData(request, timeout: profile.requestOptions.timeoutSeconds)
-            guard AITransportSupport.classify(response) == nil, let object = try JSONSerialization.jsonObject(with: data) as? [String: Any], let rows = object["data"] as? [[String: Any]] else { return [] }
+            guard AITransportSupport.classify(response) == nil, let object = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+                let rows = object["data"] as? [[String: Any]] else { return [] }
             return rows.compactMap { row in
                 guard let id = row["id"] as? String, id.isEmpty == false else { return nil }
                 return AIModel(id: id, displayName: id)
@@ -68,7 +73,7 @@ enum OpenAICompatibleTransport {
                       let arguments = function["arguments"],
                       (arguments is String) == false,
                       JSONSerialization.isValidJSONObject(arguments),
-                      let data = try? JSONSerialization.data(withJSONObject: arguments),
+                      let data = (BestEffort.attempt("tool call arguments") { try JSONSerialization.data(withJSONObject: arguments) }),
                       let json = String(data: data, encoding: .utf8) else { return call }
                 var encodedCall = call
                 function["arguments"] = json
@@ -87,7 +92,8 @@ enum OpenAICompatibleTransport {
         for try await line in bytes.lines {
             guard Task.isCancelled == false else { return .failure("Cancelled", .cancelled) }
             let value = line.hasPrefix("data:") ? String(line.dropFirst(5)).trimmingCharacters(in: .whitespaces) : line
-            guard value.isEmpty == false, value != "[DONE]", let data = value.data(using: .utf8), let root = try JSONSerialization.jsonObject(with: data) as? [String: Any] else { continue }
+            guard value.isEmpty == false, value != "[DONE]", let data = value.data(using: .utf8),
+                let root = try JSONSerialization.jsonObject(with: data) as? [String: Any] else { continue }
             guard let choice = (root["choices"] as? [[String: Any]])?.first else { continue }
             let delta = choice["delta"] as? [String: Any] ?? [:]
             if let content = delta["content"] as? String { textParts.append(content) }
@@ -99,9 +105,9 @@ enum OpenAICompatibleTransport {
         }
         let text = textParts.joined()
         if let toolName {
-            let rawArguments = BestEffort.attempt("decode tool call arguments") {
+            let rawArguments = (BestEffort.attempt("decode tool call arguments") {
                 try JSONSerialization.jsonObject(with: Data(toolArgumentParts.joined().utf8))
-            }
+            })
             let arguments = rawArguments as? [String: Any] ?? [:]
             var object: [String: Any] = ["name": toolName, "arguments": arguments]
             object["id"] = toolID
@@ -113,7 +119,8 @@ enum OpenAICompatibleTransport {
 
 enum OllamaTransport {
     static func test(profile: AIProviderProfile) async -> AIConnectionTestResult {
-        guard let endpoint = profile.endpoint, let url = URL(string: endpoint)?.appendingPathComponent("api/tags") else { return .failure("Enter a valid Ollama endpoint.") }
+        guard let endpoint = profile.endpoint,
+            let url = URL(string: endpoint)?.appendingPathComponent("api/tags") else { return .failure("Enter a valid Ollama endpoint.") }
         do {
             let request = URLRequest(url: url)
             let (_, response) = try await AITransportSupport.requestData(request, timeout: profile.requestOptions.timeoutSeconds)
@@ -129,7 +136,8 @@ enum OllamaTransport {
         do {
             let request = URLRequest(url: url)
             let (data, response) = try await AITransportSupport.requestData(request, timeout: profile.requestOptions.timeoutSeconds)
-            guard AITransportSupport.classify(response) == nil, let object = try JSONSerialization.jsonObject(with: data) as? [String: Any], let rows = object["models"] as? [[String: Any]] else { return [] }
+            guard AITransportSupport.classify(response) == nil, let object = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+                let rows = object["models"] as? [[String: Any]] else { return [] }
             return rows.compactMap { row in
                 guard let name = row["name"] as? String, name.isEmpty == false else { return nil }
                 return AIModel(id: name, displayName: name)
@@ -142,17 +150,21 @@ enum OllamaTransport {
 
 enum AnthropicTransport {
     static func respond(profile: AIProviderProfile, messages: [[String: Any]], tools: [AgentTool], credentials: AICredentialStore) async -> AgentModelResponse {
-        guard let url = AITransportSupport.endpoint(profile, path: "messages") else { return .failure("The Anthropic endpoint URL isn't valid. Fix it in Settings › AI.", .configuration) }
+        guard let url = AITransportSupport.endpoint(profile,
+            path: "messages") else { return .failure("The Anthropic endpoint URL isn't valid. Fix it in Settings › AI.", .configuration) }
         do {
-            guard let apiKey = try AITransportSupport.apiKey(profile, store: credentials) else { return .failure("Add an Anthropic API key before sending requests.", .configuration) }
+            guard let apiKey = try AITransportSupport.apiKey(profile,
+                store: credentials) else { return .failure("Add an Anthropic API key before sending requests.", .configuration) }
             var request = URLRequest(url: url)
             request.httpMethod = "POST"
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")
             request.setValue(apiKey, forHTTPHeaderField: "x-api-key")
             request.setValue("2023-06-01", forHTTPHeaderField: "anthropic-version")
-            var body: [String: Any] = ["model": profile.model, "max_tokens": profile.requestOptions.maxOutputTokens ?? 4096, "stream": true, "messages": anthropicMessages(messages)]
+            var body: [String: Any] = ["model": profile.model, "max_tokens": profile.requestOptions.maxOutputTokens ?? 4096, "stream": true,
+                "messages": anthropicMessages(messages)]
             if let system = messages.first(where: { ($0["role"] as? String) == "system" })?["content"] { body["system"] = system }
-            if profile.capabilities.tools && tools.isEmpty == false { body["tools"] = tools.map { ["name": $0.name, "description": $0.description, "input_schema": $0.parameters] } }
+            if profile.capabilities.tools && tools.isEmpty == false { body["tools"] = tools.map { ["name": $0.name, "description": $0.description,
+                "input_schema": $0.parameters] } }
             request.httpBody = try JSONSerialization.data(withJSONObject: body)
             let (bytes, response) = try await AITransportSupport.session.bytes(for: request)
             guard let httpResponse = response as? HTTPURLResponse else { return .failure("Provider returned an invalid response.", .transient) }
@@ -179,7 +191,8 @@ enum AnthropicTransport {
         for try await line in bytes.lines {
             guard Task.isCancelled == false else { return .failure("Cancelled", .cancelled) }
             if line.hasPrefix("event:") { event = String(line.dropFirst(6)).trimmingCharacters(in: .whitespaces); continue }
-            guard line.hasPrefix("data:"), let data = String(line.dropFirst(5)).trimmingCharacters(in: .whitespaces).data(using: .utf8), let root = try JSONSerialization.jsonObject(with: data) as? [String: Any] else { continue }
+            guard line.hasPrefix("data:"), let data = String(line.dropFirst(5)).trimmingCharacters(in: .whitespaces).data(using: .utf8),
+                let root = try JSONSerialization.jsonObject(with: data) as? [String: Any] else { continue }
             if event == "content_block_start", let content = root["content_block"] as? [String: Any], content["type"] as? String == "tool_use" {
                 toolID = content["id"] as? String
                 toolName = content["name"] as? String
@@ -191,9 +204,9 @@ enum AnthropicTransport {
         }
         let text = textParts.joined()
         if let toolName {
-            let rawArguments = BestEffort.attempt("decode tool call arguments") {
+            let rawArguments = (BestEffort.attempt("decode tool call arguments") {
                 try JSONSerialization.jsonObject(with: Data(toolArgumentParts.joined().utf8))
-            }
+            })
             let arguments = rawArguments as? [String: Any] ?? [:]
             var object: [String: Any] = ["name": toolName, "arguments": arguments]
             object["id"] = toolID
@@ -210,12 +223,14 @@ enum AnthropicTransport {
                 if let text = message["content"] as? String, text.isEmpty == false { blocks.append(["type": "text", "text": text]) }
                 for call in calls {
                     guard let function = call["function"] as? [String: Any], let name = function["name"] as? String else { continue }
-                    blocks.append(["type": "tool_use", "id": call["id"] as? String ?? "foundry-\(name)", "name": name, "input": function["arguments"] as? [String: Any] ?? [:]])
+                    blocks.append(["type": "tool_use", "id": call["id"] as? String ?? "foundry-\(name)", "name": name,
+                        "input": function["arguments"] as? [String: Any] ?? [:]])
                 }
                 return ["role": "assistant", "content": blocks]
             }
             if role == "tool", let name = message["name"] as? String, let content = message["content"] as? String {
-                return ["role": "user", "content": [["type": "tool_result", "tool_use_id": message["tool_call_id"] as? String ?? "foundry-\(name)", "content": content]]]
+                return ["role": "user", "content": [["type": "tool_result", "tool_use_id": message["tool_call_id"] as? String ?? "foundry-\(name)",
+                    "content": content]]]
             }
             return ["role": role, "content": message["content"] ?? ""]
         }
@@ -294,7 +309,9 @@ enum GeminiTransport {
             else { continue }
             for part in parts {
                 if let value = part["text"] as? String { textParts.append(value) }
-                if let call = part["functionCall"] as? [String: Any], let name = call["name"] as? String { toolCall = AgentToolCall.from(json: ["name": name, "arguments": call["args"] as? [String: Any] ?? [:]]) }
+                if let call = part["functionCall"] as? [String: Any],
+                    let name = call["name"] as? String { toolCall = AgentToolCall.from(json: ["name": name,
+                        "arguments": call["args"] as? [String: Any] ?? [:]]) }
             }
         }
         let text = textParts.joined()

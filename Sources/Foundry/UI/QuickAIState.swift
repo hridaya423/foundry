@@ -7,9 +7,10 @@ import Observation
 final class QuickAIState {
     var quickAIQuery = ""
     var quickAIResponse = ""
-    var quickAIStatus = ""
+    var quickAIStatus = String(localized: "")
     var isQuickAILoading = false
     var quickAILastFailedPrompt: String?
+    var quickAIError: String?
     var quickAIThreads: [AIChatThread]
     var activeQuickAIThreadID: UUID?
 
@@ -40,9 +41,10 @@ final class QuickAIState {
     func resetTransientState() {
         quickAIQuery = ""
         quickAIResponse = ""
-        quickAIStatus = ""
+        quickAIStatus = String(localized: "")
         isQuickAILoading = false
         quickAILastFailedPrompt = nil
+        quickAIError = nil
         quickAITask?.cancel()
         quickAITask = nil
         quickAIRequestID = nil
@@ -56,7 +58,9 @@ final class QuickAIState {
         quickAIStatus = prompt.isEmpty ? "Ask anything" : "Ready"
         isQuickAILoading = false
         quickAILastFailedPrompt = nil
+        quickAIError = nil
         let thread = AIChatThread(title: prompt.isEmpty ? "New Chat" : prompt, providerProfileID: selectedAIProfileID)
+        quickAIThreads.removeAll { $0.messages.isEmpty }
         quickAIThreads.insert(thread, at: 0)
         activeQuickAIThreadID = thread.id
         persistAIThreads()
@@ -67,15 +71,12 @@ final class QuickAIState {
 
     func submit() async {
         let prompt = quickAIQuery.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard prompt.isEmpty == false else {
-            quickAIStatus = "Type a question first"
-            return
-        }
+        guard prompt.isEmpty == false else { return }
         quickAIQuery = ""
         quickAITask?.cancel()
         quickAIRequestID = nil
         guard let threadID = activeQuickAIThreadID else {
-            quickAIStatus = "Start a chat first"
+            quickAIStatus = String(localized: "Start a chat first")
             return
         }
         let requestID = UUID()
@@ -89,6 +90,7 @@ final class QuickAIState {
     func retry() {
         guard let prompt = quickAILastFailedPrompt, isQuickAILoading == false else { return }
         quickAILastFailedPrompt = nil
+        quickAIError = nil
         quickAITask?.cancel()
         guard let threadID = activeQuickAIThreadID else { return }
         let requestID = UUID()
@@ -96,6 +98,23 @@ final class QuickAIState {
         quickAITask = Task { [weak self] in
             await self?.performQuickAI(prompt: prompt, persistUserMessage: false, threadID: threadID, requestID: requestID)
         }
+    }
+
+    var activeProfileID: UUID? { activeThread?.providerProfileID }
+
+    func useProfile(_ id: UUID) {
+        guard let index = quickAIThreads.firstIndex(where: { $0.id == activeQuickAIThreadID }) else { return }
+        quickAIThreads[index].providerProfileID = id
+        persistAIThreads()
+    }
+
+    func deleteThread(id: UUID) {
+        guard let deleted = quickAIThreads.first(where: { $0.id == id }) else { return }
+        quickAIThreads.removeAll { $0.id == id }
+        if activeQuickAIThreadID == id {
+            if let next = quickAIThreads.first { selectThread(next) } else { startNewThread(selectedAIProfileID: deleted.providerProfileID) }
+        }
+        persistAIThreads()
     }
 
     var activeThread: AIChatThread? {
@@ -117,6 +136,7 @@ final class QuickAIState {
         quickAIResponse = thread.messages.last(where: { $0.role == .assistant })?.content ?? ""
         quickAIStatus = thread.messages.isEmpty ? "Ask anything" : "Loaded"
         quickAILastFailedPrompt = nil
+        quickAIError = nil
     }
 
     func shutdown() {
@@ -129,9 +149,11 @@ final class QuickAIState {
             applyInitialLoad(aiChatStore.loadResult())
         }
         guard initialLoadFailed == false else { return }
-        persistenceWriter.schedule(quickAIThreads)
+        persistenceWriter.schedule(savedThreads)
         persistenceWriter.flush()
     }
+
+    private var savedThreads: [AIChatThread] { quickAIThreads.filter { $0.messages.isEmpty == false } }
 
     private func persistAIThreads() {
         chatPersistenceTask?.cancel()
@@ -145,7 +167,7 @@ final class QuickAIState {
             guard let self else { return }
             await self.finishInitialLoad()
             guard Task.isCancelled == false, self.initialLoadFailed == false else { return }
-            writer.schedule(self.quickAIThreads)
+            writer.schedule(self.savedThreads)
         }
     }
 
@@ -178,7 +200,8 @@ final class QuickAIState {
     private func performQuickAI(prompt: String, persistUserMessage: Bool = true, threadID: UUID, requestID: UUID) async {
         guard isCurrentQuickAIRequest(requestID, threadID: threadID) else { return }
         isQuickAILoading = true
-        quickAIStatus = "Thinking"
+        quickAIError = nil
+        quickAIStatus = String(localized: "Thinking")
         quickAIResponse = ""
         var didFail = false
         var response = ""
@@ -215,19 +238,20 @@ final class QuickAIState {
                     lastResponsePublication = now
                 }
             case let .toolCallStarted(name):
-                quickAIStatus = "Using \(name.replacingOccurrences(of: "_", with: " "))"
+                quickAIStatus = String(localized: "Using \(name.replacingOccurrences(of: "_", with: " "))")
                 recordToolStarted(name, threadID: threadID)
             case let .toolResult(name, result):
-                quickAIStatus = "Finished \(name.replacingOccurrences(of: "_", with: " "))"
+                quickAIStatus = String(localized: "Finished \(name.replacingOccurrences(of: "_", with: " "))")
                 recordToolFinished(name, result: result, threadID: threadID)
             case .completed:
-                quickAIStatus = "Done"
+                quickAIStatus = String(localized: "Done")
             case let .failed(message):
                 didFail = true
                 quickAILastFailedPrompt = prompt
-                quickAIStatus = message
-                response = message
-                quickAIResponse = message
+                quickAIError = message
+                quickAIStatus = String(localized: "Failed")
+                response = ""
+                quickAIResponse = ""
             }
         }
 
@@ -253,11 +277,11 @@ final class QuickAIState {
         isQuickAILoading = false
         quickAIResponse = partial
         guard partial.isEmpty == false, let index = quickAIThreads.firstIndex(where: { $0.id == threadID }) else {
-            quickAIStatus = "Stopped"
+            quickAIStatus = String(localized: "Stopped")
             quickAILastFailedPrompt = prompt
             return
         }
-        quickAIStatus = "Stopped"
+        quickAIStatus = String(localized: "Stopped")
         quickAIThreads[index].messages.append(AIChatMessage(role: .assistant, content: partial))
         quickAIThreads[index].updatedAt = .now
         persistAIThreads()

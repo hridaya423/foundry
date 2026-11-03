@@ -36,11 +36,31 @@ final class FoundryBackupTests: XCTestCase {
 
         let scripts = scriptStore()
         try decoded.restore(to: destination, scripts: scripts)
-        for (name, url) in source.byName {
+        for (name, url) in source.byName where url != source.config {
             XCTAssertEqual(try Data(contentsOf: destination.byName[name]!), try Data(contentsOf: url), name)
         }
+        XCTAssertEqual(try JSONDecoder().decode(FoundryConfig.self, from: Data(contentsOf: destination.config)),
+                       try JSONDecoder().decode(FoundryConfig.self, from: Data(contentsOf: source.config)))
         XCTAssertEqual(scripts.directories, ["/tmp/scripts"])
         XCTAssertFalse(scripts.isTrusted("/tmp/scripts"))
+    }
+
+    func testRestoreKeepsThisMachinesScriptTrustNotTheBackups() throws {
+        let source = locations(), destination = locations()
+        var imported = FoundryConfig()
+        imported.localState.trustedScriptDirectories = ["/tmp/evil"]
+        var local = FoundryConfig()
+        local.localState.trustedScriptDirectories = ["/tmp/mine"]
+        for (config, url) in [(imported, source.config), (local, destination.config)] {
+            try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+            try JSONEncoder().encode(config).write(to: url)
+        }
+
+        let backup = try FoundryBackup.decode(FoundryBackup.make(locations: source, scriptDirectories: [], appVersion: "1.1.0").encoded())
+        try backup.restore(to: destination, scripts: scriptStore())
+
+        let restored = try JSONDecoder().decode(FoundryConfig.self, from: Data(contentsOf: destination.config))
+        XCTAssertEqual(restored.localState.trustedScriptDirectories, ["/tmp/mine"])
     }
 
     /// Browser, media folder, consent, and recents now live on config.json —

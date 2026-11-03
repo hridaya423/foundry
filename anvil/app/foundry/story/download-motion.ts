@@ -1,16 +1,18 @@
+import { memorySettled } from "./memory-motion";
 import { bezier, phase, type ShelfLayout, type ShelfPose } from "./shelf-motion";
 
-export const downloadStart = 3.86;
-export const storyEnd = 4.14;
+export const downloadStart = memorySettled + .26;
+export const downloadSettled = downloadStart + .17;
+export const storyEnd = downloadStart + .28;
 export const arrowCells = [[0, -3], [0, -2], [-2, -2], [2, -2], [-1, -1], [1, -1], [0, 0]] as const;
-const desktopTrail = [[0, 0], [.032, .037], [.06, .07], [.1, .105], [.132, .138], [.166, .165], [.204, .20], [.238, .24], [.277, .29], [.304, .325], [.332, .365], [.445, .55], [.463, .58], [.484, .615]];
-const mobileTrail = [[0, 0], [.045, .05], [.09, .10], [.135, .15], [.18, .20], [.41, .52], [.45, .55], [.48, .58]];
+const desktopTrail = [[.445, .55], [.463, .58], [.484, .615]];
+const mobileTrail = [[.44, .47], [.465, .5], [.485, .53]];
 
 export function downloadPoints(width: number, height: number) {
   const mobile = width < 900;
   const cell = Math.min(width * (mobile ? .032 : .013), height * .024);
   const trail = mobile ? mobileTrail : desktopTrail;
-  return [...trail.map(([x, y]) => ({ x: x * width, y: y * height, cell })), ...arrowCells.map(([x, y]) => ({ x: width * .5 + x * cell, y: height * (mobile ? .685 : .714) + y * cell, cell }))];
+  return [...trail.map(([x, y]) => ({ x: x * width, y: y * height, cell })), ...arrowCells.map(([x, y]) => ({ x: width * .5 + x * cell, y: height * (mobile ? .6 : .714) + y * cell, cell }))];
 }
 
 export function writeDownloadTilePose(out: ShelfPose, index: number, progress: number, layout: ShelfLayout, points: ReturnType<typeof downloadPoints>) {

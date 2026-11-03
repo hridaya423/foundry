@@ -93,6 +93,33 @@ final class MediaDownloadManager {
         youtube: .ready(label: "YouTube · yt-dlp automatic setup")
     )
     private var itemIndices: [UUID: Int] = [:]
+    var selectedID: UUID?
+    var composerText = ""
+    var composerMessage: String?
+
+    var listedItems: [MediaDownloadItem] {
+        items.filter { $0.status == .active } + items.filter { $0.status != .active }
+    }
+
+    var selectedItem: MediaDownloadItem? {
+        selectedID.flatMap { id in items.first { $0.id == id } }
+    }
+
+    func moveSelection(offset: Int) {
+        let listed = listedItems
+        guard listed.isEmpty == false else { return }
+        let current = selectedID.flatMap { id in listed.firstIndex { $0.id == id } }
+        let next = current.map { min(max($0 + offset, 0), listed.count - 1) } ?? (offset > 0 ? 0 : listed.count - 1)
+        selectedID = listed[next].id
+    }
+
+    func removeSelected() {
+        guard let item = selectedItem, item.status != .active,
+              let index = listedItems.firstIndex(where: { $0.id == item.id }) else { return }
+        remove(id: item.id)
+        let rest = listedItems
+        selectedID = rest.isEmpty ? nil : rest[min(index, rest.count - 1)].id
+    }
 
     var activeCount: Int {
         items.reduce(into: 0) { count, item in
@@ -154,7 +181,7 @@ final class MediaDownloadManager {
         guard let index = itemIndices[id] else { return }
         items[index].status = .cancelled
         items[index].progress.phase = .cancelled
-        items[index].progress.message = "Download cancelled"
+        items[index].progress.message = String(localized: "Download cancelled")
         items[index].failure = OperationFailure(message: "Download cancelled")
     }
 

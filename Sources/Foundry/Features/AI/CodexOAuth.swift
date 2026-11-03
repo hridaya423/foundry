@@ -1,7 +1,9 @@
 import AppKit
 import CryptoKit
 import Foundation
+import FoundryServices
 import Network
+import os
 import Security
 
 enum OpenAICodexLoginMethod: String, Codable, CaseIterable, Sendable {
@@ -113,15 +115,18 @@ enum OpenAIJWT {
         guard pieces.count == 3 else { return nil }
         var encoded = String(pieces[1]).replacingOccurrences(of: "-", with: "+").replacingOccurrences(of: "_", with: "/")
         encoded += String(repeating: "=", count: (4 - encoded.count % 4) % 4)
-        guard let data = Data(base64Encoded: encoded, options: .ignoreUnknownCharacters), let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return nil }
+        guard let data = Data(base64Encoded: encoded, options: .ignoreUnknownCharacters),
+            let object = (BestEffort.attempt("Codex OAuth response") { try JSONSerialization.jsonObject(with: data) }) as? [String: Any] else { return nil }
         return object
     }
 
     static func accountID(from token: String) -> String? {
         guard let claims = claims(from: token) else { return nil }
         if let value = claims["chatgpt_account_id"] as? String, value.isEmpty == false { return value }
-        if let auth = claims["https://api.openai.com/auth"] as? [String: Any], let value = auth["chatgpt_account_id"] as? String, value.isEmpty == false { return value }
-        if let organizations = claims["organizations"] as? [[String: Any]], let value = organizations.first?["id"] as? String, value.isEmpty == false { return value }
+        if let auth = claims["https://api.openai.com/auth"] as? [String: Any], let value = auth["chatgpt_account_id"] as? String,
+            value.isEmpty == false { return value }
+        if let organizations = claims["organizations"] as? [[String: Any]], let value = organizations.first?["id"] as? String,
+            value.isEmpty == false { return value }
         return nil
     }
 
@@ -195,14 +200,22 @@ private struct CodexDeviceTokenResponse: Decodable, Sendable {
     }
 }
 
-private final class CodexOAuthCallbackServer: @unchecked Sendable {
+private final class CodexOAuthCallbackServer: Sendable {
+    private struct State {
+        var listener: NWListener?
+        var callbackContinuation: CheckedContinuation<CodexOAuthCallback, Error>?
+        var startContinuation: CheckedContinuation<Void, Error>?
+        var isStopped = false
+        var port: UInt16 = 0
+    }
+
     private let queue = DispatchQueue(label: "com.hridya.foundry.codex-oauth")
-    private let lock = NSLock()
-    private var listener: NWListener?
-    private var callbackContinuation: CheckedContinuation<CodexOAuthCallback, Error>?
-    private var startContinuation: CheckedContinuation<Void, Error>?
-    private var isStopped = false
-    private(set) var port: UInt16 = 0
+    private let state = OSAllocatedUnfairLock<State>(initialState: State())
+
+    private(set) var port: UInt16 {
+        get { state.withLock { $0.port } }
+        set { state.withLock { $0.port = newValue } }
+    }
 
     func start() async throws -> UInt16 {
         for port in [UInt16(1455), UInt16(1457)] {
@@ -221,9 +234,7 @@ private final class CodexOAuthCallbackServer: @unchecked Sendable {
         let listener = try NWListener(using: .tcp, on: endpointPort)
         setListener(listener, port: port)
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
-            lock.lock()
-            startContinuation = continuation
-            lock.unlock()
+            state.withLock { $0.startContinuation = continuation }
             listener.stateUpdateHandler = { [weak self] state in
                 guard let self else { return }
                 switch state {
@@ -246,46 +257,49 @@ private final class CodexOAuthCallbackServer: @unchecked Sendable {
 
     func waitForCallback() async throws -> CodexOAuthCallback {
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<CodexOAuthCallback, Error>) in
-            lock.lock()
-            if isStopped {
-                lock.unlock()
+            let stopped = state.withLock { state -> Bool in
+                if state.isStopped { return true }
+                state.callbackContinuation = continuation
+                return false
+            }
+            if stopped {
                 continuation.resume(throwing: OpenAICodexOAuthError.cancelled)
-            } else {
-                callbackContinuation = continuation
-                lock.unlock()
             }
         }
     }
 
     func stop() {
-        lock.lock()
-        isStopped = true
-        let listener = self.listener
-        self.listener = nil
-        let callback = callbackContinuation
-        callbackContinuation = nil
-        let start = startContinuation
-        startContinuation = nil
-        lock.unlock()
+        let (listener, callback, start) = state.withLock { state -> (NWListener?, CheckedContinuation<CodexOAuthCallback, Error>?,
+            CheckedContinuation<Void, Error>?) in
+            state.isStopped = true
+            let listener = state.listener
+            state.listener = nil
+            let callback = state.callbackContinuation
+            state.callbackContinuation = nil
+            let start = state.startContinuation
+            state.startContinuation = nil
+            return (listener, callback, start)
+        }
         listener?.cancel()
         callback?.resume(throwing: OpenAICodexOAuthError.cancelled)
         start?.resume(throwing: OpenAICodexOAuthError.callbackServerUnavailable)
     }
 
     private func resumeStart(with error: Error?) {
-        lock.lock()
-        let continuation = startContinuation
-        startContinuation = nil
-        lock.unlock()
+        let continuation = state.withLock { state in
+            let continuation = state.startContinuation
+            state.startContinuation = nil
+            return continuation
+        }
         if let error { continuation?.resume(throwing: error) } else { continuation?.resume() }
     }
 
     private func setListener(_ listener: NWListener, port: UInt16) {
-        lock.lock()
-        self.listener = listener
-        self.port = port
-        self.isStopped = false
-        lock.unlock()
+        state.withLock { state in
+            state.listener = listener
+            state.port = port
+            state.isStopped = false
+        }
     }
 
     private func receive(connection: NWConnection, data: Data) {
@@ -308,9 +322,11 @@ private final class CodexOAuthCallbackServer: @unchecked Sendable {
     private func handleRequest(_ header: String, connection: NWConnection) {
         let requestLine = header.components(separatedBy: "\r\n").first ?? ""
         let parts = requestLine.split(separator: " ")
-        let host = header.components(separatedBy: "\r\n").dropFirst().first { $0.lowercased().hasPrefix("host:") }?.split(separator: ":", maxSplits: 1).last.map { $0.trimmingCharacters(in: .whitespaces).lowercased() }
+        let host = header.components(separatedBy: "\r\n").dropFirst().first { $0.lowercased().hasPrefix("host:") }?.split(separator: ":",
+            maxSplits: 1).last.map { $0.trimmingCharacters(in: .whitespaces).lowercased() }
         let expectedHosts = ["localhost", "localhost:\(port)", "127.0.0.1", "127.0.0.1:\(port)"]
-        guard parts.count >= 2, parts[0] == "GET", host.map({ expectedHosts.contains($0) }) == true, let components = URLComponents(string: "http://localhost\(parts[1])") else {
+        guard parts.count >= 2, parts[0] == "GET", host.map({ expectedHosts.contains($0) }) == true,
+            let components = URLComponents(string: "http://localhost\(parts[1])") else {
             sendResponse(connection: connection, status: "400 Bad Request", body: "Bad request")
             return
         }
@@ -319,18 +335,21 @@ private final class CodexOAuthCallbackServer: @unchecked Sendable {
         for item in components.queryItems ?? [] where query[item.name] == nil {
             if let value = item.value { query[item.name] = value }
         }
-        callback = CodexOAuthCallback(path: components.path, code: query["code"], state: query["state"], error: query["error"], errorDescription: query["error_description"])
+        callback = CodexOAuthCallback(path: components.path, code: query["code"], state: query["state"], error: query["error"],
+            errorDescription: query["error_description"])
         sendResponse(connection: connection, status: "200 OK", body: "Foundry received the authorization response. You can return to Foundry.")
-        lock.lock()
-        let continuation = callbackContinuation
-        callbackContinuation = nil
-        lock.unlock()
+        let continuation = state.withLock { state in
+            let continuation = state.callbackContinuation
+            state.callbackContinuation = nil
+            return continuation
+        }
         continuation?.resume(returning: callback)
     }
 
     private func sendResponse(connection: NWConnection, status: String, body: String) {
         let data = Data(body.utf8)
-        let response = Data("HTTP/1.1 \(status)\r\nContent-Type: text/plain; charset=utf-8\r\nContent-Length: \(data.count)\r\nConnection: close\r\n\r\n".utf8) + data
+        let response = Data(
+            "HTTP/1.1 \(status)\r\nContent-Type: text/plain; charset=utf-8\r\nContent-Length: \(data.count)\r\nConnection: close\r\n\r\n".utf8) + data
         connection.send(content: response, completion: .contentProcessed { _ in connection.cancel() })
     }
 }
@@ -381,16 +400,20 @@ enum CodexOAuthHTTP {
     }
 
     static func requestDeviceCode() async throws -> OpenAIDeviceAuthorization {
-        guard let url = URL(string: "\(issuer)/api/accounts/deviceauth/usercode") else { throw OpenAICodexOAuthError.deviceAuthorizationFailed("Invalid authorization URL.") }
+        guard let url = URL(string: "\(issuer)/api/accounts/deviceauth/usercode") else { throw OpenAICodexOAuthError.deviceAuthorizationFailed(
+            "Invalid authorization URL.") }
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = try JSONSerialization.data(withJSONObject: ["client_id": clientID])
         let (data, response) = try await session.data(for: request)
-        guard let http = response as? HTTPURLResponse, 200..<300 ~= http.statusCode else { throw OpenAICodexOAuthError.deviceAuthorizationFailed("HTTP \((response as? HTTPURLResponse)?.statusCode ?? 0).") }
+        guard let http = response as? HTTPURLResponse,
+            200..<300 ~= http.statusCode else { throw OpenAICodexOAuthError.deviceAuthorizationFailed(
+                "HTTP \((response as? HTTPURLResponse)?.statusCode ?? 0).") }
         do {
             let value = try JSONDecoder().decode(CodexDeviceCodeResponse.self, from: data)
-            return OpenAIDeviceAuthorization(verificationURL: "\(issuer)/codex/device", userCode: value.userCode, deviceAuthID: value.deviceAuthID, interval: value.interval)
+            return OpenAIDeviceAuthorization(verificationURL: "\(issuer)/codex/device", userCode: value.userCode, deviceAuthID: value.deviceAuthID,
+                interval: value.interval)
         } catch {
             throw OpenAICodexOAuthError.deviceAuthorizationFailed("Invalid device authorization response.")
         }
@@ -398,14 +421,16 @@ enum CodexOAuthHTTP {
 
     static func pollDeviceCode(_ authorization: OpenAIDeviceAuthorization) async throws -> CodexOAuthTokenResponse {
         let deadline = Date().addingTimeInterval(15 * 60)
-        guard let url = URL(string: "\(issuer)/api/accounts/deviceauth/token") else { throw OpenAICodexOAuthError.deviceAuthorizationFailed("Invalid authorization URL.") }
+        guard let url = URL(string: "\(issuer)/api/accounts/deviceauth/token") else { throw OpenAICodexOAuthError.deviceAuthorizationFailed(
+            "Invalid authorization URL.") }
         while Date() < deadline {
             var request = URLRequest(url: url)
             request.httpMethod = "POST"
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")
             request.httpBody = try JSONSerialization.data(withJSONObject: ["device_auth_id": authorization.deviceAuthID, "user_code": authorization.userCode])
             let (data, response) = try await session.data(for: request)
-            guard let http = response as? HTTPURLResponse else { throw OpenAICodexOAuthError.deviceAuthorizationFailed("Invalid device authorization response.") }
+            guard let http = response as? HTTPURLResponse else { throw OpenAICodexOAuthError.deviceAuthorizationFailed(
+                "Invalid device authorization response.") }
             if 200..<300 ~= http.statusCode {
                 do {
                     let value = try JSONDecoder().decode(CodexDeviceTokenResponse.self, from: data)
@@ -427,7 +452,8 @@ enum CodexOAuthHTTP {
         guard let accountID, accountID.isEmpty == false else { throw OpenAICodexOAuthError.missingAccountID }
         let refreshToken = tokens.refreshToken ?? fallback?.refreshToken ?? ""
         guard refreshToken.isEmpty == false else { throw OpenAICodexOAuthError.missingCredential }
-        return AIOAuthCredential(accessToken: tokens.accessToken, refreshToken: refreshToken, idToken: tokens.idToken ?? fallback?.idToken, accountID: accountID, expiresAt: Date().addingTimeInterval(max(tokens.expiresIn ?? 3600, 60)))
+        return AIOAuthCredential(accessToken: tokens.accessToken, refreshToken: refreshToken, idToken: tokens.idToken ?? fallback?.idToken,
+            accountID: accountID, expiresAt: Date().addingTimeInterval(max(tokens.expiresIn ?? 3600, 60)))
     }
 
     private static func postForm(path: String, values: [String: String], failure: (String) -> OpenAICodexOAuthError) async throws -> CodexOAuthTokenResponse {
@@ -446,7 +472,8 @@ enum CodexOAuthHTTP {
 }
 
 private final class CodexOAuthRedirectDelegate: NSObject, URLSessionTaskDelegate {
-    func urlSession(_ session: URLSession, task: URLSessionTask, willPerformHTTPRedirection response: HTTPURLResponse, newRequest request: URLRequest, completionHandler: @Sendable @escaping (URLRequest?) -> Void) {
+    func urlSession(_ session: URLSession, task: URLSessionTask, willPerformHTTPRedirection response: HTTPURLResponse,
+        newRequest request: URLRequest, completionHandler: @Sendable @escaping (URLRequest?) -> Void) {
         guard task.currentRequest?.url?.host?.lowercased() == request.url?.host?.lowercased() else { completionHandler(nil); return }
         completionHandler(request)
     }
@@ -532,13 +559,15 @@ actor OpenAICodexTokenManager {
     }
 
     func validCredential(profileID: UUID, minimumValidity: TimeInterval = 60) async throws -> AIOAuthCredential {
-        guard let credential = try store.credential(for: profileID), case let .oauth(value) = credential, value.isUsable else { throw OpenAICodexOAuthError.missingCredential }
+        guard let credential = try store.credential(for: profileID), case let .oauth(value) = credential,
+            value.isUsable else { throw OpenAICodexOAuthError.missingCredential }
         guard value.expiresAt.timeIntervalSinceNow <= minimumValidity else { return value }
         return try await refreshCredential(value, profileID: profileID)
     }
 
     func forceRefresh(profileID: UUID) async throws -> AIOAuthCredential {
-        guard let credential = try store.credential(for: profileID), case let .oauth(value) = credential, value.isUsable else { throw OpenAICodexOAuthError.missingCredential }
+        guard let credential = try store.credential(for: profileID), case let .oauth(value) = credential,
+            value.isUsable else { throw OpenAICodexOAuthError.missingCredential }
         return try await refreshCredential(value, profileID: profileID)
     }
 

@@ -1,8 +1,9 @@
 import Darwin
 import Foundation
 import FoundryServices
+import os
 
-final class AgentEventSocketServer: @unchecked Sendable {
+final class AgentEventSocketServer: Sendable {
     typealias Handler = @Sendable (AgentEventEnvelope) async -> AgentEventAck
 
     static var socketURL: URL {
@@ -10,12 +11,15 @@ final class AgentEventSocketServer: @unchecked Sendable {
             .appendingPathComponent("Library/Application Support/Foundry/agents.sock")
     }
 
-    private let lock = NSLock()
+    private struct State {
+        var socketDescriptor: Int32 = -1
+        var acceptTask: Task<Void, Never>?
+        var clientTasks: [UUID: Task<Void, Never>] = [:]
+        var generation = 0
+    }
+
+    private let state = OSAllocatedUnfairLock<State>(initialState: State())
     private let endpoint: URL
-    private var socketDescriptor: Int32 = -1
-    private var acceptTask: Task<Void, Never>?
-    private var clientTasks: [UUID: Task<Void, Never>] = [:]
-    private var generation = 0
 
     init(socketURL: URL = AgentEventSocketServer.socketURL) {
         endpoint = socketURL
@@ -62,28 +66,29 @@ final class AgentEventSocketServer: @unchecked Sendable {
         }
         chmod(socketURL.path, 0o600)
 
-        let generation = withLock {
-            self.generation += 1
-            socketDescriptor = descriptor
-            return self.generation
-        }
-        acceptTask = Task.detached(priority: .utility) { [weak self] in
-            await self?.acceptLoop(descriptor: descriptor, generation: generation, handler: handler)
+        state.withLock { state in
+            state.generation += 1
+            state.socketDescriptor = descriptor
+            let generation = state.generation
+            state.acceptTask = Task.detached(priority: .utility) { [weak self] in
+                await self?.acceptLoop(descriptor: descriptor, generation: generation, handler: handler)
+            }
         }
         return true
     }
 
     func stop() {
-        let (descriptor, tasks) = withLock { () -> (Int32, [Task<Void, Never>]) in
-            let current = socketDescriptor
-            socketDescriptor = -1
-            generation += 1
-            let tasks = Array(clientTasks.values)
-            clientTasks.removeAll()
-            return (current, tasks)
+        let (descriptor, acceptTask, tasks) = state.withLock { state -> (Int32, Task<Void, Never>?, [Task<Void, Never>]) in
+            let current = state.socketDescriptor
+            state.socketDescriptor = -1
+            state.generation += 1
+            let tasks = Array(state.clientTasks.values)
+            state.clientTasks.removeAll()
+            let acceptTask = state.acceptTask
+            state.acceptTask = nil
+            return (current, acceptTask, tasks)
         }
         acceptTask?.cancel()
-        acceptTask = nil
         tasks.forEach { $0.cancel() }
         if descriptor >= 0 { close(descriptor) }
         Self.removeSocket(at: endpoint.path)
@@ -105,9 +110,9 @@ final class AgentEventSocketServer: @unchecked Sendable {
                 }
                 await Self.handle(client: client, handler: handler, isActive: isActive)
             }
-            let shouldKeep = withLock { () -> Bool in
-                guard self.generation == generation, self.socketDescriptor >= 0 else { return false }
-                clientTasks[clientID] = task
+            let shouldKeep = state.withLock { state -> Bool in
+                guard state.generation == generation, state.socketDescriptor >= 0 else { return false }
+                state.clientTasks[clientID] = task
                 return true
             }
             if shouldKeep == false { task.cancel() }
@@ -168,18 +173,12 @@ final class AgentEventSocketServer: @unchecked Sendable {
         }
     }
 
-    private func withLock<T>(_ body: () -> T) -> T {
-        lock.lock()
-        defer { lock.unlock() }
-        return body()
-    }
-
     private func isCurrent(_ expectedGeneration: Int) -> Bool {
-        withLock { generation == expectedGeneration && socketDescriptor >= 0 }
+        state.withLock { $0.generation == expectedGeneration && $0.socketDescriptor >= 0 }
     }
 
     private func removeClient(_ id: UUID) {
-        _ = withLock { clientTasks.removeValue(forKey: id) }
+        _ = state.withLock { $0.clientTasks.removeValue(forKey: id) }
     }
 
     private static func removeSocket(at path: String) {

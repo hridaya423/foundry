@@ -156,7 +156,8 @@ public enum FileConversionService {
 
     /// Union assessment across several input extensions — used when the same
     /// output target is shared by differently-routed sources.
-    public static func assess(target outputExt: String, forInputExts inputExts: [String], locator: ExecutableLocator = ExecutableLocator(), environment: [String: String] = ProcessInfo.processInfo.environment) async -> CapabilityState {
+    public static func assess(target outputExt: String, forInputExts inputExts: [String], locator: ExecutableLocator = ExecutableLocator(),
+        environment: [String: String] = ProcessInfo.processInfo.environment) async -> CapabilityState {
         var engines: [ConversionEngine] = []
         for ext in inputExts {
             guard let route = ConversionGraph.route(from: ext, to: outputExt) else { continue }
@@ -224,7 +225,8 @@ public enum FileConversionService {
 
     // MARK: - Conversion
 
-    public static func convert(sourceURL: URL, target: FileConversionTarget, outputFolderURL: URL, options: ConversionOptions = .standard) async -> Result<URL, Error> {
+    public static func convert(sourceURL: URL, target: FileConversionTarget, outputFolderURL: URL,
+        options: ConversionOptions = .standard) async -> Result<URL, Error> {
         do {
             try Task.checkCancellation()
             let inputExt = ConversionGraph.normalizedExtension(of: sourceURL)
@@ -434,7 +436,8 @@ public enum FileConversionService {
             guard let image = context.makeImage() else { continue }
 
             let pageOutput = pageOutputURL(base: output, index: position, total: indexes.count)
-            guard let destination = CGImageDestinationCreateWithURL(pageOutput as CFURL, (isJPEG ? UTType.jpeg : UTType.png).identifier as CFString, 1, nil) else { continue }
+            guard let destination = CGImageDestinationCreateWithURL(pageOutput as CFURL, (isJPEG ? UTType.jpeg : UTType.png).identifier as CFString,
+                1, nil) else { continue }
             var props: [CFString: Any] = [:]
             if let quality = options.quality, isJPEG { props[kCGImageDestinationLossyCompressionQuality] = quality }
             CGImageDestinationAddImage(destination, image, props as CFDictionary)
@@ -790,7 +793,8 @@ public enum FileConversionService {
 
     private static func locateExecutable(_ engine: ConversionEngine) async throws -> String {
         let locator = ExecutableLocator()
-        if let found = try locator.locate(name: engine.executableName ?? "", candidates: engine.candidatePaths, environment: ProcessInfo.processInfo.environment) {
+        if let found = try locator.locate(name: engine.executableName ?? "", candidates: engine.candidatePaths,
+            environment: ProcessInfo.processInfo.environment) {
             return found.path
         }
         throw FileConversionError.unavailable("\(engine.displayName) is not installed")
@@ -804,7 +808,8 @@ public enum FileConversionService {
             }
             let output = result.stderr.isEmpty ? result.stdout : result.stderr
             let message = output.trimmingCharacters(in: .whitespacesAndNewlines)
-            throw NSError(domain: "FoundryConversion", code: Int(result.exitCode), userInfo: [NSLocalizedDescriptionKey: message.isEmpty ? "Conversion failed" : message])
+            throw NSError(domain: "FoundryConversion", code: Int(result.exitCode),
+                userInfo: [NSLocalizedDescriptionKey: message.isEmpty ? "Conversion failed" : message])
         }
     }
 
@@ -834,7 +839,7 @@ public enum FileConversionService {
 
     /// Renders `options.nameTemplate` — tokens `{name}`, `{date}`, `{ext}`.
     /// An empty or nameless template falls back to the source basename.
-    static func renderNameTemplate(_ template: String?, source: URL, ext: String, now: Date = Date()) -> String {
+    public static func renderNameTemplate(_ template: String?, source: URL, ext: String, now: Date = Date()) -> String {
         let original = source.deletingPathExtensionIfCompound().lastPathComponent
         guard let template, template.contains("{name}") else { return original }
         let stamp = nameStampFormatter.string(from: now)

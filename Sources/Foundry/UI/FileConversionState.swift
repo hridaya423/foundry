@@ -12,7 +12,7 @@ final class FileConversionState {
     var availableTargets: [FileConversionTarget] = []
     var selectedTargetID: String?
     var options = ConversionOptions.standard
-    var status = ""
+    var status = String(localized: "")
     var isConverting = false
     var outputURLs: [URL] = []
     var outputURL: URL?
@@ -85,7 +85,7 @@ final class FileConversionState {
         outputFolderURL = nil
         availableTargets = []
         selectedTargetID = nil
-        status = ""
+        status = String(localized: "")
         isConverting = false
         outputURLs = []
         outputURL = nil
@@ -150,7 +150,7 @@ final class FileConversionState {
         availableTargets = []
         selectedTargetID = nil
         options = .standard
-        status = ""
+        status = String(localized: "")
         isConverting = false
         outputURLs = []
         outputURL = nil
@@ -183,24 +183,33 @@ final class FileConversionState {
         outputURL = nil
         capabilities = [:]
         if sourceURLs.isEmpty {
-            status = ""
+            status = String(localized: "")
         } else if availableTargets.isEmpty {
             status = sourceURLs.count == 1
                 ? "No local converter available for this file yet"
                 : "No common conversion format for these files"
         } else {
-            status = ""
+            status = String(localized: "")
         }
         Task { await refreshCapabilities() }
     }
 
+    var statusLevel: InlineNotice.Level {
+        switch phase {
+        case .failed: .error
+        case .completed: outputURLs.isEmpty ? .warning : .success
+        case .cancelled: .info
+        default: .warning
+        }
+    }
+
     func convert() {
         guard sourceURLs.isEmpty == false, let target = selectedTarget else { return }
-        guard let capability = capabilities[target.id] else { status = "Checking converter readiness…"; return }
+        guard let capability = capabilities[target.id] else { status = String(localized: "Checking converter readiness…"); return }
         switch capability.state {
         case .ready: break
         case .setupRequired(let plan): dependencySetup = DependencySetup(target: target, plan: plan); return
-        case .unavailable(let reason), .degraded(let reason): status = "\(target.title) unavailable: \(reason)"; return
+        case .unavailable(let reason), .degraded(let reason): status = String(localized: "\(target.title) unavailable: \(reason)"); return
         }
         startConversion(sourceURLs: sourceURLs, target: target)
     }
@@ -220,14 +229,16 @@ final class FileConversionState {
                   conversionGeneration == generation,
                   sourceURLs == sources,
                   sources.isEmpty == false else { return }
-            guard case .ready = await assess(setup.target, sourceURLs.map { ConversionGraph.normalizedExtension(of: $0) }) else { throw FileConversionError.unavailable("The installed converter is not ready yet") }
+            guard case .ready = await assess(setup.target,
+                sourceURLs.map { ConversionGraph.normalizedExtension(of: $0) }) else { throw FileConversionError.unavailable(
+                    "The installed converter is not ready yet") }
             guard Task.isCancelled == false,
                   conversionGeneration == generation,
                   sourceURLs == sources else { return }
             startConversion(sourceURLs: sources, target: setup.target, operationID: id, requestedOutputFolder: folder)
         } catch is CancellationError {
             guard conversionGeneration == generation else { return }
-            phase = .cancelled; status = "Tool installation cancelled"
+            phase = .cancelled; status = String(localized: "Tool installation cancelled")
             operations.update(id: id, phase: .cancelled, progress: progress, failure: OperationFailure(message: "Tool installation cancelled"))
         } catch {
             guard conversionGeneration == generation else { return }
@@ -244,11 +255,11 @@ final class FileConversionState {
             try await provision(setup.plan, setup.plan.fingerprint)
             await refreshCapabilities()
             guard conversionGeneration == generation else { return }
-            phase = .completed; progress = .items(completed: 1, total: 1); status = "Tool installed"
+            phase = .completed; progress = .items(completed: 1, total: 1); status = String(localized: "Tool installed")
             operations.update(id: id, phase: .completed, progress: progress)
         } catch is CancellationError {
             guard conversionGeneration == generation else { return }
-            phase = .cancelled; status = "Tool installation cancelled"
+            phase = .cancelled; status = String(localized: "Tool installation cancelled")
             operations.update(id: id, phase: .cancelled, progress: progress, failure: OperationFailure(message: "Tool installation cancelled"))
         } catch {
             guard conversionGeneration == generation else { return }
@@ -270,12 +281,13 @@ final class FileConversionState {
         conversionTask?.cancel()
         conversionTask = nil
         isConverting = false
-        status = "Conversion cancelled"
+        status = String(localized: "Conversion cancelled")
         phase = .cancelled
         cancelRemaining(sourceURLs, operationID: operationID)
     }
 
-    private func startConversion(sourceURLs: [URL], target: FileConversionTarget, operationID existingID: UUID? = nil, preservingCompleted: [FileConversionItemOutcome] = [], requestedOutputFolder: URL? = nil) {
+    private func startConversion(sourceURLs: [URL], target: FileConversionTarget, operationID existingID: UUID? = nil,
+        preservingCompleted: [FileConversionItemOutcome] = [], requestedOutputFolder: URL? = nil) {
         guard sourceURLs.isEmpty == false else { return }
         let outputFolderURL = requestedOutputFolder ?? self.outputFolderURL ?? sourceURLs[0].deletingLastPathComponent()
         let total = sourceURLs.count
@@ -308,7 +320,7 @@ final class FileConversionState {
             // one combined document instead of per-file outputs.
             if FileConversionService.shouldMergeForPDFTarget(sources: workSources, target: target) {
                 await MainActor.run { [weak self] in
-                    self?.status = "Merging \(workSources.count) files into one PDF…"
+                    self?.status = String(localized: "Merging \(workSources.count) files into one PDF…")
                 }
                 let snapshot = self?.options ?? .standard
                 let destination = FileConversionService.destination(
@@ -358,7 +370,8 @@ final class FileConversionState {
                 if completedRun == false { return }
             } else {
                 for (index, sourceURL) in workSources.enumerated() {
-                    guard Task.isCancelled == false else { await MainActor.run { self?.cancelRemaining(sourceURLs, generation: generation, operationID: operationID) }; return }
+                    guard Task.isCancelled == false else { await MainActor.run { self?.cancelRemaining(sourceURLs, generation: generation,
+                        operationID: operationID) }; return }
                     await MainActor.run { self?.setOutcome(sourceURL, state: .processing, outputURL: nil, failure: nil) }
                     await MainActor.run { [weak self] in
                         guard let self else { return }
@@ -368,12 +381,15 @@ final class FileConversionState {
 
                     let snapshot = self?.options ?? .standard
                     let result = await self?.convertOperation(sourceURL, target, outputFolderURL, snapshot) ?? .failure(FileConversionError.cancelled)
-                    guard Task.isCancelled == false else { await MainActor.run { self?.cancelRemaining(sourceURLs, generation: generation, operationID: operationID) }; return }
-                    if await self?.recordConversionResult(result, for: sourceURL, sourceURLs: sourceURLs, generation: generation, operationID: operationID) == false { return }
+                    guard Task.isCancelled == false else { await MainActor.run { self?.cancelRemaining(sourceURLs, generation: generation,
+                        operationID: operationID) }; return }
+                    if await self?.recordConversionResult(result, for: sourceURL, sourceURLs: sourceURLs, generation: generation,
+                        operationID: operationID) == false { return }
                     await MainActor.run { [weak self] in
                         let completed = completedBeforeStart + index + 1
                         self?.progress = .items(completed: completed, total: total)
-                        if let operationID = self?.operationID { self?.operations.updateProgress(id: operationID, progress: .items(completed: completed, total: total)) }
+                        if let operationID = self?.operationID { self?.operations.updateProgress(id: operationID,
+                            progress: .items(completed: completed, total: total)) }
                     }
                 }
             }
@@ -386,7 +402,8 @@ final class FileConversionState {
 
     /// Record a per-file conversion result. Returns false when cancellation
     /// should abort the batch.
-    private func recordConversionResult(_ result: Result<URL, Error>, for sourceURL: URL, sourceURLs: [URL], generation: UUID, operationID: UUID) async -> Bool {
+    private func recordConversionResult(_ result: Result<URL, Error>, for sourceURL: URL, sourceURLs: [URL], generation: UUID,
+        operationID: UUID) async -> Bool {
         switch result {
         case let .success(outputURL):
             await MainActor.run { self.setOutcome(sourceURL, state: .completed, outputURL: outputURL, failure: nil) }
@@ -404,10 +421,11 @@ final class FileConversionState {
     /// Overlap external-engine conversions (ffmpeg/magick/pandoc/soffice) with
     /// a sliding window of at most two in flight. Returns false when the batch
     /// was cancelled — `cancelRemaining` has already finalized the operation.
-    private func runExternalBatch(_ workSources: [URL], target: FileConversionTarget, outputFolderURL: URL, generation: UUID, operationID: UUID, completedBeforeStart: Int, total: Int, allSources: [URL]) async -> Bool {
+    private func runExternalBatch(_ workSources: [URL], target: FileConversionTarget, outputFolderURL: URL, generation: UUID, operationID: UUID,
+        completedBeforeStart: Int, total: Int, allSources: [URL]) async -> Bool {
         let snapshot = options
         await MainActor.run { [weak self] in
-            self?.status = "Converting \(workSources.count) files to \(target.title)…"
+            self?.status = String(localized: "Converting \(workSources.count) files to \(target.title)…")
         }
         var completedCount = 0
         var cancelled = false
@@ -415,7 +433,8 @@ final class FileConversionState {
             var pending = workSources.makeIterator()
             for _ in 0..<2 {
                 guard let next = pending.next() else { break }
-                group.addTask { [weak self] in await self?.convertOne(next, target: target, folder: outputFolderURL, options: snapshot) ?? (next, .failure(FileConversionError.cancelled)) }
+                group.addTask { [weak self] in await self?.convertOne(next, target: target, folder: outputFolderURL, options: snapshot) ?? (next,
+                    .failure(FileConversionError.cancelled)) }
             }
             while let (sourceURL, result) = await group.next() {
                 completedCount += 1
@@ -426,7 +445,8 @@ final class FileConversionState {
                     pending = [].makeIterator()
                     continue
                 }
-                if await self.recordConversionResult(result, for: sourceURL, sourceURLs: allSources, generation: generation, operationID: operationID) == false {
+                if await self.recordConversionResult(result, for: sourceURL, sourceURLs: allSources, generation: generation,
+                    operationID: operationID) == false {
                     cancelled = true
                     group.cancelAll()
                     pending = [].makeIterator()
@@ -435,10 +455,12 @@ final class FileConversionState {
                 await MainActor.run { [weak self] in
                     let completed = completedBeforeStart + completedCount
                     self?.progress = .items(completed: completed, total: total)
-                    if let operationID = self?.operationID { self?.operations.updateProgress(id: operationID, progress: .items(completed: completed, total: total)) }
+                    if let operationID = self?.operationID { self?.operations.updateProgress(id: operationID, progress: .items(completed: completed,
+                        total: total)) }
                 }
                 if let next = pending.next() {
-                    group.addTask { [weak self] in await self?.convertOne(next, target: target, folder: outputFolderURL, options: snapshot) ?? (next, .failure(FileConversionError.cancelled)) }
+                    group.addTask { [weak self] in await self?.convertOne(next, target: target, folder: outputFolderURL, options: snapshot) ?? (next,
+                        .failure(FileConversionError.cancelled)) }
                 }
             }
         }
@@ -498,10 +520,10 @@ final class FileConversionState {
                 break
             case let .setupRequired(plan):
                 self.dependencySetup = DependencySetup(target: request.target, plan: plan)
-                self.status = "Converter readiness changed; setup is required before retrying"
+                self.status = String(localized: "Converter readiness changed; setup is required before retrying")
                 return
             case let .unavailable(reason), let .degraded(reason):
-                self.status = "Converter unavailable: \(reason)"
+                self.status = String(localized: "Converter unavailable: \(reason)")
                 return
             }
             let completed = self.itemOutcomes.filter { $0.state == .completed }
@@ -530,9 +552,10 @@ final class FileConversionState {
         outputURLs = itemOutcomes.compactMap(\.outputURL)
         outputURL = outputURLs.last
         progress = .items(completed: completed, total: itemOutcomes.count)
-        status = "Conversion cancelled after creating \(completed) of \(itemOutcomes.count) files"
+        status = String(localized: "Conversion cancelled after creating \(completed) of \(itemOutcomes.count) files")
         phase = .cancelled; isConverting = false
-        if let operationID { operations.update(id: operationID, phase: .cancelled, progress: progress, failure: OperationFailure(message: "Conversion cancelled")) }
+        if let operationID { operations.update(id: operationID, phase: .cancelled, progress: progress,
+            failure: OperationFailure(message: "Conversion cancelled")) }
     }
 
     private func isCurrentSetup(_ setup: DependencySetup) -> Bool {
@@ -550,7 +573,7 @@ final class FileConversionState {
 
     private func failProvisioning(operationID: UUID, error: Error) {
         let typed = OperationFailure(message: error.localizedDescription)
-        failure = typed; phase = .failed; status = "Tool installation failed: \(typed.message)"
+        failure = typed; phase = .failed; status = String(localized: "Tool installation failed: \(typed.message)")
         operations.update(id: operationID, phase: .failed, progress: progress, failure: typed)
     }
 
@@ -588,7 +611,8 @@ struct DependencySetup: Identifiable { let target: FileConversionTarget; let pla
 struct FileConversionCapability {
     let state: CapabilityState
     var isSetupRequired: Bool { if case .setupRequired = state { return true }; return false }
-    var readinessLabel: String { switch state { case .ready: return "Ready"; case .setupRequired: return "Setup required"; case .unavailable: return "Unavailable"; case .degraded: return "Degraded" } }
+    var readinessLabel: String { switch state { case .ready: return "Ready"; case .setupRequired: return "Setup required"; case .unavailable:
+        return "Unavailable"; case .degraded: return "Degraded" } }
 }
 private struct ClosureProvisioningExecutor: ProvisioningExecutor {
     let body: @Sendable (ExactCommand) async throws -> Void

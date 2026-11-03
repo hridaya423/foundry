@@ -14,8 +14,8 @@ struct WindowLayoutPicker: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
                 Text("Window layouts")
-                    .font(FoundryTheme.body(size: 12, weight: .semibold))
-                    .foregroundStyle(FoundryTheme.primaryText.opacity(0.82))
+                    .font(FoundryTheme.body)
+                    .foregroundStyle(FoundryTheme.textPrimary.opacity(FoundryTheme.Alpha.strong))
 
                 Spacer()
 
@@ -23,13 +23,15 @@ struct WindowLayoutPicker: View {
                     HStack(spacing: 4) {
                         Text("View all")
                         Image(systemName: "chevron.right")
-                            .font(.system(size: 8, weight: .bold))
+                            .font(FoundryTheme.Glyph.xs)
                     }
-                    .font(FoundryTheme.body(size: 11, weight: .medium))
-                    .foregroundStyle(FoundryTheme.secondaryText)
+                    .font(FoundryTheme.caption)
+                    .foregroundStyle(FoundryTheme.textSecondary)
+                    .frame(minHeight: FoundryTheme.Control.mini)
+                    .padding(.horizontal, 4)
+                    .contentShape(.rect)
                 }
                 .buttonStyle(.plain)
-                .pointerCursor()
                 .accessibilityLabel("Show all window layouts")
             }
             .padding(.horizontal, 2)
@@ -63,24 +65,23 @@ private struct CompactLayoutButton: View {
                     .frame(width: 34, height: 24)
 
                 Text(placement?.shortTitle ?? result.title)
-                    .font(FoundryTheme.body(size: 11, weight: .medium))
-                    .foregroundStyle(FoundryTheme.primaryText)
+                    .font(FoundryTheme.caption)
+                    .foregroundStyle(FoundryTheme.textPrimary)
                     .lineLimit(1)
 
                 Spacer(minLength: 0)
             }
             .padding(.horizontal, 8)
-            .frame(height: 40)
-            .background(isHovering ? Color.primary.opacity(0.08) : Color.primary.opacity(0.04))
-            .clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
+            .frame(height: FoundryTheme.Control.row)
+            .background(isHovering ? FoundryTheme.fillTint : FoundryTheme.fillSubtle)
+            .clipShape(RoundedRectangle(cornerRadius: FoundryTheme.Radius.control, style: .continuous))
             .overlay {
-                RoundedRectangle(cornerRadius: 9, style: .continuous)
-                    .strokeBorder(Color.primary.opacity(isHovering ? 0.16 : 0.08), lineWidth: 0.5)
+                RoundedRectangle(cornerRadius: FoundryTheme.Radius.control, style: .continuous)
+                    .strokeBorder(isHovering ? FoundryTheme.selectionBorder : FoundryTheme.fillTint, lineWidth: 0.5)
             }
         }
         .buttonStyle(PressableButtonStyle())
         .onHover { isHovering = $0 }
-        .pointerCursor()
         .help(result.title)
         .accessibilityLabel(result.title)
     }
@@ -117,7 +118,7 @@ struct WindowLayoutManager: View {
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
 
                     Rectangle()
-                        .fill(Color.primary.opacity(0.075))
+                        .fill(FoundryTheme.fillTint)
                         .frame(width: 1)
                         .padding(.vertical, 14)
 
@@ -140,30 +141,30 @@ struct WindowLayoutManager: View {
     private var managerHeader: some View {
         HStack(spacing: 10) {
             Image(systemName: "rectangle.split.2x1")
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(FoundryTheme.accentTint)
+                .font(FoundryTheme.Glyph.sm)
+                .foregroundStyle(FoundryTheme.accent)
                 .frame(width: 28, height: 28)
-                .background(FoundryTheme.accentTint.opacity(0.10))
-                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                .background(FoundryTheme.accentSubtle)
+                .clipShape(RoundedRectangle(cornerRadius: FoundryTheme.Radius.control, style: .continuous))
 
             VStack(alignment: .leading, spacing: 1) {
-                Text("Window management")
-                    .font(FoundryTheme.body(size: 14, weight: .semibold))
-                    .foregroundStyle(FoundryTheme.primaryText)
+                Text("Window layouts")
+                    .font(FoundryTheme.body)
+                    .foregroundStyle(FoundryTheme.textPrimary)
 
                 Text("Arrange the frontmost window")
-                    .font(FoundryTheme.body(size: 11, weight: .regular))
-                    .foregroundStyle(FoundryTheme.mutedText)
+                    .font(FoundryTheme.caption)
+                    .foregroundStyle(FoundryTheme.textTertiary)
             }
 
             Spacer()
         }
         .padding(.horizontal, 18)
-        .frame(height: 50)
+        .frame(height: FoundryTheme.Control.rowDouble)
         .overlay(alignment: .bottom) {
             Rectangle()
-                .fill(Color.primary.opacity(0.075))
-                .frame(height: 1)
+                .fill(FoundryTheme.fillTint)
+                .frame(height: FoundryTheme.hairline)
         }
     }
 
@@ -177,7 +178,7 @@ struct WindowLayoutManager: View {
                 }
                 Spacer(minLength: 0)
             }
-            .frame(height: 30)
+            .frame(height: FoundryTheme.Control.compact)
 
             SpatialLayoutGrid(
                 results: family.placements.compactMap { resultByPlacement[$0] },
@@ -296,17 +297,17 @@ struct WindowLayoutManager: View {
             if isLoading {
                 ProgressView()
                     .controlSize(.small)
-                    .tint(FoundryTheme.secondaryText)
+                    .tint(FoundryTheme.textSecondary)
                 Text("Loading layouts…")
-                    .font(FoundryTheme.body(size: 12, weight: .medium))
-                    .foregroundStyle(FoundryTheme.secondaryText)
+                    .font(FoundryTheme.bodySecondary)
+                    .foregroundStyle(FoundryTheme.textSecondary)
             } else {
                 Image(systemName: "rectangle.split.2x1")
-                    .font(.system(size: 22, weight: .regular))
-                    .foregroundStyle(FoundryTheme.mutedText)
+                    .font(FoundryTheme.Glyph.lg)
+                    .foregroundStyle(FoundryTheme.textTertiary)
                 Text("No window layouts available")
-                    .font(FoundryTheme.body(size: 13, weight: .medium))
-                    .foregroundStyle(FoundryTheme.secondaryText)
+                    .font(FoundryTheme.body)
+                    .foregroundStyle(FoundryTheme.textSecondary)
             }
             Spacer()
         }
@@ -369,16 +370,15 @@ private struct FamilyTab: View {
     var body: some View {
         Button(action: action) {
             Text(title)
-                .font(FoundryTheme.body(size: 11, weight: isSelected ? .semibold : .medium))
-                .foregroundStyle(isSelected ? FoundryTheme.primaryText : FoundryTheme.secondaryText)
+                .font(isSelected ? FoundryTheme.micro : FoundryTheme.caption)
+                .foregroundStyle(isSelected ? FoundryTheme.textPrimary : FoundryTheme.textSecondary)
                 .padding(.horizontal, 10)
-                .frame(height: 26)
-                .background(isSelected ? Color.primary.opacity(0.10) : (isHovering ? Color.primary.opacity(0.05) : Color.clear))
-                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                .frame(height: FoundryTheme.Control.mini)
+                .background(isSelected ? FoundryTheme.fillSelected : (isHovering ? FoundryTheme.fillHover : Color.clear))
+                .clipShape(RoundedRectangle(cornerRadius: FoundryTheme.Radius.control, style: .continuous))
         }
         .buttonStyle(.plain)
         .onHover { isHovering = $0 }
-        .pointerCursor()
         .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 }
@@ -437,9 +437,9 @@ private struct SpatialLayoutButton: View {
             .frame(maxWidth: .infinity)
             .frame(height: height)
             .background(tileBackground)
-            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: FoundryTheme.Radius.row, style: .continuous))
             .overlay {
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                RoundedRectangle(cornerRadius: FoundryTheme.Radius.row, style: .continuous)
                     .strokeBorder(tileBorder, lineWidth: isSelected ? 1 : 0.5)
             }
         }
@@ -448,7 +448,6 @@ private struct SpatialLayoutButton: View {
             isHovering = hovering
             if hovering && hoverHighlightsArmed { onHover() }
         }
-        .pointerCursor()
         .help(result.title)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(result.title)
@@ -459,30 +458,30 @@ private struct SpatialLayoutButton: View {
     private var titleRow: some View {
         HStack(spacing: 6) {
             Text(placement?.shortTitle ?? result.title)
-                .font(FoundryTheme.body(size: 11, weight: .semibold))
-                .foregroundStyle(FoundryTheme.primaryText)
+                .font(FoundryTheme.micro)
+                .foregroundStyle(FoundryTheme.textPrimary)
                 .lineLimit(1)
 
             Spacer(minLength: 0)
 
             if isSelected {
                 Text("↵")
-                    .font(FoundryTheme.body(size: 10, weight: .semibold))
-                    .foregroundStyle(FoundryTheme.accentTint)
+                    .font(FoundryTheme.micro)
+                    .foregroundStyle(FoundryTheme.accent)
             }
         }
     }
 
     private var tileBackground: Color {
-        if isSelected { return FoundryTheme.accentTint.opacity(0.13) }
-        if isHovering && hoverHighlightsArmed { return Color.primary.opacity(0.06) }
-        return Color.primary.opacity(0.03)
+        if isSelected { return FoundryTheme.accentTintFill }
+        if isHovering && hoverHighlightsArmed { return FoundryTheme.fillHover }
+        return FoundryTheme.fillSubtle
     }
 
     private var tileBorder: Color {
-        if isSelected { return FoundryTheme.accentTint.opacity(0.75) }
-        if isHovering && hoverHighlightsArmed { return Color.primary.opacity(0.16) }
-        return Color.primary.opacity(0.07)
+        if isSelected { return FoundryTheme.accentStrong }
+        if isHovering && hoverHighlightsArmed { return FoundryTheme.stroke }
+        return FoundryTheme.fillTint
     }
 }
 
@@ -498,10 +497,8 @@ private struct UtilitySection<Content: View>: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 5) {
             Text(title)
-                .font(FoundryTheme.body(size: 9, weight: .semibold))
-                .tracking(0.55)
-                .foregroundStyle(FoundryTheme.faintText)
-                .textCase(.uppercase)
+                .font(FoundryTheme.micro)
+                .foregroundStyle(FoundryTheme.textQuaternary)
             content
         }
     }
@@ -524,27 +521,27 @@ private struct UtilityActionButton: View {
         } label: {
             HStack(spacing: 8) {
                 Image(systemName: systemName)
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(isSelected ? FoundryTheme.accentTint : FoundryTheme.secondaryText)
+                    .font(FoundryTheme.Glyph.xs)
+                    .foregroundStyle(isSelected ? FoundryTheme.accent : FoundryTheme.textSecondary)
                     .frame(width: 16)
 
                 Text(title)
-                    .font(FoundryTheme.body(size: 11, weight: .medium))
-                    .foregroundStyle(FoundryTheme.primaryText)
+                    .font(FoundryTheme.caption)
+                    .foregroundStyle(FoundryTheme.textPrimary)
                     .lineLimit(1)
 
                 Spacer(minLength: 0)
 
                 if isSelected {
                     Text("↵")
-                        .font(FoundryTheme.body(size: 10, weight: .semibold))
-                        .foregroundStyle(FoundryTheme.accentTint)
+                        .font(FoundryTheme.micro)
+                        .foregroundStyle(FoundryTheme.accent)
                 }
             }
             .padding(.horizontal, 8)
-            .frame(height: 29)
+            .frame(height: FoundryTheme.Control.compact)
             .background(controlBackground)
-            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: FoundryTheme.Radius.control, style: .continuous))
         }
         .buttonStyle(PressableButtonStyle())
         .disabled(result == nil)
@@ -552,13 +549,12 @@ private struct UtilityActionButton: View {
             isHovering = hovering
             if hovering, hoverHighlightsArmed, let result { onHover(result) }
         }
-        .pointerCursor()
         .accessibilityLabel(title)
     }
 
     private var controlBackground: Color {
-        if isSelected { return FoundryTheme.accentTint.opacity(0.09) }
-        if isHovering && hoverHighlightsArmed { return Color.primary.opacity(0.06) }
+        if isSelected { return FoundryTheme.accentSubtle }
+        if isHovering && hoverHighlightsArmed { return FoundryTheme.fillHover }
         return Color.clear
     }
 }
@@ -579,15 +575,15 @@ private struct UtilityIconButton: View {
             if let result { onSelect(result) }
         } label: {
             Image(systemName: systemName)
-                .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(isSelected ? FoundryTheme.accentTint : FoundryTheme.secondaryText)
+                .font(FoundryTheme.Glyph.xs)
+                .foregroundStyle(isSelected ? FoundryTheme.accent : FoundryTheme.textSecondary)
                 .frame(maxWidth: .infinity)
-                .frame(height: 28)
+                .frame(height: FoundryTheme.Control.compact)
                 .background(controlBackground)
-                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                .clipShape(RoundedRectangle(cornerRadius: FoundryTheme.Radius.control, style: .continuous))
                 .overlay {
-                    RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .strokeBorder(Color.primary.opacity(isHovering ? 0.12 : 0.05), lineWidth: 0.5)
+                    RoundedRectangle(cornerRadius: FoundryTheme.Radius.control, style: .continuous)
+                        .strokeBorder(isHovering ? FoundryTheme.separator : FoundryTheme.fillSubtle, lineWidth: 0.5)
                 }
         }
         .buttonStyle(PressableButtonStyle())
@@ -596,16 +592,15 @@ private struct UtilityIconButton: View {
             isHovering = hovering
             if hovering, hoverHighlightsArmed, let result { onHover(result) }
         }
-        .pointerCursor()
         .help(label)
         .accessibilityLabel(label)
         .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 
     private var controlBackground: Color {
-        if isSelected { return FoundryTheme.accentTint.opacity(0.09) }
-        if isHovering && hoverHighlightsArmed { return Color.primary.opacity(0.06) }
-        return Color.primary.opacity(0.025)
+        if isSelected { return FoundryTheme.accentSubtle }
+        if isHovering && hoverHighlightsArmed { return FoundryTheme.fillHover }
+        return FoundryTheme.fillSubtle
     }
 }
 
@@ -620,16 +615,16 @@ private struct LayoutDiagram: View {
             let content = bounds.insetBy(dx: inset, dy: inset)
 
             ZStack {
-                RoundedRectangle(cornerRadius: 5, style: .continuous)
-                    .fill(Color.primary.opacity(0.05))
+                RoundedRectangle(cornerRadius: FoundryTheme.Radius.badge, style: .continuous)
+                    .fill(FoundryTheme.fillHover)
                     .overlay {
-                        RoundedRectangle(cornerRadius: 5, style: .continuous)
-                            .stroke(Color.primary.opacity(isSelected ? 0.26 : 0.15), lineWidth: 1)
+                        RoundedRectangle(cornerRadius: FoundryTheme.Radius.badge, style: .continuous)
+                            .stroke(isSelected ? FoundryTheme.stroke : FoundryTheme.selectionBorder, lineWidth: 1)
                     }
 
                 ForEach(Array((placement?.previewWindows(in: content) ?? []).enumerated()), id: \.offset) { _, window in
-                    RoundedRectangle(cornerRadius: 2.5, style: .continuous)
-                        .fill(window.isActive ? FoundryTheme.accentTint.opacity(isSelected ? 0.95 : 0.6) : Color.primary.opacity(0.13))
+                    RoundedRectangle(cornerRadius: FoundryTheme.Radius.tile, style: .continuous)
+                        .fill(window.isActive ? (isSelected ? FoundryTheme.accent : FoundryTheme.accentStrong) : FoundryTheme.separator)
                         .frame(width: window.frame.width, height: window.frame.height)
                         .position(x: window.frame.midX, y: window.frame.midY)
                 }
@@ -645,8 +640,7 @@ private struct LayoutPreviewWindow {
 
 private extension CommandResult {
     var windowPlacement: FoundryDomain.WindowPlacement? {
-        guard case let .tileWindow(placement) = primaryAction.kind else { return nil }
-        return placement
+        (primaryAction.behavior as? TileWindowAction)?.placement
     }
 }
 
@@ -751,7 +745,8 @@ private extension FoundryDomain.WindowPlacement {
             return frames.enumerated().map { index, frame in
                 LayoutPreviewWindow(frame: frame, isActive: index == activeIndex)
             }
-        case .leftTwoThirds, .centerTwoThirds, .rightTwoThirds, .firstFourth, .secondFourth, .thirdFourth, .lastFourth, .firstThreeFourths, .lastThreeFourths, .centerHalf:
+        case .leftTwoThirds, .centerTwoThirds, .rightTwoThirds, .firstFourth, .secondFourth, .thirdFourth, .lastFourth, .firstThreeFourths,
+            .lastThreeFourths, .centerHalf:
             guard let (start, fraction) = columnSpan else { return [] }
             let active = CGRect(x: frame.minX + frame.width * start, y: frame.minY, width: frame.width * fraction, height: frame.height)
             let leading = CGRect(x: frame.minX, y: frame.minY, width: active.minX - frame.minX - gap, height: frame.height)

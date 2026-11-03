@@ -1,45 +1,132 @@
 import AppKit
 import Carbon
+import FoundryDomain
 import SwiftUI
+
+private typealias Brand = FoundryTheme.Brand
 
 struct OnboardingView: View {
     var state: OnboardingState
-    private var panel: CommandPanelState
-    private var permissions: PermissionHealthState
+    var keyboard: KeyboardMirror
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var panelOpenedForTryIt = false
-    @State private var clipboardHotkeyOn = false
+    @Environment(\.controlActiveState) private var windowState
+    /// The opening plays when the user can first see it: macOS may open the
+    /// window behind the frontmost app and bring it forward later.
+    @State private var windowSeen = false
+    /// Offscreen renders never become key.
+    var opensImmediately = false
+    @State private var demoKeys: Set<String> = []
+    @State private var launch = OnboardingState.SuggestedLaunch(name: "Safari", prefix: "sa")
 
-    init(state: OnboardingState) {
-        self.state = state
-        self.panel = state.panel
-        self.permissions = state.permissions
-    }
+    static let size = CGSize(width: 880, height: 580)
+    private static let margin: CGFloat = 64
+    /// Level with the lists on the other steps.
+    private static let keyboardTop: CGFloat = 177
+    private static let controlsTop: CGFloat = 406
+    /// Every list starts the same distance under its headline.
+    private static let listGap: CGFloat = 36
+    private static let welcomeMarkHeight: CGFloat = 350
+    /// The headline and footer wait for most of the cast, not all of it.
+    private static let welcomeCastBeat = 0.8
+
+    private var panel: CommandPanelState { state.panel }
+    private var permissions: PermissionHealthState { state.permissions }
+    private var hotkey: FoundryHotkey { panel.settings.hotkey }
 
     var body: some View {
-        VStack(spacing: 0) {
-            stepContent
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .id(state.step)
-                .transition(reduceMotion ? .opacity : .asymmetric(
-                    insertion: .opacity.combined(with: .offset(x: 24)).combined(with: .scale(scale: 0.98)),
-                    removal: .opacity.combined(with: .offset(x: -24)).combined(with: .scale(scale: 1.02))
-                ))
+        ZStack(alignment: .topLeading) {
+            RadialGradient(colors: [Brand.inkGlow, Brand.ink], center: UnitPoint(x: 0.65, y: 0.45), startRadius: 0, endRadius: 640)
 
-            footer
+            if state.step == .shortcut {
+                EllipticalGradient(colors: [Brand.accentGlow, .clear])
+                    .frame(width: 680, height: 260)
+                    .offset(x: 80, y: 230)
+                    .opacity(state.didLaunch ? 1 : 0)
+                    .animation(Brand.Motion.enter, value: state.didLaunch)
+                    .allowsHitTesting(false)
+                ChalkKeyboard(modifiers: chord.modifiers, keyCode: chord.keyCode, hot: state.didLaunch) { key, lit in
+                    keyboard.isPressed(key) || demoKeys.contains(key.id) || (lit && keyboard.flashing)
+                }
+                    .padding(.top, Self.keyboardTop)
+                    .padding(.horizontal, Self.margin)
+                    .transition(.opacity)
+            }
+
+            if windowSeen || opensImmediately {
+                stepContent
+                    .id(state.step)
+                    .transition(stepTransition)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                // The cast plays alone; the footer arrives with the headline.
+                Reveal(index: 1, after: reduceMotion ? 0 : (state.step == .welcome ? Self.welcomeCastBeat : 0)) { footer }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+                if state.step != .welcome && state.step != .done && awaitingLaunch == false {
+                    Button("Skip setup") { state.abandon() }
+                        .buttonStyle(BrandQuietButtonStyle(dim: true))
+                        .padding(.top, 30)
+                        .padding(.trailing, Self.margin)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+                        .transition(.opacity)
+                }
+            }
         }
-        .background(FoundryBackdrop(intensity: 0.72, isOpaque: false))
-        .onChange(of: panel.presentationToken) { _, _ in
-            if state.step == .tryIt { panelOpenedForTryIt = true }
+        .frame(width: Self.size.width, height: Self.size.height)
+        // The titlebar is transparent; the brand ground runs under it.
+        .ignoresSafeArea()
+        .environment(\.colorScheme, .dark)
+        .animation(Brand.Motion.step, value: state.step)
+        .onChange(of: windowState, initial: true) { _, state in
+            if state == .key { windowSeen = true }
         }
-        .animation(reduceMotion ? .easeInOut(duration: 0.15) : .spring(response: 0.32, dampingFraction: 0.9), value: state.step)
         .onAppear {
-            clipboardHotkeyOn = clipboardHotkeyIsSet
+            keyboard.onRecord = { [state] recorded in
+                if recorded == .commandSpace { state.claimCommandSpace() } else { state.panel.settings.setHotkey(recorded) }
+            }
+            keyboard.onCommandSpace = { [state] in state.commandSpaceReachedWindow() }
         }
-        .onExitCommand {
-            state.finish()
+        .onChange(of: panel.presentationToken) { _, _ in
+            if state.step == .shortcut, state.didLaunch == false {
+                panel.searchHint = String(localized: "Type \(launch.prefix) and press Return")
+            }
+            keyboard.flash()
         }
+        .onChange(of: panel.isPanelOpen) { _, isOpen in
+            guard isOpen == false else { return }
+            panel.searchHint = nil
+            state.panelClosedWithoutLaunch()
+        }
+        .onChange(of: state.step) { _, step in
+            keyboard.isRecording = false
+            announce(Self.spokenTitle(for: step, receipt: state.receipt))
+        }
+        .onChange(of: state.didLaunch) { _, launched in
+            if launched { announce(String(localized: "That’s the whole idea. \(launch.name) opened.")) }
+        }
+        .onExitCommand { state.abandon() }
+    }
+
+    static func spokenTitle(for step: OnboardingStep, receipt: [String]) -> String {
+        switch step {
+        case .welcome: String(localized: "Welcome to Foundry")
+        case .shortcut: String(localized: "One keystroke opens everything")
+        case .bringYourStuff: String(localized: "Bring your snippets")
+        case .done: receipt.joined(separator: ". ")
+        }
+    }
+
+    private func announce(_ message: String) {
+        NSAccessibility.post(element: NSApp as Any, notification: .announcementRequested,
+            userInfo: [.announcement: message, .priority: NSAccessibilityPriorityLevel.high.rawValue])
+    }
+
+    /// A crossfade; the slight blur makes the two steps read as one change.
+    private var stepTransition: AnyTransition {
+        reduceMotion ? .opacity : .opacity.combined(with: .modifier(active: StepBlur(radius: 4), identity: StepBlur(radius: 0)))
+    }
+
+    private var chord: (modifiers: UInt32, keyCode: UInt32?) {
+        keyboard.isRecording ? (keyboard.heldModifiers, nil) : (hotkey.modifiers, hotkey.keyCode)
     }
 
     @ViewBuilder
@@ -47,516 +134,375 @@ struct OnboardingView: View {
         switch state.step {
         case .welcome: welcomeStep
         case .shortcut: shortcutStep
-        case .tryIt: tryItStep
-        case .preferences: preferencesStep
-        case .permissions: permissionsStep
-        case .ai: aiStep
+        case .bringYourStuff: bringYourStuffStep
         case .done: doneStep
         }
     }
 
-    private var welcomeStep: some View {
-        VStack(spacing: 20) {
-            Spacer()
-            OnboardingReveal(index: 0) {
-                Image(nsImage: NSApp.applicationIconImage)
-                    .resizable()
-                    .frame(width: 96, height: 96)
-                    .shadow(color: Color(red: 0.98, green: 0.39, blue: 0.16).opacity(0.38), radius: 26, y: 8)
-            }
-            OnboardingReveal(index: 1) {
-                Text("Everything on your Mac, one keystroke away.")
-                    .font(.system(size: 26, weight: .semibold))
-                    .foregroundStyle(FoundryTheme.primaryText)
-                    .multilineTextAlignment(.center)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-            OnboardingReveal(index: 2) {
-                Text("Launch apps, run commands, and ask AI from a single panel.")
-                    .font(FoundryTheme.body(size: 14, weight: .regular))
-                    .foregroundStyle(FoundryTheme.secondaryText)
-                    .multilineTextAlignment(.center)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-            Spacer()
-        }
-        .padding(.horizontal, 48)
+    private func page<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 0, content: content)
+            .padding(.horizontal, Self.margin)
+            .padding(.top, Self.margin)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
+
+    // MARK: Welcome
+
+    private var welcomeStep: some View {
+        ZStack(alignment: .bottomLeading) {
+            CastMark()
+                .frame(height: Self.welcomeMarkHeight)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+            Reveal(index: 0, after: reduceMotion ? 0 : Self.welcomeCastBeat) {
+                BrandHeadline(lines: ["Welcome", "to Foundry"],
+                              lead: "Everything on your Mac, one keystroke away.",
+                              large: true)
+            }
+        }
+        .padding(.horizontal, Self.margin)
+        .padding(.top, 72)
+        // The lead's baseline sits on the mark's base; its descenders hang below.
+        .padding(.bottom, Self.size.height - 72 - Self.welcomeMarkHeight - 5)
+    }
+
+    // MARK: Shortcut
 
     private var shortcutStep: some View {
-        VStack(spacing: 18) {
-            Spacer()
-            Text(panel.hotkey.displayName)
-                .font(.system(size: 34, weight: .medium, design: .rounded))
-                .foregroundStyle(FoundryTheme.primaryText)
-                .padding(.horizontal, 28)
-                .padding(.vertical, 14)
-                .background(Color.primary.opacity(0.07))
-                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .strokeBorder(Color.primary.opacity(0.14), lineWidth: 1)
-                )
-
-            Text("Press it anywhere to open Foundry.")
-                .font(FoundryTheme.body(size: 13, weight: .regular))
-                .foregroundStyle(FoundryTheme.secondaryText)
-
-            ShortcutRecorder(hotkey: panel.hotkey, placeholder: "Record a different shortcut", onChange: { hotkey in
-                if hotkey == .commandSpace { state.useCommandSpace() } else { panel.setHotkey(hotkey) }
-            })
-                .frame(width: 260, height: 30)
-
-            Button("Use ⌘Space instead") {
-                state.useCommandSpace()
-            }
-            .buttonStyle(FoundryQuietButtonStyle())
-            .font(FoundryTheme.body(size: 12, weight: .semibold))
-            .foregroundStyle(FoundryTheme.accentTint)
-            .pointerCursor()
-
-            if state.spotlightHoldsCommandSpace {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("⌘Space is still held by Spotlight:")
-                        .font(FoundryTheme.body(size: 12, weight: .semibold))
-                        .foregroundStyle(FoundryTheme.warning)
-                    Text("1. Open Keyboard Shortcuts\n2. Turn off “Show Spotlight search”")
-                        .font(FoundryTheme.body(size: 12, weight: .regular))
-                        .foregroundStyle(FoundryTheme.secondaryText)
-                    Button("Open Keyboard Shortcuts") {
-                        state.openSpotlightShortcutSettings()
-                    }
-                    .buttonStyle(FoundryQuietButtonStyle())
-                    .font(FoundryTheme.body(size: 12, weight: .semibold))
-                    .foregroundStyle(FoundryTheme.primaryText)
-                    .pointerCursor()
+        page {
+            Group {
+                if state.didLaunch {
+                    BrandHeadline(lines: ["That’s the whole idea"],
+                                  lead: "\(launch.name) opened. \(hotkey.spokenName) works from any app.")
+                } else if state.openedWithoutLaunch {
+                    BrandHeadline(lines: ["Now open something"], lead: "Press \(hotkey.spokenName), type \(launch.prefix), and press Return.")
+                } else {
+                    BrandHeadline(lines: ["One keystroke opens everything"],
+                                  lead: "Press \(hotkey.spokenName), type \(launch.prefix), and press Return to open \(launch.name).")
                 }
-                .padding(14)
-                .frame(maxWidth: 360, alignment: .leading)
-                .background(Color.primary.opacity(0.06))
-                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
             }
-
-            if state.isWaitingForSpotlight {
-                Label("Turning off Spotlight's ⌘Space shortcut…", systemImage: "clock")
-                    .font(FoundryTheme.body(size: 12, weight: .medium))
-                    .foregroundStyle(FoundryTheme.mutedText)
+            .id(state.didLaunch ? 2 : (state.openedWithoutLaunch ? 1 : 0))
+            .transition(.opacity)
+            .animation(Brand.Motion.step, value: state.openedWithoutLaunch)
+            .animation(Brand.Motion.step, value: state.didLaunch)
+            Spacer(minLength: 0)
+                .task { await demonstratePress() }
+            HStack(alignment: .top, spacing: 20) {
+                Reveal(index: 1) { shortcutControls }
+                Spacer(minLength: 0)
+                Reveal(index: 2) { shortcutStatus }
+                    .padding(.top, 10)
             }
-
-            if panel.launcherHotkeyFailed {
-                InlineNotice(
-                    level: .error,
-                    text: "\(panel.hotkey.displayName) is in use by another app. Record a different shortcut above."
-                )
-                .frame(maxWidth: 400)
-            }
-            Spacer()
+            .frame(height: Self.size.height - Self.controlsTop, alignment: .top)
         }
-        .padding(.horizontal, 48)
+        .onAppear {
+            launch = OnboardingState.suggestedLaunchOnThisMac()
+            state.detectCommandSpaceHolders()
+            state.refreshLocalModelDetection()
+        }
     }
 
-    private var tryItStep: some View {
-        VStack(spacing: 18) {
-            Spacer()
-            if state.didTryPanel {
-                Image(systemName: "checkmark.circle.fill")
-                    .font(.system(size: 44))
-                    .foregroundStyle(FoundryTheme.success)
-                    .symbolEffect(.bounce, options: .nonRepeating, value: state.didTryPanel)
-                Text("That’s the whole idea.")
-                    .font(.system(size: 22, weight: .semibold))
-                    .foregroundStyle(FoundryTheme.primaryText)
-                    .fixedSize(horizontal: false, vertical: true)
-            } else if panelOpenedForTryIt {
-                Image(systemName: "text.cursor")
-                    .font(.system(size: 36))
-                    .foregroundStyle(FoundryTheme.accentTint)
-                Text("Type an app name, press Return")
-                    .font(.system(size: 22, weight: .semibold))
-                    .foregroundStyle(FoundryTheme.primaryText)
-                    .multilineTextAlignment(.center)
-                    .fixedSize(horizontal: false, vertical: true)
-                Text("Foundry runs your top hit instantly.")
-                    .font(FoundryTheme.body(size: 14, weight: .regular))
-                    .foregroundStyle(FoundryTheme.secondaryText)
-                    .multilineTextAlignment(.center)
-                    .fixedSize(horizontal: false, vertical: true)
+    private var shortcutControls: some View {
+        ShortcutField(recording: keyboard.isRecording,
+                      keys: keyboard.isRecording ? heldKeys : hotkeyKeys) { keyboard.isRecording.toggle() }
+    }
+
+    private var needsConsent: Bool {
+        hotkey == .commandSpace && state.didClaimCommandSpace == false && state.commandSpaceHolders.isEmpty == false
+    }
+
+    @ViewBuilder
+    private var shortcutStatus: some View {
+        VStack(alignment: .trailing, spacing: 10) {
+            if needsConsent {
+                let holders = state.commandSpaceHolders.formatted(.list(type: .and))
+                StatusLine(kind: .problem, text: state.commandSpaceHolders.count == 1 ? "\(holders) uses ⌘ Space." : "\(holders) use ⌘ Space.")
+                HStack(spacing: 14) {
+                    Button("Use ⌥ Space") { state.useOptionSpace() }
+                        .buttonStyle(BrandQuietButtonStyle())
+                    Button("Take ⌘ Space") { state.claimCommandSpace() }
+                        .buttonStyle(BrandSecondaryButtonStyle())
+                }
+            } else if state.commandSpaceUnreachable && hotkey == .commandSpace {
+                StatusLine(kind: .problem, text: "Another app has ⌘ Space.")
+                HStack(spacing: 14) {
+                    Button("Record Your Own") { keyboard.isRecording = true }
+                        .buttonStyle(BrandQuietButtonStyle())
+                    Button("Use ⌥ Space") { state.useOptionSpace() }
+                        .buttonStyle(BrandSecondaryButtonStyle())
+                }
+            } else if panel.settings.launcherHotkeyFailed {
+                StatusLine(kind: .problem, text: "\(hotkey.spokenName) is taken by another app. Record a different shortcut.")
+            }
+            if state.didClaimSpotlight {
+                if state.spotlightHoldsCommandSpace {
+                    HStack(spacing: 14) {
+                        StatusLine(kind: .problem, text: "Spotlight still has ⌘ Space.")
+                        Button("Open Keyboard Shortcuts") { state.openSpotlightShortcutSettings() }
+                            .buttonStyle(BrandQuietButtonStyle())
+                    }
+                } else if state.isWaitingForSpotlight {
+                    StatusLine(kind: .working, text: "Turning off Spotlight’s ⌘ Space")
+                } else {
+                    StatusLine(kind: .done, text: "Spotlight’s ⌘ Space turned off")
+                }
+            }
+            ForEach(state.takeovers) { takeover in
+                switch takeover.status {
+                case .working: StatusLine(kind: .working, text: "Moving \(takeover.name) to ⌥ Space")
+                case .done: StatusLine(kind: .done, text: "\(takeover.name) moved to ⌥ Space")
+                case .failed: StatusLine(kind: .problem, text: "Couldn’t change \(takeover.name). Change its hotkey in \(takeover.name) settings.")
+                }
+            }
+        }
+        .animation(Brand.Motion.state, value: state.takeovers)
+        .animation(Brand.Motion.state, value: needsConsent)
+    }
+
+    /// Presses the chord on the keycaps once, and again only after the user sits idle.
+    private func demonstratePress() async {
+        guard reduceMotion == false else { return }
+        var delay: Duration = .seconds(1.4)
+        while state.didLaunch == false, state.openedWithoutLaunch == false, state.step == .shortcut {
+            do {
+                try await Task.sleep(for: delay)
+                for key in BoardKey.macBook.joined() where key.isLit(modifiers: chord.modifiers, keyCode: chord.keyCode) {
+                    demoKeys.insert(key.id)
+                    try await Task.sleep(for: .milliseconds(140))
+                }
+                try await Task.sleep(for: .milliseconds(320))
+                demoKeys.removeAll()
+                delay = .seconds(6)
+            } catch {
+                demoKeys.removeAll()
+                return
+            }
+        }
+        demoKeys.removeAll()
+    }
+
+    // MARK: Bring your stuff
+
+    private var bringYourStuffStep: some View {
+        page {
+            Reveal(index: 0) {
+                BrandHeadline(lines: ["Bring your snippets"], lead: "Foundry reads what you already saved. Nothing in the other app changes.")
+            }
+            Reveal(index: 1) {
+                BrandList {
+                    ForEach(Array(state.importSources.enumerated()), id: \.element.id) { index, source in
+                        if index > 0 { BrandDivider() }
+                        importRow(source)
+                    }
+                }
+            }
+            .padding(.top, Self.listGap)
+        }
+    }
+
+    private func importRow(_ source: ImportSource) -> some View {
+        HStack(spacing: 16) {
+            switch source.kind {
+            case .alfred:
+                BrandRowText(title: "Alfred", detail: String(localized: "\(source.available ?? 0) snippets"))
+            case .raycast:
+                BrandRowText(title: "Raycast", detail: String(localized: "Export snippets from Raycast, then choose the file."))
+            }
+            if let imported = source.imported {
+                StatusLine(kind: .done, text: "\(imported) imported")
             } else {
-                OnboardingReveal(index: 0) {
-                    PulsingKeycap(text: panel.hotkey.displayName)
-                }
-                OnboardingReveal(index: 1) {
-                    Text("Press it now")
-                        .font(.system(size: 26, weight: .semibold))
-                        .foregroundStyle(FoundryTheme.primaryText)
-                        .multilineTextAlignment(.center)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-                OnboardingReveal(index: 2) {
-                    Text("The panel opens right over this window.")
-                        .font(FoundryTheme.body(size: 14, weight: .regular))
-                        .foregroundStyle(FoundryTheme.secondaryText)
-                        .multilineTextAlignment(.center)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
+                Button(source.kind == .alfred ? "Import" : "Choose File…") { importSnippets(from: source.kind) }
+                    .buttonStyle(BrandSecondaryButtonStyle())
             }
-            Spacer()
         }
-        .padding(.horizontal, 48)
-        .overlay(ConfettiBurst(trigger: tryItConfetti))
-        .onChange(of: state.didTryPanel) { _, tried in
-            if tried { tryItConfetti &+= 1 }
-        }
+        .padding(.horizontal, 18)
+        .padding(.vertical, 14)
     }
 
-    @State private var tryItConfetti = 0
-
-    private var preferencesStep: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            Spacer()
-            Text("Make it yours")
-                .font(.system(size: 20, weight: .semibold))
-                .foregroundStyle(FoundryTheme.primaryText)
-                .frame(maxWidth: .infinity)
-
-            OnboardingToggle(
-                title: "Launch at login",
-                detail: panel.launchAtLoginError ?? "Foundry is ready the moment you sign in.",
-                isOn: Binding(get: { panel.launchAtLoginEnabled }, set: { panel.setLaunchAtLogin($0) }),
-                onChange: nil
-            )
-            .disabled(panel.launchAtLoginAvailable == false)
-            OnboardingToggle(
-                title: "Show in menu bar",
-                detail: "Quick access to the panel and clipboard.",
-                isOn: Binding(get: { state.menuBarIconOn }, set: { state.setMenuBarIcon($0) }),
-                onChange: nil
-            )
-            OnboardingToggle(
-                title: "Clipboard history",
-                detail: "Stored only on this Mac. Items password managers mark private are never saved.",
-                isOn: Binding(get: { state.clipboardCaptureOn }, set: { state.setClipboardCapture($0) }),
-                onChange: nil
-            )
-            Spacer()
-        }
-        .padding(.horizontal, 56)
+    private func importSnippets(from kind: ImportSource.Kind) {
+        guard kind == .raycast else { return state.importSnippets(from: kind) }
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [.json]
+        panel.allowsMultipleSelection = false
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        state.importSnippets(from: .raycast, file: url)
     }
 
-    private var permissionsStep: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            Spacer()
-            Text("Superpowers, only if you want them")
-                .font(.system(size: 20, weight: .semibold))
-                .foregroundStyle(FoundryTheme.primaryText)
-                .frame(maxWidth: .infinity)
-
-            ForEach(PermissionKind.allCases) { kind in
-                HStack(spacing: 12) {
-                    Image(systemName: kind.symbol)
-                        .font(.system(size: 16, weight: .medium))
-                        .foregroundStyle(FoundryTheme.secondaryText)
-                        .frame(width: 28)
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(kind.title)
-                            .font(FoundryTheme.body(size: 13, weight: .semibold))
-                            .foregroundStyle(FoundryTheme.primaryText)
-                        Text(kind.purpose)
-                            .font(FoundryTheme.body(size: 11, weight: .regular))
-                            .foregroundStyle(FoundryTheme.mutedText)
-                            .lineLimit(2)
-                    }
-                    Spacer()
-                    let status = permissions.status(for: kind)
-                    if status == .granted {
-                        Label("Allowed", systemImage: "checkmark.circle.fill")
-                            .font(FoundryTheme.body(size: 11, weight: .semibold))
-                            .foregroundStyle(FoundryTheme.success)
-                    } else if status == .notGranted {
-                        Button("Grant") { permissions.request(kind) }
-                            .buttonStyle(FoundryQuietButtonStyle())
-                            .font(FoundryTheme.body(size: 12, weight: .semibold))
-                            .foregroundStyle(FoundryTheme.accentTint)
-                            .pointerCursor()
-                    } else {
-                        Text(status.label)
-                            .font(FoundryTheme.body(size: 11, weight: .medium))
-                            .foregroundStyle(FoundryTheme.mutedText)
-                    }
-                }
-                .padding(.horizontal, 14)
-                .padding(.vertical, 12)
-                .onboardingCard()
-            }
-            Spacer()
-        }
-        .padding(.horizontal, 56)
-        .onAppear { permissions.startPolling() }
-        .onDisappear { permissions.stopPolling() }
-    }
-
-    private var aiStep: some View {
-        VStack(spacing: 14) {
-            Spacer()
-            Text("AI, your way")
-                .font(.system(size: 20, weight: .semibold))
-                .foregroundStyle(FoundryTheme.primaryText)
-                .frame(maxWidth: .infinity)
-
-            aiChoiceButton(
-                title: "Use Apple Intelligence",
-                detail: OnboardingState.appleIntelligenceAvailable
-                    ? "Runs on-device. Nothing leaves this Mac."
-                    : "Not available on this Mac yet.",
-                enabled: OnboardingState.appleIntelligenceAvailable
-            ) { state.chooseAI(.appleIntelligence) }
-
-            aiChoiceButton(
-                title: "Use a local model",
-                detail: state.detectedLocalKind.map { "\($0.displayName) detected on this Mac." }
-                    ?? "No Ollama or LM Studio found. You can set one up later.",
-                enabled: state.detectedLocalKind != nil
-            ) { state.chooseAI(.localModel) }
-
-            aiChoiceButton(
-                title: "Add an API key later",
-                detail: "Skip for now. You can set up AI later in Settings.",
-                enabled: true
-            ) { state.chooseAI(.later) }
-
-            Button("Turn AI off") { state.chooseAI(.off) }
-                .buttonStyle(FoundryQuietButtonStyle())
-                .font(FoundryTheme.body(size: 12, weight: .medium))
-                .foregroundStyle(FoundryTheme.mutedText)
-                .pointerCursor()
-            Spacer()
-        }
-        .padding(.horizontal, 56)
-        .onAppear { state.refreshLocalModelDetection() }
-    }
-
-    private func aiChoiceButton(title: String, detail: String, enabled: Bool, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            HStack {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(title)
-                        .font(FoundryTheme.body(size: 13, weight: .semibold))
-                        .foregroundStyle(enabled ? FoundryTheme.primaryText : FoundryTheme.faintText)
-                    Text(detail)
-                        .font(FoundryTheme.body(size: 11, weight: .regular))
-                        .foregroundStyle(FoundryTheme.mutedText)
-                }
-                Spacer()
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(FoundryTheme.faintText)
-            }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 12)
-            .onboardingCard()
-        }
-        .buttonStyle(FoundryQuietButtonStyle())
-        .opacity(enabled ? 1 : 0.55)
-        .disabled(enabled == false)
-        .pointerCursor()
-    }
-
-    private var clipboardHotkeyIsSet: Bool {
-        panel.commandPreferences["foundry.clipboard-history"]?.globalHotkey != nil
-    }
+    // MARK: Done
 
     private var doneStep: some View {
-        VStack(spacing: 16) {
-            Spacer()
-            Text("You’re set")
-                .font(.system(size: 22, weight: .semibold))
-                .foregroundStyle(FoundryTheme.primaryText)
-
-            VStack(spacing: 0) {
-                cheatRow(panel.hotkey.displayName, "Open Foundry")
-                cheatRow("Tab", "Ask AI")
-                cheatRow("⌘K", "Actions on a result")
-                cheatRow("⌘,", "Settings")
+        let receipt = state.receipt
+        return page {
+            Reveal(index: 0) {
+                BrandHeadline(lines: [LocalizedStringKey(receipt.first ?? "")])
             }
-            .onboardingCard()
-            .frame(maxWidth: 400)
-
-            Toggle(isOn: $clipboardHotkeyOn) {
-                Text("⇧⌘V opens Clipboard History")
-                    .font(FoundryTheme.body(size: 13, weight: .medium))
-                    .foregroundStyle(FoundryTheme.primaryText)
-            }
-            .toggleStyle(.switch)
-            .controlSize(.small)
-            .onChange(of: clipboardHotkeyOn) { _, on in
-                let hotkey: FoundryHotkey? = on
-                    ? FoundryHotkey(keyCode: UInt32(kVK_ANSI_V), modifiers: UInt32(cmdKey | shiftKey), displayName: "⇧⌘V")
-                    : nil
-                panel.setCommandHotkey(hotkey, for: "foundry.clipboard-history")
-            }
-            .frame(maxWidth: 400)
-            Spacer()
-        }
-        .padding(.horizontal, 48)
-        .overlay(ConfettiBurst(trigger: doneConfetti))
-        .onAppear { doneConfetti &+= 1 }
-    }
-
-    @State private var doneConfetti = 0
-
-    private func cheatRow(_ keys: String, _ label: String) -> some View {
-        HStack {
-            Text(label)
-                .font(FoundryTheme.body(size: 13, weight: .medium))
-                .foregroundStyle(FoundryTheme.secondaryText)
-            Spacer()
-            KeycapHint(text: keys)
-        }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 10)
-    }
-
-    private var footer: some View {
-        HStack(spacing: 8) {
-            ForEach(Array(OnboardingStep.allCases.enumerated()), id: \.offset) { index, step in
-                Capsule()
-                    .fill(step == state.step ? FoundryTheme.accentTint : Color.primary.opacity(0.18))
-                    .frame(width: step == state.step ? 20 : 6, height: 6)
-                    .animation(reduceMotion ? nil : .spring(response: 0.34, dampingFraction: 0.72), value: state.step)
-                    .accessibilityLabel("Step \(index + 1) of \(OnboardingStep.allCases.count)\(step == state.step ? ", current" : "")")
-            }
-
-            Spacer()
-
-            if state.step != .welcome && state.step != .done {
-                Button("Skip") { state.finish() }
-                    .buttonStyle(FoundryQuietButtonStyle())
-                    .font(FoundryTheme.body(size: 12, weight: .medium))
-                    .foregroundStyle(FoundryTheme.mutedText)
-                    .pointerCursor()
-                    .keyboardShortcut(.cancelAction)
-            }
-
-            if state.canGoBack {
-                Button {
-                    state.back()
-                } label: {
-                    Image(systemName: "chevron.left")
-                        .font(.system(size: 13, weight: .semibold))
+            Reveal(index: 1) {
+                BrandList {
+                    ForEach(receipt.dropFirst(), id: \.self) { line in
+                        HStack(spacing: 12) {
+                            Image(systemName: "checkmark").foregroundStyle(Brand.accent)
+                            Text(line).font(Brand.rowTitle).tracking(Brand.bodyTracking).foregroundStyle(Brand.text)
+                            Spacer()
+                        }
+                        .padding(.horizontal, 18)
+                        .frame(height: FoundryTheme.Control.rowDouble)
+                        .accessibilityElement(children: .combine)
+                        BrandDivider()
+                    }
+                    Toggle(isOn: Binding(get: { state.startsAtLogin }, set: { state.startsAtLogin = $0 })) {
+                        BrandRowText(title: "Starts when you log in", detail: String(localized: "So the shortcut works after a restart."))
+                    }
+                    .toggleStyle(BrandToggleStyle())
+                    .disabled(panel.settings.launchAtLoginAvailable == false)
+                    .padding(.horizontal, 18)
+                    .padding(.vertical, 14)
+                    BrandDivider()
+                    BrandRowText(title: "Foundry lives in the menu bar", detail: String(localized: "Its icon opens the panel and Settings."))
+                        .padding(.horizontal, 18)
+                        .padding(.vertical, 14)
                 }
-                .buttonStyle(FoundryQuietButtonStyle())
-                .foregroundStyle(FoundryTheme.secondaryText)
-                .pointerCursor()
-                .accessibilityLabel("Back")
-                .keyboardShortcut(.leftArrow, modifiers: [])
             }
-
-            Button(primaryButtonTitle) {
-                state.advance()
-            }
-            .buttonStyle(.borderedProminent)
-            .controlSize(.large)
-            .keyboardShortcut(.defaultAction)
-        }
-        .padding(.horizontal, 24)
-        .frame(height: 54)
-        .overlay(alignment: .top) {
-            Rectangle()
-                .fill(Color.primary.opacity(0.07))
-                .frame(height: 1)
+            .padding(.top, Self.listGap)
         }
     }
 
-    private var primaryButtonTitle: String {
+    private var hotkeyKeys: [String] {
+        HotkeyFormatter.modifierString(hotkey.modifiers).map(String.init) + [HotkeyFormatter.keyName(hotkey.keyCode) ?? "?"]
+    }
+
+    private var heldKeys: [String] {
+        HotkeyFormatter.modifierString(keyboard.heldModifiers).map(String.init)
+    }
+
+    // MARK: Footer
+
+    /// The same geometry on every step: progress left, Back and the one
+    /// primary action right.
+    private var footer: some View {
+        HStack(spacing: 24) {
+            ProgressTiles(current: state.step.rawValue, count: OnboardingStep.allCases.count)
+            Spacer()
+            if state.canGoBack {
+                Button("Back") { state.back() }
+                    .buttonStyle(BrandQuietButtonStyle())
+                    .keyboardShortcut(.leftArrow, modifiers: [])
+            }
+            if awaitingLaunch {
+                Button("Skip") { state.advance() }
+                    .buttonStyle(BrandQuietButtonStyle(dim: true))
+            } else {
+                Button(primaryTitle) { state.advance() }
+                    .buttonStyle(BrandPrimaryButtonStyle(ready: true))
+                    .keyboardShortcut(.defaultAction)
+            }
+        }
+        .padding(.horizontal, Self.margin)
+        .padding(.bottom, 36)
+    }
+
+    /// The shortcut step's primary appears once a launch works.
+    private var awaitingLaunch: Bool { state.step == .shortcut && state.didLaunch == false }
+
+    private var primaryTitle: LocalizedStringKey {
         switch state.step {
-        case .welcome: "Get Started"
+        case .welcome: "Get started"
         case .done: "Open Foundry"
-        case .ai, .permissions: "Continue"
         default: "Continue"
         }
     }
 }
 
-private struct OnboardingToggle: View {
-    let title: String
-    let detail: String
-    @Binding var isOn: Bool
-    var onChange: ((Bool) -> Void)?
+private extension FoundryHotkey {
+    /// "⌘ Space", the way people say it, for running text.
+    var spokenName: String {
+        HotkeyFormatter.modifierString(modifiers) + " " + (HotkeyFormatter.keyName(keyCode) ?? "?")
+    }
+}
+
+private struct RecordingDot: View {
+    let active: Bool
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
-        Toggle(isOn: Binding(get: { isOn }, set: { newValue in
-            if let onChange { onChange(newValue) } else { isOn = newValue }
-        })) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(title)
-                    .font(FoundryTheme.body(size: 13, weight: .semibold))
-                    .foregroundStyle(FoundryTheme.primaryText)
-                Text(detail)
-                    .font(FoundryTheme.body(size: 11, weight: .regular))
-                    .foregroundStyle(FoundryTheme.mutedText)
+        RoundedRectangle(cornerRadius: FoundryTheme.Radius.tile, style: .continuous)
+            .fill(Brand.accent)
+            .frame(width: 8, height: 8)
+            .phaseAnimator(active && reduceMotion == false ? [1, 0.25] : [1]) { dot, opacity in
+                dot.opacity(opacity)
+            } animation: { _ in FoundryTheme.Motion.pulse }
+    }
+}
+
+private struct StatusLine: View {
+    enum Kind { case done, working, problem }
+    let kind: Kind
+    let text: LocalizedStringKey
+
+    var body: some View {
+        HStack(spacing: 8) {
+            switch kind {
+            case .done:
+                Image(systemName: "checkmark").foregroundStyle(Brand.accent)
+            case .working:
+                ProgressView().controlSize(.mini)
+            case .problem:
+                Image(systemName: "exclamationmark.triangle").foregroundStyle(FoundryTheme.warning)
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
+            Text(text).foregroundStyle(kind == .problem ? Brand.text : Brand.muted)
         }
-        .toggleStyle(.switch)
-        .controlSize(.small)
-        .padding(.horizontal, 14)
-        .padding(.vertical, 12)
-        .onboardingCard()
+        .font(Brand.rowDetail)
+        .frame(height: FoundryTheme.Control.line)
     }
 }
 
-private extension View {
-    func onboardingCard() -> some View {
-        FoundryGlassSurface(role: .contentSurface, shape: RoundedRectangle(cornerRadius: 12, style: .continuous)) { self }
-    }
-}
-
-private struct OnboardingReveal<Content: View>: View {
-    let index: Int
-    @ViewBuilder var content: Content
-    @State private var shown = false
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+/// The launcher chord as one field, recorded in place the way Raycast does it.
+private struct ShortcutField: View {
+    let recording: Bool
+    let keys: [String]
+    let action: () -> Void
+    @State private var hovering = false
 
     var body: some View {
-        content
-            .opacity(shown ? 1 : 0)
-            .offset(y: shown ? 0 : 10)
-            .onAppear {
-                guard shown == false else { return }
-                withAnimation(reduceMotion ? nil : .easeOut(duration: 0.42).delay(Double(index) * 0.07)) {
-                    shown = true
-                }
-            }
-    }
-}
-
-private struct PulsingKeycap: View {
-    let text: String
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-
-    var body: some View {
-        Group {
-            if reduceMotion {
-                keycap
-            } else {
-                keycap
-                    .phaseAnimator([false, true]) { content, pressed in
-                        content
-                            .scaleEffect(pressed ? 0.94 : 1)
-                            .shadow(color: FoundryTheme.accentTint.opacity(pressed ? 0.05 : 0.5), radius: pressed ? 4 : 22, y: pressed ? 1 : 6)
-                    } animation: { pressed in
-                        pressed ? .easeIn(duration: 0.18) : .spring(response: 0.5, dampingFraction: 0.55).delay(0.9)
+        Button(action: action) {
+            HStack(spacing: 14) {
+                Text("Shortcut")
+                    .foregroundStyle(Brand.muted)
+                HStack(spacing: 4) {
+                    ForEach(keys.indices, id: \.self) { BrandKbd(key: keys[$0]) }
+                    if recording {
+                        HStack(spacing: 8) {
+                            RecordingDot(active: true)
+                            Text(keys.isEmpty ? "Press the new shortcut" : "Now a key")
+                        }
+                        .padding(.leading, keys.isEmpty ? 0 : 6)
+                        .foregroundStyle(Brand.text)
                     }
+                }
+                Text(recording ? "Cancel" : "Change")
+                    .foregroundStyle(hovering ? Brand.text : Brand.muted)
+                    .padding(.horizontal, 8)
             }
+            .font(Brand.quiet)
+            .tracking(Brand.bodyTracking)
+            .padding(.leading, 14)
+            .padding(.trailing, 6)
+            .frame(height: FoundryTheme.Control.row)
+            .background(BrandRowSurface(radius: 8, lifted: hovering))
+            .overlay {
+                RoundedRectangle(cornerRadius: FoundryTheme.Radius.control, style: .continuous)
+                    .strokeBorder(Brand.accent, lineWidth: 1)
+                    .opacity(recording ? 1 : 0)
+            }
+            .contentShape(Rectangle())
         }
+        .buttonStyle(.plain)
+        .onHover { hovering = $0 }
+        .animation(Brand.Motion.state, value: recording)
+        .accessibilityLabel(recording ? Text("Recording a new shortcut") : Text("Shortcut \(keys.joined(separator: " "))"))
+        .accessibilityHint("Records a new shortcut")
     }
+}
 
-    private var keycap: some View {
-        Text(text)
-            .font(.system(size: 30, weight: .medium, design: .rounded))
-            .foregroundStyle(FoundryTheme.primaryText)
-            .padding(.horizontal, 30)
-            .padding(.vertical, 16)
-            .onboardingCard()
-    }
+private struct StepBlur: ViewModifier {
+    let radius: CGFloat
+    func body(content: Content) -> some View { content.blur(radius: radius) }
 }

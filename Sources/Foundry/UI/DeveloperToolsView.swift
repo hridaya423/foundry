@@ -35,37 +35,18 @@ struct DeveloperToolsView: View {
     }
 
     private var toolSwitcher: some View {
-        LazyVGrid(
-            columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 4),
-            spacing: 8
-        ) {
-            ForEach(DeveloperToolsState.Tool.allCases) { tool in
-                toolButton(tool)
+        HStack(spacing: FoundryTheme.Spacing.xs) {
+            ForEach(Array(DeveloperToolsState.Tool.allCases.enumerated()), id: \.element) { index, tool in
+                DeveloperChip(title: String(localized: tool.chipTitle), isSelected: state.selectedTool == tool) { state.selectedTool = tool }
+                    .accessibilityLabel(tool.rawValue)
+                    .help("\(tool.rawValue) · ⌘\(index + 1)")
             }
         }
     }
 
-    private func toolButton(_ tool: DeveloperToolsState.Tool) -> some View {
-        Button(action: { state.selectedTool = tool }) {
-            Text(tool.rawValue)
-                .font(FoundryTheme.body(size: 11, weight: .semibold))
-                .foregroundStyle(state.selectedTool == tool ? FoundryTheme.primaryText : FoundryTheme.secondaryText)
-                .padding(.horizontal, 8)
-                .frame(height: 28)
-                .frame(maxWidth: .infinity)
-                .background(Color.primary.opacity(state.selectedTool == tool ? 0.10 : 0.045))
-                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-        }
-        .buttonStyle(.plain)
-        .pointerCursor()
-        .accessibilityLabel(tool.rawValue)
-        .accessibilityValue(state.selectedTool == tool ? "Selected" : "Not selected")
-        .accessibilityAddTraits(state.selectedTool == tool ? .isSelected : [])
-        .help("\(tool.rawValue) · ⌘\((DeveloperToolsState.Tool.allCases.firstIndex(of: tool) ?? 0) + 1)")
-    }
-
     private var baseTool: some View {
         VStack(alignment: .leading, spacing: 10) {
+            hint("Type a decimal, hex (0x), octal (0o) or binary (0b) number.")
             DeveloperInputField(title: "Input", placeholder: "255 or 0xff", text: $state.baseInput)
 
             if let error = state.baseError {
@@ -74,15 +55,13 @@ struct DeveloperToolsView: View {
                 resultGrid(state.baseRows)
             }
         }
-        .padding(.top, 4)
+        .padding(14)
+        .modifier(DeveloperPanelSurface())
     }
 
     private var bitTool: some View {
         VStack(alignment: .leading, spacing: 10) {
-            sectionHeader(
-                title: "Bit Operations",
-                subtitle: "Use decimal or prefixed inputs like 0xff. Search also supports 5 & 3, 5 << 1, and not 5 8."
-            )
+            hint("Use decimal or prefixed inputs like 0xff. Search also supports 5 & 3, 5 << 1, and not 5 8.")
 
             HStack(spacing: 8) {
                 ForEach(DeveloperToolsState.BitOperation.allCases) { operation in
@@ -99,7 +78,8 @@ struct DeveloperToolsView: View {
                 if state.bitOperation == .not {
                     DeveloperInputField(title: "Mask Width", placeholder: "8", text: $state.bitWidthInput)
                 } else {
-                    DeveloperInputField(title: state.bitOperation == .shiftLeft || state.bitOperation == .shiftRight ? "Shift" : "Right", placeholder: "3", text: $state.bitRightInput)
+                    DeveloperInputField(title: state.bitOperation == .shiftLeft || state.bitOperation == .shiftRight ? "Shift" : "Right",
+                        placeholder: "3", text: $state.bitRightInput)
                 }
             }
 
@@ -108,8 +88,8 @@ struct DeveloperToolsView: View {
             } else {
                 if state.bitExpression.isEmpty == false {
                     Text(state.bitExpression)
-                        .font(FoundryTheme.body(size: 13, weight: .semibold))
-                        .foregroundStyle(FoundryTheme.secondaryText)
+                        .font(FoundryTheme.body)
+                        .foregroundStyle(FoundryTheme.textSecondary)
                 }
                 resultGrid(state.bitRows)
             }
@@ -120,7 +100,7 @@ struct DeveloperToolsView: View {
 
     private var base64Tool: some View {
         VStack(alignment: .leading, spacing: 10) {
-            sectionHeader(title: "Base64", subtitle: "Encode plain text or decode a Base64 value.")
+            hint("Encode plain text or decode a Base64 value.")
             HStack(spacing: 8) {
                 ForEach(DeveloperToolsState.Base64Operation.allCases) { operation in
                     DeveloperChip(title: operation.rawValue, isSelected: state.base64Operation == operation) {
@@ -141,7 +121,7 @@ struct DeveloperToolsView: View {
 
     private var jsonTool: some View {
         VStack(alignment: .leading, spacing: 10) {
-            sectionHeader(title: "Format JSON", subtitle: "Paste JSON to validate and pretty-print it.")
+            hint("Paste JSON to validate and pretty-print it.")
             DeveloperTextEditor(title: "JSON Input", placeholder: "{\"name\": \"Foundry\"}", text: $state.jsonInput)
             if let error = state.jsonError {
                 DeveloperErrorText(message: error)
@@ -155,7 +135,7 @@ struct DeveloperToolsView: View {
 
     private var caseTool: some View {
         VStack(alignment: .leading, spacing: 10) {
-            sectionHeader(title: "Change Case", subtitle: "Convert text into common identifier styles.")
+            hint("Convert text into common identifier styles.")
             DeveloperInputField(title: "Input", placeholder: "hello world", text: $state.caseInput)
             resultGrid(state.caseRows)
         }
@@ -165,7 +145,7 @@ struct DeveloperToolsView: View {
 
     private var timestampTool: some View {
         VStack(alignment: .leading, spacing: 10) {
-            sectionHeader(title: "Unix Timestamp", subtitle: "Convert Unix seconds, milliseconds, or ISO 8601 dates.")
+            hint("Convert Unix seconds, milliseconds, or ISO 8601 dates.")
             DeveloperInputField(title: "Input", placeholder: "1712345678", text: $state.timestampInput)
             if let error = state.timestampError {
                 DeveloperErrorText(message: error)
@@ -178,24 +158,19 @@ struct DeveloperToolsView: View {
     }
 
     private var wordCountTool: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            sectionHeader(title: "Word Count", subtitle: "Count words, characters, lines, and paragraphs as you type.")
+        VStack(alignment: .leading, spacing: 10) {
+            hint("Count words, characters, lines, and paragraphs as you type.")
             DeveloperTextEditor(title: "Text", placeholder: "Paste or type text to inspect", text: $state.wordCountInput)
             resultGrid(state.wordCountRows)
         }
-        .padding(18)
+        .padding(14)
         .modifier(DeveloperPanelSurface())
     }
 
-    private func sectionHeader(title: String, subtitle: String) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(title)
-                .font(FoundryTheme.body(size: 16, weight: .semibold))
-                .foregroundStyle(FoundryTheme.primaryText)
-            Text(subtitle)
-                .font(FoundryTheme.body(size: 12.5, weight: .regular))
-                .foregroundStyle(FoundryTheme.mutedText)
-        }
+    private func hint(_ text: LocalizedStringResource) -> some View {
+        Text(text)
+            .font(FoundryTheme.bodySecondary)
+            .foregroundStyle(FoundryTheme.textTertiary)
     }
 
     private func resultGrid(_ rows: [DeveloperToolsState.OutputRow]) -> some View {
@@ -207,25 +182,24 @@ struct DeveloperToolsView: View {
                 HStack(spacing: 8) {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(row.label)
-                            .font(FoundryTheme.body(size: 10, weight: .semibold))
-                            .foregroundStyle(FoundryTheme.faintText)
-                            .textCase(.uppercase)
-                            .tracking(0.4)
+                            .font(FoundryTheme.micro)
+                            .foregroundStyle(FoundryTheme.textQuaternary)
                         Text(row.value)
-                            .font(FoundryTheme.body(size: 16, weight: .semibold))
-                            .foregroundStyle(FoundryTheme.primaryText)
+                            .font(FoundryTheme.body)
+                            .foregroundStyle(FoundryTheme.textPrimary)
                             .textSelection(.enabled)
                             .lineLimit(1)
-                            .minimumScaleFactor(0.55)
+                            .truncationMode(.middle)
+                            .help(row.value)
                     }
 
                     Spacer(minLength: 0)
                     compactCopyButton(value: row.value)
                 }
                 .padding(.horizontal, 10)
-                .frame(height: 52)
-                .background(Color.primary.opacity(0.035))
-                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                .frame(height: FoundryTheme.Control.rowDouble)
+                .background(FoundryTheme.fillSubtle)
+                .clipShape(RoundedRectangle(cornerRadius: FoundryTheme.Radius.row, style: .continuous))
             }
         }
     }
@@ -233,14 +207,13 @@ struct DeveloperToolsView: View {
     private func compactCopyButton(value: String) -> some View {
         Button(action: { state.copy(value) }) {
             Image(systemName: "doc.on.doc")
-                .font(.system(size: 10, weight: .semibold))
-                .foregroundStyle(FoundryTheme.secondaryText)
+                .font(FoundryTheme.Glyph.xs)
+                .foregroundStyle(FoundryTheme.textSecondary)
                 .frame(width: 28, height: 26)
-                .background(Color.primary.opacity(0.07))
-                .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
+                .background(FoundryTheme.fillTint)
+                .clipShape(RoundedRectangle(cornerRadius: FoundryTheme.Radius.control, style: .continuous))
         }
         .buttonStyle(.plain)
-        .pointerCursor()
         .accessibilityLabel("Copy value")
         .help("Copy value")
     }
@@ -249,36 +222,34 @@ struct DeveloperToolsView: View {
         VStack(alignment: .leading, spacing: 6) {
             HStack {
                 Text(title)
-                    .font(FoundryTheme.body(size: 11, weight: .semibold))
-                    .foregroundStyle(FoundryTheme.faintText)
-                    .tracking(0.5)
+                    .font(FoundryTheme.micro)
+                    .foregroundStyle(FoundryTheme.textQuaternary)
                 Spacer()
                 Button {
                     state.copy(value)
                 } label: {
                     Image(systemName: "doc.on.doc")
-                        .font(.system(size: 10, weight: .semibold))
-                        .foregroundStyle(FoundryTheme.secondaryText)
+                        .font(FoundryTheme.Glyph.xs)
+                        .foregroundStyle(FoundryTheme.textSecondary)
                         .frame(width: 28, height: 26)
-                        .background(Color.primary.opacity(0.07))
-                        .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
+                        .background(FoundryTheme.fillTint)
+                        .clipShape(RoundedRectangle(cornerRadius: FoundryTheme.Radius.control, style: .continuous))
                 }
                 .buttonStyle(.plain)
-                .pointerCursor()
                 .accessibilityLabel("Copy \(title)")
                 .help("Copy \(title)")
             }
             ScrollView {
                 Text(value)
-                    .font(.system(size: 13, weight: .regular, design: .monospaced))
-                    .foregroundStyle(FoundryTheme.primaryText)
+                    .font(FoundryTheme.mono)
+                    .foregroundStyle(FoundryTheme.textPrimary)
                     .textSelection(.enabled)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
             .padding(10)
-            .frame(height: 112)
-            .background(Color.primary.opacity(0.045))
-            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .frame(height: FoundryTheme.Control.preview)
+            .background(FoundryTheme.fillSubtle)
+            .clipShape(RoundedRectangle(cornerRadius: FoundryTheme.Radius.row, style: .continuous))
         }
     }
 }
@@ -286,11 +257,11 @@ struct DeveloperToolsView: View {
 private struct DeveloperPanelSurface: ViewModifier {
     func body(content: Content) -> some View {
         content
-            .background(Color.primary.opacity(0.05))
-            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+            .background(FoundryTheme.fillHover)
+            .clipShape(RoundedRectangle(cornerRadius: FoundryTheme.Radius.popover, style: .continuous))
             .overlay(
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .strokeBorder(Color.primary.opacity(0.07), lineWidth: 1)
+                RoundedRectangle(cornerRadius: FoundryTheme.Radius.popover, style: .continuous)
+                    .strokeBorder(FoundryTheme.fillTint, lineWidth: 1)
             )
     }
 }
@@ -303,15 +274,14 @@ private struct DeveloperChip: View {
     var body: some View {
         Button(action: action) {
             Text(title)
-                .font(FoundryTheme.body(size: 11.5, weight: .semibold))
-                .foregroundStyle(isSelected ? FoundryTheme.primaryText : FoundryTheme.secondaryText)
+                .font(FoundryTheme.micro)
+                .foregroundStyle(isSelected ? FoundryTheme.textPrimary : FoundryTheme.textSecondary)
                 .padding(.horizontal, 9)
-                .frame(height: 26)
-                .background(isSelected ? Color.primary.opacity(0.10) : Color.primary.opacity(0.04))
-                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                .frame(height: FoundryTheme.Control.mini)
+                .background(isSelected ? FoundryTheme.fillSelected : FoundryTheme.fillSubtle)
+                .clipShape(RoundedRectangle(cornerRadius: FoundryTheme.Radius.row, style: .continuous))
         }
         .buttonStyle(.plain)
-        .pointerCursor()
         .accessibilityLabel(title)
         .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
@@ -325,21 +295,20 @@ private struct DeveloperInputField: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(title)
-                .font(FoundryTheme.body(size: 11, weight: .semibold))
-                .foregroundStyle(FoundryTheme.faintText)
-                .tracking(0.5)
+                .font(FoundryTheme.micro)
+                .foregroundStyle(FoundryTheme.textQuaternary)
             TextField(placeholder, text: $text)
                 .textFieldStyle(.plain)
-                .font(FoundryTheme.body(size: 15, weight: .medium))
-                .foregroundStyle(FoundryTheme.primaryText)
+                .font(FoundryTheme.body)
+                .foregroundStyle(FoundryTheme.textPrimary)
                 .padding(.horizontal, 12)
-                .frame(height: 40)
+                .frame(height: FoundryTheme.Control.row)
                 .background(
-                    RoundedRectangle(cornerRadius: 10, style: .continuous)
-                        .fill(Color.primary.opacity(0.06))
+                    RoundedRectangle(cornerRadius: FoundryTheme.Radius.row, style: .continuous)
+                        .fill(FoundryTheme.fillHover)
                         .overlay(
-                            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                .strokeBorder(Color.primary.opacity(0.07), lineWidth: 1)
+                            RoundedRectangle(cornerRadius: FoundryTheme.Radius.row, style: .continuous)
+                                .strokeBorder(FoundryTheme.fillTint, lineWidth: 1)
                         )
                 )
         }
@@ -355,28 +324,27 @@ private struct DeveloperTextEditor: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(title)
-                .font(FoundryTheme.body(size: 11, weight: .semibold))
-                .foregroundStyle(FoundryTheme.faintText)
-                .tracking(0.5)
+                .font(FoundryTheme.micro)
+                .foregroundStyle(FoundryTheme.textQuaternary)
             TextEditor(text: $text)
-                .font(.system(size: 13, weight: .regular, design: .monospaced))
-                .foregroundStyle(FoundryTheme.primaryText)
+                .font(FoundryTheme.mono)
+                .foregroundStyle(FoundryTheme.textPrimary)
                 .scrollContentBackground(.hidden)
                 .padding(8)
-                .frame(height: 88)
+                .frame(height: FoundryTheme.Control.editor)
                 .background(
-                    RoundedRectangle(cornerRadius: 10, style: .continuous)
-                        .fill(Color.primary.opacity(0.06))
+                    RoundedRectangle(cornerRadius: FoundryTheme.Radius.row, style: .continuous)
+                        .fill(FoundryTheme.fillHover)
                         .overlay(
-                            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                .strokeBorder(Color.primary.opacity(0.07), lineWidth: 1)
+                            RoundedRectangle(cornerRadius: FoundryTheme.Radius.row, style: .continuous)
+                                .strokeBorder(FoundryTheme.fillTint, lineWidth: 1)
                         )
                 )
                 .overlay(alignment: .topLeading) {
                     if text.isEmpty {
                         Text(placeholder)
-                            .font(.system(size: 13, weight: .regular, design: .monospaced))
-                            .foregroundStyle(FoundryTheme.faintText)
+                            .font(FoundryTheme.mono)
+                            .foregroundStyle(FoundryTheme.textQuaternary)
                             .padding(.horizontal, 8)
                             .padding(.vertical, 14)
                             .allowsHitTesting(false)
@@ -392,8 +360,8 @@ private struct DeveloperErrorText: View {
 
     var body: some View {
         Text(message)
-            .font(FoundryTheme.body(size: 13, weight: .medium))
-            .foregroundStyle(Color.red.opacity(0.85))
+            .font(FoundryTheme.body)
+            .foregroundStyle(FoundryTheme.destructive)
             .padding(.horizontal, 2)
     }
 }

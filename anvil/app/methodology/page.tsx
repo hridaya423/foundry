@@ -1,35 +1,48 @@
-import type { Metadata } from "next";
+import type { CSSProperties } from "react";
 import Link from "next/link";
+import type { Metadata } from "next";
+import { SiteFooter, SiteHeader } from "../foundry/site-chrome";
+import { figureCells, methodologyFigure } from "../foundry/methodology-figure";
 import "../foundry/foundry.css";
 import "./methodology.css";
 
-export const metadata: Metadata = { title: "Foundry · Memory methodology", robots: { index: false, follow: false } };
+const reports = "https://github.com/hridaya423/foundry/blob/main/docs/benchmarks/";
+const report = `${reports}2026-09-29-foundry-1.1-raycast-2.5.3-mbp-report.md`;
+const tinycastReport = `${reports}2026-09-29-foundry-1.1-tinycast-0.11.3-mbp-report.md`;
+
+export const metadata: Metadata = {
+  title: "Foundry · How we measured memory",
+  description: "How the 81% lower warmed memory figure for Foundry 1.1 against Raycast 2.5.3 was measured, and what it does not cover.",
+  alternates: { canonical: "/methodology" },
+};
 
 export default function MethodologyPage() {
-  return <main className="foundry-preview memory-methodology">
-    <Link href="/#memory-heading">← Back to home</Link>
-    <h1>Memory footprint methodology</h1>
-    <p className="methodology-status">Provisional comparison · updated 29 September 2026</p>
-    <p>Current comparison (29 September 2026): two order-swapped warmed runs on one MacBook Pro, Apple M4 Pro, macOS 27.0, on AC power. Foundry 1.1.0 vs Raycast 2.5.3.0. The launch film uses these numbers: 13.8× smaller installed size and ≈81% less warmed memory (the smaller of the two order-swapped reductions, rounded down). Earlier comparison (29 August 2026): Mac16,7, 48 GB RAM, macOS 26.5.1, Foundry 1.0 vs Raycast 2.1.2.0.</p>
-    <h2>What the numbers mean</h2>
-    <p>The story shows the worse of the two order-swapped legs — 115.2 MB for Foundry and 620.2 MB for Raycast — matching the conservative ≈81% headline. These are summaries of two runs, not additional measurements or a live meter.</p>
-    <div className="methodology-table"><table><caption>Warmed footprint, median (p50), 29 September 2026 · Foundry 1.1.0 vs Raycast 2.5.3.0</caption><thead><tr><th>Run order</th><th>Foundry</th><th>Raycast</th><th>Reduction</th></tr></thead><tbody><tr><th>Foundry first</th><td>59.3 MB</td><td>591.3 MB</td><td>90.0%</td></tr><tr><th>Raycast first</th><td>115.2 MB</td><td>620.2 MB</td><td>81.4%</td></tr></tbody></table></div>
-    <div className="methodology-table"><table><caption>Warmed footprint, median (p50), 29 August 2026 · Foundry 1.0 vs Raycast 2.1.2.0</caption><thead><tr><th>Run order</th><th>Foundry</th><th>Raycast</th></tr></thead><tbody><tr><th>Foundry first</th><td>162.3 MB</td><td>531.6 MB</td></tr><tr><th>Raycast first</th><td>164.5 MB</td><td>520.7 MB</td></tr></tbody></table></div>
-    <div className="methodology-table"><table><caption>Installed size, <code>du -sk</code> (29 September 2026)</caption><thead><tr><th>Machine</th><th>Foundry 1.1</th><th>Raycast 2.2.0.0</th><th>Ratio</th></tr></thead><tbody><tr><th>MacBook Pro M4 Pro</th><td>16.2 MB</td><td>195 MB</td><td>12.1×</td></tr><tr><th>Mac mini M4</th><td>16.2 MB</td><td>196 MB</td><td>12.1×</td></tr></tbody></table></div>
-    <p>Post-launch spot check (cold, no panel cycles): Foundry 60.7 MB vs Raycast 591.0 MB on the M4 Pro, and 25.9 MB vs 278.3 MB on the M4 mini — a larger gap than the warmed claim, not used as the headline number.</p>
-    <h2>Tinycast comparison · 29 September 2026</h2>
-    <p>Same MacBook Pro, same runner, Foundry 1.1.0 vs Tinycast 0.11.3 — measured on battery, not AC. Tinycast is the lighter, smaller app; Foundry is faster to summon. Both directions below are reported as measured, not selected.</p>
-    <div className="methodology-table"><table><caption>Panel show, hotkey → on-screen window, p50 of 30 · Foundry 1.1.0 vs Tinycast 0.11.3</caption><thead><tr><th>Run order</th><th>Foundry</th><th>Tinycast</th><th>Foundry advantage</th></tr></thead><tbody><tr><th>Foundry first</th><td>17.5 ms</td><td>66.7 ms</td><td>3.8×</td></tr><tr><th>Tinycast first</th><td>19.1 ms</td><td>64.7 ms</td><td>3.4×</td></tr></tbody></table></div>
-    <div className="methodology-table"><table><caption>Warmed footprint + installed size · Foundry 1.1.0 vs Tinycast 0.11.3</caption><thead><tr><th>Run order</th><th>Foundry footprint</th><th>Tinycast footprint</th></tr></thead><tbody><tr><th>Foundry first</th><td>120.0 MB</td><td>40.4 MB</td></tr><tr><th>Tinycast first</th><td>60.5 MB</td><td>40.6 MB</td></tr><tr><th>Installed size</th><td>16.5 MB</td><td>13.6 MB</td></tr></tbody></table></div>
-    <p>The 17–19 ms Foundry number follows a show-path change in this build: the panel stays mapped (alpha 0) instead of ordering out on hide, removing ~80–90 ms of window-server surface creation per open. The same metric pipeline measured the prior build at ~110 ms — see the Tinycast report for the decomposition.</p>
-    <h2>Protocol</h2>
-    <p>Each run used five warmup panel cycles and 30 measured panel cycles, followed by a two-second settle and 15 memory samples at one-second intervals with the panel hidden. The runner required AC power and stopped each launcher before measuring the other.</p>
-    <p>The primary metric was macOS <code>footprint</code> grouped Summary Footprint for the selected processes. RSS is retained in the raw records as a secondary diagnostic; summing RSS can count shared pages more than once.</p>
-    <p>The process set included bundle processes and their descendants. For Raycast it also included three detached WebKit XPC services that appeared after launch. Those services were associated by new PID relative to a pre-launch baseline, not an OS-reported ownership link. Selected processes had to be at least five seconds old, with the process set stable for 100 milliseconds.</p>
-    <h2>Limits and publication status</h2>
-    <p>This comparison does not establish a universal memory advantage or faster opening. Window-registration timing in the raw records is diagnostic only; it does not measure the first composited frame.</p>
-    <p>Installed size for Raycast 2.5.3.0 is 224 MB (224,088 KB) vs 16.2 MB for Foundry 1.1.0. Still required before the provisional label comes off: order-swapped warmed runs on the Mac mini (needs an Accessibility-granted terminal, because remote sessions cannot post the hotkey), recorded Raycast settings and extensions, and legal review for naming Raycast before public comparative use.</p>
-    <h2>Source records</h2>
-    <ul><li><a href="/assets/foundry/story/memory/report.md">Full original report and reproduction commands</a></li><li><a href="/assets/foundry/story/memory/forward.json">Foundry-first raw JSON</a></li><li><a href="/assets/foundry/story/memory/reverse.json">Raycast-first raw JSON</a></li></ul>
+  return <main className="foundry-preview methodology">
+    <SiteHeader />
+    <div className="methodology-figure" role="img" aria-label="81%" style={{ "--columns": methodologyFigure.width, "--rows": methodologyFigure.height } as CSSProperties}>
+      {figureCells.map(({ column, row }) => <i key={`${column}:${row}`} style={{ "--column": column, "--row": row } as CSSProperties} />)}
+    </div>
+    <h1 id="content">How we measured 81% less&nbsp;memory.</h1>
+    <p className="methodology-status">Provisional · Measured 29 September 2026 · Foundry 1.1.0, Raycast 2.5.3 and Tinycast 0.11.3</p>
+    <p>The home page says that Foundry uses 81% less warmed memory than Raycast. This page explains that number and its limits.</p>
+    <h2>What we measured</h2>
+    <p>Warmed memory is the memory an app uses after it has opened and hidden its window many times. The runner reads the Summary Footprint that the macOS <code>footprint</code> tool reports. The raw records also keep RSS as a check. We do not use RSS for the claim, because a sum of RSS counts shared memory more than once.</p>
+    <p>Each run had 5 warmup opens and 30 measured opens. After a 2 second pause, the runner took 15 memory samples, one each second, with the window hidden. We report the median of the 15 samples.</p>
+    <div className="methodology-table" role="region" aria-label="Warmed memory, Foundry and Raycast" tabIndex={0}><table><caption>Warmed memory, median of 15 samples</caption><thead><tr><th>Run order</th><th>Foundry 1.1.0</th><th>Raycast 2.5.3</th><th>Reduction</th></tr></thead><tbody><tr><th>Foundry first</th><td>59.3 MB</td><td>591.3 MB</td><td>90.0%</td></tr><tr><th>Raycast first</th><td>115.2 MB</td><td>620.2 MB</td><td>81.4%</td></tr></tbody></table></div>
+    <p>We ran the test two times, in opposite orders. The home page uses the worse result, 81.4%, rounded down to 81%.</p>
+    <h2>What counts as each app</h2>
+    <p>For Foundry, the runner counts the app and all of its child processes. For Raycast, it counts the app, its child processes, and three WebKit services that start after Raycast opens. macOS does not link those services to Raycast, so the runner finds them as new processes that were not there before Raycast started.</p>
+    <h2>The machine</h2>
+    <p>MacBook Pro with Apple M4 Pro, macOS 27.0, on AC power. The runner closed each launcher before it measured the other one.</p>
+    <h2>Where Foundry loses to Tinycast</h2>
+    <p>We ran the same runner against Tinycast 0.11.3 on the same machine, in both orders. Foundry shows its panel about 3.4 to 3.8 times faster. Tinycast uses less memory. Foundry used 1.5 to 3.0 times as much.</p>
+    <div className="methodology-table" role="region" aria-label="Time from hotkey to panel on screen, median of 30 opens" tabIndex={0}><table><caption>Time from hotkey to panel on screen, median of 30 opens</caption><thead><tr><th>Run order</th><th>Foundry 1.1.0</th><th>Tinycast 0.11.3</th></tr></thead><tbody><tr><th>Foundry first</th><td>17.5 ms</td><td>66.7 ms</td></tr><tr><th>Tinycast first</th><td>19.1 ms</td><td>64.7 ms</td></tr></tbody></table></div>
+    <div className="methodology-table" role="region" aria-label="Warmed memory, Foundry and Tinycast" tabIndex={0}><table><caption>Warmed memory, median of 15 samples</caption><thead><tr><th>Run order</th><th>Foundry 1.1.0</th><th>Tinycast 0.11.3</th></tr></thead><tbody><tr><th>Foundry first</th><td>120.0 MB</td><td>40.4 MB</td></tr><tr><th>Tinycast first</th><td>60.5 MB</td><td>40.6 MB</td></tr></tbody></table></div>
+    <p>Tinycast is also smaller on disk: 13.6 MB against 16.5 MB for Foundry 1.1.0. This run was on battery power. The Foundry build was a staged build that keeps its panel mapped. The earlier 1.1.0 build in the Raycast run took about 100 ms to show the panel, and Raycast took about 18 ms. We have not re-run either test on 1.2.0. The <a href={tinycastReport}>Tinycast report</a> has the commands and raw records.</p>
+    <h2>Limits</h2>
+    <p>Each result is one machine and two runs. We did not record the Raycast settings and extensions. The Raycast install was in daily use. The Raycast memory test makes no claim about how fast either app opens.</p>
+    <h2>Reproduce it</h2>
+    <p>The runner is <code>scripts/benchmark-launchers.swift</code> in the <a href="https://github.com/hridaya423/foundry">Foundry source</a>. Use 30 runs, 5 warmups, 15 memory samples, and the isolate option. The <a href={report}>full report</a> lists the commands and links the raw records. The <Link href="/proof">proof page</Link> lists every figure we quote with its source file.</p>
+    <SiteFooter />
   </main>;
 }

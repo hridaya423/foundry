@@ -1,0 +1,321 @@
+[
+ {
+  "name": "kb.p2",
+  "file": "kb.p2.wav",
+  "src": {
+   "file": "audio/assets/keys/fs-565645_computer-keyboard-typing-and-keystrokes-.ogg",
+   "start": 12.174,
+   "end": 12.485,
+   "pitch": 0
+  },
+  "dur": 0.311,
+  "peak_dbfs": -14.0,
+  "rms_dbfs": -37.0,
+  "attack_ms": 10.0,
+  "peak_ms": 152.5,
+  "head_db": -57.0,
+  "tail_db": -47.2
+ },
+ {
+  "name": "kb.p4",
+  "file": "kb.p4.wav",
+  "src": {
+   "file": "audio/assets/keys/fs-565645_computer-keyboard-typing-and-keystrokes-.ogg",
+   "start": 16.743,
+   "end": 16.995,
+   "pitch": 0
+  },
+  "dur": 0.252,
+  "peak_dbfs": -14.0,
+  "rms_dbfs": -37.2,
+  "attack_ms": 28.0,
+  "peak_ms": 32.5,
+  "head_db": -62.4,
+  "tail_db": -48.2
+ },
+ {
+  "name": "kb.p5",
+  "file": "kb.p5.wav",
+  "src": {
+   "file": "audio/assets/keys/fs-565645_computer-keyboard-typing-and-keystrokes-.ogg",
+   "start": 18.41,
+   "end": 18.667,
+   "pitch": 0
+  },
+  "dur": 0.257,
+  "peak_dbfs": -14.0,
+  "rms_dbfs": -40.5,
+  "attack_ms": 13.0,
+  "peak_ms": 152.5,
+  "head_db": -58.2,
+  "tail_db": -38.2
+ },
+ {
+  "name": "kb.p6",
+  "file": "kb.p6.wav",
+  "src": {
+   "file": "audio/assets/keys/fs-565645_computer-keyboard-typing-and-keystrokes-.ogg",
+   "start": 20.137,
+   "end": 20.374,
+   "pitch": 0
+  },
+  "dur": 0.237,
+  "peak_dbfs": -14.0,
+  "rms_dbfs": -39.3,
+  "attack_ms": 36.0,
+  "peak_ms": 42.5,
+  "head_db": -57.8,
+  "tail_db": -55.3
+ },
+ {
+  "name": "kb.p7",
+  "file": "kb.p7.wav",
+  "src": {
+   "file": "audio/assets/keys/fs-565645_computer-keyboard-typing-and-keystrokes-.ogg",
+   "start": 22.602,
+   "end": 22.8,
+   "pitch": 0
+  },
+  "dur": 0.198,
+  "peak_dbfs": -14.0,
+  "rms_dbfs": -43.5,
+  "attack_ms": 21.0,
+  "peak_ms": 27.5,
+  "head_db": -62.2,
+  "tail_db": -50.7
+ },
+ {
+  "name": "kb.p10",
+  "file": "kb.p10.wav",
+  "src": {
+   "file": "audio/assets/keys/fs-565645_computer-keyboard-typing-and-keystrokes-.ogg",
+   "start": 34.323,
+   "end": 34.69,
+   "pitch": 0
+  },
+  "dur": 0.367,
+  "peak_dbfs": -14.0,
+  "rms_dbfs": -36.6,
+  "attack_ms": 40.0,
+  "peak_ms": 167.5,
+  "head_db": -56.1,
+  "tail_db": -44.0
+ },
+ {
+  "name": "kb.p12",
+  "file": "kb.p12.wav",
+  "src": {
+   "file": "audio/assets/keys/fs-565645_computer-keyboard-typing-and-keystrokes-.ogg",
+   "start": 37.482,
+   "end": 37.715,
+   "pitch": 0
+  },
+  "dur": 0.233,
+  "peak_dbfs": -14.0,
+  "rms_dbfs": -34.4,
+  "attack_ms": 11.0,
+  "peak_ms": 107.5,
+  "head_db": -59.5,
+  "tail_db": -39.4
+ },
+ {
+  "name": "kb.p13",
+  "file": "kb.p13.wav",
+  "src": {
+   "file": "audio/assets/keys/fs-565645_computer-keyboard-typing-and-keystrokes-.ogg",
+   "start": 43.795,
+   "end": 43.965,
+   "pitch": 0
+  },
+  "dur": 0.17,
+  "peak_dbfs": -14.0,
+  "rms_dbfs": -39.4,
+  "attack_ms": 45.0,
+  "peak_ms": 52.5,
+  "head_db": -60.6,
+  "tail_db": -45.7
+ },
+ {
+  "name": "kb.p14",
+  "file": "kb.p14.wav",
+  "src": {
+   "file": "audio/assets/keys/fs-565645_computer-keyboard-typing-and-keystrokes-.ogg",
+   "start": 46.47,
+   "end": 46.65,
+   "pitch": 0
+  },
+  "dur": 0.18,
+  "peak_dbfs": -14.0,
+  "rms_dbfs": -40.1,
+  "attack_ms": 41.0,
+  "peak_ms": 47.5,
+  "head_db": -61.8,
+  "tail_db": -45.8
+ },
+ {
+  "name": "kb.p17",
+  "file": "kb.p17.wav",
+  "src": {
+   "file": "audio/assets/keys/fs-565645_computer-keyboard-typing-and-keystrokes-.ogg",
+   "start": 52.487,
+   "end": 52.77,
+   "pitch": 0
+  },
+  "dur": 0.283,
+  "peak_dbfs": -14.0,
+  "rms_dbfs": -36.6,
+  "attack_ms": 10.0,
+  "peak_ms": 177.5,
+  "head_db": -62.5,
+  "tail_db": -39.1
+ },
+ {
+  "name": "kb.p18",
+  "file": "kb.p18.wav",
+  "src": {
+   "file": "audio/assets/keys/fs-565645_computer-keyboard-typing-and-keystrokes-.ogg",
+   "start": 10.445,
+   "end": 10.575,
+   "pitch": 0
+  },
+  "dur": 0.13,
+  "peak_dbfs": -14.0,
+  "rms_dbfs": -36.2,
+  "attack_ms": 9.0,
+  "peak_ms": 17.5,
+  "head_db": -44.9,
+  "tail_db": -39.1
+ },
+ {
+  "name": "kb.deep1",
+  "file": "kb.deep1.wav",
+  "src": {
+   "file": "audio/assets/keys/fs-565645_computer-keyboard-typing-and-keystrokes-.ogg",
+   "start": 26.362,
+   "end": 26.68,
+   "pitch": -1.0
+  },
+  "dur": 0.337,
+  "peak_dbfs": -13.0,
+  "rms_dbfs": -38.0,
+  "attack_ms": 11.0,
+  "peak_ms": 17.5,
+  "head_db": -66.9,
+  "tail_db": -55.2
+ },
+ {
+  "name": "kb.deep2",
+  "file": "kb.deep2.wav",
+  "src": {
+   "file": "audio/assets/keys/fs-565645_computer-keyboard-typing-and-keystrokes-.ogg",
+   "start": 24.335,
+   "end": 24.565,
+   "pitch": -1.0
+  },
+  "dur": 0.244,
+  "peak_dbfs": -13.0,
+  "rms_dbfs": -30.5,
+  "attack_ms": 10.0,
+  "peak_ms": 47.5,
+  "head_db": -41.1,
+  "tail_db": -36.2
+ },
+ {
+  "name": "kb.deep3",
+  "file": "kb.deep3.wav",
+  "src": {
+   "file": "audio/assets/keys/fs-565645_computer-keyboard-typing-and-keystrokes-.ogg",
+   "start": 35.387,
+   "end": 35.54,
+   "pitch": -1.0
+  },
+  "dur": 0.162,
+  "peak_dbfs": -13.0,
+  "rms_dbfs": -33.6,
+  "attack_ms": 10.0,
+  "peak_ms": 17.5,
+  "head_db": -54.8,
+  "tail_db": -47.7
+ },
+ {
+  "name": "kb.ret",
+  "file": "kb.ret.wav",
+  "src": {
+   "file": "audio/assets/keys/fs-565645_computer-keyboard-typing-and-keystrokes-.ogg",
+   "start": 14.832,
+   "end": 15.26,
+   "pitch": -1.5
+  },
+  "dur": 0.467,
+  "peak_dbfs": -12.0,
+  "rms_dbfs": -47.1,
+  "attack_ms": 16.0,
+  "peak_ms": 17.5,
+  "head_db": -63.1,
+  "tail_db": -75.4
+ },
+ {
+  "name": "kb.cmd",
+  "file": "kb.cmd.wav",
+  "src": {
+   "file": "audio/assets/keys/fs-565645_computer-keyboard-typing-and-keystrokes-.ogg",
+   "start": 37.482,
+   "end": 37.715,
+   "pitch": 0
+  },
+  "dur": 0.233,
+  "peak_dbfs": -16.0,
+  "rms_dbfs": -36.4,
+  "attack_ms": 11.0,
+  "peak_ms": 107.5,
+  "head_db": -59.5,
+  "tail_db": -39.4
+ },
+ {
+  "pool": "kb.type",
+  "size": 11,
+  "items": [
+   "kb.p2",
+   "kb.p4",
+   "kb.p5",
+   "kb.p6",
+   "kb.p7",
+   "kb.p10",
+   "kb.p12",
+   "kb.p13",
+   "kb.p14",
+   "kb.p17",
+   "kb.p18"
+  ]
+ },
+ {
+  "pool": "kb.space",
+  "size": 3,
+  "items": [
+   "kb.deep1",
+   "kb.deep2",
+   "kb.deep3"
+  ]
+ },
+ {
+  "pool": "kb.ret",
+  "size": 1,
+  "items": [
+   "kb.ret"
+  ]
+ },
+ {
+  "pool": "kb.cmd",
+  "size": 1,
+  "items": [
+   "kb.cmd"
+  ]
+ },
+ {
+  "pool": "kb.chordspace",
+  "size": 1,
+  "items": [
+   "kb.deep1"
+  ]
+ }
+]

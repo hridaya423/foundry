@@ -128,6 +128,12 @@ final class AISettingsState {
     }
 
     func setAIProfileEnabled(_ enabled: Bool, id: UUID) {
+        if enabled, let profile = aiProfiles.first(where: { $0.id == id }),
+           profile.kind == .openAISubscription, acceptedCodexPrivateBackendWarning == false {
+            aiProfileStatus = String(localized: "Turn on ChatGPT sign-in before enabling the unofficial backend.")
+            aiProfileStatusIsError = true
+            return
+        }
         updateAIProfile(id: id) { profile in
             profile.enabled = enabled
         }
@@ -143,7 +149,7 @@ final class AISettingsState {
 
     func setAIProfileEndpoint(_ endpoint: String, id: UUID) {
         guard let value = AIEndpointPolicy.normalized(endpoint) else {
-            aiProfileStatus = "Enter an absolute HTTP or HTTPS endpoint without embedded credentials."
+            aiProfileStatus = String(localized: "Enter an absolute HTTP or HTTPS endpoint without embedded credentials.")
             aiProfileStatusIsError = true
             return
         }
@@ -151,7 +157,7 @@ final class AISettingsState {
             profile.endpoint = value
         }
         if AIEndpointPolicy.requiresPlainHTTPWarning(value) {
-            aiProfileStatus = "This endpoint uses unencrypted HTTP. Use it only on a network you trust."
+            aiProfileStatus = String(localized: "This endpoint uses unencrypted HTTP. Use it only on a network you trust.")
         } else {
             aiProfileStatus = nil
         }
@@ -160,7 +166,7 @@ final class AISettingsState {
     func setAIProfileModel(_ model: String, id: UUID) {
         let value = model.trimmingCharacters(in: .whitespacesAndNewlines)
         guard value.isEmpty == false else {
-            aiProfileStatus = "Enter a model name."
+            aiProfileStatus = String(localized: "Enter a model name.")
             aiProfileStatusIsError = true
             return
         }
@@ -203,14 +209,14 @@ final class AISettingsState {
         do {
             if key.isEmpty {
                 try aiCredentialStore.delete(for: id)
-                aiProfileStatus = "Credential removed."
+                aiProfileStatus = String(localized: "Credential removed.")
             } else {
                 try aiCredentialStore.save(.apiKey(key), for: id)
-                aiProfileStatus = "Credential stored in Keychain."
+                aiProfileStatus = String(localized: "Credential stored in Keychain.")
             }
             aiCredentialInput = ""
         } catch {
-            aiProfileStatus = "Could not update the Keychain credential."
+            aiProfileStatus = String(localized: "Could not update the Keychain credential.")
             aiProfileStatusIsError = true
             diagnostics.log("AI credential update failed: \(error.localizedDescription)")
         }
@@ -232,20 +238,20 @@ final class AISettingsState {
 
     func loginCodexBrowser() {
         guard acceptedCodexPrivateBackendWarning, let profile = selectedAIProfile, profile.kind == .openAISubscription else {
-            aiProfileStatus = "Review and accept the private Codex backend warning before signing in."
+            aiProfileStatus = String(localized: "Review and accept the private Codex backend warning before signing in.")
             return
         }
         codexOAuthTask?.cancel()
         codexDeviceAuthorization = nil
         persistCodexLoginMethod(.browser)
         codexLoginState = .waitingForBrowser
-        aiProfileStatus = "Complete ChatGPT sign-in in your browser."
+        aiProfileStatus = String(localized: "Complete ChatGPT sign-in in your browser.")
         codexOAuthTask = Task { [weak self] in
             do {
                 _ = try await self?.codexOAuthService.browserLogin(profileID: profile.id)
                 guard Task.isCancelled == false else { return }
                 self?.codexLoginState = .connected
-                self?.aiProfileStatus = "ChatGPT subscription connected."
+                self?.aiProfileStatus = String(localized: "ChatGPT subscription connected.")
                 self?.updateAIProfile(id: profile.id) { $0.enabled = true }
             } catch {
                 guard Task.isCancelled == false else { return }
@@ -258,20 +264,20 @@ final class AISettingsState {
 
     func requestCodexDeviceLogin() {
         guard acceptedCodexPrivateBackendWarning, selectedAIProfile?.kind == .openAISubscription else {
-            aiProfileStatus = "Review and accept the private Codex backend warning before signing in."
+            aiProfileStatus = String(localized: "Review and accept the private Codex backend warning before signing in.")
             return
         }
         codexOAuthTask?.cancel()
         persistCodexLoginMethod(.device)
         codexLoginState = .starting
-        aiProfileStatus = "Requesting a device code…"
+        aiProfileStatus = String(localized: "Requesting a device code…")
         codexOAuthTask = Task { [weak self] in
             do {
                 let authorization = try await self?.codexOAuthService.requestDeviceAuthorization()
                 guard let authorization, Task.isCancelled == false else { return }
                 self?.codexDeviceAuthorization = authorization
                 self?.codexLoginState = .waitingForDeviceApproval
-                self?.aiProfileStatus = "Open \(authorization.verificationURL) and enter \(authorization.userCode)."
+                self?.aiProfileStatus = String(localized: "Open \(authorization.verificationURL) and enter \(authorization.userCode).")
             } catch {
                 guard Task.isCancelled == false else { return }
                 self?.codexLoginState = .failed(error.localizedDescription)
@@ -284,7 +290,7 @@ final class AISettingsState {
     func completeCodexDeviceLogin() {
         guard let authorization = codexDeviceAuthorization, let profile = selectedAIProfile, profile.kind == .openAISubscription else { return }
         codexLoginState = .exchangingCode
-        aiProfileStatus = "Waiting for ChatGPT device approval…"
+        aiProfileStatus = String(localized: "Waiting for ChatGPT device approval…")
         codexOAuthTask?.cancel()
         codexOAuthTask = Task { [weak self] in
             do {
@@ -292,7 +298,7 @@ final class AISettingsState {
                 guard Task.isCancelled == false else { return }
                 self?.codexDeviceAuthorization = nil
                 self?.codexLoginState = .connected
-                self?.aiProfileStatus = "ChatGPT subscription connected."
+                self?.aiProfileStatus = String(localized: "ChatGPT subscription connected.")
                 self?.updateAIProfile(id: profile.id) { $0.enabled = true }
             } catch {
                 guard Task.isCancelled == false else { return }
@@ -309,7 +315,7 @@ final class AISettingsState {
         Task { await codexOAuthService.cancelCurrentLogin() }
         codexDeviceAuthorization = nil
         codexLoginState = .cancelled
-        aiProfileStatus = "ChatGPT login cancelled."
+        aiProfileStatus = String(localized: "ChatGPT login cancelled.")
     }
 
     func logoutCodex() {
@@ -318,10 +324,10 @@ final class AISettingsState {
             do {
                 try await self?.codexOAuthService.signOut(profileID: profile.id)
                 self?.codexLoginState = .disconnected
-                self?.aiProfileStatus = "ChatGPT subscription disconnected."
+                self?.aiProfileStatus = String(localized: "ChatGPT subscription disconnected.")
                 self?.updateAIProfile(id: profile.id) { $0.enabled = false }
             } catch {
-                self?.aiProfileStatus = "Could not remove the ChatGPT credential."
+                self?.aiProfileStatus = String(localized: "Could not remove the ChatGPT credential.")
                 self?.aiProfileStatusIsError = true
             }
         }
@@ -346,7 +352,7 @@ final class AISettingsState {
         guard let profile = selectedAIProfile else { return }
         aiProfileTestTask?.cancel()
         aiProfileTestingID = profile.id
-        aiProfileStatus = "Testing connection…"
+        aiProfileStatus = String(localized: "Testing connection…")
         aiProfileTestTask = Task { [weak self] in
             let result = await AITransportRouter.test(profile: profile)
             guard Task.isCancelled == false else { return }
@@ -374,7 +380,7 @@ final class AISettingsState {
                 self.aiAvailableModels = models
                 self.aiModelsLoading = false
                 if models.isEmpty == false {
-                    self.aiProfileStatus = "Found \(models.count) model\(models.count == 1 ? "" : "s")."
+                    self.aiProfileStatus = String(localized: "Found \(models.count) model\(models.count == 1 ? "" : "s").")
                 }
             }
         }
@@ -425,7 +431,7 @@ final class AISettingsState {
     }
 
     private func showSettingsPersistenceError(_ error: Error) {
-        settingsPersistenceError = "Preferences could not be saved. Your previous settings were kept."
+        settingsPersistenceError = String(localized: "Preferences could not be saved. Your previous settings were kept.")
         diagnostics.log("Settings persistence failed: \(error.localizedDescription)")
     }
 }

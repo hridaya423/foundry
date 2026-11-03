@@ -6,128 +6,127 @@ import FoundryDomain
 
 struct SettingsView: View {
     @Bindable var state: CommandPanelState
-    @State private var category: SettingsCategory = .general
+    @AppStorage("settings.lastPane") private var category: SettingsCategory = .general
     @State private var searchQuery = ""
     @State private var pendingAnchor: String?
     @State private var highlightedAnchor: String?
     @State private var confirmingReset = false
+    @State private var confirmingModelRemoval = false
     @State private var pendingBackup: FoundryBackup?
+    @State private var pendingRetention: ClipboardRetention?
     @FocusState private var searchFocused: Bool
 
     var body: some View {
-        HStack(spacing: 0) {
+        NavigationSplitView {
             settingsRail
-            Divider()
+                .frame(minWidth: 210)
+                .navigationSplitViewColumnWidth(min: 210, ideal: 210, max: 260)
+                .toolbar(removing: .sidebarToggle)
+        } detail: {
             detailPane
         }
         .onAppear {
             searchFocused = true
             consumePendingCommandReveal()
         }
-        .onChange(of: state.pendingSettingsCommandID) { _, _ in consumePendingCommandReveal() }
+        .onChange(of: state.pendingSettingsDeepLink) { _, _ in consumePendingCommandReveal() }
     }
 
     private func consumePendingCommandReveal() {
-        guard let id = state.pendingSettingsCommandID else { return }
-        state.pendingSettingsCommandID = nil
-        if id.hasPrefix("quicklink.") {
+        guard let deepLink = state.pendingSettingsDeepLink else { return }
+        state.pendingSettingsDeepLink = nil
+        switch deepLink {
+        case .quicklinks:
             category = .quicklinks
             pendingAnchor = "quicklinks.list"
             highlightedAnchor = "quicklinks.list"
-            return
-        }
-        if id.hasPrefix("script.") {
+        case .scripts:
             category = .scripts
             pendingAnchor = "scripts.folders"
             highlightedAnchor = "scripts.folders"
-            return
+        case .ai:
+            category = .ai
+            pendingAnchor = "ai.provider"
+        case .snippets:
+            category = .snippets
+        case .agents:
+            category = .agents
+        case let .command(id, title):
+            category = .commands
+            state.settings.prepareCommandCatalog()
+            state.settings.commandSettingsQuery = title
+            state.settings.expandedCommandID = id
+            pendingAnchor = "commands.\(id)"
+            highlightedAnchor = "commands.\(id)"
         }
-        category = .commands
-        state.prepareCommandCatalog()
-        state.commandSettingsQuery = ""
-        state.expandedCommandID = id
-        pendingAnchor = "commands.\(id)"
-        highlightedAnchor = "commands.\(id)"
     }
 
     private var searchMatches: [SettingItem] {
         SettingsSearch.matches(searchQuery)
     }
 
+    private var isSearching: Bool {
+        searchQuery.trimmingCharacters(in: .whitespaces).isEmpty == false
+    }
+
     private var settingsRail: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            HStack(spacing: 7) {
+        List(selection: railSelection) {
+            if isSearching == false {
+                ForEach(SettingsCategory.allCases) { item in
+                    Label(item.title, systemImage: item.symbol).tag(item.rawValue)
+                }
+            } else if searchMatches.isEmpty {
+                Text("No settings match \u{201C}\(searchQuery)\u{201D}")
+                    .font(FoundryTheme.bodySecondary)
+                    .foregroundStyle(FoundryTheme.textTertiary)
+                    .selectionDisabled()
+            } else {
+                ForEach(searchMatches) { item in
+                    Label(item.title, systemImage: item.pane.symbol).tag(item.id)
+                }
+            }
+        }
+        .listStyle(.sidebar)
+        .safeAreaInset(edge: .top, spacing: 0) {
+            HStack(spacing: FoundryTheme.Spacing.xs) {
                 Image(systemName: "magnifyingglass")
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(FoundryTheme.mutedText)
+                    .font(FoundryTheme.Glyph.xs)
+                    .foregroundStyle(FoundryTheme.textTertiary)
                 TextField("Search settings", text: $searchQuery)
                     .textFieldStyle(.plain)
-                    .font(FoundryTheme.body(size: 13, weight: .regular))
+                    .font(FoundryTheme.bodySecondary)
                     .focused($searchFocused)
                     .onSubmit { if let first = searchMatches.first { reveal(first) } }
             }
-            .padding(.horizontal, 9)
-            .frame(height: 30)
-            .background(Color.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: FoundryTheme.Radius.control, style: .continuous))
-            .padding(.bottom, 10)
-
-            ScrollView {
-                if searchQuery.trimmingCharacters(in: .whitespaces).isEmpty {
-                    ForEach(SettingsCategory.allCases) { item in
-                        railButton(title: item.title, symbol: item.symbol, isSelected: category == item) {
-                            select(item)
-                        }
-                    }
-                } else if searchMatches.isEmpty {
-                    Text("No settings match \u{201C}\(searchQuery)\u{201D}")
-                        .font(FoundryTheme.body(size: 12, weight: .regular))
-                        .foregroundStyle(FoundryTheme.mutedText)
-                        .padding(.horizontal, 9)
-                        .padding(.top, 4)
-                } else {
-                    ForEach(searchMatches) { item in
-                        railButton(title: item.title, symbol: item.pane.symbol, isSelected: highlightedAnchor == item.anchorID && category == item.pane) {
-                            reveal(item)
-                        }
-                    }
-                }
-            }
-            .scrollIndicators(.never)
+            .padding(.horizontal, FoundryTheme.Spacing.sm)
+            .frame(height: FoundryTheme.Control.compact)
+            .background(FoundryTheme.fillHover, in: RoundedRectangle(cornerRadius: FoundryTheme.Radius.control, style: .continuous))
+            .padding(.horizontal, FoundryTheme.Spacing.md)
+            .padding(.bottom, FoundryTheme.Spacing.xs)
         }
-        .frame(width: 176, alignment: .leading)
-        .padding(12)
     }
 
-    private func railButton(title: String, symbol: String, isSelected: Bool, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            HStack(spacing: 9) {
-                Image(systemName: symbol)
-                    .font(.system(size: 13, weight: .medium))
-                    .frame(width: 18)
-                Text(title)
-                    .font(FoundryTheme.body(size: 13, weight: .medium))
-                    .lineLimit(1)
+    private var railSelection: Binding<String?> {
+        Binding(
+            get: {
+                guard isSearching else { return category.rawValue }
+                return searchMatches.first { $0.anchorID == highlightedAnchor && $0.pane == category }?.id
+            },
+            set: { id in
+                if let item = searchMatches.first(where: { $0.id == id }) {
+                    reveal(item)
+                } else if let id, let item = SettingsCategory(rawValue: id) {
+                    select(item)
+                }
             }
-            .foregroundStyle(isSelected ? FoundryTheme.primaryText : FoundryTheme.secondaryText)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.horizontal, 9)
-            .frame(height: 30)
-            .background(
-                RoundedRectangle(cornerRadius: FoundryTheme.Radius.control, style: .continuous)
-                    .fill(isSelected ? FoundryTheme.selection : Color.clear)
-            )
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel(title)
-        .accessibilityAddTraits(isSelected ? .isSelected : [])
+        )
     }
 
     private func select(_ item: SettingsCategory) {
         category = item
         highlightedAnchor = nil
         if item == .commands {
-            state.prepareCommandCatalog()
+            state.settings.prepareCommandCatalog()
         } else if item == .agents {
             state.agents.refreshIntegrationStatuses()
         }
@@ -141,26 +140,19 @@ struct SettingsView: View {
 
     private var detailPane: some View {
         VStack(alignment: .leading, spacing: 0) {
-            Text(category.title)
-                .font(FoundryTheme.body(size: 20, weight: .semibold))
-                .foregroundStyle(FoundryTheme.primaryText)
-                .padding(.horizontal, 24)
-                .padding(.top, 20)
-                .padding(.bottom, 12)
-
-            if let error = state.configLoadError {
+            if let error = state.settings.configLoadError {
                 SettingsNotice(
                     text: "Foundry could not load its settings. Editing is disabled until they are reset. \(error)",
                     symbol: "exclamationmark.triangle",
                     actionTitle: "Reset",
-                    action: state.resetConfiguration
+                    action: state.settings.resetConfiguration
                 )
                 .padding(.horizontal, 24)
                 .padding(.bottom, 10)
             }
 
-            if let error = state.settingsPersistenceError {
-                SettingsNotice(text: error, symbol: "exclamationmark.triangle")
+            if let error = state.settings.settingsPersistenceError {
+                SettingsNotice(text: LocalizedStringResource(stringLiteral: error), symbol: "exclamationmark.triangle")
                     .padding(.horizontal, 24)
                     .padding(.bottom, 10)
             }
@@ -171,16 +163,24 @@ struct SettingsView: View {
                         switch category {
                         case .general:
                             generalContent
-                        case .appearance:
-                            appearanceContent
                         case .commands:
+                            FallbackSettingsPane(settings: state.settings).modifier(anchor("commands.fallbacks"))
+                            windowHotkeysContent.modifier(anchor("commands.windowHotkeys"))
                             commandsContent.id("commands.list")
                         case .quicklinks:
-                            QuicklinksSettingsPane().id("quicklinks.list")
+                            QuicklinksSettingsPane(settings: state.settings).id("quicklinks.list")
+                        case .snippets:
+                            snippetsContent
                         case .scripts:
                             ScriptsSettingsPane().id("scripts.folders")
+                        case .fileSearch:
+                            FileSearchSettingsPane(settings: state.settings).id("fileSearch.folders")
                         case .clipboard:
                             clipboardContent.id("clipboard.history")
+                        case .browser:
+                            browserContent
+                        case .permissions:
+                            PermissionsSettingsPane().id("permissions.list")
                         case .ai:
                             aiContent.id("ai.provider")
                         case .agents:
@@ -193,8 +193,8 @@ struct SettingsView: View {
                             aboutContent
                         }
                     }
-                    .padding(.horizontal, 24)
-                    .padding(.bottom, 20)
+                    .padding(.horizontal, FoundryTheme.Spacing.lg)
+                    .padding(.vertical, FoundryTheme.Spacing.md)
                     .frame(maxWidth: 720, alignment: .leading)
                 }
                 .onChange(of: pendingAnchor) { _, anchor in
@@ -207,6 +207,7 @@ struct SettingsView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .navigationTitle(category.title)
     }
 
     private func anchor(_ id: String) -> SettingsAnchor {
@@ -217,7 +218,10 @@ struct SettingsView: View {
         VStack(alignment: .leading, spacing: 12) {
             SettingsGroup {
                 HStack(spacing: 12) {
-                    SettingsLabel(title: "Config folder", subtitle: ConfigService.configURL.deletingLastPathComponent().path)
+                    SettingsLabel(
+                        title: "Config folder",
+                        subtitle: LocalizedStringResource(stringLiteral: ConfigService.configURL.deletingLastPathComponent().path)
+                    )
                     Spacer()
                     Button("Show in Finder") {
                         NSWorkspace.shared.activateFileViewerSelecting([ConfigService.configURL])
@@ -231,7 +235,8 @@ struct SettingsView: View {
 
             SettingsGroup {
                 HStack(spacing: 12) {
-                    SettingsLabel(title: "Backup", subtitle: "Settings, snippets, quicklinks and script folders. Clipboard history and API keys are not included.")
+                    SettingsLabel(title: "Backup",
+                        subtitle: "Settings, snippets, quicklinks and script folders. Clipboard history and API keys are not included.")
                     Spacer()
                     Button("Export…", action: exportBackup)
                         .controlSize(.small)
@@ -242,17 +247,37 @@ struct SettingsView: View {
                 .padding(.vertical, 11)
             }
             .modifier(anchor("advanced.backup"))
-            .confirmationDialog("Replace your Foundry settings?", isPresented: Binding(get: { pendingBackup != nil }, set: { if $0 == false { pendingBackup = nil } })) {
-                Button("Import and Quit", role: .destructive) {
-                    if let pendingBackup { state.restoreBackup(pendingBackup) }
+            .confirmationDialog("Replace your Foundry settings?", isPresented: Binding(get: { pendingBackup != nil },
+                set: { if $0 == false { pendingBackup = nil } })) {
+                Button("Import", role: .destructive) {
+                    if let pendingBackup { state.settings.restoreBackup(pendingBackup) }
                 }
             } message: {
-                Text("Current files are kept next to the originals as .pre-import copies. Foundry quits to apply the backup.")
+                Text("Current files are kept next to the originals as .pre-import copies.")
+            }
+
+            if state.fileShelf.hasDetailedModelData {
+                SettingsGroup {
+                    HStack(spacing: 12) {
+                        SettingsLabel(title: "Background removal model", subtitle: "Used by Remove Background (Detailed) on the File Shelf")
+                        Spacer()
+                        Button("Remove Model Data…", role: .destructive) { confirmingModelRemoval = true }
+                            .controlSize(.small)
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 11)
+                }
+                .modifier(anchor("advanced.backgroundModel"))
+                .confirmationDialog("Delete the background-removal model?", isPresented: $confirmingModelRemoval) {
+                    Button("Delete Model", role: .destructive, action: state.fileShelf.removeBEN2Data)
+                } message: {
+                    Text("You can download it again later.")
+                }
             }
 
             SettingsGroup {
                 HStack(spacing: 12) {
-                    SettingsLabel(title: "Reset settings", subtitle: "Restore every preference to its default and quit Foundry")
+                    SettingsLabel(title: "Reset settings", subtitle: "Restore every preference to its default")
                     Spacer()
                     Button("Reset…", role: .destructive) { confirmingReset = true }
                         .controlSize(.small)
@@ -262,27 +287,47 @@ struct SettingsView: View {
             }
             .modifier(anchor("advanced.reset"))
             .confirmationDialog("Reset all Foundry settings?", isPresented: $confirmingReset) {
-                Button("Reset and Quit", role: .destructive, action: state.resetConfiguration)
+                Button("Reset", role: .destructive, action: state.settings.resetConfiguration)
             } message: {
                 Text("Clipboard history and snippets are kept.")
             }
         }
     }
 
+    private struct ClipboardRetention: Equatable {
+        let maxItems: Int
+        let maxBytes: Int
+        let maxAgeDays: Int
+        let removed: Int
+    }
+
+    private func applyRetention(maxItems: Int, maxBytes: Int, maxAgeDays: Int) {
+        let removed = state.clipboardHistory.itemsRemoved(maxItems: maxItems, maxBytes: maxBytes, maxAgeDays: maxAgeDays)
+        guard removed > 0 else {
+            state.settings.setClipboardRetention(maxItems: maxItems, maxBytes: maxBytes, maxAgeDays: maxAgeDays)
+            return
+        }
+        pendingRetention = ClipboardRetention(maxItems: maxItems, maxBytes: maxBytes, maxAgeDays: maxAgeDays, removed: removed)
+    }
+
     private func exportBackup() {
         let panel = NSSavePanel()
         panel.nameFieldStringValue = "Foundry-\(Date().formatted(.iso8601.year().month().day())).\(FoundryBackup.fileExtension)"
         panel.allowedContentTypes = [UTType(filenameExtension: FoundryBackup.fileExtension) ?? .json]
-        guard panel.runModal() == .OK, let url = panel.url else { return }
-        state.exportBackup(to: url)
+        Task { @MainActor in
+            guard await runFilePanelAsSheet(panel), let url = panel.url else { return }
+            state.settings.exportBackup(to: url)
+        }
     }
 
     private func chooseBackup() {
         let panel = NSOpenPanel()
         panel.allowsMultipleSelection = false
         panel.canChooseDirectories = false
-        guard panel.runModal() == .OK, let url = panel.url else { return }
-        pendingBackup = state.loadBackup(from: url)
+        Task { @MainActor in
+            guard await runFilePanelAsSheet(panel), let url = panel.url else { return }
+            pendingBackup = state.settings.loadBackup(from: url)
+        }
     }
 
     private var aboutContent: some View {
@@ -293,11 +338,11 @@ struct SettingsView: View {
                     .frame(width: 56, height: 56)
                 VStack(alignment: .leading, spacing: 3) {
                     Text("Foundry")
-                        .font(FoundryTheme.body(size: 17, weight: .semibold))
-                        .foregroundStyle(FoundryTheme.primaryText)
+                        .font(FoundryTheme.title)
+                        .foregroundStyle(FoundryTheme.textPrimary)
                     Text(Self.versionString)
-                        .font(FoundryTheme.body(size: 12, weight: .regular).monospacedDigit())
-                        .foregroundStyle(FoundryTheme.mutedText)
+                        .font(FoundryTheme.bodySecondary.monospacedDigit())
+                        .foregroundStyle(FoundryTheme.textTertiary)
                         .textSelection(.enabled)
                 }
                 Spacer()
@@ -322,16 +367,16 @@ struct SettingsView: View {
                         HStack(spacing: 12) {
                             SettingsLabel(title: "Global shortcut", subtitle: "Open Foundry from anywhere")
                             Spacer()
-                            ShortcutRecorder(hotkey: state.hotkey, onChange: state.setHotkey)
-                                .frame(width: 120, height: 30)
+                            ShortcutRecorder(hotkey: state.settings.hotkey, onChange: state.settings.setHotkey)
+                                .frame(width: FoundryTheme.Control.settingsColumn, height: FoundryTheme.Control.compact)
                         }
                     }
                     .padding(.horizontal, 12)
                     .padding(.vertical, 11)
-                    if let error = state.hotkeyError {
+                    if let error = state.settings.hotkeyError {
                         Text(error)
-                            .font(FoundryTheme.body(size: 12, weight: .medium))
-                            .foregroundStyle(FoundryTheme.error)
+                            .font(FoundryTheme.bodySecondary)
+                            .foregroundStyle(FoundryTheme.destructive)
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .padding(.horizontal, 12)
                             .padding(.bottom, 8)
@@ -340,9 +385,9 @@ struct SettingsView: View {
             }
             .modifier(anchor("general.hotkey"))
 
-            if state.launcherHotkeyFailed {
+            if state.settings.launcherHotkeyFailed {
                 SettingsNotice(
-                    text: "\(state.hotkey.displayName) could not be registered. Choose another shortcut.",
+                    text: "\(state.settings.hotkey.displayName) could not be registered. Choose another shortcut.",
                     symbol: "exclamationmark.triangle"
                 )
             }
@@ -352,56 +397,40 @@ struct SettingsView: View {
                     SettingsToggleRow(
                         title: "Show in menu bar",
                         subtitle: "Access Foundry, Clipboard History, and Settings from the menu bar",
-                        isOn: state.showMenuBarIcon,
-                        set: state.setMenuBarIconVisible
+                        isOn: state.settings.showMenuBarIcon,
+                        set: state.settings.setMenuBarIconVisible
                     )
                     SettingsDivider()
                     SettingsToggleRow(
                         title: "Launch at login",
-                        subtitle: state.launchAtLoginAvailable ? "Start Foundry automatically when you sign in" : "Available in the installed Foundry app",
-                        isOn: state.launchAtLoginEnabled,
-                        set: state.setLaunchAtLogin
+                        subtitle: state.settings.launchAtLoginAvailable
+                            ? "Start Foundry automatically when you sign in"
+                            : "Available in the installed Foundry app",
+                        isOn: state.settings.launchAtLoginEnabled,
+                        set: state.settings.setLaunchAtLogin
                     )
-                    .disabled(state.launchAtLoginAvailable == false)
+                    .disabled(state.settings.launchAtLoginAvailable == false)
                     SettingsDivider()
                     SettingsToggleRow(
                         title: "Haptic feedback",
                         subtitle: "Subtle taps for drops, snippet expansion, and celebrations",
-                        isOn: state.hapticsEnabled,
-                        set: state.setHapticsEnabled
+                        isOn: state.settings.hapticsEnabled,
+                        set: state.settings.setHapticsEnabled
                     )
-                    SettingsDivider()
-                    HStack(spacing: 12) {
-                        SettingsLabel(title: "Main browser", subtitle: "Used for browser history and open-tab results")
-                        Spacer()
-                        Picker("Main browser", selection: Binding(
-                            get: { state.mainBrowser ?? .safari },
-                            set: { state.setMainBrowser($0) }
-                        )) {
-                            ForEach(state.installedBrowsers, id: \.self) { browser in
-                                Text(browser.displayName).tag(browser)
-                            }
-                        }
-                        .labelsHidden()
-                        .pickerStyle(.menu)
-                        .frame(width: 130)
-                    }
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 11)
                 }
             }
             .modifier(anchor("general.system"))
-            if let error = state.launchAtLoginError {
-                SettingsNotice(text: error, symbol: "exclamationmark.triangle")
+            if let error = state.settings.launchAtLoginError {
+                SettingsNotice(text: LocalizedStringResource(stringLiteral: error), symbol: "exclamationmark.triangle")
             }
 
             SettingsGroup {
                 HStack(spacing: 12) {
-                    SettingsLabel(title: "Pop to root", subtitle: "Reopening within this time restores the last mode")
+                    SettingsLabel(title: "Return to Home after", subtitle: "Reopening sooner than this resumes where you left off.")
                     Spacer()
-                    Picker("Pop to root", selection: Binding(
-                        get: { state.popToRootAfterSeconds },
-                        set: { state.setPopToRootAfter($0) }
+                    Picker("Return to Home after", selection: Binding(
+                        get: { state.settings.popToRootAfterSeconds },
+                        set: { state.settings.setPopToRootAfter($0) }
                     )) {
                         Text("Immediately").tag(0.0)
                         Text("30 seconds").tag(30.0)
@@ -411,7 +440,7 @@ struct SettingsView: View {
                     }
                     .labelsHidden()
                     .pickerStyle(.menu)
-                    .frame(width: 130)
+                    .frame(width: FoundryTheme.Control.settingsColumn, alignment: .trailing)
                 }
                 .padding(.horizontal, 12)
                 .padding(.vertical, 11)
@@ -421,13 +450,16 @@ struct SettingsView: View {
             compactModeGroup
                 .modifier(anchor("general.compact"))
 
+            panelContrastGroup
+                .modifier(anchor("general.contrast"))
+
             SettingsGroup {
                 HStack(spacing: 12) {
-                    SettingsLabel(title: "Search sensitivity", subtitle: state.searchSensitivity.subtitle)
+                    SettingsLabel(title: "Search sensitivity", subtitle: LocalizedStringResource(stringLiteral: state.settings.searchSensitivity.subtitle))
                     Spacer()
                     Picker("Search sensitivity", selection: Binding(
-                        get: { state.searchSensitivity },
-                        set: { state.setSearchSensitivity($0) }
+                        get: { state.settings.searchSensitivity },
+                        set: { state.settings.setSearchSensitivity($0) }
                     )) {
                         ForEach(SearchSensitivity.allCases) { sensitivity in
                             Text(sensitivity.title).tag(sensitivity)
@@ -435,16 +467,59 @@ struct SettingsView: View {
                     }
                     .labelsHidden()
                     .pickerStyle(.menu)
-                    .frame(width: 110)
+                    .frame(width: FoundryTheme.Control.settingsColumn, alignment: .trailing)
                 }
                 .padding(.horizontal, 12)
                 .padding(.vertical, 11)
             }
             .modifier(anchor("general.sensitivity"))
-
-            snippetExpansionContent
-                .modifier(anchor("general.snippets"))
         }
+    }
+
+    private var snippetsContent: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            SettingsGroup {
+                HStack(spacing: 12) {
+                    SettingsLabel(title: "Snippet library",
+                        subtitle: "^[\(state.snippets.items.count) snippet](inflect: true). Import and export use Raycast's JSON format.")
+                    Spacer()
+                    Button("Import…") { state.snippets.importFromFile() }
+                        .controlSize(.small)
+                    Button("Export…") { state.snippets.exportToFile() }
+                        .controlSize(.small)
+                        .disabled(state.snippets.items.isEmpty)
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 11)
+            }
+            .modifier(anchor("snippets.library"))
+            snippetExpansionContent
+                .modifier(anchor("snippets.expansion"))
+        }
+        .onAppear(perform: state.snippets.load)
+    }
+
+    private var browserContent: some View {
+        SettingsGroup {
+            HStack(spacing: 12) {
+                SettingsLabel(title: "Main browser", subtitle: "Used for browser history and open-tab results")
+                Spacer()
+                Picker("Main browser", selection: Binding(
+                    get: { state.settings.mainBrowser ?? .safari },
+                    set: { state.settings.setMainBrowser($0) }
+                )) {
+                    ForEach(state.installedBrowsers, id: \.self) { browser in
+                        Text(browser.displayName).tag(browser)
+                    }
+                }
+                .labelsHidden()
+                .pickerStyle(.menu)
+                .frame(width: FoundryTheme.Control.settingsColumn, alignment: .trailing)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 11)
+        }
+        .modifier(anchor("browser.main"))
     }
 
     private var snippetExpansionContent: some View {
@@ -454,19 +529,19 @@ struct SettingsView: View {
                 SettingsToggleRow(
                     title: "Expand keywords as you type",
                     subtitle: "Only runs when Accessibility access is already granted",
-                    isOn: state.snippetExpansion.isEnabled,
-                    set: state.setSnippetExpansionEnabled
+                    isOn: state.settings.snippetExpansion.isEnabled,
+                    set: state.settings.setSnippetExpansionEnabled
                 )
                 SettingsDivider()
                 HStack(spacing: 8) {
                     SettingsLabel(title: "Accessibility", subtitle: state.accessibilityTrusted ? "Ready" : "Not granted")
                     Spacer()
                     if !state.accessibilityTrusted {
-                        Button("Request access") { state.requestSnippetExpansionAccessibility() }
+                        Button("Request Access") { state.settings.requestSnippetExpansionAccessibility() }
                             .buttonStyle(.bordered)
                             .controlSize(.small)
                     }
-                    Button("Privacy Settings") { state.openSnippetExpansionPrivacySettings() }
+                    Button("Privacy Settings") { state.settings.openSnippetExpansionPrivacySettings() }
                         .buttonStyle(.bordered)
                         .controlSize(.small)
                 }
@@ -475,74 +550,45 @@ struct SettingsView: View {
                 SettingsDivider()
                 VStack(alignment: .leading, spacing: 10) {
                     SettingsLabel(title: "Expand after", subtitle: "Keywords expand when one of these is typed")
-                    HStack(spacing: 8) {
+                    HStack(spacing: FoundryTheme.Spacing.md) {
                         ForEach(snippetDelimiterOptions, id: \.delimiter) { option in
-                            Button {
-                                state.setSnippetExpansionDelimiter(option.delimiter, enabled: !state.snippetExpansion.delimiters.contains(option.delimiter))
-                            } label: {
-                                Text(option.label)
-                                    .font(FoundryTheme.body(size: 11.5, weight: .semibold))
-                                    .foregroundStyle(state.snippetExpansion.delimiters.contains(option.delimiter) ? FoundryTheme.primaryText : FoundryTheme.mutedText)
-                                    .padding(.horizontal, 11)
-                                    .frame(height: 26)
-                                    .background(
-                                        Capsule()
-                                            .fill(state.snippetExpansion.delimiters.contains(option.delimiter) ? FoundryTheme.accentTint.opacity(0.18) : Color.primary.opacity(0.05))
-                                            .overlay(
-                                                Capsule()
-                                                    .strokeBorder(state.snippetExpansion.delimiters.contains(option.delimiter) ? FoundryTheme.accentTint.opacity(0.4) : Color.primary.opacity(0.08), lineWidth: 1)
-                                            )
-                                    )
-                            }
-                            .buttonStyle(PressableButtonStyle())
-                            .pointerCursor()
-                            .accessibilityLabel("Expand after \(option.label)")
-                            .accessibilityValue(state.snippetExpansion.delimiters.contains(option.delimiter) ? "On" : "Off")
+                            Toggle(option.label, isOn: Binding(
+                                get: { state.settings.snippetExpansion.delimiters.contains(option.delimiter) },
+                                set: { state.settings.setSnippetExpansionDelimiter(option.delimiter, enabled: $0) }
+                            ))
+                            .toggleStyle(.checkbox)
                         }
                     }
+                    .font(FoundryTheme.bodySecondary)
                 }
                 .padding(.horizontal, 12)
                 .padding(.vertical, 11)
                 SettingsDivider()
-                VStack(alignment: .leading, spacing: 10) {
+                HStack(spacing: 12) {
                     SettingsLabel(title: "Return key in search", subtitle: "What Return does on a snippet result")
-                    HStack(spacing: 8) {
-                        ForEach(snippetPrimaryActionOptions, id: \.insert) { option in
-                            Button {
-                                state.setSnippetInsertAsPrimary(option.insert)
-                            } label: {
-                                Text(option.label)
-                                    .font(FoundryTheme.body(size: 11.5, weight: .semibold))
-                                    .foregroundStyle(state.snippetExpansion.insertAsPrimary == option.insert ? FoundryTheme.primaryText : FoundryTheme.mutedText)
-                                    .padding(.horizontal, 11)
-                                    .frame(height: 26)
-                                    .background(
-                                        Capsule()
-                                            .fill(state.snippetExpansion.insertAsPrimary == option.insert ? FoundryTheme.accentTint.opacity(0.18) : Color.primary.opacity(0.05))
-                                            .overlay(
-                                                Capsule()
-                                                    .strokeBorder(state.snippetExpansion.insertAsPrimary == option.insert ? FoundryTheme.accentTint.opacity(0.4) : Color.primary.opacity(0.08), lineWidth: 1)
-                                            )
-                                    )
-                            }
-                            .buttonStyle(PressableButtonStyle())
-                            .pointerCursor()
-                            .accessibilityLabel("Return key \(option.label)")
-                            .accessibilityValue(state.snippetExpansion.insertAsPrimary == option.insert ? "Selected" : "")
-                        }
+                    Spacer()
+                    Picker("Return key in search", selection: Binding(
+                        get: { state.settings.snippetExpansion.insertAsPrimary },
+                        set: { state.settings.setSnippetInsertAsPrimary($0) }
+                    )) {
+                        Text("Insert").tag(true)
+                        Text("Copy").tag(false)
                     }
+                    .labelsHidden()
+                    .pickerStyle(.segmented)
+                    .frame(width: FoundryTheme.Control.settingsColumn, alignment: .trailing)
                 }
                 .padding(.horizontal, 12)
                 .padding(.vertical, 11)
                 SettingsDivider()
                 ExcludedAppsRow(
                     title: "Excluded apps",
-                    bundleIDs: state.snippetExpansion.excludedBundleIdentifiers,
-                    commit: { state.setSnippetExpansionExcludedBundleIdentifiers($0.joined(separator: ", ")) }
+                    bundleIDs: state.settings.snippetExpansion.excludedBundleIdentifiers,
+                    commit: { state.settings.setSnippetExpansionExcludedBundleIdentifiers($0.joined(separator: ", ")) }
                 )
             }
-            if let error = state.snippetExpansionError {
-                SettingsNotice(text: error, symbol: "exclamationmark.triangle")
+            if let error = state.settings.snippetExpansionError {
+                SettingsNotice(text: LocalizedStringResource(stringLiteral: error), symbol: "exclamationmark.triangle")
             }
         }
     }
@@ -551,22 +597,13 @@ struct SettingsView: View {
         [("Space", " "), ("Return", "\n"), ("Tab", "\t"), ("Quote", "'"), ("Backtick", "`")]
     }
 
-    private var snippetPrimaryActionOptions: [(label: String, insert: Bool)] {
-        [("Insert", true), ("Copy", false)]
-    }
-
-    private var appearanceContent: some View {
-        panelContrastGroup
-            .modifier(anchor("appearance.contrast"))
-    }
-
     private var compactModeGroup: some View {
         SettingsGroup {
             SettingsToggleRow(
                 title: "Compact panel",
                 subtitle: "Show only the search bar until you type",
-                isOn: state.windowMode == .compact,
-                set: { state.setWindowMode($0 ? .compact : .standard) }
+                isOn: state.settings.windowMode == .compact,
+                set: { state.settings.setWindowMode($0 ? .compact : .standard) }
             )
         }
     }
@@ -580,22 +617,36 @@ struct SettingsView: View {
                         subtitle: "Increase separation from content behind Foundry"
                     )
                     Spacer()
-                    Text("\(Int(state.themeIntensity * 100))%")
-                        .font(FoundryTheme.body(size: 12, weight: .semibold))
-                        .foregroundStyle(FoundryTheme.secondaryText)
+                    Text("\(Int(state.settings.themeIntensity * 100))%")
+                        .font(FoundryTheme.body)
+                        .foregroundStyle(FoundryTheme.textSecondary)
                 }
 
                 Slider(
                     value: Binding(
-                        get: { state.themeIntensity },
-                        set: { value in state.setThemeIntensity(value) }
+                        get: { state.settings.themeIntensity },
+                        set: { value in state.settings.setThemeIntensity(value) }
                     ),
                     in: 0.2...1
                 )
-                .tint(FoundryTheme.secondaryText)
+                .tint(FoundryTheme.textSecondary)
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 11)
+        }
+    }
+
+    private var windowHotkeysContent: some View {
+        SettingsGroup {
+            HStack(spacing: 10) {
+                SettingsLabel(title: "Window layout shortcuts",
+                    subtitle: "Suggested: \(WindowHotkeySuggestions.summary). Only layouts without a shortcut get one.")
+                Spacer()
+                Button("Use Suggested") { state.settings.applySuggestedWindowHotkeys() }
+                    .controlSize(.small)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
         }
     }
 
@@ -603,72 +654,77 @@ struct SettingsView: View {
         VStack(alignment: .leading, spacing: 10) {
             SettingsSectionLabel(
                 title: "Commands",
-                value: state.commandCatalogCount == 0 ? nil : "\(state.visibleCommandRows.count)/\(state.commandCatalogCount)"
+                value: state.settings.commandCatalogCount == 0 ? nil : "\(state.settings.visibleCommandRows.count)/\(state.settings.commandCatalogCount)"
             )
 
-            if state.commandCatalogFailures.isEmpty == false {
+            if state.settings.commandCatalogFailures.isEmpty == false {
                 SettingsNotice(
-                    text: "Some commands couldn't load: \(state.commandCatalogFailures.joined(separator: "; "))",
+                    text: "Some commands couldn't load: \(state.settings.commandCatalogFailures.joined(separator: "; "))",
                     symbol: "exclamationmark.triangle",
                     actionTitle: "Retry",
-                    action: state.retryCommandCatalog
+                    action: state.settings.retryCommandCatalog
                 )
             }
 
             SettingsGroup {
                 HStack(spacing: 9) {
                     Image(systemName: "magnifyingglass")
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(FoundryTheme.mutedText)
-                    TextField("Search commands", text: $state.commandSettingsQuery)
+                        .font(FoundryTheme.Glyph.xs)
+                        .foregroundStyle(FoundryTheme.textTertiary)
+                    TextField("Search commands", text: $state.settings.commandSettingsQuery)
                         .textFieldStyle(.plain)
-                        .font(FoundryTheme.body(size: 13, weight: .medium))
-                        .foregroundStyle(FoundryTheme.primaryText)
+                        .font(FoundryTheme.body)
+                        .foregroundStyle(FoundryTheme.textPrimary)
                 }
                 .padding(.horizontal, 12)
                 .padding(.vertical, 10)
             }
 
-            if state.isCommandCatalogLoading && state.commandCatalogCount == 0 {
+            if state.settings.isCommandCatalogLoading && state.settings.commandCatalogCount == 0 {
                 HStack(spacing: 8) {
                     ProgressView()
                         .controlSize(.small)
                     Text("Preparing command catalog…")
-                        .font(FoundryTheme.body(size: 12, weight: .regular))
-                        .foregroundStyle(FoundryTheme.mutedText)
+                        .font(FoundryTheme.bodySecondary)
+                        .foregroundStyle(FoundryTheme.textTertiary)
                 }
                 .padding(.horizontal, 2)
                 .padding(.vertical, 5)
-            } else if state.isCommandCatalogReady && state.commandCatalogCount == 0 {
+            } else if state.settings.isCommandCatalogReady && state.settings.commandCatalogCount == 0 {
                 Text("No commands are available.")
-                    .font(FoundryTheme.body(size: 12, weight: .regular))
-                    .foregroundStyle(FoundryTheme.mutedText)
+                    .font(FoundryTheme.bodySecondary)
+                    .foregroundStyle(FoundryTheme.textTertiary)
                     .padding(.horizontal, 2)
                     .padding(.vertical, 5)
-            } else if state.visibleCommandRows.isEmpty {
+            } else if state.settings.visibleCommandRows.isEmpty {
                 Text("No commands match this search.")
-                    .font(FoundryTheme.body(size: 12, weight: .regular))
-                    .foregroundStyle(FoundryTheme.mutedText)
+                    .font(FoundryTheme.bodySecondary)
+                    .foregroundStyle(FoundryTheme.textTertiary)
                     .padding(.horizontal, 2)
                     .padding(.vertical, 5)
             } else {
                 SettingsGroup {
                     LazyVStack(spacing: 0) {
-                        ForEach(state.visibleCommandRows) { row in
+                        ForEach(state.settings.visibleCommandRows) { row in
                             CommandSettingsRow(
                                 row: row,
-                                isExpanded: state.expandedCommandID == row.id,
-                                 setEnabled: { state.setCommandEnabled($0, for: row.id) },
-                                 setFavorite: { state.setCommandFavorite($0, for: row.id) },
-                                 commitAliases: { state.setCommandAliases($0, for: row.id) },
-                                 setHotkey: { state.setCommandHotkey($0, for: row.id) },
-                                 setFallbackEligible: { state.setCommandFallbackEligible($0, for: row.id) },
-                                 reset: { state.resetCommandPreference(for: row.id) },
-                                toggleExpanded: { state.toggleCommandExpansion(row.id) }
+                                isExpanded: state.settings.expandedCommandID == row.id,
+                                 setEnabled: { state.settings.setCommandEnabled($0, for: row.id) },
+                                 setFavorite: { state.settings.setCommandFavorite($0, for: row.id) },
+                                 commitAliases: { state.settings.setCommandAliases($0, for: row.id) },
+                                 setHotkey: { state.settings.setCommandHotkey($0, for: row.id) },
+                                 setFallbackEligible: { state.settings.setCommandFallbackEligible($0, for: row.id) },
+                                 reset: { state.settings.resetCommandPreference(for: row.id) },
+                                toggleExpanded: { state.settings.toggleCommandExpansion(row.id) },
+                                hotkeyConflict: { keyCode, modifiers in
+                                    state.settings.commandHotkeyOwner(
+                                        keyCode: keyCode, modifiers: modifiers, excluding: row.id
+                                    )
+                                }
                             )
                             .modifier(anchor("commands.\(row.id)"))
                             .overlay(alignment: .bottom) {
-                                if row.id != state.visibleCommandRows.last?.id {
+                                if row.id != state.settings.visibleCommandRows.last?.id {
                                     SettingsDivider()
                                 }
                             }
@@ -698,17 +754,19 @@ struct SettingsView: View {
                         )
                         Spacer()
                         Text(state.agents.socketListening ? "Live" : "Offline")
-                            .font(FoundryTheme.body(size: 12, weight: .semibold))
+                            .font(FoundryTheme.body)
                             .foregroundStyle(state.agents.socketListening ? FoundryTheme.success : FoundryTheme.warning)
                     }
                     Text(AgentEventSocketServer.socketURL.path)
-                        .font(FoundryTheme.mono(size: 10, weight: .regular))
-                        .foregroundStyle(FoundryTheme.faintText)
+                        .font(FoundryTheme.mono)
+                        .foregroundStyle(FoundryTheme.textQuaternary)
                         .lineLimit(1)
                         .truncationMode(.middle)
-                    Text("Foundry shows sessions from your coding agents. Approvals and replies happen in each agent's own app unless it supports replying from Foundry.")
-                        .font(FoundryTheme.body(size: 11, weight: .regular))
-                        .foregroundStyle(FoundryTheme.mutedText)
+                    Text(
+                        "Foundry shows sessions from your coding agents. Approvals and replies happen in each agent's own app unless it supports " +
+                            "replying from Foundry.")
+                        .font(FoundryTheme.caption)
+                        .foregroundStyle(FoundryTheme.textTertiary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 .padding(.horizontal, 12)
@@ -716,7 +774,7 @@ struct SettingsView: View {
             }
 
             if let integrationError = state.agents.integrationError {
-                SettingsNotice(text: integrationError, symbol: "exclamationmark.triangle")
+                SettingsNotice(text: LocalizedStringResource(stringLiteral: integrationError), symbol: "exclamationmark.triangle")
             }
 
             SettingsSectionLabel(title: "Provider bridges")
@@ -734,34 +792,6 @@ struct SettingsView: View {
                 }
             }
 
-            SettingsSectionLabel(title: "Tracked sessions", value: "\(state.agents.sessions.count)")
-            SettingsGroup {
-                if state.agents.sessions.isEmpty {
-                    Text("No active or recent agent sessions.")
-                        .font(FoundryTheme.body(size: 12, weight: .regular))
-                        .foregroundStyle(FoundryTheme.mutedText)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 12)
-                } else {
-                    LazyVStack(spacing: 0) {
-                        ForEach(state.agents.sessions.prefix(6)) { session in
-                            HStack(spacing: 9) {
-                                Image(systemName: session.provider.symbol)
-                                    .font(.system(size: 13, weight: .semibold))
-                                    .foregroundStyle(FoundryTheme.secondaryText)
-                                    .frame(width: 22)
-                                SettingsLabel(title: session.title, subtitle: "\(session.provider.rawValue) · \(session.status.rawValue)")
-                                Spacer()
-                                Text(session.origin.rawValue)
-                                    .font(FoundryTheme.body(size: 10, weight: .medium))
-                                    .foregroundStyle(FoundryTheme.faintText)
-                            }
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 9)
-                        }
-                    }
-                }
-            }
         }
     }
 
@@ -771,8 +801,8 @@ struct SettingsView: View {
             SettingsGroup {
                 if state.widgetBoard.config.enabled.isEmpty {
                         Text("No Home widgets yet. Add one below.")
-                        .font(FoundryTheme.body(size: 13, weight: .regular))
-                        .foregroundStyle(FoundryTheme.mutedText)
+                        .font(FoundryTheme.bodySecondary)
+                        .foregroundStyle(FoundryTheme.textTertiary)
                         .padding(.vertical, 5)
                 } else {
                     VStack(spacing: 0) {
@@ -821,14 +851,14 @@ struct SettingsView: View {
             SettingsSectionLabel(title: "Available widgets")
             if state.widgetBoard.isFull {
                 Text("Remove a widget to add another.")
-                    .font(FoundryTheme.body(size: 12, weight: .regular))
-                    .foregroundStyle(FoundryTheme.mutedText)
+                    .font(FoundryTheme.bodySecondary)
+                    .foregroundStyle(FoundryTheme.textTertiary)
                     .padding(.horizontal, 2)
                     .padding(.vertical, 5)
             } else if state.widgetBoard.config.available.isEmpty {
                 Text("All available widgets are already on Home.")
-                    .font(FoundryTheme.body(size: 12, weight: .regular))
-                    .foregroundStyle(FoundryTheme.mutedText)
+                    .font(FoundryTheme.bodySecondary)
+                    .foregroundStyle(FoundryTheme.textTertiary)
                     .padding(.horizontal, 2)
                     .padding(.vertical, 5)
             } else {
@@ -836,8 +866,8 @@ struct SettingsView: View {
                     let kinds = state.widgetBoard.config.available.filter { $0.category == category }
                     if kinds.isEmpty == false {
                         Text(category.title)
-                            .font(FoundryTheme.body(size: 11, weight: .semibold))
-                            .foregroundStyle(FoundryTheme.mutedText)
+                            .font(FoundryTheme.micro)
+                            .foregroundStyle(FoundryTheme.textTertiary)
                             .padding(.horizontal, 2)
                         SettingsGroup {
                             ForEach(kinds) { kind in
@@ -850,48 +880,73 @@ struct SettingsView: View {
         }
     }
 
+    static func itemLimits(current: Int) -> [Int] {
+        let standard = [100, 250, 500, 1_000, 5_000].filter { $0 <= ClipboardConfig.maximumMaxItems }
+        return standard.contains(current) ? standard : (standard + [current]).sorted()
+    }
+
+    private static func retentionLabel(days: Int) -> String {
+        switch days {
+        case 1: String(localized: "1 day")
+        case 7: String(localized: "1 week")
+        case 30: String(localized: "1 month")
+        case 90: String(localized: "3 months")
+        case 365: String(localized: "1 year")
+        case ClipboardConfig.maximumMaxAgeDays: String(localized: "Forever")
+        default: String(localized: "\(days) days")
+        }
+    }
+
     private var clipboardContent: some View {
         VStack(alignment: .leading, spacing: 10) {
             SettingsSectionLabel(title: "Clipboard history")
             SettingsGroup {
-                SettingsToggleRow(title: "Pause capture", subtitle: "Keep existing items but stop recording new copies", isOn: state.clipboardHistory.isPaused, set: state.setClipboardPaused)
+                SettingsToggleRow(title: "Pause capture", subtitle: "Keep existing items but stop recording new copies",
+                    isOn: state.clipboardHistory.isPaused, set: state.settings.setClipboardPaused)
                 SettingsDivider()
                 HStack {
                     SettingsLabel(title: "Retain items", subtitle: "Maximum number of entries")
                     Spacer()
-                    Stepper(
-                        value: Binding(
-                            get: { state.clipboardHistory.policy.maxItems },
-                            set: {
-                                state.setClipboardRetention(
-                                    maxItems: $0,
-                                    maxBytes: state.clipboardHistory.policy.maxBytes,
-                                    maxAgeDays: Int(state.clipboardHistory.policy.maxAge / 86_400)
-                                )
-                            }
-                        ),
-                        in: 1...ClipboardConfig.maximumMaxItems,
-                        step: 50
-                    ) { Text("\(state.clipboardHistory.policy.maxItems)") }
+                    Picker("Retain items", selection: Binding(
+                        get: { state.clipboardHistory.policy.maxItems },
+                        set: {
+                            applyRetention(
+                                maxItems: $0,
+                                maxBytes: state.clipboardHistory.policy.maxBytes,
+                                maxAgeDays: Int(state.clipboardHistory.policy.maxAge / 86_400)
+                            )
+                        }
+                    )) {
+                        ForEach(Self.itemLimits(current: state.clipboardHistory.policy.maxItems), id: \.self) { limit in
+                            Text(limit.formatted()).tag(limit)
+                        }
+                    }
+                    .labelsHidden()
+                    .pickerStyle(.menu)
+                    .frame(width: FoundryTheme.Control.settingsColumn, alignment: .trailing)
                 }.padding(.horizontal, 12).padding(.vertical, 10)
                 SettingsDivider()
                 HStack {
                     SettingsLabel(title: "Keep for", subtitle: "Unpinned items older than this are dropped")
                     Spacer()
-                    Stepper(
-                        value: Binding(
-                            get: { Int(state.clipboardHistory.policy.maxAge / 86_400) },
-                            set: {
-                                state.setClipboardRetention(
-                                    maxItems: state.clipboardHistory.policy.maxItems,
-                                    maxBytes: state.clipboardHistory.policy.maxBytes,
-                                    maxAgeDays: $0
-                                )
-                            }
-                        ),
-                        in: ClipboardConfig.minimumMaxAgeDays...ClipboardConfig.maximumMaxAgeDays,
-                        step: 30
-                    ) { Text("\(Int(state.clipboardHistory.policy.maxAge / 86_400)) days") }
+                    Picker("Keep for", selection: Binding(
+                        get: { Int(state.clipboardHistory.policy.maxAge / 86_400) },
+                        set: {
+                            applyRetention(
+                                maxItems: state.clipboardHistory.policy.maxItems,
+                                maxBytes: state.clipboardHistory.policy.maxBytes,
+                                maxAgeDays: $0
+                            )
+                        }
+                    )) {
+                        let current = Int(state.clipboardHistory.policy.maxAge / 86_400)
+                        ForEach(Array(Set([1, 7, 30, 90, 365, ClipboardConfig.maximumMaxAgeDays, current])).sorted(), id: \.self) { days in
+                            Text(Self.retentionLabel(days: days)).tag(days)
+                        }
+                    }
+                    .labelsHidden()
+                    .pickerStyle(.menu)
+                    .frame(width: FoundryTheme.Control.settingsColumn, alignment: .trailing)
                 }.padding(.horizontal, 12).padding(.vertical, 10)
                 SettingsDivider()
                 HStack {
@@ -901,7 +956,7 @@ struct SettingsView: View {
                         value: Binding(
                             get: { state.clipboardHistory.policy.maxBytes / (1_024 * 1_024) },
                             set: {
-                                state.setClipboardRetention(
+                                applyRetention(
                                     maxItems: state.clipboardHistory.policy.maxItems,
                                     maxBytes: $0 * 1_024 * 1_024,
                                     maxAgeDays: Int(state.clipboardHistory.policy.maxAge / 86_400)
@@ -911,80 +966,29 @@ struct SettingsView: View {
                         in: (ClipboardConfig.minimumMaxBytes / (1_024 * 1_024))...(ClipboardConfig.maximumMaxBytes / (1_024 * 1_024)),
                         step: 256
                     ) { Text("\(state.clipboardHistory.policy.maxBytes / (1_024 * 1_024)) MB") }
+                    .frame(width: FoundryTheme.Control.settingsColumn, alignment: .trailing)
                 }.padding(.horizontal, 12).padding(.vertical, 10)
                 SettingsDivider()
                 ExcludedAppsRow(
                     title: "Excluded apps",
                     bundleIDs: state.clipboardHistory.excludedBundleIdentifiers,
-                    commit: { state.setClipboardExcludedBundleIdentifiers($0.joined(separator: ", ")) }
+                    commit: { state.settings.setClipboardExcludedBundleIdentifiers($0.joined(separator: ", ")) }
                 )
             }
             if let error = state.clipboardHistory.error {
-                SettingsNotice(text: "Clipboard history could not be saved: \(error.localizedDescription)", symbol: "exclamationmark.triangle")
+                SettingsNotice(text: "Couldn't load or save clipboard history: \(error.localizedDescription)", symbol: "exclamationmark.triangle")
             }
         }
-    }
-}
-
-enum SettingsCategory: String, CaseIterable, Identifiable {
-    case general
-    case appearance
-    case commands
-    case quicklinks
-    case scripts
-    case clipboard
-    case ai
-    case agents
-    case widgets
-    case advanced
-    case about
-
-    var id: String { rawValue }
-
-    var title: String {
-        switch self {
-        case .general: "General"
-        case .appearance: "Appearance"
-        case .commands: "Commands"
-        case .quicklinks: "Quicklinks"
-        case .scripts: "Scripts"
-        case .clipboard: "Clipboard"
-        case .ai: "AI"
-        case .agents: "Agents"
-        case .widgets: "Home"
-        case .advanced: "Advanced"
-        case .about: "About"
+        .confirmationDialog("Remove \(pendingRetention?.removed ?? 0) older clipboard items?",
+            isPresented: Binding(get: { pendingRetention != nil }, set: { if $0 == false { pendingRetention = nil } })) {
+            Button("Remove Items", role: .destructive) {
+                if let retention = pendingRetention {
+                    state.settings.setClipboardRetention(maxItems: retention.maxItems, maxBytes: retention.maxBytes, maxAgeDays: retention.maxAgeDays)
+                }
+                pendingRetention = nil
+            }
+        } message: {
+            Text("They don't fit the new limit. This can't be undone.")
         }
-    }
-
-    var symbol: String {
-        switch self {
-        case .general: "gearshape"
-        case .appearance: "circle.lefthalf.filled"
-        case .commands: "command"
-        case .quicklinks: "link"
-        case .scripts: "terminal"
-        case .clipboard: "doc.on.clipboard"
-        case .ai: "sparkles"
-        case .agents: "sparkles.rectangle.stack"
-        case .widgets: "house"
-        case .advanced: "wrench.and.screwdriver"
-        case .about: "info.circle"
-        }
-    }
-}
-
-struct SettingsAnchor: ViewModifier {
-    let id: String
-    let highlighted: Bool
-
-    func body(content: Content) -> some View {
-        content
-            .id(id)
-            .overlay(
-                RoundedRectangle(cornerRadius: 11, style: .continuous)
-                    .stroke(FoundryTheme.selectionBorder, lineWidth: highlighted ? 2 : 0)
-                    .allowsHitTesting(false)
-            )
     }
 }

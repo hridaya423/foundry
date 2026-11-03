@@ -1,4 +1,5 @@
 import AppKit
+import FoundryDomain
 import SwiftUI
 import FoundryServices
 
@@ -55,76 +56,89 @@ final class PanelController: NSObject, NSWindowDelegate {
         guard frame.height != height else { return }
         frame.origin.y += frame.height - height
         frame.size.height = height
-        panel.setFrame(frame, display: true, animate: true)
+        panel.setFrame(frame, display: true, animate: false)
+        panel.invalidateShadow()
     }
 
     func show() {
         hideGate.cancelPendingHide()
         toast.dismiss()
         directPasteService.captureTarget()
+        SelectionSnapshot.capture(processIdentifier: directPasteService.targetProcessIdentifier)
         let span = diagnostics.startSpan("panel.show")
         let panel = panel ?? makePanel()
         self.panel = panel
 
         state.presentationToken = UUID()
-        state.hoverHighlightsArmed = false
+        state.session.hoverHighlightsArmed = false
         panel.setFrame(frame(for: panel), display: false)
         panel.ignoresMouseEvents = false
         panel.inputEnabled = true
-        panel.alphaValue = 0
-
-        let reduceMotion = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
-        let contentLayer = panel.contentView?.layer
-        if reduceMotion == false, let contentLayer {
-            CATransaction.begin()
-            CATransaction.setDisableActions(true)
-            // Translate only — a scale transform resamples the layer and
-            // every row renders soft for the duration of the settle.
-            contentLayer.transform = CATransform3DMakeTranslation(0, 6, 0)
-            CATransaction.commit()
-        }
-        NSAnimationContext.runAnimationGroup { context in
-            context.duration = reduceMotion ? 0 : 0.18
-            context.timingFunction = CAMediaTimingFunction(controlPoints: 0.2, 0.9, 0.25, 1)
-            context.allowsImplicitAnimation = true
-            panel.animator().alphaValue = 1
-        }
-        if reduceMotion == false, let contentLayer {
-            // Physical settle — a whisper of overshoot on arrival.
-            let settle = CASpringAnimation(keyPath: "transform")
-            settle.damping = 14
-            settle.stiffness = 260
-            settle.mass = 0.8
-            settle.initialVelocity = 0.6
-            settle.fromValue = NSValue(caTransform3D: contentLayer.transform)
-            settle.toValue = NSValue(caTransform3D: CATransform3DIdentity)
-            settle.duration = min(settle.settlingDuration, 0.5)
-            contentLayer.add(settle, forKey: "foundry.entranceSettle")
-            contentLayer.transform = CATransform3DIdentity
-        } else {
-            contentLayer?.transform = CATransform3DIdentity
-        }
+        let fades = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion == false
+        panel.alphaValue = fades ? 0 : 1
         panel.contentView?.layoutSubtreeIfNeeded()
         panel.displayIfNeeded()
         panel.makeKeyAndOrderFront(nil)
         panel.orderFrontRegardless()
+        if fades {
+            NSAnimationContext.runAnimationGroup({ context in
+                context.duration = FoundryTheme.Motion.enterDuration
+                context.timingFunction = CAMediaTimingFunction(controlPoints: 0.23, 1, 0.32, 1)
+                panel.animator().alphaValue = 1
+            }, completionHandler: { [weak panel] in
+                MainActor.assumeIsolated { panel?.invalidateShadow() }
+            })
+        }
         CATransaction.setCompletionBlock { [diagnostics] in
             diagnostics.mark("panel.firstFrame")
         }
         CATransaction.flush()
         DispatchQueue.main.async { [weak panel, diagnostics] in
             diagnostics.endSpan(span)
-            guard let panel, panel.isVisible, panel.isKeyWindow == false else { return }
-            panel.makeKeyAndOrderFront(nil)
+            guard let panel, panel.isVisible else { return }
+            if panel.isKeyWindow == false { panel.makeKeyAndOrderFront(nil) }
+            (panel.firstResponder as? NSTextView)?.selectAll(nil)
         }
     }
 
-    func previewFile(_ url: URL) {
-        quickLook.show(url, relativeTo: panel)
+    /// ⌘Y / Space on a file result toggles Quick Look — `ShellPort.quickLook`.
+    func toggleQuickLook(_ url: URL) {
+        quickLook.toggle(url)
     }
 
-    func hide() {
+    var isQuickLookShowing: Bool { quickLook.isShowing }
+
+    func closeQuickLook() {
         quickLook.close()
+    }
+
+    /// Arrow-key moves keep the launcher's selection — and the preview
+    /// follows it while the panel is up.
+    func quickLookFollowSelection() {
+        guard case let .file(url)? = state.session.selectedResult?.payload else {
+            quickLook.followSelection(nil)
+            return
+        }
+        quickLook.followSelection(url)
+    }
+
+    /// Post-dismissal success toast — `ShellPort.showTransientNotice`.
+    func showTransientNotice(_ feedback: ActionFeedback) {
+        toast.show(feedback, relativeTo: panel)
+    }
+
+    func previewFile(_ url: URL) {
+        quickLook.show(url)
+    }
+
+    enum HideReason {
+        case dismissed
+        case executed
+    }
+
+    func hide(reason: HideReason = .dismissed) {
+        quickLook.close()
+        SelectionSnapshot.clear()
         state.panelWillClose()
         guard let panel else {
             completePendingPaste()
@@ -142,8 +156,9 @@ final class PanelController: NSObject, NSWindowDelegate {
             self.restoreFocusIfNeeded()
             self.completePendingPaste()
         }
+        guard reason == .dismissed else { return finishHide() }
         NSAnimationContext.runAnimationGroup({ context in
-            context.duration = 0.09
+            context.duration = FoundryTheme.Motion.exitDuration
             context.timingFunction = CAMediaTimingFunction(name: .easeIn)
             panel.animator().alphaValue = 0
         }, completionHandler: {
@@ -171,7 +186,7 @@ final class PanelController: NSObject, NSWindowDelegate {
             do {
                 try await directPasteService.completePendingPaste()
             } catch {
-                state.setDirectPasteError(error)
+                state.settings.setDirectPasteError(error)
             }
         }
     }
@@ -179,7 +194,7 @@ final class PanelController: NSObject, NSWindowDelegate {
     func windowDidBecomeKey(_ notification: Notification) {
         DispatchQueue.main.async { [weak self] in
             guard let self, self.panel?.isVisible == true else { return }
-            self.state.focusToken = UUID()
+            self.state.session.focusToken = UUID()
         }
     }
 
@@ -190,7 +205,8 @@ final class PanelController: NSObject, NSWindowDelegate {
             guard PanelDismissalPolicy.shouldDismiss(
                 hasAttachedSheet: panel.attachedSheet != nil,
                 hasChildWindows: panel.childWindows?.isEmpty == false,
-                hasModalWindow: NSApp.modalWindow != nil
+                hasModalWindow: NSApp.modalWindow != nil,
+                hasQuickLook: quickLook.isShowing
             ) else { return }
             self.hide()
         }
@@ -217,19 +233,26 @@ final class PanelController: NSObject, NSWindowDelegate {
         panel.hasShadow = true
         panel.titleVisibility = .hidden
         panel.titlebarAppearsTransparent = true
+        panel.onReturn = { [weak self] in
+            guard let state = self?.state else { return false }
+            return state.resolveSelectedDrop() || state.runSelectedFeatureAction() || state.runPrimaryFeatureAction()
+        }
         panel.onCommandK = { [weak self] in
-            self?.state.toggleActions()
+            self?.state.toggleActions { [weak self] in self?.hide(reason: .executed) }
         }
         panel.onActionShortcut = { [weak self] shortcut in
             guard let self else { return false }
-            let dismiss: @MainActor () -> Void = { [weak self] in self?.hide() }
+            let dismiss: @MainActor () -> Void = { [weak self] in self?.hide(reason: .executed) }
             return self.state.performActionShortcut(shortcut, dismiss: dismiss) || self.state.performModeShortcut(shortcut, dismiss: dismiss)
         }
         panel.onCommandComma = { [weak self] in
-            self?.state.openSettings()
+            self?.state.router.openSettings()
         }
         panel.onCommandV = { [weak self] in
             self?.state.pasteFromClipboard() ?? false
+        }
+        panel.onCommandHeld = { [weak self] held in
+            self?.state.session.isCommandHeld = held
         }
         panel.onEscape = { [weak self] in
             guard let self else { return }
@@ -238,21 +261,19 @@ final class PanelController: NSObject, NSWindowDelegate {
             }
         }
         panel.onMouseMoved = { [weak self] in
-            self?.state.hoverHighlightsArmed = true
+            self?.state.session.hoverHighlightsArmed = true
         }
         panel.onKeyDown = { [weak self] in
-            self?.state.hoverHighlightsArmed = false
+            self?.state.session.hoverHighlightsArmed = false
+        }
+        panel.onSpace = { [weak self] in
+            self?.state.spaceTogglesQuickLook() ?? false
         }
 
-        state.onQuickLook = { [weak self] url in
-            self?.quickLook.toggle(url, relativeTo: self?.panel)
-        }
-        state.onTransientNotice = { [weak self] feedback in
-            self?.toast.show(feedback, relativeTo: self?.panel)
-        }
-
-        let rootView = CommandPanelView(state: state) { [weak self] in
-            self?.hide()
+        let rootView = FoundryIncreaseContrastRoot {
+            CommandPanelView(state: state) { [weak self] in
+                self?.hide(reason: .executed)
+            }
         }
         let hostingView = NSHostingView(rootView: rootView)
         hostingView.wantsLayer = true
@@ -272,10 +293,9 @@ final class PanelController: NSObject, NSWindowDelegate {
             ?? NSScreen.screens.first
 
         guard let visibleFrame = screen?.visibleFrame else { return panel.frame }
-        // A quarter down the usable height, in points — the launcher slot
-        // Raycast uses. Must not divide by backingScaleFactor or Retina
-        // displays get half the intended inset.
-        let topInset = visibleFrame.height * 0.25
+        // A seventh down the usable height, in points: 140 pt on a 14" MacBook,
+        // where the 1.1 release sat and the user prefers it.
+        let topInset = visibleFrame.height / 7
         let height = state.compactCollapsed ? Self.compactHeight : Self.rootSize.height
         let origin = CGPoint(
             x: visibleFrame.midX - Self.rootSize.width / 2,
@@ -303,8 +323,8 @@ struct PanelHideGate {
 }
 
 enum PanelDismissalPolicy {
-    static func shouldDismiss(hasAttachedSheet: Bool, hasChildWindows: Bool, hasModalWindow: Bool) -> Bool {
-        hasAttachedSheet == false && hasChildWindows == false && hasModalWindow == false
+    static func shouldDismiss(hasAttachedSheet: Bool, hasChildWindows: Bool, hasModalWindow: Bool, hasQuickLook: Bool = false) -> Bool {
+        hasAttachedSheet == false && hasChildWindows == false && hasModalWindow == false && hasQuickLook == false
     }
 }
 
@@ -317,6 +337,11 @@ final class FoundryPanel: NSPanel {
     var onEscape: (() -> Void)?
     var onMouseMoved: (() -> Void)?
     var onKeyDown: (() -> Void)?
+    var onReturn: (() -> Bool)?
+    var onCommandHeld: ((Bool) -> Void)?
+    /// Returns true when Space toggled Quick Look — swallow the event so
+    /// it never lands in the query field.
+    var onSpace: (() -> Bool)?
     var inputEnabled = true
 
     override var canBecomeKey: Bool { inputEnabled }
@@ -326,8 +351,18 @@ final class FoundryPanel: NSPanel {
         switch event.type {
         case .mouseMoved:
             onMouseMoved?()
+        case .flagsChanged:
+            onCommandHeld?(event.modifierFlags.intersection(.deviceIndependentFlagsMask) == .command)
         case .keyDown:
             onKeyDown?()
+            // Space previews the selected file — handled here, before the
+            // field editor, so it works with the query field focused.
+            if event.keyCode == 49,
+               event.modifierFlags.intersection(.deviceIndependentFlagsMask).isEmpty,
+               onSpace?() == true { return }
+            if event.modifierFlags.intersection(.deviceIndependentFlagsMask).contains(.control),
+               event.modifierFlags.contains(.command) == false,
+               handleShortcut(event) { return }
         default:
             break
         }
@@ -356,8 +391,10 @@ final class FoundryPanel: NSPanel {
         let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
         let key = event.charactersIgnoringModifiers?.lowercased()
         switch (flags, key, event.keyCode) {
-        case (.command, "v", _), (.command, "a", _), (.command, "z", _), (.command, "x", _):
+        case (.command, "v", _), (.command, "z", _), (.command, "x", _):
             return true
+        case (.command, "a", _):
+            return editor.string.isEmpty == false
         case ([.command, .shift], "z", _):
             return true
         case (.command, "c", _):
@@ -375,6 +412,10 @@ final class FoundryPanel: NSPanel {
             return
         }
 
+        if event.keyCode == 36, onReturn?() == true {
+            return
+        }
+
         if handleShortcut(event) {
             return
         }
@@ -384,8 +425,10 @@ final class FoundryPanel: NSPanel {
 
     private func handleShortcut(_ event: NSEvent) -> Bool {
         let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
-        if flags.contains(.command), let key = event.charactersIgnoringModifiers?.lowercased(), key.isEmpty == false {
-            let modifiers = Set(zip([NSEvent.ModifierFlags.control, .option, .shift, .command], ActionShortcut.Modifier.allCases).compactMap { flags.contains($0) ? $1 : nil })
+        if flags.contains(.command) || flags.contains(.control),
+           let key = event.charactersIgnoringModifiers?.lowercased(), key.isEmpty == false {
+            let modifiers = Set(zip([NSEvent.ModifierFlags.control, .option, .shift, .command],
+                ActionShortcut.Modifier.allCases).compactMap { flags.contains($0) ? $1 : nil })
             if onActionShortcut?(ActionShortcut(key: key, modifiers: modifiers)) == true { return true }
         }
         guard flags == .command else { return false }

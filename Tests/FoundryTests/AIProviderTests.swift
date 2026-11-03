@@ -1,3 +1,4 @@
+import os
 import XCTest
 @testable import Foundry
 import FoundryServices
@@ -192,7 +193,8 @@ final class AIProviderTests: XCTestCase {
 
     @MainActor
     func testQuickAIMergesMutationsMadeBeforeInitialLoadCompletes() async throws {
-        let existing = AIChatThread(title: "Existing")
+        var existing = AIChatThread(title: "Existing")
+        existing.messages.append(.init(role: .user, content: "earlier"))
         let store = DelayedAIChatStore(threads: [existing])
         let configURL = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: configURL) }
@@ -200,6 +202,8 @@ final class AIProviderTests: XCTestCase {
         let state = QuickAIState(aiProvider: AIProvider(config: config, diagnostics: DiagnosticsService()), chatStore: store)
 
         state.startNewThread(selectedAIProfileID: nil)
+        state.quickAIThreads[0].messages.append(.init(role: .user, content: "hi"))
+        state.useProfile(UUID())
         store.finishLoading()
         await waitUntil { store.savedThreads().count >= 2 }
 
@@ -217,10 +221,119 @@ final class AIProviderTests: XCTestCase {
         let state = QuickAIState(aiProvider: AIProvider(config: config, diagnostics: DiagnosticsService()), chatStore: store)
 
         state.startNewThread(selectedAIProfileID: nil)
+        state.quickAIThreads[0].messages.append(.init(role: .user, content: "hi"))
         state.shutdown()
 
         let saved = store.savedThreads()
         XCTAssertEqual(saved.map(\.title), ["New Chat"])
+    }
+
+    @MainActor
+    func testOpeningQuickAIDoesNotCreateEmptyThreads() {
+        let store = DelayedAIChatStore(threads: [])
+        store.finishLoading()
+        let configURL = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: configURL) }
+        let config = ConfigService(diagnostics: DiagnosticsService(), url: configURL)
+        let state = QuickAIState(aiProvider: AIProvider(config: config, diagnostics: DiagnosticsService()), chatStore: store)
+
+        state.startNewThread(selectedAIProfileID: nil)
+        state.startNewThread(selectedAIProfileID: nil)
+        state.startNewThread(selectedAIProfileID: nil)
+        state.shutdown()
+
+        XCTAssertEqual(state.quickAIThreads.count, 1, "reopening reuses the one blank chat")
+        XCTAssertEqual(store.savedThreads(), [], "a chat is saved once it has a message")
+    }
+
+    @MainActor
+    func testModelMenuDoesNotChangeDefaultProfile() {
+        let store = DelayedAIChatStore(threads: [])
+        store.finishLoading()
+        let configURL = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: configURL) }
+        let config = ConfigService(diagnostics: DiagnosticsService(), url: configURL)
+        let state = QuickAIState(aiProvider: AIProvider(config: config, diagnostics: DiagnosticsService()), chatStore: store)
+        let settings = AISettingsState(config: config, diagnostics: DiagnosticsService())
+        state.startNewThread(selectedAIProfileID: settings.defaultAIProfileID)
+        let defaultBefore = settings.defaultAIProfileID
+        let other = UUID()
+
+        QuickAIModelMenu(quickAI: state, aiSettings: settings, openAISettings: {}).choose(other)
+
+        XCTAssertEqual(state.activeProfileID, other)
+        XCTAssertEqual(settings.defaultAIProfileID, defaultBefore)
+        XCTAssertEqual(config.current.ai.defaultProfileID, defaultBefore)
+        state.shutdown()
+    }
+
+    @MainActor
+    func testEmptyReturnDoesNothingAndDeletingTheOpenChatMovesToTheNext() async {
+        let store = DelayedAIChatStore(threads: [])
+        store.finishLoading()
+        let configURL = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: configURL) }
+        let config = ConfigService(diagnostics: DiagnosticsService(), url: configURL)
+        let state = QuickAIState(aiProvider: AIProvider(config: config, diagnostics: DiagnosticsService()), chatStore: store)
+        let older = AIChatThread(title: "Older", messages: [.init(role: .user, content: "a")])
+        let newer = AIChatThread(title: "Newer", messages: [.init(role: .user, content: "b")])
+        state.quickAIThreads = [newer, older]
+        state.selectThread(newer)
+        let status = state.quickAIStatus
+
+        state.quickAIQuery = "   "
+        await state.submit()
+        XCTAssertEqual(state.quickAIStatus, status)
+        XCTAssertFalse(state.isQuickAILoading)
+
+        state.deleteThread(id: newer.id)
+        XCTAssertEqual(state.quickAIThreads.map(\.title), ["Older"])
+        XCTAssertEqual(state.activeQuickAIThreadID, older.id)
+        state.shutdown()
+    }
+
+    @MainActor
+    func testPickingAModelAppliesToTheCurrentChat() {
+        let store = DelayedAIChatStore(threads: [])
+        store.finishLoading()
+        let configURL = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: configURL) }
+        let config = ConfigService(diagnostics: DiagnosticsService(), url: configURL)
+        let state = QuickAIState(aiProvider: AIProvider(config: config, diagnostics: DiagnosticsService()), chatStore: store)
+        state.startNewThread(selectedAIProfileID: nil)
+        state.quickAIThreads[0].messages.append(.init(role: .user, content: "hi"))
+        let defaultBefore = config.current.ai.defaultProfileID
+        let profile = UUID()
+        state.useProfile(profile)
+        XCTAssertEqual(state.activeProfileID, profile)
+        state.shutdown()
+        XCTAssertEqual(store.savedThreads().first?.providerProfileID, profile)
+        XCTAssertEqual(config.current.ai.defaultProfileID, defaultBefore, "the model menu changes this chat, not the default")
+    }
+
+    @MainActor
+    func testProviderFailureIsShownAsAnErrorNotAnAnswer() async {
+        let configURL = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: configURL) }
+        let config = ConfigService(diagnostics: DiagnosticsService(), url: configURL)
+        let unreachable = AIProviderProfile(name: "Closed port", kind: .openAICompatible, authentication: .none,
+            endpoint: "http://127.0.0.1:9", model: "none")
+        var ai = config.current.ai
+        ai.profiles = [unreachable]
+        ai.defaultProfileID = unreachable.id
+        ai.fallbackProfileIDs = []
+        try? config.updateAIConfig(ai)
+        let state = QuickAIState(aiProvider: AIProvider(config: config, diagnostics: DiagnosticsService()),
+            chatStore: AIChatStore(url: configURL.appendingPathExtension("chats")))
+        state.startNewThread(selectedAIProfileID: unreachable.id)
+        state.quickAIQuery = "hello"
+        await state.submit()
+        await waitUntil { state.isQuickAILoading == false }
+        XCTAssertEqual(state.quickAIResponse, "")
+        XCTAssertNotNil(state.quickAIError)
+        XCTAssertEqual(state.quickAILastFailedPrompt, "hello")
+        XCTAssertEqual(state.activeThread?.messages.map(\.role), [.user])
+        state.shutdown()
     }
 
     @MainActor
@@ -248,7 +361,8 @@ final class AIProviderTests: XCTestCase {
         let configURL = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: configURL) }
         let config = ConfigService(diagnostics: DiagnosticsService(), url: configURL)
-        let state = QuickAIState(aiProvider: AIProvider(config: config, diagnostics: DiagnosticsService()))
+        let state = QuickAIState(aiProvider: AIProvider(config: config, diagnostics: DiagnosticsService()),
+            chatStore: AIChatStore(url: configURL.appendingPathExtension("chats")))
         let thread = AIChatThread(title: "Other chat")
         state.isQuickAILoading = true
 
@@ -271,6 +385,7 @@ final class AIProviderTests: XCTestCase {
             try await Task.sleep(for: .milliseconds(10))
         }
         state.startNewThread(selectedAIProfileID: nil)
+        state.quickAIThreads[0].messages.append(.init(role: .user, content: "latest"))
         let latest = state.quickAIThreads
 
         DispatchQueue.global().asyncAfter(deadline: .now() + 0.05) { store.releaseSave() }
@@ -386,7 +501,6 @@ final class AIProviderTests: XCTestCase {
             .clipboardHistory,
             .snippets,
             .fileConversion,
-            .camera,
             .translator,
             .developerTools
         ]
@@ -615,12 +729,15 @@ final class AIProviderTests: XCTestCase {
     }
 }
 
-private final class DelayedAIChatStore: @unchecked Sendable, AIChatStoring {
+private final class DelayedAIChatStore: Sendable, AIChatStoring {
+    private struct Box {
+        var continuation: CheckedContinuation<Void, Never>?
+        var canLoad = false
+        var saved: [AIChatThread] = []
+    }
+
     private let threads: [AIChatThread]
-    private let lock = NSLock()
-    private var continuation: CheckedContinuation<Void, Never>?
-    private var canLoad = false
-    private var saved: [AIChatThread] = []
+    private let box = OSAllocatedUnfairLock(uncheckedState: Box())
 
     init(threads: [AIChatThread]) {
         self.threads = threads
@@ -629,56 +746,59 @@ private final class DelayedAIChatStore: @unchecked Sendable, AIChatStoring {
     func load() -> [AIChatThread] { threads }
 
     func loadAsync() async -> [AIChatThread] {
-        let shouldWait = lock.withLock { canLoad == false }
+        let shouldWait = box.withLockUnchecked { $0.canLoad == false }
         if shouldWait {
             await withCheckedContinuation { continuation in
-                lock.withLock { self.continuation = continuation }
+                box.withLockUnchecked { $0.continuation = continuation }
             }
         }
         return threads
     }
 
     func save(_ threads: [AIChatThread]) {
-        lock.withLock { saved = threads }
+        box.withLockUnchecked { $0.saved = threads }
     }
 
     func finishLoading() {
-        let continuation = lock.withLock {
-            canLoad = true
-            defer { self.continuation = nil }
-            return self.continuation
+        let continuation = box.withLockUnchecked { box in
+            box.canLoad = true
+            defer { box.continuation = nil }
+            return box.continuation
         }
         continuation?.resume()
     }
 
     func savedThreads() -> [AIChatThread] {
-        lock.withLock { saved }
+        box.withLockUnchecked { $0.saved }
     }
 }
 
-private final class BlockingAIChatStore: @unchecked Sendable, AIChatStoring {
-    private let lock = NSLock()
+private final class BlockingAIChatStore: Sendable, AIChatStoring {
+    private struct Box {
+        var shouldBlockNextSave = true
+        var hasStartedSave = false
+        var snapshots: [[AIChatThread]] = []
+    }
+
+    private let box = OSAllocatedUnfairLock(uncheckedState: Box())
     private let saveGate = DispatchSemaphore(value: 0)
-    private var shouldBlockNextSave = true
-    private var hasStartedSave = false
-    private var snapshots: [[AIChatThread]] = []
 
     func load() -> [AIChatThread] { [] }
     func loadAsync() async -> [AIChatThread] { [] }
 
     func save(_ threads: [AIChatThread]) {
-        let shouldBlock = lock.withLock {
-            hasStartedSave = true
-            guard shouldBlockNextSave else { return false }
-            shouldBlockNextSave = false
+        let shouldBlock = box.withLockUnchecked { box in
+            box.hasStartedSave = true
+            guard box.shouldBlockNextSave else { return false }
+            box.shouldBlockNextSave = false
             return true
         }
         if shouldBlock { saveGate.wait() }
-        lock.withLock { snapshots.append(threads) }
+        box.withLockUnchecked { $0.snapshots.append(threads) }
     }
 
     func saveStarted() -> Bool {
-        lock.withLock { hasStartedSave }
+        box.withLockUnchecked { $0.hasStartedSave }
     }
 
     func releaseSave() {
@@ -686,6 +806,6 @@ private final class BlockingAIChatStore: @unchecked Sendable, AIChatStoring {
     }
 
     func savedSnapshots() -> [[AIChatThread]] {
-        lock.withLock { snapshots }
+        box.withLockUnchecked { $0.snapshots }
     }
 }

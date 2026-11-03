@@ -1,0 +1,122 @@
+[
+ {
+  "name": "fx.hit",
+  "file": "fx.hit.wav",
+  "src": {
+   "file": "audio/assets/fx/fs-509528_alfaia-hit.ogg",
+   "start": 0.0,
+   "end": 1.8,
+   "pitch": 0
+  },
+  "dur": 1.8,
+  "peak_dbfs": -3.0,
+  "rms_dbfs": -23.6,
+  "attack_ms": 0.0,
+  "peak_ms": 2.5,
+  "head_db": -9.1,
+  "tail_db": -81.3
+ },
+ {
+  "name": "fx.riser",
+  "file": "fx.riser.wav",
+  "src": {
+   "file": "audio/assets/fx/fs-85487_cymbal-roll-quiet.ogg",
+   "start": 1.3,
+   "end": 2.9,
+   "pitch": 0
+  },
+  "dur": 1.6,
+  "peak_dbfs": -8.0,
+  "rms_dbfs": -23.3,
+  "attack_ms": 106.0,
+  "peak_ms": 1582.5,
+  "head_db": -93.4,
+  "tail_db": 0.0
+ },
+ {
+  "name": "fx.bowl",
+  "file": "fx.bowl.wav",
+  "src": {
+   "file": "audio/assets/fx/fs-447852_ceramic-bowl-tone-cloth-mallet-02.ogg",
+   "start": 0.0,
+   "end": 4.1,
+   "pitch": -0.41
+  },
+  "dur": 4.198,
+  "peak_dbfs": -8.0,
+  "rms_dbfs": -31.6,
+  "attack_ms": 2.0,
+  "peak_ms": 2.5,
+  "head_db": -38.7,
+  "tail_db": -121.4
+ },
+ {
+  "name": "fx.swin",
+  "file": "fx.swin.wav",
+  "src": {
+   "file": "audio/assets/fx/fs-614155_swishes-16-strong-fast.ogg",
+   "start": 0.3,
+   "end": 1.4,
+   "pitch": 0
+  },
+  "dur": 1.1,
+  "peak_dbfs": -9.0,
+  "rms_dbfs": -22.7,
+  "attack_ms": 243.0,
+  "peak_ms": 562.5,
+  "head_db": -93.6,
+  "tail_db": -53.4
+ },
+ {
+  "name": "fx.swout",
+  "file": "fx.swout.wav",
+  "src": {
+   "file": "audio/assets/fx/fs-614162_swishes-8-hill-curve.ogg",
+   "start": 0.5,
+   "end": 1.5,
+   "pitch": 0
+  },
+  "dur": 1.0,
+  "peak_dbfs": -11.0,
+  "rms_dbfs": -27.1,
+  "attack_ms": 362.0,
+  "peak_ms": 457.5,
+  "head_db": -85.4,
+  "tail_db": -62.1
+ },
+ {
+  "pool": "fx.hit",
+  "size": 1,
+  "items": [
+   "fx.hit"
+  ]
+ },
+ {
+  "pool": "fx.riser",
+  "size": 1,
+  "items": [
+   "fx.riser"
+  ]
+ },
+ {
+  "pool": "fx.bowl",
+  "size": 1,
+  "items": [
+   "fx.bowl"
+  ]
+ },
+ {
+  "pool": "fx.swin",
+  "size": 1,
+  "items": [
+   "fx.swin"
+  ]
+ },
+ {
+  "pool": "fx.swout",
+  "size": 1,
+  "items": [
+   "fx.swout"
+  ]
+ }
+]

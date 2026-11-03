@@ -10,11 +10,17 @@ import Observation
 enum OnboardingStep: Int, CaseIterable {
     case welcome
     case shortcut
-    case tryIt
-    case preferences
-    case permissions
-    case ai
+    case bringYourStuff
     case done
+}
+
+struct ImportSource: Identifiable, Equatable {
+    enum Kind: String { case alfred, raycast }
+    let kind: Kind
+    var available: Int?
+    var imported: Int?
+    var id: Kind { kind }
+    var name: String { kind == .alfred ? "Alfred" : "Raycast" }
 }
 
 enum SpotlightShortcut {
@@ -68,8 +74,14 @@ final class OnboardingState {
     nonisolated static let stepKey = "foundry.onboarding.step"
 
     private(set) var step: OnboardingStep
-    private(set) var didTryPanel = false
+    private(set) var didLaunch = false
+    private(set) var openedWithoutLaunch = false
     private(set) var spotlightHoldsCommandSpace = false
+    private(set) var commandSpaceHolders: [String] = []
+    private(set) var commandSpaceUnreachable = false
+    private(set) var importSources: [ImportSource] = []
+    private(set) var chosenAI: String?
+    var startsAtLogin = true
     var isWaitingForSpotlight = false
 
     let panel: CommandPanelState
@@ -80,14 +92,23 @@ final class OnboardingState {
     private let localState: LocalStateStore
     private let version: String
     private var spotlightPoll: Timer?
+    private let detectImportSources: () -> [ImportSource]
+    private let appleIntelligence: () -> Bool
+    private let registerLoginItem: (Bool) -> Void
 
-    init(panel: CommandPanelState, permissions: PermissionHealthState, localState: LocalStateStore = .shared, version: String = OnboardingState.currentVersion) {
+    init(panel: CommandPanelState, permissions: PermissionHealthState, localState: LocalStateStore = .shared,
+        version: String = OnboardingState.currentVersion,
+        importSources: @escaping () -> [ImportSource] = OnboardingState.detectImportSources,
+        appleIntelligence: @escaping () -> Bool = { OnboardingState.appleIntelligenceAvailable },
+        registerLoginItem: ((Bool) -> Void)? = nil) {
         self.panel = panel
         self.permissions = permissions
         self.localState = localState
         self.version = version
+        self.detectImportSources = importSources
+        self.appleIntelligence = appleIntelligence
+        self.registerLoginItem = registerLoginItem ?? { [weak panel] in panel?.settings.setLaunchAtLogin($0) }
         self.step = localState.get(\.onboardingStep).flatMap(OnboardingStep.init(rawValue:)) ?? .welcome
-        panel.onResultExecuted = { [weak self] in self?.panelDidRunCommand() }
     }
 
     static var currentVersion: String {
@@ -95,68 +116,236 @@ final class OnboardingState {
     }
 
     static func shouldShowAutomatically(localState: LocalStateStore = .shared, configExistedAtLaunch: Bool) -> Bool {
-        localState.get(\.onboardingCompletedVersion) == nil && configExistedAtLaunch == false
+        localState.get(\.onboardingCompletedVersion) == nil
+            && (configExistedAtLaunch == false || localState.get(\.onboardingStep) != nil)
+    }
+
+    func markPresented() {
+        localState.set(\.onboardingStep, step.rawValue)
     }
 
     var canGoBack: Bool { step != .welcome }
 
+    private func neighbour(of step: OnboardingStep, forward: Bool) -> OnboardingStep? {
+        guard var candidate = OnboardingStep(rawValue: step.rawValue + (forward ? 1 : -1)) else { return nil }
+        if candidate == .bringYourStuff {
+            if forward { importSources = detectImportSources() }
+            if importSources.isEmpty { candidate = forward ? .done : .shortcut }
+        }
+        return candidate
+    }
+
     func advance() {
-        guard let next = OnboardingStep(rawValue: step.rawValue + 1) else { return finish() }
+        guard let next = neighbour(of: step, forward: true) else { return finish() }
         go(to: next)
     }
 
     func back() {
-        guard let previous = OnboardingStep(rawValue: step.rawValue - 1) else { return }
+        guard let previous = neighbour(of: step, forward: false) else { return }
         go(to: previous)
     }
 
     func go(to next: OnboardingStep) {
-        tryAdvanceTask?.cancel()
-        tryAdvanceTask = nil
         step = next
+        if next == .bringYourStuff, importSources.isEmpty { importSources = detectImportSources() }
+        if next == .done { chooseAI() }
         localState.set(\.onboardingStep, next.rawValue)
         onStepChanged?(next)
     }
 
     func finish() {
-        stopWaitingForSpotlight()
-        localState.update { state in
-            state.onboardingCompletedVersion = version
-            state.onboardingStep = nil
-        }
+        settleShortcut()
+        if startsAtLogin { registerLoginItem(true) }
+        end()
         onStepChanged?(.done)
         onFinish?()
     }
 
-    func restart() {
-        go(to: .welcome)
-        didTryPanel = false
+    /// Esc, Skip setup and the close button. Nothing outside Foundry changes.
+    func abandon(rivals: [LauncherRival] = LauncherRival.all,
+        spotlightEnabled: () -> Bool = SpotlightShortcut.isEnabledOnThisMac) {
+        guard hasEnded == false else { return }
+        settleShortcut(rivals: rivals, spotlightEnabled: spotlightEnabled)
+        end()
+        onFinish?()
     }
 
-    /// Fires once when the try-it panel actually runs a command — the view
-    /// maps it to confetti + haptic.
-    var onDidTryPanel: (() -> Void)?
-    private var tryAdvanceTask: Task<Void, Never>?
+    /// If ⌘ Space is still someone else's and the user never agreed to take
+    /// it, Foundry falls back to ⌥ Space so it is never left without a shortcut.
+    private func settleShortcut(rivals: [LauncherRival] = LauncherRival.all,
+        spotlightEnabled: () -> Bool = SpotlightShortcut.isEnabledOnThisMac) {
+        guard didClaimCommandSpace == false, panel.settings.hotkey == .commandSpace else { return }
+        if commandSpaceUnreachable || spotlightEnabled() || rivals.contains(where: { $0.holdsCommandSpace() }) {
+            panel.settings.setHotkey(.optionSpace)
+        }
+    }
 
-    func panelDidRunCommand() {
-        guard step == .tryIt, didTryPanel == false else { return }
-        didTryPanel = true
+    private var hasEnded = false
+
+    private func end() {
+        hasEnded = true
+        stopWaitingForSpotlight()
+        panel.searchHint = nil
+        localState.update { state in
+            state.onboardingCompletedVersion = version
+            state.onboardingStep = nil
+        }
+    }
+
+    func restart() {
+        hasEnded = false
+        didLaunch = false
+        openedWithoutLaunch = false
+        go(to: .welcome)
+    }
+
+    /// Fires once when the first real launch happens during the shortcut step.
+    var onDidTryPanel: (() -> Void)?
+
+    /// A result ran from the panel. Opening and closing it is not enough.
+    func completeTryIt() {
+        guard step == .shortcut, didLaunch == false else { return }
+        didLaunch = true
+        panel.searchHint = nil
         onDidTryPanel?()
-        // Celebrate, then glide onward — cancelled if the user navigates.
-        tryAdvanceTask?.cancel()
-        tryAdvanceTask = Task { @MainActor [weak self] in
-            try? await Task.sleep(for: .milliseconds(1200))
-            guard Task.isCancelled == false, let self, self.step == .tryIt, self.didTryPanel else { return }
-            self.advance()
+    }
+
+    func panelClosedWithoutLaunch() {
+        guard step == .shortcut, didLaunch == false else { return }
+        openedWithoutLaunch = true
+    }
+
+    /// ⌘ Space reached this window, so no global hotkey took it.
+    func commandSpaceReachedWindow() {
+        guard step == .shortcut, panel.settings.hotkey == .commandSpace else { return }
+        commandSpaceUnreachable = true
+    }
+
+    func detectCommandSpaceHolders(rivals: [LauncherRival] = LauncherRival.all,
+        spotlightEnabled: () -> Bool = SpotlightShortcut.isEnabledOnThisMac) {
+        guard didClaimCommandSpace == false else { return }
+        commandSpaceHolders = (spotlightEnabled() ? ["Spotlight"] : []) + rivals.filter { $0.holdsCommandSpace() }.map(\.name)
+    }
+
+    func useOptionSpace() {
+        commandSpaceHolders = []
+        commandSpaceUnreachable = false
+        panel.settings.setHotkey(.optionSpace)
+    }
+
+    struct SuggestedLaunch: Equatable {
+        let name: String
+        let prefix: String
+    }
+
+    /// A running app that is not Foundry, Finder or the frontmost app; Safari otherwise.
+    static func suggestedLaunch(running: [(name: String, bundleID: String)], frontmost: String?) -> SuggestedLaunch {
+        let excluded: Set<String> = ["com.apple.finder", Bundle.main.bundleIdentifier ?? "app.foundry", frontmost ?? ""]
+        let name = running.first { app in
+            excluded.contains(app.bundleID) == false && app.name.count <= 14
+                && app.name.allSatisfy { $0.isLetter || $0 == " " } && app.name.count >= 2
+        }?.name ?? "Safari"
+        return SuggestedLaunch(name: name, prefix: String(name.prefix(2)).lowercased())
+    }
+
+    static func suggestedLaunchOnThisMac() -> SuggestedLaunch {
+        let running = NSWorkspace.shared.runningApplications
+            .filter { $0.activationPolicy == .regular }
+            .compactMap { app in app.localizedName.flatMap { name in app.bundleIdentifier.map { (name: name, bundleID: $0) } } }
+        return suggestedLaunch(running: running, frontmost: NSWorkspace.shared.frontmostApplication?.bundleIdentifier)
+    }
+
+    nonisolated static func detectImportSources() -> [ImportSource] {
+        var sources: [ImportSource] = []
+        let alfred = AlfredSnippetImporter(preferencesRoot: LauncherRival.alfredPreferencesRoot()).snippets().count
+        if alfred > 0 { sources.append(ImportSource(kind: .alfred, available: alfred)) }
+        if NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.raycast.macos") != nil {
+            sources.append(ImportSource(kind: .raycast))
+        }
+        return sources
+    }
+
+    func importSnippets(from kind: ImportSource.Kind, file: URL? = nil) {
+        guard let index = importSources.firstIndex(where: { $0.kind == kind }) else { return }
+        let incoming: [StoredSnippet]
+        switch kind {
+        case .alfred:
+            incoming = AlfredSnippetImporter(preferencesRoot: LauncherRival.alfredPreferencesRoot()).snippets()
+        case .raycast:
+            guard let file, let data = try? Data(contentsOf: file),
+                  let decoded = try? JSONDecoder().decode([RaycastSnippetFile].self, from: data) else { return }
+            incoming = decoded.map { StoredSnippet(title: $0.name, content: $0.text, keyword: $0.keyword ?? "") }
+        }
+        importSources[index].imported = panel.snippets.add(incoming)
+    }
+
+    var receipt: [String] {
+        var lines: [String] = []
+        if panel.settings.hotkey == .commandSpace {
+            lines.append(String(localized: "⌘ Space is yours"))
+        } else {
+            lines.append(String(localized: "\(panel.settings.hotkey.displayName) opens Foundry"))
+        }
+        lines += takeovers.filter { $0.status == .done }.map { String(localized: "\($0.name) moved to ⌥ Space") }
+        lines += importSources.compactMap { source in
+            source.imported.flatMap { $0 > 0 ? String(localized: "\($0) snippets from \(source.name)") : nil }
+        }
+        if let chosenAI { lines.append(String(localized: "\(chosenAI) answers Tab")) }
+        return lines
+    }
+
+    private func chooseAI() {
+        if appleIntelligence() {
+            makeDefault(kind: .appleFoundationModels)
+            chosenAI = "Apple Intelligence"
+        } else if let kind = detectedLocalKind,
+                  let profile = panel.aiSettings.aiProfiles.first(where: { $0.kind == kind }) {
+            if profile.enabled == false { panel.aiSettings.setAIProfileEnabled(true, id: profile.id) }
+            panel.aiSettings.setDefaultAIProfile(profile.id)
+            chosenAI = kind.displayName
+        } else {
+            chosenAI = nil
         }
     }
 
     private var spotlightTicks = 0
 
-    func useCommandSpace(spotlightEnabled: @escaping @Sendable () -> Bool = SpotlightShortcut.isEnabledOnThisMac, disableSpotlight: () -> Bool = SpotlightShortcut.disableOnThisMac) {
+    struct Takeover: Identifiable, Equatable {
+        enum Status { case working, done, failed }
+        let id: String
+        let name: String
+        var status: Status
+    }
+
+    /// Spotlight's state lives in the flags above; this tracks the launchers
+    /// moved off ⌘ Space.
+    private(set) var takeovers: [Takeover] = []
+    private(set) var didClaimSpotlight = false
+    private(set) var didClaimCommandSpace = false
+
+    /// Makes ⌘ Space Foundry's: turns off Spotlight's shortcut and moves any
+    /// other launcher holding it to ⌥ Space.
+    func claimCommandSpace(rivals: [LauncherRival] = LauncherRival.all,
+        spotlightEnabled: @escaping @Sendable () -> Bool = SpotlightShortcut.isEnabledOnThisMac,
+        disableSpotlight: () -> Bool = SpotlightShortcut.disableOnThisMac) {
+        didClaimCommandSpace = true
+        if spotlightEnabled() { didClaimSpotlight = true }
+        useCommandSpace(spotlightEnabled: spotlightEnabled, disableSpotlight: disableSpotlight)
+        for rival in rivals where takeovers.contains(where: { $0.id == rival.id }) == false && rival.holdsCommandSpace() {
+            takeovers.append(Takeover(id: rival.id, name: rival.name, status: .working))
+            Task { @MainActor [weak self] in
+                let released = await rival.release()
+                guard let self, let index = self.takeovers.firstIndex(where: { $0.id == rival.id }) else { return }
+                self.takeovers[index].status = released ? .done : .failed
+            }
+        }
+    }
+
+    func useCommandSpace(spotlightEnabled: @escaping @Sendable () -> Bool = SpotlightShortcut.isEnabledOnThisMac,
+        disableSpotlight: () -> Bool = SpotlightShortcut.disableOnThisMac) {
         guard spotlightEnabled() else {
             spotlightHoldsCommandSpace = false
-            panel.setHotkey(.commandSpace)
+            panel.settings.setHotkey(.commandSpace)
             return
         }
         spotlightTicks = 0
@@ -176,7 +365,7 @@ final class OnboardingState {
         guard spotlightEnabled() else {
             spotlightHoldsCommandSpace = false
             stopWaitingForSpotlight()
-            panel.setHotkey(.commandSpace)
+            panel.settings.setHotkey(.commandSpace)
             return
         }
         spotlightTicks += 1
@@ -195,16 +384,6 @@ final class OnboardingState {
         isWaitingForSpotlight = false
     }
 
-    var menuBarIconOn: Bool { panel.showMenuBarIcon }
-    func setMenuBarIcon(_ on: Bool) { panel.setMenuBarIconVisible(on) }
-
-    var clipboardCaptureOn: Bool { panel.clipboardCaptureEnabled }
-    func setClipboardCapture(_ on: Bool) { panel.setClipboardEnabled(on) }
-
-    enum AIChoice {
-        case appleIntelligence, localModel, later, off
-    }
-
     static var appleIntelligenceAvailable: Bool {
         #if canImport(FoundationModels)
             if #available(macOS 26, *), case .available = SystemLanguageModel.default.availability { return true }
@@ -221,31 +400,12 @@ final class OnboardingState {
             guard let url = URL(string: urlString) else { continue }
             var request = URLRequest(url: url)
             request.timeoutInterval = 0.4
-            if (try? await URLSession.shared.data(for: request)) != nil {
+            let probe = request
+            if (await BestEffort.attempt("onboarding reachability probe") { try await URLSession.shared.data(for: probe) }) != nil {
                 return kind
             }
         }
         return nil
-    }
-
-    func chooseAI(_ choice: AIChoice) {
-        switch choice {
-        case .appleIntelligence:
-            makeDefault(kind: .appleFoundationModels)
-        case .localModel:
-            let kind = detectedLocalKind ?? .ollama
-            if let profile = panel.aiSettings.aiProfiles.first(where: { $0.kind == kind }) {
-                if profile.enabled == false { panel.aiSettings.setAIProfileEnabled(true, id: profile.id) }
-                panel.aiSettings.setDefaultAIProfile(profile.id)
-            } else {
-                makeDefault(kind: .ollama)
-            }
-        case .later:
-            break
-        case .off:
-            panel.setCommandEnabled(false, for: "foundry.ai")
-        }
-        advance()
     }
 
     private(set) var detectedLocalKind: AIProviderKind?

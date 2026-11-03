@@ -17,7 +17,7 @@ struct StatusItemMenuModel: Equatable {
 
     struct Item: Equatable {
         let kind: ItemKind
-        let title: String
+        let title: LocalizedStringResource
         let keyEquivalent: String
         let keyEquivalentModifierMask: NSEvent.ModifierFlags
         var isOn: Bool = false
@@ -28,16 +28,19 @@ struct StatusItemMenuModel: Equatable {
     init(hotkey: FoundryHotkey, clipboardPaused: Bool, hotkeyFailed: Bool, keepAwakeActive: Bool = false) {
         var items: [Item] = []
         if hotkeyFailed {
-            items.append(Item(kind: .hotkeyWarning, title: "\(hotkey.displayName) is unavailable — Choose Another Shortcut…", keyEquivalent: "", keyEquivalentModifierMask: []))
+            items.append(Item(kind: .hotkeyWarning, title: "\(hotkey.displayName) Is Taken. Choose Another Shortcut…", keyEquivalent: "",
+                keyEquivalentModifierMask: []))
             items.append(Item(kind: .separator, title: "", keyEquivalent: "", keyEquivalentModifierMask: []))
         }
         if hotkey.keyCode == UInt32(kVK_Space) {
-            items.append(Item(kind: .openFoundry, title: "Open Foundry", keyEquivalent: " ", keyEquivalentModifierMask: Self.menuModifiers(for: hotkey.modifiers)))
+            items.append(Item(kind: .openFoundry, title: "Open Foundry", keyEquivalent: " ",
+                keyEquivalentModifierMask: Self.menuModifiers(for: hotkey.modifiers)))
         } else {
             items.append(Item(kind: .openFoundry, title: "Open Foundry (\(hotkey.displayName))", keyEquivalent: "", keyEquivalentModifierMask: []))
         }
         items.append(Item(kind: .clipboardHistory, title: "Clipboard History", keyEquivalent: "", keyEquivalentModifierMask: []))
-        items.append(Item(kind: .clipboardPauseToggle, title: clipboardPaused ? "Resume Clipboard" : "Pause Clipboard", keyEquivalent: "", keyEquivalentModifierMask: []))
+        items.append(Item(kind: .clipboardPauseToggle, title: clipboardPaused ? "Resume Clipboard" : "Pause Clipboard", keyEquivalent: "",
+            keyEquivalentModifierMask: []))
         items.append(Item(kind: .keepAwake, title: "Keep Awake", keyEquivalent: "", keyEquivalentModifierMask: [], isOn: keepAwakeActive))
         items.append(Item(kind: .separator, title: "", keyEquivalent: "", keyEquivalentModifierMask: []))
         items.append(Item(kind: .settings, title: "Settings…", keyEquivalent: ",", keyEquivalentModifierMask: .command))
@@ -75,9 +78,7 @@ final class StatusItemController: NSObject, NSMenuDelegate {
             guard statusItem == nil else { return }
             let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
             if let button = item.button {
-                let image = NSImage(systemSymbolName: "command", accessibilityDescription: "Foundry")
-                image?.isTemplate = true
-                button.image = image
+                button.image = MarkTiles.menuBarImage
             }
             let menu = NSMenu()
             menu.delegate = self
@@ -92,9 +93,9 @@ final class StatusItemController: NSObject, NSMenuDelegate {
     func menuNeedsUpdate(_ menu: NSMenu) {
         menu.removeAllItems()
         let model = StatusItemMenuModel(
-            hotkey: state.hotkey,
+            hotkey: state.settings.hotkey,
             clipboardPaused: state.clipboardHistory.isPaused,
-            hotkeyFailed: state.launcherHotkeyFailed,
+            hotkeyFailed: state.settings.launcherHotkeyFailed,
             keepAwakeActive: KeepAwakeController.isActive()
         )
         for item in model.items {
@@ -102,7 +103,7 @@ final class StatusItemController: NSObject, NSMenuDelegate {
                 menu.addItem(.separator())
                 continue
             }
-            let menuItem = NSMenuItem(title: item.title, action: #selector(performItemAction(_:)), keyEquivalent: item.keyEquivalent)
+            let menuItem = NSMenuItem(title: String(localized: item.title), action: #selector(performItemAction(_:)), keyEquivalent: item.keyEquivalent)
             menuItem.keyEquivalentModifierMask = item.keyEquivalentModifierMask
             menuItem.representedObject = item.kind
             menuItem.target = self
@@ -123,15 +124,15 @@ final class StatusItemController: NSObject, NSMenuDelegate {
             onTogglePanel?()
         case .clipboardHistory:
             onOpenPanel?()
-            state.openClipboardHistory()
+            state.router.openClipboardHistory()
         case .clipboardPauseToggle:
-            state.setClipboardPaused(state.clipboardHistory.isPaused == false)
+            state.settings.setClipboardPaused(state.clipboardHistory.isPaused == false)
         case .keepAwake:
             BestEffort.attempt("toggle keep-awake from status item") {
                 try KeepAwakeController.toggle()
             }
         case .settings, .hotkeyWarning:
-            state.openSettings()
+            state.router.openSettings()
         case .welcomeGuide:
             onWelcomeGuide?()
         case .quit:

@@ -42,10 +42,10 @@ export function createFlightPath(layout: Layout, tiles: Tile[]): FlightPath {
     new Vector3(1240 + dx, 490 + dy, 30),
     new Vector3(1255 + dx, 520 + dy, 34),
     new Vector3(1110 + dx, 538 + dy, 38),
-    new Vector3(940 + dx, 542 + dy, 41),
-    new Vector3(875 + dx, 613 + dy, 45),
-    new Vector3(860 + dx, 690 + dy, 50),
-    new Vector3(925 + dx, 754 + dy, 55),
+    new Vector3(950 + dx, 542 + dy, 41),
+    new Vector3(920 + dx, 600 + dy, 45),
+    new Vector3(914 + dx, 660 + dy, 50),
+    new Vector3(944 + dx, 718 + dy, 55),
   ], false, "centripetal");
   const points = curve.getSpacedPoints(320);
   const length = curve.getLength();

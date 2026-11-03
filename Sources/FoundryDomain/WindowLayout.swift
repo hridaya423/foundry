@@ -104,7 +104,8 @@ public enum WindowLayoutEngine {
         case .rightThird:
             let width = usable.width / 3
             return CGRect(x: usable.maxX - width, y: usable.minY, width: width, height: usable.height)
-        case .leftTwoThirds, .centerTwoThirds, .rightTwoThirds, .firstFourth, .secondFourth, .thirdFourth, .lastFourth, .firstThreeFourths, .lastThreeFourths, .centerHalf:
+        case .leftTwoThirds, .centerTwoThirds, .rightTwoThirds, .firstFourth, .secondFourth, .thirdFourth, .lastFourth, .firstThreeFourths,
+            .lastThreeFourths, .centerHalf:
             guard let (start, fraction) = placement.columnSpan else { return nil }
             return CGRect(x: usable.minX + usable.width * start, y: usable.minY, width: usable.width * fraction, height: usable.height)
         case .maximize:
@@ -156,33 +157,34 @@ public enum WindowLayoutEngine {
 extension WindowPlacement {
     public var suggestedHotkey: CommandHotkey? {
         let controlOption: UInt32 = 2048 | 4096
-        let chord: (UInt32, UInt32, String)? = switch self {
-        case .leftHalf: (123, controlOption, "⌃⌥←")
-        case .rightHalf: (124, controlOption, "⌃⌥→")
-        case .topHalf: (126, controlOption, "⌃⌥↑")
-        case .bottomHalf: (125, controlOption, "⌃⌥↓")
-        case .topLeft: (32, controlOption, "⌃⌥U")
-        case .topRight: (34, controlOption, "⌃⌥I")
-        case .bottomLeft: (38, controlOption, "⌃⌥J")
-        case .bottomRight: (40, controlOption, "⌃⌥K")
-        case .leftThird: (2, controlOption, "⌃⌥D")
-        case .centerThird: (3, controlOption, "⌃⌥F")
-        case .rightThird: (5, controlOption, "⌃⌥G")
-        case .leftTwoThirds: (14, controlOption, "⌃⌥E")
-        case .rightTwoThirds: (17, controlOption, "⌃⌥T")
-        case .maximize: (36, controlOption, "⌃⌥↩")
-        case .almostMaximize: (36, controlOption | 512, "⌃⌥⇧↩")
-        case .maximizeHeight: (126, controlOption | 512, "⌃⌥⇧↑")
-        case .center: (8, controlOption, "⌃⌥C")
-        case .centerHalf: (8, controlOption | 512, "⌃⌥⇧C")
-        case .increaseSize: (24, controlOption, "⌃⌥=")
-        case .decreaseSize: (27, controlOption, "⌃⌥-")
-        case .nextDisplay: (124, controlOption | 256, "⌃⌥⌘→")
-        case .previousDisplay: (123, controlOption | 256, "⌃⌥⌘←")
-        case .restore: (51, controlOption, "⌃⌥⌫")
+        let chord: (UInt32, UInt32)? = switch self {
+        case .leftHalf: (123, controlOption)
+        case .rightHalf: (124, controlOption)
+        case .topHalf: (126, controlOption)
+        case .bottomHalf: (125, controlOption)
+        case .topLeft: (32, controlOption)
+        case .topRight: (34, controlOption)
+        case .bottomLeft: (38, controlOption)
+        case .bottomRight: (40, controlOption)
+        case .leftThird: (2, controlOption)
+        case .centerThird: (3, controlOption)
+        case .rightThird: (5, controlOption)
+        case .leftTwoThirds: (14, controlOption)
+        case .rightTwoThirds: (17, controlOption)
+        case .maximize: (36, controlOption)
+        case .almostMaximize: (36, controlOption | 512)
+        case .maximizeHeight: (126, controlOption | 512)
+        case .center: (8, controlOption)
+        case .centerHalf: (8, controlOption | 512)
+        case .increaseSize: (24, controlOption)
+        case .decreaseSize: (27, controlOption)
+        case .nextDisplay: (124, controlOption | 256)
+        case .previousDisplay: (123, controlOption | 256)
+        case .restore: (51, controlOption)
         default: nil
         }
-        return chord.map { CommandHotkey(keyCode: $0.0, modifiers: $0.1, displayName: $0.2) }
+        return chord.map { CommandHotkey(keyCode: $0.0, modifiers: $0.1,
+                                         displayName: HotkeyFormatter.displayName(keyCode: $0.0, modifiers: $0.1)) }
     }
 
     public var columnSpan: (start: CGFloat, fraction: CGFloat)? {

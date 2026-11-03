@@ -14,59 +14,61 @@ import timing as T
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUT = os.path.join(ROOT, "audio", "music")
 
-GLOBAL = ["cinematic hybrid orchestral score for a premium tech launch film", "120 BPM, 4/4, in B-flat minor",
-          "one simple memorable three-note motif (B-flat, C, F) that every section is built on",
-          "industrial percussion: anvil strikes, metallic impacts, typewriter rhythm", "deep clean sub bass",
-          "minimal, modern, restrained, emotional", "great production quality, wide stereo, clean mix"]
-NEGATIVE = ["vocals", "singing", "choir with words", "EDM", "dubstep", "cheesy", "comedic", "lo-fi", "guitar solo", "ukulele"]
+GLOBAL = ["modern uplifting electronic music for a tech product launch film", "120 BPM, 4/4, in D major",
+          "warm analog synths, felt piano, plucked synth arpeggios, tight punchy modern drums, deep clean bass",
+          "one simple memorable four-note motif that every section is built on",
+          "ambitious, optimistic, confident, human, minimal", "polished modern production, clean mix, wide stereo"]
+NEGATIVE = ["vocals", "singing", "choir", "orchestra", "orchestral hits", "brass", "timpani", "taiko", "epic trailer",
+            "cinematic trailer", "anvil", "industrial", "dubstep", "EDM drop", "riser", "lo-fi", "hip hop", "cheesy", "ukulele"]
 # inline directions per section: the model ramps into sections unless told the event is on the first beat
 DIRECT = {
-    "lineage": "{solo felt piano plays the three-note motif from the very first beat}",
-    "weight": "{tension rises relentlessly to the last beat}",
-    "drop": "{enormous orchestral impact on the very first beat, no ramp, no build-up}",
-    "build": "{full driving rhythm from the very first beat}",
-    "leap": "{near silence for four seconds}{then a slow swell}{the final chord rings out to the very end, no fade-out}",
+    "lineage": "{felt piano plays the motif from the very first beat}",
+    "weight": "{gently building to the last beat}",
+    "drop": "{the full beat comes in on the very first beat, no build-up}",
+    "build": "{driving groove from the very first beat}",
+    "leap": "{the drums drop out on the first beat}{airy and spacious}{slowly lifting in the last two seconds}",
+    "card": "{a warm resolved major chord on the very first beat}{it rings out to the very end, no fade-out}",
 }
 SECTIONS = {
-    "lineage": ["intimate", "the motif on a single felt piano, one note on each beat", "soft low string drone",
-                "warm, nostalgic, proud", "very sparse"],
-    "weight": ["the same motif repeated faster and higher, tightening", "string ostinato building pressure",
-               "dissonant clusters creeping in", "ticking percussion accelerating", "anxious, claustrophobic crescendo",
-               "everything piling up"],
-    "drop": ["massive drop exactly on the first beat", "huge low brass and distorted sub impact",
-             "full orchestra with taiko and anvil hits", "the motif in full power on brass",
-             "after three seconds it settles into one long sustained low note with shimmering high strings", "relief"],
-    "build": ["driving propulsive rhythm, sixteenth-note pulse", "the motif on strings, confident and joyful",
-              "percussion building bar by bar", "steadily rising energy", "momentum"],
-    "leap": ["drops to near silence", "a single sustained high string note and the soft piano motif", "spacious, awe, wonder",
-             "slow swell in the final four seconds", "resolves on a warm B-flat major chord", "ends cleanly with a ringing tail"],
+    "lineage": ["the motif on felt piano, one note per beat", "a soft warm synth pad underneath", "curious, intimate", "very sparse"],
+    "weight": ["a plucked synth arpeggio enters and grows busier", "soft hi-hats", "a little restless", "gently building"],
+    "drop": ["the beat arrives: punchy kick, crisp clap, warm bass", "the motif on a bright synth", "confident, release, clarity"],
+    "build": ["driving sixteenth-note synth arpeggio", "crisp drums", "momentum, forward motion", "the motif on a bright lead"],
+    "leap": ["no drums", "airy synth pad and felt piano", "spacious, hopeful, awe", "slowly lifting in the last two seconds"],
+    "card": ["a warm resolved major chord on felt piano and soft pad", "calm, confident, complete", "no drums", "rings out"],
 }
 
 
 def plan():
-    edges = [t for _, t in T.MUSIC] + [T.END]
+    edges = [t for _, t in T.MUSIC] + [T.END + 2.0]   # past the end: the model fades out whatever it is asked for
     chunks = []
     for i, (name, t0) in enumerate(T.MUSIC):
         styles = (GLOBAL + SECTIONS[name]) if i == 0 else SECTIONS[name] + ["great production quality"]
         chunks.append({"text": f"[{name.capitalize()}] {{instrumental}}{DIRECT[name]}", "duration_ms": round((edges[i + 1] - t0) * 1000),
-                       "positive_styles": styles, "negative_styles": NEGATIVE + (["fade out"] if name == "leap" else []),
+                       "positive_styles": styles, "negative_styles": NEGATIVE + (["fade out"] if name == "card" else []),
                        "context_adherence": "high"})
     return {"chunks": chunks}
 
 
 def ending(ref):
     """The leap, as its own piece in the take's voice: generated past the film's end, because the model fades out
-    whatever it is asked for; the hush runs to "one giant leap", the swell crests through "mankind", then it rings."""
+    whatever it is asked for; the hush under "one small step" swells through "one giant leap for mankind." and arrives
+    as the translation completes (timing.py ARRIVE) on a warm chord, strings and piano, and keeps opening into the logo."""
     song = json.load(open(os.path.join(OUT, f"take-{ref}.json")))["song_id"]
     leap = dict(T.MUSIC)["leap"]
-    edges = [leap, T.VO_B, T.VO_B + 3.0, T.END + 3.5]
+    edges = [T.ARRIVE - 6.25, T.ARRIVE - 3.0, T.ARRIVE, T.END + 3.5]   # the API takes chunks of 3 s or more
     parts = [("Hush", ["drops to near silence", "a single sustained high string note", "the soft felt piano motif, slow", "awe, wonder, spacious"],
               "{near silence}{one high string note and the piano motif}"),
-             ("Swell", ["a slow, enormous orchestral swell", "the motif on full strings and brass", "rising to a warm triumphant B-flat major chord"],
-              "{the swell crests}{arrives on a warm B-flat major chord}"),
-             ("Ring", ["the final B-flat major chord rings out", "long natural reverb tail", "calm, resolved"], "{the last chord rings}")]
+             ("Swell", ["a slow string swell, low cellos and violas rising together", "no percussion, no snare, no riser",
+                        "the motif on solo cello", "intimate, warm, rising to the very last beat, unresolved"],
+              "{the strings swell to the very last beat}"),
+             ("Arrival", ["on the very first beat the swell opens into a warm B-flat major chord, strings and felt piano together",
+                          "the motif on felt piano over sustained strings, close and human", "hopeful, tender, a lump in the throat",
+                          "no orchestral hit, no cymbal, no brass stab, no trailer drums", "the strings keep opening for four seconds",
+                          "then the last chord rings"],
+              "{the swell opens into a warm chord on the very first beat}{piano and strings, still opening}{the last chord rings}")]
     chunks = [{"text": f"[{n}] {{instrumental}}{d}", "duration_ms": round((edges[i + 1] - edges[i]) * 1000), "positive_styles": s + ["great production quality"],
-               "negative_styles": NEGATIVE, "context_adherence": "high"} for i, (n, s, d) in enumerate(parts)]
+               "negative_styles": NEGATIVE + ["fade out"], "context_adherence": "high"} for i, (n, s, d) in enumerate(parts)]
     chunks[0]["conditioning_ref"] = {"song_id": song, "range": {"start_ms": 12000, "end_ms": round(leap * 1000)}}
     chunks[0]["condition_strength"] = "high"
     return {"chunks": chunks}

@@ -1,0 +1,47 @@
+44 files: 42 real or pro-produced, 2 uncertain, 0 likely code-synthesized.
+Verdict thresholds: sounds up to 6 s lo 0.17 / hi 0.77; longer files (mean of 4 s windows) lo 0.4 / hi 0.77, weakly calibrated. [n low windows] = 4 s windows at or below 0.17. For a multi-take file judge the trim you will use (--start / --end).
+p_real  verdict                  file: main reason
+  0.98  real or pro-produced     fs-128286_plate-stack-hit.ogg: CLAP head score +3.6 (toward real)
+  0.98  real or pro-produced     fs-145125_bathroom-tiles-handled-03.ogg: CLAP head score +3.6 (toward real); crest factor 30 dB: sharp natural transients (90% of training clips past this were real/pro)
+  0.93  real or pro-produced (file) fs-145126_bathroom-tiles-handled-02.ogg: 0 of 9 windows lean synthesized (p_real < 0.5); mean CLAP head score +2.3
+  0.99  real or pro-produced     fs-145127_bathroom-tiles-handled-01.ogg: CLAP head score +4.4 (toward real)
+  0.96  real or pro-produced (file) fs-148355_clinking-tiles-01.ogg: 0 of 5 windows lean synthesized (p_real < 0.5); mean CLAP head score +2.8
+  0.95  real or pro-produced (file) fs-148356_clinking-tiles-02.ogg: 0 of 9 windows lean synthesized (p_real < 0.5); mean CLAP head score +2.8
+  0.90  real or pro-produced (file) fs-149041_playing-mahjong-at-apartment.ogg: 0 of 8 windows lean synthesized (p_real < 0.5); mean CLAP head score +2.2
+  0.99  real or pro-produced (file) fs-156668_mahjong.ogg: 0 of 64 windows lean synthesized (p_real < 0.5); mean CLAP head score +4.1
+  0.95  real or pro-produced (file) fs-164624_dominos-serbia.ogg: 0 of 89 windows lean synthesized (p_real < 0.5); mean CLAP head score +2.7
+  0.94  real or pro-produced     fs-174427_domino-sound-effect.ogg: CLAP head score +2.3 (toward real)
+  0.92  real or pro-produced     fs-182124_domino-4.ogg: CLAP head score +2.1 (toward real)
+  0.91  real or pro-produced     fs-182125_domino-3.ogg: CLAP head score +2.0 (toward real)
+  0.96  real or pro-produced (file) fs-182126_domino-2.ogg: 0 of 2 windows lean synthesized (p_real < 0.5); mean CLAP head score +2.8
+  0.90  real or pro-produced     fs-182127_domino-1.ogg: CLAP head score +1.9 (toward real)
+  0.86  real or pro-produced (file) fs-197868_domino-shuffle.ogg: 0 of 3 windows lean synthesized (p_real < 0.5); mean CLAP head score +1.7
+  0.99  real or pro-produced (file) fs-246393_lots-of-tiles.ogg: 0 of 32 windows lean synthesized (p_real < 0.5); mean CLAP head score +4.0
+  0.97  real or pro-produced (file) fs-246394_bag-shake.ogg: 0 of 3 windows lean synthesized (p_real < 0.5); mean CLAP head score +3.2
+  0.89  real or pro-produced (file) fs-26192_domino-setup.ogg: 0 of 8 windows lean synthesized (p_real < 0.5); mean CLAP head score +2.0
+  0.94  real or pro-produced (file) fs-26193_domino-setup-2.ogg: 0 of 8 windows lean synthesized (p_real < 0.5); mean CLAP head score +2.4
+  0.94  real or pro-produced (file) fs-26194_domino-single.ogg: 0 of 5 windows lean synthesized (p_real < 0.5); mean CLAP head score +2.4
+  0.94  real or pro-produced     fs-26195_dominos-in-a-row.ogg: CLAP head score +2.4 (toward real)
+  0.83  real or pro-produced     fs-326470_dominos-owi.ogg: CLAP head score +1.4 (toward real)
+  0.97  real or pro-produced (file) fs-329100_domino-pieces-2.ogg: 0 of 3 windows lean synthesized (p_real < 0.5); mean CLAP head score +3.1
+  0.97  real or pro-produced (file) fs-381548_falling-pottery-sharts.ogg: 0 of 7 windows lean synthesized (p_real < 0.5); mean CLAP head score +2.9
+  0.80  real or pro-produced     fs-439454_dominos-falling.ogg: CLAP head score +1.3 (toward real)
+  0.85  real or pro-produced     fs-465579_yvonne-dominoes.ogg: CLAP head score +1.6 (toward real)
+  0.95  real or pro-produced (file) fs-511334_scraping-tiles.ogg: 0 of 12 windows lean synthesized (p_real < 0.5); mean CLAP head score +2.6
+  0.95  real or pro-produced     fs-522585_domino-2.ogg: CLAP head score +2.5 (toward real)
+  0.90  real or pro-produced     fs-522586_domino-1.ogg: CLAP head score +2.0 (toward real)
+  0.85  real or pro-produced (file) fs-538524_dominoes-shuffling.ogg: 0 of 3 windows lean synthesized (p_real < 0.5); mean CLAP head score +1.6
+  0.98  real or pro-produced (file) fs-675897_s10-21-pottery-fall-and-breaks-several-t.ogg: 0 of 5 windows lean synthesized (p_real < 0.5); mean CLAP head score +3.5
+  0.93  real or pro-produced     fs-705348_domino-draw.ogg: CLAP head score +2.3 (toward real); crest factor 33 dB: sharp natural transients (90% of training clips past this were real/pro)
+  0.87  real or pro-produced     fs-705349_domino-out-pack.ogg: CLAP head score +1.7 (toward real); crest factor 32 dB: sharp natural transients (90% of training clips past this were real/pro)
+  0.94  real or pro-produced     fs-705350_domino-ruffle.ogg: CLAP head score +2.5 (toward real)
+  0.96  real or pro-produced (file) fs-705351_domino-shuffle.ogg: 0 of 4 windows lean synthesized (p_real < 0.5); mean CLAP head score +2.8
+  0.97  real or pro-produced (file) fs-709628_sfxshuffling-dominos-ennerdale-xena-owsf.ogg: 0 of 4 windows lean synthesized (p_real < 0.5); mean CLAP head score +3.1
+  0.67  uncertain                fs-745027_domino-sfx-locked.ogg: CLAP head score +0.7 (toward real)
+  0.91  real or pro-produced     fs-745028_domino-sfx-movetile.ogg: CLAP head score +2.0 (toward real)
+  0.83  real or pro-produced (file) fs-763616_porcelain-shards.ogg: 0 of 4 windows lean synthesized (p_real < 0.5); mean CLAP head score +1.5
+  0.96  real or pro-produced     fs-808138_gamemisc-blue-snowball-microphone-cu-dom.ogg: CLAP head score +2.8 (toward real)
+  0.89  real or pro-produced (file) fs-82702_majiang-playing.ogg: 0 of 27 windows lean synthesized (p_real < 0.5); mean CLAP head score +2.0
+  0.83  real or pro-produced     fs-828398_gameboard-chips-drop-hit-constant-fast-c.ogg: CLAP head score +1.4 (toward real)
+  0.88  real or pro-produced     fs-828399_gameboard-chips-drop-hit-constant-fast-c.ogg: CLAP head score +1.7 (toward real)
+  0.47  uncertain (file)         fs-873306_various-domino-falling.ogg [2 low window(s)]: 2 of 4 windows lean synthesized (p_real < 0.5); mean CLAP head score -0.1

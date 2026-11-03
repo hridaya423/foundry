@@ -1,3 +1,4 @@
+import os
 import XCTest
 @testable import Foundry
 
@@ -14,9 +15,19 @@ final class ShortcutsProviderTests: XCTestCase {
         let results = await provider.results(matching: "resize")
         let result = try XCTUnwrap(results.first)
         XCTAssertEqual(result.title, "Resize Image")
-        XCTAssertEqual(result.primaryAction.kind, .runProcess(path: "/usr/bin/shortcuts", arguments: ["run", "Resize Image"]))
+        XCTAssertEqual(result.primaryAction.behavior as? RunShortcutAction, RunShortcutAction(name: "Resize Image"))
+        XCTAssertEqual(result.secondaryActions.first?.behavior as? RunShortcutAction, RunShortcutAction(name: "Resize Image", input: .clipboard))
         _ = await provider.results(matching: "morning")
         XCTAssertEqual(calls.value, 1, "fresh cache must not re-run the CLI per keystroke")
+    }
+
+    func testTextAfterTheNameBecomesTheShortcutsInput() async throws {
+        let provider = ShortcutsProvider { ["Resize Image"] }
+        provider.refresh()
+        let results = await provider.results(matching: "Resize Image cat.png")
+        let result = try XCTUnwrap(results.first)
+        XCTAssertEqual(result.title, "Resize Image with \u{201C}cat.png\u{201D}")
+        XCTAssertEqual(result.primaryAction.behavior as? RunShortcutAction, RunShortcutAction(name: "Resize Image", input: .text("cat.png")))
     }
 
     func testStaleCacheRefreshesInBackgroundAndKeepsOldNamesOnFailure() async {
@@ -29,9 +40,8 @@ final class ShortcutsProviderTests: XCTestCase {
     }
 }
 
-private final class LockedCounter: @unchecked Sendable {
-    private let lock = NSLock()
-    private var count = 0
-    var value: Int { lock.withLock { count } }
-    @discardableResult func increment() -> Int { lock.withLock { count += 1; return count } }
+private final class LockedCounter: Sendable {
+    private let count = OSAllocatedUnfairLock(initialState: 0)
+    var value: Int { count.withLock { $0 } }
+    @discardableResult func increment() -> Int { count.withLock { $0 += 1; return $0 } }
 }

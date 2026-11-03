@@ -33,7 +33,8 @@ struct FoundryBackup: Codable, Equatable {
         for (name, url) in locations.byName where FileManager.default.fileExists(atPath: url.path) {
             files[name] = try Data(contentsOf: url)
         }
-        return FoundryBackup(format: formatID, version: currentVersion, createdAt: now, appVersion: appVersion, files: files, scriptDirectories: scriptDirectories)
+        return FoundryBackup(format: formatID, version: currentVersion, createdAt: now, appVersion: appVersion, files: files,
+            scriptDirectories: scriptDirectories)
     }
 
     func encoded() throws -> Data {
@@ -81,16 +82,26 @@ struct FoundryBackup: Codable, Equatable {
     func restore(to locations: Locations = .standard, scripts: ScriptDirectoryStore = .shared) throws {
         let fileManager = FileManager.default
         for (name, url) in locations.byName {
-            guard let contents = files[name] else { continue }
+            guard var contents = files[name] else { continue }
+            if name == "config.json" { contents = try Self.keepingLocalTrust(contents, at: url) }
             try fileManager.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
             if fileManager.fileExists(atPath: url.path) {
                 let saved = url.appendingPathExtension("pre-import")
-                try? fileManager.removeItem(at: saved)
+                BestEffort.attempt("stale backup cleanup") { try fileManager.removeItem(at: saved) }
                 try fileManager.copyItem(at: url, to: saved)
             }
             try contents.write(to: url, options: .atomic)
         }
         scripts.directories = scriptDirectories
+    }
+
+    private static func keepingLocalTrust(_ contents: Data, at url: URL) throws -> Data {
+        var config = try FoundryConfigMigration.migrate(contents)
+        let current = BestEffort.attempt("read current config for script trust") {
+            try FoundryConfigMigration.migrate(Data(contentsOf: url))
+        }
+        config.localState.trustedScriptDirectories = current?.localState.trustedScriptDirectories ?? []
+        return try JSONEncoder().encode(config)
     }
 
     enum BackupError: LocalizedError, Equatable {

@@ -104,6 +104,47 @@ final class AgentMonitorTests: XCTestCase {
         XCTAssertEqual(cards.map(\.id), ["claude.real-2"])
     }
 
+    private func card(_ provider: AgentProviderKind, _ id: String) -> AgentSessionCard {
+        AgentSessionCard(id: id, provider: provider, title: id, subtitle: "", project: "", model: "", status: .working,
+            startedAt: Date(), updatedAt: Date(), openTarget: .terminal(command: "x"),
+            key: AgentSessionKey(provider: provider, rawSessionID: id), origin: .catalog, capabilities: [.observe])
+    }
+
+    private struct FixedCollector: AgentMonitorCollecting {
+        let cards: [AgentSessionCard]
+        func collect() -> [AgentSessionCard] { cards }
+    }
+
+    @MainActor
+    func testArrowsWalkActiveFirstWithinTheChosenProvider() async throws {
+        var done = card(.claude, "done")
+        done.status = .completed
+        let agents = AgentMonitorState(collector: FixedCollector(cards: [done, card(.codex, "x"), card(.claude, "live")]))
+        agents.refresh()
+        for _ in 0..<50 where agents.hasLoaded == false { try await Task.sleep(for: .milliseconds(20)) }
+        agents.moveSelection(offset: 1)
+        XCTAssertTrue(agents.selectedSession?.status.isActive == true)
+        agents.selectedProvider = .claude
+        XCTAssertNil(agents.selectedSessionID)
+        agents.moveSelection(offset: 1)
+        agents.moveSelection(offset: 1)
+        agents.moveSelection(offset: 1)
+        XCTAssertEqual(agents.shelfSessions.map(\.id), ["live", "done"])
+        XCTAssertEqual(agents.selectedSessionID, "done")
+    }
+
+    func testTabsFollowPresentProviders() {
+        XCTAssertEqual(AgentShelfView.tabs(for: []), [])
+        XCTAssertEqual(AgentShelfView.tabs(for: [card(.codex, "a"), card(.claude, "b"), card(.codex, "c")]), [.claude, .codex])
+    }
+
+    @MainActor
+    func testStatusVocabularyHasOneGreen() {
+        let green = AgentSessionStatus.allCases.filter { $0.color == AgentSessionStatus.working.color }
+        XCTAssertEqual(Set(green.compactMap(\.label)), ["Working"], "Running reads as Working; one green, one word")
+        XCTAssertNil(AgentSessionStatus.recent.label)
+    }
+
     func testAgentShelfProviderFilteringKeepsAllOpenCodeSessions() {
         let sessions = (0..<7).map { index in
             AgentSessionCard(

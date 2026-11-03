@@ -8,7 +8,6 @@ struct FileShelfView: View {
     var extractText: (URL) -> Void = { _ in }
     var decodeBarcode: (URL) -> Void = { _ in }
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var isConfirmingClear = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -20,19 +19,8 @@ struct FileShelfView: View {
                 )
             } else {
                 HStack(alignment: .center, spacing: 8) {
-                    HStack(spacing: 7) {
-                        Image(systemName: "tray.full")
-                            .font(.system(size: 11, weight: .semibold))
-                        Text(state.selectedIDs.isEmpty
-                            ? "\(state.files.count) waiting"
-                            : "\(state.selectedFiles.count) selected of \(state.files.count)")
-                            .font(FoundryTheme.body(size: 11, weight: .semibold))
-                            .textCase(.uppercase)
-                            .tracking(0.5)
-                    }
-                    .foregroundStyle(FoundryTheme.secondaryText)
-
-                    Spacer(minLength: 8)
+                    FoundrySectionHeader(title: Self.headerTitle(selected: state.selectedIDs.isEmpty ? 0 : state.selectedFiles.count,
+                        total: state.files.count))
 
                     if state.isRemovingBackground {
                         FoundryActionButton(
@@ -40,18 +28,9 @@ struct FileShelfView: View {
                             systemName: "xmark",
                             action: state.cancelBackgroundRemoval
                         )
+                    } else if state.isSettingUpBEN2 {
+                        FoundryActionButton(title: String(localized: "Cancel Download"), systemName: "xmark", action: state.cancelBEN2Setup)
                     } else {
-                        if state.isSettingUpBEN2 {
-                            Button("Cancel BEN2 Setup", action: state.cancelBEN2Setup)
-                        } else if state.ben2Assessment.modelState != .ready || state.ben2Assessment.runtimeState != .ready {
-                            Menu {
-                                Button("Set Up BEN2", action: state.setUpBEN2)
-                                Button("Remove BEN2 Data", role: .destructive, action: state.removeBEN2Data)
-                                Button("Cancel", role: .cancel) {}
-                            } label: {
-                                Label("BEN2 Setup", systemImage: "shippingbox")
-                            }
-                        }
                         if state.selectedFiles.isEmpty == false {
                             FoundryActionButton(
                                 title: "Convert",
@@ -64,12 +43,6 @@ struct FileShelfView: View {
                             backgroundRemovalMenu
                         }
                     }
-
-                    FoundryIconButton(
-                        systemName: "trash",
-                        accessibilityLabel: "Clear file shelf",
-                        action: { isConfirmingClear = true }
-                    )
                 }
                 .padding(.horizontal, 4)
 
@@ -77,7 +50,8 @@ struct FileShelfView: View {
                     FoundryStatusBanner(
                         text: state.backgroundRemovalStatus,
                         symbol: state.backgroundRemovalError == nil ? "checkmark.circle" : "exclamationmark.triangle",
-                        tint: state.backgroundRemovalError == nil ? (state.isRemovingBackground ? FoundryTheme.accentTint : FoundryTheme.success) : FoundryTheme.warning,
+                        tint: state.backgroundRemovalError
+                            == nil ? (state.isRemovingBackground ? FoundryTheme.accent : FoundryTheme.success) : FoundryTheme.warning,
                         isLoading: state.isRemovingBackground
                     )
                 }
@@ -91,6 +65,7 @@ struct FileShelfView: View {
                                     isSelected: state.selectedIDs.contains(file.id),
                                     canRemoveBackground: state.isRemovingBackground == false && state.supportsBackgroundRemoval(for: file),
                                     canTryBEN2: state.isRemovingBackground == false && state.canTryExperimentalBackgroundRemoval(for: file),
+                                    needsModelDownload: state.isDetailedModelReady == false,
                                     isRemovingBackground: state.backgroundRemovalFileID == file.id && state.isRemovingBackground,
                                     reveal: { NSWorkspace.shared.activateFileViewerSelecting([file.url]) },
                                     removeBackground: {
@@ -99,7 +74,7 @@ struct FileShelfView: View {
                                     },
                                     tryBEN2: {
                                         state.select(id: file.id)
-                                        state.removeBackgroundWithBEN2()
+                                        state.removeBackgroundDetailed()
                                     },
                                     cancelBackgroundRemoval: { state.cancelBackgroundRemoval() },
                                     extractText: { extractText(file.url) },
@@ -127,28 +102,20 @@ struct FileShelfView: View {
                     .scrollIndicators(.never)
                     .onChange(of: state.selectedID) { _, id in
                         guard let id else { return }
-                        withAnimation(reduceMotion ? nil : .easeOut(duration: 0.12)) {
-                            proxy.scrollTo(id, anchor: .center)
-                        }
+                        proxy.scrollTo(id, anchor: .center)
                     }
                 }
             }
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 14)
-        .alert("Clear File Shelf?", isPresented: $isConfirmingClear) {
-            Button("Clear Shelf", role: .destructive) { state.clear() }
-            Button("Cancel", role: .cancel) {}
-        } message: {
-            Text("Remove all waiting files from Foundry. The original files will not be deleted.")
-        }
         .alert("Couldn't Remove Background", isPresented: backgroundRemovalErrorBinding) {
             if state.backgroundRemovalNeedsDestination {
                 Button("Choose Save Location") { state.chooseBackgroundRemovalDestination() }
             }
             Button("Dismiss", role: .cancel) { state.dismissBackgroundRemovalError() }
         } message: {
-            Text(state.backgroundRemovalError ?? "Foundry could not process this image.")
+            Text(state.backgroundRemovalError ?? String(localized: "This image couldn’t be read. Try a PNG or JPEG."))
         }
     }
 
@@ -164,42 +131,45 @@ struct FileShelfView: View {
     private var backgroundRemovalMenu: some View {
         Menu {
             if state.canRemoveBackgroundFromSelected {
-                Button {
-                    state.removeBackgroundFromSelected()
-                } label: {
-                    Label("Standard (Vision)", systemImage: "wand.and.stars")
-                }
+                Button("Remove Background", action: state.removeBackgroundFromSelected)
             }
-
-            if state.canRemoveBackgroundFromSelected && state.canTryExperimentalBackgroundRemovalFromSelected {
-                Divider()
-            }
-
             if state.canTryExperimentalBackgroundRemovalFromSelected {
-                Button {
-                    state.removeBackgroundWithBEN2()
-                } label: {
-                    Label("Try BEN2", systemImage: "wand.and.stars")
-                }
+                FileShelfDetailedRemovalItem(needsDownload: state.isDetailedModelReady == false, action: state.removeBackgroundDetailed)
             }
         } label: {
             HStack(spacing: FoundryTheme.Spacing.xs) {
                 Image(systemName: "wand.and.stars")
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(FoundryTheme.Glyph.xs)
                 Text("Remove Background")
-                    .font(FoundryTheme.body(size: 12, weight: .semibold))
+                    .font(FoundryTheme.body)
                 Image(systemName: "chevron.down")
-                    .font(.system(size: 9, weight: .bold))
+                    .font(FoundryTheme.Glyph.xs)
             }
-            .foregroundStyle(FoundryTheme.accentTint)
+            .foregroundStyle(FoundryTheme.accent)
             .padding(.horizontal, FoundryTheme.Spacing.md)
             .frame(height: FoundryTheme.Control.compact)
         }
         .menuStyle(.borderlessButton)
         .buttonStyle(FoundryQuietButtonStyle())
-        .pointerCursor()
         .accessibilityLabel("Remove Background")
-        .help("Choose a background removal engine")
+        .help("Remove the background from the selected images")
+    }
+
+    static func headerTitle(selected: Int, total: Int) -> String {
+        guard selected > 0 else { return total == 1 ? String(localized: "1 File") : String(localized: "\(total) Files") }
+        return String(localized: "\(selected) of \(total) Selected")
+    }
+}
+
+struct FileShelfDetailedRemovalItem: View {
+    let needsDownload: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Text("Remove Background (Detailed)")
+            if needsDownload { Text("One-time model download") }
+        }
     }
 }
 
@@ -208,6 +178,7 @@ struct FileShelfRow: View {
     let isSelected: Bool
     let canRemoveBackground: Bool
     let canTryBEN2: Bool
+    let needsModelDownload: Bool
     let isRemovingBackground: Bool
     let reveal: () -> Void
     let removeBackground: () -> Void
@@ -231,12 +202,12 @@ struct FileShelfRow: View {
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(file.name)
-                    .font(FoundryTheme.body(size: 14, weight: .medium))
-                    .foregroundStyle(FoundryTheme.primaryText)
+                    .font(FoundryTheme.body)
+                    .foregroundStyle(FoundryTheme.textPrimary)
                     .lineLimit(1)
                 Text(file.location)
-                    .font(FoundryTheme.body(size: 12, weight: .regular))
-                    .foregroundStyle(FoundryTheme.mutedText)
+                    .font(FoundryTheme.bodySecondary)
+                    .foregroundStyle(FoundryTheme.textTertiary)
                     .lineLimit(1)
             }
 
@@ -256,34 +227,23 @@ struct FileShelfRow: View {
                 )
             }
         }
-        .padding(.horizontal, 12)
-        .frame(height: 48)
-        .background(RowBackground(isSelected: isSelected, isHovering: isHovering, cornerRadius: 10))
-        .animation(reduceMotion ? nil : .easeOut(duration: 0.10), value: isSelected)
-        .animation(reduceMotion ? nil : .easeOut(duration: 0.12), value: isHovering)
-        .onHover { hovering in
-            isHovering = hovering
-            if hovering { NSCursor.pointingHand.set() } else { NSCursor.arrow.set() }
-        }
+        .padding(.horizontal, FoundryTheme.Spacing.sm)
+        .frame(height: FoundryTheme.Control.rowTall)
+        .background(RowBackground(isSelected: isSelected, isHovering: isHovering))
+        .animation(reduceMotion ? nil : FoundryTheme.Motion.hover, value: isHovering)
+        .onHover { isHovering = $0 }
         .accessibilityElement(children: .contain)
         .accessibilityHint("Select file")
         .accessibilityValue(isSelected ? "Selected" : "Not selected")
         .contextMenu {
             if isRemovingBackground {
                 Button("Cancel Background Removal", action: cancelBackgroundRemoval)
-            } else if canRemoveBackground || canTryBEN2 {
-                Menu {
-                    if canRemoveBackground {
-                        Button("Standard (Vision)", action: removeBackground)
-                    }
-                    if canRemoveBackground && canTryBEN2 {
-                        Divider()
-                    }
-                    if canTryBEN2 {
-                        Button("Try BEN2", action: tryBEN2)
-                    }
-                } label: {
-                    Label("Remove Background", systemImage: "wand.and.stars")
+            } else {
+                if canRemoveBackground {
+                    Button("Remove Background", action: removeBackground)
+                }
+                if canTryBEN2 {
+                    FileShelfDetailedRemovalItem(needsDownload: needsModelDownload, action: tryBEN2)
                 }
             }
             if isImageFile {
@@ -309,8 +269,8 @@ struct ShelfIconStack: View {
             ForEach(Array(files.enumerated()), id: \.element.id) { index, file in
                 FileIcon(path: file.url.path) { Color.clear }
                     .frame(width: 34, height: 34)
-                    .background(Color.primary.opacity(0.16))
-                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    .background(FoundryTheme.stroke)
+                    .clipShape(RoundedRectangle(cornerRadius: FoundryTheme.Radius.control, style: .continuous))
                     .rotationEffect(.degrees(Double(index - 1) * 5))
                     .offset(x: CGFloat(index) * 13)
             }

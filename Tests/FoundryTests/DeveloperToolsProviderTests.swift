@@ -14,7 +14,7 @@ final class DeveloperToolsProviderTests: XCTestCase {
         for command in commands {
             let results = await DeveloperToolsProvider().results(matching: command.query)
             let result = try? XCTUnwrap(results.first { $0.id == command.id })
-            XCTAssertEqual(result?.primaryAction.kind, .openDeveloperTools(tool: command.tool))
+            XCTAssertEqual(result?.primaryAction.behavior as? OpenDeveloperToolsAction, OpenDeveloperToolsAction(tool: command.tool))
         }
     }
 
@@ -42,6 +42,16 @@ final class DeveloperToolsProviderTests: XCTestCase {
 
         XCTAssertTrue(state.timestampRows.isEmpty)
         XCTAssertNotNil(state.timestampError)
+    }
+
+    @MainActor
+    func testInvalidJSONSaysWhereParsingFailedAndShowsAnExample() throws {
+        let state = DeveloperToolsState()
+        state.jsonInput = "{\"a\": tru}"
+        let error = try XCTUnwrap(state.jsonError)
+        XCTAssertTrue(error.contains("column"), error)
+        XCTAssertTrue(error.contains("Example:"), error)
+        XCTAssertNil(DeveloperToolsState.jsonProblem(in: "[1, 2]"))
     }
 
     func testFormatJSONPrettyPrintsAndSortsKeys() {

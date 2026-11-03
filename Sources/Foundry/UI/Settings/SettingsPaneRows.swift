@@ -10,25 +10,27 @@ struct AgentIntegrationRow: View {
     var body: some View {
         HStack(spacing: 10) {
             Image(systemName: provider.symbol)
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(FoundryTheme.secondaryText)
+                .font(FoundryTheme.Glyph.sm)
+                .foregroundStyle(FoundryTheme.textSecondary)
                 .frame(width: 22)
-            SettingsLabel(title: provider.title, subtitle: status.detail ?? status.path.path)
+            SettingsLabel(
+                                title: LocalizedStringResource(stringLiteral: provider.title),
+                                subtitle: LocalizedStringResource(stringLiteral: status.detail ?? status.path.path)
+                            )
             Spacer()
             if status.installed {
                 Text("Installed")
-                    .font(FoundryTheme.body(size: 11, weight: .semibold))
+                    .font(FoundryTheme.micro)
                     .foregroundStyle(FoundryTheme.success)
             } else {
                 Button("Install", action: install)
                     .buttonStyle(.plain)
-                    .font(FoundryTheme.body(size: 11, weight: .semibold))
-                    .foregroundStyle(FoundryTheme.primaryText)
+                    .font(FoundryTheme.micro)
+                    .foregroundStyle(FoundryTheme.textPrimary)
                     .padding(.horizontal, 9)
                     .padding(.vertical, 6)
-                    .background(Color.primary.opacity(0.08))
-                    .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
-                    .pointerCursor()
+                    .background(FoundryTheme.fillTint)
+                    .clipShape(RoundedRectangle(cornerRadius: FoundryTheme.Radius.control, style: .continuous))
             }
         }
         .padding(.horizontal, 10)
@@ -38,11 +40,12 @@ struct AgentIntegrationRow: View {
 
 struct AISettingsSection: View {
     @Bindable var state: AISettingsState
+    @State private var confirmingRemoval = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             if let error = state.settingsPersistenceError {
-                SettingsNotice(text: error, symbol: "exclamationmark.triangle")
+                SettingsNotice(text: LocalizedStringResource(stringLiteral: error), symbol: "exclamationmark.triangle")
             }
 
             HStack(spacing: 8) {
@@ -55,11 +58,11 @@ struct AISettingsSection: View {
                     }
                 } label: {
                     Image(systemName: "plus")
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(FoundryTheme.Glyph.sm)
                         .frame(width: 24, height: 24)
                 }
                 .menuStyle(.borderlessButton)
-                .foregroundStyle(FoundryTheme.secondaryText)
+                .foregroundStyle(FoundryTheme.textSecondary)
                 .help("Add provider")
             }
 
@@ -71,33 +74,33 @@ struct AISettingsSection: View {
                         } label: {
                             HStack(spacing: 10) {
                                 Image(systemName: profile.kind == .appleFoundationModels ? "apple.logo" : "network")
-                                    .font(.system(size: 13, weight: .medium))
-                                    .foregroundStyle(profile.enabled ? FoundryTheme.secondaryText : FoundryTheme.faintText)
+                                    .font(FoundryTheme.Glyph.sm)
+                                    .foregroundStyle(profile.enabled ? FoundryTheme.textSecondary : FoundryTheme.textQuaternary)
                                     .frame(width: 18)
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text(profile.name)
-                                        .font(FoundryTheme.body(size: 13, weight: .medium))
-                                        .foregroundStyle(FoundryTheme.primaryText)
+                                        .font(FoundryTheme.body)
+                                        .foregroundStyle(FoundryTheme.textPrimary)
                                     Text("\(profile.kind.displayName) · \(profile.model)")
-                                        .font(FoundryTheme.body(size: 11, weight: .regular))
-                                        .foregroundStyle(FoundryTheme.mutedText)
+                                        .font(FoundryTheme.caption)
+                                        .foregroundStyle(FoundryTheme.textTertiary)
                                         .lineLimit(1)
                                 }
                                 Spacer()
                                 if state.defaultAIProfileID == profile.id {
                                     Text("Default")
-                                        .font(FoundryTheme.body(size: 11, weight: .semibold))
+                                        .font(FoundryTheme.micro)
                                         .foregroundStyle(FoundryTheme.success)
                                 } else if state.fallbackAIProfileIDs.contains(profile.id) {
                                     Text("Fallback")
-                                        .font(FoundryTheme.body(size: 11, weight: .medium))
-                                        .foregroundStyle(FoundryTheme.mutedText)
+                                        .font(FoundryTheme.caption)
+                                        .foregroundStyle(FoundryTheme.textTertiary)
                                 }
                             }
                             .padding(.horizontal, 12)
                             .padding(.vertical, 10)
-                            .background(Color.primary.opacity(state.selectedAIProfileID == profile.id ? 0.07 : 0))
-                            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                            .background(state.selectedAIProfileID == profile.id ? FoundryTheme.fillSelected : Color.clear)
+                            .clipShape(RoundedRectangle(cornerRadius: FoundryTheme.Radius.control, style: .continuous))
                         }
                         .buttonStyle(.plain)
                         .overlay(alignment: .bottom) {
@@ -138,7 +141,7 @@ struct AISettingsSection: View {
                         SettingsDivider()
                         SettingsTextFieldRow(
                             title: "Name",
-                            placeholder: profile.kind.displayName,
+                            placeholder: LocalizedStringResource(stringLiteral: profile.kind.displayName),
                             value: profile.name,
                             error: nil,
                             commit: { state.setAIProfileName($0, id: profile.id) }
@@ -168,7 +171,8 @@ struct AISettingsSection: View {
                         HStack(spacing: 10) {
                             SettingsLabel(
                                 title: "Models",
-                                subtitle: profile.kind == .openAISubscription ? "Choose a model available through ChatGPT" : "Discover models from this endpoint"
+                                subtitle: profile.kind
+                                    == .openAISubscription ? "Choose a model available through ChatGPT" : "Discover models from this endpoint"
                             )
                             Spacer()
                             if profile.kind != .openAISubscription {
@@ -212,14 +216,17 @@ struct AISettingsSection: View {
                     } else if profile.authentication == .oauth {
                         SettingsDivider()
                         VStack(alignment: .leading, spacing: 10) {
-                            SettingsLabel(title: "ChatGPT subscription", subtitle: "Uses the private Codex backend with OAuth PKCE")
-                            Text("This integration may change or stop working without notice. Foundry stores OAuth credentials only in macOS Keychain and does not use browser cookies.")
-                                .font(FoundryTheme.body(size: 11, weight: .regular))
-                                .foregroundStyle(FoundryTheme.mutedText)
+                            SettingsLabel(title: "ChatGPT subscription", subtitle: "Sign in with your ChatGPT account instead of an API key")
+                            Text(
+                                "Foundry relies on a private, undocumented Codex endpoint that OpenAI has not published and may change " +
+                                    "or shut down without notice. OAuth credentials are stored only in the macOS Keychain; Foundry " +
+                                    "never reads browser cookies.")
+                                .font(FoundryTheme.caption)
+                                .foregroundStyle(FoundryTheme.textTertiary)
                                 .fixedSize(horizontal: false, vertical: true)
                             SettingsToggleRow(
-                                title: "Private backend warning",
-                                subtitle: "I understand this is an experimental integration",
+                                title: "Use ChatGPT sign-in (unofficial)",
+                                subtitle: "Private endpoint — may break without notice",
                                 isOn: state.acceptedCodexPrivateBackendWarning,
                                 set: state.setCodexPrivateBackendWarningAccepted
                             )
@@ -227,10 +234,10 @@ struct AISettingsSection: View {
                                 if state.aiProfileHasCredential(profile) || state.codexLoginState == .connected {
                                     HStack(spacing: 10) {
                                         Label("Connected", systemImage: "checkmark.circle.fill")
-                                            .font(FoundryTheme.body(size: 12, weight: .semibold))
+                                            .font(FoundryTheme.body)
                                             .foregroundStyle(FoundryTheme.success)
                                         Spacer()
-                                        Button("Sign out") { state.logoutCodex() }
+                                        Button("Sign Out") { state.logoutCodex() }
                                             .buttonStyle(.bordered)
                                             .controlSize(.small)
                                     }
@@ -239,18 +246,18 @@ struct AISettingsSection: View {
                                         Button("Sign in with ChatGPT") { state.loginCodexBrowser() }
                                             .buttonStyle(.borderedProminent)
                                             .controlSize(.small)
-                                        Button("Use device code") { state.requestCodexDeviceLogin() }
+                                        Button("Use Device Code") { state.requestCodexDeviceLogin() }
                                             .buttonStyle(.bordered)
                                             .controlSize(.small)
                                     }
                                 }
                                 if let device = state.codexDeviceAuthorization {
                                     Text("Open \(device.verificationURL) and enter \(device.userCode).")
-                                        .font(FoundryTheme.mono(size: 10, weight: .regular))
-                                        .foregroundStyle(FoundryTheme.secondaryText)
+                                        .font(FoundryTheme.mono)
+                                        .foregroundStyle(FoundryTheme.textSecondary)
                                         .fixedSize(horizontal: false, vertical: true)
                                     HStack(spacing: 8) {
-                                        Button("Finish device login") { state.completeCodexDeviceLogin() }
+                                        Button("Finish Device Login") { state.completeCodexDeviceLogin() }
                                             .buttonStyle(.borderedProminent)
                                             .controlSize(.small)
                                         Button("Cancel") { state.cancelCodexLogin() }
@@ -286,18 +293,21 @@ struct AISettingsSection: View {
 
                 if let status = state.aiProfileStatus {
                     Text(status)
-                        .font(FoundryTheme.body(size: 11, weight: .regular))
-                        .foregroundStyle(state.aiProfileStatusIsError ? FoundryTheme.error : FoundryTheme.mutedText)
+                        .font(FoundryTheme.caption)
+                        .foregroundStyle(state.aiProfileStatusIsError ? FoundryTheme.destructive : FoundryTheme.textTertiary)
                         .fixedSize(horizontal: false, vertical: true)
                         .padding(.horizontal, 2)
                 }
 
                 if profile.kind != .appleFoundationModels {
-                    Button("Remove profile", role: .destructive) {
-                        state.removeSelectedAIProfile()
-                    }
+                    Button("Remove Profile…", role: .destructive) { confirmingRemoval = true }
                     .buttonStyle(.borderless)
-                    .font(FoundryTheme.body(size: 12, weight: .medium))
+                    .font(FoundryTheme.bodySecondary)
+                    .confirmationDialog("Remove \(profile.name)?", isPresented: $confirmingRemoval) {
+                        Button("Remove Profile", role: .destructive) { state.removeSelectedAIProfile() }
+                    } message: {
+                        Text("Its API key is deleted from the Keychain.")
+                    }
                 }
             }
         }

@@ -1,0 +1,842 @@
+[
+ {
+  "id": "fs-565645",
+  "category": "keys",
+  "file": "audio/assets/keys/fs-565645_computer-keyboard-typing-and-keystrokes-.ogg",
+  "title": "Computer keyboard typing and keystrokes - Apple MacBook Pro 2018",
+  "author": "khenshom",
+  "source": "freesound",
+  "page_url": "https://freesound.org/people/khenshom/sounds/565645/",
+  "download_url": "https://cdn.freesound.org/previews/565/565645_6652872-hq.ogg",
+  "license": "CC0 1.0",
+  "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+  "attribution": null,
+  "need": "key_type",
+  "rank": 1,
+  "best_segment": [
+   20.141,
+   20.374
+  ],
+  "notes": "Apple MacBook Pro 2018, close up, 'multiple keystrokes, single clicks in different speeds' (khenshom: Sennheiser MKE600 on a Zoom H5), 53.1 s, 48 kHz mono, floor -84.6 dBFS (best of 23 keyboards), peak -2.5 dBFS (one loud press at 14.8 s; the other listed presses sit at -14..-35 dBFS, a spread of about 20 dB: normalise per press to within sigma 2 dB). 18 clean single presses by earshot find (event kind, none marked head cut / tail cut, heads -40..-53 dB, tails -29..-57 dB), listed in the earshot.trims. For ~SPACE / RETURN (deeper): the file does not label them; by low-band share (<400 Hz) and centroid the deepest presses are 26.366-26.680 (centroid 2.9 kHz, 34 % below 400 Hz, head -38 dB, tail -39 dB) and 4.313-4.421 (centroid 2.7 kHz, 44 %, but head -33 dB and short) then 24.339-24.565 and 35.391-35.540; I could not confirm which is a space bar or a return (no ears): audition 26.366-26.680 as 'return' and pitch a normal press -3 st for the chord's second key. The 14.8 s press (14.836-15.260) is the loudest press of the file (peak -2.5 dBFS, tail -57 dB): audition it as the return key. Preview is 110 kbps mono (the upload is mono). CC0.",
+  "licence_seen": {
+   "text": "Creative Commons 0",
+   "url": "http://creativecommons.org/publicdomain/zero/1.0/",
+   "page": "https://freesound.org/people/khenshom/sounds/565645/",
+   "read_on": "2026-11-01",
+   "page_author": "khenshom",
+   "page_title": "Computer keyboard typing and keystrokes - Apple MacBook Pro 2018"
+  },
+  "analysis": {
+   "duration": 53.075,
+   "codec": "vorbis",
+   "kbps": 110,
+   "src_rate": 48000,
+   "channels": 1,
+   "peak_dbfs": -2.52,
+   "lufs": -44.73,
+   "noise_floor_dbfs": -84.6,
+   "clipped_samples": 0,
+   "attack_at": 2.461,
+   "centroid_hz": 2999,
+   "rolloff95_hz": 9733,
+   "onsets": [
+    0.302,
+    0.418,
+    0.534,
+    0.65,
+    0.813,
+    1.068,
+    1.161,
+    1.254,
+    1.324,
+    1.579,
+    1.881,
+    1.997
+   ]
+  },
+  "earshot": {
+   "realness": 0.97,
+   "realness_verdict": "real or pro-produced",
+   "realness_trim": [
+    20.141,
+    20.374
+   ],
+   "match": {
+    "query": "a single laptop keyboard key press",
+    "z": 4.49,
+    "verdict": "strong",
+    "p_vs_alts": 1.0
+   },
+   "trims": {
+    "press 1": {
+     "range": [
+      11.72,
+      12.025
+     ],
+     "match_z": 3.88,
+     "match": "strong",
+     "p_real": 0.984,
+     "realness": "real or pro-produced"
+    },
+    "press 2": {
+     "range": [
+      12.178,
+      12.485
+     ],
+     "match_z": 4.5,
+     "match": "strong",
+     "p_real": 0.992,
+     "realness": "real or pro-produced"
+    },
+    "press 3": {
+     "range": [
+      14.836,
+      15.26
+     ],
+     "match_z": 4.16,
+     "match": "strong",
+     "p_real": 0.993,
+     "realness": "real or pro-produced"
+    },
+    "press 4": {
+     "range": [
+      16.747,
+      16.995
+     ],
+     "match_z": 3.93,
+     "match": "strong",
+     "p_real": 0.972,
+     "realness": "real or pro-produced"
+    },
+    "press 5": {
+     "range": [
+      18.414,
+      18.667
+     ],
+     "match_z": 3.51,
+     "match": "strong",
+     "p_real": 0.994,
+     "realness": "real or pro-produced"
+    },
+    "press 6": {
+     "range": [
+      20.141,
+      20.374
+     ],
+     "match_z": 4.49,
+     "match": "strong",
+     "p_real": 0.97,
+     "realness": "real or pro-produced"
+    },
+    "press 7": {
+     "range": [
+      22.606,
+      22.8
+     ],
+     "match_z": 3.97,
+     "match": "strong",
+     "p_real": 0.986,
+     "realness": "real or pro-produced"
+    },
+    "press 8": {
+     "range": [
+      25.317,
+      25.465
+     ],
+     "match_z": 3.76,
+     "match": "strong",
+     "p_real": 0.883,
+     "realness": "real or pro-produced"
+    },
+    "press 9": {
+     "range": [
+      28.212,
+      28.419
+     ],
+     "match_z": 3.01,
+     "match": "strong",
+     "p_real": 0.983,
+     "realness": "real or pro-produced"
+    },
+    "press 10": {
+     "range": [
+      34.327,
+      34.69
+     ],
+     "match_z": 3.65,
+     "match": "strong",
+     "p_real": 0.988,
+     "realness": "real or pro-produced"
+    },
+    "press 11": {
+     "range": [
+      35.391,
+      35.54
+     ],
+     "match_z": 4.03,
+     "match": "strong",
+     "p_real": 0.973,
+     "realness": "real or pro-produced"
+    },
+    "press 12": {
+     "range": [
+      37.486,
+      37.715
+     ],
+     "match_z": 4.1,
+     "match": "strong",
+     "p_real": 0.994,
+     "realness": "real or pro-produced"
+    },
+    "press 13": {
+     "range": [
+      43.799,
+      43.965
+     ],
+     "match_z": 3.95,
+     "match": "strong",
+     "p_real": 0.984,
+     "realness": "real or pro-produced"
+    },
+    "press 14": {
+     "range": [
+      46.474,
+      46.65
+     ],
+     "match_z": 4.57,
+     "match": "strong",
+     "p_real": 0.994,
+     "realness": "real or pro-produced"
+    },
+    "press 15": {
+     "range": [
+      48.936,
+      49.255
+     ],
+     "match_z": 4.17,
+     "match": "strong",
+     "p_real": 0.993,
+     "realness": "real or pro-produced"
+    },
+    "press 16": {
+     "range": [
+      51.284,
+      51.45
+     ],
+     "match_z": 3.92,
+     "match": "strong",
+     "p_real": 0.989,
+     "realness": "real or pro-produced"
+    },
+    "press 17": {
+     "range": [
+      52.491,
+      52.77
+     ],
+     "match_z": 4.39,
+     "match": "strong",
+     "p_real": 0.987,
+     "realness": "real or pro-produced"
+    },
+    "press 18": {
+     "range": [
+      10.449,
+      10.575
+     ],
+     "match_z": 3.91,
+     "match": "strong",
+     "p_real": 0.998,
+     "realness": "real or pro-produced"
+    }
+   }
+  }
+ },
+ {
+  "id": "fs-787313",
+  "category": "keys",
+  "file": "audio/assets/keys/fs-787313_typing-on-a-macbook.ogg",
+  "title": "Typing on a MacBook",
+  "author": "lisaisanut",
+  "source": "freesound",
+  "page_url": "https://freesound.org/people/lisaisanut/sounds/787313/",
+  "download_url": "https://cdn.freesound.org/previews/787/787313_4081013-hq.ogg",
+  "license": "CC0 1.0",
+  "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+  "attribution": null,
+  "need": "key_type",
+  "rank": 2,
+  "best_segment": [
+   8.191,
+   8.365
+  ],
+  "notes": "'Typing on a MacBook' (lisaisanut, Audio-Technica AT2020USB+), 52.3 s, stereo (side/mid -33 dB, effectively mono), floor -61.9 dBFS (passes the -55 gate, 22 dB worse than 565645), peak -7.9 dBFS. The author states the text includes 'space presses and occasional Enter presses'. Deepest presses by low-band share: 22.949-23.235 (70 % below 400 Hz, centroid 2.9 kHz) is the best space / return candidate; 52.115-52.205 (74 %, centroid 1.7 kHz) is a short thud. Single presses are less clean than 565645: heads -16..-44 dB re the peak (the keys are typed at 6-8 per s, so many windows contain the release of the previous key). Use only if the space + return of the first choice cannot be found; do not mix the two boards in one film. CC0.",
+  "licence_seen": {
+   "text": "Creative Commons 0",
+   "url": "http://creativecommons.org/publicdomain/zero/1.0/",
+   "page": "https://freesound.org/people/lisaisanut/sounds/787313/",
+   "read_on": "2026-11-01",
+   "page_author": "lisaisanut",
+   "page_title": "Typing on a MacBook"
+  },
+  "analysis": {
+   "duration": 52.283,
+   "codec": "vorbis",
+   "kbps": 192,
+   "src_rate": 48000,
+   "channels": 2,
+   "peak_dbfs": -7.9,
+   "lufs": -35.87,
+   "noise_floor_dbfs": -61.9,
+   "clipped_samples": 0,
+   "attack_at": 0.356,
+   "centroid_hz": 2992,
+   "rolloff95_hz": 10195,
+   "onsets": [
+    0.372,
+    0.464,
+    0.627,
+    0.697,
+    0.975,
+    1.161,
+    1.3,
+    1.37,
+    1.463,
+    1.649,
+    1.858,
+    1.997
+   ]
+  },
+  "earshot": {
+   "realness": 0.991,
+   "realness_verdict": "real or pro-produced",
+   "realness_trim": [
+    8.191,
+    8.365
+   ],
+   "match": {
+    "query": "a single laptop keyboard key press",
+    "z": 4.04,
+    "verdict": "strong",
+    "p_vs_alts": 1.0
+   },
+   "trims": {
+    "press 1": {
+     "range": [
+      8.191,
+      8.365
+     ],
+     "match_z": 4.04,
+     "match": "strong",
+     "p_real": 0.991,
+     "realness": "real or pro-produced"
+    },
+    "press 2": {
+     "range": [
+      6.085,
+      6.279
+     ],
+     "match_z": 3.63,
+     "match": "strong",
+     "p_real": 0.995,
+     "realness": "real or pro-produced"
+    },
+    "press 3": {
+     "range": [
+      11.747,
+      11.921
+     ],
+     "match_z": 3.72,
+     "match": "strong",
+     "p_real": 0.997,
+     "realness": "real or pro-produced"
+    },
+    "press 4": {
+     "range": [
+      26.225,
+      26.434
+     ],
+     "match_z": 3.91,
+     "match": "strong",
+     "p_real": 0.993,
+     "realness": "real or pro-produced"
+    },
+    "press 5": {
+     "range": [
+      31.591,
+      31.925
+     ],
+     "match_z": 3.91,
+     "match": "strong",
+     "p_real": 0.992,
+     "realness": "real or pro-produced"
+    },
+    "press 6": {
+     "range": [
+      48.135,
+      48.47
+     ],
+     "match_z": 4.09,
+     "match": "strong",
+     "p_real": 0.986,
+     "realness": "real or pro-produced"
+    },
+    "press 7": {
+     "range": [
+      38.601,
+      38.77
+     ],
+     "match_z": 3.74,
+     "match": "strong",
+     "p_real": 0.996,
+     "realness": "real or pro-produced"
+    },
+    "press 8": {
+     "range": [
+      36.18,
+      36.418
+     ],
+     "match_z": 3.86,
+     "match": "strong",
+     "p_real": 0.997,
+     "realness": "real or pro-produced"
+    },
+    "press 9": {
+     "range": [
+      2.355,
+      2.506
+     ],
+     "match_z": 3.92,
+     "match": "strong",
+     "p_real": 0.994,
+     "realness": "real or pro-produced"
+    },
+    "press 10": {
+     "range": [
+      4.096,
+      4.421
+     ],
+     "match_z": 3.8,
+     "match": "strong",
+     "p_real": 0.981,
+     "realness": "real or pro-produced"
+    },
+    "press 11": {
+     "range": [
+      0.337,
+      0.59
+     ],
+     "match_z": 3.83,
+     "match": "strong",
+     "p_real": 0.993,
+     "realness": "real or pro-produced"
+    },
+    "press 12": {
+     "range": [
+      34.108,
+      34.36
+     ],
+     "match_z": 4.26,
+     "match": "strong",
+     "p_real": 0.983,
+     "realness": "real or pro-produced"
+    }
+   }
+  }
+ },
+ {
+  "id": "fs-407514",
+  "category": "keys",
+  "file": "audio/assets/keys/fs-407514_macbook-2016-trackpad-and-keyboard-sound.ogg",
+  "title": "MacBook 2016 trackpad and keyboard sound",
+  "author": "kijjaz",
+  "source": "freesound",
+  "page_url": "https://freesound.org/people/kijjaz/sounds/407514/",
+  "download_url": "https://cdn.freesound.org/previews/407/407514_26950-hq.ogg",
+  "license": "CC0 1.0",
+  "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+  "attribution": null,
+  "need": "key_type",
+  "rank": 3,
+  "best_segment": [
+   22.803,
+   23.021
+  ],
+  "notes": "MacBook 15-inch 2016 typing + trackpad (kijjaz: dbx RTA-M measurement mic into RME Fireface, de-noised and de-reverbed), 63.6 s, mono 110 kbps, floor -82.1 dBFS, peak -1.8 dBFS. Cleanest single presses (earshot find, z 4.2-4.6 strong): 22.803-23.021 (peak -5.1 dBFS, head -51 dB, tail -43 dB), 48.361-48.660, 41.016-41.306, 33.262-33.853; short strokes 23.818-23.955, 40.357-40.420, 44.411-44.475. Only about 7 clean single presses (the rest are fast runs or trackpad clicks: the file contains trackpad clicks, avoid those). The 2016 board is the butterfly-switch generation, not scissor. CC0.",
+  "licence_seen": {
+   "text": "Creative Commons 0",
+   "url": "http://creativecommons.org/publicdomain/zero/1.0/",
+   "page": "https://freesound.org/people/kijjaz/sounds/407514/",
+   "read_on": "2026-11-01",
+   "page_author": "kijjaz",
+   "page_title": "MacBook 2016 trackpad and keyboard sound"
+  },
+  "analysis": {
+   "duration": 63.627,
+   "codec": "vorbis",
+   "kbps": 110,
+   "src_rate": 48000,
+   "channels": 1,
+   "peak_dbfs": -1.84,
+   "lufs": -33.45,
+   "noise_floor_dbfs": -82.1,
+   "clipped_samples": 0,
+   "attack_at": 4.385,
+   "centroid_hz": 2836,
+   "rolloff95_hz": 10152,
+   "onsets": [
+    4.226,
+    4.412,
+    4.505,
+    4.644,
+    5.387,
+    5.48,
+    5.875,
+    7.593,
+    7.709,
+    8.591,
+    10.054,
+    10.147
+   ]
+  },
+  "earshot": {
+   "realness": 0.981,
+   "realness_verdict": "real or pro-produced",
+   "realness_trim": [
+    22.803,
+    23.021
+   ],
+   "match": {
+    "query": "a single laptop keyboard key press",
+    "z": 4.75,
+    "verdict": "strong",
+    "p_vs_alts": 1.0
+   },
+   "trims": {
+    "press 1": {
+     "range": [
+      22.803,
+      23.021
+     ],
+     "match_z": 4.75,
+     "match": "strong",
+     "p_real": 0.981,
+     "realness": "real or pro-produced"
+    },
+    "press 2": {
+     "range": [
+      48.361,
+      48.66
+     ],
+     "match_z": 4.55,
+     "match": "strong",
+     "p_real": 0.979,
+     "realness": "real or pro-produced"
+    },
+    "press 3": {
+     "range": [
+      41.016,
+      41.306
+     ],
+     "match_z": 4.36,
+     "match": "strong",
+     "p_real": 0.978,
+     "realness": "real or pro-produced"
+    },
+    "press 4": {
+     "range": [
+      33.262,
+      33.853
+     ],
+     "match_z": 4.26,
+     "match": "strong",
+     "p_real": 0.991,
+     "realness": "real or pro-produced"
+    },
+    "press 5": {
+     "range": [
+      23.818,
+      23.955
+     ],
+     "match_z": 4.2,
+     "match": "strong",
+     "p_real": 0.995,
+     "realness": "real or pro-produced"
+    },
+    "press 6": {
+     "range": [
+      40.357,
+      40.42
+     ],
+     "match_z": 3.71,
+     "match": "strong",
+     "p_real": 0.967,
+     "realness": "real or pro-produced"
+    },
+    "press 7": {
+     "range": [
+      44.411,
+      44.475
+     ],
+     "match_z": 3.27,
+     "match": "strong",
+     "p_real": 0.912,
+     "realness": "real or pro-produced"
+    }
+   }
+  }
+ },
+ {
+  "id": "fs-749425",
+  "category": "keys",
+  "file": "audio/assets/keys/fs-749425_intense-typing-on-a-laptop-macbook-keybo.ogg",
+  "title": "Intense typing on a laptop MacBook keyboard",
+  "author": "Plummet",
+  "source": "freesound",
+  "page_url": "https://freesound.org/people/Plummet/sounds/749425/",
+  "download_url": "https://cdn.freesound.org/previews/749/749425_2255505-hq.ogg",
+  "license": "CC0 1.0",
+  "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+  "attribution": null,
+  "need": "key_type",
+  "rank": 4,
+  "best_segment": [
+   13.16,
+   13.395
+  ],
+  "notes": "'Typing on my scissors low-profile keyboard' (Plummet: laptop-style scissor-switch external board, Zoom H1, background noise cleaned), 28.0 s, stereo, floor -64.0 dBFS, peak -0.4 dBFS, centroid 5.3 kHz (bright, thin). The only real scissor-key recording of the set. Clean presses by earshot find: 13.160-13.395, 26.337-26.520, 9.472-9.669, 10.350-10.545, 3.748-4.105, 6.991-7.340. Clipped-looking peaks (-0.4 dBFS) need -6 dB. The text typed is saved on the page, so the keystrokes could be mapped to times for exact space/enter if needed. CC0.",
+  "licence_seen": {
+   "text": "Creative Commons 0",
+   "url": "http://creativecommons.org/publicdomain/zero/1.0/",
+   "page": "https://freesound.org/people/Plummet/sounds/749425/",
+   "read_on": "2026-11-01",
+   "page_author": "Plummet",
+   "page_title": "Intense typing on a laptop MacBook keyboard"
+  },
+  "analysis": {
+   "duration": 27.999,
+   "codec": "vorbis",
+   "kbps": 192,
+   "src_rate": 44100,
+   "channels": 2,
+   "peak_dbfs": -0.42,
+   "lufs": -31.45,
+   "noise_floor_dbfs": -64.0,
+   "clipped_samples": 0,
+   "attack_at": 0.459,
+   "centroid_hz": 5319,
+   "rolloff95_hz": 10152,
+   "onsets": [
+    0.116,
+    0.209,
+    0.325,
+    0.488,
+    0.58,
+    0.697,
+    0.789,
+    0.998,
+    1.115,
+    1.184,
+    1.37,
+    1.463
+   ]
+  },
+  "earshot": {
+   "realness": 0.994,
+   "realness_verdict": "real or pro-produced",
+   "realness_trim": [
+    13.16,
+    13.395
+   ],
+   "match": {
+    "query": "a single laptop keyboard key press",
+    "z": 4.52,
+    "verdict": "strong",
+    "p_vs_alts": 1.0
+   },
+   "trims": {
+    "press 1": {
+     "range": [
+      13.16,
+      13.395
+     ],
+     "match_z": 4.52,
+     "match": "strong",
+     "p_real": 0.994,
+     "realness": "real or pro-produced"
+    },
+    "press 2": {
+     "range": [
+      26.337,
+      26.52
+     ],
+     "match_z": 4.36,
+     "match": "strong",
+     "p_real": 0.985,
+     "realness": "real or pro-produced"
+    },
+    "press 3": {
+     "range": [
+      9.472,
+      9.669
+     ],
+     "match_z": 4.01,
+     "match": "strong",
+     "p_real": 0.996,
+     "realness": "real or pro-produced"
+    },
+    "press 4": {
+     "range": [
+      10.35,
+      10.545
+     ],
+     "match_z": 4.06,
+     "match": "strong",
+     "p_real": 0.989,
+     "realness": "real or pro-produced"
+    },
+    "press 5": {
+     "range": [
+      3.748,
+      4.105
+     ],
+     "match_z": 4.05,
+     "match": "strong",
+     "p_real": 0.997,
+     "realness": "real or pro-produced"
+    },
+    "press 6": {
+     "range": [
+      6.991,
+      7.34
+     ],
+     "match_z": 4.05,
+     "match": "strong",
+     "p_real": 0.984,
+     "realness": "real or pro-produced"
+    }
+   }
+  }
+ },
+ {
+  "id": "fs-565204",
+  "category": "keys",
+  "file": "audio/assets/keys/fs-565204_computer-keyboard-typing-close-up.ogg",
+  "title": "Computer keyboard typing close up",
+  "author": "khenshom",
+  "source": "freesound",
+  "page_url": "https://freesound.org/people/khenshom/sounds/565204/",
+  "download_url": "https://cdn.freesound.org/previews/565/565204_6652872-hq.ogg",
+  "license": "CC0 1.0",
+  "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+  "attribution": null,
+  "need": "key_type",
+  "rank": 5,
+  "best_segment": [
+   10.449,
+   10.805
+  ],
+  "notes": "'Typing on a wireless keyboard' (khenshom, MKE600 + Zoom H5; Apple-style board per tags), 18 s, mono, floor -76.3 dBFS, centroid 4.3 kHz. Earshot rank puts it first for 'close-miked MacBook scissor-switch keyboard, many separate presses' (z +5.9 strong), but earshot find returns only 8 short single-event windows (565645 gives 28). Kept as a same-author fallback.",
+  "licence_seen": {
+   "text": "Creative Commons 0",
+   "url": "http://creativecommons.org/publicdomain/zero/1.0/",
+   "page": "https://freesound.org/people/khenshom/sounds/565204/",
+   "read_on": "2026-11-01",
+   "page_author": "khenshom",
+   "page_title": "Computer keyboard typing close up"
+  },
+  "analysis": {
+   "duration": 18.0,
+   "codec": "vorbis",
+   "kbps": 110,
+   "src_rate": 48000,
+   "channels": 1,
+   "peak_dbfs": -0.59,
+   "lufs": -36.33,
+   "noise_floor_dbfs": -76.3,
+   "clipped_samples": 0,
+   "attack_at": 2.708,
+   "centroid_hz": 4311,
+   "rolloff95_hz": 10072,
+   "onsets": [
+    0.348,
+    0.464,
+    0.627,
+    0.836,
+    0.929,
+    1.091,
+    1.207,
+    1.533,
+    1.649,
+    1.834,
+    2.113,
+    2.322
+   ]
+  },
+  "earshot": {
+   "realness": 0.975,
+   "realness_verdict": "real or pro-produced",
+   "realness_trim": [
+    10.449,
+    10.805
+   ],
+   "match": {
+    "query": "a single laptop keyboard key press",
+    "z": 5.18,
+    "verdict": "strong",
+    "p_vs_alts": 1.0
+   },
+   "trims": {
+    "press 1": {
+     "range": [
+      10.449,
+      10.805
+     ],
+     "match_z": 5.18,
+     "match": "strong",
+     "p_real": 0.975,
+     "realness": "real or pro-produced"
+    },
+    "press 2": {
+     "range": [
+      15.262,
+      15.5
+     ],
+     "match_z": 4.39,
+     "match": "strong",
+     "p_real": 0.982,
+     "realness": "real or pro-produced"
+    },
+    "press 3": {
+     "range": [
+      6.815,
+      7.0
+     ],
+     "match_z": 4.11,
+     "match": "strong",
+     "p_real": 0.991,
+     "realness": "real or pro-produced"
+    },
+    "press 4": {
+     "range": [
+      15.103,
+      15.21
+     ],
+     "match_z": 4.08,
+     "match": "strong",
+     "p_real": 0.975,
+     "realness": "real or pro-produced"
+    },
+    "press 5": {
+     "range": [
+      3.285,
+      3.42
+     ],
+     "match_z": 3.31,
+     "match": "strong",
+     "p_real": 0.968,
+     "realness": "real or pro-produced"
+    }
+   }
+  }
+ }
+]

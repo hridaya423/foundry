@@ -1,7 +1,7 @@
 import Foundation
 import FoundryDomain
 
-final class SystemCommandProvider: CommandProvider, @unchecked Sendable {
+final class SystemCommandProvider: CommandProvider, Sendable {
     let id = "foundry.system"
 
     private let commands: [SystemCommand]
@@ -15,15 +15,24 @@ final class SystemCommandProvider: CommandProvider, @unchecked Sendable {
     }
 
     func search(_ request: CommandSearchRequest) async -> [CommandResult] {
-        commands.compactMap { command in
+        let prepared = SearchScoring.PreparedQuery(query: request.query)
+        return commands.compactMap { command in
             guard Task.isCancelled == false else { return nil }
             let aliases = request.customAliases[command.id] ?? []
-            guard SearchScoring.match(
-                query: request.query,
-                title: command.title,
-                subtitle: command.subtitle,
-                keywords: [],
-                aliases: command.aliases + aliases,
+            var searchableMask = command.searchableMask
+            for alias in aliases {
+                searchableMask |= SearchScoring.characterMask(SearchScoring.normalize(alias))
+            }
+            guard SearchScoring.probableMatch(query: prepared, searchableMask: searchableMask, sensitivity: request.sensitivity) else { return nil }
+            let normalizedAliases = aliases.isEmpty
+                ? command.normalizedAliases
+                : command.normalizedAliases + aliases.map(SearchScoring.normalize)
+            guard SearchScoring.matchPrepared(
+                query: prepared,
+                normalizedTitle: command.normalizedTitle,
+                normalizedSubtitle: command.normalizedSubtitle,
+                normalizedKeywords: [],
+                normalizedAliases: normalizedAliases,
                 sensitivity: request.sensitivity
             ) != nil else {
                 return nil
@@ -34,9 +43,10 @@ final class SystemCommandProvider: CommandProvider, @unchecked Sendable {
                 title: command.title,
                 subtitle: command.subtitle,
                 icon: CommandIcon(fallback: command.fallback, systemName: command.systemIcon),
-                searchAliases: aliases,
-                searchKeywords: command.aliases,
-                primaryAction: CommandAction(id: "\(command.id).perform", title: command.actionTitle, kind: command.actionKind),
+                searchAliases: command.aliases + aliases,
+                searchKeywords: [],
+                payload: .command,
+                primaryAction: CommandAction(id: "\(command.id).perform", title: command.actionTitle, behavior: command.action),
                 secondaryActions: []
             )
         }
@@ -52,7 +62,7 @@ final class SystemCommandProvider: CommandProvider, @unchecked Sendable {
                 systemIcon: "lock.fill",
                 fallback: "LK",
                 actionTitle: "Lock",
-                actionKind: .runProcess(path: "/System/Library/CoreServices/Menu Extras/User.menu/Contents/Resources/CGSession", arguments: ["-suspend"])
+                action: RunProcessAction(path: "/System/Library/CoreServices/Menu Extras/User.menu/Contents/Resources/CGSession", arguments: ["-suspend"])
             ),
             SystemCommand(
                 id: "system.sleep",
@@ -62,7 +72,7 @@ final class SystemCommandProvider: CommandProvider, @unchecked Sendable {
                 systemIcon: "moon.fill",
                 fallback: "SL",
                 actionTitle: "Sleep",
-                actionKind: .runProcess(path: "/usr/bin/pmset", arguments: ["sleepnow"])
+                action: RunProcessAction(path: "/usr/bin/pmset", arguments: ["sleepnow"])
             ),
             SystemCommand(
                 id: "system.sleep-displays",
@@ -72,7 +82,7 @@ final class SystemCommandProvider: CommandProvider, @unchecked Sendable {
                 systemIcon: "display.2",
                 fallback: "DS",
                 actionTitle: "Sleep Displays",
-                actionKind: .runProcess(path: "/usr/bin/pmset", arguments: ["displaysleepnow"])
+                action: RunProcessAction(path: "/usr/bin/pmset", arguments: ["displaysleepnow"])
             ),
             SystemCommand(
                 id: "system.restart",
@@ -82,7 +92,7 @@ final class SystemCommandProvider: CommandProvider, @unchecked Sendable {
                 systemIcon: "arrow.clockwise.circle.fill",
                 fallback: "RE",
                 actionTitle: "Restart",
-                actionKind: .runProcess(path: "/usr/bin/osascript", arguments: ["-e", "tell application \"System Events\" to restart"])
+                action: RunProcessAction(path: "/usr/bin/osascript", arguments: ["-e", "tell application \"System Events\" to restart"])
             ),
             SystemCommand(
                 id: "system.shutdown",
@@ -92,7 +102,7 @@ final class SystemCommandProvider: CommandProvider, @unchecked Sendable {
                 systemIcon: "power.circle.fill",
                 fallback: "SD",
                 actionTitle: "Shut Down",
-                actionKind: .runProcess(path: "/usr/bin/osascript", arguments: ["-e", "tell application \"System Events\" to shut down"])
+                action: RunProcessAction(path: "/usr/bin/osascript", arguments: ["-e", "tell application \"System Events\" to shut down"])
             ),
             SystemCommand(
                 id: "system.logout",
@@ -102,7 +112,7 @@ final class SystemCommandProvider: CommandProvider, @unchecked Sendable {
                 systemIcon: "rectangle.portrait.and.arrow.right",
                 fallback: "LO",
                 actionTitle: "Log Out",
-                actionKind: .runProcess(path: "/usr/bin/osascript", arguments: ["-e", "tell application \"System Events\" to log out"])
+                action: RunProcessAction(path: "/usr/bin/osascript", arguments: ["-e", "tell application \"System Events\" to log out"])
             ),
             SystemCommand(
                 id: "system.restart-finder",
@@ -112,7 +122,7 @@ final class SystemCommandProvider: CommandProvider, @unchecked Sendable {
                 systemIcon: "folder.fill.badge.gearshape",
                 fallback: "RF",
                 actionTitle: "Restart",
-                actionKind: .runProcess(path: "/usr/bin/killall", arguments: ["Finder"])
+                action: RunProcessAction(path: "/usr/bin/killall", arguments: ["Finder"])
             ),
             SystemCommand(
                 id: "system.restart-dock",
@@ -122,7 +132,7 @@ final class SystemCommandProvider: CommandProvider, @unchecked Sendable {
                 systemIcon: "dock.rectangle",
                 fallback: "RD",
                 actionTitle: "Restart",
-                actionKind: .runProcess(path: "/usr/bin/killall", arguments: ["Dock"])
+                action: RunProcessAction(path: "/usr/bin/killall", arguments: ["Dock"])
             ),
             SystemCommand(
                 id: "system.restart-menu-bar",
@@ -132,7 +142,7 @@ final class SystemCommandProvider: CommandProvider, @unchecked Sendable {
                 systemIcon: "menubar.rectangle",
                 fallback: "MB",
                 actionTitle: "Restart",
-                actionKind: .runProcess(path: "/usr/bin/killall", arguments: ["SystemUIServer"])
+                action: RunProcessAction(path: "/usr/bin/killall", arguments: ["SystemUIServer"])
             ),
             SystemCommand(
                 id: "system.flush-dns",
@@ -142,7 +152,7 @@ final class SystemCommandProvider: CommandProvider, @unchecked Sendable {
                 systemIcon: "network.badge.shield.half.filled",
                 fallback: "DNS",
                 actionTitle: "Flush",
-                actionKind: .runProcess(path: "/bin/zsh", arguments: ["-lc", "/usr/bin/dscacheutil -flushcache; /usr/bin/killall -HUP mDNSResponder"])
+                action: RunProcessAction(path: "/bin/zsh", arguments: ["-lc", "/usr/bin/dscacheutil -flushcache; /usr/bin/killall -HUP mDNSResponder"])
             ),
             SystemCommand(
                 id: "system.toggle-dark-mode",
@@ -152,7 +162,8 @@ final class SystemCommandProvider: CommandProvider, @unchecked Sendable {
                 systemIcon: "circle.lefthalf.filled",
                 fallback: "DM",
                 actionTitle: "Toggle",
-                actionKind: .runProcess(path: "/usr/bin/osascript", arguments: ["-e", "tell application \"System Events\" to tell appearance preferences to set dark mode to not dark mode"])
+                action: RunProcessAction(path: "/usr/bin/osascript", arguments: ["-e",
+                    "tell application \"System Events\" to tell appearance preferences to set dark mode to not dark mode"])
             ),
             SystemCommand(
                 id: "system.toggle-hidden-files",
@@ -162,7 +173,7 @@ final class SystemCommandProvider: CommandProvider, @unchecked Sendable {
                 systemIcon: "eye.slash.fill",
                 fallback: "HF",
                 actionTitle: "Toggle",
-                actionKind: .runProcess(
+                action: RunProcessAction(
                     path: "/bin/zsh",
                     arguments: [
                         "-lc",
@@ -181,7 +192,7 @@ final class SystemCommandProvider: CommandProvider, @unchecked Sendable {
                 systemIcon: "speaker.slash.fill",
                 fallback: "MU",
                 actionTitle: "Toggle",
-                actionKind: .runProcess(path: "/usr/bin/osascript", arguments: ["-e", "set volume output muted not (output muted of (get volume settings))"])
+                action: RunProcessAction(path: "/usr/bin/osascript", arguments: ["-e", "set volume output muted not (output muted of (get volume settings))"])
             ),
             SystemCommand(
                 id: "system.volume-up",
@@ -191,7 +202,8 @@ final class SystemCommandProvider: CommandProvider, @unchecked Sendable {
                 systemIcon: "speaker.wave.3.fill",
                 fallback: "VU",
                 actionTitle: "Increase",
-                actionKind: .runProcess(path: "/usr/bin/osascript", arguments: ["-e", "set volume output volume ((output volume of (get volume settings)) + 6)"])
+                action: RunProcessAction(path: "/usr/bin/osascript", arguments: ["-e",
+                    "set volume output volume ((output volume of (get volume settings)) + 6)"])
             ),
             SystemCommand(
                 id: "system.volume-down",
@@ -201,7 +213,8 @@ final class SystemCommandProvider: CommandProvider, @unchecked Sendable {
                 systemIcon: "speaker.wave.1.fill",
                 fallback: "VD",
                 actionTitle: "Decrease",
-                actionKind: .runProcess(path: "/usr/bin/osascript", arguments: ["-e", "set volume output volume ((output volume of (get volume settings)) - 6)"])
+                action: RunProcessAction(path: "/usr/bin/osascript", arguments: ["-e",
+                    "set volume output volume ((output volume of (get volume settings)) - 6)"])
             ),
             SystemCommand(
                 id: "system.clear-clipboard",
@@ -211,7 +224,7 @@ final class SystemCommandProvider: CommandProvider, @unchecked Sendable {
                 systemIcon: "clipboard.fill",
                 fallback: "CC",
                 actionTitle: "Clear",
-                actionKind: .runProcess(path: "/usr/bin/pbcopy", arguments: [])
+                action: RunProcessAction(path: "/usr/bin/pbcopy", arguments: [])
             ),
             SystemCommand(
                 id: "system.eject-disks",
@@ -221,7 +234,8 @@ final class SystemCommandProvider: CommandProvider, @unchecked Sendable {
                 systemIcon: "eject.fill",
                 fallback: "EJ",
                 actionTitle: "Eject",
-                actionKind: .runProcess(path: "/usr/bin/osascript", arguments: ["-e", "tell application \"Finder\" to eject (every disk whose ejectable is true)"])
+                action: RunProcessAction(path: "/usr/bin/osascript", arguments: ["-e",
+                    "tell application \"Finder\" to eject (every disk whose ejectable is true)"])
             ),
             SystemCommand(
                 id: "system.screen-saver",
@@ -231,13 +245,13 @@ final class SystemCommandProvider: CommandProvider, @unchecked Sendable {
                 systemIcon: "sparkles.rectangle.stack.fill",
                 fallback: "SS",
                 actionTitle: "Start",
-                actionKind: .openApp(path: "/System/Library/CoreServices/ScreenSaverEngine.app", name: "Screen Saver")
+                action: OpenAppAction(path: "/System/Library/CoreServices/ScreenSaverEngine.app", name: "Screen Saver")
             ),
             settingsCommand(
                 id: "system.settings",
                 title: "Open System Settings",
                 subtitle: "Open macOS System Settings or jump to any pane",
-                aliases: ["preferences", "prefs", "settings"],
+                aliases: ["preferences", "prefs", "settings", "sys"],
                 systemIcon: "gearshape.fill",
                 fallback: "SE",
                 url: "x-apple.systempreferences:"
@@ -621,16 +635,6 @@ final class SystemCommandProvider: CommandProvider, @unchecked Sendable {
                 url: "x-apple.systempreferences:com.apple.Transfer-Reset-Settings.extension"
             ),
             SystemCommand(
-                id: "system.empty-trash",
-                title: "Empty Trash",
-                subtitle: "Ask Finder to empty the Trash",
-                aliases: ["trash", "bin", "delete trash"],
-                systemIcon: "trash.fill",
-                fallback: "TR",
-                actionTitle: "Empty",
-                actionKind: .runProcess(path: "/usr/bin/osascript", arguments: ["-e", "tell application \"Finder\" to empty trash"])
-            ),
-            SystemCommand(
                 id: "system.open-screenshot",
                 title: "Open Screenshot",
                 subtitle: "Open macOS Screenshot controls",
@@ -638,7 +642,7 @@ final class SystemCommandProvider: CommandProvider, @unchecked Sendable {
                 systemIcon: "camera.viewfinder",
                 fallback: "SC",
                 actionTitle: "Open",
-                actionKind: .openApp(path: "/System/Library/CoreServices/Applications/Screenshot.app", name: "Screenshot")
+                action: OpenAppAction(path: "/System/Library/CoreServices/Applications/Screenshot.app", name: "Screenshot")
             ),
             SystemCommand(
                 id: "system.open-disk-utility",
@@ -648,7 +652,7 @@ final class SystemCommandProvider: CommandProvider, @unchecked Sendable {
                 systemIcon: "internaldrive.fill",
                 fallback: "DU",
                 actionTitle: "Open",
-                actionKind: .openApp(path: "/System/Applications/Utilities/Disk Utility.app", name: "Disk Utility")
+                action: OpenAppAction(path: "/System/Applications/Utilities/Disk Utility.app", name: "Disk Utility")
             ),
             SystemCommand(
                 id: "system.open-console",
@@ -658,7 +662,7 @@ final class SystemCommandProvider: CommandProvider, @unchecked Sendable {
                 systemIcon: "apple.terminal.fill",
                 fallback: "CO",
                 actionTitle: "Open",
-                actionKind: .openApp(path: "/System/Applications/Utilities/Console.app", name: "Console")
+                action: OpenAppAction(path: "/System/Applications/Utilities/Console.app", name: "Console")
             ),
         ]
         if includeRebuild {
@@ -670,7 +674,7 @@ final class SystemCommandProvider: CommandProvider, @unchecked Sendable {
                 systemIcon: "hammer.fill",
                 fallback: "BA",
                 actionTitle: "Rebuild",
-                actionKind: .rebuildApp
+                action: RebuildAppAction()
             ))
         }
         return commands
@@ -693,7 +697,7 @@ final class SystemCommandProvider: CommandProvider, @unchecked Sendable {
             systemIcon: systemIcon,
             fallback: fallback,
             actionTitle: "Open",
-            actionKind: .openURL(url)
+            action: OpenURLAction(url)
         )
     }
 }
@@ -706,5 +710,29 @@ private struct SystemCommand: Sendable {
     let systemIcon: String
     let fallback: String
     let actionTitle: String
-    let actionKind: CommandActionKind
+    let action: any ResultAction
+    /// Precomputed once — `search` scores against these instead of
+    /// re-normalizing every command string on every keystroke.
+    let normalizedTitle: String
+    let normalizedSubtitle: String
+    let normalizedAliases: [String]
+    /// Character multiset over everything `search` feeds the matcher —
+    /// lets `probableMatch` reject impossible commands in one instruction.
+    let searchableMask: UInt64
+
+    init(id: String, title: String, subtitle: String, aliases: [String], systemIcon: String, fallback: String,
+         actionTitle: String, action: any ResultAction) {
+        self.id = id
+        self.title = title
+        self.subtitle = subtitle
+        self.aliases = aliases
+        self.systemIcon = systemIcon
+        self.fallback = fallback
+        self.actionTitle = actionTitle
+        self.action = action
+        self.normalizedTitle = SearchScoring.normalize(title)
+        self.normalizedSubtitle = SearchScoring.normalize(subtitle)
+        self.normalizedAliases = aliases.map(SearchScoring.normalize)
+        self.searchableMask = ([title, subtitle] + aliases).reduce(0) { $0 | SearchScoring.characterMask($1) }
+    }
 }

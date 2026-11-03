@@ -5,7 +5,7 @@ enum WidgetCategory: String, CaseIterable, Sendable {
     case system
     case web
 
-    var title: String {
+    var title: LocalizedStringResource {
         switch self {
         case .workspace: return "Workspace"
         case .system: return "System"
@@ -47,7 +47,7 @@ enum WidgetKind: String, Codable, CaseIterable, Sendable, Identifiable {
         }
     }
 
-    var title: String {
+    var title: LocalizedStringResource {
         switch self {
         case .agents: return "Agents"
         case .calendar: return "Calendar"
@@ -70,7 +70,7 @@ enum WidgetKind: String, Codable, CaseIterable, Sendable, Identifiable {
         }
     }
 
-    var summary: String {
+    var summary: LocalizedStringResource {
         switch self {
         case .agents: return "Recent local coding sessions"
         case .calendar: return "Month at a glance"

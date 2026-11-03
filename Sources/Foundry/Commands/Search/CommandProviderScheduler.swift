@@ -1,11 +1,11 @@
 import Foundation
 import FoundryDomain
 import FoundryServices
+import os
 
-final class CommandProviderScheduler: @unchecked Sendable {
+final class CommandProviderScheduler: Sendable {
     private let diagnostics: DiagnosticsService
-    private let gateLock = NSLock()
-    private var providerGates: [String: ProviderExecutionGate] = [:]
+    private let providerGates = OSAllocatedUnfairLock(initialState: [String: ProviderExecutionGate]())
 
     init(diagnostics: DiagnosticsService) {
         self.diagnostics = diagnostics
@@ -17,7 +17,8 @@ final class CommandProviderScheduler: @unchecked Sendable {
         aliases: [String: [String]],
         sensitivity: SearchSensitivity,
         snippetInsertAsPrimary: Bool = true,
-        timeout: Duration
+        timeout: Duration,
+        priority: TaskPriority = .userInitiated
     ) async -> ([RankCandidate], [ProviderSearchTiming]) {
         let aliasKey = aliases
             .sorted { $0.key < $1.key }
@@ -26,7 +27,7 @@ final class CommandProviderScheduler: @unchecked Sendable {
 
         return await withTaskGroup(of: ProviderSearchResult.self, returning: ([RankCandidate], [ProviderSearchTiming]).self) { group in
             for provider in providers {
-                group.addTask { [diagnostics] in
+                group.addTask(priority: priority) { [diagnostics] in
                     let span = diagnostics.startSpan("search.provider.\(provider.id)")
                     defer { diagnostics.endSpan(span) }
                     let startedAt = Date().timeIntervalSinceReferenceDate
@@ -38,7 +39,8 @@ final class CommandProviderScheduler: @unchecked Sendable {
                         sensitivity: sensitivity,
                         snippetInsertAsPrimary: snippetInsertAsPrimary,
                         aliasKey: aliasKey,
-                        deadline: deadline
+                        deadline: deadline,
+                        priority: priority
                     )
                     let elapsedMilliseconds = (Date().timeIntervalSinceReferenceDate - startedAt) * 1_000
                     return ProviderSearchResult(
@@ -73,7 +75,7 @@ final class CommandProviderScheduler: @unchecked Sendable {
     func defaults(for provider: CommandProvider, deadline: ContinuousClock.Instant) async -> ProviderOperationResult<[CommandResult]> {
         await race(providerID: provider.id, operationKey: "defaults", {
             try await provider.defaultResults()
-        }, until: deadline)
+        }, until: deadline, priority: .userInitiated)
     }
 
     private func results(
@@ -83,7 +85,8 @@ final class CommandProviderScheduler: @unchecked Sendable {
         sensitivity: SearchSensitivity,
         snippetInsertAsPrimary: Bool,
         aliasKey: String,
-        deadline: ContinuousClock.Instant
+        deadline: ContinuousClock.Instant,
+        priority: TaskPriority
     ) async -> ProviderOperationResult<[CommandResult]> {
         let operationKey = "search:\(query)|\(sensitivity.rawValue)|\(snippetInsertAsPrimary)|\(aliasKey)"
         return await race(providerID: provider.id, operationKey: operationKey, {
@@ -93,14 +96,15 @@ final class CommandProviderScheduler: @unchecked Sendable {
                 sensitivity: sensitivity,
                 snippetInsertAsPrimary: snippetInsertAsPrimary
             ))
-        }, until: deadline)
+        }, until: deadline, priority: priority)
     }
 
     private func race(
         providerID: String,
         operationKey: String,
         _ work: @escaping @Sendable () async throws -> [CommandResult],
-        until deadline: ContinuousClock.Instant
+        until deadline: ContinuousClock.Instant,
+        priority: TaskPriority
     ) async -> ProviderOperationResult<[CommandResult]> {
         let gate = executionGate(for: providerID)
         guard let operationTask = await gate.task(for: operationKey, work: {
@@ -111,7 +115,7 @@ final class CommandProviderScheduler: @unchecked Sendable {
             } catch {
                 return .failed(error.localizedDescription)
             }
-        }, until: deadline) else {
+        }, until: deadline, priority: priority) else {
             return .busy
         }
 
@@ -137,12 +141,12 @@ final class CommandProviderScheduler: @unchecked Sendable {
     }
 
     private func executionGate(for providerID: String) -> ProviderExecutionGate {
-        gateLock.withLock {
-            if let gate = providerGates[providerID] {
+        providerGates.withLock {
+            if let gate = $0[providerID] {
                 return gate
             }
             let gate = ProviderExecutionGate()
-            providerGates[providerID] = gate
+            $0[providerID] = gate
             return gate
         }
     }
@@ -192,32 +196,35 @@ struct ProviderSearchTiming: Sendable {
     let status: ProviderCallStatus
 }
 
-final class FirstResultRace<Value: Sendable>: @unchecked Sendable {
-    private let lock = NSLock()
-    private var continuation: CheckedContinuation<Value?, Never>?
-    private var finished = false
-    private var finishedValue: Value?
+final class FirstResultRace<Value: Sendable>: Sendable {
+    private struct State {
+        var continuation: CheckedContinuation<Value?, Never>?
+        var finished = false
+        var finishedValue: Value?
+    }
+
+    private let state = OSAllocatedUnfairLock(initialState: State())
 
     func wait() async -> Value? {
         await withCheckedContinuation { continuation in
-            let state = lock.withLock { () -> (shouldResume: Bool, value: Value?) in
-                if finished { return (true, finishedValue) }
-                self.continuation = continuation
+            let resolved = state.withLock { state -> (shouldResume: Bool, value: Value?) in
+                if state.finished { return (true, state.finishedValue) }
+                state.continuation = continuation
                 return (false, nil)
             }
-            if state.shouldResume {
-                continuation.resume(returning: state.value)
+            if resolved.shouldResume {
+                continuation.resume(returning: resolved.value)
             }
         }
     }
 
     func finish(_ value: Value?) {
-        let continuation = lock.withLock { () -> CheckedContinuation<Value?, Never>? in
-            guard finished == false else { return nil }
-            finished = true
-            finishedValue = value
-            let continuation = self.continuation
-            self.continuation = nil
+        let continuation = state.withLock { state -> CheckedContinuation<Value?, Never>? in
+            guard state.finished == false else { return nil }
+            state.finished = true
+            state.finishedValue = value
+            let continuation = state.continuation
+            state.continuation = nil
             return continuation
         }
         continuation?.resume(returning: value)
@@ -230,7 +237,8 @@ private actor ProviderExecutionGate {
     func task(
         for key: String,
         work: @escaping @Sendable () async -> ProviderOperationResult<[CommandResult]>,
-        until deadline: ContinuousClock.Instant
+        until deadline: ContinuousClock.Instant,
+        priority: TaskPriority
     ) async -> Task<ProviderOperationResult<[CommandResult]>, Never>? {
         guard Task.isCancelled == false else { return nil }
         if let existing = inFlight[key] {
@@ -242,7 +250,7 @@ private actor ProviderExecutionGate {
             guard Task.isCancelled == false else { return nil }
         }
 
-        let task = Task.detached { [self] in
+        let task = Task.detached(priority: priority) { [self] in
             let result = await work()
             await self.finish(key: key)
             return result

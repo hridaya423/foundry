@@ -9,15 +9,20 @@ struct ScriptsSettingsPane: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Foundry runs Raycast-compatible Script Commands: executable files with a “# @raycast.title” line. Scripts run as you, so a folder must be trusted before its first run.")
-                .font(FoundryTheme.body(size: 12, weight: .regular))
-                .foregroundStyle(FoundryTheme.mutedText)
+            Text(
+                "Foundry runs Raycast-compatible Script Commands: executable files with a “# @raycast.title” line. Scripts run as you, so a folder " +
+                    "must be trusted before its first run.")
+                .font(FoundryTheme.bodySecondary)
+                .foregroundStyle(FoundryTheme.textTertiary)
                 .fixedSize(horizontal: false, vertical: true)
 
             SettingsGroup {
                 ForEach(directories, id: \.self) { directory in
                     HStack(spacing: 10) {
-                        SettingsLabel(title: (directory as NSString).lastPathComponent, subtitle: "\(ScriptCommandProvider.scan(directory).count) scripts · \(directory)")
+                        SettingsLabel(
+                            title: LocalizedStringResource(stringLiteral: (directory as NSString).lastPathComponent),
+                            subtitle: LocalizedStringResource(stringLiteral: "\(ScriptCommandProvider.scan(directory).count) scripts · \(directory)")
+                        )
                         Spacer()
                         Toggle("Trusted", isOn: Binding(
                             get: { trusted.contains(directory) },
@@ -65,8 +70,11 @@ struct ScriptsSettingsPane: View {
         let panel = NSOpenPanel()
         panel.canChooseFiles = false
         panel.canChooseDirectories = true
-        guard panel.runModal() == .OK, let url = panel.url, directories.contains(url.path) == false else { return }
-        store.directories = directories + [url.path]
-        reload()
+        Task { @MainActor in
+            guard await runFilePanelAsSheet(panel), let url = panel.url,
+                  directories.contains(url.path) == false else { return }
+            store.directories = directories + [url.path]
+            reload()
+        }
     }
 }

@@ -36,7 +36,7 @@ final class FileShelfState {
     var selectedID: String?
     private(set) var selectedIDs: Set<String> = []
     private(set) var backgroundRemovalFileID: String?
-    private(set) var backgroundRemovalStatus = ""
+    private(set) var backgroundRemovalStatus = String(localized: "")
     private(set) var backgroundRemovalError: String?
     private(set) var backgroundRemovalNeedsDestination = false
     private(set) var backgroundRemovalEngine: BackgroundRemovalEngine?
@@ -63,6 +63,14 @@ final class FileShelfState {
         backgroundRemovalFileID = nil
         backgroundRemovalEngine = nil
         ben2Assessment = BEN2BackgroundRemovalService.assess()
+    }
+
+    var isDetailedModelReady: Bool { ben2Assessment.modelState == .ready && ben2Assessment.runtimeState == .ready }
+
+    var hasDetailedModelData: Bool { ben2Assessment.modelState != .missing || ben2Assessment.runtimeState != .missing }
+
+    func removeBackgroundDetailed() {
+        isDetailedModelReady ? removeBackgroundWithBEN2() : setUpBEN2(thenRun: true)
     }
 
     var experimentalEngines: [BackgroundRemovalEngine] {
@@ -184,6 +192,12 @@ final class FileShelfState {
         selectionAnchorID = id
     }
 
+    func selectAll() {
+        selectedIDs = Set(files.map(\.id))
+        selectedID = selectedID ?? files.first?.id
+        selectionAnchorID = selectionAnchorID ?? selectedID
+    }
+
     func toggleSelection(id: String) {
         guard files.contains(where: { $0.id == id }) else { return }
         if selectedIDs.contains(id) {
@@ -273,7 +287,7 @@ final class FileShelfState {
         removeBackground(using: .ben2)
     }
 
-    func setUpBEN2() {
+    func setUpBEN2(thenRun: Bool = false) {
         guard isSettingUpBEN2 == false else { return }
         isSettingUpBEN2 = true
         ben2SetupTask = Task { [weak self] in
@@ -283,9 +297,10 @@ final class FileShelfState {
                     self?.backgroundRemovalStatus = message
                 }
                 self?.ben2Assessment = BEN2BackgroundRemovalService.assess()
-                self?.backgroundRemovalStatus = "BEN2 is ready"
+                self?.backgroundRemovalStatus = String(localized: "Detailed model is ready")
+                if thenRun { self?.removeBackgroundWithBEN2() }
             } catch is CancellationError {
-                self?.backgroundRemovalStatus = "BEN2 setup cancelled"
+                self?.backgroundRemovalStatus = String(localized: "Model download cancelled")
             } catch {
                 self?.backgroundRemovalError = error.localizedDescription
             }
@@ -303,7 +318,7 @@ final class FileShelfState {
         do {
             try BEN2BackgroundRemovalService.removeData()
             ben2Assessment = BEN2BackgroundRemovalService.assess()
-            backgroundRemovalStatus = "BEN2 data removed"
+            backgroundRemovalStatus = String(localized: "Model data removed")
         } catch { backgroundRemovalError = error.localizedDescription }
     }
 
@@ -345,7 +360,7 @@ final class FileShelfState {
         backgroundRemovalEngine = nil
         backgroundRemovalNeedsDestination = false
         backgroundRemovalError = nil
-        backgroundRemovalStatus = "Background removal cancelled"
+        backgroundRemovalStatus = String(localized: "Background removal cancelled")
         backgroundRemovalPhase = .cancelled
         backgroundRemovalFailure = OperationFailure(message: "Background removal cancelled")
     }

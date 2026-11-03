@@ -1,6 +1,7 @@
 import Foundation
 import FoundryDomain
 import FoundryServices
+import os
 
 final class AppleNotesProvider: CommandProvider {
     let id = "foundry.apple-notes"
@@ -30,9 +31,11 @@ final class AppleNotesProvider: CommandProvider {
                 subtitle: note.preview,
                 icon: CommandIcon(fallback: "AN", systemName: "note.text"),
                 route: .notesSearch,
-                primaryAction: CommandAction(id: "apple-note.open.\(note.id)", title: "Open in Apple Notes", kind: .runProcess(path: "/usr/bin/osascript", arguments: openScriptArguments(noteID: note.id))),
+                payload: .note(id: note.id),
+                primaryAction: CommandAction(id: "apple-note.open.\(note.id)", title: "Open in Apple Notes",
+                    behavior: RunProcessAction(path: "/usr/bin/osascript", arguments: openScriptArguments(noteID: note.id))),
                 secondaryActions: [
-                    CommandAction(id: "apple-note.copy.\(note.id)", title: "Copy Preview", kind: .copyToClipboard(note.preview))
+                    CommandAction(id: "apple-note.copy.\(note.id)", title: "Copy Preview", behavior: CopyToClipboardAction(note.preview))
                 ]
             )
         }
@@ -45,7 +48,9 @@ final class AppleNotesProvider: CommandProvider {
                 title: "Apple Notes",
                 subtitle: "Search with: notes <text>",
                 icon: CommandIcon(fallback: "AN", systemName: "note.text"),
-                primaryAction: CommandAction(id: "foundry.apple-notes.launch", title: "Open", kind: .runProcess(path: "/usr/bin/open", arguments: ["-a", "Notes"])),
+                payload: .command,
+                primaryAction: CommandAction(id: "foundry.apple-notes.launch", title: "Open", behavior: RunProcessAction(path: "/usr/bin/open",
+                    arguments: ["-a", "Notes"])),
                 secondaryActions: []
             )
         ]
@@ -60,18 +65,17 @@ final class AppleNotesProvider: CommandProvider {
         return ""
     }
 
-    private final class NotesCacheBox: @unchecked Sendable {
-        private let lock = NSLock()
-        private var cached: (at: Date, notes: [AppleNoteResult])?
+    private final class NotesCacheBox: Sendable {
+        private let cached = OSAllocatedUnfairLock<(at: Date, notes: [AppleNoteResult])?>(initialState: nil)
         private let ttl: TimeInterval = 60
 
         func notes(refresh: () -> [AppleNoteResult]?) -> [AppleNoteResult]? {
-            lock.lock()
-            defer { lock.unlock() }
-            if let cached, Date().timeIntervalSince(cached.at) < ttl { return cached.notes }
-            guard let notes = refresh() else { return cached?.notes }
-            cached = (Date(), notes)
-            return notes
+            cached.withLockUnchecked { cached in
+                if let cached, Date().timeIntervalSince(cached.at) < ttl { return cached.notes }
+                guard let notes = refresh() else { return cached?.notes }
+                cached = (Date(), notes)
+                return notes
+            }
         }
     }
 
@@ -99,10 +103,11 @@ final class AppleNotesProvider: CommandProvider {
         title: "Couldn’t search Apple Notes",
         subtitle: "Check Automation access in System Settings › Privacy & Security",
         icon: CommandIcon(fallback: "AN", systemName: "exclamationmark.triangle"),
+        payload: .command,
         primaryAction: CommandAction(
             id: "apple-note.open-privacy",
             title: "Open Privacy Settings",
-            kind: .openURL("x-apple.systempreferences:com.apple.preference.security?Privacy_Automation")
+            behavior: OpenURLAction("x-apple.systempreferences:com.apple.preference.security?Privacy_Automation")
         ),
         secondaryActions: []
     )
@@ -132,7 +137,9 @@ final class AppleNotesProvider: CommandProvider {
     private func openScriptArguments(noteID: String) -> [String] {
         [
             "-l", "JavaScript",
-            "-e", "function run(argv) { const target = String(argv[0] || ''); const Notes = Application('Notes'); const note = Notes.notes().find(n => n.id() === target); if (note) { Notes.show(note); Notes.activate(); } }",
+            "-e",
+                "function run(argv) { const target = String(argv[0] || ''); const Notes = Application('Notes'); const note = Notes.notes().find(n " +
+                    "=> n.id() === target); if (note) { Notes.show(note); Notes.activate(); } }",
             noteID
         ]
     }

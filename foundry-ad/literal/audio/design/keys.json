@@ -1,0 +1,464 @@
+{
+ "_doc": "One keyboard for the whole film: a MacBook Pro 2018, close-miked (fs-565645, CC0). Presses normalised to -14 dBFS peak so levels vary only by jitter. Spaces and the chord's Space use the three deepest presses pitched -1 st; Return is the loudest press pitched -1.5 st. The chord is a soft Command 80 ms before Space; the panel appears 30 ms after Space.",
+ "samples": {
+  "kb.p4": {
+   "file": "audio/assets/keys/fs-565645_computer-keyboard-typing-and-keystrokes-.ogg",
+   "start": 16.743,
+   "end": 16.995,
+   "mono": true,
+   "eq": {
+    "hp": 110,
+    "hp_order": 4,
+    "highshelf": [
+     6500,
+     -2.0
+    ]
+   },
+   "norm_peak_db": -14.0,
+   "fade_in": 0.002,
+   "fade_out": 0.03,
+   "qa_ok": "the switch's own crisp transient 28-33 ms in, not a cut"
+  },
+  "kb.p6": {
+   "file": "audio/assets/keys/fs-565645_computer-keyboard-typing-and-keystrokes-.ogg",
+   "start": 20.137,
+   "end": 20.374,
+   "mono": true,
+   "eq": {
+    "hp": 110,
+    "hp_order": 4,
+    "highshelf": [
+     6500,
+     -2.0
+    ]
+   },
+   "norm_peak_db": -14.0,
+   "fade_in": 0.002,
+   "fade_out": 0.03
+  },
+  "kb.p7": {
+   "file": "audio/assets/keys/fs-565645_computer-keyboard-typing-and-keystrokes-.ogg",
+   "start": 22.602,
+   "end": 22.8,
+   "mono": true,
+   "eq": {
+    "hp": 110,
+    "hp_order": 4,
+    "highshelf": [
+     6500,
+     -2.0
+    ]
+   },
+   "norm_peak_db": -14.0,
+   "fade_in": 0.002,
+   "fade_out": 0.03,
+   "qa_ok": "the switch's own crisp transient 28-33 ms in, not a cut"
+  },
+  "kb.p13": {
+   "file": "audio/assets/keys/fs-565645_computer-keyboard-typing-and-keystrokes-.ogg",
+   "start": 43.795,
+   "end": 43.965,
+   "mono": true,
+   "eq": {
+    "hp": 110,
+    "hp_order": 4,
+    "highshelf": [
+     6500,
+     -2.0
+    ]
+   },
+   "norm_peak_db": -14.0,
+   "fade_in": 0.002,
+   "fade_out": 0.03
+  },
+  "kb.p14": {
+   "file": "audio/assets/keys/fs-565645_computer-keyboard-typing-and-keystrokes-.ogg",
+   "start": 46.47,
+   "end": 46.65,
+   "mono": true,
+   "eq": {
+    "hp": 110,
+    "hp_order": 4,
+    "highshelf": [
+     6500,
+     -2.0
+    ]
+   },
+   "norm_peak_db": -14.0,
+   "fade_in": 0.002,
+   "fade_out": 0.03
+  },
+  "kb.p18": {
+   "file": "audio/assets/keys/fs-565645_computer-keyboard-typing-and-keystrokes-.ogg",
+   "start": 10.445,
+   "end": 10.575,
+   "mono": true,
+   "eq": {
+    "hp": 110,
+    "hp_order": 4,
+    "highshelf": [
+     6500,
+     -2.0
+    ]
+   },
+   "norm_peak_db": -14.0,
+   "fade_in": 0.002,
+   "fade_out": 0.03
+  },
+  "kb.deep1": {
+   "file": "audio/assets/keys/fs-565645_computer-keyboard-typing-and-keystrokes-.ogg",
+   "start": 26.362,
+   "end": 26.68,
+   "mono": true,
+   "eq": {
+    "hp": 110,
+    "hp_order": 4,
+    "highshelf": [
+     6500,
+     -2.0
+    ]
+   },
+   "norm_peak_db": -13.0,
+   "pitch": -1.0,
+   "fade_out": 0.04
+  },
+  "kb.deep2": {
+   "file": "audio/assets/keys/fs-565645_computer-keyboard-typing-and-keystrokes-.ogg",
+   "start": 24.3765,
+   "end": 24.565,
+   "mono": true,
+   "eq": {
+    "hp": 110,
+    "hp_order": 4,
+    "highshelf": [
+     6500,
+     -2.0
+    ]
+   },
+   "norm_peak_db": -13.0,
+   "fade_in": 0.002,
+   "fade_out": 0.04,
+   "pitch": -1.0
+  },
+  "kb.deep3": {
+   "file": "audio/assets/keys/fs-565645_computer-keyboard-typing-and-keystrokes-.ogg",
+   "start": 35.387,
+   "end": 35.54,
+   "mono": true,
+   "eq": {
+    "hp": 110,
+    "hp_order": 4,
+    "highshelf": [
+     6500,
+     -2.0
+    ]
+   },
+   "norm_peak_db": -13.0,
+   "pitch": -1.0,
+   "fade_out": 0.04
+  },
+  "kb.ret": {
+   "file": "audio/assets/keys/fs-565645_computer-keyboard-typing-and-keystrokes-.ogg",
+   "start": 14.832,
+   "end": 15.26,
+   "mono": true,
+   "eq": {
+    "hp": 110,
+    "hp_order": 4,
+    "highshelf": [
+     6500,
+     -2.0
+    ]
+   },
+   "norm_peak_db": -12.0,
+   "pitch": -1.5,
+   "fade_out": 0.05
+  },
+  "kb.cmd": {
+   "file": "audio/assets/keys/fs-565645_computer-keyboard-typing-and-keystrokes-.ogg",
+   "start": 37.5835,
+   "end": 37.715,
+   "mono": true,
+   "eq": {
+    "hp": 110,
+    "hp_order": 4,
+    "highshelf": [
+     6500,
+     -2.0
+    ]
+   },
+   "norm_peak_db": -16.0,
+   "fade_in": 0.002,
+   "fade_out": 0.03
+  },
+  "kb.p5": {
+   "file": "audio/assets/keys/fs-565645_computer-keyboard-typing-and-keystrokes-.ogg",
+   "start": 18.5565,
+   "end": 18.667,
+   "mono": true,
+   "eq": {
+    "hp": 110,
+    "hp_order": 4,
+    "highshelf": [
+     6500,
+     -2.0
+    ]
+   },
+   "norm_peak_db": -14.0,
+   "fade_in": 0.002,
+   "fade_out": 0.03
+  },
+  "kb.p10": {
+   "file": "audio/assets/keys/fs-565645_computer-keyboard-typing-and-keystrokes-.ogg",
+   "start": 34.4845,
+   "end": 34.69,
+   "mono": true,
+   "eq": {
+    "hp": 110,
+    "hp_order": 4,
+    "highshelf": [
+     6500,
+     -2.0
+    ]
+   },
+   "norm_peak_db": -14.0,
+   "fade_in": 0.002,
+   "fade_out": 0.03
+  },
+  "kb.p12": {
+   "file": "audio/assets/keys/fs-565645_computer-keyboard-typing-and-keystrokes-.ogg",
+   "start": 37.5835,
+   "end": 37.715,
+   "mono": true,
+   "eq": {
+    "hp": 110,
+    "hp_order": 4,
+    "highshelf": [
+     6500,
+     -2.0
+    ]
+   },
+   "norm_peak_db": -14.0,
+   "fade_in": 0.002,
+   "fade_out": 0.03
+  },
+  "kb.p17": {
+   "file": "audio/assets/keys/fs-565645_computer-keyboard-typing-and-keystrokes-.ogg",
+   "start": 52.6585,
+   "end": 52.77,
+   "mono": true,
+   "eq": {
+    "hp": 110,
+    "hp_order": 4,
+    "highshelf": [
+     6500,
+     -2.0
+    ]
+   },
+   "norm_peak_db": -14.0,
+   "fade_in": 0.002,
+   "fade_out": 0.03
+  },
+  "kb.cmd2": {
+   "file": "audio/assets/keys/fs-565645_computer-keyboard-typing-and-keystrokes-.ogg",
+   "start": 16.743,
+   "end": 16.995,
+   "mono": true,
+   "eq": {
+    "hp": 110,
+    "hp_order": 4,
+    "highshelf": [
+     6500,
+     -2.0
+    ]
+   },
+   "norm_peak_db": -16.0,
+   "fade_in": 0.002,
+   "fade_out": 0.03,
+   "qa_ok": "the switch's own crisp transient 28-33 ms in, not a cut"
+  },
+  "kb.cmd3": {
+   "file": "audio/assets/keys/fs-565645_computer-keyboard-typing-and-keystrokes-.ogg",
+   "start": 43.795,
+   "end": 43.965,
+   "mono": true,
+   "eq": {
+    "hp": 110,
+    "hp_order": 4,
+    "highshelf": [
+     6500,
+     -2.0
+    ]
+   },
+   "norm_peak_db": -16.0,
+   "fade_in": 0.002,
+   "fade_out": 0.03
+  },
+  "kb.retB": {
+   "file": "audio/assets/keys/fs-565645_computer-keyboard-typing-and-keystrokes-.ogg",
+   "start": 26.362,
+   "end": 26.68,
+   "mono": true,
+   "eq": {
+    "hp": 110,
+    "hp_order": 4,
+    "highshelf": [
+     6500,
+     -2.0
+    ]
+   },
+   "norm_peak_db": -12.0,
+   "fade_in": 0.002,
+   "fade_out": 0.05,
+   "pitch": -2.0
+  },
+  "kb.retC": {
+   "file": "audio/assets/keys/fs-565645_computer-keyboard-typing-and-keystrokes-.ogg",
+   "start": 35.387,
+   "end": 35.54,
+   "mono": true,
+   "eq": {
+    "hp": 110,
+    "hp_order": 4,
+    "highshelf": [
+     6500,
+     -2.0
+    ]
+   },
+   "norm_peak_db": -12.0,
+   "fade_in": 0.002,
+   "fade_out": 0.05,
+   "pitch": -2.5
+  }
+ },
+ "pools": {
+  "kb.type": [
+   "kb.p4",
+   "kb.p6",
+   "kb.p7",
+   "kb.p13",
+   "kb.p14",
+   "kb.p18",
+   "kb.p5",
+   "kb.p10",
+   "kb.p12",
+   "kb.p17"
+  ],
+  "kb.space": [
+   "kb.deep1",
+   "kb.deep2",
+   "kb.deep3"
+  ],
+  "kb.ret": [
+   "kb.ret",
+   "kb.retB",
+   "kb.retC"
+  ],
+  "kb.cmd": [
+   "kb.cmd",
+   "kb.cmd2",
+   "kb.cmd3"
+  ],
+  "kb.chordspace": [
+   "kb.deep1",
+   "kb.deep3",
+   "kb.deep2"
+  ]
+ },
+ "rules": [
+  {
+   "name": "kb.type",
+   "match": {
+    "kind": "key",
+    "id": "^ui:.*:key:"
+   },
+   "pool": "kb.type",
+   "mode": "cycle",
+   "jitter_db": 1.5,
+   "weight_db": 3.0,
+   "gain_db": 0.0,
+   "pan": 0.0,
+   "align": "attack"
+  },
+  {
+   "name": "kb.space",
+   "match": {
+    "kind": "key",
+    "id": "^ui:.*:space:"
+   },
+   "pool": "kb.space",
+   "mode": "cycle",
+   "jitter_db": 1.0,
+   "gain_db": 0.0,
+   "pan": 0.0,
+   "align": "attack"
+  },
+  {
+   "name": "kb.return",
+   "match": {
+    "kind": "key",
+    "id": ":return$"
+   },
+   "pool": "kb.ret",
+   "mode": "cycle",
+   "gain_db": 1.0,
+   "pan": 0.0,
+   "align": "attack",
+   "jitter_db": 1.0
+  },
+  {
+   "name": "kb.chord.cmd",
+   "match": {
+    "kind": "key",
+    "id": ":chord$"
+   },
+   "pool": "kb.cmd",
+   "mode": "cycle",
+   "gain_db": -2.0,
+   "pan": 0.0,
+   "align": "attack",
+   "offset": -0.08,
+   "no_cue": true,
+   "jitter_db": 1.0
+  },
+  {
+   "name": "kb.chord.space",
+   "match": {
+    "kind": "key",
+    "id": ":chord$"
+   },
+   "pool": "kb.chordspace",
+   "mode": "cycle",
+   "gain_db": -1.0,
+   "pan": 0.0,
+   "align": "attack",
+   "jitter_db": 1.0
+  },
+  {
+   "name": "kb.caption.cmd",
+   "match": {
+    "id": "^logo:caption:0$"
+   },
+   "pool": "kb.cmd",
+   "mode": "cycle",
+   "gain_db": -9.0,
+   "pan": 0.0,
+   "align": "attack",
+   "offset": -0.08,
+   "no_cue": true,
+   "jitter_db": 1.0
+  },
+  {
+   "name": "kb.caption.space",
+   "match": {
+    "id": "^logo:caption:0$"
+   },
+   "pool": "kb.chordspace",
+   "mode": "cycle",
+   "gain_db": -8.0,
+   "pan": 0.0,
+   "align": "attack",
+   "jitter_db": 1.0
+  }
+ ]
+}

@@ -1,5 +1,6 @@
 import Foundation
 import FoundryServices
+import os
 
 enum AgentMonitorService {
     private static let recentSessionWindow: TimeInterval = 24 * 60 * 60
@@ -25,7 +26,9 @@ enum AgentMonitorService {
             if let stamp, let cached = cache.openCode[db], cached.stamp == stamp {
                 return cached.rows
             }
-            guard let rows = sqlite(db, "select id,title,directory,model,agent,time_created,time_updated,time_archived from session where time_archived is null order by time_updated desc limit 16;") else {
+            guard let rows = sqlite(db,
+                "select id,title,directory,model,agent,time_created,time_updated,time_archived from session where time_archived is null order by " +
+                    "time_updated desc limit 16;") else {
                 return cache.openCode[db]?.rows ?? []
             }
             if let stamp {
@@ -111,9 +114,9 @@ enum AgentMonitorService {
         if let cached = cache.claudeHistory, cached.stamp == stamp {
             return cached.cards.filter { isRecent($0.updatedAt, within: 7 * 24 * 60 * 60) }
         }
-        let data = BestEffort.attempt("read claude history") {
+        let data = (BestEffort.attempt("read claude history") {
             try Data(contentsOf: historyURL)
-        }
+        })
         guard let text = data.flatMap({ String(data: $0, encoding: .utf8) }) else { return [] }
         let cards = claudeHistorySessions(from: text)
         cache.claudeHistory = AgentMonitorCachedCards(stamp: stamp, cards: cards)
@@ -124,7 +127,7 @@ enum AgentMonitorService {
         var latestBySession: [String: ClaudeHistoryEntry] = [:]
         for line in text.split(whereSeparator: \.isNewline) {
             guard let data = line.data(using: .utf8),
-                   let entry = try? JSONDecoder().decode(ClaudeHistoryEntry.self, from: data),
+                   let entry = (BestEffort.attempt("Claude history entry decode") { try JSONDecoder().decode(ClaudeHistoryEntry.self, from: data) }),
                    entry.sessionId.nilIfEmpty != nil,
                    isRecent(date(milliseconds: entry.timestamp), within: 7 * 24 * 60 * 60, now: now),
                    isClaudeProbe(entry) == false else { continue }
@@ -302,7 +305,8 @@ enum AgentMonitorService {
     private static func codexSessions(processes: [ProcessInfoRow], cache: inout AgentMonitorCache) -> [AgentSessionCard] {
         let app = processes.first { $0.args.hasPrefix("/Applications/Codex.app/Contents/MacOS/Codex") }
         let server = processes.first { $0.args.contains("/codex app-server") || $0.args.contains("/Codex.app/Contents/Resources/codex app-server") }
-        let computerUse = processes.first { $0.args.contains("Codex Computer Use.app") || $0.args.contains("SkyComputerUse") || $0.args.contains("Codex for Chrome") }
+        let computerUse = processes.first { $0.args.contains("Codex Computer Use.app") || $0.args.contains("SkyComputerUse")
+            || $0.args.contains("Codex for Chrome") }
         let process = app ?? server ?? computerUse
         let databasePath = CodexDesktopThreadAdapter.latestDatabaseURL()?.path
         let discovery: CodexDesktopDiscoveryResult
@@ -387,7 +391,8 @@ enum AgentMonitorService {
     }
 
     private static func cursorProcessCards(_ processes: [ProcessInfoRow]) -> [AgentSessionCard] {
-        processes.filter { $0.args.hasPrefix("/Applications/Cursor.app/Contents/MacOS/Cursor") || $0.executableName == "cursor-agent" }.prefix(1).map { process in
+        processes.filter { $0.args.hasPrefix("/Applications/Cursor.app/Contents/MacOS/Cursor") || $0.executableName
+            == "cursor-agent" }.prefix(1).map { process in
             AgentSessionCard(
                 id: "cursor.process",
                 provider: .cursor,
@@ -434,7 +439,8 @@ enum AgentMonitorService {
 
     private static func openCodeModelLabel(_ json: String) -> String? {
         guard let data = json.data(using: .utf8),
-              let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return json.nilIfEmpty }
+              let object = (BestEffort.attempt("Claude session JSON") { try JSONSerialization.jsonObject(with: data) }) as? [String: Any]
+            else { return json.nilIfEmpty }
         let id = object["id"] as? String
         let variant = object["variant"] as? String
         return [id, variant == "none" ? nil : variant].compactMap { $0?.nilIfEmpty }.joined(separator: " ").nilIfEmpty
@@ -446,9 +452,9 @@ enum AgentMonitorService {
         var result: [String: String] = [:]
         for entry in entries {
             let file = entry.appendingPathComponent("workspace.json")
-            let raw = BestEffort.attempt("read cursor workspace \(entry.lastPathComponent)") {
+            let raw = (BestEffort.attempt("read cursor workspace \(entry.lastPathComponent)") {
                 try JSONSerialization.jsonObject(with: Data(contentsOf: file))
-            }
+            })
             guard let json = raw as? [String: Any],
                   let folder = json["folder"] as? String,
                   let url = URL(string: folder) else { continue }
@@ -551,36 +557,40 @@ private struct ProcessAgentDescriptor {
 private let processAgentDescriptors: [ProcessAgentDescriptor] = [
     ProcessAgentDescriptor(provider: .gemini, title: "Gemini", commandNames: ["gemini"], appPrefixes: [], openTarget: .terminal(command: "gemini")),
     ProcessAgentDescriptor(provider: .aider, title: "Aider", commandNames: ["aider"], appPrefixes: [], openTarget: .terminal(command: "aider")),
-    ProcessAgentDescriptor(provider: .goose, title: "Goose", commandNames: ["goose"], appPrefixes: ["/Applications/Goose.app/Contents/MacOS/Goose"], openTarget: .application(name: "Goose", path: "/Applications/Goose.app")),
-    ProcessAgentDescriptor(provider: .amp, title: "Amp", commandNames: ["amp"], appPrefixes: ["/Applications/Amp.app/Contents/MacOS/Amp"], openTarget: .terminal(command: "amp")),
+    ProcessAgentDescriptor(provider: .goose, title: "Goose", commandNames: ["goose"], appPrefixes: ["/Applications/Goose.app/Contents/MacOS/Goose"],
+        openTarget: .application(name: "Goose", path: "/Applications/Goose.app")),
+    ProcessAgentDescriptor(provider: .amp, title: "Amp", commandNames: ["amp"], appPrefixes: ["/Applications/Amp.app/Contents/MacOS/Amp"],
+        openTarget: .terminal(command: "amp")),
     ProcessAgentDescriptor(provider: .qwen, title: "Qwen", commandNames: ["qwen", "qwen-code"], appPrefixes: [], openTarget: .terminal(command: "qwen")),
     ProcessAgentDescriptor(
         provider: .t3code, title: "T3 Code", commandNames: ["t3", "t3code"],
         appPrefixes: ["/Applications/T3 Code.app/Contents/MacOS/T3 Code"],
         openTarget: .application(name: "T3 Code", path: "/Applications/T3 Code.app")
     ),
-    ProcessAgentDescriptor(provider: .synara, title: "Synara", commandNames: ["synara"], appPrefixes: ["/Applications/Synara.app/Contents/MacOS/Synara"], openTarget: .application(name: "Synara", path: "/Applications/Synara.app")),
-    ProcessAgentDescriptor(provider: .devin, title: "Devin", commandNames: ["devin"], appPrefixes: ["/Applications/Devin.app/Contents/MacOS/Devin"], openTarget: .terminal(command: "devin")),
-    ProcessAgentDescriptor(provider: .factory, title: "Factory Droid", commandNames: ["droid"], appPrefixes: ["/Applications/Factory.app/Contents/MacOS/Factory"], openTarget: .terminal(command: "droid")),
+    ProcessAgentDescriptor(provider: .synara, title: "Synara", commandNames: ["synara"],
+        appPrefixes: ["/Applications/Synara.app/Contents/MacOS/Synara"], openTarget: .application(name: "Synara", path: "/Applications/Synara.app")),
+    ProcessAgentDescriptor(provider: .devin, title: "Devin", commandNames: ["devin"], appPrefixes: ["/Applications/Devin.app/Contents/MacOS/Devin"],
+        openTarget: .terminal(command: "devin")),
+    ProcessAgentDescriptor(provider: .factory, title: "Factory Droid", commandNames: ["droid"],
+        appPrefixes: ["/Applications/Factory.app/Contents/MacOS/Factory"], openTarget: .terminal(command: "droid")),
 ]
 
 protocol AgentMonitorCollecting: Sendable {
     func collect() -> [AgentSessionCard]
 }
 
-final class AgentMonitorCollector: @unchecked Sendable, AgentMonitorCollecting {
-    private let lock = NSLock()
+final class AgentMonitorCollector: Sendable, AgentMonitorCollecting {
     private let processProvider: any ProcessSnapshotProviding
-    private var cache = AgentMonitorCache()
+    private let cache = OSAllocatedUnfairLock<AgentMonitorCache>(uncheckedState: AgentMonitorCache())
 
     init(processProvider: any ProcessSnapshotProviding = NativeProcessSnapshotProvider()) {
         self.processProvider = processProvider
     }
 
     func collect() -> [AgentSessionCard] {
-        lock.lock()
-        defer { lock.unlock() }
-        return AgentMonitorService.collect(using: &cache, processProvider: processProvider)
+        cache.withLockUnchecked { cache in
+            AgentMonitorService.collect(using: &cache, processProvider: processProvider)
+        }
     }
 }
 

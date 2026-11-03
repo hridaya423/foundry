@@ -1,17 +1,25 @@
-import type { Metadata } from "next";
 import ShelfStory from "./foundry/story/story";
 import "./foundry/foundry.css";
 import "./foundry/story/story.css";
 import "./foundry/story/clipboard.css";
-import "./foundry/story/media.css";
 import "./foundry/story/tools.css";
 import "./foundry/story/memory.css";
 import "./foundry/story/download.css";
 import { storyEnd } from "./foundry/story/download-motion";
+import { foundryDownloadUrl, foundryVersion, siteDescription, siteUrl } from "./site";
+import { formatFigure, proofFigures } from "./proof";
 
-export const metadata: Metadata = {
-  title: "Foundry · The app you never open.",
-  description: "Launch apps, find what you copied, transform files, run commands. One native launcher.",
+const structuredData = {
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  name: "Foundry",
+  description: siteDescription,
+  url: siteUrl.href,
+  applicationCategory: "UtilitiesApplication",
+  operatingSystem: "macOS 14 or later",
+  softwareVersion: foundryVersion,
+  downloadUrl: foundryDownloadUrl,
+  offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
 };
 
 export default async function Home({ searchParams }: {
@@ -19,5 +27,8 @@ export default async function Home({ searchParams }: {
 }) {
   const params = await searchParams;
   const at = Number(params.at ?? 0);
-  return <ShelfStory inspect={params.inspect === "1"} initialProgress={Number.isFinite(at) ? Math.max(0, Math.min(storyEnd, at)) : 0} />;
+  return <>
+    <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }} />
+    <ShelfStory appSize={formatFigure(proofFigures().find((figure) => figure.id === "app-size")!)} inspect={params.inspect === "1"} initialProgress={Number.isFinite(at) ? Math.max(0, Math.min(storyEnd, at)) : 0} />
+  </>;
 }

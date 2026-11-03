@@ -2,12 +2,12 @@
 # Fails when any Swift source line exceeds the configured character cap.
 #
 # Usage: scripts/lint-lines.sh [--max N] [--tests]
-#   --max N   Line-length cap (default 240; ratchet toward 160)
+#   --max N   Line-length cap (default 160)
 #   --tests   Also scan Tests/ (default is Sources/ only)
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-MAX=240
+MAX=160
 INCLUDE_TESTS=0
 while [[ $# -gt 0 ]]; do
     case "$1" in

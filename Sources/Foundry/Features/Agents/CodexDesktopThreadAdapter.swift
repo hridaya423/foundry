@@ -139,7 +139,7 @@ struct CodexDesktopThreadAdapter: Sendable {
         }
         defer { try? handle.close() }
         let byteLimit = 96 * 1_024
-        let end = BestEffort.attempt("seek codex transcript") { try handle.seekToEnd() }
+        let end = (BestEffort.attempt("seek codex transcript") { try handle.seekToEnd() })
         guard let end else { return false }
         let start = end > UInt64(byteLimit) ? end - UInt64(byteLimit) : 0
         BestEffort.attempt("seek codex transcript") { try handle.seek(toOffset: start) }
@@ -149,7 +149,7 @@ struct CodexDesktopThreadAdapter: Sendable {
         var terminal: Bool?
         for line in String(decoding: data, as: UTF8.self).split(separator: "\n") {
             guard let lineData = line.data(using: .utf8),
-                  let object = try? JSONSerialization.jsonObject(with: lineData) as? [String: Any],
+                  let object = (BestEffort.attempt("Codex thread line") { try JSONSerialization.jsonObject(with: lineData) }) as? [String: Any],
                   let payload = object["payload"] as? [String: Any],
                   let type = payload["type"] as? String else {
                 continue

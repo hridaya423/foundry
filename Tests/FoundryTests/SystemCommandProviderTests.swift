@@ -18,7 +18,7 @@ final class SystemCommandProviderTests: XCTestCase {
         for shortcut in shortcuts {
             let results = await provider.results(matching: shortcut.query)
             let result = try XCTUnwrap(results.first { $0.id == shortcut.id })
-            XCTAssertEqual(result.primaryAction.kind, .openURL(shortcut.url))
+            XCTAssertEqual(result.primaryAction.behavior as? OpenURLAction, OpenURLAction(shortcut.url))
         }
     }
 
@@ -53,7 +53,7 @@ final class SystemCommandProviderTests: XCTestCase {
         let configURL = FileManager.default.temporaryDirectory.appendingPathComponent("foundry-system-settings-\(UUID().uuidString).json")
         defer { try? FileManager.default.removeItem(at: configURL) }
         let config = ConfigService(diagnostics: DiagnosticsService(), url: configURL)
-        let registry = CommandRegistry(providers: [SystemCommandProvider()], usageRanking: UsageRankingStore(diagnostics: DiagnosticsService()), diagnostics: DiagnosticsService(), configService: config)
+        let registry = CommandRegistry(providers: [SystemCommandProvider()], usageRanking: UsageRankingStore.scratch(DiagnosticsService()), diagnostics: DiagnosticsService(), configService: config)
         let before = await registry.fullResults(matching: "wifi")
         XCTAssertTrue(before.contains { $0.id == "system.settings.wifi" })
 

@@ -61,7 +61,8 @@ enum AITransportSupport {
     }()
 
     static func endpoint(_ profile: AIProviderProfile, path: String) -> URL? {
-        guard let rawEndpoint = profile.endpoint, let normalized = AIEndpointPolicy.normalized(rawEndpoint), var base = URL(string: normalized) else { return nil }
+        guard let rawEndpoint = profile.endpoint, let normalized = AIEndpointPolicy.normalized(rawEndpoint),
+            var base = URL(string: normalized) else { return nil }
         if profile.kind == .openAI || profile.kind == .openAICompatible {
             let path = base.path.lowercased()
             if path.contains("/v1") == false { base.appendPathComponent("v1") }

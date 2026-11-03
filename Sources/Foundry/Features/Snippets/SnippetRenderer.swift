@@ -1,6 +1,7 @@
 import AppKit
 @preconcurrency import ApplicationServices
 import Foundation
+import os
 
 enum SnippetRenderer {
     static func argumentNames(in content: String) -> [String] {
@@ -16,6 +17,7 @@ enum SnippetRenderer {
     }
 
     private static func argumentName(in token: String) -> String? {
+        if token == "{argument}" { return String(localized: "Argument") }
         guard token.hasPrefix("{argument "), token.hasSuffix("}") else { return nil }
         let body = token.dropFirst("{argument ".count).dropLast()
         guard body.hasPrefix("name=\""), body.hasSuffix("\"") else { return nil }
@@ -77,18 +79,33 @@ struct SnippetRenderContext: Sendable {
     static func current() -> Self {
         Self(now: Date(), locale: .current, calendar: .current,
              clipboard: NSPasteboard.general.string(forType: .string) ?? "",
-             selection: FrontAppSelection.read())
+             selection: SelectionSnapshot.current)
     }
 }
 
-enum FrontAppSelection {
-    static func read() -> String {
-        guard AXIsProcessTrusted() else { return "" }
-        var focused: AnyObject?
-        guard AXUIElementCopyAttributeValue(AXUIElementCreateSystemWide(), "AXFocusedUIElement" as CFString, &focused) == .success,
-              let element = focused else { return "" }
-        var value: AnyObject?
-        guard AXUIElementCopyAttributeValue(element as! AXUIElement, "AXSelectedText" as CFString, &value) == .success else { return "" }
-        return value as? String ?? ""
+enum SelectionSnapshot {
+    private static let storage = OSAllocatedUnfairLock<String?>(initialState: nil)
+
+    static var current: String { storage.withLock { $0 } ?? focusedSelection(in: AXUIElementCreateSystemWide()) ?? "" }
+
+    static func capture(processIdentifier: pid_t?) {
+        storage.withLock { $0 = "" }
+        guard let processIdentifier, AXIsProcessTrusted() else { return }
+        Task.detached(priority: .userInitiated) {
+            let text = focusedSelection(in: AXUIElementCreateApplication(processIdentifier)) ?? ""
+            storage.withLock { if $0 != nil { $0 = text } }
+        }
+    }
+
+    static func clear() { storage.withLock { $0 = nil } }
+
+    private static func focusedSelection(in root: AXUIElement) -> String? {
+        guard AXIsProcessTrusted() else { return nil }
+        var focused: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(root, kAXFocusedUIElementAttribute as CFString, &focused) == .success,
+              let element = focused, CFGetTypeID(element) == AXUIElementGetTypeID() else { return nil }
+        var selected: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(element as! AXUIElement, kAXSelectedTextAttribute as CFString, &selected) == .success else { return nil }
+        return selected as? String
     }
 }

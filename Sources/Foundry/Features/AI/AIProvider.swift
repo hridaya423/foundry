@@ -11,7 +11,7 @@ enum AIStreamEvent: Sendable, Equatable {
     case failed(String)
 }
 
-final class AIProvider: @unchecked Sendable, CommandProvider {
+final class AIProvider: Sendable, CommandProvider {
     let id = "foundry.ai"
 
     var searchPolicy: CommandProviderSearchPolicy { CommandProviderSearchPolicy(tier: .deferred) }
@@ -49,18 +49,21 @@ final class AIProvider: @unchecked Sendable, CommandProvider {
             subtitle: "AI agent · \(request.backend.displayName)",
             icon: CommandIcon(fallback: "AI", systemName: "sparkles"),
             route: .aiResponse,
-            primaryAction: CommandAction(id: "ai.copy", title: "Copy", kind: .copyToClipboard(response)),
-            secondaryActions: [CommandAction(id: "ai.log", title: "Log", kind: .log(response))]
+            payload: .command,
+            primaryAction: CommandAction(id: "ai.copy", title: "Copy", behavior: CopyToClipboardAction(response)),
+            secondaryActions: [CommandAction(id: "ai.log", title: "Log", behavior: LogAction(response))]
         )]
     }
 
-    func stream(prompt: String, context: String? = nil, backend: AIBackend? = nil, profileID: UUID? = nil, sessionID: String? = nil) -> AsyncStream<AIStreamEvent> {
+    func stream(prompt: String, context: String? = nil, backend: AIBackend? = nil, profileID: UUID? = nil,
+        sessionID: String? = nil) -> AsyncStream<AIStreamEvent> {
         let selectedProfile = profileID.flatMap { id in config.current.ai.profiles.first { $0.id == id && $0.enabled } }
             ?? backend.map { config.current.ai.profile(for: $0) }
             ?? AIProfileResolver.defaultProfile(in: config.current.ai)
         return AsyncStream { continuation in
             let task = Task { [config, diagnostics] in
-                await AgentRunner(config: config, diagnostics: diagnostics).stream(prompt: prompt, context: context, profile: selectedProfile, sessionID: sessionID, continuation: continuation)
+                await AgentRunner(config: config, diagnostics: diagnostics).stream(prompt: prompt, context: context, profile: selectedProfile,
+                    sessionID: sessionID, continuation: continuation)
                 continuation.finish()
             }
             continuation.onTermination = { _ in task.cancel() }

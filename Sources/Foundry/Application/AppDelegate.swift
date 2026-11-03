@@ -15,7 +15,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let config = ConfigService(diagnostics: diagnostics)
         LocalStateStore.shared.bind(to: config)
         let snippetStore = FileSnippetStore()
-        let usageRanking = UsageRankingStore(diagnostics: diagnostics)
+        let usageRanking = UsageRankingStore(diagnostics: diagnostics, url: UsageRankingStore.usageURL)
         let mediaDownloadManager = MediaDownloadManager()
         let directPasteService = DirectPasteService()
         let actionRunner = ActionRunner(
@@ -24,9 +24,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             mediaDownloadManager: mediaDownloadManager,
             resetRanking: { commandID in
                 usageRanking.resetRanking(for: commandID)
-            },
-            confirmAction: { action, source in
-                Self.confirm(action: action, source: source)
             },
             directPasteService: directPasteService
         )
@@ -47,9 +44,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         )
 
         self.shellController = shellController
-        DownloadNotice.showIfNeeded()
         shellController.start()
         diagnostics.endSpan(launchSpan)
+
+        Task { @MainActor [weak actionRunner] in
+            await DownloadNotice.showIfNeeded(requestPrompt: { spec in
+                await actionRunner?.panel.requestPrompt(spec) ?? .cancelled
+            })
+        }
 
         if let convertPaths = Self.convertArguments() {
             shellController.openFileConverter(paths: convertPaths)
@@ -65,6 +67,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
         shellController?.showPanel()
         return false
+    }
+
+    /// "Settings…" ⌘, in the app menu — responder-chain target while the
+    /// Settings window is key.
+    @objc func showSettings(_ sender: Any?) {
+        shellController?.openSettings()
     }
 
     /// Finder "Open With…" and dropping files onto the Dock icon route here —
@@ -102,18 +110,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         guard let index = args.firstIndex(of: "--convert"), index + 1 < args.count else { return nil }
         let paths = args[(index + 1)...].prefix { $0.hasPrefix("--") == false }
         return paths.isEmpty ? nil : Array(paths)
-    }
-
-    private static func confirm(action: CommandActionDescriptor, source: CommandInvocationSource) -> Bool {
-        let alert = NSAlert()
-        alert.alertStyle = .warning
-        alert.messageText = "Confirm \(action.title)"
-        alert.informativeText = source == .external
-            ? "An external integration requested this destructive action. Continue?"
-            : "This action can change or terminate system state. Continue?"
-        alert.addButton(withTitle: "Continue")
-        alert.addButton(withTitle: "Cancel")
-        return alert.runModal() == .alertFirstButtonReturn
     }
 
     private func configureLoginItem(config: ConfigService, diagnostics: DiagnosticsService) {

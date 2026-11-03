@@ -4,13 +4,13 @@ Foundry is a native macOS launcher and command palette. It requires macOS 14 or 
 
 ## Download
 
-Grab the latest build from [Releases](https://github.com/hridaya423/foundry/releases/latest) — open the DMG and drag Foundry to Applications. On first launch macOS warns that the developer can't be verified: open **System Settings → Privacy & Security**, scroll to **Security**, and click **Open Anyway** next to Foundry.
+Grab the latest build from [Releases](https://github.com/hridaya423/foundry/releases/latest), open the DMG and drag Foundry to Applications.
 
-Press **⌥Space** anywhere to open the launcher. The first-run setup lets you pick a different shortcut — including ⌘Space, which Foundry can take over from Spotlight automatically — and a menu-bar item is always available.
+Press **⌘Space** anywhere to open the launcher. First-run setup takes ⌘Space over from Spotlight, and moves Raycast or Alfred to ⌥Space if either holds it. You can record a different shortcut there, and a menu-bar item is always available.
 
 ## Features
 
-- Launcher for apps, commands, and System Settings panes, opened with ⌥Space by default
+- Launcher for apps, commands, and System Settings panes, opened with ⌘Space by default
 - Guided onboarding with motion polish, a menu bar item, and a searchable Settings window
 - Searchable Actions panel (⌘K) with per-action shortcuts and destructive-action styling
 - Quicklinks with arguments, including Raycast Quicklinks import
@@ -22,7 +22,6 @@ Press **⌥Space** anywhere to open the launcher. The first-run setup lets you p
 - Calculator with unit conversions, equations, and a last-10 history
 - Currency exchange via Frankfurter with the rate date shown
 - Translator with live language switching
-- Camera preview inside the launcher
 - Media downloads for direct links, Cobalt, and automatic YouTube support through yt-dlp, with favicons, file thumbnails, context menus, a completion toast, and aggregate speed
 - Clipboard history for text, files, and images, stored locally in SQLite, with pins, filters, plain-text paste, merge-with-previous, and image metadata
 - Apple Notes search and quick actions

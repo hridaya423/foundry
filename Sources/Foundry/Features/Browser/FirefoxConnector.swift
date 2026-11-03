@@ -7,28 +7,40 @@ final class FirefoxConnectorInstaller {
     static let extensionID = "firefox-connector@foundry.local"
     private let diagnostics: DiagnosticsService
     private let localState: LocalStateStore
+    /// In-panel prompt seam — defaults to decline so modal UI never runs
+    /// under tests.
+    private let requestPrompt: @MainActor (PanelPromptSpec) async -> PanelPromptResult
 
-    init(diagnostics: DiagnosticsService, localState: LocalStateStore = .shared) {
+    init(
+        diagnostics: DiagnosticsService,
+        localState: LocalStateStore = .shared,
+        requestPrompt: @escaping @MainActor (PanelPromptSpec) async -> PanelPromptResult = { _ in .cancelled }
+    ) {
         self.diagnostics = diagnostics
         self.localState = localState
+        self.requestPrompt = requestPrompt
     }
 
     func requestFirefoxConnector() {
         guard localState.get(\.firefoxConnectorPromptShown) == false else { return }
-
-        let alert = NSAlert()
-        alert.messageText = "Connect Foundry to Firefox?"
-        alert.informativeText = "Foundry can connect to your open Firefox tabs. Firefox will open its Add-ons Debugging page and Finder will show the local connector package for you to load. Foundry only receives tab titles and URLs."
-        alert.addButton(withTitle: "Install Connector")
-        alert.addButton(withTitle: "Not Now")
         localState.set(\.firefoxConnectorPromptShown, true)
-
-        guard alert.runModal() == .alertFirstButtonReturn else { return }
-        do {
-            try install()
-            diagnostics.log("Opened Firefox connector for approval")
-        } catch {
-            diagnostics.log("Could not prepare Firefox connector: \(error.localizedDescription)")
+        Task { @MainActor in
+            let prompt = await requestPrompt(PanelPromptSpec(
+                title: "Connect Foundry to Firefox?",
+                message: """
+                    Foundry can connect to your open Firefox tabs. Firefox will open its Add-ons Debugging page \
+                    and Finder will show the local connector package for you to load. Foundry only receives tab titles and URLs.
+                    """,
+                confirmLabel: "Install Connector",
+                cancelLabel: "Not Now"
+            ))
+            guard prompt.confirmed else { return }
+            do {
+                try install()
+                diagnostics.log("Opened Firefox connector for approval")
+            } catch {
+                diagnostics.log("Could not prepare Firefox connector: \(error.localizedDescription)")
+            }
         }
     }
 

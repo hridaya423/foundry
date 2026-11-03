@@ -13,7 +13,7 @@ struct SplitPreviewLayout<ListContent: View, Preview: View>: View {
                 list
                     .frame(width: proxy.size.width * 0.42)
                 Divider()
-                    .opacity(0.5)
+                    .opacity(FoundryTheme.Alpha.half)
                 preview
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             }
@@ -26,19 +26,19 @@ struct PreviewMetadata: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            Divider().opacity(0.5)
+            Divider().opacity(FoundryTheme.Alpha.half)
             ForEach(rows, id: \.label) { row in
                 HStack(alignment: .firstTextBaseline) {
                     Text(row.label)
-                        .foregroundStyle(FoundryTheme.mutedText)
+                        .foregroundStyle(FoundryTheme.textTertiary)
                     Spacer(minLength: 12)
                     Text(row.value)
-                        .foregroundStyle(FoundryTheme.secondaryText)
+                        .foregroundStyle(FoundryTheme.textSecondary)
                         .lineLimit(1)
                         .truncationMode(.middle)
                         .textSelection(.enabled)
                 }
-                .font(FoundryTheme.body(size: 11, weight: .regular))
+                .font(FoundryTheme.caption)
                 .padding(.vertical, 5)
                 .accessibilityElement(children: .combine)
             }
@@ -59,14 +59,14 @@ struct SnippetPreview: View {
 
     private var attributedContent: AttributedString {
         var result = AttributedString(snippet.content)
-        result.font = .system(size: 12.5)
+        result.font = FoundryTheme.bodySecondary
         var searchStart = snippet.content.startIndex
         while let open = snippet.content.range(of: "{", range: searchStart..<snippet.content.endIndex) {
             guard let close = snippet.content.range(of: "}", range: open.upperBound..<snippet.content.endIndex) else { break }
             let tokenRange = open.lowerBound..<close.upperBound
             if let lower = AttributedString.Index(tokenRange.lowerBound, within: result),
                let upper = AttributedString.Index(tokenRange.upperBound, within: result) {
-                result[lower..<upper].foregroundColor = FoundryTheme.accentTint
+                result[lower..<upper].foregroundColor = FoundryTheme.accent
             }
             searchStart = close.upperBound
         }
@@ -88,22 +88,22 @@ struct SnippetPreview: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 8) {
                 Image(systemName: "curlybraces")
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(FoundryTheme.accentTint)
+                    .font(FoundryTheme.Glyph.sm)
+                    .foregroundStyle(FoundryTheme.accent)
                 Text(snippet.title)
-                    .font(FoundryTheme.body(size: 13, weight: .semibold))
-                    .foregroundStyle(FoundryTheme.primaryText)
+                    .font(FoundryTheme.body)
+                    .foregroundStyle(FoundryTheme.textPrimary)
                     .lineLimit(2)
                 if snippet.isPinned {
                     Image(systemName: "pin.fill")
-                        .font(.system(size: 9))
-                        .foregroundStyle(FoundryTheme.mutedText)
+                        .font(FoundryTheme.Glyph.xs)
+                        .foregroundStyle(FoundryTheme.textTertiary)
                 }
             }
 
             ScrollView {
                 Text(attributedContent)
-                    .foregroundStyle(FoundryTheme.secondaryText)
+                    .foregroundStyle(FoundryTheme.textSecondary)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .textSelection(.enabled)
             }
@@ -144,8 +144,8 @@ struct FilePreview: View {
                 } else {
                     FileIcon(path: path) {
                         Image(systemName: "doc")
-                            .font(.system(size: 48, weight: .light))
-                            .foregroundStyle(FoundryTheme.faintText)
+                            .font(FoundryTheme.Glyph.hero)
+                            .foregroundStyle(FoundryTheme.textQuaternary)
                     }
                     .frame(width: 96, height: 96)
                 }
@@ -154,8 +154,8 @@ struct FilePreview: View {
             .accessibilityHidden(true)
 
             Text(url.lastPathComponent)
-                .font(FoundryTheme.body(size: 13, weight: .semibold))
-                .foregroundStyle(FoundryTheme.primaryText)
+                .font(FoundryTheme.body)
+                .foregroundStyle(FoundryTheme.textPrimary)
                 .lineLimit(2)
                 .multilineTextAlignment(.center)
                 .truncationMode(.middle)
@@ -165,7 +165,8 @@ struct FilePreview: View {
         .padding(16)
         .task(id: path) {
             thumbnail = nil
-            let request = QLThumbnailGenerator.Request(fileAt: url, size: CGSize(width: 360, height: 240), scale: NSScreen.main?.backingScaleFactor ?? 2, representationTypes: .thumbnail)
+            let request = QLThumbnailGenerator.Request(fileAt: url, size: CGSize(width: 360, height: 240),
+                scale: NSScreen.main?.backingScaleFactor ?? 2, representationTypes: .thumbnail)
             thumbnail = await BestEffort.attempt("generate thumbnail \(url.lastPathComponent)") {
                 try await QLThumbnailGenerator.shared.generateBestRepresentation(for: request).nsImage
             }

@@ -10,30 +10,30 @@ enum FoundryMaterialRole {
     var fallbackFill: Color {
         switch self {
         case .shell:
-            Color.black.opacity(0.18)
+            FoundryTheme.scrim
         case .control:
-            Color.primary.opacity(0.07)
+            FoundryTheme.fillTint
         case .prominentControl:
             FoundryTheme.accent
         case .floatingOverlay:
-            Color.black.opacity(0.42)
+            FoundryTheme.overlaySurface
         case .contentSurface:
-            Color.primary.opacity(0.045)
+            FoundryTheme.fillSubtle
         }
     }
 
     var fallbackStroke: Color {
         switch self {
         case .shell:
-            Color.primary.opacity(0.16)
+            FoundryTheme.stroke
         case .control:
-            Color.primary.opacity(0.08)
+            FoundryTheme.fillTint
         case .prominentControl:
             Color.clear
         case .floatingOverlay:
-            Color.primary.opacity(0.10)
+            FoundryTheme.overlayStroke
         case .contentSurface:
-            Color.primary.opacity(0.07)
+            FoundryTheme.fillTint
         }
     }
 }
@@ -44,6 +44,7 @@ struct FoundryGlassSurface<Content: View, SurfaceShape: Shape>: View {
     let shape: SurfaceShape
 
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @Environment(\.foundryIncreaseContrast) private var increaseContrast
 
     init(role: FoundryMaterialRole, shape: SurfaceShape, @ViewBuilder content: () -> Content) {
         self.content = content()
@@ -67,7 +68,7 @@ struct FoundryGlassSurface<Content: View, SurfaceShape: Shape>: View {
         content
             .background(role.fallbackFill, in: shape)
             .overlay {
-                shape.stroke(role.fallbackStroke, lineWidth: 1)
+                shape.stroke(increaseContrast ? AnyShapeStyle(Color(nsColor: .separatorColor)) : AnyShapeStyle(role.fallbackStroke), lineWidth: 1)
             }
     }
 
@@ -79,7 +80,7 @@ struct FoundryGlassSurface<Content: View, SurfaceShape: Shape>: View {
         case .shell, .control, .floatingOverlay, .contentSurface:
             content.glassEffect(.regular, in: shape)
         case .prominentControl:
-            content.glassEffect(.regular.tint(FoundryTheme.accentTint), in: shape)
+            content.glassEffect(.regular.tint(FoundryTheme.accent), in: shape)
         }
     }
     #endif
@@ -89,20 +90,19 @@ struct FoundryIconButton: View {
     let systemName: String
     let accessibilityLabel: String
     var isSelected = false
-    var tint: Color = FoundryTheme.secondaryText
+    var tint: Color = FoundryTheme.textSecondary
     var action: () -> Void
 
     var body: some View {
         Button(action: action) {
             Image(systemName: systemName)
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(isSelected ? FoundryTheme.primaryText : tint)
+                .font(FoundryTheme.Glyph.sm)
+                .foregroundStyle(isSelected ? FoundryTheme.textPrimary : tint)
                 .frame(width: FoundryTheme.Control.compact, height: FoundryTheme.Control.compact)
-                .background(isSelected ? FoundryTheme.selection : Color.clear)
+                .background(isSelected ? FoundryTheme.fillSelected : Color.clear)
                 .clipShape(RoundedRectangle(cornerRadius: FoundryTheme.Radius.control, style: .continuous))
         }
         .buttonStyle(FoundryQuietButtonStyle())
-        .pointerCursor()
         .accessibilityLabel(accessibilityLabel)
         .help(accessibilityLabel)
     }
@@ -119,17 +119,16 @@ struct FoundryActionButton: View {
             HStack(spacing: FoundryTheme.Spacing.xs) {
                 if let systemName {
                     Image(systemName: systemName)
-                        .font(.system(size: 12, weight: .semibold))
+                        .font(FoundryTheme.Glyph.xs)
                 }
                 Text(title)
-                    .font(FoundryTheme.body(size: 12, weight: .semibold))
+                    .font(FoundryTheme.body)
             }
-            .foregroundStyle(isProminent ? FoundryTheme.accentTint : FoundryTheme.secondaryText)
+            .foregroundStyle(isProminent ? FoundryTheme.accent : FoundryTheme.textSecondary)
             .padding(.horizontal, FoundryTheme.Spacing.md)
             .frame(height: FoundryTheme.Control.compact)
         }
         .buttonStyle(FoundryQuietButtonStyle())
-        .pointerCursor()
     }
 }
 
@@ -138,9 +137,9 @@ struct FoundryQuietButtonStyle: ButtonStyle {
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .opacity(configuration.isPressed ? 0.55 : 1)
-            .scaleEffect(configuration.isPressed ? 0.97 : 1)
-            .animation(reduceMotion ? nil : .easeOut(duration: 0.12), value: configuration.isPressed)
+            .opacity(configuration.isPressed ? FoundryTheme.Alpha.pressed : 1)
+            .scaleEffect(configuration.isPressed ? FoundryTheme.Motion.pressScale : 1)
+            .animation(reduceMotion ? nil : (configuration.isPressed ? FoundryTheme.Motion.press : FoundryTheme.Motion.release), value: configuration.isPressed)
     }
 }
 
@@ -149,11 +148,13 @@ struct PressableButtonStyle: ButtonStyle {
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .scaleEffect(configuration.isPressed ? 0.975 : 1)
-            .opacity(configuration.isPressed ? 0.82 : 1)
-            .animation(reduceMotion ? nil : .easeOut(duration: 0.10), value: configuration.isPressed)
+            .scaleEffect(configuration.isPressed ? FoundryTheme.Motion.pressScale : 1)
+            .opacity(configuration.isPressed ? FoundryTheme.Alpha.pressed : 1)
+            .animation(reduceMotion ? nil : (configuration.isPressed ? FoundryTheme.Motion.press : FoundryTheme.Motion.release), value: configuration.isPressed)
     }
 }
+
+
 
 struct FoundrySectionHeader: View {
     let title: String
@@ -163,25 +164,23 @@ struct FoundrySectionHeader: View {
 
     var body: some View {
         HStack(spacing: 7) {
-            Text(title.uppercased())
-                .font(FoundryTheme.sectionHeaderFont)
-                .foregroundStyle(FoundryTheme.faintText)
-                .tracking(0.4)
+            Text(title)
+                .font(FoundryTheme.micro)
+                .foregroundStyle(FoundryTheme.textTertiary)
 
             if let count {
                 Text(count)
-                    .font(FoundryTheme.mono(size: 11, weight: .medium))
-                    .foregroundStyle(FoundryTheme.faintText)
+                    .font(FoundryTheme.mono)
+                    .foregroundStyle(FoundryTheme.textQuaternary)
             }
 
             Spacer(minLength: 0)
 
             if let actionTitle, let action {
                 Button(actionTitle, action: action)
-                    .font(FoundryTheme.body(size: 11, weight: .semibold))
-                    .foregroundStyle(FoundryTheme.secondaryText)
+                    .font(FoundryTheme.micro)
+                    .foregroundStyle(FoundryTheme.textSecondary)
                     .buttonStyle(FoundryQuietButtonStyle())
-                    .pointerCursor()
             }
         }
         .accessibilityElement(children: .contain)
@@ -191,7 +190,7 @@ struct FoundrySectionHeader: View {
 struct FoundryStatusBanner: View {
     let text: String
     let symbol: String
-    var tint: Color = FoundryTheme.secondaryText
+    var tint: Color = FoundryTheme.textSecondary
     var isLoading = false
 
     var body: some View {
@@ -202,11 +201,11 @@ struct FoundryStatusBanner: View {
                     .tint(tint)
             } else {
                 Image(systemName: symbol)
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(FoundryTheme.Glyph.xs)
             }
 
             Text(text)
-                .font(FoundryTheme.body(size: 11.5, weight: .medium))
+                .font(FoundryTheme.caption)
                 .foregroundStyle(tint)
                 .lineLimit(2)
                 .multilineTextAlignment(.leading)
@@ -215,54 +214,59 @@ struct FoundryStatusBanner: View {
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 8)
-        .background(Color.primary.opacity(0.045), in: RoundedRectangle(cornerRadius: FoundryTheme.Radius.control, style: .continuous))
+        .background(FoundryTheme.fillSubtle, in: RoundedRectangle(cornerRadius: FoundryTheme.Radius.control, style: .continuous))
         .overlay {
             RoundedRectangle(cornerRadius: FoundryTheme.Radius.control, style: .continuous)
-                .stroke(tint.opacity(0.16), lineWidth: 1)
+                .stroke(tint.opacity(FoundryTheme.Alpha.tint), lineWidth: 1)
         }
         .accessibilityElement(children: .contain)
     }
 }
 
 struct FoundryEmptyState: View {
-    let symbol: String
-    let title: String
-    let message: String
-    var actionTitle: String?
+    var symbol: String?
+    let title: LocalizedStringResource
+    var message: LocalizedStringResource?
+    var actionTitle: LocalizedStringResource?
     var action: (() -> Void)?
 
     var body: some View {
         VStack(spacing: 10) {
-            Image(systemName: symbol)
-                .font(.system(size: 28, weight: .regular))
-                .foregroundStyle(FoundryTheme.secondaryText)
-                .frame(width: 58, height: 58)
-                .background(Color.primary.opacity(0.065))
-                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            if let symbol {
+                Image(systemName: symbol)
+                    .font(FoundryTheme.Glyph.xl)
+                    .foregroundStyle(FoundryTheme.textSecondary)
+                    .frame(width: 56, height: 56)
+                    .background(FoundryTheme.fillTint, in: RoundedRectangle(cornerRadius: FoundryTheme.Radius.overlay, style: .continuous))
+            }
 
             Text(title)
-                .font(FoundryTheme.body(size: 15, weight: .semibold))
-                .foregroundStyle(FoundryTheme.primaryText)
+                .font(FoundryTheme.body)
+                .foregroundStyle(FoundryTheme.textPrimary)
 
-            Text(message)
-                .font(FoundryTheme.body(size: 12, weight: .regular))
-                .foregroundStyle(FoundryTheme.secondaryText)
-                .multilineTextAlignment(.center)
-                .fixedSize(horizontal: false, vertical: true)
-                .padding(.horizontal, 24)
+            if let message {
+                Text(message)
+                    .font(FoundryTheme.bodySecondary)
+                    .foregroundStyle(FoundryTheme.textSecondary)
+                    .multilineTextAlignment(.center)
+                    .lineLimit(2)
+                    .frame(maxWidth: 420)
+            }
 
             if let actionTitle, let action {
-                Button(actionTitle, action: action)
-                    .font(FoundryTheme.body(size: 12, weight: .semibold))
-                    .foregroundStyle(FoundryTheme.primaryText)
-                    .padding(.horizontal, 13)
-                    .frame(height: FoundryTheme.Control.compact)
-                    .background(Color.primary.opacity(0.08))
-                    .clipShape(RoundedRectangle(cornerRadius: FoundryTheme.Radius.control, style: .continuous))
-                    .buttonStyle(PressableButtonStyle())
-                    .pointerCursor()
+                Button(action: action) {
+                    Text(actionTitle)
+                        .font(FoundryTheme.body)
+                        .foregroundStyle(FoundryTheme.textPrimary)
+                        .padding(.horizontal, 13)
+                        .frame(height: FoundryTheme.Control.compact)
+                        .background(FoundryTheme.fillTint, in: RoundedRectangle(cornerRadius: FoundryTheme.Radius.control, style: .continuous))
+                        .contentShape(.rect)
+                }
+                .buttonStyle(PressableButtonStyle())
             }
         }
+        .padding(.horizontal, 24)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .accessibilityElement(children: .combine)
     }

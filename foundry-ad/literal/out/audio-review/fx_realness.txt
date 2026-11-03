@@ -1,0 +1,76 @@
+73 files: 62 real or pro-produced, 11 uncertain, 0 likely code-synthesized.
+Verdict thresholds: sounds up to 6 s lo 0.17 / hi 0.77; longer files (mean of 4 s windows) lo 0.4 / hi 0.77, weakly calibrated. [n low windows] = 4 s windows at or below 0.17. For a multi-take file judge the trim you will use (--start / --end).
+p_real  verdict                  file: main reason
+  0.97  real or pro-produced     fs-11072_a-2.ogg: CLAP head score +3.0 (toward real)
+  0.97  real or pro-produced     fs-124998_bass-kick-drum-soft-hit.ogg: CLAP head score +3.0 (toward real)
+  0.79  real or pro-produced     fs-151819_orch-006-cymbal-roll.ogg: CLAP head score +1.2 (toward real)
+  0.70  uncertain (file)         fs-207755_movie-trailer-boom.ogg: 0 of 2 windows lean synthesized (p_real < 0.5); mean CLAP head score +0.9
+  0.86  real or pro-produced     fs-218524_movie-swell-2.ogg: CLAP head score +1.7 (toward real)
+  0.87  real or pro-produced (file) fs-219834_cymbal-swell-1.ogg: 0 of 2 windows lean synthesized (p_real < 0.5); mean CLAP head score +1.9
+  0.88  real or pro-produced (file) fs-219835_cymbal-swell-2.ogg: 0 of 12 windows lean synthesized (p_real < 0.5); mean CLAP head score +2.1
+  0.86  real or pro-produced (file) fs-219836_cymbal-swell-3.ogg: 0 of 3 windows lean synthesized (p_real < 0.5); mean CLAP head score +1.6
+  0.96  real or pro-produced (file) fs-240712_reverse-mapex-ride.ogg: 0 of 2 windows lean synthesized (p_real < 0.5); mean CLAP head score +2.9
+  0.96  real or pro-produced (file) fs-244855_rev-cymb-16.ogg: 0 of 1 windows lean synthesized (p_real < 0.5); mean CLAP head score +2.7
+  0.96  real or pro-produced (file) fs-244857_rev-cymb-17.ogg: 0 of 1 windows lean synthesized (p_real < 0.5); mean CLAP head score +2.7
+  0.91  real or pro-produced (file) fs-244860_rev-cymb-14-reverb.ogg: 0 of 1 windows lean synthesized (p_real < 0.5); mean CLAP head score +2.0
+  0.73  uncertain (file)         fs-260656_string-swells.ogg: 0 of 10 windows lean synthesized (p_real < 0.5); mean CLAP head score +1.0
+  0.53  uncertain                fs-274775_simple-kick-drum.ogg: CLAP head score +0.2 (toward real)
+  0.42  uncertain                fs-339437_super-low-bass-hit-kick-drum-wav.ogg: CLAP head score -0.2 (toward synthesized); spectrum is a few pure lines over near-silence (92% of training clips past this were synthesized)
+  0.96  real or pro-produced     fs-348911_glockenspiel-32-c4-01.ogg: CLAP head score +2.8 (toward real); crest factor 30 dB: sharp natural transients (90% of training clips past this were real/pro)
+  0.98  real or pro-produced     fs-348916_glockenspiel-38-d4-03.ogg: CLAP head score +3.5 (toward real); crest factor 30 dB: sharp natural transients (90% of training clips past this were real/pro)
+  0.96  real or pro-produced     fs-348918_glockenspiel-40-e4-01.ogg: CLAP head score +2.8 (toward real); crest factor 33 dB: sharp natural transients (90% of training clips past this were real/pro)
+  0.93  real or pro-produced (file) fs-383903_reverse-crash-cymbal-projection.ogg: 0 of 3 windows lean synthesized (p_real < 0.5); mean CLAP head score +2.2
+  0.93  real or pro-produced (file) fs-389681_cloth-passes.ogg: 0 of 19 windows lean synthesized (p_real < 0.5); mean CLAP head score +2.4
+  0.96  real or pro-produced     fs-396034_piano-reverse.ogg: CLAP head score +2.9 (toward real)
+  0.59  uncertain                fs-410705_symphonic-concert-bass-drum-vel07.ogg: CLAP head score +0.4 (toward real)
+  0.76  uncertain                fs-410707_symphonic-concert-bass-drum-vel09.ogg: CLAP head score +1.1 (toward real)
+  0.99  real or pro-produced     fs-420487_medium-c.ogg: CLAP head score +3.8 (toward real)
+  0.99  real or pro-produced     fs-420488_medium-b.ogg: CLAP head score +3.9 (toward real)
+  1.00  real or pro-produced     fs-420490_medium-a.ogg: CLAP head score +4.7 (toward real)
+  0.98  real or pro-produced     fs-420491_medium-e-fort.ogg: CLAP head score +3.2 (toward real)
+  0.93  real or pro-produced     fs-420492_medium-d.ogg: CLAP head score +2.2 (toward real)
+  0.98  real or pro-produced     fs-420493_medium-d.ogg: CLAP head score +3.6 (toward real)
+  0.98  real or pro-produced     fs-420495_medium-f.ogg: CLAP head score +3.5 (toward real)
+  0.99  real or pro-produced     fs-420497_medium-g.ogg: CLAP head score +3.7 (toward real)
+  0.95  real or pro-produced (file) fs-428614_cymbal-swells-kevinsticks.ogg: 0 of 13 windows lean synthesized (p_real < 0.5); mean CLAP head score +2.7
+  0.97  real or pro-produced     fs-445670_37-cloth.ogg: CLAP head score +2.9 (toward real)
+  0.96  real or pro-produced     fs-447849_ceramic-bowl-tone-01.ogg: CLAP head score +2.8 (toward real); crest factor 30 dB: sharp natural transients (90% of training clips past this were real/pro)
+  0.86  real or pro-produced     fs-447850_ceramic-bowl-tone-cloth-mallet-04.ogg: CLAP head score +1.6 (toward real)
+  0.96  real or pro-produced     fs-447852_ceramic-bowl-tone-cloth-mallet-02.ogg: CLAP head score +2.8 (toward real)
+  0.98  real or pro-produced     fs-447853_ceramic-bowl-tone-02.ogg: CLAP head score +3.3 (toward real); crest factor 34 dB: sharp natural transients (90% of training clips past this were real/pro)
+  0.94  real or pro-produced     fs-447855_ceramic-ice-cream-bowl-tone-04.ogg: CLAP head score +2.5 (toward real); crest factor 31 dB: sharp natural transients (90% of training clips past this were real/pro)
+  0.91  real or pro-produced     fs-447856_ceramic-ice-cream-bowl-tone-02.ogg: CLAP head score +2.0 (toward real)
+  0.94  real or pro-produced     fs-447858_ceramic-ice-cream-bowl-tone-03.ogg: CLAP head score +2.4 (toward real); crest factor 35 dB: sharp natural transients (90% of training clips past this were real/pro)
+  0.85  real or pro-produced (file) fs-498689_cymbals-roll.ogg: 0 of 6 windows lean synthesized (p_real < 0.5); mean CLAP head score +1.9
+  0.96  real or pro-produced     fs-509528_alfaia-hit.ogg: CLAP head score +2.7 (toward real)
+  0.80  real or pro-produced     fs-573252_massive-timpani-3.ogg: CLAP head score +1.3 (toward real)
+  0.73  uncertain                fs-573253_massive-timpani-2.ogg: CLAP head score +0.9 (toward real)
+  0.38  uncertain                fs-573254_massive-timpani-1.ogg: CLAP head score -0.3 (toward synthesized)
+  0.95  real or pro-produced     fs-60026_swosh-swoosh-whoosh-air-sound-free-high-.ogg: CLAP head score +2.5 (toward real)
+  0.97  real or pro-produced     fs-60030_swosh-whoosh-air-cut.ogg: CLAP head score +3.2 (toward real)
+  0.62  uncertain (file)         fs-608674_big-drums-dynamic-patch-close-short-tail.ogg: 9 of 44 windows lean synthesized (p_real < 0.5); mean CLAP head score +0.6
+  0.58  uncertain (file)         fs-608931_big-drums-mid-distant-very-long-tail-2-x.ogg: 4 of 12 windows lean synthesized (p_real < 0.5); mean CLAP head score +0.5
+  0.77  real or pro-produced (file) fs-608932_big-drums-distant-long-tail-attack-varia.ogg: 0 of 17 windows lean synthesized (p_real < 0.5); mean CLAP head score +1.2
+  0.98  real or pro-produced     fs-614151_swishes-13-fast.ogg: CLAP head score +3.6 (toward real)
+  0.99  real or pro-produced     fs-614155_swishes-16-strong-fast.ogg: CLAP head score +4.1 (toward real)
+  0.99  real or pro-produced     fs-614162_swishes-8-hill-curve.ogg: CLAP head score +3.7 (toward real)
+  0.99  real or pro-produced     fs-614166_swishes-7-slower-leadup-strong.ogg: CLAP head score +4.1 (toward real)
+  0.84  real or pro-produced (file) fs-677710_avicii-new-reverse-crash-cymbal-transiti.ogg: 0 of 2 windows lean synthesized (p_real < 0.5); mean CLAP head score +1.6
+  0.86  real or pro-produced     fs-706676_whoosh-bamboo-1.ogg: CLAP head score +1.7 (toward real)
+  0.98  real or pro-produced     fs-706677_low-whoosh-bamboo-2.ogg: CLAP head score +3.3 (toward real)
+  0.98  real or pro-produced     fs-706678_low-whoosh-bamboo-3.ogg: CLAP head score +3.2 (toward real)
+  0.93  real or pro-produced (file) fs-711620_cymbal-roll.ogg: 0 of 3 windows lean synthesized (p_real < 0.5); mean CLAP head score +2.3
+  0.97  real or pro-produced     fs-718668_wrapping-cloth.ogg: CLAP head score +3.1 (toward real)
+  0.91  real or pro-produced     fs-719636_fast-whoosh-bamboo-swoosh-through-air-ve.ogg: CLAP head score +2.0 (toward real)
+  0.97  real or pro-produced     fs-719637_fast-whoosh-bamboo-swoosh-through-air-ve.ogg: CLAP head score +3.1 (toward real)
+  0.97  real or pro-produced     fs-77302_tamburo-xd-18-kick-low-jazz-3-single.ogg: CLAP head score +2.9 (toward real)
+  0.42  uncertain                fs-801829_taiko-tom-1-long.ogg: CLAP head score -0.2 (toward synthesized); between its partials the spectrum falls 158 dB under the peak (no measurable mic or room noise) (90% of training clips past this were synthesized)
+  0.86  real or pro-produced (file) fs-826131_magic-cymbal-swell-2.ogg: 0 of 16 windows lean synthesized (p_real < 0.5); mean CLAP head score +1.8
+  0.94  real or pro-produced     fs-850165_swoosh-bamboo-02.ogg: CLAP head score +2.4 (toward real)
+  0.97  real or pro-produced     fs-850166_swoosh-bamboo-03.ogg: CLAP head score +3.0 (toward real)
+  0.95  real or pro-produced     fs-850167_swoosh-bamboo-04.ogg: CLAP head score +2.6 (toward real)
+  0.98  real or pro-produced     fs-850168_swoosh-bamboo-05.ogg: CLAP head score +3.3 (toward real)
+  0.82  real or pro-produced (file) fs-85486_cymbal-roll-loud.ogg: 0 of 2 windows lean synthesized (p_real < 0.5); mean CLAP head score +1.4
+  0.87  real or pro-produced (file) fs-85487_cymbal-roll-quiet.ogg: 0 of 2 windows lean synthesized (p_real < 0.5); mean CLAP head score +1.8
+  0.86  real or pro-produced (file) fs-85488_cymbal-roll-quiet-2.ogg: 0 of 4 windows lean synthesized (p_real < 0.5); mean CLAP head score +1.6
+  0.94  real or pro-produced (file) fs-95624_taiko1.ogg: 0 of 3 windows lean synthesized (p_real < 0.5); mean CLAP head score +2.5

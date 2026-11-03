@@ -66,7 +66,7 @@ final class WorkloadTests: XCTestCase {
         defer { try? FileManager.default.removeItem(at: configURL) }
         let diagnostics = DiagnosticsService()
         let config = ConfigService(diagnostics: diagnostics, url: configURL)
-        let registry = CommandRegistry.defaultRegistry(config: config, diagnostics: diagnostics)
+        let registry = CommandRegistry.defaultRegistry(config: config, diagnostics: diagnostics, usageRanking: .scratch(diagnostics))
         let queries = ["calc", "developer", "system", "open"]
 
         var resultCount = 0

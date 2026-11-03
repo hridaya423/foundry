@@ -1,3 +1,4 @@
+import os
 import XCTest
 @testable import Foundry
 import FoundryDomain
@@ -44,7 +45,7 @@ final class ActionRunnerTests: XCTestCase {
         let runner = ActionRunner(diagnostics: DiagnosticsService(), pasteboard: NSPasteboard(name: NSPasteboard.Name("ActionRunnerTests")))
         let request = CommandExecutionRequest(
             commandID: "test.copy",
-            action: CommandAction(id: "test.copy.perform", title: "Copy", kind: .copyToClipboard("value"))
+            action: CommandAction(id: "test.copy.perform", title: "Copy", behavior: CopyToClipboardAction("value"))
         )
         var events: [CommandExecutionEvent] = []
 
@@ -57,8 +58,8 @@ final class ActionRunnerTests: XCTestCase {
             if case .feedback(.success("Copied value")) = event { return true }
             return false
         })
-        XCTAssertEqual(ActionRunner.copiedMessage(for: String(repeating: "x", count: 40)), "Copied to clipboard")
-        XCTAssertEqual(ActionRunner.copiedMessage(for: "a\nb"), "Copied to clipboard")
+        XCTAssertEqual(CopyToClipboardAction.copiedMessage(for: String(repeating: "x", count: 40)), "Copied to clipboard")
+        XCTAssertEqual(CopyToClipboardAction.copiedMessage(for: "a\nb"), "Copied to clipboard")
     }
 
     func testCopySnippetRendersAtExecutionUsingInjectedContext() async {
@@ -69,7 +70,7 @@ final class ActionRunnerTests: XCTestCase {
             pasteboard: NSPasteboard(name: NSPasteboard.Name("ActionRunnerTests.snippet")),
             snippetContext: { SnippetRenderContext(now: Date(timeIntervalSince1970: 0), locale: Locale(identifier: "en_US_POSIX"), calendar: Calendar(identifier: .gregorian), clipboard: "later") }
         )
-        let action = CommandAction(id: "copy", title: "Copy", kind: .copySnippet(id: "one"))
+        let action = CommandAction(id: "copy", title: "Copy", behavior: CopySnippetAction(id: "one"))
 
         let outcome = await runner.execute(CommandExecutionRequest(commandID: "copy", action: action)) { _ in }
 
@@ -80,7 +81,7 @@ final class ActionRunnerTests: XCTestCase {
         let runner = ActionRunner(diagnostics: DiagnosticsService())
         let request = CommandExecutionRequest(
             commandID: "test.process",
-            action: CommandAction(id: "test.process.perform", title: "Run", kind: .runProcess(path: "/path/that/does/not/exist", arguments: []))
+            action: CommandAction(id: "test.process.perform", title: "Run", behavior: RunProcessAction(path: "/path/that/does/not/exist", arguments: []))
         )
 
         let outcome = await runner.execute(request) { _ in }
@@ -99,7 +100,7 @@ final class ActionRunnerTests: XCTestCase {
             action: CommandAction(
                 id: "test.translate.open",
                 title: "Open Translator",
-                kind: .openTranslator(text: "hello", language: "Spanish")
+                behavior: OpenTranslatorAction(text: "hello", language: "Spanish")
             )
         )
 
@@ -107,6 +108,24 @@ final class ActionRunnerTests: XCTestCase {
 
         XCTAssertEqual(outcome, .open(route: .translator(text: "hello", language: "Spanish")))
         XCTAssertFalse(outcome.shouldDismissPanel)
+    }
+
+    func testOCRWithoutScreenRecordingAsksBeforeCapturing() async {
+        let runner = ActionRunner(diagnostics: DiagnosticsService())
+        var asked: [String] = []
+        var requested: [PermissionKind] = []
+        runner.panel.canCaptureScreen = { false }
+        runner.panel.requestPrompt = { spec in
+            asked.append(String(localized: spec.title))
+            return PanelPromptResult(confirmed: true)
+        }
+        runner.panel.requestPermission = { requested.append($0) }
+        let request = CommandExecutionRequest(commandID: "test.ocr",
+            action: CommandAction(id: "test.ocr.run", title: "Read Text", behavior: RecognizeScreenTextAction()))
+        let outcome = await runner.execute(request) { _ in }
+        XCTAssertEqual(outcome, .cancelled)
+        XCTAssertEqual(asked, ["Allow Screen Recording to read text from the screen."])
+        XCTAssertEqual(requested, [.screenRecording])
     }
 
     func testResetRankingRunsThroughTheExecutorBoundary() async {
@@ -120,7 +139,7 @@ final class ActionRunnerTests: XCTestCase {
             action: CommandAction(
                 id: "test.command.reset",
                 title: "Reset Ranking",
-                kind: .resetRanking(commandID: "test.command")
+                behavior: ResetRankingAction(commandID: "test.command")
             )
         )
 
@@ -137,12 +156,26 @@ final class ActionRunnerTests: XCTestCase {
         )
         let request = CommandExecutionRequest(
             commandID: "test.quit",
-            action: CommandAction(id: "test.quit.perform", title: "Quit", kind: .quit)
+            action: CommandAction(id: "test.quit.perform", title: "Quit", behavior: QuitAction())
         )
 
         let outcome = await runner.execute(request) { _ in }
 
         XCTAssertEqual(outcome, .denied(message: "Action cancelled"))
+    }
+
+    func testDeletingSnippetSaysItCannotBeUndone() async {
+        let runner = ActionRunner(diagnostics: DiagnosticsService())
+        var asked: PanelPromptSpec?
+        runner.panel.requestPrompt = { spec in asked = spec; return .cancelled }
+        let request = CommandExecutionRequest(
+            commandID: "snippet.a",
+            action: CommandAction(id: "snippet.a.delete", title: "Delete Snippet", behavior: DeleteSnippetAction(id: "a"))
+        )
+
+        _ = await runner.execute(request) { _ in }
+
+        XCTAssertEqual(asked?.message.map { String(localized: $0) }, "This removes it from Foundry. You can’t undo this.")
     }
 
     func testWindowPermissionKeepsThePanelStateAvailable() async {
@@ -152,7 +185,7 @@ final class ActionRunnerTests: XCTestCase {
         )
         let request = CommandExecutionRequest(
             commandID: "test.window",
-            action: CommandAction(id: "test.window.perform", title: "Tile", kind: .tileWindow(.leftHalf))
+            action: CommandAction(id: "test.window.perform", title: "Tile", behavior: TileWindowAction(.leftHalf))
         )
 
         let outcome = await runner.execute(request) { _ in }
@@ -172,7 +205,7 @@ final class ActionRunnerTests: XCTestCase {
         )
         let tileRequest = CommandExecutionRequest(
             commandID: "test.window.repeated",
-            action: CommandAction(id: "test.window.repeated.perform", title: "Tile", kind: .tileWindow(.leftHalf))
+            action: CommandAction(id: "test.window.repeated.perform", title: "Tile", behavior: TileWindowAction(.leftHalf))
         )
 
         for _ in 0..<3 {
@@ -186,7 +219,7 @@ final class ActionRunnerTests: XCTestCase {
             action: CommandAction(
                 id: "test.accessibility.settings.open",
                 title: "Open Accessibility Settings",
-                kind: .openURL(NativeWindowManager.accessibilitySettingsURL.absoluteString)
+                behavior: OpenURLAction(NativeWindowManager.accessibilitySettingsURL.absoluteString)
             )
         )
 
@@ -200,7 +233,7 @@ final class ActionRunnerTests: XCTestCase {
         let cancellationID = UUID()
         let request = CommandExecutionRequest(
             commandID: "test.sleep",
-            action: CommandAction(id: "test.sleep.perform", title: "Sleep", kind: .runProcess(path: "/bin/sleep", arguments: ["10"])),
+            action: CommandAction(id: "test.sleep.perform", title: "Sleep", behavior: RunProcessAction(path: "/bin/sleep", arguments: ["10"])),
             cancellationID: cancellationID
         )
 
@@ -219,7 +252,7 @@ final class ActionRunnerTests: XCTestCase {
             action: CommandAction(
                 id: "test.sleep.caller-cancel.perform",
                 title: "Sleep",
-                kind: .runProcess(path: "/bin/sleep", arguments: ["10"])
+                behavior: RunProcessAction(path: "/bin/sleep", arguments: ["10"])
             )
         )
 
@@ -239,7 +272,7 @@ final class ActionRunnerTests: XCTestCase {
             action: CommandAction(
                 id: "test.sleep.duplicate.perform",
                 title: "Sleep",
-                kind: .runProcess(path: "/bin/sleep", arguments: ["10"])
+                behavior: RunProcessAction(path: "/bin/sleep", arguments: ["10"])
             ),
             cancellationID: cancellationID
         )
@@ -266,7 +299,7 @@ final class ActionRunnerTests: XCTestCase {
         )
         let request = CommandExecutionRequest(
             commandID: "test.open-app.cancel",
-            action: CommandAction(id: "test.open-app.cancel.perform", title: "Open", kind: .openApp(path: "/Applications/Missing.app", name: "Missing"))
+            action: CommandAction(id: "test.open-app.cancel.perform", title: "Open", behavior: OpenAppAction(path: "/Applications/Missing.app", name: "Missing"))
         )
         let task = Task { await runner.execute(request) { _ in } }
         while callback == nil { await Task.yield() }
@@ -287,12 +320,12 @@ final class ActionRunnerTests: XCTestCase {
         let secondID = UUID()
         let firstRequest = CommandExecutionRequest(
             commandID: "test.media.first",
-            action: CommandAction(id: "test.media.first.perform", title: "Download", kind: .downloadMedia(url: "https://example.com/first")),
+            action: CommandAction(id: "test.media.first.perform", title: "Download", behavior: DownloadMediaAction(url: "https://example.com/first")),
             cancellationID: firstID
         )
         let secondRequest = CommandExecutionRequest(
             commandID: "test.media.second",
-            action: CommandAction(id: "test.media.second.perform", title: "Download", kind: .downloadMedia(url: "https://example.com/second")),
+            action: CommandAction(id: "test.media.second.perform", title: "Download", behavior: DownloadMediaAction(url: "https://example.com/second")),
             cancellationID: secondID
         )
 
@@ -353,7 +386,7 @@ final class ActionRunnerTests: XCTestCase {
 
         let outcome = await runner.execute(CommandExecutionRequest(
             commandID: "test.file",
-            action: CommandAction(id: "test.file.compress", title: "Compress", kind: .compressFile(path: source.path))
+            action: CommandAction(id: "test.file.compress", title: "Compress", behavior: CompressFileAction(path: source.path))
         )) { _ in }
 
         guard case let .fileResults(urls) = outcome, let zip = urls.first else {
@@ -373,7 +406,7 @@ final class ActionRunnerTests: XCTestCase {
 
         let outcome = await runner.execute(CommandExecutionRequest(
             commandID: "test.file",
-            action: CommandAction(id: "test.file.trash", title: "Move to Trash", kind: .moveToTrash(path: source.path))
+            action: CommandAction(id: "test.file.trash", title: "Move to Trash", behavior: MoveToTrashAction(path: source.path))
         )) { _ in }
 
         XCTAssertEqual(outcome, .refreshResults(message: "Moved to Trash"))
@@ -392,7 +425,7 @@ final class ActionRunnerTests: XCTestCase {
 
         let outcome = await runner.execute(CommandExecutionRequest(
             commandID: "test.file",
-            action: CommandAction(id: "test.file.trash", title: "Move to Trash", kind: .moveToTrash(path: source.path))
+            action: CommandAction(id: "test.file.trash", title: "Move to Trash", behavior: MoveToTrashAction(path: source.path))
         )) { _ in }
 
         XCTAssertEqual(outcome, .denied(message: "Action cancelled"))
@@ -404,7 +437,7 @@ final class ActionRunnerTests: XCTestCase {
 
         let outcome = await runner.execute(CommandExecutionRequest(
             commandID: "test.file",
-            action: CommandAction(id: "test.file.reveal", title: "Reveal", kind: .revealFile(path: "/tmp/x.txt"))
+            action: CommandAction(id: "test.file.reveal", title: "Reveal", behavior: RevealFileAction(path: "/tmp/x.txt"))
         )) { _ in }
 
         XCTAssertEqual(outcome, .fileResults([URL(fileURLWithPath: "/tmp/x.txt")]))
@@ -414,11 +447,11 @@ final class ActionRunnerTests: XCTestCase {
         let pasteboard = NSPasteboard(name: NSPasteboard.Name("ActionRunnerTests.qr"))
         pasteboard.clearContents()
         pasteboard.setString("https://example.com", forType: .string)
-        let runner = ActionRunner(diagnostics: DiagnosticsService(), pasteboard: pasteboard, offerQRSave: { _, _ in })
+        let runner = ActionRunner(diagnostics: DiagnosticsService(), pasteboard: pasteboard)
 
         let outcome = await runner.execute(CommandExecutionRequest(
             commandID: "test.qr",
-            action: CommandAction(id: "test.qr.generate", title: "Generate", kind: .generateQRCode)
+            action: CommandAction(id: "test.qr.generate", title: "Generate", behavior: GenerateQRCodeAction())
         )) { _ in }
 
         XCTAssertEqual(outcome, .copied(content: "https://example.com"))
@@ -433,7 +466,7 @@ final class ActionRunnerTests: XCTestCase {
 
         let outcome = await runner.execute(CommandExecutionRequest(
             commandID: "test.qr",
-            action: CommandAction(id: "test.qr.generate", title: "Generate", kind: .generateQRCode)
+            action: CommandAction(id: "test.qr.generate", title: "Generate", behavior: GenerateQRCodeAction())
         )) { _ in }
 
         guard case let .failure(message, _) = outcome else {
@@ -458,7 +491,7 @@ final class ActionRunnerTests: XCTestCase {
 
         let outcome = await runner.execute(CommandExecutionRequest(
             commandID: "test.ocr",
-            action: CommandAction(id: "test.ocr.run", title: "Extract Text", kind: .extractTextFromImage(path: imageURL.path))
+            action: CommandAction(id: "test.ocr.run", title: "Extract Text", behavior: ExtractTextFromImageAction(path: imageURL.path))
         )) { _ in }
 
         guard case let .copied(content) = outcome else {
@@ -479,11 +512,11 @@ final class ActionRunnerTests: XCTestCase {
 
         let runner = ActionRunner(diagnostics: DiagnosticsService())
         var previewed: URL?
-        runner.onQuickLook = { url in previewed = url }
+        runner.panel.onQuickLook = { url in previewed = url }
 
         let outcome = await runner.execute(CommandExecutionRequest(
             commandID: "test.ocr.preview",
-            action: CommandAction(id: "test.ocr.preview.run", title: "Preview Extracted Text", kind: .previewExtractedText(path: imageURL.path))
+            action: CommandAction(id: "test.ocr.preview.run", title: "Preview Extracted Text", behavior: PreviewExtractedTextAction(path: imageURL.path))
         )) { _ in }
 
         XCTAssertEqual(outcome, .stayOpen(message: nil))
@@ -498,7 +531,7 @@ final class ActionRunnerTests: XCTestCase {
 
         let outcome = await runner.execute(CommandExecutionRequest(
             commandID: "test.ocr",
-            action: CommandAction(id: "test.ocr.missing", title: "Extract Text", kind: .extractTextFromImage(path: "/tmp/does-not-exist-\(UUID().uuidString).png"))
+            action: CommandAction(id: "test.ocr.missing", title: "Extract Text", behavior: ExtractTextFromImageAction(path: "/tmp/does-not-exist-\(UUID().uuidString).png"))
         )) { _ in }
 
         guard case .failure = outcome else {
@@ -511,26 +544,26 @@ final class ActionRunnerTests: XCTestCase {
 
         let outcome = await runner.execute(CommandExecutionRequest(
             commandID: "test.party",
-            action: CommandAction(id: "test.party.go", title: "Celebrate", kind: .celebrate)
+            action: CommandAction(id: "test.party.go", title: "Celebrate", behavior: CelebrateAction())
         )) { _ in }
 
         XCTAssertEqual(outcome, .stayOpen(message: nil))
     }
 
     func testWiFiQRPayloadFormatsAndEscapes() {
-        let wpa = ActionRunner.wifiQRPayload(ssid: "Home;Net", password: "p:a,s\"s", security: 0)
+        let wpa = wifiQRPayload(ssid: "Home;Net", password: "p:a,s\"s", security: 0)
         XCTAssertEqual(wpa, "WIFI:T:WPA;S:Home\\;Net;P:p\\:a\\,s\\\"s;;")
 
-        let wep = ActionRunner.wifiQRPayload(ssid: "Cafe", password: "1234", security: 1)
+        let wep = wifiQRPayload(ssid: "Cafe", password: "1234", security: 1)
         XCTAssertEqual(wep, "WIFI:T:WEP;S:Cafe;P:1234;;")
 
-        let open = ActionRunner.wifiQRPayload(ssid: "OpenNet", password: "ignored", security: 2)
+        let open = wifiQRPayload(ssid: "OpenNet", password: "ignored", security: 2)
         XCTAssertEqual(open, "WIFI:T:nopass;S:OpenNet;;")
     }
 
     func testColorFormatsCoverHexRGBHSLHSVAndOKLCH() {
         let red = NSColor(red: 1, green: 0, blue: 0, alpha: 1)
-        let formats = ActionRunner.colorFormats(for: red)
+        let formats = PickColorAction.colorFormats(for: red)
         let map = Dictionary(uniqueKeysWithValues: formats.map { ($0.label, $0.value) })
         XCTAssertEqual(map["Hex"], "#FF0000")
         XCTAssertEqual(map["RGB"], "rgb(255, 0, 0)")
@@ -540,7 +573,7 @@ final class ActionRunnerTests: XCTestCase {
         XCTAssertTrue(map["NSColor"]?.contains("red: 1.000") == true)
 
         let translucent = NSColor(red: 0, green: 0, blue: 0, alpha: 0.5)
-        let translucentFormats = Dictionary(uniqueKeysWithValues: ActionRunner.colorFormats(for: translucent).map { ($0.label, $0.value) })
+        let translucentFormats = Dictionary(uniqueKeysWithValues: PickColorAction.colorFormats(for: translucent).map { ($0.label, $0.value) })
         XCTAssertEqual(translucentFormats["RGBA"], "rgba(0, 0, 0, 0.50)")
     }
 
@@ -564,12 +597,12 @@ final class ActionRunnerTests: XCTestCase {
         return png
     }
 
-    private final class TestSnippetStore: SnippetStore, @unchecked Sendable {
+    private final class TestSnippetStore: SnippetStore, Sendable {
         let url = URL(fileURLWithPath: "/tmp/test-snippets.json")
-        var snippets: [StoredSnippet]
-        init(snippets: [StoredSnippet]) { self.snippets = snippets }
-        func load() -> [StoredSnippet] { snippets }
-        @discardableResult func save(_ snippets: [StoredSnippet]) -> Result<Void, Error> { self.snippets = snippets; return .success(()) }
+        private let storage: OSAllocatedUnfairLock<[StoredSnippet]>
+        init(snippets: [StoredSnippet]) { storage = OSAllocatedUnfairLock(initialState: snippets) }
+        func load() -> [StoredSnippet] { storage.withLock { $0 } }
+        @discardableResult func save(_ snippets: [StoredSnippet]) -> Result<Void, Error> { storage.withLock { $0 = snippets }; return .success(()) }
     }
 
     @MainActor

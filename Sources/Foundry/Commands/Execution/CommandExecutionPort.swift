@@ -7,8 +7,8 @@ enum CommandRoute: Codable, Equatable, Sendable {
     case fileShelf
     case clipboardHistory
     case snippets
+    case snippet(id: String, then: SnippetFollowUp)
     case fileConversion(path: String?)
-    case camera
     case translator(text: String?, language: String?)
     case developerTools(tool: String?)
     case settings
@@ -16,6 +16,11 @@ enum CommandRoute: Codable, Equatable, Sendable {
     case mediaDownloads
     case welcomeGuide
     case query(String)
+    case scriptOutput(title: String, text: String)
+}
+
+enum SnippetFollowUp: String, Codable, Sendable {
+    case select, insert, copy
 }
 
 struct CommandExecutionRequest: Sendable {

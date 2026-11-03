@@ -1,36 +1,7 @@
 import AppKit
 import SwiftUI
+import FoundryDomain
 
-struct FeatureSurface {
-    let id: String
-    let header: AnyView
-    let headerTrailing: AnyView
-    let content: AnyView
-    let footerActions: [FooterActionSpec]
-
-    init<Header: View, Trailing: View, Content: View>(
-        id: String,
-        @ViewBuilder header: () -> Header,
-        @ViewBuilder headerTrailing: () -> Trailing,
-        @ViewBuilder content: () -> Content,
-        footerActions: [FooterActionSpec]
-    ) {
-        self.id = id
-        self.header = AnyView(header())
-        self.headerTrailing = AnyView(headerTrailing())
-        self.content = AnyView(content())
-        self.footerActions = footerActions
-    }
-
-    init<Header: View, Content: View>(
-        id: String,
-        @ViewBuilder header: () -> Header,
-        @ViewBuilder content: () -> Content,
-        footerActions: [FooterActionSpec]
-    ) {
-        self.init(id: id, header: header, headerTrailing: { EmptyView() }, content: content, footerActions: footerActions)
-    }
-}
 
 struct FeatureHeader<Content: View, Trailing: View>: View {
     let showBack: Bool
@@ -61,16 +32,16 @@ struct FeatureHeader<Content: View, Trailing: View>: View {
             trailing
         }
         .padding(.horizontal, 22)
-        .frame(height: 60)
+        .frame(height: FoundryTheme.Panel.headerHeight)
         .background(Color.clear)
         .overlay(alignment: .bottom) {
             if showsHairline {
                 LinearGradient(
-                    colors: [Color.primary.opacity(0.09), Color.primary.opacity(0.02), Color.clear],
+                    colors: [FoundryTheme.fillTint, FoundryTheme.fillSubtle, Color.clear],
                     startPoint: .top,
                     endPoint: .bottom
                 )
-                .frame(height: 4)
+                .frame(height: FoundryTheme.Control.track)
             }
         }
     }
@@ -78,24 +49,33 @@ struct FeatureHeader<Content: View, Trailing: View>: View {
 
 struct FeatureTitle: View {
     let symbol: String
-    let title: String
+    let title: LocalizedStringResource
+    var detail: String?
 
     var body: some View {
         HStack(spacing: 12) {
             Image(systemName: symbol)
-                .font(.system(size: 16, weight: .regular))
-                .foregroundStyle(FoundryTheme.mutedText)
+                .font(FoundryTheme.Glyph.sm)
+                .foregroundStyle(FoundryTheme.textTertiary)
             Text(title)
-                .font(FoundryTheme.searchFont)
-                .foregroundStyle(FoundryTheme.primaryText)
+                .font(FoundryTheme.title)
+                .foregroundStyle(FoundryTheme.textPrimary)
                 .lineLimit(1)
+            if let detail {
+                Text(detail)
+                    .font(FoundryTheme.caption)
+                    .foregroundStyle(FoundryTheme.textSecondary)
+                    .padding(.horizontal, FoundryTheme.Spacing.xs)
+                    .frame(height: FoundryTheme.Control.line)
+                    .background(FoundryTheme.fillTint, in: Capsule())
+            }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 
 struct FooterActionSpec {
-    let label: String
+    let label: LocalizedStringResource
     let keys: String
     var emphasized = false
 
@@ -106,31 +86,25 @@ struct FooterActionSpec {
 struct PanelFooter<Status: View>: View {
     var status: Status
     var actions: [FooterActionSpec]
-    var showsQuickAIChip = false
+    var leadingAccessory: AnyView?
     var openSettings: () -> Void = {}
     var openWelcomeGuide: (() -> Void)?
 
-    init(actions: [FooterActionSpec], showsQuickAIChip: Bool = false,
+    init(actions: [FooterActionSpec], leadingAccessory: AnyView? = nil,
          openSettings: @escaping () -> Void = {}, openWelcomeGuide: (() -> Void)? = nil,
          @ViewBuilder status: () -> Status) {
         self.status = status()
         self.actions = actions
-        self.showsQuickAIChip = showsQuickAIChip
+        self.leadingAccessory = leadingAccessory
         self.openSettings = openSettings
         self.openWelcomeGuide = openWelcomeGuide
     }
 
     var body: some View {
         HStack(spacing: 0) {
-            if showsQuickAIChip {
-                HStack(spacing: 8) {
-                    Image(systemName: "sparkles")
-                        .font(.system(size: 11, weight: .semibold))
-                    Text("Quick AI")
-                        .font(FoundryTheme.body(size: 12, weight: .semibold))
-                }
-                .foregroundStyle(FoundryTheme.secondaryText)
-                .padding(.horizontal, 8)
+            if let leadingAccessory {
+                leadingAccessory
+                    .padding(.horizontal, 8)
             } else {
                 FoundryMenuButton(openSettings: openSettings, openWelcomeGuide: openWelcomeGuide)
             }
@@ -147,14 +121,14 @@ struct PanelFooter<Status: View>: View {
             }
         }
         .padding(.horizontal, 16)
-        .frame(height: 38)
+        .frame(height: FoundryTheme.Panel.footerHeight)
     }
 }
 
 extension PanelFooter where Status == EmptyView {
-    init(actions: [FooterActionSpec], showsQuickAIChip: Bool = false,
+    init(actions: [FooterActionSpec], leadingAccessory: AnyView? = nil,
          openSettings: @escaping () -> Void = {}, openWelcomeGuide: (() -> Void)? = nil) {
-        self.init(actions: actions, showsQuickAIChip: showsQuickAIChip,
+        self.init(actions: actions, leadingAccessory: leadingAccessory,
                   openSettings: openSettings, openWelcomeGuide: openWelcomeGuide,
                   status: { EmptyView() })
     }
@@ -176,15 +150,14 @@ struct FoundryMenuButton: View {
                 .keyboardShortcut("q", modifiers: .command)
         } label: {
             Image(systemName: "command")
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(FoundryTheme.secondaryText)
+                .font(FoundryTheme.Glyph.xs)
+                .foregroundStyle(FoundryTheme.textSecondary)
                 .frame(width: 30, height: 30)
         }
         .menuStyle(.button)
         .buttonStyle(FoundryQuietButtonStyle())
         .menuIndicator(.hidden)
         .fixedSize()
-        .pointerCursor()
         .accessibilityLabel("Foundry menu")
         .help("Settings and Quit")
     }
@@ -194,16 +167,16 @@ struct KeycapHint: View {
     let text: String
 
     var body: some View {
-        FoundryGlassSurface(role: .control, shape: RoundedRectangle(cornerRadius: 5, style: .continuous)) {
-            Text(text)
-                .font(.system(size: 10.5, weight: .medium, design: .rounded))
-                .foregroundStyle(FoundryTheme.secondaryText)
-                .multilineTextAlignment(.center)
-                .baselineOffset(-0.5)
-                .padding(.horizontal, 5)
-                .frame(minWidth: 19, minHeight: 19)
-        }
-        .fixedSize()
+        Text(text)
+            .font(FoundryTheme.caption)
+            .foregroundStyle(FoundryTheme.textSecondary)
+            .multilineTextAlignment(.center)
+            .baselineOffset(-0.5)
+            .padding(.horizontal, 5)
+            .frame(minWidth: 19, minHeight: 19)
+            .background(FoundryTheme.fillTint, in: RoundedRectangle(cornerRadius: FoundryTheme.Radius.badge, style: .continuous))
+            .fixedSize()
+            .accessibilityLabel(HotkeyFormatter.spoken(text))
     }
 }
 
@@ -215,106 +188,66 @@ struct FooterAction: View {
             KeycapHint(text: spec.keys)
 
             Text(spec.label)
-                .font(FoundryTheme.body(size: 11.5, weight: spec.emphasized ? .semibold : .medium))
-                .foregroundStyle(spec.emphasized ? FoundryTheme.secondaryText : FoundryTheme.mutedText)
+                .font(spec.emphasized ? FoundryTheme.micro : FoundryTheme.caption)
+                .foregroundStyle(spec.emphasized ? FoundryTheme.textSecondary : FoundryTheme.textTertiary)
         }
-    }
-}
-
-struct EmptyState: View {
-    let title: String
-    var message: String? = nil
-    var symbol: String? = nil
-    var isLoading = false
-
-    var body: some View {
-        VStack(spacing: 14) {
-            Spacer()
-
-            if isLoading {
-                ProgressView()
-                    .controlSize(.small)
-                    .tint(FoundryTheme.secondaryText)
-            } else if let symbol {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 18, style: .continuous)
-                        .fill(Color.primary.opacity(0.075))
-                        .frame(width: 68, height: 68)
-
-                    Image(systemName: symbol)
-                        .font(.system(size: 28, weight: .regular))
-                        .foregroundStyle(FoundryTheme.secondaryText)
-                }
-            }
-
-            Text(title)
-                .font(FoundryTheme.body(size: isLoading ? 15 : 17, weight: .medium))
-                .foregroundStyle(FoundryTheme.primaryText)
-
-            if let message {
-                Text(message)
-                    .font(FoundryTheme.body(size: 13, weight: .regular))
-                    .foregroundStyle(FoundryTheme.secondaryText)
-                    .lineLimit(1)
-                    .truncationMode(.middle)
-                    .padding(.horizontal, 40)
-            }
-
-            Spacer()
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color.clear)
     }
 }
 
 struct InlineNotice: View {
     enum Level {
-        case info, warning, error
+        case info, success, warning, error
 
         var tint: Color {
             switch self {
-            case .info: FoundryTheme.secondaryText
+            case .info: FoundryTheme.textSecondary
+            case .success: FoundryTheme.success
             case .warning: FoundryTheme.warning
-            case .error: FoundryTheme.error
+            case .error: FoundryTheme.destructive
             }
         }
 
         var defaultSymbol: String {
             switch self {
             case .info: "info.circle"
+            case .success: "checkmark.circle"
             case .warning, .error: "exclamationmark.triangle"
             }
         }
     }
 
     let level: Level
-    let text: String
+    let text: LocalizedStringResource
     var symbol: String? = nil
-    var actionTitle: String? = nil
+    var actionTitle: LocalizedStringResource? = nil
     var action: (() -> Void)? = nil
 
     var body: some View {
         HStack(spacing: 9) {
-            Label(text, systemImage: symbol ?? level.defaultSymbol)
-                .font(FoundryTheme.body(size: 12, weight: .medium))
-                .foregroundStyle(level.tint)
-                .frame(maxWidth: .infinity, alignment: .leading)
+            Label {
+                Text(text).foregroundStyle(FoundryTheme.textPrimary)
+            } icon: {
+                Image(systemName: symbol ?? level.defaultSymbol).foregroundStyle(level.tint)
+            }
+            .font(FoundryTheme.bodySecondary)
+            .frame(maxWidth: .infinity, alignment: .leading)
 
             if let actionTitle, let action {
-                Button(actionTitle, action: action)
-                    .buttonStyle(.plain)
-                    .font(FoundryTheme.body(size: 11, weight: .semibold))
-                    .foregroundStyle(FoundryTheme.primaryText)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 5)
-                    .background(Color.primary.opacity(0.08))
-                    .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
-                    .pointerCursor()
+                Button(action: action) {
+                    Text(String(localized: actionTitle))
+                        .font(FoundryTheme.micro)
+                        .foregroundStyle(FoundryTheme.textPrimary)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 5)
+                        .background(FoundryTheme.fillTint, in: RoundedRectangle(cornerRadius: FoundryTheme.Radius.control, style: .continuous))
+                        .contentShape(.rect)
+                }
+                .buttonStyle(.plain)
             }
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 8)
-        .background(level.tint.opacity(0.10))
-        .clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
+        .background(level.tint.opacity(FoundryTheme.Alpha.subtle))
+        .clipShape(RoundedRectangle(cornerRadius: FoundryTheme.Radius.control, style: .continuous))
     }
 }

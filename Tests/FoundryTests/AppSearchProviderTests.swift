@@ -1,3 +1,4 @@
+import os
 import Foundation
 import XCTest
 @testable import Foundry
@@ -29,10 +30,55 @@ final class AppSearchProviderTests: XCTestCase {
 
     func testRunningAppsGetQuitHideAndForceQuitActions() {
         let idle = AppSearchProvider.actions(identity: "x", name: "X", path: "/Applications/X.app", bundleID: "com.x", isRunning: false).map(\.title)
-        XCTAssertTrue(idle.isEmpty)
+        XCTAssertEqual(idle, ["Show in Finder", "Copy Path", "Copy Bundle ID"])
         let running = AppSearchProvider.actions(identity: "x", name: "X", path: "/Applications/X.app", bundleID: "com.x", isRunning: true).map(\.title)
-        XCTAssertEqual(running, ["Quit", "Hide", "Force Quit"])
-        XCTAssertTrue(CommandActionKind.forceQuitApplication(bundleID: "com.x", name: "X").isDestructive)
+        XCTAssertEqual(running, ["Quit", "Hide", "Force Quit", "Show in Finder", "Copy Path", "Copy Bundle ID"])
+        XCTAssertTrue(ForceQuitApplicationAction(bundleID: "com.x", name: "X").style == .destructive)
+    }
+
+    func testIndexSuppliesAppsOutsideTheScannedRoots() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent("foundry-app-tests-\(UUID().uuidString)")
+        let elsewhere = FileManager.default.temporaryDirectory.appendingPathComponent("foundry-app-tests-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: root); try? FileManager.default.removeItem(at: elsewhere) }
+        try writeApp(named: "Root App", to: root)
+        try writeApp(named: "Nested Elsewhere App", to: elsewhere)
+
+        let index = FakeAppIndex(urls: [elsewhere.appendingPathComponent("Nested Elsewhere App.app")])
+        let provider = AppSearchProvider(diagnostics: DiagnosticsService(), roots: [root], index: index)
+
+        let rootResults = await provider.results(matching: "root app")
+        XCTAssertEqual(rootResults.first?.title, "Root App")
+        let indexedResults = await provider.results(matching: "nested elsewhere")
+        XCTAssertEqual(indexedResults.first?.title, "Nested Elsewhere App")
+    }
+
+    func testIndexUpdateInvalidatesTheCacheImmediately() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent("foundry-app-tests-\(UUID().uuidString)")
+        let elsewhere = FileManager.default.temporaryDirectory.appendingPathComponent("foundry-app-tests-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: root); try? FileManager.default.removeItem(at: elsewhere) }
+        try writeApp(named: "Late Arrival", to: elsewhere)
+
+        let index = FakeAppIndex(urls: [])
+        let provider = AppSearchProvider(diagnostics: DiagnosticsService(), roots: [root], index: index)
+        let before = await provider.results(matching: "late arrival")
+        XCTAssertTrue(before.isEmpty)
+
+        index.setURLs([elsewhere.appendingPathComponent("Late Arrival.app")])
+        index.fireUpdate()
+        let after = await provider.results(matching: "late arrival")
+        XCTAssertEqual(after.first?.title, "Late Arrival")
+    }
+
+    private final class FakeAppIndex: AppIndexing, @unchecked Sendable {
+        private let state = OSAllocatedUnfairLock(initialState: [URL]())
+        var onUpdate: (@Sendable () -> Void)?
+
+        init(urls: [URL]) { setURLs(urls) }
+
+        func start() {}
+        var urls: [URL] { state.withLock { $0 } }
+        func setURLs(_ urls: [URL]) { state.withLock { $0 = urls } }
+        func fireUpdate() { onUpdate?() }
     }
 
     private func writeApp(named name: String, to root: URL) throws {

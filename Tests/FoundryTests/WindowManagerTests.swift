@@ -55,12 +55,7 @@ final class WindowManagerTests: XCTestCase {
         let requested = CGRect(x: 6, y: 39, width: 858, height: 971)
         let vscodeResult = CGRect(x: 6, y: 39, width: 858, height: 964)
 
-        XCTAssertTrue(
-            NativeWindowManager.isAcceptableConstrainedFrame(
-                vscodeResult,
-                targetAXFrame: requested
-            )
-        )
+        XCTAssertTrue(WindowFrameSettler.acceptable(vscodeResult, requested))
     }
 
     func testCoordinateConversionRoundTrips() {
@@ -186,6 +181,90 @@ final class WindowManagerTests: XCTestCase {
         XCTAssertEqual(writeCount, 0)
     }
 
+    // MARK: - WindowFrameSettler
+
+    func testSettlerWritesSizePositionSizeInOrder() async {
+        let log = Locked<[String]>([])
+        let settler = WindowFrameSettler(
+            setSize: { size in log.withLock { $0.append("size:\(Int(size.width))x\(Int(size.height))") }; return true },
+            setPosition: { p in log.withLock { $0.append("pos:\(Int(p.x)),\(Int(p.y))") }; return true },
+            readFrame: { CGRect(x: 10, y: 20, width: 800, height: 600) },
+            rollback: { _ in log.withLock { $0.append("rollback") } },
+            pollAttempts: 1,
+            pollInterval: .milliseconds(1)
+        )
+        let result = await settler.apply(
+            targetAX: CGRect(x: 10, y: 20, width: 800, height: 600),
+            originalAX: CGRect(x: 0, y: 0, width: 400, height: 300)
+        )
+        XCTAssertEqual(log.withLock { $0 }, ["size:800x600", "pos:10,20", "size:800x600"])
+        XCTAssertEqual(result, .applied(CGRect(x: 10, y: 20, width: 800, height: 600)))
+    }
+
+    func testSettlerAcceptsSettledFrameWithoutRollback() async {
+        let rollbacks = Locked(0)
+        let settled = CGRect(x: 10, y: 20, width: 750, height: 600) // app clamped the width
+        let settler = WindowFrameSettler(
+            setSize: { _ in true },
+            setPosition: { _ in true },
+            readFrame: { settled },
+            rollback: { _ in rollbacks.withLock { $0 += 1 } },
+            pollAttempts: 2,
+            pollInterval: .milliseconds(1)
+        )
+        let result = await settler.apply(
+            targetAX: CGRect(x: 10, y: 20, width: 800, height: 600),
+            originalAX: CGRect(x: 0, y: 0, width: 400, height: 300)
+        )
+        XCTAssertEqual(result, .constrained(settled))
+        XCTAssertEqual(rollbacks.withLock { $0 }, 0)
+    }
+
+    func testSettlerRollsBackOnlyWhenAXWriteErrors() async {
+        let rollbacks = Locked(0)
+        var settler = WindowFrameSettler(
+            setSize: { _ in false },
+            setPosition: { _ in true },
+            readFrame: { CGRect(x: 0, y: 0, width: 400, height: 300) },
+            rollback: { _ in rollbacks.withLock { $0 += 1 } },
+            pollAttempts: 1,
+            pollInterval: .milliseconds(1)
+        )
+        var result = await settler.apply(
+            targetAX: CGRect(x: 10, y: 20, width: 800, height: 600),
+            originalAX: CGRect(x: 0, y: 0, width: 400, height: 300)
+        )
+        XCTAssertEqual(result, .failed)
+        XCTAssertEqual(rollbacks.withLock { $0 }, 1)
+
+        // A failed read after successful writes is not a write error: no rollback.
+        settler.setSize = { _ in true }
+        settler.readFrame = { nil }
+        rollbacks.withLock { $0 = 0 }
+        result = await settler.apply(
+            targetAX: CGRect(x: 10, y: 20, width: 800, height: 600),
+            originalAX: CGRect(x: 0, y: 0, width: 400, height: 300)
+        )
+        XCTAssertEqual(result, .failed)
+        XCTAssertEqual(rollbacks.withLock { $0 }, 0)
+    }
+
+    func testSettlerSkipsNoOpWrites() async {
+        let writes = Locked(0)
+        let frame = CGRect(x: 10, y: 20, width: 800, height: 600)
+        let settler = WindowFrameSettler(
+            setSize: { _ in writes.withLock { $0 += 1 }; return true },
+            setPosition: { _ in writes.withLock { $0 += 1 }; return true },
+            readFrame: { frame },
+            rollback: { _ in },
+            pollAttempts: 1,
+            pollInterval: .milliseconds(1)
+        )
+        let result = await settler.apply(targetAX: frame, originalAX: frame)
+        XCTAssertEqual(result, .applied(frame))
+        XCTAssertEqual(writes.withLock { $0 }, 0)
+    }
+
     private actor FakeWindowAccessibilityClient: WindowAccessibilityClient {
         private var reads = 0
         private var writes = 0
@@ -212,5 +291,20 @@ final class WindowManagerTests: XCTestCase {
         func windowCount() -> Int {
             reads
         }
+    }
+}
+
+/// Minimal lock wrapper for tests that mutate captured state from
+/// concurrently-executing closures.
+private final class Locked<Value>: @unchecked Sendable {
+    private let lock = NSLock()
+    private var value: Value
+
+    init(_ value: Value) { self.value = value }
+
+    func withLock<T>(_ body: (inout Value) -> T) -> T {
+        lock.lock()
+        defer { lock.unlock() }
+        return body(&value)
     }
 }

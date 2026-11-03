@@ -4,7 +4,29 @@ import FoundryDomain
 import FoundryServices
 import os
 
-final class FileSearchProvider: CommandProvider, @unchecked Sendable {
+struct FileSearchConfig: Codable, Equatable, Sendable {
+    static let defaultExcluded = ["Library", "node_modules", ".git", ".Trash", "DerivedData", ".build"]
+    static let `default` = FileSearchConfig(folders: ["~"], excludedFolders: defaultExcluded)
+
+    var folders: [String]
+    var excludedFolders: [String]
+
+    init(folders: [String], excludedFolders: [String] = defaultExcluded) {
+        self.folders = folders
+        self.excludedFolders = excludedFolders
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        let folders = try container.decodeIfPresent([String].self, forKey: .folders) ?? []
+        self.folders = folders.isEmpty ? Self.default.folders : folders
+        excludedFolders = try container.decodeIfPresent([String].self, forKey: .excludedFolders) ?? Self.defaultExcluded
+    }
+
+    var scopes: [URL] { folders.map { URL(fileURLWithPath: ($0 as NSString).expandingTildeInPath) } }
+}
+
+final class FileSearchProvider: CommandProvider, Sendable {
     let id = "foundry.files"
     var searchPolicy: CommandProviderSearchPolicy { CommandProviderSearchPolicy(tier: .deferred) }
     var searchTimeout: Duration? { .milliseconds(3_500) }
@@ -12,7 +34,6 @@ final class FileSearchProvider: CommandProvider, @unchecked Sendable {
     static let prefix = "f "
     static let resultLimit = 12
     static let streamLimit = 200
-    static let ignoredComponents: Set<String> = ["Library", "node_modules", ".git", ".Trash", "DerivedData", ".build"]
     static let commandID = "foundry.files.search"
 
     static let kindPredicates: [String: String] = [
@@ -20,8 +41,10 @@ final class FileSearchProvider: CommandProvider, @unchecked Sendable {
         "image": "kMDItemContentTypeTree == 'public.image'",
         "photo": "kMDItemContentTypeTree == 'public.image'",
         "folder": "kMDItemContentType == 'public.folder'",
-        "doc": "(kMDItemContentTypeTree == 'public.text' || kMDItemContentType == 'com.adobe.pdf' || kMDItemContentTypeTree == 'public.presentation' || kMDItemContentTypeTree == 'public.spreadsheet')",
-        "document": "(kMDItemContentTypeTree == 'public.text' || kMDItemContentType == 'com.adobe.pdf' || kMDItemContentTypeTree == 'public.presentation' || kMDItemContentTypeTree == 'public.spreadsheet')",
+        "doc": "(kMDItemContentTypeTree == 'public.text' || kMDItemContentType == 'com.adobe.pdf' || kMDItemContentTypeTree == " +
+            "'public.presentation' || kMDItemContentTypeTree == 'public.spreadsheet')",
+        "document": "(kMDItemContentTypeTree == 'public.text' || kMDItemContentType == 'com.adobe.pdf' || kMDItemContentTypeTree == " +
+            "'public.presentation' || kMDItemContentTypeTree == 'public.spreadsheet')",
         "code": "kMDItemContentTypeTree == 'public.source-code'",
         "audio": "kMDItemContentTypeTree == 'public.audio'",
         "music": "kMDItemContentTypeTree == 'public.audio'",
@@ -33,13 +56,18 @@ final class FileSearchProvider: CommandProvider, @unchecked Sendable {
         "text": "kMDItemContentTypeTree == 'public.text'"
     ]
 
-    private let scope: URL
+    private let settings: @Sendable () -> FileSearchConfig
     private let find: @Sendable (_ predicate: String, _ scope: URL) async throws -> [String]
     private let spotlightProbe = SpotlightProbe()
 
-    init(scope: URL = FileManager.default.homeDirectoryForCurrentUser, find: @escaping @Sendable (String, URL) async throws -> [String] = FileSearchProvider.spotlight) {
-        self.scope = scope
+    init(settings: @escaping @Sendable () -> FileSearchConfig = { .default }, find: @escaping @Sendable (String,
+        URL) async throws -> [String] = FileSearchProvider.spotlight) {
+        self.settings = settings
         self.find = find
+    }
+
+    convenience init(scope: URL, find: @escaping @Sendable (String, URL) async throws -> [String]) {
+        self.init(settings: { FileSearchConfig(folders: [scope.path]) }, find: find)
     }
 
     func isActive(for query: String) -> Bool {
@@ -52,19 +80,30 @@ final class FileSearchProvider: CommandProvider, @unchecked Sendable {
         }
         let parsed = Self.parse(query)
         guard parsed.term.isEmpty || parsed.term.count >= 2 || parsed.kinds.isEmpty == false else { return [] }
-        let paths: [String]
+        let config = settings()
+        let scopes = config.scopes
+        let excluded = Set(config.excludedFolders)
+        let predicate = Self.predicate(for: parsed)
+        var usable: [String] = []
         do {
-            paths = try await find(Self.predicate(for: parsed), scope)
+            usable = try await withThrowingTaskGroup(of: [String].self) { group in
+                for scope in scopes {
+                    group.addTask { Self.filter(try await self.find(predicate, scope), scope: scope, excluded: excluded) }
+                }
+                var seen = Set<String>()
+                var merged: [String] = []
+                for try await paths in group { merged += paths.filter { seen.insert($0).inserted } }
+                return merged
+            }
         } catch FileSearchError.spotlightDisabled {
             return [Self.spotlightDisabledResult]
         } catch {
             return []
         }
         guard Task.isCancelled == false else { return [] }
-        let usable = Self.filter(paths, scope: scope)
         // NSMetadataQuery can't tell "no matches" from "indexing off" —
         // probe once per launch only when a search comes back empty.
-        if usable.isEmpty, await spotlightProbe.isDisabled(scope: scope) {
+        if usable.isEmpty, let first = scopes.first, await spotlightProbe.isDisabled(scope: first) {
             return [Self.spotlightDisabledResult]
         }
         let ranked = parsed.term.isEmpty ? Self.recent(usable) : Self.rank(usable, term: parsed.term)
@@ -81,7 +120,8 @@ final class FileSearchProvider: CommandProvider, @unchecked Sendable {
             title: "Search Files for \u{201C}\(term)\u{201D}",
             subtitle: "Spotlight, in your home folder",
             icon: Self.searchFilesCommand.icon,
-            primaryAction: CommandAction(id: "\(Self.commandID).fill", title: "Search Files", kind: .fillQuery(Self.prefix + term)),
+            payload: .command,
+            primaryAction: CommandAction(id: "\(Self.commandID).fill", title: "Search Files", behavior: FillQueryAction(Self.prefix + term)),
             secondaryActions: []
         )]
     }
@@ -101,7 +141,8 @@ final class FileSearchProvider: CommandProvider, @unchecked Sendable {
         title: "Search Files",
         subtitle: "Type f and a file name — filter with kind:folder, kind:image, kind:doc, kind:code",
         icon: CommandIcon(fallback: "FI", systemName: "doc.text.magnifyingglass"),
-        primaryAction: CommandAction(id: "\(commandID).fill", title: "Search Files", kind: .fillQuery(prefix)),
+        payload: .command,
+        primaryAction: CommandAction(id: "\(commandID).fill", title: "Search Files", behavior: FillQueryAction(prefix)),
         secondaryActions: []
     )
 
@@ -164,12 +205,12 @@ final class FileSearchProvider: CommandProvider, @unchecked Sendable {
             .map(\.0)
     }
 
-    static func filter(_ paths: [String], scope: URL) -> [String] {
+    static func filter(_ paths: [String], scope: URL, excluded: Set<String> = Set(FileSearchConfig.defaultExcluded)) -> [String] {
         let root = scope.standardizedFileURL.path
         return paths.filter { path in
             guard path.hasPrefix(root + "/") else { return false }
             let components = path.dropFirst(root.count + 1).split(separator: "/")
-            return components.contains { ignoredComponents.contains(String($0)) || $0.hasPrefix(".") } == false
+            return components.contains { excluded.contains(String($0)) || $0.hasPrefix(".") } == false
         }
     }
 
@@ -178,7 +219,9 @@ final class FileSearchProvider: CommandProvider, @unchecked Sendable {
         title: "Spotlight Search Is Off",
         subtitle: "File search needs Spotlight indexing on your home folder",
         icon: CommandIcon(fallback: "FI", systemName: "magnifyingglass"),
-        primaryAction: CommandAction(id: "foundry.files.spotlight-disabled.open", title: "Open Spotlight Settings", kind: .openURL("x-apple.systempreferences:com.apple.Siri-Settings.extension")),
+        payload: .command,
+        primaryAction: CommandAction(id: "foundry.files.spotlight-disabled.open", title: "Open Spotlight Settings",
+            behavior: OpenURLAction("x-apple.systempreferences:com.apple.Siri-Settings.extension")),
         secondaryActions: []
     )
 
@@ -198,37 +241,38 @@ final class FileSearchProvider: CommandProvider, @unchecked Sendable {
         let parent = (url.deletingLastPathComponent().path as NSString).abbreviatingWithTildeInPath
         let id = "file.\(path)"
         var secondary: [CommandAction] = [
-            CommandAction(id: "\(id).reveal", title: "Reveal in Finder", kind: .revealFile(path: path)),
-            CommandAction(id: "\(id).copy-file", title: "Copy File", kind: .copyFile(path: path)),
-            CommandAction(id: "\(id).copy-path", title: "Copy Path", kind: .copyToClipboard(path)),
+            CommandAction(id: "\(id).reveal", title: "Reveal in Finder", behavior: RevealFileAction(path: path)),
+            CommandAction(id: "\(id).copy-file", title: "Copy File", behavior: CopyFileAction(path: path)),
+            CommandAction(id: "\(id).copy-path", title: "Copy Path", behavior: CopyToClipboardAction(path)),
         ]
         for app in FileAppResolver.apps(for: url) {
             secondary.append(CommandAction(
                 id: "\(id).open-with.\(app.path)",
                 title: "Open With \(app.name)",
-                kind: .openFileWithApp(path: path, appPath: app.path)
+                behavior: OpenFileWithAppAction(path: path, appPath: app.path)
             ))
         }
         secondary += [
-            CommandAction(id: "\(id).shelf", title: "Add to File Shelf", kind: .addToFileShelf(path: path)),
-            CommandAction(id: "\(id).convert", title: "Convert…", kind: .openFileConverter(path: path)),
+            CommandAction(id: "\(id).shelf", title: "Add to File Shelf", behavior: AddToFileShelfAction(path: path)),
+            CommandAction(id: "\(id).convert", title: "Convert…", behavior: OpenFileConverterAction(path: path)),
         ]
         if ConversionGraph.visionReadExts.contains(ConversionGraph.normalizedExtension(of: url)) {
-            secondary.append(CommandAction(id: "\(id).ocr", title: "Extract Text", kind: .extractTextFromImage(path: path)))
-            secondary.append(CommandAction(id: "\(id).ocr.preview", title: "Preview Extracted Text", kind: .previewExtractedText(path: path)))
+            secondary.append(CommandAction(id: "\(id).ocr", title: "Extract Text", behavior: ExtractTextFromImageAction(path: path)))
+            secondary.append(CommandAction(id: "\(id).ocr.preview", title: "Preview Extracted Text", behavior: PreviewExtractedTextAction(path: path)))
         }
         secondary += [
-            CommandAction(id: "\(id).compress", title: "Compress", kind: .compressFile(path: path)),
-            CommandAction(id: "\(id).share", title: "Share…", kind: .shareFile(path: path)),
-            CommandAction(id: "\(id).rename", title: "Rename…", kind: .renameFile(path: path)),
-            CommandAction(id: "\(id).trash", title: "Move to Trash", kind: .moveToTrash(path: path)),
+            CommandAction(id: "\(id).compress", title: "Compress", behavior: CompressFileAction(path: path)),
+            CommandAction(id: "\(id).share", title: "Share…", behavior: ShareFileAction(path: path)),
+            CommandAction(id: "\(id).rename", title: "Rename…", behavior: RenameFileAction(path: path)),
+            CommandAction(id: "\(id).trash", title: "Move to Trash", behavior: MoveToTrashAction(path: path)),
         ]
         return CommandResult(
             id: id,
             title: url.lastPathComponent,
             subtitle: parent,
             icon: CommandIcon(fallback: "FI", filePath: path),
-            primaryAction: CommandAction(id: "\(id).open", title: "Open", kind: .openURL(url.absoluteString)),
+            payload: .file(url),
+            primaryAction: CommandAction(id: "\(id).open", title: "Open", behavior: OpenURLAction(url.absoluteString)),
             secondaryActions: secondary
         )
     }

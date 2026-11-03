@@ -1,6 +1,7 @@
 import XCTest
 @testable import Foundry
 import FoundryServices
+import FoundryDomain
 import AppKit
 
 @MainActor
@@ -23,7 +24,7 @@ final class PanelShellTests: XCTestCase {
         )
         let registry = CommandRegistry(
             providers: [],
-            usageRanking: UsageRankingStore(diagnostics: diagnostics),
+            usageRanking: UsageRankingStore.scratch(diagnostics),
             diagnostics: diagnostics,
             configService: config
         )
@@ -55,6 +56,16 @@ final class PanelShellTests: XCTestCase {
         controller.hide()
         let orderedOut = await waitForTrue { controller.isVisible == false }
         XCTAssertTrue(orderedOut, "hide() must orderOut — an invisible-but-onscreen panel is a leak")
+    }
+
+    func testExecutedHideLeavesTheScreenImmediately() {
+        let (state, _) = makeState()
+        let controller = PanelController(state: state, diagnostics: DiagnosticsService(), directPasteService: DirectPasteService(),
+            activation: FakeActivation(), otherWindowsVisible: { false })
+        controller.show()
+        XCTAssertTrue(controller.isVisible)
+        controller.hide(reason: .executed)
+        XCTAssertFalse(controller.isVisible)
     }
 
     /// Focus goes back to the previously active app when nothing else of ours
@@ -100,5 +111,11 @@ final class PanelShellTests: XCTestCase {
             try? await Task.sleep(for: .milliseconds(16))
         }
         return condition()
+    }
+
+    func testToastsShareOneHoldAndErrorsStayLonger() {
+        XCTAssertEqual(ActionFeedback.success("Copied").displayDuration, FoundryTheme.Motion.toastHold)
+        XCTAssertEqual(ActionFeedback.info("Copied").displayDuration, FoundryTheme.Motion.toastHold)
+        XCTAssertGreaterThan(ActionFeedback.failure("No").displayDuration, FoundryTheme.Motion.toastHold)
     }
 }

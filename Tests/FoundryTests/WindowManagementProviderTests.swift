@@ -11,7 +11,7 @@ final class WindowManagementProviderTests: XCTestCase {
             let results = await provider.results(matching: WindowPlacementMetadata(placement).title)
             let result = try XCTUnwrap(results.first { $0.id == "window.\(placement.rawValue)" },
                                        "Missing command for \(placement)")
-            XCTAssertEqual(result.primaryAction.kind, .tileWindow(placement))
+            XCTAssertEqual(result.primaryAction.behavior as? TileWindowAction, TileWindowAction(placement))
         }
     }
 
@@ -27,7 +27,7 @@ final class WindowManagementProviderTests: XCTestCase {
         let diagnostics = DiagnosticsService()
         let registry = CommandRegistry(
             providers: [provider],
-            usageRanking: UsageRankingStore(diagnostics: diagnostics),
+            usageRanking: UsageRankingStore.scratch(diagnostics),
             diagnostics: diagnostics
         )
 
@@ -53,7 +53,7 @@ final class WindowManagementProviderTests: XCTestCase {
             let results = await provider.results(matching: match.query)
             let result = try XCTUnwrap(results.first { $0.id == "window.\(match.placement.rawValue)" },
                                        "No result for query \(match.query)")
-            XCTAssertEqual(result.primaryAction.kind, .tileWindow(match.placement), "Wrong placement for query \(match.query)")
+            XCTAssertEqual(result.primaryAction.behavior as? TileWindowAction, TileWindowAction(match.placement), "Wrong placement for query \(match.query)")
         }
     }
 
@@ -66,8 +66,7 @@ final class WindowManagementProviderTests: XCTestCase {
         for keyword in ["tile", "window", "layout", "snap"] {
             let results = await provider.results(matching: keyword)
             let placements = results.compactMap { result -> WindowPlacement? in
-                guard case let .tileWindow(placement) = result.primaryAction.kind else { return nil }
-                return placement
+                (result.primaryAction.behavior as? TileWindowAction)?.placement
             }
 
             XCTAssertEqual(Set(placements), Set(WindowPlacement.allCases), "Incomplete layout catalog for \(keyword)")

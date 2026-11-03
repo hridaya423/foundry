@@ -1,0 +1,346 @@
+# Installer, onboarding, and logo overhaul
+
+Design source: Paper file "Foundry — Mark, Installer, Onboarding" (01M5DNZWNYY4BFG9J1TPGJJQQV).
+Brand source: the website in anvil/ (ink ground, chalk tiles, Geist, an orange full stop that closes each headline).
+
+## Bars (each part must pass before it counts as done)
+- Icon: sits in a real Dock row next to Raycast, Cursor, Obsidian, Safari, and Notes on light and dark Docks without looking weaker. Readable at 16 px. Built from the site's own language, not a new metaphor.
+- Onboarding: every step screenshotted from the real app. It must look like the website made it. One job per step and one focal visual. Motion carries meaning. No default bordered-prominent button, no centred three-line stack, no confetti.
+- DMG: the Finder window itself is screenshotted. No tracked-caps "DRAG TO INSTALL" eyebrow.
+- Code: scripts/lint-design.sh, lint-l10n.sh, and swift build pass; swift test passes.
+
+## Done
+- Icon: the site's tiled "f" in chalk tiles plus a 2x2 orange tile full stop, on ink, Apple 824/1024 grid (scripts/render-icon.swift, Supporting/AppIcon.icns). Rejected along the way: glowing letter F, forged keycap ("gaming keyboard render"), pour mark (unrelated to the site).
+
+- Onboarding in the site language: Geist, ink, chalk keycaps, orange full stops. Welcome casts the icon's "f." tile by tile. Seven steps screenshotted from an isolated QA copy (bundle com.hridya.foundry.qa); no overlaps, Geist loads.
+- ⌘Space is the default. Onboarding turns off Spotlight's ⌘Space and moves Raycast or Alfred to ⌥Space (LauncherRival.swift). README and the download gate say ⌘Space.
+- swift build, full swift test (656 tests, 0 failures) and the three lint scripts pass.
+
+- Onboarding pass 2: the footer waits for the cast to finish; Try it plays a slow demo press of the chord until the panel opens; Done rows share one type style and the ⇧⌘V row shows key chips and why it is off.
+- DMG: chalk ground, because Finder draws icon labels in black. Seven tiles warm toward Applications and end in the orange full stop, over "Drag Foundry into Applications." in Geist. Shipped as a multi-resolution TIFF so Retina is sharp. Icon size is now 112. Checked in a real mounted Finder window.
+- Menu bar: a solid "f." template image at 14 pt (MarkTiles.menuBarImage) replaces the SF "command" symbol. Checked in the live menu bar.
+
+- Launcher panel: removed the spring settle on open (PanelController.show); it now only fades in over 0.18 s. Asked by the user. Not yet in the installed app.
+
+## Session 2026-10-21 (handoff /tmp/foundry-handoff-2026-10-21.md)
+- Shortcut step redesigned: the two giant chalk slabs are now a full MacBook keyboard in ink, with the chord cast in chalk (orange once the panel runs). Real key presses dip the keys. The "Record a new shortcut" button became one Raycast-style field: "Shortcut ⌘ Space · Change"; recording lights held modifiers live. Mock: Paper artboard "Onboarding · 2 Shortcut v2". Evidence: /tmp/fq/v2/*.png (offscreen), /tmp/fq/r1.png (real QA app), /tmp/fq/states/{recording,hot}.png.
+- Unsigned-build warnings: already gone from the tree (DownloadNotice quarantine prompt, website modal + CSS, README). Verified by grep.
+- build-app.sh now prefers the Developer ID identity (it used to take "Apple Development", which notarization rejects).
+- package-dmg.sh: the mount-point parse took the last line of `hdiutil attach`, which is a partition row with no mount, so the branded layout silently fell back to a plain DMG. It now takes the `/Volumes/` row.
+- Signed: build/Foundry-1.2.0-build-1.dmg (app + DMG, Developer ID, hardened runtime, timestamp). `codesign --verify --deep --strict` passes; `spctl` says "Unnotarized Developer ID" as expected. Finder reports the DMG window at 540x360. A screenshot of it was not possible because Stage Manager kept moving the window.
+- Checks: swift test 656 tests, 0 failures; lint-design, lint-l10n, lint-lines pass.
+
+- Round 2 (user feedback): Try it now teaches open + close: "Now press it" -> "Now press it again" -> closing the panel is the success (orange keys, warm glow, auto-advance). It used to leave the panel open. `completeTryIt()` replaces `panelDidRunCommand()`. Launch at login explains itself when unavailable (test build). AI step: no Continue; Return picks the recommended row, marked with a ↵ chip. Steps slide in the direction of travel (`OnboardingState.movedForward`). Checks: 656 tests, 0 failures; three lints pass.
+
+- Round 3: "Press it again" now shows in the panel's search placeholder (`CommandPanelState.searchHint`), because the open panel covers the onboarding window. Motion: one token set `FoundryTheme.Brand.Motion` (ease-out 0.23,1,0.32,1; press 120 ms, state 220 ms, enter 450 ms, 6 pt rise, 50 ms stagger), no springs or overshoot left in onboarding; steps crossfade with a 4 pt blur. Welcome redesigned (Paper "Onboarding · 1 Welcome v2"): editorial left grid, two-line large headline bottom-left, the "f." mark top-right in chalk keycap tiles with sides; cast is quieter (6 pt rise, no scale, ~1.2 s). Filmstrip: /tmp/fq/w/strip.png; render: /tmp/fq/w/s0.png. QA copy deleted at the user's request; their Foundry is running. Checks: 656 tests, 0 failures; lints pass.
+
+## Round 4 bar ("holy shit", not "clean")
+- Welcome cast reads as real molten metal: white-hot landing, cooling ramp, emitted light on the ground that decays with the heat. Ember stays on the full stop.
+- Chalk surfaces respond to the cursor as a light source (smoothed, subtle).
+- Judged from a video of the real window, frame by frame, not offscreen stills.
+- No showy motion: every movement still answers "why".
+
+- Round 4 done: molten cast (heat model `MarkTiles.heat`, face cools white->yellow->orange->amber->chalk via `faceCoolRamp`, red only in the bloom; floor light decays with heat; the full stop keeps an ember). Cursor light on the mark (`CursorLight`: eased pointer, falloff + sheen); not verified live because synthetic mouse events need Accessibility. Bug found by live video: the window can open behind the frontmost app, so the opening played unseen; onboarding content now waits for the window to become key (`windowSeen`). Evidence: /tmp/fq/w/live2.mov, /tmp/fq/w/hot.png, /tmp/fq/w/rest.png, /tmp/fq/w/strip-final.png.
+
+- Round 4 rejected by the user ("sloppier"): molten cast and cursor light reverted to the round-3 cast. Kept: the windowSeen fix.
+- Round 5 bar: Raycast, Linear desktop, Things 3, Apple first-run. Restraint, exact type, one spacing scale, every state designed, quiet motion. Blind critic (Sonnet 5.5) running on /tmp/fq/a/*.png. Own findings so far: headline-to-content gap 44 vs 36 (Done); list surface diagonal gradient bands.
+- Round 5 fixes (from critic r1 + own findings): one footer on every step (progress left, Back + primary right, primary label min width so Back holds still); "Skip setup" top-right, dimmed (`Brand.faint`, `BrandQuietButtonStyle(dim:)`). AI step is a real choice: four rows with `BrandSelectionMark`, recommended preselected, "No AI" row, Continue confirms via `chooseAI`. ⇧⌘V clipboard toggle moved from Done to Preferences. One `listGap` (36) under every headline. Keyboard: number row and top fade removed, sits 180 pt down. Shortcut lead no longer repeats the chord. Try-it link reads as a link; primary says "Skip" until the shortcut is pressed. Flat list fill (`rowBottom` deleted). SF "return" glyph in the CTA. "Allow…". Done rows 56 pt. Evidence: /tmp/fq/b/*.png, /tmp/fq/b/sheet.png. Checks: 656 tests, 0 failures; three lints pass. Blind critic r2 ran (scores 6–8/10); its fixes applied:
+  - The CTA is a fixed 172 pt, so Back never moves.
+  - Try it: Continue is a quiet outline with no Return until the shortcut works.
+  - AI: squared radio plus a selected-row fill (`Brand.rowSelected`); titles "Local model", "Cloud provider".
+  - Done hides "Ask AI" when AI is off.
+  - Launch at login copy now matches Settings.
+  - The Welcome lead reads "Everything on your Mac, one keystroke away." and sits on the mark's base.
+  - The keyboard top is level with the lists, and "Change" is plain text.
+  - Rows are 14 pt vertical padding; disabled rows are at 0.6 opacity.
+  - Evidence: /tmp/fq/c/*.png and /tmp/fq/c/sheet.png. Checks: 656 tests, 0 failures; lints pass.
+- Live recording attempt failed: the user was using the Mac, so other windows covered the onboarding window, and the synthetic ⌘ Space went to the frontmost app. Recording deleted. Do not run the live rig while the user is at the machine; ask first. Still open: the critic's "Permissions dead space" and "Try it repeats the keyboard" points.
+
+- User-reported bug, fixed:
+  - Cause: the onboarding view honoured the titlebar safe area. The 880x580 view sat 28 pt low, a bare-window band showed above it, and the bottom margin was squeezed to about 21 pt.
+  - The "32 pt render artifact" in every earlier snapshot was this bug, wrongly dismissed.
+  - Fix: `.ignoresSafeArea()` on the root view.
+  - OnboardingSnapshotTests now hosts the view the way OnboardingWindowController does. It always runs, and only writes images when the dir is set. It asserts the top and bottom edges are brand ground. It was red without the fix and is green with it.
+  - Evidence: /tmp/fq/d/sheet.png. Checks: 656 tests, 0 failures; lints pass.
+  - The user's Foundry is restored and the QA copy deleted.
+
+- Panel vs installed 1.1.0 (/Applications, built 2026-10-06 at 71a4726, 61 commits behind). Captures: /tmp/fq/panel-installed.png, /tmp/fq/panel-branch.png.
+  - Position: Phase work had changed the top inset from 140 pt (280 px / 2) to 25% of the visible height, which is 245 pt on the user's 14" (979 pt visible). The user prefers the old slot, so it is now `visibleFrame.height / 7`, 140 pt here. Verified live: the branch panel sits at the same Y as the installed one.
+  - Bug: home selected `homeResults.first`, which can be a row home hides (a non-suggestible app or a primary window layout). Nothing looked selected, and Return could act on an unseen row. Now it selects `navigableResults.first`. Test `testHomeOpensWithTheFirstVisibleRowSelected` was red before the fix.
+  - "RAM" truncated to "R…": the 11 pt semibold label measures 25.3 pt in a 25 pt column. The column is now 30.
+  - Not changed, waiting on the user: Title Case section headers (1.1 used tracked caps) and the selected row's missing border (1.1 had `selectionBorder`).
+  - Checks: 657 tests, 0 failures; lints pass.
+
+- Restored the v1.1.0 panel look (user asked); bug fixes kept.
+  - Rows: 28 pt icons, 44 pt rows, detail line under the title (hidden for commands), filled hotkey badge, 13.5 medium titles via `FoundryTheme.rowTitle` / `rowDetail`.
+  - Selection: `selectionBorder` outline; selected icon scales to 1.04.
+  - Section headers: tracked caps (`FoundryTheme.sectionHeader`).
+  - Widget strip: 1.1 font sizes via `FoundryTheme.Strip`; the RAM column is back to 25.
+  - Entrance: the window appears at once and the content springs from 0.97 (`replayPresentation`). This is not the CASpring settle the user asked to remove earlier.
+  - The pointer cursor is back (`pointerCursor()` in both shared button styles, rows and tiles).
+  - Light-mode inner edge is back at black 0.06.
+  - Kept deliberately: the window level stays `.floating`, because `.statusBar` drew the launcher over its own alerts and save panels (9a64ed3).
+  - The `rows-light` reference was re-recorded and checked by eye.
+  - Checks: 657 tests, 0 failures; lints pass.
+- Live panel capture attempt 2 failed: the QA panel did not open, and the synthetic ⌘ Space and Esc reached the user's frontmost app. Do not send HID events again; ask the user to try builds themselves.
+
+## Remaining
+- Notarize: no notarytool credentials on this Mac. Needs `xcrun notarytool store-credentials foundry --apple-id <id> --team-id DV6NC6KRYL` from the user, then `NOTARY_PROFILE=foundry zsh scripts/notarize-dmg.sh build/Foundry-*.dmg`.
+- Rebuild and install to /Applications so the user's Foundry gets these changes (asked, not yet confirmed).
+- Nothing open from the brief. Not tested live: the Spotlight, Raycast and Alfred takeover, because nothing holds ⌘Space on this Mac (unit tests cover it).
+
+## Website gauntlet (anvil/, vs igloo.inc), 2026-10-22
+- The first loop (jury round 0 plus gauntlet rounds 6 to 15) was discarded at the user's request: its critic counted motion, and the result read as slop. anvil/ was reset to 97ee8f1. The discarded version is in .jury/taste/snapshots/foundry-before-taste.tgz.
+- New loop: taste first, against igloo.inc, with critics who judge restraint and name what to remove. No /jury skill. Live log: .jury/taste/progress.md.
+- Servers: production `npx next start -H 127.0.0.1 -p 4471`. Recorder tools in ~/.cache/jury (record.mjs, still.mjs, fullpage.mjs).
+- Open: metadataBase domain still to confirm with the user before deploy.
+
+## Port from old mini line (d1d7323, pinned at refs/minicmp/old-mini), 2026-10-23
+Audit: 5 Sonnet 5.5 reviewers read all 85 old-mini commits against this tree. Deliberate redesigns (flat search list, neutral selection, radius 26, ⌘Space default, ⇧⌘R reveal, pop-to-root clears query, Disk widget) and the absent docs are out of scope.
+
+Bugs
+- [x] B1 Backup restore carries script-folder trust (config.json localState.trustedScriptDirectories)
+- [x] B2 ⌃ chords never reach action shortcuts (PanelController.handleShortcut gates on ⌘) → ⌃X delete unreachable
+- [x] B3 `f ` recent-files mode unreachable (query trimmed)
+- [x] B4 Snippets ⌘↵ copy skips argument prompt (copies raw placeholders)
+- [x] B5 Bare `{argument}` not recognised
+- [x] B6 `~/` and `/` quicklinks not opened as files
+- [x] B7 Lazy feature states built by resetTransientFeatures
+
+Missing features
+- [x] F1 Fallbacks: choose/order + Define, "When nothing matches" pane + search entry
+- [x] F2 Script fullOutput in-panel surface, ⌘↵ Copy Output
+- [x] F3 Script results: Show in Finder, Copy Path
+- [x] F4 Shortcuts input: "Name with “text”", Run with Clipboard, subtitle hint
+- [x] F5 ⌘E Edit Snippet / Edit Quicklink
+- [x] F6 Suggested ⌃⌥ window-layout hotkeys
+- [x] F7 DevTools Base64/JSON errors with example + parse location
+- [x] F8 Settings panes: Permissions, File Search (folders, skipped names), Snippets, Browser; snippet export button
+- [x] F9 Clipboard: skip API-key/token strings; retention menu 1 day … Forever
+- [x] F10 Quick AI footer model menu; Switch Model on failure
+- [x] F11 Translator ⌘↵ replace (copy fallback), ⇧⌘C copy
+- [x] F12 Emoji skin-tone header menu, ⌘1–6
+- [x] F13 "What's new" one-time notice
+- [x] F14 Search footer "N results"
+- [x] F15 App results: Show in Finder, Copy Path, Copy Bundle ID
+- [x] F16 Increase Contrast selection (stronger fill, 2 pt accent outline)
+- [x] F17 {selection} snapshot at panel open; Quicklinks help text
+- [x] F18 Favicon global switch (disk cache skipped: CommandIconRepository already has a 32 MB disk URLCache)
+- [x] F19 ⌘K "Set Hotkey or Alias…" title, filter Commands list
+- [x] F20 Copy: Downloads "Clear List"; delete-confirm detail text
+Notes: B4 also covered the Snippets-view Copy button and root-search snippet Insert/Copy, which all bypassed the prompt (root results now open the snippet and ask). Tests added per item; filtered suites green.
+Visual QA pass (offscreen NSHostingView renders, temp test since deleted, /tmp/fqa): fixed the Quick AI model menu (borderlessButton ignored its style, so it read bold white), "1 snippets" (now inflected), the "~" title in File Search (now the folder display name), the truncated `f` empty-state hint, and the dimmed empty script output.
+Verification: swift build clean; swift test 677 tests, 7 skipped; 6 of 7 full runs had 0 failures, 1 run had 1 failure that did not repeat and was not identified; lint-design, lint-l10n, lint-lines pass. Not committed.
+Open: SelectionSnapshot has no dedicated test; "Forever" retention is 3650 days.
+
+## Website Awwwards pass (anvil/), started 2026-10-23
+Source: the review in this session (critic: separate Opus 5.5, scores D6 U5 C7 Ct5). Baseline shots: /tmp/anvil-shots (ephemeral). Server: `npx next start -H 127.0.0.1 -p 4471` in anvil/. Playwright lives in ~/.cache/jury (run shoot.mjs with cwd there).
+Decisions:
+- Proof stat = speed, not memory: "19" ms (slower median of two runs, hotkey to on-screen window, Foundry 1.1.0, MBP M4 Pro, battery; docs/benchmarks/2026-09-29-foundry-1.1-tinycast-0.11.3-mbp-report.md). No competitor named on the site until the legal review the old methodology page mentions.
+- Released v1.1.0 defaults to ⌥Space (git show v1.1.0), so the download dialog keeps ⌥Space.
+- Media section and all third-party media removed; video download becomes a tool (LINK to MP4). Coast photo (no recorded source) replaced by the tile orange.
+- The launcher panel stays a crisp replica of the real app (neutral selection), not tile-built. The tiles pass through it.
+Plan (tick as done):
+- [x] A1 speed section replaces memory; text shows only after tiles settle
+- [x] A2 methodology rewritten (Foundry-only, no internal notes, no dashes); memory raw assets removed
+- [x] A3 keyboard: `inert` gating replaced by data-active + scroll-on-focus
+- [x] A4 collisions: PNG grid vs heading, ribbon, end trail
+- [x] A5 404, OG image, robots, sitemap, metadataBase (env), JSON-LD, Anton removed
+- [x] A6 axe fixes; A7 hero panel matches app; A9 clipboard simplified
+- [x] B restraint: one orange period, underline tabs, nav logo only after hero, shorter tile texts, notes window + duplicates removed, dead CSS
+- [x] C1 ribbon removed; C2 closing wordmark rebuild; C3 stiffer scroll spring, no per-frame blur, CTA hover; C4 shorter track
+- [x] QA pass 1 + fresh critic (Opus 5.5, shots /tmp/anvil-shots4): D7.5 U6.5 C7.5 Ct7.5, overall 7.2
+  Fixed from its list: clipboard exit lift removed (heading slid under phone nav), CTA hover is a rising cream fill, skip link on every page, focus reveal jumps the spring (invisibleFocus 0), 404 title + shared SiteHeader/SiteFooter (app/foundry/site-chrome.tsx) on 404 and methodology, phone shelf tabs on one line, AI tool label "Draft, rewritten with Writing profile".
+  Declined: "24 × 18" caption kept (it explains the 432 frame); inline "Foundry source" link exempt from target size; DPR not raised on phone (FPS cost); no page transition added.
+  Pass-2 evidence (/tmp/anvil-shots5): audit 0 FAIL 0 WARN; skipLinkFirst true on all pages; invisibleFocus 0; axe 0; home colorOnly 0; 404 returns status 404.
+- [x] QA pass 2 + fresh critic (Opus 5.5, shots /tmp/anvil-shots5): D7 U7 C7.5 Ct8, overall 7.2; Semantics 8, A11y 8, WPO 8, Markup 8, Animations 7, Responsive 7
+  Fixed: tool captions switch input -> result (calculator caption only on 432, AI "Draft" -> "Writing profile · sample response", video "Video link" -> "Saved file"); nav Download hidden while the hero or closing CTA is on screen; current-page footer link underlined.
+  Final crawl (/tmp/anvil-shots6): audit 0 FAIL 0 WARN, axe 0, skip link first, focus all visible, no overflow, 0 console errors. Remaining flags are the current-page link and footer utility links (by design).
+Open, not done (structural, need a decision):
+- Throttled phone scroll 19-22 fps; phone wordmark tiles read as noise at 390 px. Fix = larger tiles / fewer instances under 480 px.
+- Methodology page carries no tile language; no continuous home -> methodology transition.
+- Inline "Foundry source" link 22 px tall (inline exception, left as is). Hero palette search looks like a field but is not one.
+Evidence so far (shots: /tmp/anvil-shots3, phone frames: /tmp/anvil-qa):
+- Build clean. Home: 0 console errors, 0 axe violations (baseline 2 serious), no overflow, no small targets, mobile LCP 1.1 s, CLS 0.
+- Scroll FPS (headless floor): desktop 26 (baseline 18), throttled phone 20 (baseline 7).
+- Failed requests on every page are aborted `_rsc` prefetches only.
+- Keyboard reaches every demo; "How we measured" flagged invisibleFocus by shoot.mjs because it shoots before the focus scroll settles; focus-check.mjs confirms it visible (opacity 1, ring drawn).
+- Phone: HEIC tile no longer overlaps the shelf subtitle (anchors moved to 33%/47%); tool tab row fades at its edges.
+- OG image: app/opengraph-image.png (1200x630 hero).
+
+### User feedback round, 2026-10-24
+User: liked the previous footer, wants "81% less memory" over "19 ms", finds the new clipboard lame.
+- [x] Memory section restored (memory.tsx/.css/-motion.ts, renamed back from speed-*): tile "81%" + "115.2 MB", "vs 620.2 MB · Raycast 2.5.3", provisional context line, "Read methodology". Timeline: memoryStart = toolsEnd, settled +.18.
+- [x] Methodology rewritten for memory (docs/benchmarks/2026-09-29-foundry-1.1-raycast-2.5.3-mbp-report.md, linked on GitHub). Old raw files in public/ stay deleted: they are the August run (69%), not the source of 81%.
+- [x] Ending restored: two-line heading, tile trail + arrow into the CTA, footer = wordmark + GitHub + Release notes. SiteFooter now renders that footer on home, methodology, 404. Closing wordmark rebuild removed. Nav fully hidden at the close.
+- [x] Clipboard restored: ribbon of the 48 removed background tiles, coast photo card, YouTube link card, detail line, Previous/Next, Copy item. Kept fixes: data-active gating (keyboard reach), card names from content (axe), no em dash, blur off on phones, ribbon shrinks out 1.5-1.58 before tools. Phone: heading at 11%, detail title/value hidden so the ribbon clears them.
+Evidence (/tmp/anvil-shots7, frames /tmp/anvil-qa/r): audit 0 FAIL 0 WARN; axe 0 on all pages; skip link first; invisibleFocus 0; 0 console errors.
+Open: naming Raycast needs the legal review noted in the Sept report; coast.jpg has no recorded source.
+
+### Round 3, 2026-10-24: clipboard belt, phone tiles, tile transition
+- [x] Clipboard is one belt: `clipboardSelection` drives both the DOM cards and the GL ribbon (passed to the scene as `clipboardBelt`). Cards sit on the ribbon (anchored bottom-centre, tilted by the ribbon slope), land in turn from 1.01, loop so the right side never empties, and the belt carries everything off left at 1.5-1.58. Leftover shelf tiles now shrink in place (no rise into the heading). Phone belt amplitude halved; phone photo card 58% wide.
+- [x] Phone tiles: "bigger, fewer tiles" is not possible without a shelf redesign (createShelfTiles needs all 272 full tiles). Root cause of the noise was the 1.25 DPR cap; phones now cap at 2. Throttled phone scroll on a real GPU (Metal, 4x CPU, DSF 3): median 16.7 ms, p90 18.3 ms. The crawler's 19-22 fps comes from SwiftShader (browser.mjs launches with --enable-unsafe-swiftshader), not the site.
+- [x] "Read methodology" transition: the 81% tiles fly to the methodology figure (app/foundry/methodology-figure.ts, shared geometry), the rest fades, then router.push; methodology renders the same figure in DOM tiles and fades its content in (html[data-arriving]). Positions verified equal at 1440/1024/390 (figure top 132, tile centres match to 0.02 px). Back button returns to the memory stop (story progress kept in history.state).
+Evidence: /tmp/anvil-qa/belt-*.png, /tmp/anvil-qa/transition-{d,m}.png, /tmp/anvil-qa/t/back.png, crawl /tmp/anvil-shots8 (audit 0 FAIL 0 WARN, axe 0, focus all visible, 0 console errors).
+Scripts (outside repo): /tmp/anvil-rebuild.sh, /tmp/anvil-sheet.py, ~/.cache/jury/{transition,back,profile-phone,hero-phone,figure-rect}.mjs.
+
+## Prototype: tile world (removed 2026-10-24)
+
+Built at `/world` on branch `website-tile-world`, then deleted at the user's request ("don't like world"). Nothing from it was committed.
+
+## Craft pass, 2026-10-24 (branch `website-tile-world`, uncommitted)
+Design: `anvil/docs/plans/2026-10-24-craft-pass-design.md`.
+- [x] Step 1, real launcher. `app/foundry/launcher.tsx` + `launcher.css` copy the running app's panel (reference screenshots `/tmp/anvil-qa/ref/crop-{home,calc}.png`, taken from Foundry.app). Sizes are in points through `--pt` (41.8vw / 750 on desktop, 1px on phone). Live: filter, arrow keys, Enter opens the story stop (`toolStop(i)` added to tools-motion), math via `app/foundry/calculate.ts` (copy answer on Enter). Hero panel at left 53%, top 31.55vw; tile flight path points in `tile-motion.ts` pulled toward the panel so the trail runs between the headline and the panel. Tools section: compact panel (query + action row) replaces the thin bar.
+  Evidence: `/tmp/anvil-qa/l/*.png`, `/tmp/anvil-qa/flight2.png`, `/tmp/anvil-qa/tools-l.png`; shoot.mjs: axe 0, 0 console errors, skip link first. shoot.mjs flags the launcher input as "noVisibleFocus" because the ring is drawn on the panel through `:has(input:focus-visible)`; `/tmp/anvil-qa/focus-launcher.png` shows the ring.
+- [x] Launcher cleanup (user request): removed the stats strip (sample numbers), Ask AI, repeated "Command" labels and the ⌘ / Actions footer items. Placeholder "Search commands...", hairlines under the search and above the footer, ↵ keycap only on the selected row, footer "↑↓ Select · ↵ Open" (hint hidden on touch). Panel height 360 pt. Flight path end retuned to the moved Convert Image row. Evidence `/tmp/anvil-qa/clean*.png`.
+- [x] Launcher as a marketing piece (user: "doesn't need to be pixel perfect, make it really impressive"). Two columns: six commands left, live preview right. Self-running demo types clip, 24*18, hello, png in a loop (pauses when scrolled past 40 px, hidden tab, reduced motion; stops on pointer enter or focus, resumes on leave if empty). Selection glides (motion layoutId). Previews: clipboard cards from clipboardItems, calculator answer drawn in glazed tiles (tileText), Convert Image shows the tiled orange whose background tiles fall away on a loop, Translate, Snippets, Download Video with a progress bar. Rows never unmount (non-matches dim), so `#foundry-command-1` always exists for the tile flight gate. Glass gradient edge, warm halo. Evidence `/tmp/anvil-qa/demo.png`, `/tmp/anvil-qa/demo-page.png`, `/tmp/anvil-qa/demo-phone.png`; axe 0, console 0.
+- [x] Calm pass (user: "looks ugly / like the gradient behind it too"). launcher.css: removed orange halo, gradient edge, orange focus ring, search and preview dividers; flat panel `#1b1917f2` with hairline; recessed preview; soft `#ffffff0f` selection; borderless cards, chips, keys. Focus is now a brighter hairline plus orange search icon. foundry.css: `.foundry-stage` radial gradient flattened to `#0f0d0c`.
+  Evidence: `/tmp/anvil-qa/calm.png`, `/tmp/anvil-qa/calm-hero-focus.png`. The visible warm glow came from `.story-stage` in story.css (radial at 65% 45%), now flat too.
+- [x] Type pass: shelf, clipboard and tools section heads share `clamp(44px, 5.2vw, 92px)`, line-height 1.04. Tools compact launcher `--pt` 41.8vw/620 (row text 14.5px at 1440).
+- [x] Phone bleed fix: phone launcher was 997px tall in an 844px stage, so its last rows trailed under the nav after the hero left. Results now scroll inside 216pt with a fade, preview 170pt. Probe: launcher bottom -48px at scroll 4000.
+  QA (shoot.mjs, `~/.cache/jury/.shots`): 0 axe violations, 0 audit FAIL/WARN, 0 console errors, CLS 0, mobile LCP 1.1s. Still flagged: launcher input noVisibleFocus (focus = brighter hairline + orange icon + caret; user rejected the ring).
+  Critic pass 1 (Opus 5.5, evidence `/tmp/anvil-qa/critic/`): 7.15 (D7 U7 C7.5 Ct7.5). Fixes done from its list:
+  - Handovers through black: hero tiles now stay on screen (`gatePassage` gate y clamped to >= 10% height in shelf-motion.ts); belt tiles carry into the tools glyphs (tools-motion `writeToolsTilePose` mixes from the prior pose; belt keeps 60% size, clipboard-motion exit); clipboard text out 1.47-1.55, tools in toolsEnter-.03 to +.05; closing headline in at downloadStart+.04 to +.12. Frames `/tmp/anvil-qa/tx-*.png`.
+  - Closing trail no longer ends beside "Your next" (3 desktop trail points removed, download-motion.ts).
+  - Header Download flash: `data-quiet` no longer waits for the GL scene (story.tsx), SSR ships `data-quiet="hero"`.
+  - Not bugs: `hover.covered` is a scrollIntoView artifact (each control hits at its own stop, `~/.cache/jury/probe-covered.mjs`); the PNG label fades in 0.79-0.825 by design.
+  - Left: copy rewrites ("Small tasks. All here.", "Your next command starts here.") need the user's call; launcher focus ring rejected by user.
+  Critic pass 2 (evidence `/tmp/anvil-qa/critic2/`): 7.6 (D8 U7 C8 Ct7; dev Sem8 Anim7 A11y7 WPO8 Resp7 Meta8). Fixes done after it:
+  - Hero shows the summon shortcut: `⌘ Space from anywhere` keycaps beside Download (hero-content.tsx, `.foundry-actions`/`.foundry-hotkey` in foundry.css). Default is ⌘Space per ConfigService.swift and README.
+  - Hero launcher text up (search 24pt, rows 16.5pt, labels 13pt); panel geometry unchanged because the tile flight path is tuned to it.
+  - Phone orphan "app." fixed with a non-breaking space in the shelf heading (`text-wrap: balance` does not act on the line after `<br>`).
+  - Regression QA after: 0 axe, 0 audit FAIL/WARN, 0 console errors, CLS 0, mobile LCP 1.16s.
+  Open from pass 2 (needs the user or a bigger change): launcher focus ring (rejected by user); generic heads "Small tasks. All here." and "Your next command starts here."; AI demo result reads "FREE TOMORROW" in tiles; phone tools stage has ~800px of empty space (m-04); tiles cross text during handovers; reduced motion shows flat slabs instead of tile results; methodology page transition.
+- [ ] Step 2 tile material. [ ] Steps 3 and 4 type and grid. [ ] Step 5 motion.
+
+## SOTD push, 2026-10-24 (user: perfect phone, fix collisions, fix copy, fix reduced motion; skip accessibility)
+- Env surprise: `anvil/node_modules` and `~/.cache/jury/node_modules` both vanished mid-session (not by this session). Restored with `npm ci` and `npm install`.
+- [x] Shelf stops: "Original" showed a lone HEIC; added a mold grid (dot per tile slot) on `.shelf-image-anchor` (story.css). Shows through as transparency after "Remove background".
+- [x] Belt crossed the orange at the Remove background stop: `beltDrop` in clipboard-motion.ts keeps the belt below frame until 1.0-1.1; removed-tile stream sped up (head x14, +.5 offset after 1.0).
+- [x] Heading overlap at 1.03 (desktop and phone): shelf out 1-1.035, clipboard in 1.035-1.085.
+- [x] Tools to memory: unused tiles fade in the first 35% (memory-motion.ts); memory text in memorySettled-.04 to +.02, out downloadStart-.03 to +.01.
+- [x] Copy: tools head "No new tab for that."; closing head "⌘ Space, then anything."; AI demo result "Are you free tomorrow?".
+  Evidence: `/tmp/anvil-qa/stops*.png`, `/tmp/anvil-qa/tx-mem.png`, `/tmp/anvil-qa/copy*.png`.
+- [x] Reduced motion / static mode: tools results drawn with `Tiles` (exported from launcher.tsx), source slab hidden, compact launcher shown, two-column grid on desktop; memory "81%" drawn with Tiles; static HEIC file has tile grout + label chip; static shelf tiles glazed; `.launcher-tiles i` animation off under reduced motion. Evidence `/tmp/anvil-qa/reduced-*.png`.
+- [x] Methodology transition exists and works (81% tiles fly to the page header): `/tmp/anvil-qa/method/0-9.png`. Heading orphan fixed with nbsp.
+- [x] 404 tiles moved to the glazed material (not-found.css).
+- QA: 0 axe serious, 0 audit FAIL/WARN, 0 console errors, CLS 0, mobile LCP 1.10s.
+- Critic pass 3 (stricter, 69 images): 7.1 (D7 U7 C7 Ct8; WPO 9). SOTD blocker: result glyphs switched to small flat LED cells mid-site. Fixed after it:
+  - One glyph cell size: results capped at 7 chars per line, 2-line results get maxHeight .34 (tools-motion.ts). Snippet "Thank\nyou.", AI demo "can u call me" -> "Can you\ncall me?". Snippet caret fades at rest.
+  - Mold grid painted over the hero launcher: moved to `.shelf-mold` child with `fileOpacity`.
+  - Blank frame in methodology transition: `holdFigure()` in story.tsx puts an inline-styled copy of the landed 81% on body before router.push, removed by MutationObserver when `.methodology-figure` mounts (3s fallback). Methodology figure tiles glazed.
+  - One header on every page: `SiteHeader` = `.foundry-nav` + Download + `GitHubLink` (shared from site-chrome.tsx); methodology figure margin 104px keeps y=132 for the flight target.
+  - Phone tabs wrap to two rows (14px, no padding), `centerTab` deleted; phone glyph baseline .52, developer clock .455, label 34.5%.
+  - Tools text fades in toolsEnter+.02 to +.08 so the belt passes first. Methodology table values nowrap. Static clipboard centers the selected card.
+  QA: 0 axe serious, 0 audit FAIL/WARN, 0 errors, CLS 0, mobile LCP 1.24s.
+- Critic pass 4: 7.6 (D7.5 U7.5 C8 Ct7.5; Anim 8, A11y 8, WPO 8.5). SOTD blocker: tools section = six identical beats, a third of the scroll. Fixed after it:
+  - toolBeatLength .22 -> .15 (storyEnd 3.78 -> 3.36). New stops: tools 1.86/2.01/2.16/2.31/2.46/2.61, memory 2.92, end 3.36.
+  - Demo content: AI "lol ok" -> "Sounds\ngood.", video input "youtu.be/aqz-KE-bpKQ".
+  - Closing trail: only the 3 tiles below the headline + arrow (no clipped top-left segment).
+  - Footers at the header gutter (2.87%, phone 20px) on home and 404. Story nav fixed in both modes (reduced motion keeps the header).
+  - Handovers: hero copy out .28-.36, shelf heading in .35-.41, clipboard in 1.03-1.065.
+  - Clipboard controls grouped in the right column under the heading (desktop ready); repeated value line hidden.
+  - Phone tools launcher at 71%, developer date at .635H.
+  QA: 0 axe serious, 0 audit FAIL/WARN, 0 errors, CLS 0, mobile LCP 1.28s.
+- Critic pass 5: 7.1 (D7 U7 C7 Ct8; Anim/A11y/WPO/Sem/Meta 8). Critics swing 7.1-7.6; every pass names the same blocker: the tools section's six identical tab+output stops. Small fixes after it: tools heading fades in toolsEnter-.02..+.03, tabs and launcher toolsEnter+.04..+.09 (`controlsOpacity`, static override in tools.css); clipboard controls 14-15px; phone clock .47H, label 36%; 404 phone footer 20px. Not bugs: h-02 rest/hover pair captured mid hero-copy fade; `input "INPUT"` is the labelled clipboard search.
+- [x] Tools section, "literal answers" pass (user asked for something more unique): calculator builds a 24x18 grid of 432 tiles, video link becomes a tile file icon with a play triangle (outline + dot fill, echoes the shelf mold), AI rewrite scatters into a cloud and recondenses. Translation flip, snippet caret and developer clock unchanged. Evidence: /tmp/tl2, /tmp/tl3 frames, 0 console errors.
+- [ ] Next: user feedback on the literal-answer direction; then a fresh critic pass.
+
+## The last 20% plan, 2026-11-01
+- Plan: docs/plans/2026-11-01-foundry-last-20-percent.md (7 phases, 50+ tasks, each pinned to a file:line finding).
+- Evidence: three read-only audits (Opus 5.5) in docs/plans/2026-11-01-last-20-audits/{panel,features,onboarding}.md. P0 claims re-read in source before the plan was written.
+- Open decisions D1–D8 at the top of the plan (entrance motion, four-step onboarding, launch at login default, Camera cut, keep DevTools/Translator as modes, casing rule, favicon policy, commit granularity). Tasks implement the recommendation; change the task, not the bar, if the user picks otherwise.
+- Not started. The tree still carries the uncommitted mini port (Phase 0 lands it first).
+
+## 2026-11-01: website "last 20%" plan
+- Design: docs/plans/2026-11-01-foundry-last-20-design.md. Plan: docs/plans/2026-11-01-foundry-last-20.md (Phases 0, A brand, B truth, C craft, D verify).
+- Done: Codex gpt-6.1-sol imagegen logo concepts in docs/brand/concepts/ (8 directions, CONCEPTS.md, RESEARCH.md); Sonnet 5.5 site research in docs/brand/RESEARCH-websites.md (25 ranked items, folded into the plan as R#). Shortlist in docs/brand/SHORTLIST.md. User chose Split Mould (Codex 02), Command Joint (05) as alternate.
+- Not done: live screenshots of the site. npm registry was unreachable or at 3 KB/s; node_modules/@next/swc-darwin-arm64 is a truncated download and `next dev` fails to load SWC. Fix: reinstall that package when the network is back (Task 0.1 notes).
+- Phase 0 done (3fbb8a2): port committed in three building commits; FoundryBackupTests compared re-encoded config bytes (the old intermittent failure), now compares decoded configs. Baseline in docs/benchmarks/2026-11-01-last-20-before.md. Design lint ratchet seeded. Not taken: panel.show and open-panel idle CPU (they put windows on screen).
+- Phase 1 done: 1.1 resume after quit, 1.2 inert exits (abandon falls back to ⌥Space when ⌘Space is held), 1.3 Home paints on reopen, 1.4 truthful footer, 1.5 snippet browsing, 1.6 Quick AI error notice and stream follow, 1.7 clipboard feedback, 1.9 overlay fallback ground (luminance 0.57 → window background), 1.10 four destructive confirmations, 1.11 one Accessibility surface per request plus NSAppleEventsUsageDescription.
+  - 1.8 was a false audit finding: navigableResults already returns [] outside search. Test kept as a guard.
+  - Found by looking: prompt Cancel rendered black in dark mode; now textSecondary. docs/qa/2026-11-01-last-20/phase1/overlay-*.png.
+  - Gate: 693 tests, 0 failures, 7 skipped; three lints pass.
+  - Note: other sessions edit anvil/ and foundry-ad/ in this checkout concurrently. Stage exact paths.
+- Phase 2 in progress (last-20 panel plan):
+  - Done: 2.1–2.3 (d5a91fd) motion tokens, AppKit fade entrance, one row; 2.4 (2b487ab) destructive actions last behind a rule, flat keycaps, Radius.popover; 2.5 (e332b69) fixed 20 pt field, Shift-Tab inert, reopen keeps query selected, delayed loading hairline, no result count; 2.6 (bfc20d0) notices and widget strip moved below the list.
+  - Deviation: 2.4 keeps the actions filter in the header field. Moving it into the popover needs a live focus check, and HID events are off-limits.
+  - Deviation: 2.5 leaves Esc and arrows to the panel's own keyDown, which already handles them.
+  - Renders: docs/qa/2026-11-01-last-20/phase2/. Offscreen renders cannot draw glass, so surfaces look tinted; judge structure only.
+  - Done: 2.7 (acd7a9e) one empty state, cold-Home skeleton; 2.8 (9318169) ⌘1–8 favorites with hold-⌘ hints, ⌃N/⌃P, ⌘↑/⌘↓, page keys, Esc clears feature filter; 2.9 (755c070) VoiceOver selection announcements, spoken shortcuts, Increase Contrast alphas; 2.10 (7e02e0e) hand cursor only on links, whole-button hit areas; 2.11 (475f151) copy per D6; 2.12 (1fc2b4a) one toast timing.
+  - Skipped in 2.7: "Spotlight isn't responding" notice. File search has a 250 ms deadline, so the notice would fire on ordinary slow queries.
+  - Skipped in 2.8: onScrollVisibilityChange swap; the current visibility tracking works.
+  - 2.9: AppKit will not construct a high-contrast appearance on request, so the theme reads NSWorkspace's Increase Contrast flag. Needs a live check with Increase Contrast on.
+  - 2.11: applied D6 itself where the plan's item list contradicted it ("Take the Tour" stays a Title Case button, "Ranking reset" stays a sentence-case message). "Click" keycaps wait for 4.2.
+  - Gate: 709 tests, 0 failures, 9 skipped; lints pass. Ratchet: corner-radius 124 → 117, pointing-hand 9 → 3. Under load from other sessions, one full run showed 4 failures that did not repeat.
+  - Gate owed: live captures (light, dark, Reduce Transparency, Increase Contrast) and the fresh-context critic. Offscreen renders cannot draw glass, so a critic would judge render artefacts.
+  - Next: Phase 3 onboarding.
+- Phase 3 done (onboarding):
+  - 3.1–3.5 (8d139c2): four steps (welcome, shortcut, bring your stuff, done). Try it lives on the shortcut step and completes only on a real launch (resultExecuted). ⌘ Space is taken only after "Take ⌘ Space"; "Use ⌥ Space" is the other answer. If ⌘ Space reaches the onboarding window, Foundry offers ⌥ Space or recording another chord. Alfred snippets import from the preferences bundle; Raycast imports from an exported JSON. AI is chosen quietly (Apple Intelligence, else a running local model). Done is a receipt plus a Starts-at-login switch (on) that registers on finish.
+  - 3.6 (1a5c5ee) first panel after setup shows "Type an app, a file, or something you copied" once; the first launch shows "That’s it. ⌘ Space, a few letters, Return." once.
+  - 3.7 (cd6bc8a) paste, snippet insert, window tiling and screen OCR ask for Accessibility or Screen Recording in the panel before acting; the item stays copied. New PermissionKind.screenRecording.
+  - 3.8 (4dc9e5d) one notice slot above the footer; What's New 1.3 names ⌘1–⌘8 favorites (window layouts were not new, so the plan's copy would have been untrue); five tips after five launches, one a day, dismissals stick.
+  - 3.9 (343d267) VoiceOver hears each step and the first launch; Skip setup contrast tested at 4.5:1 or better.
+  - 3.10 (a7b3678) one-time "Start it at login?" notice on the second launch when the login item is off.
+  - Not done in 3.9: chalk-lands-chalk in CastMark.swift. Another session has uncommitted edits to that file; left alone.
+  - Removed from onboarding: the preferences, permissions and AI steps. ⇧⌘V is no longer offered during setup; it lives in Settings.
+  - Gate: 733 tests, 0 failures, 9 skipped; lints pass. Renders in docs/qa/2026-11-01-last-20/phase3/.
+  - Gate owed: a real-window recording of the cast and the Try-it success, a fresh-account keyboard-only walk timed to the first launch, and the blind critic. All need the user or a second account.
+  - Flaky under load: AgentMonitorTests.testWorkspaceDiffIncludesStagedAndUntrackedFiles (passes alone).
+
+### Execution log (plan docs/plans/2026-11-01-foundry-last-20.md)
+- Task 0.1 done: anvil/scripts/qa.mjs + qa-routes.json + qa.test.mjs (3 tests pass). Baseline in docs/qa/2026-11-01-website/before/ and README.md there. Timings taken under load average 114 (about 16 agents); re-measure on a quiet machine.
+- Task 0.2 done: first frame has no wordmark (CSS background loads late); SVG to WebGL swap pops brighter. Evidence before/trace/handover.png. Cold shader compile blocks the main thread (structural; no compileAsync).
+- Fixed on the way: clipboard card hydration mismatch (pose values rounded). Console clean after.
+- Task 0.3 running: Opus 5.5 critic writing docs/qa/2026-11-01-website/critique-before.md.
+- Task A2 done: docs/brand/tokens.json -> app/foundry/tokens.css + tokens.ts (build-tokens.mjs, 5 tests). CSS role colours and the 3D scene read tokens. Pixel diff vs baseline: identical (a2-tokens/). Swift BrandTokensTests red on drift, green now. docs/brand/BRAND.md written.
+- Not committed: the anvil/ tree carries the user's uncommitted 22-file polish diff, so per-task commits would sweep it in. Waiting on the user.
+- Task A3 in progress (Split Mould): master `docs/brand/mark/mark.svg` on a 120 grid (5-unit coords, radius 10), hinted 16 px and mono variants; `anvil/scripts/mark.test.mjs` 5 tests. Site: `app/foundry/mark.tsx` in nav and footer, `app/icon.svg`, `apple-icon.png`, `favicon.ico` (hinted 16). App: `scripts/render-icon.swift` rewritten, AppIcon.iconset + icns re-rendered; menu bar glyph in `CastMark.swift`; `MenuBarMarkTests` red before, green after. build-app.sh + verify-packaging.sh pass.
+  - Remaining A3: OG image, DMG background, onboarding cast still draws the old "f." tiles, live Dock/menu bar captures (needs the user's OK to run the app), BRAND.md construction section, app chalk ramp alignment.
+- Critic HIGHs fixed: 768 shelf overlap, 768 memory text over tiles, first paint (SVG wordmark via next/image eager, ramp brightened, 160 ms crossfade). Evidence docs/qa/2026-11-01-website/after/ and c3-trace/ (README "After").
+- Machine rebooted mid-session; scratchpad helpers lost. Servers: `next start -p 3124` from anvil/.
+- User 2026-11-01: "we'll notarize the app don't worry. so remove the modal. fix the C3 and yeah make it 1.2.0". Done: modal deleted (B2 site side), version from ../VERSION (B1, shows 1.2.0), C3 chunked setup + compileAsync (longest task ~200-295 -> ~120-190 ms under load). Evidence in docs/qa/2026-11-01-website/README.md (B1, B2, C3). Notarization itself is the user's; publishing 1.2.0 is the user's.
+- Next: C4 story details (critic MEDIUMs), A3 leftovers, B3-B5.
+
+- Phase 4 in progress:
+  - Found: every test that built CommandPanelState read and rewrote the real ~/.config/foundry/ai-chats.json and could write ~/.config/foundry/snippets.json. A new 4.1 test wrote two "Untitled Snippet" rows to the real snippets.json; they were removed (the file holds [] now, as before the run). Fix 93538e9: ConfigService.dataURL keeps data beside its config, so test configs get test data. Other default stores (ShellController, ActionRunner, CommandRegistry, SnippetExpansionService, LibraryProvider) still default to ~/.config and are only used with explicit stores in production.
+  - 4.1 (4156dbe) ⌘K in Clipboard, Snippets, File Shelf via PanelClosureAction; listed shortcuts run without opening the list; Return on the shelf opens the selection.
+  - 4.2 partial (06e448e) no Click keycaps; ⌘↵ copies the first Developer Tools output. Still owed: shelf ⌘A and space, Media ↵/⌫, Agents ↵, drop chooser keys.
+  - 4.4 (6936445) Esc closes the snippet argument prompt first, then clears the Quick AI composer.
+  - 4.3 (2f2eebe, 2e7b460) snippet import/export summaries; every copy confirms through notify(_:dismissed:): the HUD when the panel closes (emoji, clipboard ↵/⌘↵), the in-panel line when it stays (Developer Tools, Translator, Media "Copied link"). Deviation: no "Pasted" HUD; the pasted text landing in the target app is the confirmation. Suite 741 tests, 0 failures; user data unchanged (md5 before/after).
+  - 4.5 (17acd79) Clipboard: filter chips with counts (empty kinds hide), Pause as FoundryActionButton, paused InlineNotice with Resume, count in the footer status slot, rows 40 pt / 26 pt icon / Radius.row, hover Paste + Remove, preview keeps Copy and Paste, merge/OCR/QR/shelf/open link in ⌘K, search covers source apps (bundle id). InlineNotice text is textPrimary now, glyph tinted (warning text was low contrast in light). Renders docs/qa/2026-11-01-last-20/phase4/clipboard-*.png. Deviation: no separate "Paste as Plain Text"; clipboard text payloads are plain already, so it would duplicate Paste.
+  - 4.6 (59a00d5) Snippets: one duplicate-keyword warning (selected snippet's clash first), one expansion warning only when expansion is off or Accessibility is missing, with Open Settings (new SettingsDeepLink.snippets); Auto-expand switch and static secure-field line gone; rows show the first content line with the keyword as a mono badge; usage and "Edited …" in the editor footer (RelativeDateTimeFormatter, "just now" under a minute); editor 13 pt or 12 pt mono behind a toggle; ⌘N focuses the title (freshSnippetID); trash goes through the panel's confirmDeleteSnippet prompt (the view's own alert is gone); argument prompt on FoundryGlassSurface with PanelPromptOverlay's buttons. Renders snippets-*.png. Glass is transparent offscreen (actions overlay too), so the prompt surface needs a live look.
+  - 4.7 (25049e3) Quick AI: blank chats are never saved and reopening reuses the one blank chat; the model menu no longer called setDefaultAIProfile (it did, a real bug) and now only sets the chat's model; empty Return is a no-op and Send un-emphasizes while empty; running steps show a mini ProgressView; chat list is keyboard-driven (↑↓, ↵, ⌘⌫ deletes, relative date) and lists only saved chats; composer 20 pt with the placeholder at the text inset in placeholderTextColor; "AI Settings…" on the retry row; empty state is the three suggestions. Render quickai-empty-*.png. Not done: the chat-list popover and the ⌘⌫ path need a live keyboard check.
+  - 4.8 (d819f0c) File Shelf: header "3 Files" / "2 of 3 Selected"; BEN2 setup menu and the trash button gone (Clear Shelf… is ⇧⌘⌫ in ⌘K); background menu reads "Remove Background" and "Remove Background (Detailed)" with a "One-time model download" subtitle that downloads then runs; model removal lives in Settings › General with "Delete the background-removal model? You can download it again later."; drops onto the shelf shelve directly; the drop chooser has a selected row (↑↓, ↵ on the selection, ⌘1–4 keycaps); multi-image OCR runs in order and copies once (it raced before, last task won). Deviations: folders still shelve (the code accepts them), so the rejection copy names the real case: "Only files can go on the shelf. Drop them from Finder."; multi-image OCR copies to the clipboard like single OCR instead of writing a text file. Renders shelf-*.png, drop-chooser-dark/light.png.
+  - 4.16 (4330f2e) Camera cut: view, state, capture service, provider, OpenCameraAction, route, NSCameraUsageDescription, camera entitlement (Foundry.entitlements is now an empty dict; checked that an empty dict signs and passes `codesign --display --entitlements :- | plutil -lint -`), README line. 530 lines deleted. Release notes for 1.3.0 (Phase 7) must say Camera is gone.
+  - 4.9 (a3535e9) Conversion: the button's shortcut is ↵ when idle and ⌘. while converting ("Cancel ⌘."), so a second Return no longer cancels; status renders through InlineNotice with a level from the phase (InlineNotice gained .success); drop target fillSelected + selectionBorder, accent glyph and progress tint; Name and Longest Edge are native menus that show real names ("photo-converted", "photo-2026-11-01") and "Original / 4096 px …"; result rows fit the 30 pt icon buttons. Deviations: the Convert button keeps a token fill with a hairline at Radius.control, because FoundryGlassSurface(.prominentControl) blanked the whole settings card offscreen (verified by swapping it back); chips truncated, so the two long rows became menus. Render conversion-*.png.
+  - 4.10 partial (deadf59) Media: favicons follow the Site icons switch (D7; tested that no icons.duckduckgo.com URL exists when off; the switch subtitle now names Media Downloads); "\(n) links aren’t supported and were left in the box."; selection is RowBackground instead of an accent stroke; radii on tokens. Owed: composer into the header slot, folder/Change into ⌘K, "Supported links" into the empty state, keyboard-first selection (selection is view @State today, so ↑↓/↵/⌫ need it moved into MediaDownloadManager), completion through showActionFeedback (kept the card: it carries Reveal and Open).
+  - 4.11 (see git log) Translator: the language pair persists (injected UserDefaults; tests use their own suites) and survives reset; the spinner starts after the debounce; status row holds its height; errors render as InlineNotice and offer "Try Apple Intelligence" only for backend failures; "Replace" with help "Replace the selection in \(app)"; pane radius on tokens. Owed: Detect source (NLLanguageRecognizer) and the list from LanguageAvailability.
+  - 4.12 (148426b) Emoji: cells have section-scoped ids ("recent:🔥", "all:🔥"), one flat navigable list so arrows reach Recent; cells render the tone-applied value; Return pastes through directPasteService (copy fallback with a HUD, Accessibility prompt path copies and stays); footer "Paste ↵ · Skin Tone ⌘T" with the selected emoji's name in the status slot; RowBackground cells, no hover scale; FoundryEmptyState "No emoji for “query”"; columns fixed at 12 (control and cycle removed). Render emoji-*.png.
+  - Translator follow-up in the same commit: the pair moved from UserDefaults to LocalStateStore (it leaked between tests through .standard); opening Translator into the current source language swaps instead of producing French→French.
+  - 4.13 (0126e33) Developer Tools: header "Developer Tools" with a tool chip (FeatureTitle gained `detail`), values truncate in the middle with the full value in help (no 0.55 scaling), destructive token, radii and fills on tokens. Calculator: "=" for arithmetic and "→" for conversions, curly quotes in "Use “…” with…", the dead gear gone, scale floor 0.6, the trimmed query instead of "Calculation". Not done: one chip row (the 4×2 tool grid stays) and Base Conversion's surface.
+  - 4.14 (699f85c) Agents: the in-body title row is gone (refresh sits beside the tabs; "N active" in the footer status); tabs list only providers with sessions; a warning only when the socket is off, with Open Settings (new SettingsDeepLink.agents); rows that cannot jump stay enabled and explain on click ("Codex doesn’t support jumping to a session yet."); empty state "No agent sessions yet" with "Open Agent Settings"; Running reads as Working; the "Recent" status label hides. The agents render showed the user's real session titles, so it is not committed and the render was removed from the test.
+  - 4.15 partial (6af312e) Settings: the window keeps its saved frame (center() ran after setFrameAutosaveName and overrode it; test fails on the old order, passes on the fix); the last pane is remembered (@AppStorage "settings.lastPane"); "Pop to root" → "Return to Home after" with "Reopening sooner than this resumes where you left off." (search index keeps "pop to root" as a keyword); "Rectangle-style" → "Suggested shortcut"; clipboard item limit is a menu of 100 / 250 / 500 / 1,000 / 5,000 (keeps an unusual current value). Owed from 4.15: sidebar List in NavigationSplitView, commit-on-blur fields, recorder keys and focus ring, widget reorder opacity, quicklink Undo toast, Appearance merged into General, 140 pt control column, SettingsGroup radius/stroke, error indent, D6 casing sweep, native delimiter/Return controls, Agents tracked sessions removal.
+  - 4.15 done (898aaf1) Settings rail is `List(selection:)` in a `NavigationSplitView` (sidebar 210 pt, pane title in the toolbar, full-size content); Appearance merged into General as Panel contrast (search anchor general.contrast); Agents tracked sessions removed; recorder: Space/Return record, esc cancels, ⌫ clears where clearing exists, focus ring, accessibility button (ShortcutRecorderTests); fields commit on blur (CommitOnBlur); quicklink removal shows Undo; widget controls rest at 0.5; one 140 pt control column (Control.settingsColumn); SettingsGroup radius Radius.row with separator stroke; error indent 82; delimiters are checkboxes, Return key a segmented picker; D6 on the last four sentence-case buttons. Settings renders now use `screencapture -l` on a real window (the sidebar table does not draw offscreen). Suite 763, 0 failures; ratchet corner-radius 54, opacity-expression 12.
+  - 4.2 + 4.10 done (d2e806c) File Shelf: ⌘A selects all (⌘A goes to the field only when it has text), Space is Quick Look, footer shows it. Media: the link field is the header (featureSearchField), selection lives in MediaDownloadManager (arrows walk active then recent), ↵ downloads, or opens/retries the selected row when the field is empty (footer label follows), ⌘⌫ removes, ⌘K lists Open/Show in Finder/Retry/Cancel/Open Source Page/Copy Link/Open Download Folder/Change Download Folder…; "Supported links" sits under the empty state; speed and count moved to the footer status. Agents: arrows select (provider filter now in AgentMonitorState), ↵ opens or explains. Kept: Media completion card (it carries Reveal and Open).
+  - Surprise fixed in d2e806c: `UsageRankingStore` defaulted to the real `~/.local/share/foundry/usage.json`, so 37 test sites read and wrote the user's ranking file (it holds test records such as `test.background-download` with 132 opens). The URL is now a required argument; tests use `UsageRankingStore.scratch`. The golden ranking table had been recorded against that live history; four cases re-recorded on a clean store (sys, center, trans, settings). On a clean store "trans" ranks "Open Transfer or Reset Settings" above "Translate" and "settings" no longer shows "Open Foundry Settings" in the top 3. The test pollution already in the user's usage.json was left alone (user data). The md5 check now covers usage.json too.
+  - 4.11 + 4.13 done (see git log, "Phase 4.11/4.13") Translator: "Detect Language" is the default source (NLLanguageRecognizer), the menu label reads "French (Detected)", swap turns the detected language into the target, undetectable text says so. Deviation: the language list stays the 12-language table; LanguageAvailability needs an identifier-keyed language model (the stored pair and parser are name-based) and is macOS 15 only. Developer Tools: one chip row with short names (Base, Bits, Base64, JSON, Case, Timestamp, Words), full name in the header chip and help; section titles dropped for one hint line; Base Conversion sits on the shared surface; even 14 pt padding. Suite 769, 0 failures.
+  - Phase 4 complete except the gate items that need the user (live captures, blind critic).
+  - 5 done: all cuts landed in Phase 4; 5.1 (de2485e) deleted 114 lines that only served removed surfaces. Kept Brand wordmark/legend tokens (other session's icon work is live there).
+  - 6 done (809faed) radius/height/opacity/colour literals replaced by tokens (Radius.tile; Control.track/glyph/line/mini/compact/field/row/rowTall/rowDouble/editor/preview; Panel header/footer; hairline; Backdrop washes; onLightFaint); 26→24, 28/32→30, 34→36, 42/44→40, 46→48 snapped; selectionBorder and fillEmphasis 0.15; sectionHeader = textSecondary; agent working = success, review/completed = accent; rowTitle 13; strip floor 10, small labels 11 semibold; pointer cursor removed (no links used it); ratchet deleted, new frame-height rule; lint passes with no allowances. Suite 769, 0 failures. Renders in docs/qa/2026-11-01-last-20/phase6.
+  - 7.1 (452c93d) Home clipboard widget reads the clipboard history instead of polling the pasteboard every 10 s (WidgetBoardTests); after-benchmarks in docs/benchmarks/2026-11-01-last-20-after.md: search.immediate p95 14.6–16.6 ms across four runs vs 15.61 ms for the baseline commit re-run the same afternoon (bar ≤ 16 ms: on the bar, inside this machine's noise). The disk filled during the paired run (machine at 100%, ~750 MB free; not this work's scratch, 14 MB); the baseline worktree was removed.
+  - 7.4 (0f23e20) VERSION 1.3.0, docs/release-notes/1.3.0.md (Camera removed is the first line). Committed, not pushed: pushing VERSION starts the release workflow. README has no Camera or Appearance mention, so no change. docs/HANDOFF.md not touched: another session has uncommitted edits there.
+  - Perfection report:
+    - The 80% version (before): working features with per-surface chrome, a 7-allowance lint ratchet, Camera, an Appearance pane, tracked sessions in Settings, mouse-only Media/Agents, tests writing the user's ranking file.
+    - The last 20%, with evidence: Phases 1–6 lines above; renders in docs/qa/2026-11-01-last-20/{phase1,phase2,phase3,phase4,phase6}; suite 770 tests, 0 failures; design lint 0 violations with no ratchet; user data md5 unchanged after every full run (snippets.json, ai-chats.json, usage.json).
+    - Still imperfect, and why: (1) no live captures in light/dark/Reduce Transparency/Increase Contrast, no blind critic, no four-user walks, no panel.show/idle CPU/RSS numbers: each needs the app on screen or a second account, and the user was at the machine. (2) Search latency p95 is on the 16 ms bar; needs an idle-machine re-run of both commits. (3) Translator languages stay a fixed 12. (4) Media keeps its completion card. (6) The user's usage.json still holds test records written before d2e806c.
+  - Headers (user chose normal case over the 1.1 tracked caps): uppercase and tracking removed from section and field labels in Calculator, Window Layouts, Conversion, Developer Tools, drop chooser, Home, Agents (now FoundrySectionHeader); file-type badges keep caps. Snapshot references re-recorded and inspected. Suite 770, 0 failures.
+  - Phase 4 status: 4.1, 4.3, 4.4, 4.5–4.9, 4.12, 4.14, 4.16 done; 4.2, 4.10, 4.11, 4.13, 4.15 partial (owed items listed on each line above). Suite 760 tests, 0 failures, 10 skipped; lints pass; ratchet corner-radius 116 → 58, opacity-expression 17 → 14, named-colour 8 → 7. User data checked unchanged (md5 of ~/.config/foundry/snippets.json and ai-chats.json) after every full run.
+  - Phase 4 gate owed: live captures of every surface (offscreen renders cannot draw glass; the drop chooser, argument prompt and actions overlay surfaces render transparent), the blind critic on the set.
+  - Next: Phase 4 owed items above, then Phase 5 cuts, Phase 6 token collapse, Phase 7 gauntlet (version 1.3.0, release notes that say Camera is gone).
+- User 2026-11-01: "finish the plan". Answers: MIT licence; live app captures "Not now"; skip /vs/raycast.
+  - Done: B3 /proof, B4 /privacy + LICENSE, B5 /changelog + feed, A4 /brand (helpers, Sonnet 5.5 and Opus 5.5); C2 ⌘K palette + section hashes; C4 critic MEDIUMs except the calculator grid (user decision); C5 focus ring, theme colour, colour scheme, 404 hint; C6 harden checks; A3 OG image and onboarding cast; D3 HANDOFF website section and design-doc decisions.
+  - Evidence: docs/qa/2026-11-01-website/README.md "Final". Home Lighthouse performance 71 to 75 under load; budget not met.
+  - Surprise: anvil/node_modules was deleted twice by something outside this session (disk 99% full, 7.7 GB free). Reinstalled with `npm ci` both times.
+  - D1 critique: "ship with fixes"; both HIGHs, both MEDIUMs and the LOW fixed and recaptured (README "D1"). Open: critic #9, #11, #14.
+  - Nothing committed; anvil/ still mixes the user's uncommitted diff with this work.

@@ -14,7 +14,10 @@ final class WeatherService: Sendable {
             try await fetchJSON(GeocodingResponse.self, from: geoURL)
         }
         guard let place = geo?.results?.first,
-              let forecastURL = URL(string: "https://api.open-meteo.com/v1/forecast?latitude=\(place.latitude)&longitude=\(place.longitude)&current=temperature_2m,weather_code,is_day") else {
+              let forecastURL = URL(
+                  string:
+                      "https://api.open-meteo.com/v1/forecast?latitude=\(place.latitude)"
+                          + "&longitude=\(place.longitude)&current=temperature_2m,weather_code,is_day") else {
             return nil
         }
 

@@ -1,0 +1,263 @@
+[
+  {
+    "name": "home-1440-at0.000.png",
+    "status": 200,
+    "errors": [],
+    "violations": [
+      {
+        "id": "aria-allowed-role",
+        "impact": "minor",
+        "nodes": 1,
+        "help": "ARIA role should be appropriate for the element"
+      }
+    ],
+    "scene": "ready",
+    "font": "Geist, \"Geist Fallback\", sans-serif",
+    "geist": true,
+    "overflow": 0
+  },
+  {
+    "name": "home-1440-at0.840.png",
+    "status": 200,
+    "errors": [],
+    "violations": null,
+    "scene": "ready",
+    "font": "Geist, \"Geist Fallback\", sans-serif",
+    "geist": true,
+    "overflow": 0
+  },
+  {
+    "name": "home-1440-at1.300.png",
+    "status": 200,
+    "errors": [],
+    "violations": null,
+    "scene": "ready",
+    "font": "Geist, \"Geist Fallback\", sans-serif",
+    "geist": true,
+    "overflow": 0
+  },
+  {
+    "name": "home-1440-at1.860.png",
+    "status": 200,
+    "errors": [],
+    "violations": null,
+    "scene": "ready",
+    "font": "Geist, \"Geist Fallback\", sans-serif",
+    "geist": true,
+    "overflow": 0
+  },
+  {
+    "name": "home-1440-at2.920.png",
+    "status": 200,
+    "errors": [],
+    "violations": null,
+    "scene": "ready",
+    "font": "Geist, \"Geist Fallback\", sans-serif",
+    "geist": true,
+    "overflow": 0
+  },
+  {
+    "name": "home-1440-at3.360.png",
+    "status": 200,
+    "errors": [],
+    "violations": null,
+    "scene": "ready",
+    "font": "Geist, \"Geist Fallback\", sans-serif",
+    "geist": true,
+    "overflow": 0
+  },
+  {
+    "name": "home-768-at0.000.png",
+    "status": 200,
+    "errors": [],
+    "violations": [
+      {
+        "id": "aria-allowed-role",
+        "impact": "minor",
+        "nodes": 1,
+        "help": "ARIA role should be appropriate for the element"
+      }
+    ],
+    "scene": "ready",
+    "font": "Geist, \"Geist Fallback\", sans-serif",
+    "geist": true,
+    "overflow": 0
+  },
+  {
+    "name": "home-768-at0.840.png",
+    "status": 200,
+    "errors": [],
+    "violations": null,
+    "scene": "ready",
+    "font": "Geist, \"Geist Fallback\", sans-serif",
+    "geist": true,
+    "overflow": 0
+  },
+  {
+    "name": "home-768-at1.300.png",
+    "status": 200,
+    "errors": [],
+    "violations": null,
+    "scene": "ready",
+    "font": "Geist, \"Geist Fallback\", sans-serif",
+    "geist": true,
+    "overflow": 0
+  },
+  {
+    "name": "home-768-at1.860.png",
+    "status": 200,
+    "errors": [],
+    "violations": null,
+    "scene": "ready",
+    "font": "Geist, \"Geist Fallback\", sans-serif",
+    "geist": true,
+    "overflow": 0
+  },
+  {
+    "name": "home-768-at2.920.png",
+    "status": 200,
+    "errors": [],
+    "violations": null,
+    "scene": "ready",
+    "font": "Geist, \"Geist Fallback\", sans-serif",
+    "geist": true,
+    "overflow": 0
+  },
+  {
+    "name": "home-768-at3.360.png",
+    "status": 200,
+    "errors": [],
+    "violations": null,
+    "scene": "ready",
+    "font": "Geist, \"Geist Fallback\", sans-serif",
+    "geist": true,
+    "overflow": 0
+  },
+  {
+    "name": "home-390-at0.000.png",
+    "status": 200,
+    "errors": [],
+    "violations": [
+      {
+        "id": "aria-allowed-role",
+        "impact": "minor",
+        "nodes": 1,
+        "help": "ARIA role should be appropriate for the element"
+      }
+    ],
+    "scene": "ready",
+    "font": "Geist, \"Geist Fallback\", sans-serif",
+    "geist": true,
+    "overflow": 0
+  },
+  {
+    "name": "home-390-at0.840.png",
+    "status": 200,
+    "errors": [],
+    "violations": null,
+    "scene": "ready",
+    "font": "Geist, \"Geist Fallback\", sans-serif",
+    "geist": true,
+    "overflow": 0
+  },
+  {
+    "name": "home-390-at1.300.png",
+    "status": 200,
+    "errors": [],
+    "violations": null,
+    "scene": "ready",
+    "font": "Geist, \"Geist Fallback\", sans-serif",
+    "geist": true,
+    "overflow": 0
+  },
+  {
+    "name": "home-390-at1.860.png",
+    "status": 200,
+    "errors": [],
+    "violations": null,
+    "scene": "ready",
+    "font": "Geist, \"Geist Fallback\", sans-serif",
+    "geist": true,
+    "overflow": 0
+  },
+  {
+    "name": "home-390-at2.920.png",
+    "status": 200,
+    "errors": [],
+    "violations": null,
+    "scene": "ready",
+    "font": "Geist, \"Geist Fallback\", sans-serif",
+    "geist": true,
+    "overflow": 0
+  },
+  {
+    "name": "home-390-at3.360.png",
+    "status": 200,
+    "errors": [],
+    "violations": null,
+    "scene": "ready",
+    "font": "Geist, \"Geist Fallback\", sans-serif",
+    "geist": true,
+    "overflow": 0
+  },
+  {
+    "name": "methodology-1440.png",
+    "status": 200,
+    "errors": [],
+    "violations": [],
+    "scene": null,
+    "font": "Geist, \"Geist Fallback\", sans-serif",
+    "geist": true,
+    "overflow": 0
+  },
+  {
+    "name": "methodology-0768.png",
+    "status": 200,
+    "errors": [],
+    "violations": [],
+    "scene": null,
+    "font": "Geist, \"Geist Fallback\", sans-serif",
+    "geist": true,
+    "overflow": 0
+  },
+  {
+    "name": "methodology-0390.png",
+    "status": 200,
+    "errors": [],
+    "violations": [],
+    "scene": null,
+    "font": "Geist, \"Geist Fallback\", sans-serif",
+    "geist": true,
+    "overflow": 0
+  },
+  {
+    "name": "missing-page-1440.png",
+    "status": 404,
+    "errors": [],
+    "violations": [],
+    "scene": null,
+    "font": "Geist, \"Geist Fallback\", sans-serif",
+    "geist": true,
+    "overflow": 0
+  },
+  {
+    "name": "missing-page-0768.png",
+    "status": 404,
+    "errors": [],
+    "violations": [],
+    "scene": null,
+    "font": "Geist, \"Geist Fallback\", sans-serif",
+    "geist": true,
+    "overflow": 0
+  },
+  {
+    "name": "missing-page-0390.png",
+    "status": 404,
+    "errors": [],
+    "violations": [],
+    "scene": null,
+    "font": "Geist, \"Geist Fallback\", sans-serif",
+    "geist": true,
+    "overflow": 0
+  }
+]

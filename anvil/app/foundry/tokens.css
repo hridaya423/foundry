@@ -1,0 +1,27 @@
+:root {
+  --f-ink: #0f0d0c;
+  --f-ink-raised: #191714;
+  --f-ink-raised-2: #201c18;
+  --f-ink-raised-3: #28241f;
+  --f-line: #484039;
+  --f-text: #eee7dd;
+  --f-muted: #bdb4aa;
+  --f-orange: #fa6428;
+  --f-orange-light: #ffa36c;
+  --f-orange-mid: #f0672b;
+  --f-orange-deep: #c94b19;
+  --f-orange-side: #f36f39;
+  --f-chalk: #c6bbab;
+  --f-chalk-light: #f4ede2;
+  --f-chalk-mid: #d6cdbd;
+  --f-chalk-deep: #b9ad9a;
+  --f-chalk-ink: #211d19;
+  --f-chalk-ink-muted: #51483e;
+  --f-tile-radius: 18%;
+  --f-tile-gap: 10%;
+  --f-ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --f-ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --f-press: 120ms;
+  --f-state: 220ms;
+  --f-enter: 450ms;
+}

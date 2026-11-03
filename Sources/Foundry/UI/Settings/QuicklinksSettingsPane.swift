@@ -3,22 +3,34 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 struct QuicklinksSettingsPane: View {
+    var settings: SettingsStore
     var store: QuicklinkStore = .shared
     @State private var links: [Quicklink] = []
     @State private var error: String?
+    @State private var confirmingRestore = false
+    @State private var removed: (link: Quicklink, index: Int)?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Type a keyword and your query, for example “g swift concurrency”. Use {argument}, {clipboard}, {date} or {time} in the link.")
-                .font(FoundryTheme.body(size: 12, weight: .regular))
-                .foregroundStyle(FoundryTheme.mutedText)
+            Text("""
+                Type a keyword and your query, for example “g swift concurrency”. \
+                Use {argument}, {clipboard}, {selection}, {date} or {time} in the link. {selection} needs Accessibility access.
+                """)
+                .font(FoundryTheme.bodySecondary)
+                .foregroundStyle(FoundryTheme.textTertiary)
                 .fixedSize(horizontal: false, vertical: true)
+
+            SettingsGroup {
+                SettingsToggleRow(title: "Site icons",
+                    subtitle: "Show each site’s icon in Quicklinks and Media Downloads. Foundry gets the icon from the site.",
+                    isOn: settings.quicklinkSiteIcons, set: settings.updateQuicklinkSiteIcons)
+            }
 
             SettingsGroup {
                 if links.isEmpty {
                     Text("No quicklinks yet.")
-                        .font(FoundryTheme.body(size: 12, weight: .regular))
-                        .foregroundStyle(FoundryTheme.mutedText)
+                        .font(FoundryTheme.bodySecondary)
+                        .foregroundStyle(FoundryTheme.textTertiary)
                         .padding(12)
                 }
                 ForEach($links) { $link in
@@ -30,7 +42,8 @@ struct QuicklinksSettingsPane: View {
                                 .frame(width: 70)
                             TextField("https://example.com/search?q={argument}", text: $link.link)
                             Button {
-                                links.removeAll { $0.id == link.id }
+                                guard let index = links.firstIndex(where: { $0.id == link.id }) else { return }
+                                removed = (links.remove(at: index), index)
                             } label: {
                                 Image(systemName: "minus.circle")
                             }
@@ -47,9 +60,10 @@ struct QuicklinksSettingsPane: View {
                                 set: { link.useFavicon = $0 ? nil : false }
                             ))
                             .toggleStyle(.checkbox)
+                            .disabled(settings.quicklinkSiteIcons == false)
                             Spacer()
                             Text("Open with")
-                                .foregroundStyle(FoundryTheme.mutedText)
+                                .foregroundStyle(FoundryTheme.textTertiary)
                             Button(Self.appName(for: link.openWithBundleID) ?? "Default", action: { pickApp(for: link.id) })
                                 .buttonStyle(.borderless)
                                 .accessibilityLabel("Choose app for \(link.name)")
@@ -61,13 +75,21 @@ struct QuicklinksSettingsPane: View {
                                 .accessibilityLabel("Use default app for \(link.name)")
                             }
                         }
-                        .font(FoundryTheme.body(size: 11, weight: .regular))
+                        .font(FoundryTheme.caption)
                     }
                     .controlSize(.small)
                     .padding(.horizontal, 12)
                     .padding(.vertical, 8)
-                    .opacity(link.isEnabled ? 1 : 0.55)
+                    .opacity(link.isEnabled ? 1 : FoundryTheme.Alpha.half)
                     if link.id != links.last?.id { SettingsDivider() }
+                }
+            }
+
+            if let removed {
+                InlineNotice(level: .info, text: "Removed \u{201C}\(removed.link.name.isEmpty ? removed.link.link : removed.link.name)\u{201D}",
+                    actionTitle: "Undo") {
+                    links.insert(removed.link, at: min(removed.index, links.count))
+                    self.removed = nil
                 }
             }
 
@@ -75,12 +97,17 @@ struct QuicklinksSettingsPane: View {
                 Button("Add Quicklink") { links.append(Quicklink(name: "", link: "")) }
                 Button("Import from Raycast…", action: importRaycast)
                 Spacer()
-                Button("Restore Defaults") { links = QuicklinkTemplate.defaults }
+                Button("Restore Defaults…") { confirmingRestore = true }
             }
             .controlSize(.small)
+            .confirmationDialog("Replace your \(links.count) quicklinks with the defaults?", isPresented: $confirmingRestore) {
+                Button("Replace", role: .destructive) { links = QuicklinkTemplate.defaults }
+            } message: {
+                Text("Quicklinks you added are removed. This can't be undone.")
+            }
 
             if let error {
-                SettingsNotice(text: error, symbol: "exclamationmark.triangle")
+                SettingsNotice(text: LocalizedStringResource(stringLiteral: error), symbol: "exclamationmark.triangle")
             }
         }
         .onAppear { links = store.load() }
@@ -92,7 +119,7 @@ struct QuicklinksSettingsPane: View {
             try store.save(updated.filter { $0.name.isEmpty == false || $0.link.isEmpty == false })
             error = nil
         } catch {
-            self.error = "Quicklinks could not be saved: \(error.localizedDescription)"
+            self.error = String(localized: "Quicklinks could not be saved: \(error.localizedDescription)")
         }
     }
 
@@ -101,10 +128,12 @@ struct QuicklinksSettingsPane: View {
         panel.allowedContentTypes = [.applicationBundle]
         panel.directoryURL = URL(fileURLWithPath: "/Applications")
         panel.allowsMultipleSelection = false
-        guard panel.runModal() == .OK, let url = panel.url,
-              let bundleID = Bundle(url: url)?.bundleIdentifier,
-              let index = links.firstIndex(where: { $0.id == linkID }) else { return }
-        links[index].openWithBundleID = bundleID
+        Task { @MainActor in
+            guard await runFilePanelAsSheet(panel), let url = panel.url,
+                  let bundleID = Bundle(url: url)?.bundleIdentifier,
+                  let index = links.firstIndex(where: { $0.id == linkID }) else { return }
+            links[index].openWithBundleID = bundleID
+        }
     }
 
     static func appName(for bundleID: String?) -> String? {
@@ -117,13 +146,19 @@ struct QuicklinksSettingsPane: View {
     private func importRaycast() {
         let panel = NSOpenPanel()
         panel.allowedContentTypes = [.json]
-        guard panel.runModal() == .OK, let url = panel.url else { return }
+        Task { @MainActor in
+            await importRaycastPanel(panel)
+        }
+    }
+
+    private func importRaycastPanel(_ panel: NSOpenPanel) async {
+        guard await runFilePanelAsSheet(panel), let url = panel.url else { return }
         do {
             let imported = try QuicklinkTemplate.importRaycast(Data(contentsOf: url))
             let existing = Set(links.map(\.link))
             links.append(contentsOf: imported.filter { existing.contains($0.link) == false })
         } catch {
-            self.error = "That file isn’t a Raycast Quicklinks export."
+            self.error = String(localized: "That file isn’t a Raycast Quicklinks export.")
         }
     }
 }

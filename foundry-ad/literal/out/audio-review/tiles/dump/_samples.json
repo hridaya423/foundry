@@ -1,0 +1,457 @@
+[
+ {
+  "name": "ti.casc.a",
+  "file": "ti.casc.a.wav",
+  "src": {
+   "file": "audio/assets/tiles/fs-182125_domino-3.ogg",
+   "start": 0.16,
+   "end": 2.65,
+   "pitch": 0
+  },
+  "dur": 2.49,
+  "peak_dbfs": -6.0,
+  "rms_dbfs": -31.7,
+  "attack_ms": 82.0,
+  "peak_ms": 412.5,
+  "head_db": -39.2,
+  "tail_db": -85.9
+ },
+ {
+  "name": "ti.casc.b",
+  "file": "ti.casc.b.wav",
+  "src": {
+   "file": "audio/assets/tiles/fs-26195_dominos-in-a-row.ogg",
+   "start": 0.1,
+   "end": 1.9,
+   "pitch": 0
+  },
+  "dur": 1.8,
+  "peak_dbfs": -8.0,
+  "rms_dbfs": -32.4,
+  "attack_ms": 28.0,
+  "peak_ms": 202.5,
+  "head_db": -77.0,
+  "tail_db": -104.8
+ },
+ {
+  "name": "ti.casc.floor",
+  "file": "ti.casc.floor.wav",
+  "src": {
+   "file": "audio/assets/tiles/fs-828399_gameboard-chips-drop-hit-constant-fast-c.ogg",
+   "start": 0.0,
+   "end": 2.29,
+   "pitch": 0
+  },
+  "dur": 2.29,
+  "peak_dbfs": -10.0,
+  "rms_dbfs": -27.5,
+  "attack_ms": 165.0,
+  "peak_ms": 1547.5,
+  "head_db": -64.6,
+  "tail_db": -105.4
+ },
+ {
+  "name": "ti.dA",
+  "file": "ti.dA.wav",
+  "src": {
+   "file": "audio/assets/tiles/fs-26194_domino-single.ogg",
+   "start": 15.239,
+   "end": 15.665,
+   "pitch": 0
+  },
+  "dur": 0.426,
+  "peak_dbfs": -10.0,
+  "rms_dbfs": -34.6,
+  "attack_ms": 9.0,
+  "peak_ms": 12.5,
+  "head_db": -69.1,
+  "tail_db": -48.3
+ },
+ {
+  "name": "ti.dB",
+  "file": "ti.dB.wav",
+  "src": {
+   "file": "audio/assets/tiles/fs-26194_domino-single.ogg",
+   "start": 6.431,
+   "end": 6.795,
+   "pitch": 0
+  },
+  "dur": 0.364,
+  "peak_dbfs": -10.0,
+  "rms_dbfs": -35.1,
+  "attack_ms": 9.0,
+  "peak_ms": 12.5,
+  "head_db": -79.3,
+  "tail_db": -51.2
+ },
+ {
+  "name": "ti.dC",
+  "file": "ti.dC.wav",
+  "src": {
+   "file": "audio/assets/tiles/fs-26194_domino-single.ogg",
+   "start": 0.418,
+   "end": 0.855,
+   "pitch": 0
+  },
+  "dur": 0.437,
+  "peak_dbfs": -10.0,
+  "rms_dbfs": -33.9,
+  "attack_ms": 10.0,
+  "peak_ms": 17.5,
+  "head_db": -68.1,
+  "tail_db": -39.9
+ },
+ {
+  "name": "ti.cE",
+  "file": "ti.cE.wav",
+  "src": {
+   "file": "audio/assets/tiles/fs-26194_domino-single.ogg",
+   "start": 11.304,
+   "end": 11.61,
+   "pitch": 0
+  },
+  "dur": 0.306,
+  "peak_dbfs": -10.0,
+  "rms_dbfs": -36.1,
+  "attack_ms": 10.0,
+  "peak_ms": 37.5,
+  "head_db": -66.4,
+  "tail_db": -62.0
+ },
+ {
+  "name": "ti.cF",
+  "file": "ti.cF.wav",
+  "src": {
+   "file": "audio/assets/tiles/fs-26194_domino-single.ogg",
+   "start": 11.694,
+   "end": 12.01,
+   "pitch": 0
+  },
+  "dur": 0.316,
+  "peak_dbfs": -10.0,
+  "rms_dbfs": -36.6,
+  "attack_ms": 9.0,
+  "peak_ms": 212.5,
+  "head_db": -66.2,
+  "tail_db": -43.9
+ },
+ {
+  "name": "ti.cI",
+  "file": "ti.cI.wav",
+  "src": {
+   "file": "audio/assets/tiles/fs-26194_domino-single.ogg",
+   "start": 10.837,
+   "end": 11.0,
+   "pitch": 0
+  },
+  "dur": 0.163,
+  "peak_dbfs": -10.0,
+  "rms_dbfs": -39.2,
+  "attack_ms": 62.0,
+  "peak_ms": 82.5,
+  "head_db": -67.1,
+  "tail_db": -48.8
+ },
+ {
+  "name": "ti.cG",
+  "file": "ti.cG.wav",
+  "src": {
+   "file": "audio/assets/tiles/fs-26194_domino-single.ogg",
+   "start": 12.636,
+   "end": 12.745,
+   "pitch": 0
+  },
+  "dur": 0.109,
+  "peak_dbfs": -10.0,
+  "rms_dbfs": -35.7,
+  "attack_ms": 9.0,
+  "peak_ms": 7.5,
+  "head_db": -50.9,
+  "tail_db": -45.3
+ },
+ {
+  "name": "ti.c2B",
+  "file": "ti.c2B.wav",
+  "src": {
+   "file": "audio/assets/tiles/fs-182126_domino-2.ogg",
+   "start": 7.215,
+   "end": 7.33,
+   "pitch": 0
+  },
+  "dur": 0.115,
+  "peak_dbfs": -10.0,
+  "rms_dbfs": -34.2,
+  "attack_ms": 42.0,
+  "peak_ms": 42.5,
+  "head_db": -54.1,
+  "tail_db": -47.5
+ },
+ {
+  "name": "ti.hA",
+  "file": "ti.hA.wav",
+  "src": {
+   "file": "audio/assets/tiles/fs-145126_bathroom-tiles-handled-02.ogg",
+   "start": 19.604,
+   "end": 19.805,
+   "pitch": 0
+  },
+  "dur": 0.201,
+  "peak_dbfs": -12.0,
+  "rms_dbfs": -35.9,
+  "attack_ms": 52.0,
+  "peak_ms": 52.5,
+  "head_db": -58.3,
+  "tail_db": -47.1
+ },
+ {
+  "name": "ti.hC",
+  "file": "ti.hC.wav",
+  "src": {
+   "file": "audio/assets/tiles/fs-145126_bathroom-tiles-handled-02.ogg",
+   "start": 15.466,
+   "end": 15.857,
+   "pitch": 0
+  },
+  "dur": 0.391,
+  "peak_dbfs": -12.0,
+  "rms_dbfs": -37.0,
+  "attack_ms": 9.0,
+  "peak_ms": 7.5,
+  "head_db": -62.1,
+  "tail_db": -47.6
+ },
+ {
+  "name": "ti.hE",
+  "file": "ti.hE.wav",
+  "src": {
+   "file": "audio/assets/tiles/fs-145126_bathroom-tiles-handled-02.ogg",
+   "start": 8.966,
+   "end": 9.356,
+   "pitch": 0
+  },
+  "dur": 0.39,
+  "peak_dbfs": -12.0,
+  "rms_dbfs": -33.0,
+  "attack_ms": 9.0,
+  "peak_ms": 17.5,
+  "head_db": -39.4,
+  "tail_db": -42.6
+ },
+ {
+  "name": "ti.turnF",
+  "file": "ti.turnF.wav",
+  "src": {
+   "file": "audio/assets/tiles/fs-145126_bathroom-tiles-handled-02.ogg",
+   "start": 3.408,
+   "end": 3.853,
+   "pitch": 0
+  },
+  "dur": 0.445,
+  "peak_dbfs": -11.0,
+  "rms_dbfs": -34.7,
+  "attack_ms": 49.0,
+  "peak_ms": 57.5,
+  "head_db": -45.4,
+  "tail_db": -40.0
+ },
+ {
+  "name": "ti.lock",
+  "file": "ti.lock.wav",
+  "src": {
+   "file": "audio/assets/tiles/fs-128286_plate-stack-hit.ogg",
+   "start": 0.11,
+   "end": 0.39,
+   "pitch": -2.0
+  },
+  "dur": 0.314,
+  "peak_dbfs": -6.0,
+  "rms_dbfs": -29.1,
+  "attack_ms": 6.0,
+  "peak_ms": 12.5,
+  "head_db": -33.2,
+  "tail_db": -62.3
+ },
+ {
+  "name": "ti.lockbody",
+  "file": "ti.lockbody.wav",
+  "src": {
+   "file": "audio/assets/tiles/fs-26194_domino-single.ogg",
+   "start": 15.239,
+   "end": 15.665,
+   "pitch": -3.0
+  },
+  "dur": 0.507,
+  "peak_dbfs": -8.0,
+  "rms_dbfs": -32.6,
+  "attack_ms": 11.0,
+  "peak_ms": 12.5,
+  "head_db": -69.5,
+  "tail_db": -46.9
+ },
+ {
+  "name": "ti.slide",
+  "file": "ti.slide.wav",
+  "src": {
+   "file": "audio/assets/tiles/fs-511334_scraping-tiles.ogg",
+   "start": 17.5,
+   "end": 17.95,
+   "pitch": 0
+  },
+  "dur": 0.45,
+  "peak_dbfs": -12.6,
+  "rms_dbfs": -27.6,
+  "attack_ms": 35.0,
+  "peak_ms": 242.5,
+  "head_db": -69.3,
+  "tail_db": -2.1
+ },
+ {
+  "name": "ti.burst",
+  "file": "ti.burst.wav",
+  "src": {
+   "file": "audio/assets/tiles/fs-705349_domino-out-pack.ogg",
+   "start": 0.0,
+   "end": 1.5,
+   "pitch": 0
+  },
+  "dur": 1.5,
+  "peak_dbfs": -7.0,
+  "rms_dbfs": -39.2,
+  "attack_ms": 286.0,
+  "peak_ms": 422.5,
+  "head_db": -64.4,
+  "tail_db": -86.4
+ },
+ {
+  "name": "ti.tock",
+  "file": "ti.tock.wav",
+  "src": {
+   "file": "audio/assets/tiles/fs-26194_domino-single.ogg",
+   "start": 15.239,
+   "end": 15.665,
+   "pitch": -2.0
+  },
+  "dur": 0.478,
+  "peak_dbfs": -8.0,
+  "rms_dbfs": -32.6,
+  "attack_ms": 10.0,
+  "peak_ms": 12.5,
+  "head_db": -69.4,
+  "tail_db": -62.6
+ },
+ {
+  "pool": "ti.clack",
+  "size": 7,
+  "items": [
+   "ti.cE",
+   "ti.dB",
+   "ti.cF",
+   "ti.cI",
+   "ti.dC",
+   "ti.c2B",
+   "ti.cG"
+  ]
+ },
+ {
+  "pool": "ti.flip",
+  "size": 4,
+  "items": [
+   "ti.cE",
+   "ti.turnF",
+   "ti.cI",
+   "ti.cF"
+  ]
+ },
+ {
+  "pool": "ti.drop",
+  "size": 8,
+  "items": [
+   "ti.dA",
+   "ti.hA",
+   "ti.dB",
+   "ti.hC",
+   "ti.dC",
+   "ti.hE",
+   "ti.cE",
+   "ti.cF"
+  ]
+ },
+ {
+  "pool": "ti.settle",
+  "size": 7,
+  "items": [
+   "ti.cI",
+   "ti.c2B",
+   "ti.cG",
+   "ti.cE",
+   "ti.cF",
+   "ti.hA",
+   "ti.dC"
+  ]
+ },
+ {
+  "pool": "ti.lift",
+  "size": 3,
+  "items": [
+   "ti.hC",
+   "ti.hE",
+   "ti.hA"
+  ]
+ },
+ {
+  "pool": "ti.lock",
+  "size": 1,
+  "items": [
+   "ti.lock"
+  ]
+ },
+ {
+  "pool": "ti.lockbody",
+  "size": 1,
+  "items": [
+   "ti.lockbody"
+  ]
+ },
+ {
+  "pool": "ti.slide",
+  "size": 1,
+  "items": [
+   "ti.slide"
+  ]
+ },
+ {
+  "pool": "ti.burst",
+  "size": 1,
+  "items": [
+   "ti.burst"
+  ]
+ },
+ {
+  "pool": "ti.tock",
+  "size": 1,
+  "items": [
+   "ti.tock"
+  ]
+ },
+ {
+  "pool": "ti.casc.a",
+  "size": 1,
+  "items": [
+   "ti.casc.a"
+  ]
+ },
+ {
+  "pool": "ti.casc.b",
+  "size": 1,
+  "items": [
+   "ti.casc.b"
+  ]
+ },
+ {
+  "pool": "ti.casc.floor",
+  "size": 1,
+  "items": [
+   "ti.casc.floor"
+  ]
+ }
+]

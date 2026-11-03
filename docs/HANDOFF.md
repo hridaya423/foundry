@@ -21,7 +21,28 @@ The earlier premium plan (`docs/plans/2026-09-25-foundry-premium-plan.md`) is fu
 
 All work lands as small commits on `main`. `git log --oneline` is the record of what is done. Stage exact files only — `launch-film/` (the film project) and `anvil/` (the marketing site) are tracked but separate concerns; don't include their changes in Foundry commits. `.devin/` is untracked goal state.
 
-## Where things stand (2026-10-11 — Raycast-bar audit, mid-Phase 4)
+## Where things stand (2026-10-12 — Raycast-bar audit COMPLETE)
+
+**All phases 0–6 are implemented** on branch `raycast-quality-overhaul` (18 commits, `2d94634`→`03cfe33`). Not yet merged to `main`. Gate at head: `swift build` + `swift build -c release` clean (0 warnings), **650 tests, 0 failures, 6 skipped**, `lint-lines.sh` PASS at 160, `lint-design.sh` PASS, `lint-l10n.sh` PASS, snapshot references compare-clean.
+
+Phase ledger (see `.devin/goal/report.md` for detail):
+
+- **4.5/4.1–4.3** — `@unchecked Sendable` 60→3 justified; typed `ResultPayload`; feature-owned `ResultAction` (ActionRunner 1551→136); `CommandPanelState` split.
+- **Lint** — ratcheted to 160.
+- **5.1/5.2/5.7/5.8** — `FoundryTheme` full vocabulary + `lint-design.sh`; row anatomy + QA shots; motion audit; hotkey formatter + copy pass.
+- **5.3** — every `NSAlert` replaced by in-panel `PanelPrompt`; `runModal` remains only on `NSOpenPanel`/`NSSavePanel`.
+- **5.4** — dedicated resizable Settings window (⌘, from app menu + status item); `.settings` panel mode deleted; reset applies live.
+- **5.5** — native `QLPreviewPanel` Quick Look (Space + ⌘Y, follows selection, Esc closes preview first).
+- **5.6** — material/appearance fixes: opaque mode uses `windowBackgroundColor` (black wash removed), Increase Contrast separator, Liquid Glass verified.
+- **5.9** — localization groundwork: `Localizable.xcstrings`, `LocalizedStringResource` on String-typed UI surfaces, `lint-l10n.sh`, `build-app.sh` merges `.lproj` into the app bundle.
+- **6.1** — `WindowFrameSettler`: size→position→size, accepts settled frame, rolls back only on AX-write errors.
+- **6.2** — Codex OAuth behind explicit "ChatGPT sign-in (unofficial)" opt-in; enable path gated on acknowledgment.
+- **6.3** — snapshot tests compare against checked-in light-mode references (pixel-diff tolerance); `.github/workflows/test.yml` runs lints + suite on push/PR.
+- **6.4** — `LiveAppIndex` (`NSMetadataQuery`, `com.apple.application-bundle`, local volumes) merged with root enumeration; live updates invalidate the cache synchronously.
+
+**Benchmarks:** `docs/benchmarks/2026-10-12-search-latency.md` — `search.immediate` p50/p95 16.9/23.0 ms, `search.complete` 17.4/24.1 ms (vs budgets ≤16/≤60). The 16 ms immediate p95 is the remaining gap — provider tail latency, not scoring. Wall-clock key-to-pixel numbers still need a GUI session with Accessibility (see Open items).
+
+### Superseded — pre-overhaul baseline (kept for history)
 
 Commits on `main` tell the story — newest first:
 
@@ -35,17 +56,9 @@ Commits on `main` tell the story — newest first:
 
 **Baseline:** `swift build` clean, 0 warnings. `swift test`: **631 tests, 0 failures**, 5 skipped (~57 s). `scripts/lint-lines.sh` PASS at 240.
 
-### Phase 4.5 — where the Sendable audit stands
+### Phase 4 — completed (superseded working notes)
 
-60 `@unchecked Sendable` sites → target ≤ 10, each kept site gets a one-line justification comment (per audit plan §4.5). Method is compiler-driven: flip to checked `Sendable`, let the compiler enumerate violations, fix each via `OSAllocatedUnfairLock<State>` (precedent: `FileSearchProvider.swift:243`, `import os`) or revert with justification. **Done:** 7 flips landed in `31d6760`. **Remaining:** 53 sites — most `var` counts in a quick survey were locals/computed, not stored; stored-var sites need the lock-box refactor. Definite keeps: `CobaltResponseDelegate`, `MediaDownloadDelegate` (NSObject URLSession delegates), `IconBox` (wraps `NSImage`), `FileManager` retroactive conformance, `CodexOAuthCallbackServer` internals. `SnippetExpansionService` has ~10 vars and no lock — possible real race, inspect before converting.
-
-### Remaining Phase 4 after 4.5
-
-- **4.1 typed `ResultPayload`** — 79 `id`-prefix dispatch sites → typed payloads.
-- **4.2 feature-owned actions** — `ActionRunner` (1,530 lines) shrinks to a generic executor; features own behavior.
-- **4.3 split `CommandPanelState`** — ~70 props → focused sub-states.
-- **Lint ratchet** — `lint-lines.sh` 240 → 160 (~290 lines to fix).
-- Then Phase 5 (UI/UX: tokens, row anatomy, alerts→in-panel forms, Settings window, Quick Look) and Phase 6 (tiling settle, Codex OAuth opt-in, CI snapshots) per the plan.
+All Phase 4 items landed on `raycast-quality-overhaul`: the `@unchecked Sendable` audit finished at 3 justified sites (method was compiler-driven flips onto `OSAllocatedUnfairLock<State>`), typed `ResultPayload` replaced id-prefix dispatch, feature-owned `ResultAction` shrank `ActionRunner` to a 136-line executor, `CommandPanelState` split into focused states, and `lint-lines.sh` ratchets at 160.
 
 ## Prior state (1.2.0, 2026-10-08)
 
@@ -63,6 +76,16 @@ Commits on `main` tell the story — newest first:
 - `docs/benchmarks/2026-09-26-foundry-1.1-report.md` — perf budgets; bundle size was 552 KB over then, now resolved by the strip step in P6.
 - This host has no Accessibility, so `scripts/drive-signposts.swift N --reopen build/Foundry.app` drives `panel.show` through the reopen handler, and `benchmark-launchers.swift --bundle <app> --runs 0` measures memory without posting key events.
 - P7 (1.1): deslop pass, toasts, copy sweep, VoiceOver row activation, hidden main menu.
+
+## Website (2026-11-01, "last 20%" plan)
+
+Plan: `docs/plans/2026-11-01-foundry-last-20.md`. Evidence: `docs/qa/2026-11-01-website/README.md` (before, after, final). Brand: `docs/brand/BRAND.md`, tokens in `docs/brand/tokens.json` (generated into `anvil/app/foundry/tokens.css` and `tokens.ts` by `npm run tokens`).
+
+- Mark: Split Mould (`docs/brand/mark/`). Site nav, favicon, app icon, menu bar glyph and the onboarding cast all draw it.
+- Pages: `/proof` (figures from `docs/benchmarks/latest.json`, written by `scripts/write-benchmark-summary.mjs`), `/changelog` + `/changelog/feed.xml` (parsed from `docs/release-notes/*.md`; a new release needs a date in `releaseDates` in `anvil/app/changelog.ts`), `/privacy` (claims proven in `docs/qa/2026-11-01-website/privacy-claims.md`), `/brand` (kit zip built by `anvil/scripts/build-brand-kit.mjs`).
+- ⌘K palette on every page (`anvil/app/foundry/palette.tsx`, commands in `palette-commands.ts`). Section hashes (`/#tools`) jump to story stops.
+- Version comes from `VERSION` via `next.config.ts`. The download modal is gone: releases must be notarized.
+- Checks: `npm test` (site unit tests), `npm run qa` (screenshots, axe, Lighthouse; `--trace` with `QA_GPU=1` for first paint and long tasks).
 
 ## Open items
 

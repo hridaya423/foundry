@@ -1,5 +1,7 @@
+import AppKit
 import Carbon
 import Foundation
+import FoundryDomain
 import FoundryServices
 
 struct FoundryHotkey: Codable, Equatable {
@@ -10,14 +12,30 @@ struct FoundryHotkey: Codable, Equatable {
     static let commandSpace = FoundryHotkey(
         keyCode: UInt32(kVK_Space),
         modifiers: UInt32(cmdKey),
-        displayName: "⌘ Space"
+        displayName: HotkeyFormatter.displayName(keyCode: UInt32(kVK_Space), modifiers: UInt32(cmdKey))
     )
 
     static let optionSpace = FoundryHotkey(
         keyCode: UInt32(kVK_Space),
         modifiers: UInt32(optionKey),
-        displayName: "⌥ Space"
+        displayName: HotkeyFormatter.displayName(keyCode: UInt32(kVK_Space), modifiers: UInt32(optionKey))
     )
+}
+
+extension FoundryHotkey {
+    /// A launcher chord from a key press: it needs ⌘, ⌥ or ⌃ and a nameable key.
+    init?(recording event: NSEvent) {
+        let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+        var modifiers: UInt32 = 0
+        if flags.contains(.command) { modifiers |= UInt32(cmdKey) }
+        if flags.contains(.option) { modifiers |= UInt32(optionKey) }
+        if flags.contains(.control) { modifiers |= UInt32(controlKey) }
+        if flags.contains(.shift) { modifiers |= UInt32(shiftKey) }
+        guard modifiers & UInt32(cmdKey | optionKey | controlKey) != 0 else { return nil }
+        let typed = event.charactersIgnoringModifiers?.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+        guard let keyName = HotkeyFormatter.keyName(UInt32(event.keyCode)) ?? (typed?.isEmpty == false ? typed : nil) else { return nil }
+        self.init(keyCode: UInt32(event.keyCode), modifiers: modifiers, displayName: HotkeyFormatter.modifierString(modifiers) + keyName)
+    }
 }
 
 enum HotkeyError: Error {

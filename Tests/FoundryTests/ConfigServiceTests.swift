@@ -31,9 +31,9 @@ final class ConfigServiceTests: XCTestCase {
         }
     }
 
-    func testFreshConfigDefaultsToOptionSpaceAndMenuBarIcon() {
+    func testFreshConfigDefaultsToCommandSpaceAndMenuBarIcon() {
         let config = FoundryConfig()
-        XCTAssertEqual(config.hotkey, .optionSpace)
+        XCTAssertEqual(config.hotkey, .commandSpace)
         XCTAssertTrue(config.showMenuBarIcon)
     }
 
@@ -361,7 +361,7 @@ final class ConfigServiceTests: XCTestCase {
     @MainActor
     func testCommandAliasesNormalizeWhitespaceDuplicatesAndCount() {
         XCTAssertEqual(
-            CommandPanelState.normalizedCommandAliases(" browser, Browser, tabs , , history "),
+            SettingsStore.normalizedCommandAliases(" browser, Browser, tabs , , history "),
             ["browser", "tabs", "history"]
         )
     }
@@ -436,5 +436,14 @@ final class ConfigServiceTests: XCTestCase {
         board.add(.weather)
 
         XCTAssertEqual(board.config.enabled, WidgetBoardConfig.default.enabled)
+    }
+
+    func testDataFilesLiveBesideTheirConfig() {
+        let temporary = FileManager.default.temporaryDirectory.appendingPathComponent("foundry-data-\(UUID().uuidString).json")
+        let config = ConfigService(diagnostics: DiagnosticsService(), url: temporary)
+        XCTAssertEqual(config.dataURL("snippets.json").deletingLastPathComponent(), temporary.deletingLastPathComponent())
+        XCTAssertFalse(config.dataURL("snippets.json").path.contains("/.config/foundry/"))
+        let real = ConfigService.configURL.deletingLastPathComponent()
+        XCTAssertEqual(real.appendingPathComponent("snippets.json").path, real.path + "/snippets.json")
     }
 }

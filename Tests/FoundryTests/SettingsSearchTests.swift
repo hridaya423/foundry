@@ -25,34 +25,59 @@ final class SettingsSearchTests: XCTestCase {
         XCTAssertEqual(panes, Set(SettingsCategory.allCases))
     }
 
-    func testOpenSettingsEntersSettingsModeAndShowsPanelWhenClosed() {
+    /// Settings moved to a dedicated window (5.4) — opening it always
+    /// goes through the shell, whether or not the panel is up.
+    func testOpenSettingsOpensTheDedicatedWindowWhenClosed() {
         let diagnostics = DiagnosticsService()
         let config = ConfigService(diagnostics: diagnostics, url: FileManager.default.temporaryDirectory.appendingPathComponent("foundry-settings-\(UUID().uuidString).json"))
-        let registry = CommandRegistry(providers: [], usageRanking: UsageRankingStore(diagnostics: diagnostics), diagnostics: diagnostics, configService: config)
+        let registry = CommandRegistry(providers: [], usageRanking: UsageRankingStore.scratch(diagnostics), diagnostics: diagnostics, configService: config)
         let state = CommandPanelState(registry: registry, actionRunner: ActionRunner(diagnostics: diagnostics), diagnostics: diagnostics, config: config)
         var opened = 0
-        state.onOpenSettings = { opened += 1 }
+        let shell = RecordingShellPort()
+        shell.onOpenSettings = { opened += 1 }
+        state.shell = shell
 
-        state.openSettings()
+        state.router.openSettings()
 
         XCTAssertEqual(opened, 1)
-        XCTAssert(state.mode == .settings)
         state.shutdown()
     }
 
-    func testOpenSettingsInsideOpenPanelJustSwitchesMode() {
+    func testOpenSettingsOpensTheDedicatedWindowWhilePanelIsOpen() {
         let diagnostics = DiagnosticsService()
         let config = ConfigService(diagnostics: diagnostics, url: FileManager.default.temporaryDirectory.appendingPathComponent("foundry-settings-\(UUID().uuidString).json"))
-        let registry = CommandRegistry(providers: [], usageRanking: UsageRankingStore(diagnostics: diagnostics), diagnostics: diagnostics, configService: config)
+        let registry = CommandRegistry(providers: [], usageRanking: UsageRankingStore.scratch(diagnostics), diagnostics: diagnostics, configService: config)
         let state = CommandPanelState(registry: registry, actionRunner: ActionRunner(diagnostics: diagnostics), diagnostics: diagnostics, config: config)
         var opened = 0
-        state.onOpenSettings = { opened += 1 }
+        let shell = RecordingShellPort()
+        shell.onOpenSettings = { opened += 1 }
+        state.shell = shell
         state.resetForOpen()
 
-        state.openSettings()
+        state.router.openSettings()
 
-        XCTAssertEqual(opened, 0)
-        XCTAssert(state.mode == .settings)
+        XCTAssertEqual(opened, 1)
+        state.shutdown()
+    }
+
+    /// 5.4 acceptance: resetting applies live — the mirrored store values
+    /// snap back to defaults without terminating the app.
+    func testResetConfigurationAppliesLiveWithoutTerminating() throws {
+        let diagnostics = DiagnosticsService()
+        let config = ConfigService(diagnostics: diagnostics, url: FileManager.default.temporaryDirectory.appendingPathComponent("foundry-settings-\(UUID().uuidString).json"))
+        let registry = CommandRegistry(providers: [], usageRanking: UsageRankingStore.scratch(diagnostics), diagnostics: diagnostics, configService: config)
+        let state = CommandPanelState(registry: registry, actionRunner: ActionRunner(diagnostics: diagnostics), diagnostics: diagnostics, config: config)
+        state.shell = RecordingShellPort()
+
+        try config.updatePopToRootAfter(300)
+        state.settings.apply(config: config.current)
+        XCTAssertEqual(state.settings.popToRootAfterSeconds, 300)
+
+        state.settings.resetConfiguration()
+
+        XCTAssertEqual(state.settings.popToRootAfterSeconds, 90)
+        XCTAssertEqual(config.current.popToRootAfterSeconds, 90)
+        XCTAssertNil(state.settings.settingsPersistenceError)
         state.shutdown()
     }
 }

@@ -1,6 +1,7 @@
 import Foundation
 import FoundryDomain
 import FoundryServices
+import os
 
 struct Quicklink: Codable, Identifiable, Hashable, Sendable {
     var id: String = UUID().uuidString
@@ -13,7 +14,8 @@ struct Quicklink: Codable, Identifiable, Hashable, Sendable {
 
     var takesArgument: Bool { QuicklinkTemplate.argumentRange(in: link) != nil }
 
-    init(id: String = UUID().uuidString, name: String, link: String, keyword: String = "", openWithBundleID: String? = nil, useFavicon: Bool? = nil, isEnabled: Bool = true) {
+    init(id: String = UUID().uuidString, name: String, link: String, keyword: String = "", openWithBundleID: String? = nil, useFavicon: Bool? = nil,
+        isEnabled: Bool = true) {
         self.id = id
         self.name = name
         self.link = link
@@ -59,6 +61,11 @@ enum QuicklinkTemplate {
         return result
     }
 
+    static func target(_ expanded: String) -> String {
+        guard expanded.hasPrefix("/") || expanded.hasPrefix("~") else { return expanded }
+        return URL(fileURLWithPath: (expanded as NSString).expandingTildeInPath).absoluteString
+    }
+
     static let defaults: [Quicklink] = [
         Quicklink(id: "google", name: "Search Google", link: "https://www.google.com/search?q={argument}", keyword: "g"),
         Quicklink(id: "github", name: "Search GitHub", link: "https://github.com/search?q={argument}", keyword: "gh"),
@@ -67,7 +74,8 @@ enum QuicklinkTemplate {
         Quicklink(id: "translate", name: "Google Translate", link: "https://translate.google.com/?sl=auto&text={argument}", keyword: "gt"),
         Quicklink(id: "search-files", name: "Search Files", link: "foundry://files/{argument}", keyword: "sf"),
         Quicklink(id: "duckduckgo", name: "Search DuckDuckGo", link: "https://duckduckgo.com/?q={argument}", keyword: "ddg", isEnabled: false),
-        Quicklink(id: "wikipedia", name: "Search Wikipedia", link: "https://en.wikipedia.org/wiki/Special:Search?search={argument}", keyword: "wiki", isEnabled: false)
+        Quicklink(id: "wikipedia", name: "Search Wikipedia", link: "https://en.wikipedia.org/wiki/Special:Search?search={argument}", keyword: "wiki",
+            isEnabled: false)
     ]
 
     static func importRaycast(_ data: Data) throws -> [Quicklink] {
@@ -95,19 +103,18 @@ enum QuicklinkTemplate {
     }
 }
 
-final class QuicklinkStore: @unchecked Sendable {
+final class QuicklinkStore: Sendable {
     static let shared = QuicklinkStore()
 
     let url: URL
-    private let lock = NSLock()
-    private var cached: [Quicklink]?
+    private let cached = OSAllocatedUnfairLock<[Quicklink]?>(initialState: nil)
 
     init(url: URL = ConfigService.configURL.deletingLastPathComponent().appendingPathComponent("quicklinks.json")) {
         self.url = url
     }
 
     func load() -> [Quicklink] {
-        lock.withLock {
+        cached.withLock { cached in
             if let cached { return cached }
             let loaded: [Quicklink]
             if FileManager.default.fileExists(atPath: url.path) {
@@ -127,7 +134,7 @@ final class QuicklinkStore: @unchecked Sendable {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         try encoder.encode(links).write(to: url, options: .atomic)
-        lock.withLock { cached = links }
+        cached.withLock { $0 = links }
     }
 }
 
@@ -135,10 +142,13 @@ final class QuicklinkProvider: CommandProvider, Sendable {
     let id = "foundry.quicklinks"
     private let store: QuicklinkStore
     private let context: @Sendable () -> SnippetRenderContext
+    private let siteIcons: @Sendable () -> Bool
 
-    init(store: QuicklinkStore = .shared, context: @escaping @Sendable () -> SnippetRenderContext = { .current() }) {
+    init(store: QuicklinkStore = .shared, context: @escaping @Sendable () -> SnippetRenderContext = { .current() },
+         siteIcons: @escaping @Sendable () -> Bool = { true }) {
         self.store = store
         self.context = context
+        self.siteIcons = siteIcons
     }
 
     static let createCommand = CommandResult(
@@ -146,20 +156,24 @@ final class QuicklinkProvider: CommandProvider, Sendable {
         title: "Create Quicklink",
         subtitle: "Name, link with {argument}, keyword — edit in Settings",
         icon: CommandIcon(fallback: "QL", systemName: "plus.link"),
-        primaryAction: CommandAction(id: "quicklink.create.open", title: "Create", kind: .openCommandSettings(commandID: "quicklink.create")),
+        payload: .quicklink(id: "create"),
+        primaryAction: CommandAction(id: "quicklink.create.open", title: "Create", behavior: OpenCommandSettingsAction(.quicklinks)),
         secondaryActions: []
     )
 
     func search(_ request: CommandSearchRequest) async -> [CommandResult] {
         let query = request.query.trimmingCharacters(in: .whitespaces)
         guard query.isEmpty == false else { return [] }
-        let create = SearchScoring.match(query: query, title: Self.createCommand.title, subtitle: nil, keywords: ["new quicklink", "add quicklink"], aliases: [], sensitivity: request.sensitivity) != nil ? [Self.createCommand] : []
+        let prepared = SearchScoring.PreparedQuery(query: query)
+        let create = SearchScoring.match(query: prepared, title: Self.createCommand.title, subtitle: nil, keywords: ["new quicklink", "add quicklink"],
+            aliases: [], sensitivity: request.sensitivity) != nil ? [Self.createCommand] : []
         return create + store.load().filter(\.isEnabled).compactMap { link in
             if link.takesArgument, let argument = argument(in: query, for: link) {
                 return result(for: link, argument: argument, aliases: request.customAliases["quicklink.\(link.id)"] ?? [])
             }
             let aliases = request.customAliases["quicklink.\(link.id)"] ?? []
-            guard SearchScoring.match(query: query, title: link.name, subtitle: nil, keywords: [], aliases: aliases + [link.keyword].filter { !$0.isEmpty }, sensitivity: request.sensitivity) != nil else { return nil }
+            guard SearchScoring.match(query: prepared, title: link.name, subtitle: nil, keywords: [],
+                aliases: aliases + [link.keyword].filter { !$0.isEmpty }, sensitivity: request.sensitivity) != nil else { return nil }
             return result(for: link, argument: nil, aliases: aliases)
         }
     }
@@ -196,32 +210,37 @@ final class QuicklinkProvider: CommandProvider, Sendable {
         let title: String
         if isFileSearch {
             title = argument.map { "\(link.name) for “\($0)”" } ?? link.name
-            primary = CommandAction(id: "\(id).open", title: "Search Files", kind: .fillQuery(FileSearchProvider.prefix + (argument ?? "")))
+            primary = CommandAction(id: "\(id).open", title: "Search Files", behavior: FillQueryAction(FileSearchProvider.prefix + (argument ?? "")))
         } else if let argument {
             title = "\(link.name) for “\(argument)”"
-            let expanded = QuicklinkTemplate.expand(link.link, argument: argument, context: context())
-            let kind: CommandActionKind = link.openWithBundleID.map { .openURLWithApp(url: expanded, bundleID: $0) } ?? .openURL(expanded)
-            primary = CommandAction(id: "\(id).open", title: "Open", kind: kind)
+            let expanded = QuicklinkTemplate.target(QuicklinkTemplate.expand(link.link, argument: argument, context: context()))
+            let behavior: any ResultAction = link.openWithBundleID.map { OpenURLWithAppAction(url: expanded, bundleID: $0) } ?? OpenURLAction(expanded)
+            primary = CommandAction(id: "\(id).open", title: "Open", behavior: behavior)
         } else if link.takesArgument {
             title = link.name
-            primary = CommandAction(id: "\(id).fill", title: "Enter Query", kind: .fillQuery("\(prefix) "))
+            primary = CommandAction(id: "\(id).fill", title: "Enter Query", behavior: FillQueryAction("\(prefix) "))
         } else {
             title = link.name
-            let expanded = QuicklinkTemplate.expand(link.link, argument: "", context: context())
-            let kind: CommandActionKind = link.openWithBundleID.map { .openURLWithApp(url: expanded, bundleID: $0) } ?? .openURL(expanded)
-            primary = CommandAction(id: "\(id).open", title: "Open", kind: kind)
+            let expanded = QuicklinkTemplate.target(QuicklinkTemplate.expand(link.link, argument: "", context: context()))
+            let behavior: any ResultAction = link.openWithBundleID.map { OpenURLWithAppAction(url: expanded, bundleID: $0) } ?? OpenURLAction(expanded)
+            primary = CommandAction(id: "\(id).open", title: "Open", behavior: behavior)
         }
         return CommandResult(
             id: id,
             title: title,
-            subtitle: isFileSearch ? "Spotlight file search" : (link.takesArgument && argument == nil ? "Type \(prefix) then your query" : Self.displayURL(link.link, argument: argument)),
-            icon: CommandIcon(fallback: String(link.name.prefix(2)).uppercased(), systemName: isFileSearch ? "doc.text.magnifyingglass" : "link", remoteIconURL: link.useFavicon == false ? nil : Self.faviconURL(for: link.link)),
-            searchAliases: aliases,
-            searchKeywords: [link.keyword].filter { !$0.isEmpty },
+            subtitle: isFileSearch ? "Spotlight file search" : (link.takesArgument && argument
+                == nil ? "Type \(prefix) then your query" : Self.displayURL(link.link, argument: argument)),
+            icon: CommandIcon(fallback: String(link.name.prefix(2)).uppercased(), systemName: isFileSearch ? "doc.text.magnifyingglass" : "link",
+                remoteIconURL: link.useFavicon == false || siteIcons() == false ? nil : Self.faviconURL(for: link.link)),
+            searchAliases: aliases + [link.keyword].filter { $0.isEmpty == false },
+            searchKeywords: [],
+            payload: .quicklink(id: link.id),
             primaryAction: primary,
             secondaryActions: [
-                CommandAction(id: "\(id).copy", title: "Copy Link", kind: .copyToClipboard(argument.map { QuicklinkTemplate.expand(link.link, argument: $0, context: context()) } ?? link.link)),
-                CommandAction(id: "\(id).delete", title: "Delete Quicklink", kind: .deleteQuicklink(id: link.id))
+                CommandAction(id: "\(id).copy", title: "Copy Link",
+                    behavior: CopyToClipboardAction(argument.map { QuicklinkTemplate.expand(link.link, argument: $0, context: context()) } ?? link.link)),
+                CommandAction(id: "\(id).edit", title: "Edit Quicklink", behavior: EditQuicklinkAction()),
+                CommandAction(id: "\(id).delete", title: "Delete Quicklink", behavior: DeleteQuicklinkAction(id: link.id))
             ]
         )
     }

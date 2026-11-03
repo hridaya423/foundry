@@ -1,192 +1,157 @@
 #!/usr/bin/env swift
-// Renders the Foundry app icon (anvil mark on a warm foundry-dark squircle)
-// into Supporting/AppIcon.iconset/*.png, then iconutil makes AppIcon.icns.
+// Renders the Foundry app icon into Supporting/AppIcon.iconset/*.png plus
+// Supporting/icon-1024.png: the Split Mould mark from docs/brand/mark/mark.svg,
+// two chalk mould halves around one orange cast, on ink.
+// Sizes of 32 px and below draw docs/brand/mark/mark-16.svg, hinted to whole pixels.
 // Usage: swift scripts/render-icon.swift [outDir]   (default: Supporting/AppIcon.iconset)
 
 import AppKit
 import CoreGraphics
-import Foundation
-import ImageIO
-import UniformTypeIdentifiers
 
-// Brand palette — warm foundry dark, bone chalk, forge ember.
-// Matches anvil/ site tokens: #0f0d0c, #211d19, #c6bbab, #f4ece2, #fa6428.
-private func rgb(_ r: CGFloat, _ g: CGFloat, _ b: CGFloat, _ a: CGFloat = 1) -> CGColor {
-    CGColor(srgbRed: r, green: g, blue: b, alpha: a)
+private let space = CGColorSpace(name: CGColorSpace.sRGB)!
+
+private func rgb(_ hex: UInt32, _ alpha: CGFloat = 1) -> CGColor {
+    CGColor(srgbRed: CGFloat((hex >> 16) & 0xff) / 255, green: CGFloat((hex >> 8) & 0xff) / 255,
+            blue: CGFloat(hex & 0xff) / 255, alpha: alpha)
 }
-private let ember = rgb(0xfa / 255, 0x64 / 255, 0x28 / 255)
-private let emberSoft = rgb(0xfd / 255, 0x94 / 255, 0x5f / 255)
 
-// macOS icon squircle: continuous-curvature approximation (Lamé n≈5 superellipse
-// is closest; we use the standard Cocoa continuous-corner CG path).
-private func squirclePath(in rect: CGRect, cornerRadius r: CGFloat) -> CGPath {
-    // n≈5 superellipse via cubic segments per quadrant (kappa for n=5 ≈ 1.12)
+private func gradient(_ colors: [CGColor], _ locations: [CGFloat]) -> CGGradient {
+    CGGradient(colorsSpace: space, colors: colors as CFArray, locations: locations)!
+}
+
+private func squircle(_ rect: CGRect) -> CGPath {
     let path = CGMutablePath()
-    let cx = rect.midX, cy = rect.midY
-    let w = rect.width / 2, h = rect.height / 2
-    let k: CGFloat = 0.662 // tuned so curvature reads like Apple's continuous corner
-    let samples = 64
-    path.move(to: CGPoint(x: cx + w, y: cy))
-    for i in 1...samples {
-        let t = CGFloat(i) / CGFloat(samples) * 2 * .pi
-        let c = cos(t), s = sin(t)
-        let x = cx + w * (c < 0 ? -1 : 1) * pow(abs(c), 2 / 5.0)
-        let y = cy + h * (s < 0 ? -1 : 1) * pow(abs(s), 2 / 5.0)
-        path.addLine(to: CGPoint(x: x, y: y))
+    for i in 0...360 {
+        let t = Double(i) / 360 * 2 * .pi
+        let x = rect.midX + rect.width / 2 * CGFloat(copysign(pow(abs(cos(t)), 0.4), cos(t)))
+        let y = rect.midY + rect.height / 2 * CGFloat(copysign(pow(abs(sin(t)), 0.4), sin(t)))
+        i == 0 ? path.move(to: CGPoint(x: x, y: y)) : path.addLine(to: CGPoint(x: x, y: y))
     }
     path.closeSubpath()
-    _ = k
     return path
 }
 
-private func anvilPath(size: CGFloat) -> CGPath {
-    // Stylized anvil silhouette, drawn in a 0..1 box, y-up.
-    // Chunky face band on top, horn tapering left, blocky waist, wide foot.
-    let p = CGMutablePath()
-    // Horn tip (left point) — sits near face level, slight droop
-    p.move(to: CGPoint(x: 0.05, y: 0.655))
-    // Horn upper edge curving up into the face's left corner
-    p.addQuadCurve(to: CGPoint(x: 0.30, y: 0.72), control: CGPoint(x: 0.16, y: 0.755))
-    // Face top edge → right heel corner
-    p.addLine(to: CGPoint(x: 0.93, y: 0.72))
-    // Face right edge down to the step
-    p.addLine(to: CGPoint(x: 0.93, y: 0.605))
-    // Step in to the waist column
-    p.addLine(to: CGPoint(x: 0.645, y: 0.605))
-    // Waist right side down
-    p.addLine(to: CGPoint(x: 0.645, y: 0.435))
-    // Foot flare right
-    p.addLine(to: CGPoint(x: 0.90, y: 0.40))
-    p.addLine(to: CGPoint(x: 0.90, y: 0.29))   // right foot edge down
-    p.addLine(to: CGPoint(x: 0.28, y: 0.29))   // base bottom
-    p.addLine(to: CGPoint(x: 0.28, y: 0.40))   // left foot edge up
-    p.addLine(to: CGPoint(x: 0.47, y: 0.435))  // left waist flare
-    p.addLine(to: CGPoint(x: 0.47, y: 0.545))  // left waist up
-    // Under-face sweep back along the horn's lower edge to the tip
-    p.addQuadCurve(to: CGPoint(x: 0.05, y: 0.655), control: CGPoint(x: 0.27, y: 0.545))
-    p.closeSubpath()
-    return p
+private func mouldHalves(_ T: (CGFloat, CGFloat) -> CGPoint, unit k: CGFloat) -> [CGPath] {
+    let r = 10 * k
+    let left = CGMutablePath()
+    left.move(to: T(20, 10)); left.addLine(to: T(55, 10)); left.addLine(to: T(55, 30)); left.addLine(to: T(40, 30))
+    left.addLine(to: T(40, 110)); left.addLine(to: T(20, 110))
+    left.addArc(tangent1End: T(10, 110), tangent2End: T(10, 100), radius: r)
+    left.addLine(to: T(10, 20))
+    left.addArc(tangent1End: T(10, 10), tangent2End: T(20, 10), radius: r)
+    left.closeSubpath()
+    let upper = CGMutablePath()
+    upper.move(to: T(65, 10)); upper.addLine(to: T(100, 10))
+    upper.addArc(tangent1End: T(110, 10), tangent2End: T(110, 20), radius: r)
+    upper.addLine(to: T(110, 70)); upper.addLine(to: T(80, 70)); upper.addLine(to: T(80, 30)); upper.addLine(to: T(65, 30))
+    upper.closeSubpath()
+    let lower = CGMutablePath()
+    lower.move(to: T(80, 80)); lower.addLine(to: T(110, 80)); lower.addLine(to: T(110, 100))
+    lower.addArc(tangent1End: T(110, 110), tangent2End: T(100, 110), radius: r)
+    lower.addLine(to: T(80, 110))
+    lower.closeSubpath()
+    return [left, upper, lower]
 }
 
-private func renderIcon(px: Int) -> NSImage {
-    let s = CGFloat(px)
-    let img = NSImage(size: NSSize(width: s, height: s))
-    img.lockFocus()
-    guard let ctx = NSGraphicsContext.current?.cgContext else { img.unlockFocus(); fatalError("no ctx") }
+private func hintedPieces(_ T: (CGFloat, CGFloat) -> CGPoint, inset: Bool) -> (halves: [CGPath], cast: CGPath) {
+    func poly(_ points: [(CGFloat, CGFloat)]) -> CGPath {
+        let p = CGMutablePath()
+        p.addLines(between: points.map { T($0.0, $0.1) })
+        p.closeSubpath()
+        return p
+    }
+    if inset {
+        return ([
+            poly([(2, 2), (7, 2), (7, 4), (5, 4), (5, 14), (2, 14)]),
+            poly([(9, 2), (14, 2), (14, 8), (11, 8), (11, 4), (9, 4)]),
+            poly([(11, 9), (14, 9), (14, 14), (11, 14)]),
+        ], poly([(6, 6), (10, 6), (10, 13), (6, 13)]))
+    }
+    return ([
+        poly([(1, 1), (7, 1), (7, 4), (5, 4), (5, 15), (1, 15)]),
+        poly([(9, 1), (15, 1), (15, 9), (11, 9), (11, 4), (9, 4)]),
+        poly([(11, 10), (15, 10), (15, 15), (11, 15)]),
+    ], poly([(6, 6), (10, 6), (10, 14), (6, 14)]))
+}
 
-    let rect = CGRect(x: 0, y: 0, width: s, height: s)
-    // macOS squircle insets ~0 on the canvas (Apple full-bleed icon canvas).
-    let clip = squirclePath(in: rect, cornerRadius: s * 0.2237)
+private func renderIcon(px: Int) -> CGImage {
+    let s = CGFloat(px), u = s / 1024
+    let ctx = CGContext(data: nil, width: px, height: px, bitsPerComponent: 8, bytesPerRow: 0, space: space,
+                        bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
+    ctx.translateBy(x: 0, y: s)
+    ctx.scaleBy(x: 1, y: -1)
+
+    let bodyRect = CGRect(x: 100 * u, y: 100 * u, width: 824 * u, height: 824 * u)
+    let body = squircle(bodyRect)
     ctx.saveGState()
-    ctx.addPath(clip)
-    ctx.clip()
-
-    // 1. Background: warm vertical gradient + ember pool glow.
-    let bgGrad = CGGradient(colorsSpace: CGColorSpace(name: CGColorSpace.sRGB)!, colors: [
-        rgb(0x26 / 255, 0x1f / 255, 0x19 / 255),  // warm top
-        rgb(0x14 / 255, 0x11 / 255, 0x0e / 255),  // mid
-        rgb(0x0f / 255, 0x0d / 255, 0x0c / 255),  // near-black bottom
-    ] as CFArray, locations: [0, 0.55, 1])!
-    ctx.drawLinearGradient(bgGrad, start: CGPoint(x: s / 2, y: s), end: CGPoint(x: s / 2, y: 0), options: [])
-
-    // Ember pool: tight radial glow under the anvil, low center.
-    let glowCenter = CGPoint(x: s * 0.5, y: s * 0.30)
-    let glow = CGGradient(colorsSpace: CGColorSpace(name: CGColorSpace.sRGB)!, colors: [
-        rgb(0xfa / 255, 0x64 / 255, 0x28 / 255, 0.50),
-        rgb(0xfa / 255, 0x64 / 255, 0x28 / 255, 0.14),
-        rgb(0xfa / 255, 0x64 / 255, 0x28 / 255, 0.0),
-    ] as CFArray, locations: [0, 0.40, 1])!
-    ctx.drawRadialGradient(glow, startCenter: glowCenter, startRadius: 0, endCenter: glowCenter, endRadius: s * 0.33, options: [.drawsBeforeStartLocation])
-
-    // Faint top sheen so the dark reads as glass-dark, not flat.
-    let sheen = CGGradient(colorsSpace: CGColorSpace(name: CGColorSpace.sRGB)!, colors: [
-        rgb(1, 1, 1, 0.10), rgb(1, 1, 1, 0.0),
-    ] as CFArray, locations: [0, 1])!
-    ctx.drawLinearGradient(sheen, start: CGPoint(x: s / 2, y: s), end: CGPoint(x: s / 2, y: s * 0.62), options: [])
-
-    // 2. Anvil: bone gradient, ember rim-light along the bottom edge.
-    let box = CGRect(x: s * 0.15, y: s * 0.26, width: s * 0.70, height: s * 0.46)
-    let anvil = anvilPath(size: s)
-    var t = CGAffineTransform(scaleX: box.width, y: box.height)
-    t = t.translatedBy(x: box.minX / box.width, y: box.minY / box.height)
-    guard let anvilScaled = anvil.copy(using: &t) else { fatalError() }
-
-    ctx.saveGState()
-    ctx.addPath(anvilScaled)
-    ctx.clip()
-    let metal = CGGradient(colorsSpace: CGColorSpace(name: CGColorSpace.sRGB)!, colors: [
-        rgb(0xf4 / 255, 0xec / 255, 0xe2 / 255),  // bone face
-        rgb(0xd6 / 255, 0xca / 255, 0xb8 / 255),
-        rgb(0xa8 / 255, 0x9a / 255, 0x84 / 255),  // cooled base
-    ] as CFArray, locations: [0, 0.5, 1])!
-    ctx.drawLinearGradient(metal, start: CGPoint(x: 0, y: box.maxY), end: CGPoint(x: 0, y: box.minY), options: [])
-    // Ember rim-light: orange wash rising only through the foot.
-    let rim = CGGradient(colorsSpace: CGColorSpace(name: CGColorSpace.sRGB)!, colors: [
-        rgb(0xfa / 255, 0x64 / 255, 0x28 / 255, 0.0),
-        rgb(0xfa / 255, 0x64 / 255, 0x28 / 255, 0.45),
-    ] as CFArray, locations: [0.78, 1])!
-    ctx.drawLinearGradient(rim, start: CGPoint(x: 0, y: box.maxY), end: CGPoint(x: 0, y: box.minY - s * 0.01), options: [])
+    ctx.setShadow(offset: CGSize(width: 0, height: 10 * u), blur: 24 * u, color: rgb(0, 0.30))
+    ctx.addPath(body); ctx.setFillColor(rgb(0x12100e)); ctx.fillPath()
     ctx.restoreGState()
-
-    // Hot face edge: thin ember line along the anvil's top edge (the "still-glowing" detail).
-    // Path space is 0..1: face top is at y=0.72 within the box.
-    let faceTopY = box.minY + box.height * 0.72
     ctx.saveGState()
-    let faceLine = CGMutablePath()
-    faceLine.move(to: CGPoint(x: box.minX + box.width * 0.32, y: faceTopY - s * 0.004))
-    faceLine.addLine(to: CGPoint(x: box.minX + box.width * 0.925, y: faceTopY - s * 0.004))
-    ctx.setStrokeColor(emberSoft)
-    ctx.setLineWidth(s * 0.005)
-    ctx.setLineCap(.round)
-    ctx.addPath(faceLine)
-    ctx.strokePath()
-    ctx.restoreGState()
+    ctx.addPath(body); ctx.clip()
+    ctx.drawLinearGradient(gradient([rgb(0x24211d), rgb(0x15130f), rgb(0x0d0c0a)], [0, 0.55, 1]),
+                           start: CGPoint(x: 0, y: bodyRect.minY), end: CGPoint(x: 0, y: bodyRect.maxY), options: [])
 
-    // 3. Sparks: three small sharp ember dots drifting up off the face's right end.
-    let sparkData: [(CGFloat, CGFloat, CGFloat, CGFloat)] = [ // x, y, r, alpha
-        (0.705, 0.758, 0.0090, 0.95),
-        (0.748, 0.795, 0.0065, 0.75),
-        (0.782, 0.764, 0.0045, 0.55),
-    ]
-    for (x, y, r, a) in sparkData {
-        let c = CGPoint(x: s * x, y: s * y)
-        let rr = s * r
-        let g = CGGradient(colorsSpace: CGColorSpace(name: CGColorSpace.sRGB)!, colors: [
-            rgb(0xfd / 255, 0x94 / 255, 0x5f / 255, a),
-            rgb(0xfa / 255, 0x64 / 255, 0x28 / 255, a * 0.6),
-        ] as CFArray, locations: [0, 1])!
-        ctx.drawRadialGradient(g, startCenter: c, startRadius: 0, endCenter: c, endRadius: rr * 2.2, options: [.drawsBeforeStartLocation])
-        ctx.setFillColor(rgb(0xff / 255, 0xd8 / 255, 0xb8 / 255, a))
-        ctx.fillEllipse(in: CGRect(x: c.x - rr, y: c.y - rr, width: rr * 2, height: rr * 2))
+    if px <= 32 {
+        let full = px <= 16
+        let unit = full ? s / 16 : max(1, (bodyRect.width * 0.62 / 16).rounded(.down))
+        let origin = full ? 0 : ((s - unit * 16) / 2).rounded()
+        func T(_ x: CGFloat, _ y: CGFloat) -> CGPoint { CGPoint(x: origin + x * unit, y: origin + y * unit) }
+        if full {
+            ctx.restoreGState()
+            ctx.clear(CGRect(x: 0, y: 0, width: s, height: s))
+            ctx.addPath(CGPath(roundedRect: CGRect(x: 0, y: 0, width: s, height: s), cornerWidth: 3 * unit, cornerHeight: 3 * unit, transform: nil))
+            ctx.setFillColor(rgb(0x0f0d0c)); ctx.fillPath()
+            ctx.saveGState()
+        }
+        let pieces = hintedPieces(T, inset: full)
+        ctx.setShouldAntialias(false)
+        for half in pieces.halves { ctx.addPath(half); ctx.setFillColor(rgb(0xeee7dd)); ctx.fillPath() }
+        ctx.addPath(pieces.cast); ctx.setFillColor(rgb(0xfa6428)); ctx.fillPath()
+        ctx.restoreGState()
+        return ctx.makeImage()!
     }
 
-    // 4. Inner edge highlight for depth on dark.
-    ctx.saveGState()
-    ctx.addPath(clip)
-    ctx.setStrokeColor(rgb(1, 1, 1, 0.14))
-    ctx.setLineWidth(max(1, s * 0.003))
-    ctx.strokePath()
-    ctx.restoreGState()
+    let k = 480 * u / 120
+    let o = 512 * u - 60 * k
+    func T(_ x: CGFloat, _ y: CGFloat) -> CGPoint { CGPoint(x: o + x * k, y: o + y * k) }
 
+    func solid(_ path: CGPath, top: CGColor, bottom: CGColor) {
+        let box = path.boundingBoxOfPath
+        ctx.saveGState()
+        ctx.setShadow(offset: CGSize(width: 0, height: 6 * u), blur: 14 * u, color: rgb(0, 0.55))
+        ctx.addPath(path); ctx.setFillColor(bottom); ctx.fillPath()
+        ctx.restoreGState()
+        ctx.saveGState()
+        ctx.addPath(path); ctx.clip()
+        ctx.drawLinearGradient(gradient([top, bottom], [0, 1]), start: CGPoint(x: box.minX, y: o + 10 * k),
+                               end: CGPoint(x: box.minX, y: o + 110 * k), options: [])
+        ctx.setLineWidth(3 * u)
+        ctx.addPath(path); ctx.setStrokeColor(rgb(0xffffff, 0.22)); ctx.strokePath()
+        ctx.restoreGState()
+    }
+
+    for half in mouldHalves(T, unit: k) {
+        solid(half, top: rgb(0xf4ede2), bottom: rgb(0xd6cdbd))
+    }
+    let cast = CGPath(rect: CGRect(origin: T(50, 40), size: CGSize(width: 20 * k, height: 60 * k)), transform: nil)
+    solid(cast, top: rgb(0xffa36c), bottom: rgb(0xf0672b))
+
+    ctx.addPath(body); ctx.setStrokeColor(rgb(0xffffff, 0.10)); ctx.setLineWidth(3 * u); ctx.strokePath()
     ctx.restoreGState()
-    img.unlockFocus()
-    return img
+    return ctx.makeImage()!
 }
 
-private func writePNG(_ image: NSImage, to url: URL) throws {
-    guard let tiff = image.tiffRepresentation,
-          let rep = NSBitmapImageRep(data: tiff),
-          let png = rep.representation(using: .png, properties: [:]) else {
+private func writePNG(_ image: CGImage, to url: URL) throws {
+    guard let png = NSBitmapImageRep(cgImage: image).representation(using: .png, properties: [:]) else {
         throw NSError(domain: "render-icon", code: 1)
     }
     try png.write(to: url)
 }
 
-// Main
 let outDir = CommandLine.arguments.count > 1
     ? URL(fileURLWithPath: CommandLine.arguments[1])
-    : URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
-        .appendingPathComponent("Supporting/AppIcon.iconset")
+    : URL(fileURLWithPath: FileManager.default.currentDirectoryPath).appendingPathComponent("Supporting/AppIcon.iconset")
 try FileManager.default.createDirectory(at: outDir, withIntermediateDirectories: true)
 
 let entries: [(String, Int)] = [
@@ -199,6 +164,5 @@ let entries: [(String, Int)] = [
 for (name, px) in entries {
     try writePNG(renderIcon(px: px), to: outDir.appendingPathComponent(name))
 }
-// Marketing/DMG master.
 try writePNG(renderIcon(px: 1024), to: outDir.deletingLastPathComponent().appendingPathComponent("icon-1024.png"))
 print("Wrote \(entries.count) icons + icon-1024.png → \(outDir.path)")

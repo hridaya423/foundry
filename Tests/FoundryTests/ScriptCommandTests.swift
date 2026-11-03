@@ -49,9 +49,12 @@ final class ScriptCommandTests: XCTestCase {
         store.directories = [directory.path]
         let provider = ScriptCommandProvider(store: store)
         let bare = await provider.results(matching: "greet")
-        XCTAssertEqual(bare.first?.primaryAction.kind, .fillQuery("Greet "))
+        XCTAssertEqual(bare.first?.primaryAction.behavior as? FillQueryAction, FillQueryAction("Greet "))
         let filled = await provider.results(matching: "Greet Ada")
-        XCTAssertEqual(filled.first?.primaryAction.kind, .runScript(path: directory.appendingPathComponent("greet.sh").path, arguments: ["Ada"], mode: .compact))
+        XCTAssertEqual(filled.first?.primaryAction.behavior as? RunScriptAction, RunScriptAction(path: directory.appendingPathComponent("greet.sh").path, arguments: ["Ada"], mode: .compact))
+        let path = directory.appendingPathComponent("greet.sh").path
+        XCTAssertEqual(filled.first?.secondaryActions.first?.behavior as? RevealFileAction, RevealFileAction(path: path))
+        XCTAssertEqual(filled.first?.secondaryActions.last?.behavior as? CopyToClipboardAction, CopyToClipboardAction(path))
     }
 
     func testUntrustedFolderAsksOnceAndDenialBlocksTheRun() async throws {
@@ -97,12 +100,18 @@ final class ScriptCommandTests: XCTestCase {
         return store
     }
 
+    func testFullOutputOpensTheOutputSurface() async throws {
+        let path = try writeScript("report.sh", body: "echo one; echo two", title: "Report")
+        let outcome = await run(runner(store: trustedStore()), path: path, mode: .fullOutput)
+        XCTAssertEqual(outcome, .open(route: .scriptOutput(title: "report.sh", text: "one\ntwo\n")))
+    }
+
     private func runner(store: ScriptDirectoryStore, timeout: TimeInterval = 5, outputLimit: Int = 256 * 1024, confirm: @escaping @MainActor (String) -> Bool = { _ in true }) -> ActionRunner {
         ActionRunner(diagnostics: DiagnosticsService(), openURL: { _ in true }, scriptDirectories: store, confirmScriptDirectory: confirm, scriptTimeout: timeout, scriptOutputLimit: outputLimit)
     }
 
     private func run(_ runner: ActionRunner, path: String, mode: ScriptOutputMode) async -> CommandOutcome {
-        await runner.execute(CommandExecutionRequest(commandID: "script", action: CommandAction(id: "script.run", title: "Run", kind: .runScript(path: path, arguments: [], mode: mode)), cancellationID: UUID())) { _ in }
+        await runner.execute(CommandExecutionRequest(commandID: "script", action: CommandAction(id: "script.run", title: "Run", behavior: RunScriptAction(path: path, arguments: [], mode: mode)), cancellationID: UUID())) { _ in }
     }
 
     @discardableResult

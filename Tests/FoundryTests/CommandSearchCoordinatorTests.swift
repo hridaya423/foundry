@@ -8,7 +8,7 @@ final class CommandSearchCoordinatorTests: XCTestCase {
     func testAStaleSearchCannotPublishAfterANewerQueryStarts() async throws {
         let registry = CommandRegistry(
             providers: [QueryProvider()],
-            usageRanking: UsageRankingStore(diagnostics: DiagnosticsService()),
+            usageRanking: UsageRankingStore.scratch(DiagnosticsService()),
             diagnostics: DiagnosticsService()
         )
         let coordinator = CommandSearchCoordinator(registry: registry, diagnostics: DiagnosticsService())
@@ -38,7 +38,7 @@ final class CommandSearchCoordinatorTests: XCTestCase {
         let probe = SearchReleaseProbe()
         let registry = CommandRegistry(
             providers: [SlowResultProvider(probe: probe)],
-            usageRanking: UsageRankingStore(diagnostics: DiagnosticsService()),
+            usageRanking: UsageRankingStore.scratch(DiagnosticsService()),
             diagnostics: DiagnosticsService()
         )
         let coordinator = CommandSearchCoordinator(registry: registry, diagnostics: DiagnosticsService())
@@ -77,7 +77,8 @@ final class CommandSearchCoordinatorTests: XCTestCase {
                 title: request.query,
                 subtitle: nil,
                 icon: CommandIcon(fallback: "Q"),
-                primaryAction: CommandAction(id: "open.\(request.query)", title: "Open", kind: .openHome),
+                payload: .command,
+                primaryAction: CommandAction(id: "open.\(request.query)", title: "Open", behavior: OpenHomeAction()),
                 secondaryActions: []
             )]
         }
@@ -94,7 +95,8 @@ final class CommandSearchCoordinatorTests: XCTestCase {
                 title: "Slow result",
                 subtitle: nil,
                 icon: CommandIcon(fallback: "S"),
-                primaryAction: CommandAction(id: "slow.result.open", title: "Open", kind: .openHome),
+                payload: .command,
+                primaryAction: CommandAction(id: "slow.result.open", title: "Open", behavior: OpenHomeAction()),
                 secondaryActions: []
             )]
         }

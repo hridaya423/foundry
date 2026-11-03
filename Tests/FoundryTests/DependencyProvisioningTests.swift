@@ -1,3 +1,4 @@
+import os
 import XCTest
 import FoundryServices
 
@@ -163,25 +164,49 @@ final class DependencyProvisioningTests: XCTestCase {
     }
 }
 
-private final class RecordingExecutor: @unchecked Sendable, ProvisioningExecutor {
+private final class RecordingExecutor: Sendable, ProvisioningExecutor {
     enum Result { case success, failure }
-    var commands: [ExactCommand] = []
-    var results: [Result]
-    init(results: [Result] = []) { self.results = results }
-    func execute(_ command: ExactCommand) async throws { commands.append(command); if results.first == .failure { results.removeFirst(); throw ProvisioningError.executionFailed("failed") }; if results.isEmpty == false { results.removeFirst() } }
+    private let box: OSAllocatedUnfairLock<(commands: [ExactCommand], results: [Result])>
+    init(results: [Result] = []) { box = OSAllocatedUnfairLock(initialState: ([], results)) }
+    var commands: [ExactCommand] { box.withLock { $0.commands } }
+    func execute(_ command: ExactCommand) async throws {
+        try box.withLock { box in
+            box.commands.append(command)
+            if box.results.first == .failure {
+                box.results.removeFirst()
+                throw ProvisioningError.executionFailed("failed")
+            }
+            if box.results.isEmpty == false { box.results.removeFirst() }
+        }
+    }
 }
 
-private final class RecordingArtifactExecutor: @unchecked Sendable, ArtifactProvisioner {
-    var artifacts: [Artifact] = []
-    func provision(_ artifact: Artifact, progress: (@Sendable (OperationProgress) -> Void)?) async throws -> SetupReceipt { artifacts.append(artifact); progress?(.bytes(completed: 10, total: artifact.downloadBytes)); return SetupReceipt(destination: artifact.destination, verifiedIntegrity: artifact.integrityExpectation) }
+private final class RecordingArtifactExecutor: Sendable, ArtifactProvisioner {
+    private let box = OSAllocatedUnfairLock<[Artifact]>(initialState: [])
+    var artifacts: [Artifact] { box.withLock { $0 } }
+    func provision(_ artifact: Artifact, progress: (@Sendable (OperationProgress) -> Void)?) async throws -> SetupReceipt { box.withLock { $0.append(artifact) }; progress?(.bytes(completed: 10, total: artifact.downloadBytes)); return SetupReceipt(destination: artifact.destination, verifiedIntegrity: artifact.integrityExpectation) }
 }
 
-private final class CumulativeArtifactExecutor: @unchecked Sendable, ArtifactProvisioner {
-    var values: [[Int64]]; var index = 0
+private final class CumulativeArtifactExecutor: Sendable, ArtifactProvisioner {
+    private let values: [[Int64]]
+    private let index = OSAllocatedUnfairLock(initialState: 0)
     init(values: [[Int64]]) { self.values = values }
-    func provision(_ artifact: Artifact, progress: (@Sendable (OperationProgress) -> Void)?) async throws -> SetupReceipt { for value in values[index] { progress?(.bytes(completed: value, total: artifact.downloadBytes)) }; index += 1; return SetupReceipt(destination: artifact.destination, verifiedIntegrity: artifact.integrityExpectation) }
+    func provision(_ artifact: Artifact, progress: (@Sendable (OperationProgress) -> Void)?) async throws -> SetupReceipt {
+        let current = index.withLock { index in defer { index += 1 }; return index }
+        for value in values[current] { progress?(.bytes(completed: value, total: artifact.downloadBytes)) }
+        return SetupReceipt(destination: artifact.destination, verifiedIntegrity: artifact.integrityExpectation)
+    }
 }
-private final class ReceiptArtifactExecutor: @unchecked Sendable, ArtifactProvisioner {
-    let receipts: [SetupReceipt]; var index = 0; var artifacts = [Artifact](); init(receipts: [SetupReceipt]) { self.receipts = receipts }
-    func provision(_ artifact: Artifact, progress: (@Sendable (OperationProgress) -> Void)?) async throws -> SetupReceipt { artifacts.append(artifact); defer { index += 1 }; return receipts[index] }
+private final class ReceiptArtifactExecutor: Sendable, ArtifactProvisioner {
+    private let receipts: [SetupReceipt]
+    private let box = OSAllocatedUnfairLock(uncheckedState: (index: 0, artifacts: [Artifact]()))
+    init(receipts: [SetupReceipt]) { self.receipts = receipts }
+    var artifacts: [Artifact] { box.withLockUnchecked { $0.artifacts } }
+    func provision(_ artifact: Artifact, progress: (@Sendable (OperationProgress) -> Void)?) async throws -> SetupReceipt {
+        box.withLockUnchecked { box in
+            box.artifacts.append(artifact)
+            defer { box.index += 1 }
+            return receipts[box.index]
+        }
+    }
 }
