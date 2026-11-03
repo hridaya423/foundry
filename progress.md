@@ -344,3 +344,9 @@ Design: `anvil/docs/plans/2026-10-24-craft-pass-design.md`.
   - Surprise: anvil/node_modules was deleted twice by something outside this session (disk 99% full, 7.7 GB free). Reinstalled with `npm ci` both times.
   - D1 critique: "ship with fixes"; both HIGHs, both MEDIUMs and the LOW fixed and recaptured (README "D1"). Open: critic #9, #11, #14.
   - Nothing committed; anvil/ still mixes the user's uncommitted diff with this work.
+
+## Branch consolidation (2026-11-03)
+- main now holds website-tile-world (merge 6bf3fdf3) and polish/timezone-and-audit (merge 8a6af88a). Checks: three lints pass; swift test 806 tests, 0 failures (baseline before the merges: 770).
+- Deleted locally: raycast-quality-overhaul, local/p5-snippet-preview, imgbot, minicmp/old-mini, cline and codex checkpoints, tags pre-squash-backup, v1, v1.0.0, v1.1.0, and the mini/* and origin/* tracking refs (except mini/polish). GitHub and the mini Mac still have their copies.
+- Backup: ~/Honey/.backups/anvil-2026-11-03/ (refs.bundle, refs.txt, wip-worktree.tgz, wip.diff) plus refs/backup/2026-11-03/*. Restore a branch with `git branch <name> refs/backup/2026-11-03/<name>`.
+- Left untracked on purpose: launch-film/, .jury/, inspo/, docs/qa/2026-11-01-website PNGs, docs/brand/concepts, literal film media.
