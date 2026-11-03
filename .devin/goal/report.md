@@ -229,3 +229,6 @@ Full suite at `6cb007c`: 653 tests / 0 failures / 8 skipped. Evidence:
 
 ## waiting claim (2026-10-12 16:25)
 All DoD numerics closed on raycast-quality-overhaul (1e9f01e..1e6aaa2): try?=60, 0 files >1000 lines, RankingGoldenTests 30/30, search.immediate p95 12.11ms ≤16 (docs/benchmarks/2026-10-12-search-latency.md), idle CPU closed 0.0% (292MB RSS), clipboard 1k entries +1.34MB RSS / 383KB SQLite, 653 tests green, 3 lints pass. Sole remainder: panel-open idle CPU needs ~20s of panel on the user's screen — user deferred it ('skip it for now'). Measurable anytime by opening the bench instance's panel and sampling top.
+
+## waiting claim (2026-10-12 16:32)
+All agent-doable DoD items verified on raycast-quality-overhaul (HEAD 6d5191e): try?=60, 0 Swift files >1000 lines, RankingGoldenTests 30/30 green, search.immediate p95 12.11ms ≤16ms budget (docs/benchmarks/2026-10-12-search-latency.md, with load caveat), idle CPU closed 0.0% x5 samples / 292MB RSS, clipboard 1000 entries +1.34MB RSS / 383KB disk, 653 tests / 0 failures, 3 lints pass, tree clean. Sole remaining item: panel-open idle CPU sample requires ~20s of panel visible on the user's display — user deferred ('skip it for now'); no agent path exists without driving their GUI.

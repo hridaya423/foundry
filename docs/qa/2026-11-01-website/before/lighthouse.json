@@ -1,0 +1,29 @@
+{
+  "/": {
+    "performance": 63,
+    "accessibility": 100,
+    "best-practices": 100,
+    "seo": 100,
+    "agentic-browsing": 50,
+    "lcp": 915.9022,
+    "cls": 0.000007224264550159739,
+    "bytes": 594604
+  },
+  "/methodology": {
+    "performance": 100,
+    "accessibility": 100,
+    "best-practices": 100,
+    "seo": 100,
+    "agentic-browsing": 100,
+    "lcp": 922.8355999999999,
+    "cls": 0,
+    "bytes": 248692
+  },
+  "/missing-page": {
+    "performance": 0,
+    "accessibility": 0,
+    "best-practices": 0,
+    "seo": 0,
+    "agentic-browsing": 0
+  }
+}

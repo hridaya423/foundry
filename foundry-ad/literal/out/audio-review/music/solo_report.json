@@ -1,0 +1,1121 @@
+{
+ "placements": [],
+ "unsounded_events": [
+  {
+   "t": 0.47,
+   "kind": "key",
+   "id": "ui:remove:chord"
+  },
+  {
+   "t": 0.7,
+   "kind": "key",
+   "id": "ui:remove:key:0"
+  },
+  {
+   "t": 0.835,
+   "kind": "key",
+   "id": "ui:remove:key:2"
+  },
+  {
+   "t": 1.021,
+   "kind": "key",
+   "id": "ui:remove:key:4"
+  },
+  {
+   "t": 1.177,
+   "kind": "key",
+   "id": "ui:remove:key:6"
+  },
+  {
+   "t": 1.26,
+   "kind": "key",
+   "id": "ui:remove:key:7"
+  },
+  {
+   "t": 1.354,
+   "kind": "key",
+   "id": "ui:remove:key:8"
+  },
+  {
+   "t": 1.68,
+   "kind": "key",
+   "id": "ui:remove:return"
+  },
+  {
+   "t": 1.831,
+   "kind": "fall",
+   "id": "tiles:cascade:0"
+  },
+  {
+   "t": 1.875,
+   "kind": "fall",
+   "id": "tiles:cascade:1"
+  },
+  {
+   "t": 1.927,
+   "kind": "fall",
+   "id": "tiles:cascade:2"
+  },
+  {
+   "t": 1.974,
+   "kind": "fall",
+   "id": "tiles:cascade:3"
+  },
+  {
+   "t": 2.026,
+   "kind": "fall",
+   "id": "tiles:cascade:4"
+  },
+  {
+   "t": 2.076,
+   "kind": "fall",
+   "id": "tiles:cascade:5"
+  },
+  {
+   "t": 2.125,
+   "kind": "fall",
+   "id": "tiles:cascade:6"
+  },
+  {
+   "t": 2.177,
+   "kind": "fall",
+   "id": "tiles:cascade:7"
+  },
+  {
+   "t": 2.223,
+   "kind": "fall",
+   "id": "tiles:cascade:8"
+  },
+  {
+   "t": 2.275,
+   "kind": "fall",
+   "id": "tiles:cascade:9"
+  },
+  {
+   "t": 2.325,
+   "kind": "fall",
+   "id": "tiles:cascade:10"
+  },
+  {
+   "t": 2.373,
+   "kind": "fall",
+   "id": "tiles:cascade:11"
+  },
+  {
+   "t": 2.424,
+   "kind": "fall",
+   "id": "tiles:cascade:12"
+  },
+  {
+   "t": 2.473,
+   "kind": "fall",
+   "id": "tiles:cascade:13"
+  },
+  {
+   "t": 2.525,
+   "kind": "fall",
+   "id": "tiles:cascade:14"
+  },
+  {
+   "t": 2.576,
+   "kind": "fall",
+   "id": "tiles:cascade:15"
+  },
+  {
+   "t": 2.625,
+   "kind": "fall",
+   "id": "tiles:cascade:16"
+  },
+  {
+   "t": 2.675,
+   "kind": "fall",
+   "id": "tiles:cascade:17"
+  },
+  {
+   "t": 2.724,
+   "kind": "fall",
+   "id": "tiles:cascade:18"
+  },
+  {
+   "t": 2.776,
+   "kind": "fall",
+   "id": "tiles:cascade:19"
+  },
+  {
+   "t": 2.826,
+   "kind": "fall",
+   "id": "tiles:cascade:20"
+  },
+  {
+   "t": 2.876,
+   "kind": "fall",
+   "id": "tiles:cascade:21"
+  },
+  {
+   "t": 2.924,
+   "kind": "fall",
+   "id": "tiles:cascade:22"
+  },
+  {
+   "t": 2.972,
+   "kind": "fall",
+   "id": "tiles:cascade:23"
+  },
+  {
+   "t": 3.025,
+   "kind": "fall",
+   "id": "tiles:cascade:24"
+  },
+  {
+   "t": 3.074,
+   "kind": "fall",
+   "id": "tiles:cascade:25"
+  },
+  {
+   "t": 3.126,
+   "kind": "fall",
+   "id": "tiles:cascade:26"
+  },
+  {
+   "t": 3.172,
+   "kind": "fall",
+   "id": "tiles:cascade:27"
+  },
+  {
+   "t": 3.221,
+   "kind": "fall",
+   "id": "tiles:cascade:28"
+  },
+  {
+   "t": 3.275,
+   "kind": "fall",
+   "id": "tiles:cascade:29"
+  },
+  {
+   "t": 3.32,
+   "kind": "fall",
+   "id": "tiles:cascade:30"
+  },
+  {
+   "t": 3.354,
+   "kind": "fall",
+   "id": "tiles:cascade:31"
+  },
+  {
+   "t": 3.97,
+   "kind": "key",
+   "id": "ui:calc:chord"
+  },
+  {
+   "t": 4.2,
+   "kind": "key",
+   "id": "ui:calc:key:0"
+  },
+  {
+   "t": 4.418,
+   "kind": "key",
+   "id": "ui:calc:key:2"
+  },
+  {
+   "t": 4.587,
+   "kind": "key",
+   "id": "ui:calc:key:4"
+  },
+  {
+   "t": 4.93,
+   "kind": "key",
+   "id": "ui:calc:return"
+  },
+  {
+   "t": 5.257,
+   "kind": "land",
+   "id": "tiles:square:0"
+  },
+  {
+   "t": 5.28,
+   "kind": "land",
+   "id": "tiles:square:1"
+  },
+  {
+   "t": 5.319,
+   "kind": "land",
+   "id": "tiles:square:2"
+  },
+  {
+   "t": 5.354,
+   "kind": "land",
+   "id": "tiles:square:3"
+  },
+  {
+   "t": 5.381,
+   "kind": "land",
+   "id": "tiles:square:4"
+  },
+  {
+   "t": 5.383,
+   "kind": "whoosh",
+   "id": "cam:push:square"
+  },
+  {
+   "t": 5.413,
+   "kind": "land",
+   "id": "tiles:square:5"
+  },
+  {
+   "t": 5.442,
+   "kind": "land",
+   "id": "tiles:square:6"
+  },
+  {
+   "t": 5.843,
+   "kind": "flip",
+   "id": "tiles:flip:digits:0"
+  },
+  {
+   "t": 5.851,
+   "kind": "land",
+   "id": "tiles:square:7"
+  },
+  {
+   "t": 5.866,
+   "kind": "flip",
+   "id": "tiles:flip:digits:1"
+  },
+  {
+   "t": 5.88,
+   "kind": "land",
+   "id": "tiles:square:8"
+  },
+  {
+   "t": 5.894,
+   "kind": "flip",
+   "id": "tiles:flip:digits:2"
+  },
+  {
+   "t": 5.906,
+   "kind": "land",
+   "id": "tiles:square:9"
+  },
+  {
+   "t": 5.936,
+   "kind": "flip",
+   "id": "tiles:flip:digits:3"
+  },
+  {
+   "t": 5.944,
+   "kind": "land",
+   "id": "tiles:square:10"
+  },
+  {
+   "t": 5.964,
+   "kind": "flip",
+   "id": "tiles:flip:digits:4"
+  },
+  {
+   "t": 5.979,
+   "kind": "land",
+   "id": "tiles:square:11"
+  },
+  {
+   "t": 5.996,
+   "kind": "flip",
+   "id": "tiles:flip:digits:5"
+  },
+  {
+   "t": 6.039,
+   "kind": "flip",
+   "id": "tiles:flip:digits:6"
+  },
+  {
+   "t": 6.066,
+   "kind": "flip",
+   "id": "tiles:flip:digits:7"
+  },
+  {
+   "t": 6.47,
+   "kind": "key",
+   "id": "ui:translate:chord"
+  },
+  {
+   "t": 6.7,
+   "kind": "key",
+   "id": "ui:translate:key:0"
+  },
+  {
+   "t": 6.82,
+   "kind": "key",
+   "id": "ui:translate:key:3"
+  },
+  {
+   "t": 6.9,
+   "kind": "key",
+   "id": "ui:translate:key:5"
+  },
+  {
+   "t": 6.948,
+   "kind": "key",
+   "id": "ui:translate:key:6"
+  },
+  {
+   "t": 7.037,
+   "kind": "key",
+   "id": "ui:translate:key:8"
+  },
+  {
+   "t": 7.08,
+   "kind": "key",
+   "id": "ui:translate:key:9"
+  },
+  {
+   "t": 7.217,
+   "kind": "key",
+   "id": "ui:translate:key:12"
+  },
+  {
+   "t": 7.335,
+   "kind": "key",
+   "id": "ui:translate:key:15"
+  },
+  {
+   "t": 7.68,
+   "kind": "key",
+   "id": "ui:translate:return"
+  },
+  {
+   "t": 8.171,
+   "kind": "land",
+   "id": "tiles:slide:0"
+  },
+  {
+   "t": 8.332,
+   "kind": "flip",
+   "id": "tiles:flip:hello:0"
+  },
+  {
+   "t": 8.374,
+   "kind": "flip",
+   "id": "tiles:flip:hello:1"
+  },
+  {
+   "t": 8.403,
+   "kind": "flip",
+   "id": "tiles:flip:hello:2"
+  },
+  {
+   "t": 8.435,
+   "kind": "flip",
+   "id": "tiles:flip:hello:3"
+  },
+  {
+   "t": 8.465,
+   "kind": "flip",
+   "id": "tiles:flip:hello:4"
+  },
+  {
+   "t": 8.495,
+   "kind": "flip",
+   "id": "tiles:flip:hello:5"
+  },
+  {
+   "t": 8.54,
+   "kind": "flip",
+   "id": "tiles:flip:hello:6"
+  },
+  {
+   "t": 8.564,
+   "kind": "flip",
+   "id": "tiles:flip:hello:7"
+  },
+  {
+   "t": 8.583,
+   "kind": "flip",
+   "id": "tiles:flip:hello:8"
+  },
+  {
+   "t": 8.771,
+   "kind": "flip",
+   "id": "tiles:flip:hello:9"
+  },
+  {
+   "t": 8.771,
+   "kind": "flip",
+   "id": "tiles:flip:jp:0"
+  },
+  {
+   "t": 8.802,
+   "kind": "flip",
+   "id": "tiles:flip:hello:10"
+  },
+  {
+   "t": 8.802,
+   "kind": "flip",
+   "id": "tiles:flip:jp:1"
+  },
+  {
+   "t": 8.833,
+   "kind": "flip",
+   "id": "tiles:flip:hello:11"
+  },
+  {
+   "t": 8.835,
+   "kind": "flip",
+   "id": "tiles:flip:jp:2"
+  },
+  {
+   "t": 8.868,
+   "kind": "flip",
+   "id": "tiles:flip:jp:3"
+  },
+  {
+   "t": 8.902,
+   "kind": "flip",
+   "id": "tiles:flip:jp:4"
+  },
+  {
+   "t": 8.935,
+   "kind": "flip",
+   "id": "tiles:flip:jp:5"
+  },
+  {
+   "t": 8.969,
+   "kind": "flip",
+   "id": "tiles:flip:jp:6"
+  },
+  {
+   "t": 9.0,
+   "kind": "flip",
+   "id": "tiles:flip:jp:7"
+  },
+  {
+   "t": 9.032,
+   "kind": "flip",
+   "id": "tiles:flip:jp:8"
+  },
+  {
+   "t": 9.065,
+   "kind": "flip",
+   "id": "tiles:flip:jp:9"
+  },
+  {
+   "t": 9.099,
+   "kind": "flip",
+   "id": "tiles:flip:jp:10"
+  },
+  {
+   "t": 9.132,
+   "kind": "flip",
+   "id": "tiles:flip:jp:11"
+  },
+  {
+   "t": 9.165,
+   "kind": "flip",
+   "id": "tiles:flip:jp:12"
+  },
+  {
+   "t": 9.198,
+   "kind": "flip",
+   "id": "tiles:flip:jp:13"
+  },
+  {
+   "t": 9.231,
+   "kind": "flip",
+   "id": "tiles:flip:jp:14"
+  },
+  {
+   "t": 9.265,
+   "kind": "flip",
+   "id": "tiles:flip:jp:15"
+  },
+  {
+   "t": 9.292,
+   "kind": "flip",
+   "id": "tiles:flip:jp:16"
+  },
+  {
+   "t": 9.97,
+   "kind": "key",
+   "id": "ui:qr:chord"
+  },
+  {
+   "t": 10.2,
+   "kind": "key",
+   "id": "ui:qr:key:0"
+  },
+  {
+   "t": 10.68,
+   "kind": "key",
+   "id": "ui:qr:return"
+  },
+  {
+   "t": 10.783,
+   "kind": "lift",
+   "id": "tiles:qr:lift:0"
+  },
+  {
+   "t": 10.829,
+   "kind": "lift",
+   "id": "tiles:qr:lift:1"
+  },
+  {
+   "t": 10.874,
+   "kind": "lift",
+   "id": "tiles:qr:lift:2"
+  },
+  {
+   "t": 10.92,
+   "kind": "lift",
+   "id": "tiles:qr:lift:3"
+  },
+  {
+   "t": 10.959,
+   "kind": "lift",
+   "id": "tiles:qr:lift:4"
+  },
+  {
+   "t": 11.168,
+   "kind": "land",
+   "id": "tiles:qr:land:0"
+  },
+  {
+   "t": 11.198,
+   "kind": "land",
+   "id": "tiles:qr:land:1"
+  },
+  {
+   "t": 11.228,
+   "kind": "land",
+   "id": "tiles:qr:land:2"
+  },
+  {
+   "t": 11.27,
+   "kind": "land",
+   "id": "tiles:qr:land:3"
+  },
+  {
+   "t": 11.301,
+   "kind": "land",
+   "id": "tiles:qr:land:4"
+  },
+  {
+   "t": 11.337,
+   "kind": "land",
+   "id": "tiles:qr:land:5"
+  },
+  {
+   "t": 11.369,
+   "kind": "land",
+   "id": "tiles:qr:land:6"
+  },
+  {
+   "t": 11.401,
+   "kind": "land",
+   "id": "tiles:qr:land:7"
+  },
+  {
+   "t": 11.433,
+   "kind": "land",
+   "id": "tiles:qr:land:8"
+  },
+  {
+   "t": 11.467,
+   "kind": "land",
+   "id": "tiles:qr:land:9"
+  },
+  {
+   "t": 11.499,
+   "kind": "land",
+   "id": "tiles:qr:land:10"
+  },
+  {
+   "t": 11.532,
+   "kind": "land",
+   "id": "tiles:qr:land:11"
+  },
+  {
+   "t": 11.565,
+   "kind": "land",
+   "id": "tiles:qr:land:12"
+  },
+  {
+   "t": 11.6,
+   "kind": "land",
+   "id": "tiles:qr:land:13"
+  },
+  {
+   "t": 11.632,
+   "kind": "land",
+   "id": "tiles:qr:land:14"
+  },
+  {
+   "t": 11.665,
+   "kind": "land",
+   "id": "tiles:qr:land:15"
+  },
+  {
+   "t": 11.699,
+   "kind": "land",
+   "id": "tiles:qr:land:16"
+  },
+  {
+   "t": 11.729,
+   "kind": "land",
+   "id": "tiles:qr:land:17"
+  },
+  {
+   "t": 11.757,
+   "kind": "land",
+   "id": "tiles:qr:land:18"
+  },
+  {
+   "t": 12.47,
+   "kind": "key",
+   "id": "ui:confetti:chord"
+  },
+  {
+   "t": 12.7,
+   "kind": "key",
+   "id": "ui:confetti:key:0"
+  },
+  {
+   "t": 12.877,
+   "kind": "key",
+   "id": "ui:confetti:key:2"
+  },
+  {
+   "t": 13.04,
+   "kind": "key",
+   "id": "ui:confetti:key:4"
+  },
+  {
+   "t": 13.204,
+   "kind": "key",
+   "id": "ui:confetti:key:6"
+  },
+  {
+   "t": 13.93,
+   "kind": "key",
+   "id": "ui:confetti:return"
+  },
+  {
+   "t": 14.0,
+   "kind": "drop",
+   "id": "fx:drop"
+  },
+  {
+   "t": 15.75,
+   "kind": "whoosh",
+   "id": "cam:push:confetti"
+  },
+  {
+   "t": 16.067,
+   "kind": "land",
+   "id": "tiles:wm:land:0"
+  },
+  {
+   "t": 16.083,
+   "kind": "land",
+   "id": "tiles:wm:land:1"
+  },
+  {
+   "t": 16.108,
+   "kind": "land",
+   "id": "tiles:wm:land:2"
+  },
+  {
+   "t": 16.148,
+   "kind": "land",
+   "id": "tiles:wm:land:3"
+  },
+  {
+   "t": 16.19,
+   "kind": "land",
+   "id": "tiles:wm:land:4"
+  },
+  {
+   "t": 16.226,
+   "kind": "land",
+   "id": "tiles:wm:land:5"
+  },
+  {
+   "t": 16.258,
+   "kind": "land",
+   "id": "tiles:wm:land:6"
+  },
+  {
+   "t": 16.292,
+   "kind": "land",
+   "id": "tiles:wm:land:7"
+  },
+  {
+   "t": 16.321,
+   "kind": "land",
+   "id": "tiles:wm:land:8"
+  },
+  {
+   "t": 16.35,
+   "kind": "land",
+   "id": "tiles:wm:land:9"
+  },
+  {
+   "t": 16.386,
+   "kind": "land",
+   "id": "tiles:wm:land:10"
+  },
+  {
+   "t": 16.421,
+   "kind": "land",
+   "id": "tiles:wm:land:11"
+  },
+  {
+   "t": 16.453,
+   "kind": "land",
+   "id": "tiles:wm:land:12"
+  },
+  {
+   "t": 16.482,
+   "kind": "land",
+   "id": "tiles:wm:land:13"
+  },
+  {
+   "t": 16.518,
+   "kind": "land",
+   "id": "tiles:wm:land:14"
+  },
+  {
+   "t": 16.55,
+   "kind": "land",
+   "id": "tiles:wm:land:15"
+  },
+  {
+   "t": 16.583,
+   "kind": "land",
+   "id": "tiles:wm:land:16"
+  },
+  {
+   "t": 16.615,
+   "kind": "land",
+   "id": "tiles:wm:land:17"
+  },
+  {
+   "t": 16.658,
+   "kind": "land",
+   "id": "tiles:wm:land:18"
+  },
+  {
+   "t": 16.675,
+   "kind": "land",
+   "id": "tiles:wm:land:19"
+  },
+  {
+   "t": 16.711,
+   "kind": "land",
+   "id": "tiles:wm:land:20"
+  },
+  {
+   "t": 16.751,
+   "kind": "land",
+   "id": "tiles:wm:land:21"
+  },
+  {
+   "t": 16.779,
+   "kind": "land",
+   "id": "tiles:wm:land:22"
+  },
+  {
+   "t": 16.81,
+   "kind": "land",
+   "id": "tiles:wm:land:23"
+  },
+  {
+   "t": 16.853,
+   "kind": "land",
+   "id": "tiles:wm:land:24"
+  },
+  {
+   "t": 16.887,
+   "kind": "land",
+   "id": "tiles:wm:land:25"
+  },
+  {
+   "t": 16.922,
+   "kind": "land",
+   "id": "tiles:wm:land:26"
+  },
+  {
+   "t": 16.953,
+   "kind": "land",
+   "id": "tiles:wm:land:27"
+  },
+  {
+   "t": 16.986,
+   "kind": "land",
+   "id": "tiles:wm:land:28"
+  },
+  {
+   "t": 17.019,
+   "kind": "land",
+   "id": "tiles:wm:land:29"
+  },
+  {
+   "t": 17.046,
+   "kind": "land",
+   "id": "tiles:wm:land:30"
+  },
+  {
+   "t": 17.084,
+   "kind": "land",
+   "id": "tiles:wm:land:31"
+  },
+  {
+   "t": 17.118,
+   "kind": "land",
+   "id": "tiles:wm:land:32"
+  },
+  {
+   "t": 17.147,
+   "kind": "land",
+   "id": "tiles:wm:land:33"
+  },
+  {
+   "t": 17.186,
+   "kind": "land",
+   "id": "tiles:wm:land:34"
+  },
+  {
+   "t": 17.218,
+   "kind": "land",
+   "id": "tiles:wm:land:35"
+  },
+  {
+   "t": 17.248,
+   "kind": "land",
+   "id": "tiles:wm:land:36"
+  },
+  {
+   "t": 17.284,
+   "kind": "land",
+   "id": "tiles:wm:land:37"
+  },
+  {
+   "t": 17.327,
+   "kind": "land",
+   "id": "tiles:wm:land:38"
+  },
+  {
+   "t": 17.351,
+   "kind": "land",
+   "id": "tiles:wm:land:39"
+  },
+  {
+   "t": 17.383,
+   "kind": "land",
+   "id": "tiles:wm:land:40"
+  },
+  {
+   "t": 17.414,
+   "kind": "land",
+   "id": "tiles:wm:land:41"
+  },
+  {
+   "t": 17.457,
+   "kind": "land",
+   "id": "tiles:wm:land:42"
+  },
+  {
+   "t": 17.487,
+   "kind": "land",
+   "id": "tiles:wm:land:43"
+  },
+  {
+   "t": 17.518,
+   "kind": "land",
+   "id": "tiles:wm:land:44"
+  },
+  {
+   "t": 17.556,
+   "kind": "land",
+   "id": "tiles:wm:land:45"
+  },
+  {
+   "t": 17.592,
+   "kind": "land",
+   "id": "tiles:wm:land:46"
+  },
+  {
+   "t": 17.615,
+   "kind": "land",
+   "id": "tiles:wm:land:47"
+  },
+  {
+   "t": 17.646,
+   "kind": "land",
+   "id": "tiles:wm:land:48"
+  },
+  {
+   "t": 17.684,
+   "kind": "land",
+   "id": "tiles:wm:land:49"
+  },
+  {
+   "t": 17.719,
+   "kind": "land",
+   "id": "tiles:wm:land:50"
+  },
+  {
+   "t": 17.75,
+   "kind": "land",
+   "id": "tiles:wm:land:51"
+  },
+  {
+   "t": 17.784,
+   "kind": "land",
+   "id": "tiles:wm:land:52"
+  },
+  {
+   "t": 17.817,
+   "kind": "land",
+   "id": "tiles:wm:land:53"
+  },
+  {
+   "t": 17.855,
+   "kind": "land",
+   "id": "tiles:wm:land:54"
+  },
+  {
+   "t": 17.885,
+   "kind": "land",
+   "id": "tiles:wm:land:55"
+  },
+  {
+   "t": 17.917,
+   "kind": "land",
+   "id": "tiles:wm:land:56"
+  },
+  {
+   "t": 17.958,
+   "kind": "land",
+   "id": "tiles:wm:land:57"
+  },
+  {
+   "t": 17.99,
+   "kind": "land",
+   "id": "tiles:wm:land:58"
+  },
+  {
+   "t": 18.024,
+   "kind": "land",
+   "id": "tiles:wm:land:59"
+  },
+  {
+   "t": 18.047,
+   "kind": "land",
+   "id": "tiles:wm:land:60"
+  },
+  {
+   "t": 18.087,
+   "kind": "land",
+   "id": "tiles:wm:land:61"
+  },
+  {
+   "t": 18.118,
+   "kind": "land",
+   "id": "tiles:wm:land:62"
+  },
+  {
+   "t": 18.157,
+   "kind": "land",
+   "id": "tiles:wm:land:63"
+  },
+  {
+   "t": 18.19,
+   "kind": "land",
+   "id": "tiles:wm:land:64"
+  },
+  {
+   "t": 18.214,
+   "kind": "land",
+   "id": "tiles:wm:land:65"
+  },
+  {
+   "t": 18.246,
+   "kind": "land",
+   "id": "tiles:wm:land:66"
+  },
+  {
+   "t": 18.28,
+   "kind": "land",
+   "id": "tiles:wm:land:67"
+  },
+  {
+   "t": 19.0,
+   "kind": "land",
+   "id": "logo:period"
+  },
+  {
+   "t": 19.5,
+   "kind": "caption",
+   "id": "logo:caption:0"
+  },
+  {
+   "t": 20.0,
+   "kind": "caption",
+   "id": "logo:caption:1"
+  },
+  {
+   "t": 22.383,
+   "kind": "whoosh",
+   "id": "cam:dive:in"
+  },
+  {
+   "t": 22.5,
+   "kind": "tock",
+   "id": "loop:swap"
+  },
+  {
+   "t": 22.65,
+   "kind": "whoosh",
+   "id": "cam:dive:out"
+  }
+ ],
+ "buses": {
+  "sfx": {
+   "peak_dbfs": -180.0,
+   "rms_dbfs": -200.0
+  },
+  "amb": {
+   "peak_dbfs": -180.0,
+   "rms_dbfs": -200.0
+  },
+  "music": {
+   "peak_dbfs": -0.86,
+   "rms_dbfs": -19.84
+  }
+ },
+ "music_segments": [
+  {
+   "label": "src bars 8-12 -> film bars 1-5: the last sparse intro bar under the opening typing, the groove (kick + bass, +6 dB low band) enters on film 2.0 with the cascade",
+   "src_from": 13.5488,
+   "src_to": 23.2266,
+   "at": 0.0,
+   "fade_in": 0.008,
+   "fade_out": 0.03,
+   "stretched_from": 13.992,
+   "film_start": -0.008
+  },
+  {
+   "label": "src bars 40-44 -> film bars 6-10: bar 40 brings the hats back (lift into the QR), bar 41 is the break (kick, bass and highs out) under the confetti typing, bar 42 returns full on 14.0 = Make Confetti, stop after the downbeat of src bar 44 (film 18.0) with a short tail so the last letters land in near-silence",
+   "src_from": 75.4863,
+   "src_to": 83.635,
+   "at": 10.0,
+   "fade_in": 0.008,
+   "fade_out": 0.04,
+   "tail_fade": 0.3,
+   "stretched_from": 77.992,
+   "film_start": 9.992
+  }
+ ],
+ "files_used": [
+  "audio/assets/music/mk-196.mp3"
+ ],
+ "premaster_peak_dbfs": -0.86
+}

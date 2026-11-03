@@ -1,0 +1,65 @@
+[
+  {
+    "name": "trace-000.png",
+    "ms": 1286,
+    "scene": null,
+    "svgOpacity": "1",
+    "fonts": "loaded"
+  },
+  {
+    "name": "trace-001.png",
+    "ms": 1618,
+    "scene": null,
+    "svgOpacity": "1",
+    "fonts": "loaded"
+  },
+  {
+    "name": "trace-002.png",
+    "ms": 2206,
+    "scene": "ready",
+    "svgOpacity": "0",
+    "fonts": "loaded"
+  },
+  {
+    "name": "trace-003.png",
+    "ms": 2449,
+    "scene": "ready",
+    "svgOpacity": "0",
+    "fonts": "loaded"
+  },
+  {
+    "name": "trace-004.png",
+    "ms": 2639,
+    "scene": "ready",
+    "svgOpacity": "0",
+    "fonts": "loaded"
+  },
+  {
+    "name": "trace-005.png",
+    "ms": 2956,
+    "scene": "ready",
+    "svgOpacity": "0",
+    "fonts": "loaded"
+  },
+  {
+    "name": "trace-006.png",
+    "ms": 3588,
+    "scene": "ready",
+    "svgOpacity": "0",
+    "fonts": "loaded"
+  },
+  {
+    "name": "trace-007.png",
+    "ms": 3772,
+    "scene": "ready",
+    "svgOpacity": "0",
+    "fonts": "loaded"
+  },
+  {
+    "name": "trace-008.png",
+    "ms": 3975,
+    "scene": "ready",
+    "svgOpacity": "0",
+    "fonts": "loaded"
+  }
+]

@@ -6,31 +6,28 @@
     <script src="vendor/gsap.min.js"></script>
     <style>
       @font-face { font-family: "Geist"; src: url("assets/fonts/Geist.ttf") format("truetype"); font-weight: 100 900; }
-      @font-face { font-family: "Noto Sans"; src: url("assets/fonts/NotoSans.ttf") format("truetype"); font-weight: 100 900; }
-      @font-face { font-family: "Noto JP"; src: url("assets/fonts/NotoSansJP.ttf") format("truetype"); font-weight: 100 900; }
+      @font-face { font-family: "Plex Sans"; src: url("assets/fonts/IBMPlexSans.ttf") format("truetype"); font-weight: 100 700; }
+      @font-face { font-family: "Plex JP"; src: url("assets/fonts/IBMPlexSansJP-Medium.ttf") format("truetype"); font-weight: 500; }
       @font-face { font-family: "Plex Mono"; src: url("assets/fonts/IBMPlexMono-Medium.ttf") format("truetype"); font-weight: 500; }
       @font-face { font-family: "Plex Mono"; src: url("assets/fonts/IBMPlexMono-SemiBold.ttf") format("truetype"); font-weight: 600; }
       @font-face { font-family: "Instrument Serif"; src: url("assets/fonts/InstrumentSerif-Italic.ttf") format("truetype"); font-style: italic; font-weight: 400; }
-      @font-face { font-family: "Noto Deva"; src: url("assets/fonts/NotoSansDevanagari.ttf") format("truetype"); font-weight: 100 900; }
+      @font-face { font-family: "Plex Deva"; src: url("assets/fonts/IBMPlexSansDevanagari-Medium.ttf") format("truetype"); font-weight: 500; }
+      @font-face { font-family: "Plex Arabic"; src: url("assets/fonts/IBMPlexSansArabic-Medium.ttf") format("truetype"); font-weight: 500; }
       :root { --ink: #070606; --bone: #f1efea; --molten: #ff5a1f; }
       * { box-sizing: border-box; margin: 0; padding: 0; }
       html, body { width: 1920px; height: 1080px; background: #000; overflow: hidden; }
       #root { position: relative; width: 100%; height: 100%; overflow: hidden; background: #000; }
       #gl { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
-      #cmd { position: absolute; left: 120px; top: 846px; height: 140px; display: flex; align-items: center; visibility: hidden;
+      #cmd { position: absolute; left: 150px; top: 450px; height: 180px; display: flex; align-items: center; visibility: hidden;
         font: 500 112px/1 "Plex Mono", monospace; letter-spacing: -0.03em; color: var(--bone); white-space: pre;
         text-shadow: 0 0 36px rgba(0, 0, 0, 0.35); }
       #cmd.ink { color: var(--ink); text-shadow: none; }
       #cmd .link { color: rgba(241, 239, 234, 0.62); }
-      #cmd.exec { color: var(--molten); }
-      #cmd .caret { display: block; width: 10px; height: 102px; margin-left: 10px; background: var(--molten);
+      #cmd.exec { color: #fff; }
+      #cmd .caret { display: block; width: 0.08em; height: 0.82em; margin-left: 0.08em; background: var(--molten);
         box-shadow: 0 0 22px 2px rgba(255, 90, 31, 0.65); }
-      .cap { position: absolute; left: 0; width: 1920px; text-align: center; visibility: hidden; white-space: pre;
-        font: 500 64px/1.25 "Plex Mono", monospace; letter-spacing: -0.02em; color: var(--bone);
-        text-shadow: 0 0 50px rgba(0, 0, 0, 0.6), 0 0 14px rgba(0, 0, 0, 0.5); }
-      #capA { top: 640px; } #capB { top: 730px; }
-      #calc { position: absolute; left: 0; width: 1920px; top: 380px; height: 240px; visibility: hidden; white-space: nowrap;
-        font: 500 220px/1 "Plex Mono", monospace; letter-spacing: -0.04em; color: var(--bone); font-variant-numeric: tabular-nums;
+      #calc { position: absolute; left: 0; width: 1920px; top: 330px; height: 300px; visibility: hidden; white-space: nowrap;
+        font: 500 290px/1 "Plex Mono", monospace; letter-spacing: -0.04em; color: var(--bone); font-variant-numeric: tabular-nums;
         display: flex; justify-content: center; align-items: baseline; gap: 0.16em; }
       #calc .num { display: inline-flex; }
       #calc .cell { display: inline-block; height: 1em; line-height: 1em; overflow: hidden; vertical-align: top; }
@@ -38,29 +35,42 @@
       #calc .strip { display: block; white-space: pre; line-height: 1em; }
       #calc .unit { display: inline-block; height: 1em; overflow: hidden; font-size: 0.42em; line-height: 1em; color: rgba(241, 239, 234, 0.7); }
       #calc .unit .u { display: block; height: 1em; transform: translateY(calc(var(--u, 0) * -100%)); }
-      #calcsmall { position: absolute; left: 0; width: 1920px; top: 300px; text-align: center; visibility: hidden;
-        font: 500 56px/1 "Plex Mono", monospace; color: rgba(241, 239, 234, 0.55); }
+      #calcsmall { position: absolute; left: 0; width: 1920px; top: 236px; text-align: center; visibility: hidden;
+        font: 500 66px/1 "Plex Mono", monospace; color: rgba(241, 239, 234, 0.6); }
       #bar { position: absolute; visibility: hidden; display: flex; align-items: center; box-sizing: border-box; white-space: pre;
         font: 500 62px/1 "Plex Mono", monospace; letter-spacing: -0.02em; color: var(--bone);
-        background: linear-gradient(180deg, rgba(44, 44, 48, 0.5), rgba(18, 18, 20, 0.62));   /* glass: gl.js frosts what is behind */
+        background: linear-gradient(180deg, rgba(40, 40, 44, 0.66), rgba(16, 16, 18, 0.78));   /* glass: gl.js frosts what is behind */
         box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.16), inset 0 0 0 1px rgba(255, 255, 255, 0.09), 0 30px 80px rgba(0, 0, 0, 0.55),
           inset 0 -18px 50px rgba(255, 90, 31, calc(var(--warm, 0) * 0.55)), 0 0 60px rgba(255, 90, 31, calc(var(--warm, 0) * 0.35)); }
       #bar.exec .txt { color: var(--molten); }
       #bar .link { color: rgba(241, 239, 234, 0.55); }
+      #bar .chip { position: absolute; right: 1.3em; top: 0; transform: translateY(-50%); display: flex; align-items: center;
+        padding: 0.36em 0.7em; border-radius: 999px; background: rgb(30, 30, 33); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.22), 0 8px 24px rgba(0, 0, 0, 0.5);
+        font: 500 0.48em/1 "Plex Mono", monospace; letter-spacing: 0; color: var(--bone); opacity: 0; }
+      #bar .chip .ja { font-family: "Plex JP", sans-serif; font-weight: 500; }
+      #bar .chip b { margin-right: 0.5em; width: 0.16em; height: 1em; border-radius: 1px; background: var(--molten);
+        box-shadow: 0 0 calc(4px + var(--beat, 0) * 22px) calc(var(--beat, 0) * 4px) rgba(255, 90, 31, 0.75); }
+      #answers { position: absolute; inset: 0; visibility: hidden; pointer-events: none; }
+      #answers span { position: absolute; left: 0; top: 0; white-space: nowrap; line-height: 1.5; font-weight: 500; color: var(--bone);
+        transform-origin: 0 50%; will-change: transform, opacity, filter; opacity: 0; }
       #bar .caret { display: block; width: 0.1em; height: 0.95em; margin-left: 0.06em; background: var(--molten);
         box-shadow: 0 0 18px 2px rgba(255, 90, 31, 0.6); }
+      #fly { position: absolute; left: 0; top: 0; visibility: hidden; background: var(--molten); box-shadow: 0 0 18px 2px rgba(255, 90, 31, 0.6); }
+      #tag { position: absolute; left: 0; width: 1920px; text-align: center; visibility: hidden; white-space: pre;
+        font: 500 76px/1 "Geist", sans-serif; letter-spacing: -0.02em; color: rgba(241, 239, 234, 0.78); }
     </style>
   </head>
   <body>
-    <div id="root" data-composition-id="main" data-start="0" data-duration="24.32" data-width="1920" data-height="1080">
+    <div id="root" data-composition-id="main" data-start="0" data-duration="30.03" data-width="1920" data-height="1080">
       <canvas id="gl"></canvas>
-      <div id="capA" class="cap"></div>
-      <div id="capB" class="cap"></div>
+      <div id="answers"></div>
       <div id="calcsmall">100 usd =</div>
       <div id="calc"></div>
-      <div id="bar"><span class="txt"></span><i class="caret"></i></div>
+      <div id="bar"><span class="txt"></span><i class="caret"></i><i class="chip"><b></b><span>EN → <span class="to ja">日本語</span></span></i></div>
+      <i id="fly"></i>
       <div id="cmd"><span class="txt"></span><i class="caret"></i></div>
-      <audio id="mix" src="assets/audio/mix.wav" data-start="0" data-duration="24.32" data-track-index="1"></audio>
+      <div id="tag">One bar for every job.</div>
+      <audio id="mix" src="assets/audio/mix.wav" data-start="0" data-duration="30.03" data-track-index="1"></audio>
     </div>
     <script src="js/lib.js"></script>
     <script src="js/timing.js"></script>

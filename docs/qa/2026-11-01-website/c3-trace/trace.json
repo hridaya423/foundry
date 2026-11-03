@@ -1,0 +1,154 @@
+{
+  "frames": [
+    {
+      "name": "trace-000.png",
+      "ms": 546,
+      "scene": null,
+      "svgOpacity": "1",
+      "fonts": "loaded"
+    },
+    {
+      "name": "trace-001.png",
+      "ms": 1267,
+      "scene": "ready",
+      "svgOpacity": "0.289407",
+      "fonts": "loaded"
+    },
+    {
+      "name": "trace-002.png",
+      "ms": 1428,
+      "scene": "ready",
+      "svgOpacity": "0",
+      "fonts": "loaded"
+    },
+    {
+      "name": "trace-003.png",
+      "ms": 1626,
+      "scene": "ready",
+      "svgOpacity": "0",
+      "fonts": "loaded"
+    },
+    {
+      "name": "trace-004.png",
+      "ms": 1804,
+      "scene": "ready",
+      "svgOpacity": "0",
+      "fonts": "loaded"
+    },
+    {
+      "name": "trace-005.png",
+      "ms": 1970,
+      "scene": "ready",
+      "svgOpacity": "0",
+      "fonts": "loaded"
+    },
+    {
+      "name": "trace-006.png",
+      "ms": 2133,
+      "scene": "ready",
+      "svgOpacity": "0",
+      "fonts": "loaded"
+    },
+    {
+      "name": "trace-007.png",
+      "ms": 2297,
+      "scene": "ready",
+      "svgOpacity": "0",
+      "fonts": "loaded"
+    },
+    {
+      "name": "trace-008.png",
+      "ms": 2464,
+      "scene": "ready",
+      "svgOpacity": "0",
+      "fonts": "loaded"
+    },
+    {
+      "name": "trace-009.png",
+      "ms": 2644,
+      "scene": "ready",
+      "svgOpacity": "0",
+      "fonts": "loaded"
+    },
+    {
+      "name": "trace-010.png",
+      "ms": 2809,
+      "scene": "ready",
+      "svgOpacity": "0",
+      "fonts": "loaded"
+    },
+    {
+      "name": "trace-011.png",
+      "ms": 3019,
+      "scene": "ready",
+      "svgOpacity": "0",
+      "fonts": "loaded"
+    },
+    {
+      "name": "trace-012.png",
+      "ms": 3173,
+      "scene": "ready",
+      "svgOpacity": "0",
+      "fonts": "loaded"
+    },
+    {
+      "name": "trace-013.png",
+      "ms": 3344,
+      "scene": "ready",
+      "svgOpacity": "0",
+      "fonts": "loaded"
+    },
+    {
+      "name": "trace-014.png",
+      "ms": 3498,
+      "scene": "ready",
+      "svgOpacity": "0",
+      "fonts": "loaded"
+    },
+    {
+      "name": "trace-015.png",
+      "ms": 3647,
+      "scene": "ready",
+      "svgOpacity": "0",
+      "fonts": "loaded"
+    },
+    {
+      "name": "trace-016.png",
+      "ms": 3805,
+      "scene": "ready",
+      "svgOpacity": "0",
+      "fonts": "loaded"
+    },
+    {
+      "name": "trace-017.png",
+      "ms": 3981,
+      "scene": "ready",
+      "svgOpacity": "0",
+      "fonts": "loaded"
+    }
+  ],
+  "longTasks": [
+    {
+      "start": 122,
+      "duration": 113
+    },
+    {
+      "start": 462,
+      "duration": 75
+    },
+    {
+      "start": 543,
+      "duration": 92
+    },
+    {
+      "start": 642,
+      "duration": 65
+    },
+    {
+      "start": 1012,
+      "duration": 190
+    }
+  ],
+  "longest": 190,
+  "blocking": 285
+}

@@ -1,0 +1,41 @@
+{
+ "summary": "Best moments for 'a single ceramic tile being turned over' in fs-145125_bathroom-tiles-handled-03.ogg (kind=event; searched all 2.8 s: 5 windows of ~1.0 s (edges snapped to the sound) to locate events, none returned + 19 onset-based candidates (one stage)): 0:00.75-0:02.71 (1.96 s event, z +3.8 strong); 0:00.09-0:00.20 (0.12 s stroke, z +1.9 no match). start/end are sample trims in seconds (strokes / events start 5 ms before the attack; windows are snapped to the sound; a 'head cut' / 'tail cut' trim cuts into a sound).",
+ "path": "audio/assets/tiles/fs-145125_bathroom-tiles-handled-03.ogg",
+ "query": "a single ceramic tile being turned over",
+ "query_kind": "either",
+ "query_kind_score": -0.104,
+ "duration": 2.795,
+ "n_candidates": 19,
+ "n_windows": 0,
+ "n_events": 19,
+ "segments": [
+  {
+   "start": 0.754,
+   "end": 2.715,
+   "duration": 1.961,
+   "score": 3.8,
+   "z": 3.8,
+   "cosine": 0.241,
+   "verdict": "strong",
+   "kind": "event",
+   "peak_dbfs": -6.8,
+   "head_db": -49.9,
+   "tail_db": -48.7,
+   "cut": ""
+  },
+  {
+   "start": 0.085,
+   "end": 0.205,
+   "duration": 0.12,
+   "score": 1.91,
+   "z": 1.91,
+   "cosine": 0.127,
+   "verdict": "no match",
+   "kind": "stroke",
+   "peak_dbfs": -0.8,
+   "head_db": -44.2,
+   "tail_db": -39.6,
+   "cut": ""
+  }
+ ]
+}

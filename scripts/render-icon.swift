@@ -1,8 +1,8 @@
 #!/usr/bin/env swift
 // Renders the Foundry app icon into Supporting/AppIcon.iconset/*.png plus
-// Supporting/icon-1024.png: the website's tiled "f" in chalk tiles, closed by
-// the orange full stop the site ends its headlines with.
-// The f outline is the one in anvil/scripts/build-foundry-tiles.mjs.
+// Supporting/icon-1024.png: the Split Mould mark from docs/brand/mark/mark.svg,
+// two chalk mould halves around one orange cast, on ink.
+// Sizes of 32 px and below draw docs/brand/mark/mark-16.svg, hinted to whole pixels.
 // Usage: swift scripts/render-icon.swift [outDir]   (default: Supporting/AppIcon.iconset)
 
 import AppKit
@@ -31,26 +31,48 @@ private func squircle(_ rect: CGRect) -> CGPath {
     return path
 }
 
-private func letterF(_ T: (CGFloat, CGFloat) -> CGPoint) -> CGPath {
-    let p = CGMutablePath()
-    p.move(to: T(61, 181)); p.addLine(to: T(96, 181)); p.addLine(to: T(96, 156))
-    p.addCurve(to: T(176, 94), control1: T(96, 111), control2: T(126, 94))
-    p.addLine(to: T(228, 94)); p.addLine(to: T(228, 151)); p.addLine(to: T(195, 151))
-    p.addCurve(to: T(168, 181), control1: T(171, 151), control2: T(168, 159))
-    p.addLine(to: T(228, 181)); p.addLine(to: T(228, 238)); p.addLine(to: T(168, 238))
-    p.addLine(to: T(168, 411)); p.addLine(to: T(96, 411)); p.addLine(to: T(96, 238))
-    p.addLine(to: T(61, 238)); p.closeSubpath()
-    return p
+private func mouldHalves(_ T: (CGFloat, CGFloat) -> CGPoint, unit k: CGFloat) -> [CGPath] {
+    let r = 10 * k
+    let left = CGMutablePath()
+    left.move(to: T(20, 10)); left.addLine(to: T(55, 10)); left.addLine(to: T(55, 30)); left.addLine(to: T(40, 30))
+    left.addLine(to: T(40, 110)); left.addLine(to: T(20, 110))
+    left.addArc(tangent1End: T(10, 110), tangent2End: T(10, 100), radius: r)
+    left.addLine(to: T(10, 20))
+    left.addArc(tangent1End: T(10, 10), tangent2End: T(20, 10), radius: r)
+    left.closeSubpath()
+    let upper = CGMutablePath()
+    upper.move(to: T(65, 10)); upper.addLine(to: T(100, 10))
+    upper.addArc(tangent1End: T(110, 10), tangent2End: T(110, 20), radius: r)
+    upper.addLine(to: T(110, 70)); upper.addLine(to: T(80, 70)); upper.addLine(to: T(80, 30)); upper.addLine(to: T(65, 30))
+    upper.closeSubpath()
+    let lower = CGMutablePath()
+    lower.move(to: T(80, 80)); lower.addLine(to: T(110, 80)); lower.addLine(to: T(110, 100))
+    lower.addArc(tangent1End: T(110, 110), tangent2End: T(100, 110), radius: r)
+    lower.addLine(to: T(80, 110))
+    lower.closeSubpath()
+    return [left, upper, lower]
 }
 
-/// Splits [a, b] into n equal cells so tile edges land on the glyph's straight edges.
-private func split(_ a: CGFloat, _ b: CGFloat, _ n: Int) -> [CGFloat] {
-    (0...n).map { a + (b - a) * CGFloat($0) / CGFloat(n) }
+private func hintedPieces(_ T: (CGFloat, CGFloat) -> CGPoint, inset: Bool) -> (halves: [CGPath], cast: CGPath) {
+    func poly(_ points: [(CGFloat, CGFloat)]) -> CGPath {
+        let p = CGMutablePath()
+        p.addLines(between: points.map { T($0.0, $0.1) })
+        p.closeSubpath()
+        return p
+    }
+    if inset {
+        return ([
+            poly([(2, 2), (7, 2), (7, 4), (5, 4), (5, 14), (2, 14)]),
+            poly([(9, 2), (14, 2), (14, 8), (11, 8), (11, 4), (9, 4)]),
+            poly([(11, 9), (14, 9), (14, 14), (11, 14)]),
+        ], poly([(6, 6), (10, 6), (10, 13), (6, 13)]))
+    }
+    return ([
+        poly([(1, 1), (7, 1), (7, 4), (5, 4), (5, 15), (1, 15)]),
+        poly([(9, 1), (15, 1), (15, 9), (11, 9), (11, 4), (9, 4)]),
+        poly([(11, 10), (15, 10), (15, 15), (11, 15)]),
+    ], poly([(6, 6), (10, 6), (10, 14), (6, 14)]))
 }
-
-private let rows = Array(split(94, 181, 3).dropLast()) + Array(split(181, 238, 2).dropLast()) + split(238, 411, 6)
-private let columns: [CGFloat] = [61, 96, 132, 168, 198, 228]
-private let stopX: CGFloat = 246, stopWidth: CGFloat = 72
 
 private func renderIcon(px: Int) -> CGImage {
     let s = CGFloat(px), u = s / 1024
@@ -59,7 +81,6 @@ private func renderIcon(px: Int) -> CGImage {
     ctx.translateBy(x: 0, y: s)
     ctx.scaleBy(x: 1, y: -1)
 
-    // Apple's macOS grid: an 824 pt body centred on the 1024 canvas.
     let bodyRect = CGRect(x: 100 * u, y: 100 * u, width: 824 * u, height: 824 * u)
     let body = squircle(bodyRect)
     ctx.saveGState()
@@ -71,63 +92,50 @@ private func renderIcon(px: Int) -> CGImage {
     ctx.drawLinearGradient(gradient([rgb(0x24211d), rgb(0x15130f), rgb(0x0d0c0a)], [0, 0.55, 1]),
                            start: CGPoint(x: 0, y: bodyRect.minY), end: CGPoint(x: 0, y: bodyRect.maxY), options: [])
 
-    let markWidth = stopX + stopWidth - 61, markHeight: CGFloat = 411 - 94
-    let k = 500 * u / markHeight
-    let ox = 512 * u - markWidth * k / 2 - 61 * k + 4 * u
-    let oy = 512 * u - markHeight * k / 2 - 94 * k
-    func T(_ x: CGFloat, _ y: CGFloat) -> CGPoint { CGPoint(x: ox + x * k, y: oy + y * k) }
-    let glyph = letterF(T)
-    let gap = 4 * k
+    if px <= 32 {
+        let full = px <= 16
+        let unit = full ? s / 16 : max(1, (bodyRect.width * 0.62 / 16).rounded(.down))
+        let origin = full ? 0 : ((s - unit * 16) / 2).rounded()
+        func T(_ x: CGFloat, _ y: CGFloat) -> CGPoint { CGPoint(x: origin + x * unit, y: origin + y * unit) }
+        if full {
+            ctx.restoreGState()
+            ctx.clear(CGRect(x: 0, y: 0, width: s, height: s))
+            ctx.addPath(CGPath(roundedRect: CGRect(x: 0, y: 0, width: s, height: s), cornerWidth: 3 * unit, cornerHeight: 3 * unit, transform: nil))
+            ctx.setFillColor(rgb(0x0f0d0c)); ctx.fillPath()
+            ctx.saveGState()
+        }
+        let pieces = hintedPieces(T, inset: full)
+        ctx.setShouldAntialias(false)
+        for half in pieces.halves { ctx.addPath(half); ctx.setFillColor(rgb(0xeee7dd)); ctx.fillPath() }
+        ctx.addPath(pieces.cast); ctx.setFillColor(rgb(0xfa6428)); ctx.fillPath()
+        ctx.restoreGState()
+        return ctx.makeImage()!
+    }
 
-    func tile(_ cell: CGRect, top: CGColor, bottom: CGColor, clip: CGPath?) {
-        let rect = cell.insetBy(dx: gap / 2, dy: gap / 2)
-        let path = CGPath(roundedRect: rect, cornerWidth: rect.width * 0.08, cornerHeight: rect.width * 0.08, transform: nil)
+    let k = 480 * u / 120
+    let o = 512 * u - 60 * k
+    func T(_ x: CGFloat, _ y: CGFloat) -> CGPoint { CGPoint(x: o + x * k, y: o + y * k) }
+
+    func solid(_ path: CGPath, top: CGColor, bottom: CGColor) {
+        let box = path.boundingBoxOfPath
         ctx.saveGState()
-        if let clip { ctx.addPath(clip); ctx.clip() }
-        ctx.saveGState()
-        ctx.setShadow(offset: CGSize(width: 0, height: rect.height * 0.08), blur: rect.height * 0.16, color: rgb(0, 0.55))
+        ctx.setShadow(offset: CGSize(width: 0, height: 6 * u), blur: 14 * u, color: rgb(0, 0.55))
         ctx.addPath(path); ctx.setFillColor(bottom); ctx.fillPath()
         ctx.restoreGState()
-        ctx.addPath(path); ctx.clip()
-        ctx.drawLinearGradient(gradient([top, bottom], [0, 1]), start: CGPoint(x: rect.minX, y: rect.minY),
-                               end: CGPoint(x: rect.minX + rect.width * 0.3, y: rect.maxY), options: [])
         ctx.saveGState()
-        ctx.setBlendMode(.softLight)
-        ctx.drawRadialGradient(gradient([rgb(0xffffff, 0.55), rgb(0xffffff, 0)], [0, 1]),
-                               startCenter: CGPoint(x: rect.minX + rect.width * 0.3, y: rect.minY + rect.height * 0.25), startRadius: 0,
-                               endCenter: CGPoint(x: rect.midX, y: rect.midY), endRadius: rect.width * 0.9, options: [])
-        ctx.restoreGState()
-        ctx.setLineWidth(max(1, rect.width * 0.04))
-        for (band, color) in [(CGRect(x: rect.minX, y: rect.minY, width: rect.width, height: rect.height * 0.35), rgb(0xffffff, 0.35)),
-                              (CGRect(x: rect.minX, y: rect.maxY - rect.height * 0.3, width: rect.width, height: rect.height * 0.3), rgb(0, 0.28))] {
-            ctx.saveGState()
-            ctx.clip(to: band)
-            ctx.addPath(path); ctx.setStrokeColor(color); ctx.strokePath()
-            ctx.restoreGState()
-        }
+        ctx.addPath(path); ctx.clip()
+        ctx.drawLinearGradient(gradient([top, bottom], [0, 1]), start: CGPoint(x: box.minX, y: o + 10 * k),
+                               end: CGPoint(x: box.minX, y: o + 110 * k), options: [])
+        ctx.setLineWidth(3 * u)
+        ctx.addPath(path); ctx.setStrokeColor(rgb(0xffffff, 0.22)); ctx.strokePath()
         ctx.restoreGState()
     }
 
-    for i in 0..<(rows.count - 1) {
-        for j in 0..<(columns.count - 1) {
-            let cell = CGRect(origin: T(columns[j], rows[i]),
-                              size: CGSize(width: (columns[j + 1] - columns[j]) * k, height: (rows[i + 1] - rows[i]) * k))
-            let cellPath = CGPath(rect: cell, transform: nil)
-            guard cellPath.intersects(glyph) else { continue }
-            let piece = cellPath.intersection(glyph).boundingBoxOfPath
-            guard piece.width > cell.width * 0.4, piece.height > cell.height * 0.4 else { continue }
-            tile(cell, top: rgb(0xebe5d8), bottom: rgb(0xc9bea9), clip: glyph)
-        }
+    for half in mouldHalves(T, unit: k) {
+        solid(half, top: rgb(0xf4ede2), bottom: rgb(0xd6cdbd))
     }
-
-    let rowHeight = rows[rows.count - 1] - rows[rows.count - 2]
-    for column in 0..<2 {
-        for row in 1...2 {
-            let cell = CGRect(origin: T(stopX + CGFloat(column) * stopWidth / 2, 411 - rowHeight * CGFloat(row)),
-                              size: CGSize(width: stopWidth / 2 * k, height: rowHeight * k))
-            tile(cell, top: rgb(0xff7a3d), bottom: rgb(0xf04b10), clip: nil)
-        }
-    }
+    let cast = CGPath(rect: CGRect(origin: T(50, 40), size: CGSize(width: 20 * k, height: 60 * k)), transform: nil)
+    solid(cast, top: rgb(0xffa36c), bottom: rgb(0xf0672b))
 
     ctx.addPath(body); ctx.setStrokeColor(rgb(0xffffff, 0.10)); ctx.setLineWidth(3 * u); ctx.strokePath()
     ctx.restoreGState()

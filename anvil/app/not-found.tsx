@@ -18,7 +18,7 @@ export default function NotFound() {
       {figure.points.map((point) => <i key={`${point.x}:${point.y}`} style={{ gridColumn: point.x - left + 1, gridRow: point.y - top + 1 }} />)}
     </div>
     <h1 id="content">This page is not here.</h1>
-    <p>The link may be old, or the page moved.</p>
+    <p>The link may be old, or the page moved. Press <kbd>⌘K</kbd> to search the site.</p>
     <Link className="foundry-cta" href="/">Back to Foundry</Link>
     <SiteFooter />
   </main>;

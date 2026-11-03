@@ -1,6 +1,9 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
+import { color } from "./foundry/tokens";
 import { Geist, Geist_Mono } from "next/font/google";
 import { siteDescription, siteUrl } from "./site";
+import Palette from "./foundry/palette";
+import "./foundry/tokens.css";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -22,6 +25,8 @@ export const metadata: Metadata = {
   twitter: { card: "summary_large_image" },
 };
 
+export const viewport: Viewport = { themeColor: color.ink, colorScheme: "dark" };
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -32,7 +37,7 @@ export default function RootLayout({
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col"><a className="skip-link" href="#content">Skip to content</a>{children}</body>
+      <body className="min-h-full flex flex-col"><a className="skip-link" href="#content">Skip to content</a>{children}<Palette /></body>
     </html>
   );
 }

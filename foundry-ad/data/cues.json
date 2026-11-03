@@ -1,0 +1,427 @@
+[
+ {
+  "id": "crt-on",
+  "src": "assets/audio/sfx/crt-on.mp3",
+  "at": 0.02,
+  "gain": 4.0
+ },
+ {
+  "id": "projector",
+  "src": "assets/audio/sfx/projector.mp3",
+  "at": 0.25,
+  "gain": -15.0,
+  "to": 1.6,
+  "fadeIn": 0.06,
+  "fadeOut": 0.3
+ },
+ {
+  "id": "flash",
+  "src": "assets/audio/sfx/glitch.mp3",
+  "at": 0.7833,
+  "gain": -9.0,
+  "to": 0.12,
+  "fadeOut": 0.04
+ },
+ {
+  "id": "pour",
+  "src": "assets/audio/sfx/furnace.mp3",
+  "at": 0.8333,
+  "gain": -11.0,
+  "to": 1.05,
+  "fadeOut": 0.25
+ },
+ {
+  "id": "dive-swell",
+  "src": "assets/audio/sfx/reverse.mp3",
+  "at": 0.3583,
+  "gain": -5.0
+ },
+ {
+  "id": "dive-riser",
+  "src": "assets/audio/sfx/riser.mp3",
+  "at": 0.2583,
+  "gain": -9.0
+ },
+ {
+  "id": "strike-thock",
+  "src": "assets/audio/sfx/thock.mp3",
+  "at": 1.8503,
+  "gain": -1.0
+ },
+ {
+  "id": "strike-anvil",
+  "src": "assets/audio/sfx/anvil.mp3",
+  "at": 1.8583,
+  "gain": -2.0,
+  "fadeOut": 0.6,
+  "to": 1.6
+ },
+ {
+  "id": "strike-sub",
+  "src": "assets/audio/sfx/sub.mp3",
+  "at": 1.8583,
+  "gain": -7.0
+ },
+ {
+  "id": "strike-sparks",
+  "src": "assets/audio/sfx/sparks.mp3",
+  "at": 1.8583,
+  "gain": -6.0
+ },
+ {
+  "id": "freeze",
+  "src": "assets/audio/sfx/freeze.mp3",
+  "at": 1.9783,
+  "gain": -8.0
+ },
+ {
+  "id": "vo",
+  "src": "assets/audio/vo/vo-adamstone-fast.wav",
+  "at": 1.995,
+  "gain": 1.0
+ },
+ {
+  "id": "into-open",
+  "src": "assets/audio/sfx/whoosh-b.mp3",
+  "at": 3.3217,
+  "gain": -9.0
+ },
+ {
+  "id": "key-0",
+  "src": "assets/audio/sfx/keyboard-return.mp3",
+  "at": 3.7377,
+  "gain": -5.0
+ },
+ {
+  "id": "key-1",
+  "src": "assets/audio/sfx/keyboard-return.mp3",
+  "at": 3.8549,
+  "gain": -5.5
+ },
+ {
+  "id": "key-2",
+  "src": "assets/audio/sfx/keyboard-return.mp3",
+  "at": 3.972,
+  "gain": -6.0
+ },
+ {
+  "id": "key-3",
+  "src": "assets/audio/sfx/keyboard-return.mp3",
+  "at": 4.0892,
+  "gain": -6.5
+ },
+ {
+  "id": "dive",
+  "src": "assets/audio/sfx/whoosh-b.mp3",
+  "at": 4.2304,
+  "gain": -6.0
+ },
+ {
+  "id": "ring",
+  "src": "assets/audio/sfx/brush.mp3",
+  "at": 4.5517,
+  "gain": -7.0
+ },
+ {
+  "id": "dot-open",
+  "src": "assets/audio/sfx/pop.mp3",
+  "at": 4.6217,
+  "gain": -8.0
+ },
+ {
+  "id": "into-convert",
+  "src": "assets/audio/sfx/whoosh-a.mp3",
+  "at": 4.7217,
+  "gain": -8.0
+ },
+ {
+  "id": "tick-0",
+  "src": "assets/audio/sfx/click-ui.mp3",
+  "at": 5.2167,
+  "gain": -8.0
+ },
+ {
+  "id": "tick-1",
+  "src": "assets/audio/sfx/click-ui.mp3",
+  "at": 5.25,
+  "gain": -8.0
+ },
+ {
+  "id": "tick-2",
+  "src": "assets/audio/sfx/click-ui.mp3",
+  "at": 5.2667,
+  "gain": -8.0
+ },
+ {
+  "id": "tick-3",
+  "src": "assets/audio/sfx/click-ui.mp3",
+  "at": 5.3,
+  "gain": -8.0
+ },
+ {
+  "id": "tick-4",
+  "src": "assets/audio/sfx/click-ui.mp3",
+  "at": 5.35,
+  "gain": -8.0
+ },
+ {
+  "id": "tick-5",
+  "src": "assets/audio/sfx/click-ui.mp3",
+  "at": 5.4,
+  "gain": -8.0
+ },
+ {
+  "id": "tick-6",
+  "src": "assets/audio/sfx/click-ui.mp3",
+  "at": 5.4667,
+  "gain": -8.0
+ },
+ {
+  "id": "tick-7",
+  "src": "assets/audio/sfx/click-ui.mp3",
+  "at": 5.5833,
+  "gain": -6.0
+ },
+ {
+  "id": "land-png",
+  "src": "assets/audio/sfx/ding.mp3",
+  "at": 5.8817,
+  "gain": -9.0
+ },
+ {
+  "id": "lasso",
+  "src": "assets/audio/sfx/brush.mp3",
+  "at": 5.9317,
+  "gain": -7.0
+ },
+ {
+  "id": "drop",
+  "src": "assets/audio/sfx/whoosh-a.mp3",
+  "at": 6.0317,
+  "gain": -11.0
+ },
+ {
+  "id": "flip",
+  "src": "assets/audio/sfx/thock.mp3",
+  "at": 6.0792,
+  "gain": -5.0
+ },
+ {
+  "id": "dot-convert",
+  "src": "assets/audio/sfx/pop.mp3",
+  "at": 6.0483,
+  "gain": -8.0
+ },
+ {
+  "id": "into-paste",
+  "src": "assets/audio/sfx/whoosh-a.mp3",
+  "at": 6.1383,
+  "gain": -8.0
+ },
+ {
+  "id": "riffle",
+  "src": "assets/audio/sfx/shutter.mp3",
+  "at": 6.5583,
+  "gain": -9.0,
+  "to": 0.7874999999999996,
+  "fadeOut": 0.1
+ },
+ {
+  "id": "e-fall",
+  "src": "assets/audio/sfx/whoosh-a.mp3",
+  "at": 7.3958,
+  "gain": -12.0
+ },
+ {
+  "id": "period",
+  "src": "assets/audio/sfx/pop.mp3",
+  "at": 7.4958,
+  "gain": -3.0
+ },
+ {
+  "id": "period-ding",
+  "src": "assets/audio/sfx/ding.mp3",
+  "at": 7.4958,
+  "gain": -10.0
+ },
+ {
+  "id": "into-speak",
+  "src": "assets/audio/sfx/whoosh-b.mp3",
+  "at": 7.5383,
+  "gain": -9.0
+ },
+ {
+  "id": "into-snap",
+  "src": "assets/audio/sfx/whoosh-a.mp3",
+  "at": 8.9383,
+  "gain": -8.0
+ },
+ {
+  "id": "split-0",
+  "src": "assets/audio/sfx/click-ui.mp3",
+  "at": 9.3583,
+  "gain": -3.0
+ },
+ {
+  "id": "split-1",
+  "src": "assets/audio/sfx/click-ui.mp3",
+  "at": 9.4755,
+  "gain": -3.0
+ },
+ {
+  "id": "split-2",
+  "src": "assets/audio/sfx/click-ui.mp3",
+  "at": 9.5927,
+  "gain": -3.0
+ },
+ {
+  "id": "split-3",
+  "src": "assets/audio/sfx/click-ui.mp3",
+  "at": 9.7099,
+  "gain": -3.0
+ },
+ {
+  "id": "split-4",
+  "src": "assets/audio/sfx/click-ui.mp3",
+  "at": 9.8271,
+  "gain": -3.0
+ },
+ {
+  "id": "split-5",
+  "src": "assets/audio/sfx/click-ui.mp3",
+  "at": 9.9443,
+  "gain": -3.0
+ },
+ {
+  "id": "split-thock-0",
+  "src": "assets/audio/sfx/thock.mp3",
+  "at": 9.3583,
+  "gain": -12.0
+ },
+ {
+  "id": "split-thock-1",
+  "src": "assets/audio/sfx/thock.mp3",
+  "at": 9.4755,
+  "gain": -12.0
+ },
+ {
+  "id": "split-thock-2",
+  "src": "assets/audio/sfx/thock.mp3",
+  "at": 9.5927,
+  "gain": -12.0
+ },
+ {
+  "id": "split-thock-3",
+  "src": "assets/audio/sfx/thock.mp3",
+  "at": 9.7099,
+  "gain": -12.0
+ },
+ {
+  "id": "split-thock-4",
+  "src": "assets/audio/sfx/thock.mp3",
+  "at": 9.8271,
+  "gain": -12.0
+ },
+ {
+  "id": "split-thock-5",
+  "src": "assets/audio/sfx/thock.mp3",
+  "at": 9.9443,
+  "gain": -12.0
+ },
+ {
+  "id": "fold",
+  "src": "assets/audio/sfx/pop.mp3",
+  "at": 9.9383,
+  "gain": -7.0
+ },
+ {
+  "id": "into-ask",
+  "src": "assets/audio/sfx/whoosh-a.mp3",
+  "at": 9.9683,
+  "gain": -8.0
+ },
+ {
+  "id": "pulse",
+  "src": "assets/audio/sfx/ding.mp3",
+  "at": 10.5483,
+  "gain": -14.0
+ },
+ {
+  "id": "collapse",
+  "src": "assets/audio/sfx/reverse.mp3",
+  "at": 9.7417,
+  "gain": -7.0
+ },
+ {
+  "id": "drop-sub",
+  "src": "assets/audio/sfx/sub.mp3",
+  "at": 11.2417,
+  "gain": -6.0
+ },
+ {
+  "id": "cast",
+  "src": "assets/audio/sfx/furnace.mp3",
+  "at": 11.2417,
+  "gain": -16.0,
+  "to": 0.8,
+  "fadeOut": 0.4
+ },
+ {
+  "id": "tittle-pop",
+  "src": "assets/audio/sfx/pop.mp3",
+  "at": 11.9417,
+  "gain": -5.0
+ },
+ {
+  "id": "rise-ou",
+  "src": "assets/audio/sfx/brush.mp3",
+  "at": 12.1217,
+  "gain": -12.0
+ },
+ {
+  "id": "rise-ry",
+  "src": "assets/audio/sfx/brush.mp3",
+  "at": 12.4083,
+  "gain": -12.0
+ },
+ {
+  "id": "land",
+  "src": "assets/audio/sfx/ding.mp3",
+  "at": 12.6417,
+  "gain": -3.0
+ },
+ {
+  "id": "land-slam",
+  "src": "assets/audio/sfx/slam.mp3",
+  "at": 12.6417,
+  "gain": -12.0,
+  "to": 1.6,
+  "fadeOut": 0.8
+ },
+ {
+  "id": "quench",
+  "src": "assets/audio/sfx/quench.mp3",
+  "at": 12.6717,
+  "gain": -15.0,
+  "to": 1.4,
+  "fadeOut": 0.7
+ },
+ {
+  "id": "keys-in",
+  "src": "assets/audio/sfx/click-ui.mp3",
+  "at": 13.575,
+  "gain": -9.0
+ },
+ {
+  "id": "press-opt",
+  "src": "assets/audio/sfx/keyboard-return.mp3",
+  "at": 14.0417,
+  "gain": -3.0
+ },
+ {
+  "id": "press-space",
+  "src": "assets/audio/sfx/thock.mp3",
+  "at": 14.0717,
+  "gain": -5.0
+ }
+]

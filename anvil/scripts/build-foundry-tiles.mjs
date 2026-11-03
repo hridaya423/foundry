@@ -260,7 +260,7 @@ const paths = tiles
   .join("");
 writeFileSync(
   "public/assets/foundry/tiled-wordmark.svg",
-  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1672 510"><defs><linearGradient id="chalk" x2="0" y2="1"><stop stop-color="#d4c9b7"/><stop offset="1" stop-color="#c2b6a3"/></linearGradient></defs><g fill="url(#chalk)">${paths}</g></svg>`,
+  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1672 510"><defs><linearGradient id="chalk" x2="0" y2="1"><stop stop-color="#e7dcca"/><stop offset="1" stop-color="#d5c9b6"/></linearGradient></defs><g fill="url(#chalk)">${paths}</g></svg>`,
 );
 console.log(
   `${tiles.length} tiles; ${moving.length} moving; ${tiles.filter((t) => t.full).length} full tiles`,

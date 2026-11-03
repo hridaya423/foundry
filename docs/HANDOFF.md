@@ -77,6 +77,16 @@ All Phase 4 items landed on `raycast-quality-overhaul`: the `@unchecked Sendable
 - This host has no Accessibility, so `scripts/drive-signposts.swift N --reopen build/Foundry.app` drives `panel.show` through the reopen handler, and `benchmark-launchers.swift --bundle <app> --runs 0` measures memory without posting key events.
 - P7 (1.1): deslop pass, toasts, copy sweep, VoiceOver row activation, hidden main menu.
 
+## Website (2026-11-01, "last 20%" plan)
+
+Plan: `docs/plans/2026-11-01-foundry-last-20.md`. Evidence: `docs/qa/2026-11-01-website/README.md` (before, after, final). Brand: `docs/brand/BRAND.md`, tokens in `docs/brand/tokens.json` (generated into `anvil/app/foundry/tokens.css` and `tokens.ts` by `npm run tokens`).
+
+- Mark: Split Mould (`docs/brand/mark/`). Site nav, favicon, app icon, menu bar glyph and the onboarding cast all draw it.
+- Pages: `/proof` (figures from `docs/benchmarks/latest.json`, written by `scripts/write-benchmark-summary.mjs`), `/changelog` + `/changelog/feed.xml` (parsed from `docs/release-notes/*.md`; a new release needs a date in `releaseDates` in `anvil/app/changelog.ts`), `/privacy` (claims proven in `docs/qa/2026-11-01-website/privacy-claims.md`), `/brand` (kit zip built by `anvil/scripts/build-brand-kit.mjs`).
+- ⌘K palette on every page (`anvil/app/foundry/palette.tsx`, commands in `palette-commands.ts`). Section hashes (`/#tools`) jump to story stops.
+- Version comes from `VERSION` via `next.config.ts`. The download modal is gone: releases must be notarized.
+- Checks: `npm test` (site unit tests), `npm run qa` (screenshots, axe, Lighthouse; `--trace` with `QA_GPU=1` for first paint and long tasks).
+
 ## Open items
 
 1. The fresh-account manual sweep (onboarding reaches a first command within 30 s) and a live VoiceOver/focus-order walk need a GUI session with Accessibility granted to the terminal.

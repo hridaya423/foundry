@@ -1,8 +1,9 @@
 .not-found { position: relative; height: auto; min-height: 100svh; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0; padding: 48px 6%; text-align: center; }
-.not-found > .site-header { position: absolute; top: 28px; left: 6%; right: 6%; }
-.not-found > .site-footer { position: absolute; bottom: 16px; left: 6%; right: 6%; }
+.not-found > .site-footer { position: absolute; bottom: 16px; left: 2.87%; right: 2.87%; }
 .not-found :is(a, button):focus-visible { outline: 2px solid var(--f-accent); outline-offset: 5px; }
 .not-found-tiles { display: grid; grid-template-rows: repeat(7, 1fr); gap: 3px; width: min(340px, 70vw); aspect-ratio: 17/7; margin-bottom: 56px; }
-.not-found-tiles i { border-radius: 3px; background: #d6cdbd; box-shadow: inset 0 -3px 0 #f36f39; }
+.not-found-tiles i { border-radius: 18%; background: linear-gradient(160deg, var(--f-chalk-light), var(--f-chalk-mid) 55%, var(--f-chalk-deep)); box-shadow: inset 0 1px 0 #ffffff80, inset 0 -1px 0 #0000002e, 0 1px 2px #00000080; }
 .not-found h1 { font-size: clamp(32px, 4.2vw, 60px); font-weight: 400; letter-spacing: -.045em; line-height: 1.05; }
 .not-found p { margin: 16px 0 36px; color: var(--f-muted); font-size: 17px; }
+@media (max-width: 899px) { .not-found > .site-footer { left: 20px; right: 20px; } }
+.not-found kbd { padding: .1em .45em; border-radius: .35em; background: #ffffff0f; box-shadow: inset 0 -1px 0 #00000066, inset 0 1px 0 #ffffff12; color: var(--f-text); font: inherit; }

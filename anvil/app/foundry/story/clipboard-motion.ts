@@ -28,6 +28,11 @@ function beltPush(progress: number) {
   return 1.2 * phase(progress, 1.5, 1.58) ** 2;
 }
 
+function beltDrop(progress: number) {
+  const rise = phase(progress, 1, 1.1);
+  return .5 * (1 - rise * rise * (3 - 2 * rise));
+}
+
 function ribbonY(x: number, mobile: boolean) {
   return mobile ? .65 + .028 * Math.sin(x * Math.PI * 1.3) : .64 + .12 * Math.sin((x - .12) * Math.PI * 1.25);
 }
@@ -51,7 +56,7 @@ export function clipboardCardPose(index: number, belt: number, progress: number,
   const tile = width * (mobile ? .021 : .024);
   return {
     x: x * width,
-    y: ribbonY(x, mobile) * height - tile * .55 - (1 - distance) * 10 - (1 - settle(land)) * height * .14,
+    y: (ribbonY(x, mobile) + beltDrop(progress)) * height - tile * .55 - (1 - distance) * 10 - (1 - settle(land)) * height * .14,
     rotate: Math.atan2(height * ribbonSlope(x, mobile), width) * 180 / Math.PI,
     scale: 1 - distance * .08,
     opacity: Math.min(1, land * 3) * (1 - distance * .25),
@@ -61,7 +66,7 @@ export function clipboardCardPose(index: number, belt: number, progress: number,
 
 function ribbonTravel(index: number, progress: number, belt: number, mobile: boolean) {
   const elapsed = Math.max(0, progress - 1);
-  const head = progress <= 1 ? (progress - .875) * 10 : 1.25 + .3752 * (1 - Math.exp(-elapsed / .04)) + belt * beltSpacing(mobile) + beltPush(progress);
+  const head = progress <= 1 ? (progress - .875) * 14 : 1.75 + .3752 * (1 - Math.exp(-elapsed / .04)) + belt * beltSpacing(mobile) + beltPush(progress);
   return Math.max(0, head - index * 1.4 / 48);
 }
 
@@ -80,9 +85,9 @@ export function writeClipboardTilePose(out: ShelfPose, ribbonIndex: number, prog
   const x = 1.2 - travel % 1.4;
   const size = layout.width * (mobile ? .021 : .024);
   const join = phase(travel, 0, .24);
-  const exit = 1 - phase(progress, 1.5, 1.58);
+  const exit = 1 - .4 * phase(progress, 1.5, 1.58);
   out.x += (x * layout.width - out.x) * join;
-  out.y += (ribbonY(x, mobile) * layout.height - out.y) * join;
+  out.y += ((ribbonY(x, mobile) + beltDrop(progress)) * layout.height - out.y) * join;
   out.z = -8 * Math.sin(join * Math.PI);
   out.rx = -.2 * join;
   out.ry = 0;

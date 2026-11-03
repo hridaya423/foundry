@@ -1,0 +1,15 @@
+{
+ "lufs": -14.03,
+ "true_peak_db": -2.27,
+ "sample_peak_db": -2.28,
+ "lra": 9.8,
+ "momentary_max": -10.37,
+ "momentary_max_t": 14.3,
+ "tail_50ms_db": -54.8,
+ "last_480_zero": true,
+ "seconds": 24.0,
+ "limiter_max_gr_db": 0.06,
+ "output": "/Users/hridyaagrawal/Honey/anvil/foundry-ad/literal/out/audio/soundtrack.wav",
+ "pass": true,
+ "fails": []
+}

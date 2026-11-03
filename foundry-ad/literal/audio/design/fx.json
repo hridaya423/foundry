@@ -1,0 +1,129 @@
+{
+ "_doc": "Few designed effects: one real drum hit on the drop (alfaia, fs-509528), a real mallet cymbal roll rising through the break and ending 40 ms before it (fs-85487), the ceramic bowl struck with a cloth mallet on the full stop (fs-447852, retuned -0.41 st to B-flat 5, the minor third of the track's G), and two real swishes for the loop dive (fs-614155 in, fs-614162 out), apex on the camera's velocity peaks.",
+ "samples": {
+  "fx.hit": {
+   "file": "audio/assets/fx/fs-509528_alfaia-hit.ogg",
+   "start": 0.0,
+   "end": 1.8,
+   "mono": true,
+   "norm_peak_db": -3.0,
+   "fade_out": 0.4
+  },
+  "fx.riser": {
+   "file": "audio/assets/fx/fs-85487_cymbal-roll-quiet.ogg",
+   "start": 1.3,
+   "end": 2.9,
+   "eq": {
+    "hp": 300,
+    "hp_order": 2
+   },
+   "norm_peak_db": -8.0,
+   "fade_in": 0.2,
+   "fade_out": 0.01,
+   "qa_ok": "the roll stops 40 ms before the drop: a beat of air before the hit, by design"
+  },
+  "fx.bowl": {
+   "file": "audio/assets/fx/fs-447852_ceramic-bowl-tone-cloth-mallet-02.ogg",
+   "start": 0.0,
+   "end": 4.1,
+   "mono": true,
+   "pitch": -0.41,
+   "norm_peak_db": -8.0,
+   "fade_out": 0.6
+  },
+  "fx.swin": {
+   "file": "audio/assets/fx/fs-614155_swishes-16-strong-fast.ogg",
+   "start": 0.3,
+   "end": 1.4,
+   "norm_peak_db": -9.0,
+   "fade_in": 0.05,
+   "fade_out": 0.1
+  },
+  "fx.swout": {
+   "file": "audio/assets/fx/fs-614162_swishes-8-hill-curve.ogg",
+   "start": 0.5,
+   "end": 1.5,
+   "norm_peak_db": -11.0,
+   "fade_in": 0.05,
+   "fade_out": 0.2
+  }
+ },
+ "pools": {
+  "fx.hit": [
+   "fx.hit"
+  ],
+  "fx.riser": [
+   "fx.riser"
+  ],
+  "fx.bowl": [
+   "fx.bowl"
+  ],
+  "fx.swin": [
+   "fx.swin"
+  ],
+  "fx.swout": [
+   "fx.swout"
+  ]
+ },
+ "rules": [
+  {
+   "name": "fx.drop.hit",
+   "match": {
+    "id": "^fx:drop$"
+   },
+   "pool": "fx.hit",
+   "mode": "fixed",
+   "gain_db": 2.0,
+   "pan": 0.0,
+   "align": "attack"
+  },
+  {
+   "name": "fx.drop.riser",
+   "match": {
+    "id": "^fx:drop$"
+   },
+   "pool": "fx.riser",
+   "mode": "fixed",
+   "gain_db": -2.0,
+   "pan": 0.0,
+   "align": "end",
+   "offset": -0.04,
+   "no_cue": true
+  },
+  {
+   "name": "fx.period.bowl",
+   "match": {
+    "id": "^logo:period$"
+   },
+   "pool": "fx.bowl",
+   "mode": "fixed",
+   "gain_db": -2.0,
+   "pan": 0.0,
+   "align": "attack",
+   "no_cue": true
+  },
+  {
+   "name": "fx.dive.in",
+   "match": {
+    "id": "^cam:dive:in$"
+   },
+   "pool": "fx.swin",
+   "mode": "fixed",
+   "gain_db": -2.0,
+   "pan": 0.0,
+   "align": "peak"
+  },
+  {
+   "name": "fx.dive.out",
+   "match": {
+    "id": "^cam:dive:out$"
+   },
+   "pool": "fx.swout",
+   "mode": "fixed",
+   "gain_db": -5.0,
+   "pan": 0.0,
+   "align": "peak",
+   "offset": -0.067
+  }
+ ]
+}

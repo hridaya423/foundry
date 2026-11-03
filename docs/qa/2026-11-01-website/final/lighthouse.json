@@ -1,0 +1,69 @@
+{
+  "/": {
+    "performance": 52,
+    "accessibility": 100,
+    "best-practices": 100,
+    "seo": 100,
+    "agentic-browsing": 50,
+    "lcp": 5117.8194,
+    "cls": 0.000006923253527236416,
+    "bytes": 611488
+  },
+  "/methodology": {
+    "performance": 100,
+    "accessibility": 100,
+    "best-practices": 100,
+    "seo": 100,
+    "agentic-browsing": 100,
+    "lcp": 910.2737999999999,
+    "cls": 0,
+    "bytes": 228162
+  },
+  "/proof": {
+    "performance": 100,
+    "accessibility": 100,
+    "best-practices": 100,
+    "seo": 100,
+    "agentic-browsing": 100,
+    "lcp": 908.2118,
+    "cls": 0,
+    "bytes": 237794
+  },
+  "/changelog": {
+    "performance": 100,
+    "accessibility": 100,
+    "best-practices": 100,
+    "seo": 100,
+    "agentic-browsing": 100,
+    "lcp": 1061.1803,
+    "cls": 0,
+    "bytes": 237191
+  },
+  "/privacy": {
+    "performance": 100,
+    "accessibility": 100,
+    "best-practices": 100,
+    "seo": 100,
+    "agentic-browsing": 100,
+    "lcp": 917.4266,
+    "cls": 0,
+    "bytes": 228303
+  },
+  "/brand": {
+    "performance": 100,
+    "accessibility": 100,
+    "best-practices": 100,
+    "seo": 100,
+    "agentic-browsing": 100,
+    "lcp": 914.1626000000001,
+    "cls": 0,
+    "bytes": 655764
+  },
+  "/missing-page": {
+    "performance": 0,
+    "accessibility": 0,
+    "best-practices": 0,
+    "seo": 0,
+    "agentic-browsing": 0
+  }
+}

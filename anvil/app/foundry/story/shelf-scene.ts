@@ -2,6 +2,7 @@ import * as THREE from "three";
 import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import { createTileGeometry } from "../tile-geometry";
+import { color } from "../tokens";
 import { createChalkMaterial } from "../tile-material";
 import { createFlightPath, tilePose, type Tile } from "../tile-motion";
 import { writeClipboardTilePose } from "./clipboard-motion";
@@ -11,7 +12,9 @@ import { memorySettled, memoryStart, memoryTargets, memoryTileCount, writeMemory
 import { toolExamples, toolsEnter, toolTargets, toolTileCount, writeToolsTilePose } from "./tools-motion";
 import { createShelfTiles, phase, heroLift, introProgress, writePeelExitPose, writeShelfPose, type ShelfLayout, type ShelfPose } from "./shelf-motion";
 
-export function createShelfScene(canvas: HTMLCanvasElement, tiles: Tile[]) {
+const yieldToMain = () => new Promise((resolve) => setTimeout(resolve, 0));
+
+export async function createShelfScene(canvas: HTMLCanvasElement, tiles: Tile[]) {
   const small = canvas.clientWidth < 900;
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, powerPreference: "low-power" });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, small ? 2 : 1.5));
@@ -22,6 +25,7 @@ export function createShelfScene(canvas: HTMLCanvasElement, tiles: Tile[]) {
   const scene = new THREE.Scene();
   const camera = new THREE.OrthographicCamera(0, 1280, 0, -720, 0.1, 4000);
   camera.position.z = 1800;
+  await yieldToMain();
   const pmrem = new THREE.PMREMGenerator(renderer);
   const room = new RoomEnvironment();
   const environment = pmrem.fromScene(room, 0.04);
@@ -29,6 +33,7 @@ export function createShelfScene(canvas: HTMLCanvasElement, tiles: Tile[]) {
   scene.environmentIntensity = 0.35;
   room.dispose();
   pmrem.dispose();
+  await yieldToMain();
   scene.add(new THREE.AmbientLight(0xffffff, 0.7));
   const key = new THREE.DirectionalLight(0xfffaf4, 2.2);
   key.position.set(-300, 500, 1600);
@@ -54,8 +59,8 @@ export function createShelfScene(canvas: HTMLCanvasElement, tiles: Tile[]) {
     shader.fragmentShader = shader.fragmentShader.replace("#include <color_fragment>", "diffuseColor.rgb *= mix(vColor.rgb, vTileFace, vFront);");
   };
   tileMaterial.customProgramCacheKey = () => "foundry-shelf-face";
-  const chalk = new THREE.Color("#c6bbab");
-  const side = new THREE.Color("#f36f39");
+  const chalk = new THREE.Color(color.chalk);
+  const side = new THREE.Color(color["orange-side"]);
   const paint = (geometry: THREE.BufferGeometry, face: THREE.Color) => {
     const position = geometry.getAttribute("position");
     const colors = new Float32Array(position.count * 3);
@@ -104,6 +109,7 @@ export function createShelfScene(canvas: HTMLCanvasElement, tiles: Tile[]) {
       parts.push(geometry);
     }
   }
+  await yieldToMain();
   const merged = mergeGeometries(parts);
   parts.forEach((geometry) => geometry.dispose());
   if (merged) {
@@ -132,7 +138,7 @@ export function createShelfScene(canvas: HTMLCanvasElement, tiles: Tile[]) {
   let memoryPoints: ReturnType<typeof memoryTargets>;
   let closingPoints: ReturnType<typeof downloadPoints>;
   let figurePoints: ReturnType<typeof methodologyFigureTargets>;
-  const orange = new THREE.Color("#ef672e");
+  const orange = new THREE.Color(color["orange-mid"]);
 
   return {
     resize(next: ShelfLayout) {
@@ -152,6 +158,9 @@ export function createShelfScene(canvas: HTMLCanvasElement, tiles: Tile[]) {
       }, tiles);
       plane.scale.set(next.width * 1.5, next.height * 1.5, 1);
       plane.position.set(next.width / 2, -next.height / 2, -12);
+    },
+    compile() {
+      return renderer.compileAsync(scene, camera);
     },
     render(progress: number, departure: number, clipboardBelt: number, toolSelection: number, toolReveal: number, toolTransition: number, toolPrevious: number) {
       const intro = introProgress(progress);

@@ -1,0 +1,13 @@
+Music:
+"Deep House" by Arulo (https://mixkit.co/free-stock-music/house/), licensed under Mixkit Stock Music Free License (https://mixkit.co/license/#musicFree)
+Edited for the film: cut and rearranged at bar lines to fit the picture, time-stretched from 123.996 to 120 BPM, levels adjusted, a fade at the end.
+
+Sound effects (CC BY):
+"Bathroom_Tiles-Handled-02.wav" by DWOBoyle (https://freesound.org/people/DWOBoyle/sounds/145126/), licensed under CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/)
+"domino_single.wav" by FreqMan (https://freesound.org/people/FreqMan/sounds/26194/), licensed under CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/)
+"dominos_in_a_row.wav" by FreqMan (https://freesound.org/people/FreqMan/sounds/26195/), licensed under CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/)
+"Domino 2.wav" by mmaruska (https://freesound.org/people/mmaruska/sounds/182126/), licensed under CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/)
+"Domino 3.wav" by mmaruska (https://freesound.org/people/mmaruska/sounds/182125/), licensed under CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/)
+All sound effects and ambiences were modified: trimmed, layered, level-adjusted, equalised, panned and pitch-shifted by resampling for the film.
+
+More sounds (CC0) by: Anthousai, davidjwoll, khenshom, onehugeeye, rebeat, sabrinaaiuijijiji, Sassaby, UnycodeAdmin, videofueralle

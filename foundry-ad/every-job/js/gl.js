@@ -67,7 +67,7 @@
 
   const SCENE = COMMON + `
   uniform sampler2D uScene, uEdge, uMetal;
-  uniform float uT, uHeat, uFlow, uPinch, uTilt, uSeed, uZoom, uLumHeat, uEmber, uMetalOn, uSat, uRaw, uIsolate, uFlowSpd, uContrast, uAmberS, uHeatMask, uArchive;
+  uniform float uT, uHeat, uFlow, uPinch, uTilt, uSeed, uZoom, uLumHeat, uEmber, uMetalOn, uSat, uWarm, uGamma, uRaw, uIsolate, uFlowSpd, uContrast, uAmberS, uHeatMask, uArchive;
   uniform vec2 uPan;
   // cast
   uniform sampler2D uLogo;
@@ -75,9 +75,10 @@
   uniform vec4 uImp;      // impacts (screen fractions): x1, y1, x2, y2
   uniform vec4 uStream;   // per stream: top y (fraction, 0 = frame top) s1, s2; widths px w1, w2
   uniform vec2 uImpT;     // contact times (cast seconds)
-  // the wordmark, cast last (uLogo holds its tiles: r mask, g/r ignition time, b/r per-tile random)
-  uniform float uLogoOn, uLogoT, uLogoBand, uLogoCaretOn;
+  // the wordmark, cast last (uLogo: r mask; uLogoT: seconds since it ignites)
+  uniform float uLogoOn, uLogoT, uLogoCaretOn;
   uniform vec4 uLogoCaret;  // px: centre x, y, w, h
+  uniform vec3 uLogoXf;     // the name's origin in px and its zoom, so the iron's grain moves with it
   vec2 voro(vec2 p){
     vec2 i=floor(p), f=fract(p); float d1=8., d2=8.;
     for(int y=-1;y<=1;y++) for(int x=-1;x<=1;x++){
@@ -86,12 +87,14 @@
     return vec2(sqrt(d1), sqrt(d2)-sqrt(d1));
   }
   vec3 grade(vec3 c){
+    c = pow(max(c, 0.), vec3(uGamma));                 // uGamma > 1 sinks grey mids (the flag's regolith) toward ink
     c = clamp((c - 0.5)*uContrast + 0.5, 0., 1.);
     float l = dot(c, vec3(.2126,.7152,.0722));
     c = mix(vec3(l), c, uSat);
     c = clamp((c - 0.06)/0.86, 0., 1.);
     c = c*c*(3.0-2.0*c)*0.85 + c*0.15;
-    vec3 o = mix(vec3(0.0,0.004,0.008), vec3(1.0,0.985,0.95), c);
+    // uWarm: footage in the film's own black and white, warm ink blacks to bone
+    vec3 o = mix(mix(vec3(0.0,0.004,0.008), vec3(0.034,0.02,0.013), uWarm), mix(vec3(1.0,0.985,0.95), vec3(0.95,0.935,0.9), uWarm), c);
     // amber phosphor: brightness only, burnt warm (pictures in the tube; never the metal)
     float pl = dot(o, vec3(0.3, 0.55, 0.15));
     vec3 amber = vec3(1.0, 0.60, 0.24)*pow(pl, 0.92) + vec3(0.0, 0.22, 0.36)*pow(pl, 2.6);
@@ -185,7 +188,7 @@
   }
   // ---------------------------------------------------------------- the bar: one river cast into Foundry's bar, cooled from the rim in
   uniform vec4 uCool;    // the retreating core: centre x, y (px), radii x, y (px)
-  uniform vec4 uCoolB;   // gap (0..1), sweep (q.x), knockout (0..1), flaking (0..1)
+  uniform vec4 uCoolB;   // gap (0..1), unused, knockout (0..1), flaking (0..1)
   uniform float uSmoke, uCoreHeat;
   vec3 barColor(vec2 s){
     float asp = uRes.x/uRes.y;
@@ -225,13 +228,10 @@
     // setting: plates of skin with heat glowing through the cracks
     vec2 vr = voro(qp*24.0 + fbm(qp*9.0)*0.8);
     float crack = 1.0 - smoothstep(0.0, 0.04, vr.y);
-    // set: matte cast iron, top bevel lit, lower edge in shadow, one band of light
+    // set: matte cast iron, top bevel lit, lower edge in shadow
     float sand = fbm(qp*90.0)*0.6 + fbm(qp*22.0)*0.4;
     float bev = clamp(-mg.y*uRes.y*0.5, 0., 1.), shd = clamp(mg.y*uRes.y*0.5, 0., 1.);
     vec3 iron = vec3(0.19, 0.185, 0.18)*(0.7 + 0.6*sand) + vec3(0.62, 0.6, 0.57)*bev - vec3(0.1)*shd;
-    float dxs = (q.x - uCoolB.y)*asp;
-    float swp = step(0.0, uCoolB.y)*step(uCoolB.y, 0.94);
-    iron += vec3(0.85, 0.82, 0.77)*(exp(-pow(dxs/0.022, 2.0))*1.1 + exp(-pow(dxs/0.14, 2.0))*0.3)*(0.55 + 0.7*sand)*swp;
     vec3 crust = mix(iron*0.5, body(temp*1.05)*0.55, smoothstep(0.08, 0.5, temp)) + body(0.42 + temp)*crack*smoothstep(0.05, 0.42, temp);
     vec3 metal = mix(crust, liquid, smoothstep(0.38, 0.72, temp));
     metal = mix(iron, metal, smoothstep(0.02, 0.1, temp));
@@ -244,7 +244,7 @@
     float ny = clamp((px.y - (uImp.y*uRes.y - 84.0))/168.0, 0., 1.);
     vec3 glass = mix(vec3(0.16, 0.16, 0.17), vec3(0.064, 0.064, 0.072), ny) + vec3(0.2)*bev;
     metal = mix(metal, glass, flaked*(1.0 - core*uCoreHeat));
-    metal += vec3(0.55, 0.52, 0.48)*lip*0.6;                 // the lifting edge of each flake catches the light
+    metal += vec3(0.55, 0.52, 0.48)*lip*0.12;                // the lifting edge of each flake, barely lit (bright, it read as smoke)
     c = mix(c, metal, wet);
     // the last of the heat: one molten point where the cursor will be
     c += body(1.1 + 0.2*core)*core*uCoreHeat*smoothstep(1.6, 0.0, uCool.z/20.0)*0.6;
@@ -303,8 +303,8 @@
       float s = float(i)/9.0; vec2 q = src - vec2(0., streak*s);
       float inb = step(0.,q.x)*step(q.x,1.)*step(0.,q.y)*step(q.y,1.);
       vec4 t = texture(uScene, q); float w = 1.0 - s*0.6;
-      acc += t.rgb*inb*w; aa += t.a*inb*w; ws += w; }
-    vec3 col = acc/ws; float alpha = aa/ws;
+      acc += t.rgb*inb*w; aa += t.a*inb*w; ws += w*inb; }
+    vec3 col = acc/max(ws, 1e-4); float alpha = aa/max(ws, 1e-4);   // taps above the frame are not counted: they dimmed row 0 to a blue line
     float inside = step(0.,src.x)*step(src.x,1.)*step(0.,src.y)*step(src.y,1.);
     vec3 egb = texture(uEdge, clamp(src,0.,1.)).rgb;
     vec2 eg = egb.rg;
@@ -355,29 +355,19 @@
     c = mix(c, metal, bodyM*uMetalOn);
     c += body(0.5)*smoothstep(0.16, 0.30, fld)*(1.0 - bodyM)*0.25*uMetalOn;
     c += body(0.85 + 0.6*mt.y)*smoothstep(0.0, 0.5, mt.y)*2.4*uMetalOn;   // sparks: emission only
-    // the wordmark is the last casting: each tile goes white-hot as the wave passes; thin strokes cool first, the
-    // cores hold their heat; the oxide gives way to the iron, and one band of light runs along it
+    // the wordmark: a window onto the Earth that settles into iron
     if (uLogoOn > 0.5) {
-      vec4 L = texture(uLogo, p);
+      float m = texture(uLogo, p).r;
       float b1 = textureLod(uLogo, p, 1.6).r;
       float bev = dot(vec2(dFdx(b1), dFdy(b1))*5.0, vec2(0.7, -0.7));
-      float m = L.r;
       if (m > 0.002) {
-        float th = 0.5 + 0.5*L.g/m, rn = L.b/m;
-        float thick = textureLod(uLogo, p, 4.5).r;
-        float age = uLogoT - th;
-        float T = 1.6*exp(-max(age, 0.0)/(0.16 + 0.2*thick + 0.04*rn));
-        vec2 lq = p*vec2(asp, 1.0);
-        float gr = fbm(lq*260.0)*0.4 + fbm(lq*48.0 + rn*7.0)*0.6;
-        vec3 iron = vec3(0.86, 0.84, 0.80)*(0.93 + 0.12*gr)*(0.98 + 0.04*rn) + vec3(0.3)*max(bev, 0.0) - vec3(0.35)*max(-bev, 0.0);
-        float hot = smoothstep(0.08, 0.5, T);
-        vec3 oxide = vec3(0.05, 0.045, 0.04)*(0.6 + 0.8*gr);
-        vec2 vr = voro(lq*38.0 + rn*3.0);
-        float crack = (1.0 - smoothstep(0.0, 0.05, vr.y))*smoothstep(0.2, 0.5, T)*(1.0 - smoothstep(0.9, 1.3, T));
-        vec3 lc = mix(iron, oxide, hot) + body(T)*hot + body(T + 0.25)*crack*0.8;
-        float d = p.x - mix(-0.15, 1.15, uLogoBand) + (p.y - 0.5)*0.35;
-        lc += vec3(0.55, 0.53, 0.5)*exp(-d*d/0.0016)*(1.0 - hot)*step(0.001, uLogoBand)*step(uLogoBand, 0.999);
-        c = mix(c, lc, m*smoothstep(0.0, 0.05, age));
+        vec2 lq = (p*uRes - uLogoXf.xy)/(uLogoXf.z*uRes.y);
+        float gr = fbm(lq*260.0)*0.4 + fbm(lq*48.0)*0.6;
+        vec3 iron = vec3(0.86, 0.84, 0.80)*(0.93 + 0.12*gr) + vec3(0.3)*max(bev, 0.0) - vec3(0.35)*max(-bev, 0.0);
+        // before the ignition the name is a window onto the Earth (film.js draws it); then the Earth settles into the
+        // iron, sweeping left to right over half a second, with no heat
+        float ign = smoothstep(0.0, 1.0, (uLogoT - 0.05*(lq.x + 1.5))/0.45);
+        c = mix(c, iron, m*ign);
       }
       // the caret: the last molten point, after the name
       vec2 cq = abs(p*uRes - uLogoCaret.xy) - uLogoCaret.zw*0.5;
@@ -502,7 +492,7 @@
         }
         // the melt: each screen burns through from a ragged front that glows as it passes, charring ahead of it
         float fl = fbm(vec2(u.x*4.0, u.y*2.2 - uT*1.6) + cell*3.1);
-        vec3 hot = body(0.42 + 0.5*hc + 0.55*(fl - 0.5) + 0.25*(1.0 - abs(q.y)));
+        vec3 hot = body(0.42 + 0.5*hc + 0.55*(fl - 0.5)*mix(1.0, 0.3, hc) + 0.25*(1.0 - abs(q.y)) - 0.12*hc*dot(q, q));   // burnt through, a pane glows evenly, hottest in the middle
         float nb = fbm(u*vec2(3.2, 2.4) + cell*1.7)*0.85 + 0.08 + u.y*0.12;
         float hb = hc*1.3;
         float burnt = smoothstep(nb - 0.025, nb + 0.025, hb);
@@ -679,14 +669,14 @@
     pass(P.scene, RT.pic, (u) => {
       bind(0, T.scene, u.uScene); bind(1, T.edge, u.uEdge); bind(2, T.metal, u.uMetal);
       gl.uniform1f(u.uEmber, s.ember == null ? 1 : s.ember); gl.uniform1f(u.uMetalOn, s.metal ? 1 : 0);
-      gl.uniform1f(u.uSat, s.sat == null ? 0.22 : s.sat); gl.uniform1f(u.uRaw, s.raw || 0);
+      gl.uniform1f(u.uSat, s.sat == null ? 0.22 : s.sat); gl.uniform1f(u.uWarm, s.warm || 0); gl.uniform1f(u.uGamma, s.gamma || 1); gl.uniform1f(u.uRaw, s.raw || 0);
       gl.uniform2f(u.uPan, s.panX || 0, s.panY || 0);
       gl.uniform1f(u.uArchive, s.archive || 0);
       gl.uniform1f(u.uIsolate, s.isolate || 0); gl.uniform1f(u.uContrast, s.contrast || 1); gl.uniform1f(u.uAmberS, s.amber || 0); gl.uniform1f(u.uHeatMask, s.heatMask || 0); gl.uniform1f(u.uFlowSpd, s.flowSpd == null ? 4 : s.flowSpd);
       bind(3, T.logo, u.uLogo);
       const lg = s.logoCast;
       gl.uniform1f(u.uLogoOn, lg ? 1 : 0);
-      if (lg) { gl.uniform1f(u.uLogoT, lg.t); gl.uniform1f(u.uLogoBand, lg.band); gl.uniform1f(u.uLogoCaretOn, lg.caretOn); gl.uniform4f(u.uLogoCaret, ...lg.caret); }
+      if (lg) { gl.uniform1f(u.uLogoT, lg.t); gl.uniform1f(u.uLogoCaretOn, lg.caretOn); gl.uniform4f(u.uLogoCaret, ...lg.caret); gl.uniform3f(u.uLogoXf, ...lg.xf); }
       const c = s.cast;
       gl.uniform1f(u.uCast, c ? 1 : 0);
       if (c) {

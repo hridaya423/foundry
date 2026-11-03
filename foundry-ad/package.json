@@ -1,0 +1,11 @@
+{
+  "name": "foundry-ad",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "npx --yes hyperframes@0.8.98 preview",
+    "check": "npx --yes hyperframes@0.8.98 check",
+    "render": "tools/final.sh",
+    "mix": ".venv/bin/python tools/mix.py"
+  }
+}

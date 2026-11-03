@@ -1,0 +1,1395 @@
+[
+ {
+  "id": "fs-26195",
+  "category": "tiles",
+  "file": "audio/assets/tiles/fs-26195_dominos-in-a-row.ogg",
+  "title": "dominos_in_a_row.wav",
+  "author": "FreqMan",
+  "source": "freesound",
+  "page_url": "https://freesound.org/people/FreqMan/sounds/26195/",
+  "download_url": "https://cdn.freesound.org/previews/26/26195_92661-hq.ogg",
+  "license": "CC BY 4.0",
+  "license_url": "https://creativecommons.org/licenses/by/4.0/",
+  "attribution": "\"dominos_in_a_row.wav\" by FreqMan (https://freesound.org/people/FreqMan/sounds/26195/), licensed under CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/)",
+  "need": "tile_cascade",
+  "rank": 1,
+  "best_segment": [
+   0.1,
+   1.9
+  ],
+  "notes": "A row of dominoes set up and knocked over, stereo, 'from one side to the other' (author), Sony ECM-99 stereo mic to a MiniDisc recorder. The spectrogram shows DENSE clatter filling 0.10-1.40 s (the row falling, hits overlapping so the onset counter only finds 10) and three separate late tiles at about 1.5, 1.6 and 1.8 s, then silence: exactly a 1.5 s fall that thins out. Natural left-to-right spread = the row-by-row fall; floor -79.5 dBFS (cleanest of the cascade set), peak -6.8 dBFS, rolloff95 10.0 kHz, narrow ring at 8.5-10 kHz. Dominoes on a table top: slightly woody, not glazed ceramic: pitch up +1..+2 st if it reads dull. For 3,000-tile density layer two copies 0.15-0.25 s apart with +-0.4 st. CC BY 4.0 (FreqMan): needs credit.",
+  "licence_seen": {
+   "text": "Attribution 4.0",
+   "url": "https://creativecommons.org/licenses/by/4.0/",
+   "page": "https://freesound.org/people/FreqMan/sounds/26195/",
+   "read_on": "2026-11-01",
+   "page_author": "FreqMan",
+   "page_title": "dominos_in_a_row.wav"
+  },
+  "analysis": {
+   "duration": 2.972,
+   "codec": "vorbis",
+   "kbps": 192,
+   "src_rate": 44100,
+   "channels": 2,
+   "peak_dbfs": -6.78,
+   "lufs": -23.41,
+   "noise_floor_dbfs": -79.5,
+   "clipped_samples": 0,
+   "attack_at": 0.21,
+   "centroid_hz": 3622,
+   "rolloff95_hz": 10010,
+   "onsets": [
+    0.139,
+    0.255,
+    0.302,
+    0.511,
+    0.975,
+    1.277,
+    1.347,
+    1.533,
+    1.602,
+    1.811
+   ]
+  },
+  "earshot": {
+   "realness": 0.979,
+   "realness_verdict": "real or pro-produced",
+   "realness_trim": [
+    0.1,
+    1.9
+   ],
+   "match": {
+    "query": "many ceramic tiles or dominoes falling and clattering onto a hard floor, a spreading cascade",
+    "z": 5.18,
+    "verdict": "strong",
+    "p_vs_alts": 0.975
+   },
+   "trims": {}
+  }
+ },
+ {
+  "id": "fs-182125",
+  "category": "tiles",
+  "file": "audio/assets/tiles/fs-182125_domino-3.ogg",
+  "title": "Domino 3.wav",
+  "author": "mmaruska",
+  "source": "freesound",
+  "page_url": "https://freesound.org/people/mmaruska/sounds/182125/",
+  "download_url": "https://cdn.freesound.org/previews/182/182125_3046049-hq.ogg",
+  "license": "CC BY 4.0",
+  "license_url": "https://creativecommons.org/licenses/by/4.0/",
+  "attribution": "\"Domino 3.wav\" by mmaruska (https://freesound.org/people/mmaruska/sounds/182125/), licensed under CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/)",
+  "need": "tile_cascade",
+  "rank": 2,
+  "best_segment": [
+   0.16,
+   2.65
+  ],
+  "notes": "'A string of dominoes falling over, on wooden table', Tascam DR-40 internal mics (tags include ceramic, tiles). The spectrogram shows continuous dense clatter 0.16-2.65 s with one lull at 1.0-1.35 s: a 2.5 s sustained cascade, longer and brighter than 26195 (centroid 7.4 kHz, hits to 21 kHz). Floor -64.9 dBFS, peak -7.9 dBFS. The wooden table adds low knocks at each burst (energy under 300 Hz): high-pass at 300 Hz to keep it ceramic. CC BY 4.0 (mmaruska): needs credit.",
+  "licence_seen": {
+   "text": "Attribution 4.0",
+   "url": "https://creativecommons.org/licenses/by/4.0/",
+   "page": "https://freesound.org/people/mmaruska/sounds/182125/",
+   "read_on": "2026-11-01",
+   "page_author": "mmaruska",
+   "page_title": "Domino 3.wav"
+  },
+  "analysis": {
+   "duration": 2.715,
+   "codec": "vorbis",
+   "kbps": 192,
+   "src_rate": 44100,
+   "channels": 2,
+   "peak_dbfs": -7.89,
+   "lufs": -26.64,
+   "noise_floor_dbfs": -64.9,
+   "clipped_samples": 0,
+   "attack_at": 0.242,
+   "centroid_hz": 7415,
+   "rolloff95_hz": 10167,
+   "onsets": [
+    0.186,
+    0.279,
+    0.604,
+    0.789,
+    0.975,
+    1.161,
+    1.347,
+    1.509,
+    1.718,
+    1.881,
+    2.136,
+    2.276
+   ]
+  },
+  "earshot": {
+   "realness": 0.917,
+   "realness_verdict": "real or pro-produced",
+   "realness_trim": [
+    0.16,
+    2.65
+   ],
+   "match": {
+    "query": "many ceramic tiles or dominoes falling and clattering onto a hard floor, a spreading cascade",
+    "z": 5.02,
+    "verdict": "strong",
+    "p_vs_alts": 0.144
+   },
+   "trims": {}
+  }
+ },
+ {
+  "id": "fs-705349",
+  "category": "tiles",
+  "file": "audio/assets/tiles/fs-705349_domino-out-pack.ogg",
+  "title": "domino_out_pack.mp3",
+  "author": "UnycodeAdmin",
+  "source": "freesound",
+  "page_url": "https://freesound.org/people/UnycodeAdmin/sounds/705349/",
+  "download_url": "https://cdn.freesound.org/previews/705/705349_15297425-hq.ogg",
+  "license": "CC0 1.0",
+  "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+  "attribution": null,
+  "need": "tile_cascade",
+  "rank": 3,
+  "best_segment": [
+   0.0,
+   1.5
+  ],
+  "notes": "Dominoes poured out of the pack (author: 'domino tiles falling out pack'), file 1.75 s, mono, peak -3.6 dBFS. The spectrogram shows THREE strong bursts (0.43, 0.77, 1.19 s) with smaller hits between, sitting on a continuous broadband haze (about -70..-85 dBFS across 0-18.9 kHz, lossy lowpass at 18.9 kHz with mp3-style bands at 9 and 15 kHz): the file is a game-sfx pack item, not a clean field recording. Floor -51.4 dBFS (3.6 dB over the -55 gate: the haze). In the 0.0-1.5 s window the first 30 ms sit at -51 dBFS and the last 50 ms at -47 dBFS. A pour reads as a clump, not a spreading row: use as a second layer under 26195. Same author's domino_ruffle / domino_shuffle (705350 / 705351) match this material.",
+  "licence_seen": {
+   "text": "Creative Commons 0",
+   "url": "http://creativecommons.org/publicdomain/zero/1.0/",
+   "page": "https://freesound.org/people/UnycodeAdmin/sounds/705349/",
+   "read_on": "2026-11-01",
+   "page_author": "UnycodeAdmin",
+   "page_title": "domino_out_pack.mp3"
+  },
+  "analysis": {
+   "duration": 1.751,
+   "codec": "vorbis",
+   "kbps": 192,
+   "src_rate": 44100,
+   "channels": 2,
+   "peak_dbfs": -3.61,
+   "lufs": -28.68,
+   "noise_floor_dbfs": -51.4,
+   "clipped_samples": 0,
+   "attack_at": 0.286,
+   "centroid_hz": 2740,
+   "rolloff95_hz": 9474,
+   "onsets": [
+    0.07,
+    0.186,
+    0.302,
+    0.418,
+    0.464,
+    0.58,
+    0.72,
+    0.789,
+    0.975,
+    1.115,
+    1.231,
+    1.649
+   ]
+  },
+  "earshot": {
+   "realness": 0.874,
+   "realness_verdict": "real or pro-produced",
+   "realness_trim": [
+    0.0,
+    1.5
+   ],
+   "match": {
+    "query": "many ceramic tiles or dominoes falling and clattering onto a hard floor, a spreading cascade",
+    "z": 3.43,
+    "verdict": "strong",
+    "p_vs_alts": 0.058
+   },
+   "trims": {}
+  }
+ },
+ {
+  "id": "fs-828399",
+  "category": "tiles",
+  "file": "audio/assets/tiles/fs-828399_gameboard-chips-drop-hit-constant-fast-c.ogg",
+  "title": "GAMEBoard_chips drop hit constant fast chain ceramic straight",
+  "author": "sabrinaaiuijijiji",
+  "source": "freesound",
+  "page_url": "https://freesound.org/people/sabrinaaiuijijiji/sounds/828399/",
+  "download_url": "https://cdn.freesound.org/previews/828/828399_17821889-hq.ogg",
+  "license": "CC0 1.0",
+  "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+  "attribution": null,
+  "need": "tile_cascade",
+  "rank": 4,
+  "best_segment": [
+   0.0,
+   2.29
+  ],
+  "notes": "Game-board sfx 'dominoes fall rapidly in a chain, tilting and hitting the ceramic floor, constant speed' (author's text). 2.3 s, floor -61.9 dBFS, peak -5.0 dBFS, mono, centroid 6.9 kHz (bright, small tiles). Only 3 clacks detected by onset (a fast roll of overlapping hits). Use as a top layer for brightness over a woodier base. The sibling file 828398 ('curve' version) is the same recipe (floor -57.0 dBFS).",
+  "licence_seen": {
+   "text": "Creative Commons 0",
+   "url": "http://creativecommons.org/publicdomain/zero/1.0/",
+   "page": "https://freesound.org/people/sabrinaaiuijijiji/sounds/828399/",
+   "read_on": "2026-11-01",
+   "page_author": "sabrinaaiuijijiji",
+   "page_title": "GAMEBoard_chips drop hit constant fast chain ceramic straight"
+  },
+  "analysis": {
+   "duration": 2.292,
+   "codec": "vorbis",
+   "kbps": 192,
+   "src_rate": 48000,
+   "channels": 2,
+   "peak_dbfs": -5.01,
+   "lufs": -14.16,
+   "noise_floor_dbfs": -61.9,
+   "clipped_samples": 0,
+   "attack_at": 0.165,
+   "centroid_hz": 6900,
+   "rolloff95_hz": 10017,
+   "onsets": [
+    0.07,
+    0.186,
+    0.488
+   ]
+  },
+  "earshot": {
+   "realness": 0.874,
+   "realness_verdict": "real or pro-produced",
+   "realness_trim": [
+    0.0,
+    2.29
+   ],
+   "match": {
+    "query": "many ceramic tiles or dominoes falling and clattering onto a hard floor, a spreading cascade",
+    "z": 5.62,
+    "verdict": "strong",
+    "p_vs_alts": 0.989
+   },
+   "trims": {}
+  }
+ },
+ {
+  "id": "fs-145126",
+  "category": "tiles",
+  "file": "audio/assets/tiles/fs-145126_bathroom-tiles-handled-02.ogg",
+  "title": "Bathroom_Tiles-Handled-02.wav",
+  "author": "DWOBoyle",
+  "source": "freesound",
+  "page_url": "https://freesound.org/people/DWOBoyle/sounds/145126/",
+  "download_url": "https://cdn.freesound.org/previews/145/145126_2289019-hq.ogg",
+  "license": "CC BY 4.0",
+  "license_url": "https://creativecommons.org/licenses/by/4.0/",
+  "attribution": "\"Bathroom_Tiles-Handled-02.wav\" by DWOBoyle (https://freesound.org/people/DWOBoyle/sounds/145126/), licensed under CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/)",
+  "need": "tile_flip",
+  "rank": 2,
+  "best_segment": [
+   19.608,
+   19.805
+  ],
+  "notes": "REAL glazed CERAMIC bathroom tiles handled in the hands ('the sound of ceramic bathroom tiles being played around with in someone's hands; normalized and most background noise removed, no other processing'), 34.3 s, mono, 88.2 kHz source, peak -0.2 dBFS, floor -66.1 dBFS. The spectrogram shows continuous activity with no silent gaps and a faint noise-reduction haze (-80 dBFS across 0-19 kHz), ceramic ring partials near 2.5, 4.5 and 6 kHz: the best true-ceramic TONE of the set but not as clean between takes as 26194. Single-tile trims by earshot find (none head/tail cut): 19.608-19.805, 23.684-24.060, 15.470-15.857, 20.966-21.305, 8.970-9.356, 3.412-3.853 (heads -36..-58 dB, tails -30..-44 dB). Use it as the ceramic-ring layer under 26194 clacks. Also tile_drop rank 2. CC BY 4.0 (DWOBoyle): needs credit.",
+  "licence_seen": {
+   "text": "Attribution 4.0",
+   "url": "https://creativecommons.org/licenses/by/4.0/",
+   "page": "https://freesound.org/people/DWOBoyle/sounds/145126/",
+   "read_on": "2026-11-01",
+   "page_author": "DWOBoyle",
+   "page_title": "Bathroom_Tiles-Handled-02.wav"
+  },
+  "analysis": {
+   "duration": 34.261,
+   "codec": "vorbis",
+   "kbps": 110,
+   "src_rate": 88200,
+   "channels": 1,
+   "peak_dbfs": -0.22,
+   "lufs": -23.87,
+   "noise_floor_dbfs": -66.1,
+   "clipped_samples": 0,
+   "attack_at": 0.133,
+   "centroid_hz": 3842,
+   "rolloff95_hz": 9625,
+   "onsets": [
+    0.163,
+    0.395,
+    0.627,
+    0.813,
+    0.975,
+    1.138,
+    1.184,
+    1.37,
+    1.649,
+    1.788,
+    1.927,
+    2.229
+   ]
+  },
+  "earshot": {
+   "realness": 0.943,
+   "realness_verdict": "real or pro-produced",
+   "realness_trim": [
+    19.608,
+    19.805
+   ],
+   "match": {
+    "query": "a single domino or ceramic tile being turned over on a hard table",
+    "z": 3.2,
+    "verdict": "strong",
+    "p_vs_alts": 0.539
+   },
+   "trims": {
+    "set down A": {
+     "range": [
+      19.608,
+      19.805
+     ],
+     "match_z": 3.2,
+     "match": "strong",
+     "p_real": 0.943,
+     "realness": "real or pro-produced"
+    },
+    "set down B": {
+     "range": [
+      23.684,
+      24.06
+     ],
+     "match_z": 3.17,
+     "match": "strong",
+     "p_real": 0.884,
+     "realness": "real or pro-produced"
+    },
+    "set down C": {
+     "range": [
+      15.47,
+      15.857
+     ],
+     "match_z": 3.09,
+     "match": "strong",
+     "p_real": 0.971,
+     "realness": "real or pro-produced"
+    },
+    "set down D": {
+     "range": [
+      20.966,
+      21.305
+     ],
+     "match_z": 2.98,
+     "match": "plausible",
+     "p_real": 0.986,
+     "realness": "real or pro-produced"
+    },
+    "set down E": {
+     "range": [
+      8.97,
+      9.356
+     ],
+     "match_z": 3.27,
+     "match": "strong",
+     "p_real": 0.982,
+     "realness": "real or pro-produced"
+    },
+    "turn over F": {
+     "range": [
+      3.412,
+      3.853
+     ],
+     "match_z": 3.6,
+     "match": "strong",
+     "p_real": 0.989,
+     "realness": "real or pro-produced"
+    }
+   }
+  }
+ },
+ {
+  "id": "fs-182126",
+  "category": "tiles",
+  "file": "audio/assets/tiles/fs-182126_domino-2.ogg",
+  "title": "Domino 2.wav",
+  "author": "mmaruska",
+  "source": "freesound",
+  "page_url": "https://freesound.org/people/mmaruska/sounds/182126/",
+  "download_url": "https://cdn.freesound.org/previews/182/182126_3046049-hq.ogg",
+  "license": "CC BY 4.0",
+  "license_url": "https://creativecommons.org/licenses/by/4.0/",
+  "attribution": "\"Domino 2.wav\" by mmaruska (https://freesound.org/people/mmaruska/sounds/182126/), licensed under CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/)",
+  "need": "tile_flip",
+  "rank": 3,
+  "best_segment": [
+   4.0,
+   5.6
+  ],
+  "notes": "Dominoes on a wooden table, 7.7 s, floor -78.4 dBFS, three groups of takes at 0.16-0.65, 4.0-5.5, 7.1-7.5 s. The group 4.0-5.6 s is the clean multi-take segment (single strokes below: realness on a 0.16 s stroke alone reads 'uncertain' at p 0.17, so use the 1.6 s group or layer strokes with the tails of 26194). Strokes 4.818-4.979 (peak -0.3 dBFS, head -66 dB), 7.219-7.330, 5.292-5.431 (z strong 4.4-4.7 for 'a single domino tile clack'). Short and dry (0.07-0.16 s). Third choice for flips; also tile_drop rank 3. CC BY 4.0 (mmaruska).",
+  "licence_seen": {
+   "text": "Attribution 4.0",
+   "url": "https://creativecommons.org/licenses/by/4.0/",
+   "page": "https://freesound.org/people/mmaruska/sounds/182126/",
+   "read_on": "2026-11-01",
+   "page_author": "mmaruska",
+   "page_title": "Domino 2.wav"
+  },
+  "analysis": {
+   "duration": 7.704,
+   "codec": "vorbis",
+   "kbps": 192,
+   "src_rate": 44100,
+   "channels": 2,
+   "peak_dbfs": -0.28,
+   "lufs": -22.97,
+   "noise_floor_dbfs": -78.4,
+   "clipped_samples": 0,
+   "attack_at": 0.34,
+   "centroid_hz": 3109,
+   "rolloff95_hz": 10088,
+   "onsets": [
+    0.163,
+    0.279,
+    0.372,
+    0.488,
+    0.65,
+    4.04,
+    4.412,
+    4.876,
+    5.039,
+    5.341,
+    5.503,
+    7.129
+   ]
+  },
+  "earshot": {
+   "realness": 0.963,
+   "realness_verdict": "real or pro-produced",
+   "realness_trim": [
+    4.0,
+    5.6
+   ],
+   "match": {
+    "query": "a single domino or ceramic tile being turned over on a hard table",
+    "z": 5.09,
+    "verdict": "strong",
+    "p_vs_alts": 0.908
+   },
+   "trims": {
+    "clack A": {
+     "range": [
+      4.818,
+      4.979
+     ],
+     "match_z": 2.8,
+     "match": "plausible",
+     "p_real": 0.17,
+     "realness": "uncertain"
+    },
+    "clack B": {
+     "range": [
+      7.219,
+      7.33
+     ],
+     "match_z": 3.3,
+     "match": "strong",
+     "p_real": 0.801,
+     "realness": "real or pro-produced"
+    },
+    "clack C": {
+     "range": [
+      5.292,
+      5.431
+     ],
+     "match_z": 3.56,
+     "match": "strong",
+     "p_real": 0.967,
+     "realness": "real or pro-produced"
+    }
+   }
+  }
+ },
+ {
+  "id": "fs-145125",
+  "category": "tiles",
+  "file": "audio/assets/tiles/fs-145125_bathroom-tiles-handled-03.ogg",
+  "title": "Bathroom_Tiles-Handled-03.wav",
+  "author": "DWOBoyle",
+  "source": "freesound",
+  "page_url": "https://freesound.org/people/DWOBoyle/sounds/145125/",
+  "download_url": "https://cdn.freesound.org/previews/145/145125_2289019-hq.ogg",
+  "license": "CC BY 4.0",
+  "license_url": "https://creativecommons.org/licenses/by/4.0/",
+  "attribution": "\"Bathroom_Tiles-Handled-03.wav\" by DWOBoyle (https://freesound.org/people/DWOBoyle/sounds/145125/), licensed under CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/)",
+  "need": "tile_flip",
+  "rank": 4,
+  "best_segment": [
+   0.754,
+   2.715
+  ],
+  "notes": "Ceramic bathroom tiles handled, 2.8 s, 88.2 kHz source, mono, floor -82.0 dBFS (cleanest), peak -0.8 dBFS, 11 onsets; 0.754-2.715 is one gesture of several tile touches (head -50 dB, tail -49 dB). Same material as 145126. CC BY 4.0 (DWOBoyle).",
+  "licence_seen": {
+   "text": "Attribution 4.0",
+   "url": "https://creativecommons.org/licenses/by/4.0/",
+   "page": "https://freesound.org/people/DWOBoyle/sounds/145125/",
+   "read_on": "2026-11-01",
+   "page_author": "DWOBoyle",
+   "page_title": "Bathroom_Tiles-Handled-03.wav"
+  },
+  "analysis": {
+   "duration": 2.795,
+   "codec": "vorbis",
+   "kbps": 111,
+   "src_rate": 88200,
+   "channels": 1,
+   "peak_dbfs": -0.75,
+   "lufs": -24.61,
+   "noise_floor_dbfs": -82.0,
+   "clipped_samples": 0,
+   "attack_at": 0.09,
+   "centroid_hz": 3492,
+   "rolloff95_hz": 9205,
+   "onsets": [
+    0.116,
+    0.836,
+    1.115,
+    1.277,
+    1.463,
+    1.533,
+    1.858,
+    2.206,
+    2.322,
+    2.392,
+    2.531
+   ]
+  },
+  "earshot": {
+   "realness": 0.99,
+   "realness_verdict": "real or pro-produced",
+   "realness_trim": [
+    0.754,
+    2.715
+   ],
+   "match": {
+    "query": "a single domino or ceramic tile being turned over on a hard table",
+    "z": 3.72,
+    "verdict": "strong",
+    "p_vs_alts": 0.973
+   },
+   "trims": {}
+  }
+ },
+ {
+  "id": "fs-26194",
+  "category": "tiles",
+  "file": "audio/assets/tiles/fs-26194_domino-single.ogg",
+  "title": "domino_single.wav",
+  "author": "FreqMan",
+  "source": "freesound",
+  "page_url": "https://freesound.org/people/FreqMan/sounds/26194/",
+  "download_url": "https://cdn.freesound.org/previews/26/26194_92661-hq.ogg",
+  "license": "CC BY 4.0",
+  "license_url": "https://creativecommons.org/licenses/by/4.0/",
+  "attribution": "\"domino_single.wav\" by FreqMan (https://freesound.org/people/FreqMan/sounds/26194/), licensed under CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/)",
+  "need": "tile_flip+tile_drop",
+  "rank": 1,
+  "best_segment": [
+   15.243,
+   15.665
+  ],
+  "notes": "'One or two dominoes knocked together or dropped onto a hard surface' (author), Sony ECM-99 stereo to MD. 17.3 s, spectrogram black between 10 separate events (floor -81.8 dBFS: the cleanest tile recording of the set), peak -5.1 dBFS, rolloff95 9.9 kHz. Single-tile trims from earshot find (nothing marked head/tail cut): drops 15.243-15.665 (z strong, head -56 dB tail -40 dB), 6.435-6.795, 0.422-0.855, 13.349-13.855; short clacks 9.917-10.015, 11.308-11.610, 11.698-12.010, 12.640-12.745, 16.842-16.945, 10.841-11.000. Measured per trim (earshot.trims): the 0.3-0.5 s windows are all real + strong; the 0.10-0.16 s strokes are weaker evidence (9.917-10.015 realness 0.47 uncertain, 12.640-12.745 match z 2.8 plausible, 16.842-16.945 match z 2.0 weak): trust the long windows and the three drops first. That is 10 usable takes of one object = the pool for tile_drop and the 'step' tail of tile_flip (rank 1 for tile_flip too: it is the one clean pool of single tiles). Dominoes on a hard surface, not a wooden box. CC BY 4.0 (FreqMan): needs credit.",
+  "licence_seen": {
+   "text": "Attribution 4.0",
+   "url": "https://creativecommons.org/licenses/by/4.0/",
+   "page": "https://freesound.org/people/FreqMan/sounds/26194/",
+   "read_on": "2026-11-01",
+   "page_author": "FreqMan",
+   "page_title": "domino_single.wav"
+  },
+  "analysis": {
+   "duration": 17.276,
+   "codec": "vorbis",
+   "kbps": 192,
+   "src_rate": 44100,
+   "channels": 2,
+   "peak_dbfs": -5.14,
+   "lufs": -28.69,
+   "noise_floor_dbfs": -81.8,
+   "clipped_samples": 0,
+   "attack_at": 0.428,
+   "centroid_hz": 3574,
+   "rolloff95_hz": 9905,
+   "onsets": [
+    0.441,
+    0.58,
+    3.204,
+    3.971,
+    6.455,
+    6.711,
+    8.568,
+    8.916,
+    9.358,
+    9.799,
+    9.938,
+    10.658
+   ]
+  },
+  "earshot": {
+   "realness": 0.956,
+   "realness_verdict": "real or pro-produced",
+   "realness_trim": [
+    15.243,
+    15.665
+   ],
+   "match": {
+    "query": "a single domino or ceramic tile being turned over on a hard table",
+    "z": 4.29,
+    "verdict": "strong",
+    "p_vs_alts": 0.283
+   },
+   "trims": {
+    "drop A": {
+     "range": [
+      15.243,
+      15.665
+     ],
+     "match_z": 4.29,
+     "match": "strong",
+     "p_real": 0.956,
+     "realness": "real or pro-produced"
+    },
+    "drop B": {
+     "range": [
+      6.435,
+      6.795
+     ],
+     "match_z": 3.42,
+     "match": "strong",
+     "p_real": 0.936,
+     "realness": "real or pro-produced"
+    },
+    "drop C": {
+     "range": [
+      0.422,
+      0.855
+     ],
+     "match_z": 3.29,
+     "match": "strong",
+     "p_real": 0.939,
+     "realness": "real or pro-produced"
+    },
+    "clack D": {
+     "range": [
+      9.917,
+      10.015
+     ],
+     "match_z": 2.73,
+     "match": "plausible",
+     "p_real": 0.474,
+     "realness": "uncertain"
+    },
+    "clack E": {
+     "range": [
+      11.308,
+      11.61
+     ],
+     "match_z": 4.18,
+     "match": "strong",
+     "p_real": 0.92,
+     "realness": "real or pro-produced"
+    },
+    "clack F": {
+     "range": [
+      11.698,
+      12.01
+     ],
+     "match_z": 3.63,
+     "match": "strong",
+     "p_real": 0.952,
+     "realness": "real or pro-produced"
+    },
+    "clack G": {
+     "range": [
+      12.64,
+      12.745
+     ],
+     "match_z": 2.79,
+     "match": "plausible",
+     "p_real": 0.902,
+     "realness": "real or pro-produced"
+    },
+    "clack H": {
+     "range": [
+      16.842,
+      16.945
+     ],
+     "match_z": 2.03,
+     "match": "weak",
+     "p_real": 0.961,
+     "realness": "real or pro-produced"
+    },
+    "clack I": {
+     "range": [
+      10.841,
+      11.0
+     ],
+     "match_z": 4.43,
+     "match": "strong",
+     "p_real": 0.788,
+     "realness": "real or pro-produced"
+    },
+    "flip J": {
+     "range": [
+      13.349,
+      13.855
+     ],
+     "match_z": 3.63,
+     "match": "strong",
+     "p_real": 0.855,
+     "realness": "real or pro-produced"
+    }
+   }
+  }
+ },
+ {
+  "id": "fs-128286",
+  "category": "tiles",
+  "file": "audio/assets/tiles/fs-128286_plate-stack-hit.ogg",
+  "title": "Plate Stack Hit.aif",
+  "author": "rebeat",
+  "source": "freesound",
+  "page_url": "https://freesound.org/people/rebeat/sounds/128286/",
+  "download_url": "https://cdn.freesound.org/previews/128/128286_60825-hq.ogg",
+  "license": "CC0 1.0",
+  "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+  "attribution": null,
+  "need": "tile_lock",
+  "rank": 1,
+  "best_segment": [
+   0.114,
+   0.39
+  ],
+  "notes": "A stack of ceramic plates struck ('Plate Stack Hit', porcelain/china/ceramic tags; Apogee Duet + Sennheiser K6 shotgun), 0.48 s mono 110 kbps, peak -0.2 dBFS, floor -56.2 dBFS, rolloff95 9.4 kHz, tail reaches -49 dB under the peak at 0.39 s. One hard transient, no ring: a single glaze-on-glaze clack. For 'many tiles at once' stack it under a sample-aligned layer of 4-6 of the 26194 takes and pitch it down -2..-4 st for weight. Floor -56.2 dBFS passes the -55 gate by 1.2 dB (the file is 0.48 s long: its tail is the floor).",
+  "licence_seen": {
+   "text": "Creative Commons 0",
+   "url": "http://creativecommons.org/publicdomain/zero/1.0/",
+   "page": "https://freesound.org/people/rebeat/sounds/128286/",
+   "read_on": "2026-11-01",
+   "page_author": "rebeat",
+   "page_title": "Plate Stack Hit.aif"
+  },
+  "analysis": {
+   "duration": 0.477,
+   "codec": "vorbis",
+   "kbps": 110,
+   "src_rate": 48000,
+   "channels": 1,
+   "peak_dbfs": -0.18,
+   "lufs": -17.83,
+   "noise_floor_dbfs": -56.2,
+   "clipped_samples": 0,
+   "attack_at": 0.0,
+   "centroid_hz": 3766,
+   "rolloff95_hz": 9366,
+   "onsets": [
+    0.07,
+    0.163,
+    0.232,
+    0.441
+   ]
+  },
+  "earshot": {
+   "realness": 0.972,
+   "realness_verdict": "real or pro-produced",
+   "realness_trim": [
+    0.114,
+    0.39
+   ],
+   "match": {
+    "query": "one loud sharp ceramic clack",
+    "z": 3.76,
+    "verdict": "strong",
+    "p_vs_alts": 0.85
+   },
+   "trims": {}
+  }
+ },
+ {
+  "id": "fs-675897",
+  "category": "tiles",
+  "file": "audio/assets/tiles/fs-675897_s10-21-pottery-fall-and-breaks-several-t.ogg",
+  "title": "S10-21 Pottery fall and breaks; several takes.wav",
+  "author": "craigsmith",
+  "source": "freesound",
+  "page_url": "https://freesound.org/people/craigsmith/sounds/675897/",
+  "download_url": "https://cdn.freesound.org/previews/675/675897_2524442-hq.ogg",
+  "license": "CC0 1.0",
+  "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+  "attribution": null,
+  "need": "tile_lock",
+  "rank": 2,
+  "best_segment": [
+   1.583,
+   1.821
+  ],
+  "notes": "'Pottery fall and breaks; several takes' (35 mm mag transfer), 17.7 s, mono 110 kbps, floor -69.9 dBFS, rolloff95 9.0 kHz (no tile file reaches the 12 kHz rolloff gate: the highest 95 % rolloff of all 44 tile previews is 10.2 kHz, the Freesound HQ ogg previews of impacts top out there). Takes: 1.583-1.821 (z strong 3.9, one fall), 0.110-0.685 (fall + short rattle), 7.192-8.770 and 3.959-5.765 (fall + broken shards, long). Use 1.583-1.821 as the shortest clean impact; the long ones carry debris that would read as breaking, not locking.",
+  "licence_seen": {
+   "text": "Creative Commons 0",
+   "url": "http://creativecommons.org/publicdomain/zero/1.0/",
+   "page": "https://freesound.org/people/craigsmith/sounds/675897/",
+   "read_on": "2026-11-01",
+   "page_author": "craigsmith",
+   "page_title": "S10-21 Pottery fall and breaks; several takes.wav"
+  },
+  "analysis": {
+   "duration": 17.737,
+   "codec": "vorbis",
+   "kbps": 110,
+   "src_rate": 48000,
+   "channels": 1,
+   "peak_dbfs": -5.49,
+   "lufs": -21.49,
+   "noise_floor_dbfs": -69.9,
+   "clipped_samples": 0,
+   "attack_at": 0.116,
+   "centroid_hz": 2264,
+   "rolloff95_hz": 9022,
+   "onsets": [
+    0.139,
+    1.602,
+    1.858,
+    2.647,
+    3.529,
+    3.971,
+    5.457,
+    7.221,
+    7.964,
+    8.243,
+    8.359,
+    9.288
+   ]
+  },
+  "earshot": {
+   "realness": 0.912,
+   "realness_verdict": "real or pro-produced",
+   "realness_trim": [
+    1.583,
+    1.821
+   ],
+   "match": {
+    "query": "one loud sharp ceramic clack",
+    "z": 3.88,
+    "verdict": "strong",
+    "p_vs_alts": 0.478
+   },
+   "trims": {
+    "hit A": {
+     "range": [
+      1.583,
+      1.821
+     ],
+     "match_z": 3.88,
+     "match": "strong",
+     "p_real": 0.912,
+     "realness": "real or pro-produced"
+    },
+    "hit B": {
+     "range": [
+      0.11,
+      0.685
+     ],
+     "match_z": 3.29,
+     "match": "strong",
+     "p_real": 0.819,
+     "realness": "real or pro-produced"
+    },
+    "hit C (with debris)": {
+     "range": [
+      7.192,
+      8.77
+     ],
+     "match_z": 4.4,
+     "match": "strong",
+     "p_real": 0.977,
+     "realness": "real or pro-produced"
+    },
+    "hit D (with debris)": {
+     "range": [
+      3.959,
+      5.765
+     ],
+     "match_z": 3.99,
+     "match": "strong",
+     "p_real": 0.959,
+     "realness": "real or pro-produced"
+    }
+   }
+  }
+ },
+ {
+  "id": "fs-538524",
+  "category": "tiles",
+  "file": "audio/assets/tiles/fs-538524_dominoes-shuffling.ogg",
+  "title": "DOMINOES SHUFFLING.mp3",
+  "author": "escobarrb26",
+  "source": "freesound",
+  "page_url": "https://freesound.org/people/escobarrb26/sounds/538524/",
+  "download_url": "https://cdn.freesound.org/previews/538/538524_11412454-hq.ogg",
+  "license": "CC0 1.0",
+  "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+  "attribution": null,
+  "need": "tile_rain",
+  "rank": 1,
+  "best_segment": [
+   0.4,
+   2.9
+  ],
+  "notes": "Dominoes shuffled on a table ('classic latin game'), 9.1 s, mono. Densest 2.4 s window starts 0.5 s: 25 onsets (10.4 per s), rms -30 dBFS, peak -1.7 dBFS, head -47 dB, tail -26 dB (cut the end at 2.9 s or fade). Digital silence between bursts (floor -200 dBFS: it was noise-gated), rolloff95 only 7.9 kHz (dull, mp3 origin): add +3 dB shelf above 6 kHz or layer with 705351. The whole 9.1 s can be used as the 'raining down' bed in 3 s slices.",
+  "licence_seen": {
+   "text": "Creative Commons 0",
+   "url": "http://creativecommons.org/publicdomain/zero/1.0/",
+   "page": "https://freesound.org/people/escobarrb26/sounds/538524/",
+   "read_on": "2026-11-01",
+   "page_author": "escobarrb26",
+   "page_title": "DOMINOES SHUFFLING.mp3"
+  },
+  "analysis": {
+   "duration": 9.133,
+   "codec": "vorbis",
+   "kbps": 192,
+   "src_rate": 48000,
+   "channels": 2,
+   "peak_dbfs": -4.27,
+   "lufs": -26.97,
+   "noise_floor_dbfs": -200.0,
+   "clipped_samples": 0,
+   "attack_at": 0.533,
+   "centroid_hz": 3696,
+   "rolloff95_hz": 7870,
+   "onsets": [
+    0.348,
+    0.557,
+    0.65,
+    0.813,
+    0.882,
+    1.207,
+    1.254,
+    1.486,
+    1.649,
+    1.765,
+    1.997,
+    2.043
+   ]
+  },
+  "earshot": {
+   "realness": 0.821,
+   "realness_verdict": "real or pro-produced",
+   "realness_trim": [
+    0.4,
+    2.9
+   ],
+   "match": {
+    "query": "a long dense clatter of dominoes or mahjong tiles shuffled on a table",
+    "z": 3.91,
+    "verdict": "strong",
+    "p_vs_alts": 1.0
+   },
+   "trims": {
+    "densest 2.5 s": {
+     "range": [
+      0.5,
+      2.9
+     ],
+     "match_z": 3.41,
+     "match": "strong",
+     "p_real": 0.862,
+     "realness": "real or pro-produced"
+    }
+   }
+  }
+ },
+ {
+  "id": "fs-705351",
+  "category": "tiles",
+  "file": "audio/assets/tiles/fs-705351_domino-shuffle.ogg",
+  "title": "domino_shuffle.mp3",
+  "author": "UnycodeAdmin",
+  "source": "freesound",
+  "page_url": "https://freesound.org/people/UnycodeAdmin/sounds/705351/",
+  "download_url": "https://cdn.freesound.org/previews/705/705351_15297425-hq.ogg",
+  "license": "CC0 1.0",
+  "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+  "attribution": null,
+  "need": "tile_rain",
+  "rank": 2,
+  "best_segment": [
+   6.5,
+   8.9
+  ],
+  "notes": "'Shuffling domino tiles after they come out of the pack', 13.9 s, mono, floor -61.0 dBFS, peak -2.3 dBFS, rolloff95 9.6 kHz, 24+ spikes = many separate clacks. Densest 2.4 s window 6.5-8.9 s: 19 onsets (7.9 per s); 1.7-3.2 s holds 12 onsets in 1.5 s. Wide dynamic variation between takes (natural). ",
+  "licence_seen": {
+   "text": "Creative Commons 0",
+   "url": "http://creativecommons.org/publicdomain/zero/1.0/",
+   "page": "https://freesound.org/people/UnycodeAdmin/sounds/705351/",
+   "read_on": "2026-11-01",
+   "page_author": "UnycodeAdmin",
+   "page_title": "domino_shuffle.mp3"
+  },
+  "analysis": {
+   "duration": 13.872,
+   "codec": "vorbis",
+   "kbps": 192,
+   "src_rate": 44100,
+   "channels": 2,
+   "peak_dbfs": -2.28,
+   "lufs": -22.92,
+   "noise_floor_dbfs": -61.0,
+   "clipped_samples": 0,
+   "attack_at": 0.361,
+   "centroid_hz": 3871,
+   "rolloff95_hz": 9625,
+   "onsets": [
+    0.07,
+    0.186,
+    0.302,
+    0.395,
+    0.743,
+    0.859,
+    1.022,
+    1.324,
+    1.672,
+    1.834,
+    2.206,
+    2.345
+   ]
+  },
+  "earshot": {
+   "realness": 0.967,
+   "realness_verdict": "real or pro-produced",
+   "realness_trim": [
+    6.5,
+    8.9
+   ],
+   "match": {
+    "query": "a long dense clatter of dominoes or mahjong tiles shuffled on a table",
+    "z": 3.71,
+    "verdict": "strong",
+    "p_vs_alts": 1.0
+   },
+   "trims": {
+    "dense 1.5 s": {
+     "range": [
+      1.7,
+      3.2
+     ],
+     "match_z": 3.75,
+     "match": "strong",
+     "p_real": 0.982,
+     "realness": "real or pro-produced"
+    }
+   }
+  }
+ },
+ {
+  "id": "fs-705350",
+  "category": "tiles",
+  "file": "audio/assets/tiles/fs-705350_domino-ruffle.ogg",
+  "title": "domino_ruffle.mp3",
+  "author": "UnycodeAdmin",
+  "source": "freesound",
+  "page_url": "https://freesound.org/people/UnycodeAdmin/sounds/705350/",
+  "download_url": "https://cdn.freesound.org/previews/705/705350_15297425-hq.ogg",
+  "license": "CC0 1.0",
+  "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+  "attribution": null,
+  "need": "tile_rain",
+  "rank": 3,
+  "best_segment": [
+   0.2,
+   2.6
+  ],
+  "notes": "'Ruffling the domino tiles like shuffle', 3.3 s, mono, 18 onsets in 2.4 s (7.5 per s), peak -4.8 dBFS, first 30 ms -48 dB and last 50 ms -45 dB below peak (clean in and out). Floor -51.9 dBFS (3 dB above the gate; tile tail).",
+  "licence_seen": {
+   "text": "Creative Commons 0",
+   "url": "http://creativecommons.org/publicdomain/zero/1.0/",
+   "page": "https://freesound.org/people/UnycodeAdmin/sounds/705350/",
+   "read_on": "2026-11-01",
+   "page_author": "UnycodeAdmin",
+   "page_title": "domino_ruffle.mp3"
+  },
+  "analysis": {
+   "duration": 3.319,
+   "codec": "vorbis",
+   "kbps": 192,
+   "src_rate": 44100,
+   "channels": 2,
+   "peak_dbfs": -4.83,
+   "lufs": -27.37,
+   "noise_floor_dbfs": -51.9,
+   "clipped_samples": 0,
+   "attack_at": 0.004,
+   "centroid_hz": 3527,
+   "rolloff95_hz": 9560,
+   "onsets": [
+    0.07,
+    0.325,
+    0.534,
+    0.697,
+    0.813,
+    1.022,
+    1.184,
+    1.347,
+    1.533,
+    1.811,
+    1.974,
+    2.02
+   ]
+  },
+  "earshot": {
+   "realness": 0.933,
+   "realness_verdict": "real or pro-produced",
+   "realness_trim": [
+    0.2,
+    2.6
+   ],
+   "match": {
+    "query": "a long dense clatter of dominoes or mahjong tiles shuffled on a table",
+    "z": 3.75,
+    "verdict": "strong",
+    "p_vs_alts": 1.0
+   },
+   "trims": {}
+  }
+ },
+ {
+  "id": "fs-26193",
+  "category": "tiles",
+  "file": "audio/assets/tiles/fs-26193_domino-setup-2.ogg",
+  "title": "domino_setup_2.wav",
+  "author": "FreqMan",
+  "source": "freesound",
+  "page_url": "https://freesound.org/people/FreqMan/sounds/26193/",
+  "download_url": "https://cdn.freesound.org/previews/26/26193_92661-hq.ogg",
+  "license": "CC BY 4.0",
+  "license_url": "https://creativecommons.org/licenses/by/4.0/",
+  "attribution": "\"domino_setup_2.wav\" by FreqMan (https://freesound.org/people/FreqMan/sounds/26193/), licensed under CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/)",
+  "need": "tile_rain",
+  "rank": 4,
+  "best_segment": [
+   2.7,
+   5.1
+  ],
+  "notes": "Dominoes being set up (placed, not shuffled), stereo, floor -74.4 dBFS (very clean), peak -5.0 dBFS, 21 onsets in 2.4 s from 2.7 s. Natural, less dense clatter: use as the soft tail of the rain (the last tiles landing). The sibling file domino_setup (26192, 28.7 s) is the same recording session. CC BY 4.0 (FreqMan): needs credit.",
+  "licence_seen": {
+   "text": "Attribution 4.0",
+   "url": "https://creativecommons.org/licenses/by/4.0/",
+   "page": "https://freesound.org/people/FreqMan/sounds/26193/",
+   "read_on": "2026-11-01",
+   "page_author": "FreqMan",
+   "page_title": "domino_setup_2.wav"
+  },
+  "analysis": {
+   "duration": 31.765,
+   "codec": "vorbis",
+   "kbps": 192,
+   "src_rate": 44100,
+   "channels": 2,
+   "peak_dbfs": -4.98,
+   "lufs": -29.14,
+   "noise_floor_dbfs": -74.4,
+   "clipped_samples": 0,
+   "attack_at": 0.503,
+   "centroid_hz": 3879,
+   "rolloff95_hz": 9894,
+   "onsets": [
+    0.07,
+    0.395,
+    0.488,
+    0.534,
+    0.813,
+    0.929,
+    1.115,
+    1.533,
+    1.625,
+    1.788,
+    2.02,
+    2.368
+   ]
+  },
+  "earshot": {
+   "realness": 0.952,
+   "realness_verdict": "real or pro-produced",
+   "realness_trim": [
+    2.7,
+    5.1
+   ],
+   "match": {
+    "query": "a long dense clatter of dominoes or mahjong tiles shuffled on a table",
+    "z": 4.6,
+    "verdict": "strong",
+    "p_vs_alts": 1.0
+   },
+   "trims": {}
+  }
+ },
+ {
+  "id": "fs-197868",
+  "category": "tiles",
+  "file": "audio/assets/tiles/fs-197868_domino-shuffle.ogg",
+  "title": "domino shuffle.WAV",
+  "author": "Millavsb",
+  "source": "freesound",
+  "page_url": "https://freesound.org/people/Millavsb/sounds/197868/",
+  "download_url": "https://cdn.freesound.org/previews/197/197868_3186536-hq.ogg",
+  "license": "CC0 1.0",
+  "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+  "attribution": null,
+  "need": "tile_rain",
+  "rank": 5,
+  "best_segment": [
+   1.8,
+   4.2
+  ],
+  "notes": "'domino shuffle' (Millavsb), 11.6 s, mono, floor -67.0 dBFS, 21 onsets in 2.4 s from 1.8 s (8.8 per s). VERY quiet: peak -16.9 dBFS, -41.7 LUFS, so +17 dB of gain is needed (raises the floor to about -50 dBFS). Rolloff95 8.6 kHz. Use only if the others are too bright.",
+  "licence_seen": {
+   "text": "Creative Commons 0",
+   "url": "http://creativecommons.org/publicdomain/zero/1.0/",
+   "page": "https://freesound.org/people/Millavsb/sounds/197868/",
+   "read_on": "2026-11-01",
+   "page_author": "Millavsb",
+   "page_title": "domino shuffle.WAV"
+  },
+  "analysis": {
+   "duration": 11.565,
+   "codec": "vorbis",
+   "kbps": 192,
+   "src_rate": 48000,
+   "channels": 2,
+   "peak_dbfs": -16.89,
+   "lufs": -41.74,
+   "noise_floor_dbfs": -67.0,
+   "clipped_samples": 0,
+   "attack_at": 0.334,
+   "centroid_hz": 2899,
+   "rolloff95_hz": 8645,
+   "onsets": [
+    0.209,
+    0.348,
+    0.557,
+    0.65,
+    0.813,
+    1.022,
+    1.231,
+    1.509,
+    1.881,
+    2.043,
+    2.252,
+    2.461
+   ]
+  },
+  "earshot": {
+   "realness": 0.858,
+   "realness_verdict": "real or pro-produced",
+   "realness_trim": [
+    1.8,
+    4.2
+   ],
+   "match": {
+    "query": "a long dense clatter of dominoes or mahjong tiles shuffled on a table",
+    "z": 3.67,
+    "verdict": "strong",
+    "p_vs_alts": 0.998
+   },
+   "trims": {}
+  }
+ },
+ {
+  "id": "fs-511334",
+  "category": "tiles",
+  "file": "audio/assets/tiles/fs-511334_scraping-tiles.ogg",
+  "title": "Scraping tiles",
+  "author": "onehugeeye",
+  "source": "freesound",
+  "page_url": "https://freesound.org/people/onehugeeye/sounds/511334/",
+  "download_url": "https://cdn.freesound.org/previews/511/511334_562829-hq.ogg",
+  "license": "CC0 1.0",
+  "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+  "attribution": null,
+  "need": "tile_slide",
+  "rank": 1,
+  "best_segment": [
+   7.5,
+   12.5
+  ],
+  "notes": "Not on the owned list but found on the way: ceramic tiles scraped and slid across each other ('Scraping tiles'), 44.7 s, stereo, floor -79.5 dBFS, earshot z 5.9 strong for 'ceramic tiles sliding and scraping'. Windows with clean head and tail: 7.5-12.5 (head -67 dB, tail -69 dB), 30.0-35.0 (-57/-67), 0.0-5.0. For the 'window panes slide and snap' beat (tile_slide + tile_lock).",
+  "licence_seen": {
+   "text": "Creative Commons 0",
+   "url": "http://creativecommons.org/publicdomain/zero/1.0/",
+   "page": "https://freesound.org/people/onehugeeye/sounds/511334/",
+   "read_on": "2026-11-01",
+   "page_author": "onehugeeye",
+   "page_title": "Scraping tiles"
+  },
+  "analysis": {
+   "duration": 44.674,
+   "codec": "vorbis",
+   "kbps": 192,
+   "src_rate": 48000,
+   "channels": 2,
+   "peak_dbfs": -4.39,
+   "lufs": -25.56,
+   "noise_floor_dbfs": -79.5,
+   "clipped_samples": 0,
+   "attack_at": 1.395,
+   "centroid_hz": 3550,
+   "rolloff95_hz": 9560,
+   "onsets": [
+    0.766,
+    3.228,
+    3.46,
+    4.017,
+    4.83,
+    5.062,
+    6.153,
+    6.269,
+    6.409,
+    6.618,
+    8.359,
+    9.706
+   ]
+  },
+  "earshot": {
+   "realness": 0.939,
+   "realness_verdict": "real or pro-produced",
+   "realness_trim": [
+    7.5,
+    12.5
+   ],
+   "match": {
+    "query": "ceramic tiles sliding and scraping across each other",
+    "z": 6.04,
+    "verdict": "strong",
+    "p_vs_alts": 1.0
+   },
+   "trims": {
+    "slide B": {
+     "range": [
+      30.0,
+      35.0
+     ],
+     "match_z": 5.96,
+     "match": "strong",
+     "p_real": 0.922,
+     "realness": "real or pro-produced"
+    },
+    "slide C": {
+     "range": [
+      17.5,
+      22.5
+     ],
+     "match_z": 6.91,
+     "match": "strong",
+     "p_real": 0.975,
+     "realness": "real or pro-produced"
+    }
+   }
+  }
+ }
+]

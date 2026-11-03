@@ -16,7 +16,7 @@ export default function ShelfCanvas({ progress, departure, clipboardBelt, toolSe
     const shelf = stage.querySelector<HTMLElement>(".story-shelf")!;
     const compact = window.matchMedia("(max-width: 899px) and (max-height: 740px), (min-aspect-ratio: 2/1)");
     const reduced = window.matchMedia("(prefers-reduced-motion: reduce)");
-    let scene: ReturnType<(typeof import("./shelf-scene"))["createShelfScene"]> | undefined;
+    let scene: Awaited<ReturnType<(typeof import("./shelf-scene"))["createShelfScene"]>> | undefined;
     let disposed = false;
     let initializing = false;
     let visible = true;
@@ -68,7 +68,12 @@ export default function ShelfCanvas({ progress, departure, clipboardBelt, toolSe
         if (!response.ok) throw new Error("Wordmark tiles unavailable");
         const tiles: Tile[] = await response.json();
         if (disposed || reduced.matches || compact.matches) return;
-        scene = module.createShelfScene(canvas!, tiles);
+        const created = await module.createShelfScene(canvas!, tiles);
+        if (disposed) { created.dispose(); return; }
+        await created.compile();
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        if (disposed || reduced.matches || compact.matches) { created.dispose(); return; }
+        scene = created;
         root.dataset.scene = "ready";
         onModeChange(true);
         resize();

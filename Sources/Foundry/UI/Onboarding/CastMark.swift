@@ -1,9 +1,9 @@
 import AppKit
 import SwiftUI
 
-/// The app icon's mark, "f." in chalk keycap tiles, cast in front of the
-/// user: tiles fill the mould bottom-up, land hot and cool to chalk, and the
-/// full stop lands last and stays hot. Geometry matches scripts/render-icon.swift.
+/// The app icon's mark, Split Mould, cast in front of the user: the three
+/// chalk mould pieces close in and cool from hot, then the cast lands last and
+/// stays hot. Geometry matches docs/brand/mark/mark.svg and scripts/render-icon.swift.
 struct CastMark: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var start = Date.now
@@ -26,87 +26,69 @@ struct CastMark: View {
 }
 
 enum MarkTiles {
-    struct Tile {
+    struct Piece {
         let path: Path
-        let bounds: CGRect
         let delay: Double
-        let isStop: Bool
+        let travel: CGSize
+        let isCast: Bool
     }
 
-    static let bounds = CGRect(x: 61, y: 94, width: 257, height: 317)
+    static let bounds = CGRect(x: 10, y: 10, width: 100, height: 102)
     static let landDuration = 0.45
-    static let stopDelay = 0.75
-    /// Keycap depth, in mark units: the same chalk side the keyboard keys show.
-    static let depth: CGFloat = 3
-    static let castDuration = stopDelay + 0.15 + landDuration + 0.1
+    static let castDelay = 0.6
+    static let depth: CGFloat = 1.5
+    static let castDuration = castDelay + landDuration + 0.1
 
-    /// The website's "f" outline, in mark units (y down).
-    static let glyph: Path = {
-        var glyph = Path()
-        glyph.move(to: CGPoint(x: 61, y: 181)); glyph.addLine(to: CGPoint(x: 96, y: 181)); glyph.addLine(to: CGPoint(x: 96, y: 156))
-        glyph.addCurve(to: CGPoint(x: 176, y: 94), control1: CGPoint(x: 96, y: 111), control2: CGPoint(x: 126, y: 94))
-        glyph.addLine(to: CGPoint(x: 228, y: 94)); glyph.addLine(to: CGPoint(x: 228, y: 151)); glyph.addLine(to: CGPoint(x: 195, y: 151))
-        glyph.addCurve(to: CGPoint(x: 168, y: 181), control1: CGPoint(x: 171, y: 151), control2: CGPoint(x: 168, y: 159))
-        glyph.addLine(to: CGPoint(x: 228, y: 181)); glyph.addLine(to: CGPoint(x: 228, y: 238)); glyph.addLine(to: CGPoint(x: 168, y: 238))
-        glyph.addLine(to: CGPoint(x: 168, y: 411)); glyph.addLine(to: CGPoint(x: 96, y: 411)); glyph.addLine(to: CGPoint(x: 96, y: 238))
-        glyph.addLine(to: CGPoint(x: 61, y: 238)); glyph.closeSubpath()
-        return glyph
-    }()
+    /// Corners as (x, y, radius) in the mark's 120-unit grid, y down.
+    static func outline(_ corners: [(CGFloat, CGFloat, CGFloat)]) -> Path {
+        var path = Path()
+        let points = corners.map { CGPoint(x: $0.0, y: $0.1) }
+        let last = points[points.count - 1]
+        path.move(to: CGPoint(x: (last.x + points[0].x) / 2, y: (last.y + points[0].y) / 2))
+        for (index, corner) in corners.enumerated() {
+            let next = points[(index + 1) % points.count]
+            path.addArc(tangent1End: points[index], tangent2End: next, radius: corner.2)
+        }
+        path.closeSubpath()
+        return path
+    }
 
-    static let tiles: [Tile] = {
-        func split(_ a: CGFloat, _ b: CGFloat, _ n: Int) -> [CGFloat] { (0...n).map { a + (b - a) * CGFloat($0) / CGFloat(n) } }
-        let rows = Array(split(94, 181, 3).dropLast()) + Array(split(181, 238, 2).dropLast()) + split(238, 411, 6)
-        let columns: [CGFloat] = [61, 96, 132, 168, 198, 228]
-        let gap: CGFloat = 4
-
-        func tile(_ cell: CGRect) -> Path {
-            Path(roundedRect: cell.insetBy(dx: gap / 2, dy: gap / 2), cornerRadius: 3, style: .continuous)
-        }
-        var tiles: [Tile] = []
-        for i in 0..<(rows.count - 1) {
-            for j in 0..<(columns.count - 1) {
-                let cell = CGRect(x: columns[j], y: rows[i], width: columns[j + 1] - columns[j], height: rows[i + 1] - rows[i])
-                let piece = tile(cell).intersection(glyph)
-                let covered = piece.boundingRect
-                guard covered.width > cell.width * 0.4, covered.height > cell.height * 0.4 else { continue }
-                // Metal fills a mould from the bottom; neighbours stay out of lockstep.
-                let jitter = (Double(tiles.count) * 0.618_034).truncatingRemainder(dividingBy: 1)
-                let delay = Double((411 - cell.maxY) / 317) * 0.55 + jitter * 0.08
-                tiles.append(Tile(path: piece, bounds: cell, delay: delay, isStop: false))
-            }
-        }
-        let rowHeight = rows[rows.count - 1] - rows[rows.count - 2]
-        for (index, (column, row)) in [(0, 2), (1, 2), (0, 1), (1, 1)].enumerated() {
-            let cell = CGRect(x: 246 + CGFloat(column) * 36, y: 411 - rowHeight * CGFloat(row), width: 36, height: rowHeight)
-            tiles.append(Tile(path: tile(cell), bounds: cell, delay: stopDelay + Double(index) * 0.05, isStop: true))
-        }
-        return tiles
-    }()
+    static let pieces: [Piece] = [
+        Piece(path: outline([(10, 10, 10), (55, 10, 0), (55, 30, 0), (40, 30, 0), (40, 110, 0), (10, 110, 10)]),
+              delay: 0, travel: CGSize(width: -8, height: 0), isCast: false),
+        Piece(path: outline([(65, 10, 0), (110, 10, 10), (110, 70, 0), (80, 70, 0), (80, 30, 0), (65, 30, 0)]),
+              delay: 0.1, travel: CGSize(width: 8, height: 0), isCast: false),
+        Piece(path: outline([(80, 80, 0), (110, 80, 0), (110, 110, 10), (80, 110, 0)]),
+              delay: 0.2, travel: CGSize(width: 8, height: 0), isCast: false),
+        Piece(path: Path(CGRect(x: 50, y: 40, width: 20, height: 60)),
+              delay: castDelay, travel: CGSize(width: 0, height: -10), isCast: true),
+    ]
 
     static func draw(in canvas: inout GraphicsContext, size: CGSize, elapsed: Double) {
         let scale = min(size.width / bounds.width, size.height / bounds.height)
         canvas.scaleBy(x: scale, y: scale)
         canvas.translateBy(x: -bounds.minX, y: -bounds.minY)
         let heat = GraphicsContext.Shading.color(FoundryTheme.Brand.accent)
-        for tile in tiles {
-            let progress = max(0, min(1, (elapsed - tile.delay) / landDuration))
+        for piece in pieces {
+            let progress = max(0, min(1, (elapsed - piece.delay) / landDuration))
             guard progress > 0 else { continue }
             let landed = 1 - pow(1 - progress, 3)
+            let box = piece.path.boundingRect
             var layer = canvas
             layer.opacity = min(1, progress * 2)
-            layer.translateBy(x: 0, y: -(1 - landed) * 6)
+            layer.translateBy(x: piece.travel.width * (1 - landed), y: piece.travel.height * (1 - landed))
             var side = layer
-            side.addFilter(.shadow(color: FoundryTheme.Brand.tileShadow, radius: 5, y: 4))
-            side.fill(tile.path.offsetBy(dx: 0, dy: depth),
-                      with: .color(tile.isStop ? FoundryTheme.Brand.accentSide : FoundryTheme.Brand.chalkSideBottom))
-            let top = tile.isStop ? FoundryTheme.Brand.accent : FoundryTheme.Brand.chalkTop
-            let bottom = tile.isStop ? FoundryTheme.Brand.accentDeep : FoundryTheme.Brand.chalkBottom
-            layer.fill(tile.path, with: .linearGradient(Gradient(colors: [top, bottom]),
-                                                        startPoint: CGPoint(x: tile.bounds.minX, y: tile.bounds.minY),
-                                                        endPoint: CGPoint(x: tile.bounds.minX + tile.bounds.width * 0.3, y: tile.bounds.maxY)))
-            guard tile.isStop == false, progress < 1 else { continue }
+            side.addFilter(.shadow(color: FoundryTheme.Brand.tileShadow, radius: 2, y: 1.5))
+            side.fill(piece.path.offsetBy(dx: 0, dy: depth),
+                      with: .color(piece.isCast ? FoundryTheme.Brand.accentSide : FoundryTheme.Brand.chalkSideBottom))
+            let top = piece.isCast ? FoundryTheme.Brand.accent : FoundryTheme.Brand.chalkTop
+            let bottom = piece.isCast ? FoundryTheme.Brand.accentDeep : FoundryTheme.Brand.chalkBottom
+            layer.fill(piece.path, with: .linearGradient(Gradient(colors: [top, bottom]),
+                                                         startPoint: CGPoint(x: box.minX, y: box.minY),
+                                                         endPoint: CGPoint(x: box.minX, y: box.maxY)))
+            guard piece.isCast == false, progress < 1 else { continue }
             layer.opacity *= 1 - max(0, min(1, (progress - 0.2) / 0.8))
-            layer.fill(tile.path, with: heat)
+            layer.fill(piece.path, with: heat)
         }
     }
 }
@@ -115,14 +97,19 @@ extension MarkTiles {
     /// The mark as a solid menu-bar template: tiles blur together at 14 pt,
     /// so the silhouette carries it.
     @MainActor static let menuBarImage: NSImage = {
-        let height: CGFloat = 14
-        let scale = height / bounds.height
-        let image = NSImage(size: CGSize(width: (bounds.width * scale).rounded(.up), height: height), flipped: true) { _ in
+        let pieces: [[(CGFloat, CGFloat)]] = [
+            [(1, 1), (7, 1), (7, 4), (5, 4), (5, 15), (1, 15)],
+            [(9, 1), (15, 1), (15, 9), (11, 9), (11, 4), (9, 4)],
+            [(11, 10), (15, 10), (15, 15), (11, 15)],
+            [(6, 6), (10, 6), (10, 14), (6, 14)],
+        ]
+        let image = NSImage(size: CGSize(width: 16, height: 16), flipped: true) { _ in
             guard let context = NSGraphicsContext.current?.cgContext else { return false }
-            context.scaleBy(x: scale, y: scale)
-            context.translateBy(x: -bounds.minX, y: -bounds.minY)
-            context.addPath(glyph.cgPath)
-            context.addPath(CGPath(roundedRect: CGRect(x: 248, y: 355, width: 68, height: 54), cornerWidth: 8, cornerHeight: 8, transform: nil))
+            context.setShouldAntialias(false)
+            for piece in pieces {
+                context.addLines(between: piece.map { CGPoint(x: $0.0, y: $0.1) })
+                context.closePath()
+            }
             context.setFillColor(.black)
             context.fillPath()
             return true

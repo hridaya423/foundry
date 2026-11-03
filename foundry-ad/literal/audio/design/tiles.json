@@ -1,0 +1,572 @@
+{
+ "_doc": "The tiles are the instrument: real dominoes (fs-26194, fs-182126, fs-182125, fs-26195, fs-705349, fs-828399), real ceramic tiles handled (fs-145126), a plate-stack hit for unison locks (fs-128286) and scraping tiles (fs-511334). One material family. Small tiles far away are pitched up; unison seats are pitched down. Runs climb with pitch_ramp.",
+ "samples": {
+  "ti.casc.a": {
+   "file": "audio/assets/tiles/fs-182125_domino-3.ogg",
+   "start": 0.16,
+   "end": 2.65,
+   "eq": {
+    "hp": 300,
+    "hp_order": 4
+   },
+   "norm_peak_db": -6.0,
+   "fade_in": 0.004,
+   "fade_out": 0.35
+  },
+  "ti.casc.b": {
+   "file": "audio/assets/tiles/fs-26195_dominos-in-a-row.ogg",
+   "start": 0.1,
+   "end": 1.9,
+   "eq": {
+    "hp": 220,
+    "hp_order": 4
+   },
+   "norm_peak_db": -8.0,
+   "fade_in": 0.004,
+   "fade_out": 0.25
+  },
+  "ti.casc.floor": {
+   "file": "audio/assets/tiles/fs-828399_gameboard-chips-drop-hit-constant-fast-c.ogg",
+   "start": 0.0,
+   "end": 2.29,
+   "eq": {
+    "hp": 160,
+    "hp_order": 4,
+    "lp": 9000
+   },
+   "norm_peak_db": -10.0,
+   "fade_in": 0.004,
+   "fade_out": 0.4
+  },
+  "ti.dA": {
+   "file": "audio/assets/tiles/fs-26194_domino-single.ogg",
+   "start": 15.239,
+   "end": 15.665,
+   "mono": true,
+   "eq": {
+    "hp": 180,
+    "hp_order": 4
+   },
+   "norm_peak_db": -10.0,
+   "fade_in": 0.002,
+   "fade_out": 0.03
+  },
+  "ti.dB": {
+   "file": "audio/assets/tiles/fs-26194_domino-single.ogg",
+   "start": 6.431,
+   "end": 6.795,
+   "mono": true,
+   "eq": {
+    "hp": 180,
+    "hp_order": 4
+   },
+   "norm_peak_db": -10.0,
+   "fade_in": 0.002,
+   "fade_out": 0.03
+  },
+  "ti.dC": {
+   "file": "audio/assets/tiles/fs-26194_domino-single.ogg",
+   "start": 0.418,
+   "end": 0.855,
+   "mono": true,
+   "eq": {
+    "hp": 180,
+    "hp_order": 4
+   },
+   "norm_peak_db": -10.0,
+   "fade_in": 0.002,
+   "fade_out": 0.03
+  },
+  "ti.cE": {
+   "file": "audio/assets/tiles/fs-26194_domino-single.ogg",
+   "start": 11.304,
+   "end": 11.61,
+   "mono": true,
+   "eq": {
+    "hp": 180,
+    "hp_order": 4
+   },
+   "norm_peak_db": -10.0,
+   "fade_in": 0.002,
+   "fade_out": 0.03
+  },
+  "ti.cI": {
+   "file": "audio/assets/tiles/fs-26194_domino-single.ogg",
+   "start": 10.837,
+   "end": 11.0,
+   "mono": true,
+   "eq": {
+    "hp": 180,
+    "hp_order": 4
+   },
+   "norm_peak_db": -10.0,
+   "fade_in": 0.002,
+   "fade_out": 0.03
+  },
+  "ti.cG": {
+   "file": "audio/assets/tiles/fs-26194_domino-single.ogg",
+   "start": 12.636,
+   "end": 12.745,
+   "mono": true,
+   "eq": {
+    "hp": 180,
+    "hp_order": 4
+   },
+   "norm_peak_db": -10.0,
+   "fade_in": 0.002,
+   "fade_out": 0.03
+  },
+  "ti.c2B": {
+   "file": "audio/assets/tiles/fs-182126_domino-2.ogg",
+   "start": 7.215,
+   "end": 7.33,
+   "mono": true,
+   "eq": {
+    "hp": 180,
+    "hp_order": 4
+   },
+   "norm_peak_db": -10.0,
+   "fade_in": 0.002,
+   "fade_out": 0.03
+  },
+  "ti.hA": {
+   "file": "audio/assets/tiles/fs-145126_bathroom-tiles-handled-02.ogg",
+   "start": 19.604,
+   "end": 19.805,
+   "mono": true,
+   "eq": {
+    "hp": 180,
+    "hp_order": 4
+   },
+   "norm_peak_db": -12.0,
+   "fade_in": 0.002,
+   "fade_out": 0.03
+  },
+  "ti.hC": {
+   "file": "audio/assets/tiles/fs-145126_bathroom-tiles-handled-02.ogg",
+   "start": 15.466,
+   "end": 15.857,
+   "mono": true,
+   "eq": {
+    "hp": 180,
+    "hp_order": 4
+   },
+   "norm_peak_db": -12.0,
+   "fade_in": 0.002,
+   "fade_out": 0.03
+  },
+  "ti.hE": {
+   "file": "audio/assets/tiles/fs-145126_bathroom-tiles-handled-02.ogg",
+   "start": 8.966,
+   "end": 9.356,
+   "mono": true,
+   "eq": {
+    "hp": 180,
+    "hp_order": 4
+   },
+   "norm_peak_db": -12.0,
+   "fade_in": 0.002,
+   "fade_out": 0.03
+  },
+  "ti.turnF": {
+   "file": "audio/assets/tiles/fs-145126_bathroom-tiles-handled-02.ogg",
+   "start": 3.408,
+   "end": 3.853,
+   "mono": true,
+   "eq": {
+    "hp": 180,
+    "hp_order": 4
+   },
+   "norm_peak_db": -11.0,
+   "fade_in": 0.002,
+   "fade_out": 0.03
+  },
+  "ti.lock": {
+   "file": "audio/assets/tiles/fs-128286_plate-stack-hit.ogg",
+   "start": 0.11,
+   "end": 0.39,
+   "mono": true,
+   "eq": {
+    "hp": 120,
+    "hp_order": 2
+   },
+   "norm_peak_db": -6.0,
+   "pitch": -2.0,
+   "fade_out": 0.06
+  },
+  "ti.lockbody": {
+   "file": "audio/assets/tiles/fs-26194_domino-single.ogg",
+   "start": 15.239,
+   "end": 15.665,
+   "mono": true,
+   "eq": {
+    "hp": 180,
+    "hp_order": 4
+   },
+   "norm_peak_db": -8.0,
+   "fade_in": 0.002,
+   "fade_out": 0.03,
+   "pitch": -3.0
+  },
+  "ti.slide": {
+   "file": "audio/assets/tiles/fs-511334_scraping-tiles.ogg",
+   "start": 17.5,
+   "end": 17.95,
+   "mono": true,
+   "eq": {
+    "hp": 200,
+    "hp_order": 4
+   },
+   "norm_peak_db": -12.0,
+   "fade_in": 0.08,
+   "fade_out": 0.02,
+   "qa_ok": "the scrape stops dead on the frame the slid tiles snap; the lock covers the cut"
+  },
+  "ti.burst": {
+   "file": "audio/assets/tiles/fs-705349_domino-out-pack.ogg",
+   "start": 0.0,
+   "end": 1.5,
+   "eq": {
+    "hp": 200,
+    "hp_order": 4
+   },
+   "norm_peak_db": -7.0,
+   "fade_in": 0.002,
+   "fade_out": 0.4
+  },
+  "ti.tock": {
+   "file": "audio/assets/tiles/fs-26194_domino-single.ogg",
+   "start": 15.239,
+   "end": 15.665,
+   "mono": true,
+   "eq": {
+    "hp": 180,
+    "hp_order": 4
+   },
+   "norm_peak_db": -8.0,
+   "fade_in": 0.002,
+   "fade_out": 0.08,
+   "pitch": -2.0
+  }
+ },
+ "pools": {
+  "ti.clack": [
+   "ti.cE",
+   "ti.dB",
+   "ti.cI",
+   "ti.dC",
+   "ti.c2B",
+   "ti.cG"
+  ],
+  "ti.flip": [
+   "ti.cE",
+   "ti.turnF",
+   "ti.cI"
+  ],
+  "ti.drop": [
+   "ti.dA",
+   "ti.hA",
+   "ti.dB",
+   "ti.hC",
+   "ti.dC",
+   "ti.hE",
+   "ti.cE"
+  ],
+  "ti.settle": [
+   "ti.cI",
+   "ti.c2B",
+   "ti.cG",
+   "ti.cE",
+   "ti.hA",
+   "ti.dC"
+  ],
+  "ti.lift": [
+   "ti.hC",
+   "ti.hE",
+   "ti.hA"
+  ],
+  "ti.lock": [
+   "ti.lock"
+  ],
+  "ti.lockbody": [
+   "ti.lockbody"
+  ],
+  "ti.slide": [
+   "ti.slide"
+  ],
+  "ti.burst": [
+   "ti.burst"
+  ],
+  "ti.tock": [
+   "ti.tock"
+  ],
+  "ti.casc.a": [
+   "ti.casc.a"
+  ],
+  "ti.casc.b": [
+   "ti.casc.b"
+  ],
+  "ti.casc.floor": [
+   "ti.casc.floor"
+  ]
+ },
+ "rules": [
+  {
+   "name": "ti.cascade.a",
+   "match": {
+    "id": "^tiles:cascade$"
+   },
+   "pool": "ti.casc.a",
+   "mode": "fixed",
+   "gain_db": -2.0,
+   "pan": 0.0,
+   "align": "start"
+  },
+  {
+   "name": "ti.cascade.b",
+   "match": {
+    "id": "^tiles:cascade$"
+   },
+   "pool": "ti.casc.b",
+   "mode": "fixed",
+   "gain_db": -4.0,
+   "pan": 0.0,
+   "align": "start",
+   "offset": 0.3,
+   "no_cue": true
+  },
+  {
+   "name": "ti.cascade.floor",
+   "match": {
+    "id": "^tiles:cascade$"
+   },
+   "pool": "ti.casc.floor",
+   "mode": "fixed",
+   "gain_db": -9.0,
+   "pan": 0.0,
+   "align": "start",
+   "offset": 0.55,
+   "no_cue": true
+  },
+  {
+   "name": "ti.square",
+   "match": {
+    "id": "^tiles:square:\\d+$"
+   },
+   "pool": "ti.clack",
+   "mode": "cycle",
+   "jitter_db": 1.5,
+   "weight_db": 4.0,
+   "pitch_ramp": [
+    0.0,
+    3.0
+   ],
+   "gain_ramp": [
+    -3.0,
+    0.0
+   ],
+   "gain_db": -1.0,
+   "pan": 0.0,
+   "align": "attack"
+  },
+  {
+   "name": "ti.square.lock",
+   "match": {
+    "id": "^tiles:square:lock$"
+   },
+   "pool": "ti.lock",
+   "mode": "fixed",
+   "gain_db": -2.0,
+   "pan": 0.0,
+   "align": "attack"
+  },
+  {
+   "name": "ti.flip.digits",
+   "match": {
+    "id": "^tiles:flip:digits:"
+   },
+   "pool": "ti.flip",
+   "mode": "cycle",
+   "jitter_db": 1.5,
+   "weight_db": 4.0,
+   "pitch": [
+    1.5,
+    2.5
+   ],
+   "gain_db": -2.0,
+   "pan": 0.0,
+   "align": "attack"
+  },
+  {
+   "name": "ti.slide.scrape",
+   "match": {
+    "id": "^tiles:slide:0$"
+   },
+   "pool": "ti.slide",
+   "mode": "fixed",
+   "gain_db": -4.0,
+   "pan": 0.0,
+   "align": "end",
+   "no_cue": true
+  },
+  {
+   "name": "ti.slide.lock",
+   "match": {
+    "id": "^tiles:slide:0$"
+   },
+   "pool": "ti.lock",
+   "mode": "fixed",
+   "gain_db": -1.0,
+   "pan": 0.0,
+   "align": "attack"
+  },
+  {
+   "name": "ti.slide.body",
+   "match": {
+    "id": "^tiles:slide:0$"
+   },
+   "pool": "ti.lockbody",
+   "mode": "fixed",
+   "gain_db": -5.0,
+   "pan": 0.0,
+   "align": "attack",
+   "no_cue": true
+  },
+  {
+   "name": "ti.flip.hello",
+   "match": {
+    "id": "^tiles:flip:hello:"
+   },
+   "pool": "ti.flip",
+   "mode": "cycle",
+   "jitter_db": 1.5,
+   "weight_db": 4.0,
+   "pitch": [
+    2.0,
+    3.0
+   ],
+   "gain_db": -2.0,
+   "pan": 0.0,
+   "align": "attack"
+  },
+  {
+   "name": "ti.flip.jp",
+   "match": {
+    "id": "^tiles:flip:jp:"
+   },
+   "pool": "ti.flip",
+   "mode": "cycle",
+   "jitter_db": 1.5,
+   "weight_db": 4.0,
+   "pitch_ramp": [
+    1.0,
+    3.5
+   ],
+   "gain_ramp": [
+    -2.0,
+    1.0
+   ],
+   "gain_db": -1.0,
+   "pan": "cue",
+   "pan_scale": 0.3,
+   "align": "attack"
+  },
+  {
+   "name": "ti.qr.lift",
+   "match": {
+    "id": "^tiles:qr:lift:"
+   },
+   "pool": "ti.lift",
+   "mode": "cycle",
+   "jitter_db": 1.5,
+   "weight_db": 3.0,
+   "pitch": [
+    1.0,
+    2.0
+   ],
+   "gain_db": -4.0,
+   "pan": 0.0,
+   "align": "attack"
+  },
+  {
+   "name": "ti.qr.land",
+   "match": {
+    "id": "^tiles:qr:land:\\d+$"
+   },
+   "pool": "ti.drop",
+   "mode": "cycle",
+   "jitter_db": 1.5,
+   "weight_db": 4.0,
+   "pitch_ramp": [
+    1.5,
+    0.0
+   ],
+   "gain_db": -5.0,
+   "pan": 0.0,
+   "align": "attack"
+  },
+  {
+   "name": "ti.qr.lock",
+   "match": {
+    "id": "^tiles:qr:land:lock$"
+   },
+   "pool": "ti.lock",
+   "mode": "fixed",
+   "gain_db": -7.0,
+   "pan": 0.0,
+   "align": "attack"
+  },
+  {
+   "name": "ti.burst",
+   "match": {
+    "id": "^fx:drop$"
+   },
+   "pool": "ti.burst",
+   "mode": "fixed",
+   "gain_db": -3.0,
+   "pan": 0.0,
+   "align": "attack",
+   "no_cue": true
+  },
+  {
+   "name": "ti.wm",
+   "match": {
+    "id": "^tiles:wm:land:"
+   },
+   "pool": "ti.settle",
+   "mode": "cycle",
+   "jitter_db": 2.0,
+   "weight_db": 5.0,
+   "pitch": [
+    0.5,
+    2.0
+   ],
+   "gain_db": -1.0,
+   "pan": "cue",
+   "pan_scale": 0.4,
+   "align": "attack"
+  },
+  {
+   "name": "ti.period",
+   "match": {
+    "id": "^logo:period$"
+   },
+   "pool": "ti.tock",
+   "mode": "fixed",
+   "gain_db": 0.0,
+   "pan": 0.0,
+   "align": "attack"
+  },
+  {
+   "name": "ti.swap",
+   "match": {
+    "id": "^loop:swap$"
+   },
+   "pool": "ti.tock",
+   "mode": "fixed",
+   "gain_db": -9.0,
+   "pan": 0.0,
+   "align": "attack"
+  }
+ ]
+}

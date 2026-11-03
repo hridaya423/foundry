@@ -1,0 +1,37 @@
+{
+ "_doc": "mk-196 Deep House (Arulo, Mixkit), 123.996 BPM, G minor vamp, stretched 3.2 % to 120. Downbeats at (n-1) x 1.935546 s in the source (kick-band fit; arrange.py locked onto the off-beat hats, half a beat out). The harmony is one static chord, so the single splice is harmonically clean (chroma similarity 0.92). The film loops: segment 3 (src bar 7) ends exactly where segment 1 (src bar 8) begins.",
+ "music": {
+  "file": "audio/assets/music/mk-196.mp3",
+  "src_bpm": 123.996,
+  "target_bpm": 120.0,
+  "stretch": "rubberband",
+  "gain_db": 0.0,
+  "segments": [
+   {
+    "label": "src bars 8-12 -> film bars 1-5: the last sparse intro bar under the opening typing, the groove (kick + bass, +6 dB low band) enters on film 2.0 with the cascade",
+    "src_from": 13.5488,
+    "src_to": 23.2266,
+    "at": 0.0,
+    "fade_in": 0.008,
+    "fade_out": 0.03
+   },
+   {
+    "label": "src bars 40-44 -> film bars 6-10: bar 40 brings the hats back (lift into the QR), bar 41 is the break (kick, bass and highs out) under the confetti typing, bar 42 returns full on 14.0 = Make Confetti, stop after the downbeat of src bar 44 (film 18.0) with a short tail so the last letters land in near-silence",
+    "src_from": 75.4863,
+    "src_to": 83.635,
+    "at": 10.0,
+    "fade_in": 0.008,
+    "fade_out": 0.04,
+    "tail_fade": 0.3
+   },
+   {
+    "label": "src bar 7 -> film 22.0-24.0: the sparse intro bar returns under the pull-out and flows across the loop seam into src bar 8 at film 0.0, so the music never restarts",
+    "src_from": 11.6133,
+    "src_to": 13.5488,
+    "at": 22.0,
+    "fade_in": 0.5,
+    "fade_out": 0.03
+   }
+  ]
+ }
+}

@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Foundry — Literal.</title>
+    <script src="vendor/gsap.min.js"></script>
+    <script src="js/timing.js"></script>
+    <script src="js/data.js"></script>
+    <script>
+      (function () {
+        const clock = { t: 0 };
+        const tl = gsap.timeline({ paused: true });
+        tl.to(clock, { t: TM.end, duration: TM.end, ease: "none", onUpdate: () => window.__renderAt && window.__renderAt(clock.t) }, 0);
+        window.__timelines = window.__timelines || {};
+        window.__timelines.main = tl;
+      })();
+    </script>
+    <script type="importmap">
+      { "imports": { "three": "./vendor/three/build/three.module.js", "three/addons/": "./vendor/three/examples/jsm/" } }
+    </script>
+    <style>
+      @font-face { font-family: "Geist"; src: url("assets/fonts/Geist-Variable.woff2") format("woff2"); font-weight: 100 900; }
+      @font-face { font-family: "Noto JP"; src: url("assets/fonts/NotoSansJP-500-subset.woff2") format("woff2"); font-weight: 500; }
+      :root { --ink: #0f0d0c; --text: #f4efe8; --secondary: #f4efe8b8; --tertiary: #f4efe87a; --accent: #fa6428; --pt: 1.3333px; }
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      html, body { width: 1920px; height: 1080px; background: var(--ink); overflow: hidden; }
+      #root { position: relative; width: 1920px; height: 1080px; overflow: hidden; background: var(--ink); }
+      #gl { position: absolute; inset: 0; width: 1920px; height: 1080px; display: block; }
+      #panel { position: absolute; left: 460px; top: 104px; width: 1000px; visibility: hidden; opacity: 0;
+        border-radius: calc(var(--pt) * 28); background: #1b1917f2; -webkit-backdrop-filter: blur(30px); backdrop-filter: blur(30px);
+        box-shadow: 0 0 0 1px #ffffff14, inset 0 1px 0 #ffffff0a, 0 calc(var(--pt) * 32) calc(var(--pt) * 90) #00000099;
+        font-family: "Geist", "Noto JP", sans-serif; color: var(--text); -webkit-font-smoothing: antialiased; }
+      #panel .search { position: relative; height: calc(var(--pt) * 72); display: flex; align-items: center; gap: calc(var(--pt) * 14); padding: 0 calc(var(--pt) * 28); }
+      #panel .glass { width: calc(var(--pt) * 22); height: calc(var(--pt) * 22); color: var(--tertiary); flex: none; }
+      #panel .query { font-size: calc(var(--pt) * 24); letter-spacing: -0.01em; white-space: pre; }
+      #panel .placeholder { position: absolute; left: calc(var(--pt) * 64); font-size: calc(var(--pt) * 24); letter-spacing: -0.01em; color: var(--tertiary); }
+      #panel .caret { width: calc(var(--pt) * 2); height: calc(var(--pt) * 28); margin-left: calc(var(--pt) * -12); border-radius: 1px; background: var(--accent); }
+      #panel .rule { height: 1px; background: #ffffff10; margin: 0 0 calc(var(--pt) * 8); display: none; }
+      #panel.open .rule { display: block; }
+      #panel .rows { display: none; padding: 0 calc(var(--pt) * 12) calc(var(--pt) * 12); }
+      #panel.open .rows { display: block; }
+      #panel .row { position: relative; height: calc(var(--pt) * 52); display: flex; align-items: center; gap: calc(var(--pt) * 14);
+        padding: 0 calc(var(--pt) * 14); border-radius: calc(var(--pt) * 12); font-size: calc(var(--pt) * 17); font-weight: 500; letter-spacing: -0.01em; white-space: nowrap; }
+      #panel .row.sel { background: #ffffff10; }
+      #panel .row.pressed { background: #ffffff1c; }
+      #panel .row:not(.sel) { opacity: 0.6; }
+      #panel .icon { width: calc(var(--pt) * 30); height: calc(var(--pt) * 30); border-radius: calc(var(--pt) * 8); background: #ffffff12; color: var(--secondary);
+        display: grid; place-items: center; flex: none; }
+      #panel .icon svg { width: calc(var(--pt) * 18); height: calc(var(--pt) * 18); }
+      #panel .title.jp { font-family: "Noto JP", sans-serif; font-weight: 500; }
+      #panel .sub { color: var(--tertiary); font-weight: 400; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+      #panel .acc { margin-left: auto; color: var(--tertiary); font-weight: 400; font-size: calc(var(--pt) * 15); }
+      #panel .kbd { display: grid; place-items: center; min-width: calc(var(--pt) * 26); height: calc(var(--pt) * 26); border-radius: calc(var(--pt) * 6);
+        background: #ffffff14; color: var(--secondary); font-size: calc(var(--pt) * 15); }
+      #line { position: absolute; left: 0; width: 1920px; top: 792px; text-align: center; visibility: hidden; white-space: pre;
+        font: 500 54px/1 "Geist", sans-serif; letter-spacing: -0.025em; color: var(--text); -webkit-font-smoothing: antialiased; }
+      #line .dot { color: var(--accent); }
+    </style>
+  </head>
+  <body>
+    <div id="root" data-composition-id="main" data-start="0" data-duration="24" data-width="1920" data-height="1080">
+      <canvas id="gl" width="1920" height="1080"></canvas>
+    </div>
+    <script type="module" src="js/main.js"></script>
+  </body>
+</html>

@@ -104,7 +104,7 @@ function sourcePose(out: ShelfPose, tile: Tile, source: Pose, progress: number, 
 function gatePassage(out: ShelfPose, travel: number, progress: number, layout: ShelfLayout, x: number, y: number, size: number) {
   if (travel === 0) return;
   const gate = layout.gate;
-  const gy = gate.y + gate.height / 2 - heroLift(progress, layout.height);
+  const gy = Math.max(gate.y + gate.height / 2 - heroLift(progress, layout.height), layout.height * .1);
   const inX = gate.x - gate.height * 0.35;
   const outX = Math.min(gate.x + gate.width * 0.78, layout.width * 0.84);
   const flightSize = Math.min(gate.height * 0.22, 18);

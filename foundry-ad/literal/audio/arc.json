@@ -1,0 +1,7 @@
+{
+ "_doc": "Literal. 24 s loop at 120 BPM = 12 bars. Bar 1 sparse under the opening typing; groove from the cascade (bar 2) through the QR (bar 6); a breakdown under the confetti typing (bar 7); the drop on bar 8 (14.0 s, Make Confetti); the wordmark lands over bar 9; the music stops in bar 10 and bars 10-12 are near-silent for the full stop, the caption and the loop dive.",
+ "film_bpm": 120,
+ "beats_per_bar": 4,
+ "drop_film_bar": 8,
+ "arc": [-12, -6, -6, -6, -6, -6, -10, 0, 0, -20, -30, -30]
+}

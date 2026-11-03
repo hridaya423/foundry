@@ -1,250 +1,214 @@
 #!/usr/bin/env python3
-"""The music and voice stems for "Every job.": the score (an ElevenLabs take, tools/music.py, edited to picture here:
-the valley cut out of it, the drop put on the enter, its own ending crested on "mankind"), the 1860 phonautograph,
-the roar beds, and Armstrong. Every sound effect lives in tools/cues.py (real recordings, placed by
-sound-layer/scripts/mix.py), so nothing here is a hit, a click or a whoosh.
+"""The score of "Every job.", composed in code on the picture's own times (tools/timing.py), and Armstrong.
+D major, 120 BPM. Instruments: tools/synth.py (computed, no recordings). Every sound effect lives in tools/cues.py.
 
-usage: uv run tools/score.py                      -> audio/music.wav, audio/voice.wav (48 kHz stereo float)
-       uv run tools/score.py preview TAKE END SKIP -> audio/music/preview-TAKE-END.wav (the edited score alone)
+  Act I     an electric piano note per word, rising; "job." lands on a chord
+  Act II    the apps pile up over the groove heard through a wall, opening as they burst; then everything stops (STALL)
+  valley    silence: `melt them down` is typed into it
+  the drop  its enter lands the groove, open: finger bass, Rhodes stabs, guitar chops, kick, snare, shaker (D, G, A)
+  the kills the groove at full, ghost scratches added (G, A, Bm, A); it stops dead on the cut to the moon
+  Armstrong a dark pad and a sparse felt piano under him, opening from "mankind." into the arrival
+  the dive  the groove comes back on D with him finished; silence before the name
+  the card  the name lands on the low drum (tools/sfx.py); a Dadd9 rings above it; the line lands on a high A
+
+The groove is played, not sequenced: the odd 16ths swing late and every stroke but the downbeat drifts a few ms.
+
+usage: uv run tools/score.py   -> audio/music.wav (score + Armstrong), audio/voice.wav (his line alone, same scale)
+       STEMS=1 uv run tools/score.py   also writes each bus to /tmp/stem_*.wav, to listen to with earshot
 """
 # /// script
-# dependencies = ["numpy", "scipy", "soundfile"]
+# dependencies = ["numpy", "scipy", "soundfile", "pyloudnorm"]
 # ///
 import os, subprocess, sys
 import numpy as np
 from scipy import signal
 import soundfile as sf
+import pyloudnorm as pyln
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-SR, BPM = 48000, 120
-BEAT = 60 / BPM
-rng = np.random.default_rng(7)
-
-# ------------------------------------------------------------------ edit cues (tools/timing.py is the source of truth)
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from timing import TM, SEG_A, SEG_B
-DUR = TM["end"]
-N = int(SR * DUR)
+import synth as S
 
-PD = os.path.join(ROOT, "..", "research", "audio-pd")
-
-# ------------------------------------------------------------------ helpers
+SR = S.SR
+N = int(SR * TM["end"])
 def t2i(t): return int(round(t * SR))
-def tt(d): return np.arange(int(d * SR)) / SR
-def env_exp(d, tau): return np.exp(-tt(d) / tau)
-def adsr(d, a, r):
-    n = int(d * SR); e = np.ones(n); na, nr = int(a * SR), int(r * SR)
-    if na: e[:na] = np.linspace(0, 1, na)
-    if nr: e[-nr:] *= np.linspace(1, 0, nr)
-    return e
-def bp(x, lo, hi, o=2): return signal.sosfilt(signal.butter(o, [lo, hi], "bandpass", fs=SR, output="sos"), x)
-def hp(x, f, o=2): return signal.sosfilt(signal.butter(o, f, "highpass", fs=SR, output="sos"), x)
-def lp(x, f, o=2): return signal.sosfilt(signal.butter(o, f, "lowpass", fs=SR, output="sos"), x)
-def noise(d): return rng.standard_normal(int(d * SR))
-def saw(f, d, phase=0.0):
-    ph = np.cumsum(np.broadcast_to(f, int(d * SR)) / SR) + phase
-    return 2 * (ph % 1) - 1
-def sine(f, d):
-    return np.sin(2 * np.pi * np.cumsum(np.broadcast_to(f, int(d * SR)) / SR))
+def ramp(n, a, b): return np.linspace(a, b, max(n, 1))
 
 
 class Bus:
-    def __init__(self): self.L = np.zeros(N); self.R = np.zeros(N)
-    def add(self, x, t, gain=1.0, pan=0.0, width=0.0):
+    def __init__(self, wet): self.x = np.zeros((N + SR * 4, 2)); self.wet = wet
+    def add(self, y, t, gain=1.0, p=0.0):
+        y = (S.pan(y, p) if y.ndim == 1 else y) * gain
         i = t2i(t)
-        if i >= N: return
-        if i < 0: x = x[-i:]; i = 0
-        x = x[: N - i] * gain
-        l, r = np.cos((pan + 1) * np.pi / 4), np.sin((pan + 1) * np.pi / 4)
-        self.L[i:i + len(x)] += x * l * np.sqrt(2)
-        if width:  # Haas width
-            dly = int(width * SR); xr = np.concatenate([np.zeros(dly), x])[: len(x)]
-            self.R[i:i + len(x)] += xr * r * np.sqrt(2)
-        else:
-            self.R[i:i + len(x)] += x * r * np.sqrt(2)
+        if i < 0: y, i = y[-i:], 0
+        y = y[:len(self.x) - i]; self.x[i:i + len(y)] += y
 
 
-music, beds, voice = Bus(), Bus(), Bus()
+piano, pad, keys, gtr, bass, drums = Bus(0.32), Bus(0.38), Bus(0.22), Bus(0.16), Bus(0.0), Bus(0.06)
+BUSES = {"keys": keys, "gtr": gtr, "bass": bass, "drums": drums}
+ir = S.room_ir(rt60=2.3)
+GAIN = {"piano": 1.0, "pad": 0.32, "keys": 0.5, "gtr": 0.45, "bass": 0.6, "drums": 0.55}
+LV = TM["kills"][-1]["live"]
+STALL, MELT, MOON, LEAP = TM["stall"], TM["meltCmd"], TM["kills"][-1]["enter"], dict(TM["music"])["leap"]
+EARTH, ARRIVE, STOP, LOGO, END = LV["earth"], TM["arrive"], LV["stop"], TM["logo"], TM["end"]
+KILLS = [c["enter"] for c in TM["kills"][:-1]]
 
 
-# ------------------------------------------------------------------ instruments
-def kick(gain=1.0):
-    d = 0.5; f = 46 + 110 * np.exp(-tt(d) / 0.035)
-    body = sine(f, d) * env_exp(d, 0.16)
-    click = hp(noise(0.012), 2500) * np.linspace(1, 0, int(0.012 * SR)) * 0.4
-    body[: len(click)] += click
-    return np.tanh(body * 1.6) * gain
+# ------------------------------------------------------------------ Act I: an electric piano note per word, a chord on "job."
+WORDS = TM["words1"]
+for (w, t, _), n in zip(WORDS[:-1], ["D4", "F#4", "A4", "B4"]):
+    keys.add(S.rhodes(n, 0.45, 0.4), t)
+JOB = WORDS[-1][1]
+for n in ["F#3", "A3", "E4", "A4", "D5"]: keys.add(S.rhodes(n, 0.7, 0.5), JOB)
+bass.add(S.fbass("D2", 0.7, 0.8), JOB)
 
-def clap():
-    d = 0.25; x = np.zeros(int(d * SR))
-    for k, o in enumerate([0, 0.009, 0.018, 0.028]):
-        b = bp(noise(0.2), 900, 4000) * env_exp(0.2, 0.012 if k < 3 else 0.06)
-        x[int(o * SR): int(o * SR) + len(b)] += b[: len(x) - int(o * SR)]
-    return x * 0.8
+# ------------------------------------------------------------------ the groove: finger bass, rhodes, guitar, kit (Act II, the drop, the kills, the arrival)
+CH = {"D": ("D2", ["F#3", "A3", "C#4", "E4"], ["A3", "D4", "F#4"]),
+      "G": ("G1", ["F#3", "A3", "B3", "D4"], ["B3", "D4", "G4"]),
+      "A": ("A1", ["E3", "A3", "C#4", "F#4"], ["A3", "C#4", "E4"]),
+      "Bm": ("B1", ["F#3", "A3", "D4", "E4"], ["B3", "D4", "F#4"])}
+RIFF = [(0, 0, .42, 1.0), (3, 0, .1, .6), (6, 0, .14, .75), (8, 0, .36, .9), (11, 0, .1, .6), (14, 7, .12, .7)]
+KEYS = [(3, .12, .38), (6, .25, .45), (10, .12, .38), (11, .25, .42)]
+SWING = 0.022                                                    # 16th swing, ~59%
+def groove(t0, t1, chord_at, energy_at, filt=None):
+    """16ths from t0 to t1; `chord_at(t)` names the chord, `energy_at(t)` is 0 (bass, keys, kick, shaker in 8ths),
+    1 (+ snare, shaker in 16ths, guitar chops) or 2 (+ ghost scratches)"""
+    b = {k: Bus(w) for k, w in (("keys", .22), ("gtr", .16), ("bass", 0), ("drums", .06))} if filt else BUSES
+    k, hum = 0, np.random.default_rng(int(t0 * 1000))
+    while t0 + k * 0.125 < t1 - 0.01:
+        g, i = t0 + k * 0.125, k % 16; c, e = chord_at(g), energy_at(g)
+        t = g + (SWING if i % 2 else 0.0) + (hum.normal(0, 0.004) if i else 0.0)   # played: the odd 16ths late, never the downbeat
+        root, keys, gtr = CH[c]
+        new = k == 0 or chord_at(g - 0.125) != c
+        for j, iv, d, v in RIFF:
+            if j == i: b["bass"].add(S.fbass(midi(root, iv), d, v), t)
+        if new: [b["keys"].add(S.rhodes(n, 0.45, 0.55), t, p=-0.2 + 0.13 * m) for m, n in enumerate(keys)]
+        for j, d, v in KEYS:
+            if j == i and not new: [b["keys"].add(S.rhodes(n, d, v), t, p=-0.2 + 0.13 * m) for m, n in enumerate(keys)]
+        if i in (0, 8) or (e >= 1 and i == 10): b["drums"].add(S.kick(0.9 if i == 0 else 0.7), t)
+        if e >= 1 and i in (4, 12): b["drums"].add(S.snare(0.5), t, p=0.05)
+        if i % 2 == 0 or e >= 1: b["drums"].add(S.shaker(0.5 if i % 4 == 2 else 0.25 if i % 2 == 0 else 0.18), t, p=0.3)
+        if e >= 1 and i in (4, 12): b["gtr"].add(S.strum(gtr, 0.11, 0.5, mute=0.25), t, p=0.45)
+        if e >= 2 and i in (1, 2, 7, 9, 14, 15): b["gtr"].add(S.strum(gtr, 0.06, 0.22, mute=0.85, down=i % 2 == 0), t, p=0.45)
+        k += 1
+    if filt:
+        mix = sum(S.reverb(x.x, ir, x.wet) * GAIN[n] for n, x in b.items())
+        BUSES["drums"].x[:] += S.sweep_lp(mix, filt(np.arange(len(mix)) / SR)) / GAIN["drums"]
+def midi(note, iv): return 69 + 12 * np.log2(S.hz(note) / 440) + iv
 
-def bass_note(n, d):
-    f = 440 * 2 ** ((n - 69) / 12); x = saw(f, d) * 0.7 + sine(f / 2, d) * 0.6
-    return np.tanh(lp(x, 420, 2) * 1.5) * adsr(d, 0.004, 0.03)
+# ------------------------------------------------------------------ Act II: the pile, the groove heard through a wall; then it stalls
+A2 = TM["act2"]
+G2 = 2 / 60                                                     # Act II's grid sits two frames after the half-second
+for i, at in enumerate(TM["appT"][:3]):                          # the three apps you can read: a note each
+    keys.add(S.rhodes(["D5", "E5", "F#5"][i], 0.3, 0.45), at)
+groove(A2 + G2, STALL, lambda t: "G" if t < TM["heat0"] else "A", lambda t: 0 if t < TM["burst"][0] else 1,
+       filt=lambda t: np.interp(t, [0, TM["heat0"] - A2, STALL - A2], [350, 700, 4000]))
 
-def drone(d, base=29.14, bright=1.0):
-    """One low, breathing drone: B-flat, a fifth, slow beating, filtered air on top."""
-    t_ = tt(d)
-    x = sum(np.sin(2 * np.pi * base * m * t_ * (1 + 0.0015 * np.sin(2 * np.pi * 0.07 * (k + 1) * t_))) * a
-            for k, (m, a) in enumerate([(1, 1.0), (2, 0.55), (3, 0.28), (1.5, 0.22), (4, 0.08)]))
-    air = lp(hp(noise(d), 120), 700 * bright) * 0.35 * (0.6 + 0.4 * np.sin(2 * np.pi * 0.11 * t_))
-    return np.tanh((x * 0.5 + air) * 0.9) * 0.6
+# ------------------------------------------------------------------ the drop: its enter lands the groove, open; D, G, A
+groove(MELT, 12.0, lambda t: "D" if t < MELT + 2 else "G" if t < MELT + 4 else "A", lambda t: 2)
 
+# ------------------------------------------------------------------ the kills: the groove at full; it stops dead on the moon
+groove(12.0, MOON, lambda t: "G" if t < 14 else "A" if t < 16 else "Bm" if t < 17 else "A", lambda t: 2)
 
-# ------------------------------------------------------------------ samples
-def load(name, sr=SR):
-    raw = subprocess.run(["ffmpeg", "-v", "error", "-i", os.path.join(PD, name), "-ac", "1", "-ar", str(sr), "-f", "f32le", "-"],
-                         capture_output=True).stdout
-    return np.frombuffer(raw, np.float32).astype(np.float64)
+# ------------------------------------------------------------------ Armstrong: dark and sparse, opening into the arrival
+GRID = list(TM["pulse"])
+pad.add(S.pad(["B2", "F#3", "B3", "D4"], 2.26, attack=0.8, release=0.6, cut=(380, 800)), LEAP, 0.9)
+pad.add(S.pad(["G2", "D3", "B3", "D4"], EARTH - (LEAP + 2.26), attack=0.6, release=0.3, cut=(380, 900)), LEAP + 2.26, 0.9)
+swell = np.linspace(0, 1, 60) ** 2
+pad.add(S.pad(["A2", "E3", "A3", "C#4", "E4"], ARRIVE - EARTH, attack=0.5, release=0.05, cut=(500, 3200), bright=swell), EARTH, 0.6)
+for at, n in zip(GRID[::4], ["B4", "A4", "G4", "F#4"]): piano.add(S.piano(n, 1.8, 0.3), at, p=0.1)
+bass.add(S.bass("A1", ARRIVE - EARTH, 0.5), EARTH)
 
-def cut(x, t0, d, fade=0.004, fo=0.02):
-    y = x[int(t0 * SR): int((t0 + d) * SR)].copy()
-    a, b = int(fade * SR), int(fo * SR)
-    y[:a] *= np.linspace(0, 1, a); y[-b:] *= np.linspace(1, 0, b)
-    return y
+# ------------------------------------------------------------------ the arrival and the dive: the groove comes back on D
+gtr.add(S.strum(["D3", "A3", "D4", "F#4", "A4"], STOP - ARRIVE, 0.55, spread=0.012), ARRIVE, p=0.3)
+pad.add(S.pad(["D3", "A3", "D4", "F#4", "A4", "D5"], STOP - ARRIVE, attack=0.03, release=0.05, cut=(2200, 5200)), ARRIVE, 0.4)
+drums.add(S.hat(0.3, open_=True), ARRIVE, p=0.2)
+groove(ARRIVE, STOP, lambda t: "D", lambda t: 2)
 
-def norm(x, peak=1.0): return x / (np.abs(x).max() + 1e-9) * peak
+# ------------------------------------------------------------------ the card: the name lands on the low drum (tools/sfx.py), the
+# chord above it rings (Dadd9, nothing under A3: the drum is its root); the line on a high A
+for n in ["A3", "F#4", "A4", "E5"]: keys.add(S.rhodes(n, END - LOGO - 1.0, 0.5), LOGO)
+pad.add(S.pad(["D3", "A3", "E4", "F#4"], END - LOGO - 0.8, attack=0.8, release=1.4, cut=(500, 1100), bright=np.linspace(1, 0.3, 40)), LOGO, 0.45)
+gtr.add(S.strum(["A3", "D4", "E4", "A4", "F#4"], END - LOGO - 1.0, 0.45, spread=0.018), LOGO, p=0.3)
+keys.add(S.rhodes("A5", 2.0, 0.4), TM["press"])
 
-TYPE_SRC = load("WWS_Typewriter.ogg")
-PHONO_SRC = load("Au_Clair_de_la_Lune_(1860)_new.ogg")
-KEYS = [norm(cut(TYPE_SRC, t - 0.003, 0.11)) for t in (4.46, 4.88, 7.37, 8.24, 11.13, 14.04, 16.43, 16.78)]
-def key(k): return KEYS[k % len(KEYS)] * (0.7 + 0.3 * rng.random())
+# ------------------------------------------------------------------ mix the buses through one room; the stops cut the room too
+score = np.zeros((N, 2))
+for name, b in (("piano", piano), ("pad", pad), *BUSES.items()):
+    y = S.reverb(b.x, ir, b.wet) if b.wet else b.x
+    score += y[:N] * GAIN[name]
+    if os.environ.get("STEMS"): sf.write(f"/tmp/stem_{name}.wav", (y[:N] * GAIN[name] * 0.3).astype(np.float32), SR)
+score += 0.4 * np.stack([S.hp(score[:, c], 2500, 2) for c in (0, 1)], axis=1)     # presence and air: about +3 dB above 2.5 kHz
+# the card ends on a held chord and a one-second fade, not a long decay
+c0 = t2i(LOGO + 0.6)
+env = np.sqrt(signal.sosfiltfilt(signal.butter(1, 2.0, "lowpass", fs=SR, output="sos"), score[c0:].mean(1) ** 2).clip(1e-12))
+score[c0:] *= 10 ** (np.clip(20 * np.log10(env[:t2i(0.2)].mean() / env), 0.0, 10.0) / 20)[:, None]
+gate = np.ones(N)
+for a, b, fo in ((STALL, MELT, 0.08), (MOON, LEAP, 0.02), (STOP, LOGO, 0.03)):
+    i, j, f = t2i(a), t2i(b), t2i(fo)
+    gate[i:i + f] = np.minimum(gate[i:i + f], ramp(f, 1, 0)); gate[i + f:j] = 0
+gate[-t2i(1.0):] *= ramp(t2i(1.0), 1, 0)
+score *= gate[:, None]
+score = np.tanh(score / np.abs(score).max() * 1.2) / np.tanh(1.2)
 
-def reverb(x, secs=1.6, mix=0.25):
-    n = int(secs * SR)
-    ir = rng.standard_normal(n) * np.exp(-np.arange(n) / (SR * secs / 6.0))
-    ir = lp(ir, 6000)
-    ir /= np.sqrt(np.sum(ir ** 2))
-    wet = signal.fftconvolve(x, ir)[: len(x)]
-    return x * (1 - mix) + wet * mix
+# ------------------------------------------------------------------ room for the enters: the key (tools/sfx.py) lives at
+# 4-8 kHz, with the shaker; for 90 ms around each enter 3-12 kHz is carved to 3 dB under the quietest of them, so every
+# enter sits at one level over the groove (mix.py holds one sound's gains within 2 dB). The bass gives way first: mix.py
+# and qa.py filter from the window's start, so a loud low end there reads as a step, a click in every band
+ENTERS = [MELT] + KILLS
+lows = np.stack([S.lp(score[:, c], 220, 4) for c in (0, 1)], axis=1)
+gl = sum(np.interp(np.arange(N) / SR, [e - 0.05, e - 0.02, e + 0.06, e + 0.12], [0.0, -12.0, -12.0, 0.0], left=0.0, right=0.0) for e in ENTERS)
+score += lows * (10 ** (gl / 20) - 1)[:, None]
+carve = signal.butter(4, [3000, 12000], "bandpass", fs=SR, output="sos")
+probe = signal.butter(4, [4000, 8000], "bandpass", fs=SR, output="sos")
+def level(e):   # as mix.py and qa.py read it: causal, over the key's 50 ms
+    w = score[t2i(e - 0.002):t2i(e + 0.048)].mean(1)
+    return 10 * np.log10(np.mean(signal.sosfilt(probe, w) ** 2) + 1e-20)
+for _ in range(4):
+    lvl = [level(e) for e in ENTERS]
+    g = sum(np.interp(np.arange(N) / SR, [e - 0.05, e - 0.02, e + 0.06, e + 0.09], [0.0, min(lvl) - 3.0 - l, min(lvl) - 3.0 - l, 0.0], left=0.0, right=0.0)
+            for e, l in zip(ENTERS, lvl))
+    cb = np.stack([signal.sosfiltfilt(carve, score[:, c]) for c in (0, 1)], axis=1)
+    score += cb * (10 ** (g / 20) - 1)[:, None]
+if os.environ.get("STEMS"): print("enter beds 4-8 kHz:", [round(level(e), 1) for e in ENTERS])
 
-# ------------------------------------------------------------------ the score, edited to picture
-# chosen by ear from audio/lab/musictakes.py's shortlist; SKIP is how far into its ending the leap starts, so the
-# ending's crest lands on "mankind"
-TAKE, END, SKIP = "take-16", "end-16-3", 1.6
-if len(sys.argv) > 1 and sys.argv[1] == "preview":
-    TAKE, END, SKIP = sys.argv[2], sys.argv[3], float(sys.argv[4])
-
-def stereo(name):
-    raw = subprocess.run(["ffmpeg", "-v", "error", "-i", os.path.join(ROOT, "audio", "music", name + ".mp3"), "-ac", "2", "-ar", str(SR), "-f", "f32le", "-"],
-                         capture_output=True, check=True).stdout
-    return np.frombuffer(raw, np.float32).astype(np.float64).reshape(-1, 2)
-
-def score():
-    take, end = stereo(TAKE), stereo(END)
-    LEAP, STALL, MC = dict(TM["music"])["leap"], TM["stall"], TM["meltCmd"]
-    out = np.zeros((N, 2))
-    out[:t2i(STALL)] = take[:t2i(STALL)]
-    # the valley: the music tape-stops at the stall (speed falls to nothing over 0.45 s), then only a ringing in the ears
-    n = int(0.45 * SR); pos = t2i(STALL) + np.cumsum(np.linspace(1, 0, n) ** 1.6)
-    stop = np.stack([np.interp(pos, np.arange(len(take)), take[:, c]) for c in (0, 1)], axis=1) * np.linspace(1, 0, n)[:, None] ** 0.5
-    out[t2i(STALL):t2i(STALL) + n] = stop
-    ring = sine(3950, MC - STALL - 0.2) * 0.012 * adsr(MC - STALL - 0.2, 0.35, 0.0)
-    out[t2i(STALL + 0.2):t2i(STALL + 0.2) + len(ring)] += ring[:, None] * [1, 0.85]                  # cut dead by the drop
-    # the drop: the take's own downbeat (its biggest 100 ms energy rise near the planned drop, then the sharpest
-    # attack inside that rise), put on the enter
-    h = SR // 200; e = np.log(np.add.reduceat(take.mean(1) ** 2, np.arange(0, len(take), h)) + 1e-9)
-    a_, b_ = int((MC - 0.3) * 200), int((MC + 1.4) * 200)
-    i_ = a_ + int(np.argmax(e[a_ + 20:b_ + 20] - e[a_:b_]))
-    DROP = (i_ + int(np.argmax(np.diff(e[i_:i_ + 21])))) / 200 - 0.004
-    print(f"{TAKE}: drop found at {DROP:.3f} s, moved to {MC}")
-    d = take[t2i(DROP):t2i(DROP) + t2i(LEAP - MC) + t2i(0.3)].copy(); d[:96] *= np.linspace(0, 1, 96)[:, None]
-    out[t2i(MC):t2i(MC) + len(d)] += d[:N - t2i(MC)]
-    # ride the build: the take dips under the first kills and fades after its peak, so a fader climbs it steadily
-    # from -9 dB (re the drop) to -2 dB into the hush; within +9/-6 dB and slow enough never to pump
-    B0, B1 = t2i(dict(TM["music"])["build"]), t2i(LEAP - 0.25)
-    w = t2i(0.4); p = np.convolve(out[:, 0] ** 2 + out[:, 1] ** 2, np.ones(w) / w, "same")
-    ref = 10 * np.log10(p[t2i(MC):t2i(MC + 0.5)].max() + 1e-12)
-    have = 10 * np.log10(p[B0:B1] + 1e-12) - ref
-    gdb = np.clip(np.linspace(-9, -2, B1 - B0) - have, -6, 9)
-    g = np.zeros(N); g[B0:B1] = gdb; g[B1:] = gdb[-1] * 0
-    g = lp(lp(g, 1.5, 1)[::-1], 1.5, 1)[::-1]                                                           # zero-phase, slow
-    out *= 10 ** (g / 20)[:, None]
-    # the leap: the ending, in the take's voice, crossfaded in over a quarter second
-    xf = t2i(0.3); i0 = t2i(LEAP)
-    out[i0:i0 + xf] *= np.linspace(1, 0, xf)[:, None]; out[i0 + xf:] = 0
-    e = end[t2i(SKIP):][:N - i0].copy(); e[:xf] *= np.linspace(0, 1, xf)[:, None]
-    out[i0:i0 + len(e)] += e
-    f = t2i(0.4); out[-f:] *= np.linspace(1, 0, f)[:, None]
-    return out
-
-SCORE = score()
-if len(sys.argv) > 1 and sys.argv[1] == "preview":
-    p = os.path.join(ROOT, "audio", "music", f"preview-{TAKE}-{END}.wav")
-    sf.write(p, (SCORE / np.abs(SCORE).max() * 0.7).astype(np.float32), SR); print("wrote", p); sys.exit()
-music.L += SCORE[:, 0]; music.R += SCORE[:, 1]
-
-# the 1860 voice, faint, under the first strikes; the room
-room = lp(noise(DUR), 300) * 0.015
-music.add(room * adsr(DUR, 0.05, 0.6), 0.0, width=0.02)
-music.add(norm(bp(cut(PHONO_SRC, 3.70, 1.4, 0.01, 0.4), 250, 3200), 0.05), 0.0)
-MELT0, CAST = TM["meltCmd"], TM["cast"]                          # the drop is the enter: the fire catches on it
-K = TM["kills"]
-KK = {k["kind"]: k for k in K}
-
-# ------------------------------------------------------------------ the beds: continuous roars are scenery, not events, so they live
-# under the sound effects at a level set against the kill groove (real recordings cut by tools/sources.sh)
-def own(name):
-    raw = subprocess.run(["ffmpeg", "-v", "error", "-i", os.path.join(ROOT, "audio", "own", name + ".wav"), "-f", "f32le", "-"],
+# ------------------------------------------------------------------ Armstrong: line A from the moon cut, line B into the Earth
+def decode(path, args=()):
+    raw = subprocess.run(["ffmpeg", "-v", "error", "-i", path, *args, "-ac", "1", "-ar", str(SR), "-f", "f32le", "-"],
                          capture_output=True, check=True).stdout
     return np.frombuffer(raw, np.float32).astype(np.float64)
-s0, s1 = t2i(TM["settle"]), t2i(KK["translate"]["flash"])
-GROOVE_RMS = np.sqrt(np.mean(music.L[s0:s1] ** 2))                # the score under the kills: what the beds sit against
-def bed(name, t, db, ramp_db=0.0, pan=0.0):
-    x = own(name); x = x / (np.sqrt(np.mean(x ** 2)) + 1e-12) * GROOVE_RMS * 10 ** (db / 20)
-    beds.add(x * 10 ** (np.linspace(ramp_db, 0, len(x)) / 20), t, pan=pan, width=0.015)
-IGN = TM["words1"][-1][1]
-# a hero hit is levelled against what sustains under it (mix.py), so each roar is at full on its hit
-bed("shuttle-roar", IGN, -1.0)                                   # the Saturn V lights; stops dead on the Act II cut
-CATCH = 0.008                                                    # the fire catches just after the blast (in phase with it below 250 Hz)
-bed("volcano", MELT0 + CATCH, 2.0, ramp_db=-4.0)                 # every screen ignites; the river grows as the camera falls
-bed("furnace", MELT0 + CATCH, -2.0, pan=-0.2)                    # the roar of the fire itself
-bed("train", KK["download"]["enter"] + 0.02, -6.0)               # the Lumiere train, out of the bar
-
-# ------------------------------------------------------------------ Armstrong: line A under the translate kill; line B lands on the logo
 src = os.path.join(ROOT, "..", "research", "footage", "icons", "Armstrong_Small_Step.ogg")
+HUM = ",".join(f"bandreject=f={57.27 * k:.1f}:width_type=q:w=14" for k in range(2, 10))     # the downlink's 57.27 Hz hum
 def vo_piece(s0, s1):
-    raw = subprocess.run(["ffmpeg", "-v", "error", "-i", src, "-ss", str(s0), "-t", str(s1 - s0),
-                          "-af", "afftdn=nf=-30,highpass=f=180,lowpass=f=4200,acompressor=threshold=-24dB:ratio=3:attack=5:release=120",
-                          "-f", "f32le", "-ac", "1", "-ar", str(SR), "-"], capture_output=True).stdout
-    x = np.frombuffer(raw, np.float32).astype(np.float64)
-    fd = min(len(x) // 2, int(0.015 * SR)); x[:fd] *= np.linspace(0, 1, fd); x[-fd:] *= np.linspace(1, 0, fd)
+    x = decode(src, ["-ss", str(s0), "-t", str(s1 - s0), "-af",
+                     f"afftdn=nf=-30,{HUM},highpass=f=180,lowpass=f=4200,acompressor=threshold=-24dB:ratio=3:attack=5:release=120"])
+    fd = min(len(x) // 2, t2i(0.015)); x[:fd] *= ramp(fd, 0, 1); x[-fd:] *= ramp(fd, 1, 0)
     return x
-va = vo_piece(*SEG_A)
-vb = np.concatenate([np.concatenate([vo_piece(s0, s1), np.zeros(int(g * SR))]) for s0, s1, g in SEG_B])
+PRE = TM["vo"]["a"] - TM["quindarIn"]                          # the channel opens with the Quindar tone, a breath before his first word
+va = vo_piece(SEG_A[0] - PRE, SEG_A[1]); va[:t2i(PRE)] *= ramp(t2i(PRE), 0, 1) ** 2
+vb = np.concatenate([np.concatenate([vo_piece(s0, s1), np.zeros(t2i(g))]) for s0, s1, g in SEG_B])
 pk = max(np.abs(va).max(), np.abs(vb).max())
-# line B is the last thing said: lift it, and lift "mankind" more (its "-kind" falls away in the recording), with presence
-gb = np.full(len(vb), 10 ** (3.0 / 20))
-mk = int((TM["vo"]["mankind"] - TM["vo"]["b"] - 0.03) * SR)
-ramp = np.linspace(0, 1, int(0.04 * SR))
-lift = np.concatenate([np.zeros(mk), ramp, np.ones(max(0, len(vb) - mk - len(ramp)))])[: len(vb)]
-gb *= 10 ** ((3.5 * lift + 2.5 * lift * np.linspace(0, 1, len(vb))) / 20)
-vb = vb + bp(vb, 1800, 4500) * 0.45 * lift
-vb = np.tanh(vb / pk * gb * 1.1) / 1.1 * pk
-voice.add(va / pk * 0.92, TM["vo"]["a"]); voice.add(vb / pk * 0.92, TM["vo"]["b"])
+voice = np.zeros(N)
+def put(x, t): i = t2i(t); voice[i:i + len(x)] += x[:N - i]
+put(va / pk * 10 ** (-3.5 / 20), TM["quindarIn"]); put(vb / pk, TM["vo"]["b"])
+q = decode(os.path.join(ROOT, "audio", "own", "quindar-in.wav"))
+put(q / np.abs(q).max() * 10 ** (-17 / 20), TM["quindarIn"])
 
-# ------------------------------------------------------------------ stems (mix.py levels, ducks under Armstrong and masters)
-def duck_curve(floor):
-    g = np.ones(N)
-    for c in TM["kills"]:  # the world waits while a command is typed
-        a_, b_ = t2i(c["t0"] - 0.1), t2i(c["enter"])
-        g[a_:b_] = np.minimum(g[a_:b_], np.linspace(1, floor, b_ - a_) ** 0.5)
-    return lp(g, 40, 1)
+meter = pyln.Meter(SR)
+vo = np.stack([voice, voice], axis=1)
+under = meter.integrated_loudness(score[t2i(LEAP):t2i(EARTH)])
+vo *= 10 ** ((under + 14.0 - meter.integrated_loudness(vo[t2i(TM["quindarIn"]):t2i(TM["vo"]["end"])])) / 20)
+band = signal.butter(4, [1000, 4000], "bandpass", fs=SR, output="sos")
+sp, bd = (signal.sosfilt(band, x.mean(1)) for x in (vo, score))
+blk = SR * 2 // 5
+m_ = [10 * np.log10(np.mean(sp[i:i + blk] ** 2) / (np.mean(bd[i:i + blk] ** 2) + 1e-20))
+      for i in range(t2i(TM["vo"]["a"]), t2i(TM["vo"]["end"]) - blk, SR // 10) if np.mean(sp[i:i + blk] ** 2) > 1e-3 * np.max(sp ** 2)]
+print(f"Armstrong over the score, 1-4 kHz: min {min(m_):.1f} dB, median {np.median(m_):.1f} dB")
 
-# the score only leans back while a kill is typed (the build must keep building); the roars wait properly
-dm, db_ = duck_curve(0.75), duck_curve(0.45)
-room_ = lp(noise(DUR), 260) * 0.012 * np.where(np.arange(N) < t2i(TM["stall"] + 0.3), 1.0, 0.0)[:]   # the room dies with the stall
-room_ = lp(room_, 20, 1) + lp(noise(DUR), 260) * 0.012 * (np.arange(N) >= t2i(TM["meltCmd"]))
-mus = np.stack([music.L * dm + reverb(beds.L * db_, 1.2, 0.12) + room_,
-                music.R * dm + reverb(beds.R * db_, 1.2, 0.12) + room_[::-1]], axis=1)
-mus = np.tanh(mus * 1.1) / np.tanh(1.1)
-mus[-int(0.25 * SR):] *= np.linspace(1, 0, int(0.25 * SR))[:, None]
-os.makedirs(os.path.join(ROOT, "audio"), exist_ok=True)
-for name, x in (("music", mus), ("voice", np.stack([voice.L, voice.R], axis=1))):
+mus = score + vo
+k = 0.5 / np.abs(mus).max()
+for name, x in (("music", mus * k), ("voice", vo * k)):
     out = os.path.join(ROOT, "audio", name + ".wav")
-    sf.write(out, (x / (np.abs(x).max() + 1e-9) * 0.5).astype(np.float32), SR, subtype="FLOAT")
+    sf.write(out, x.astype(np.float32), SR, subtype="FLOAT")
     print("wrote", out)

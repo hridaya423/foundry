@@ -6,6 +6,8 @@ import { motion, useMotionValue, useMotionValueEvent, useTransform, type MotionV
 import { clipboardCardPose, clipboardFocus, clipboardItems, searchClipboard, type ClipboardItem as ClipboardEntry } from "./clipboard-motion";
 import { phase } from "./shelf-motion";
 
+const round = (value: number) => Math.round(value * 100) / 100;
+
 function AppGlyph({ app }: { app: string }) {
   return (
     <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
@@ -42,7 +44,7 @@ function ClipboardCard({ item, progress, focus, width, height, selected, onSelec
   const index = clipboardItems.indexOf(item);
   const [imageFailed, setImageFailed] = useState(false);
   const pose = useTransform(() => clipboardCardPose(index, focus.get(), progress.get(), width.get(), height.get()));
-  const transform = useTransform(pose, (p) => `translate3d(${p.x}px, ${p.y}px, 0) translate(-50%, -100%) rotate(${p.rotate}deg) scale(${p.scale})`);
+  const transform = useTransform(pose, (p) => `translate3d(${round(p.x)}px, ${round(p.y)}px, 0px) translate(-50%, -100%) rotate(${round(p.rotate)}deg) scale(${round(p.scale)})`);
   const opacity = useTransform(pose, (p) => p.opacity);
   const zIndex = useTransform(pose, (p) => 10 - Math.round(Math.abs(p.wrapped)));
   return (
@@ -103,7 +105,7 @@ export default function ClipboardStory({ progress, focus, animated }: {
   const matches = searchClipboard(query);
   const item = matches.find((entry) => entry === clipboardItems[selected]) ?? matches[0];
   const position = matches.indexOf(item);
-  const opacity = useTransform(progress, (value) => phase(value, 1.0, 1.08) * (1 - phase(value, 1.5, 1.58)));
+  const opacity = useTransform(progress, (value) => phase(value, 1.03, 1.065) * (1 - phase(value, 1.47, 1.55)));
   const controlsOpacity = useTransform(progress, (value) => phase(value, 1.195, 1.23));
   const transform = useTransform(progress, (value) => `translateY(${40 * (1 - phase(value, 1.0, 1.1))}px)`);
 
@@ -116,6 +118,12 @@ export default function ClipboardStory({ progress, focus, animated }: {
     observer.observe(element);
     return () => observer.disconnect();
   }, [width, height]);
+
+  useEffect(() => {
+    const card = deck.current?.querySelector<HTMLElement>(`[data-id="${item?.id}"]`);
+    if (animated || !card) return;
+    deck.current!.scrollTo({ left: card.offsetLeft - (deck.current!.clientWidth - card.offsetWidth) / 2 });
+  }, [animated, item]);
 
   useMotionValueEvent(progress, "change", (value) => {
     setActive(value >= 1.2 && value < 1.5);
@@ -208,7 +216,7 @@ export default function ClipboardStory({ progress, focus, animated }: {
       onKeyDown={onKeyDown}
     >
       <header className="clipboard-heading">
-        <h2 id="clipboard-heading">That thing<br />you copied<span>.</span></h2>
+        <h2 id="clipboard-heading">That thing<br />you copied.</h2>
         <p>Find it again in clipboard history.</p>
       </header>
       <div className="clipboard-deck" ref={deck} role="group" aria-label="Sample clipboard history">
@@ -224,20 +232,19 @@ export default function ClipboardStory({ progress, focus, animated }: {
           {item.kind === "color" && <p className="clipboard-value">{item.value}</p>}
           <div className="clipboard-browse" role="group" aria-label="Browse clipboard history">
             <button aria-label="Previous clipboard item" disabled={position <= 0} onClick={(event) => move(-1, event.detail === 0)}>Previous</button>
-            <span>{position + 1} / {matches.length}</span>
             <button aria-label="Next clipboard item" disabled={position >= matches.length - 1} onClick={(event) => move(1, event.detail === 0)}>Next</button>
           </div>
         </motion.div>
       )}
       <motion.div className="clipboard-search-area" style={{ opacity: controlsOpacity }}>
-        <label htmlFor="clipboard-search">Try the sample clipboard</label>
+        <label htmlFor="clipboard-search" className="sr-only">Search the sample clipboard</label>
         <div className="clipboard-search-field">
           <span className="foundry-search-icon" aria-hidden="true" />
           <input id="clipboard-search" type="search" placeholder="Search clipboard" value={query} onChange={(event) => search(event.target.value)} autoComplete="off" aria-controls="clipboard-match-status" />
         </div>
         <div className="clipboard-search-footer">
           <p id="clipboard-match-status" role="status">
-            {copyState === "failed" ? <>Copy wasn’t available. {item?.kind === "image" ? <a href={item.value} download="Coast.jpg">Save the image instead.</a> : "Select and copy the text shown here."}</> : copyState === "copied" ? "Copied to your clipboard." : query ? `${matches.length} ${matches.length === 1 ? "match" : "matches"}` : "Text, images, links, colors."}
+            {copyState === "failed" ? <>Copy wasn’t available. {item?.kind === "image" ? <a href={item.value} download="Coast.jpg">Save the image instead.</a> : "Select and copy the text shown here."}</> : copyState === "copied" ? "Copied to your clipboard." : query ? `${matches.length} ${matches.length === 1 ? "match" : "matches"}` : ""}
           </p>
           <button onClick={copy} disabled={!item} aria-disabled={copyState === "copying"}>{copyState === "copying" ? "Copying…" : copyState === "copied" ? "Copied" : "Copy item"}</button>
         </div>

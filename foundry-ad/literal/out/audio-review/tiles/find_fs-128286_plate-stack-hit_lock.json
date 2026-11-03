@@ -1,0 +1,55 @@
+{
+ "summary": "Best moments for 'one loud ceramic clack' in fs-128286_plate-stack-hit.ogg (kind=event; searched all 0.5 s: 1 windows of ~0.5 s (edges snapped to the sound) to locate events, none returned + 8 onset-based candidates (one stage)): 0:00.11-0:00.39 (0.28 s event, z +3.0 strong); 0:00.01-0:00.11 (0.10 s stroke, z +2.6 plausible, head cut); 0:00.39-0:00.44 (0.05 s stroke, z +0.7 no match, head cut). start/end are sample trims in seconds (strokes / events start 5 ms before the attack; windows are snapped to the sound; a 'head cut' / 'tail cut' trim cuts into a sound).",
+ "path": "audio/assets/tiles/fs-128286_plate-stack-hit.ogg",
+ "query": "one loud ceramic clack",
+ "query_kind": "event",
+ "query_kind_score": 0.08,
+ "duration": 0.477,
+ "n_candidates": 8,
+ "n_windows": 0,
+ "n_events": 8,
+ "segments": [
+  {
+   "start": 0.114,
+   "end": 0.39,
+   "duration": 0.276,
+   "score": 3.06,
+   "z": 3.06,
+   "cosine": 0.231,
+   "verdict": "strong",
+   "kind": "event",
+   "peak_dbfs": -0.2,
+   "head_db": -22.9,
+   "tail_db": -49.3,
+   "cut": ""
+  },
+  {
+   "start": 0.011,
+   "end": 0.114,
+   "duration": 0.103,
+   "score": 2.13,
+   "z": 2.63,
+   "cosine": 0.19,
+   "verdict": "plausible",
+   "kind": "stroke",
+   "peak_dbfs": -6.7,
+   "head_db": -3.2,
+   "tail_db": -18.1,
+   "cut": "head cut"
+  },
+  {
+   "start": 0.39,
+   "end": 0.44,
+   "duration": 0.05,
+   "score": 0.24,
+   "z": 0.74,
+   "cosine": 0.165,
+   "verdict": "no match",
+   "kind": "stroke",
+   "peak_dbfs": -37.2,
+   "head_db": -14.4,
+   "tail_db": -19.7,
+   "cut": "head cut"
+  }
+ ]
+}

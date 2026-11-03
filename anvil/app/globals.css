@@ -7,18 +7,29 @@
 
 html {
   overflow-x: clip;
+  color-scheme: dark;
+  scrollbar-gutter: stable;
+}
+
+:is(a, button):not(:disabled):active {
+  transform: scale(.97);
+}
+
+:is(a, button, input, summary, [tabindex]):focus-visible {
+  outline: 2px solid var(--f-orange);
+  outline-offset: 5px;
 }
 
 body {
-  background: #0f0d0c;
-  color: #eee7dd;
+  background: var(--f-ink);
+  color: var(--f-text);
   font-family: var(--font-sans);
   overflow-x: clip;
 }
 
 ::selection {
-  background: #fa6428;
-  color: #0f0d0c;
+  background: var(--f-orange);
+  color: var(--f-ink);
 }
 
 .skip-link {
@@ -28,14 +39,14 @@ body {
   z-index: 100;
   padding: 10px 16px;
   border-radius: 8px;
-  background: #eee7dd;
-  color: #0f0d0c;
+  background: var(--f-text);
+  color: var(--f-ink);
   font-size: 15px;
   transform: translateY(-160%);
 }
 
 .skip-link:focus {
   transform: none;
-  outline: 2px solid #fa6428;
+  outline: 2px solid var(--f-orange);
   outline-offset: 3px;
 }
