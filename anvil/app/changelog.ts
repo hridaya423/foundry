@@ -8,6 +8,7 @@ export type Release = ReleaseNotes & { date: string };
 const releaseDates: Record<string, string> = {
   "1.1.0": "2026-09-25",
   "1.2.0": "2026-10-08",
+  "1.3.0": "2026-11-04",
 };
 
 export function parseReleaseNotes(markdown: string): ReleaseNotes {
