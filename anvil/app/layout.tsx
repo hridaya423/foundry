@@ -1,7 +1,8 @@
 import type { Metadata, Viewport } from "next";
 import { color } from "./foundry/tokens";
 import { Geist, Geist_Mono } from "next/font/google";
-import { siteDescription, siteUrl } from "./site";
+import { siteDescription, siteTitle, siteUrl } from "./site";
+import { author } from "./seo";
 import Palette from "./foundry/palette";
 import "./foundry/tokens.css";
 import "./globals.css";
@@ -18,11 +19,13 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   metadataBase: siteUrl,
-  title: "Foundry · The app you never open.",
+  title: siteTitle,
   description: siteDescription,
+  authors: [author],
+  creator: author.name,
   alternates: { canonical: "/" },
-  openGraph: { type: "website", siteName: "Foundry", title: "Foundry · The app you never open.", description: siteDescription },
-  twitter: { card: "summary_large_image" },
+  openGraph: { type: "website", siteName: "Foundry", title: siteTitle, description: siteDescription, url: "/" },
+  twitter: { card: "summary_large_image", title: siteTitle, description: siteDescription },
 };
 
 export const viewport: Viewport = { themeColor: color.ink, colorScheme: "dark" };

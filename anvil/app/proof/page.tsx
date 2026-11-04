@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { SiteFooter, SiteHeader } from "../foundry/site-chrome";
 import { formatFigure, proofFigures } from "../proof";
 import { repoUrl } from "../site";
+import { pageSocial } from "../seo";
 import "../foundry/foundry.css";
 import "./proof.css";
 
@@ -10,6 +11,7 @@ export const metadata: Metadata = {
   title: "Foundry · Proof",
   description: "Every number Foundry quotes, with the machine, version, date and benchmark file it comes from. Where Foundry loses is listed too.",
   alternates: { canonical: "/proof" },
+  ...pageSocial("Foundry · Proof", "Every number Foundry quotes, with the machine, version, date and benchmark file it comes from. Where Foundry loses is listed too.", "/proof"),
 };
 
 const measured = new Set(["open-latency", "memory-vs-raycast", "memory-vs-tinycast"]);

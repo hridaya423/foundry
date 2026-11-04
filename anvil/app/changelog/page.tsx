@@ -3,6 +3,7 @@ import { Fragment } from "react";
 import { SiteFooter, SiteHeader } from "../foundry/site-chrome";
 import { releases } from "../changelog";
 import { repoUrl } from "../site";
+import { pageSocial } from "../seo";
 import "../foundry/foundry.css";
 import "./changelog.css";
 
@@ -10,6 +11,7 @@ export const metadata: Metadata = {
   title: "Foundry · Changelog",
   description: "What changed in each Foundry release, newest first, with a download link for every version.",
   alternates: { canonical: "/changelog", types: { "application/atom+xml": "/changelog/feed.xml" } },
+  ...pageSocial("Foundry · Changelog", "What changed in each Foundry release, newest first, with a download link for every version.", "/changelog"),
 };
 
 const dateFormat = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" });

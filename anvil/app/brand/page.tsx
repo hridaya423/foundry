@@ -4,6 +4,7 @@ import type { Metadata } from "next";
 import { Mark } from "../foundry/mark";
 import { SiteFooter, SiteHeader } from "../foundry/site-chrome";
 import { color } from "../foundry/tokens";
+import { pageSocial } from "../seo";
 import "../foundry/foundry.css";
 import "./brand.css";
 
@@ -11,6 +12,7 @@ export const metadata: Metadata = {
   title: "Foundry · Brand",
   description: "The Foundry mark, colours and type, with rules for using them and a kit of the master files.",
   alternates: { canonical: "/brand" },
+  ...pageSocial("Foundry · Brand", "The Foundry mark, colours and type, with rules for using them and a kit of the master files.", "/brand"),
 };
 
 type Token = keyof typeof color;

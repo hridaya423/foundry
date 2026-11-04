@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { SiteFooter, SiteHeader } from "../foundry/site-chrome";
+import { pageSocial } from "../seo";
 import "../foundry/foundry.css";
 import "./privacy.css";
 
@@ -10,6 +11,7 @@ export const metadata: Metadata = {
   title: "Foundry · Privacy",
   description: "What Foundry sends off your Mac, to whom, and how to avoid it. Everything else stays on your Mac.",
   alternates: { canonical: "/privacy" },
+  ...pageSocial("Foundry · Privacy", "What Foundry sends off your Mac, to whom, and how to avoid it. Everything else stays on your Mac.", "/privacy"),
 };
 
 export default function PrivacyPage() {

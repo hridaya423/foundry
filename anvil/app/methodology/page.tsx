@@ -3,6 +3,7 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { SiteFooter, SiteHeader } from "../foundry/site-chrome";
 import { figureCells, methodologyFigure } from "../foundry/methodology-figure";
+import { pageSocial } from "../seo";
 import "../foundry/foundry.css";
 import "./methodology.css";
 
@@ -14,6 +15,7 @@ export const metadata: Metadata = {
   title: "Foundry · How we measured memory",
   description: "How the 81% lower warmed memory figure for Foundry 1.1 against Raycast 2.5.3 was measured, and what it does not cover.",
   alternates: { canonical: "/methodology" },
+  ...pageSocial("Foundry · How we measured memory", "How the 81% lower warmed memory figure for Foundry 1.1 against Raycast 2.5.3 was measured, and what it does not cover.", "/methodology"),
 };
 
 export default function MethodologyPage() {
