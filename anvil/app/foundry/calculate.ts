@@ -1,5 +1,11 @@
 const operators = /[+\-*/×÷x^%]/;
 
+function format(value: number): string {
+  const size = Math.abs(value);
+  if (size >= 1e15 || (size > 0 && size < 1e-6)) return Number(value.toPrecision(12)).toExponential();
+  return (value + 0).toLocaleString("en-US", { maximumSignificantDigits: 12 });
+}
+
 export function calculate(input: string): string | null {
   const source = input.replace(/\s+/g, "").replace(/[×x]/g, "*").replace(/÷/g, "/");
   if (!/^[\d.+\-*/^%()]+$/.test(source) || !operators.test(source.slice(1))) return null;
@@ -13,7 +19,6 @@ export function calculate(input: string): string | null {
       index++;
       return value;
     }
-    if (peek() === "-") { index++; return -number(); }
     const match = /^\d*\.?\d+/.exec(source.slice(index));
     if (!match) throw new Error();
     index += match[0].length;
@@ -22,6 +27,7 @@ export function calculate(input: string): string | null {
     return value;
   }
   function power(): number {
+    if (peek() === "-") { index++; return -power(); }
     const base = number();
     if (peek() !== "^") return base;
     index++;
@@ -34,13 +40,18 @@ export function calculate(input: string): string | null {
   }
   function sum(): number {
     let value = product();
-    while (peek() === "+" || peek() === "-") value = source[index++] === "+" ? value + product() : value - product();
+    while (peek() === "+" || peek() === "-") {
+      const sign = source[index++] === "+" ? 1 : -1;
+      const start = index;
+      const term = product();
+      value += sign * (/^\d*\.?\d+%$/.test(source.slice(start, index)) ? value * term : term);
+    }
     return value;
   }
   try {
     const value = sum();
     if (index !== source.length || !Number.isFinite(value)) return null;
-    return value.toLocaleString("en-US", { maximumFractionDigits: 8 });
+    return format(value);
   } catch {
     return null;
   }
