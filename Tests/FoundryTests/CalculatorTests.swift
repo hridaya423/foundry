@@ -95,4 +95,15 @@ final class CalculatorTests: XCTestCase {
             XCTAssertTrue(results.isEmpty, "expected no results for \(query)")
         }
     }
+
+    func testTwoToThe63DoesNotTrap() async {
+        let titles = await titles(for: "2^63")
+        XCTAssertEqual(titles.count, 1)
+        XCTAssertFalse(titles.first?.isEmpty ?? true)
+    }
+
+    func testHugeUnitConversionDoesNotTrap() async {
+        let titles = await titles(for: "99999999999999999999 km to m")
+        XCTAssertNotNil(titles)
+    }
 }

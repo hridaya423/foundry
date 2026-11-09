@@ -112,4 +112,33 @@ final class DeveloperToolsProviderTests: XCTestCase {
         XCTAssertTrue(DeveloperToolsEngine.looksLikeRadixValue("0b1010"))
         XCTAssertTrue(DeveloperToolsEngine.looksLikeRadixValue("16 ff"))
     }
+
+    func testHugeTimestampDoesNotTrap() {
+        let rows = DeveloperToolsEngine.timestampConversions(for: "9999999999999999999")
+        XCTAssertNotNil(rows)
+    }
+
+    func testNotWithOversizedWidthClampsTo64() {
+        guard case let .not(value, width) = DeveloperToolsEngine.bitwiseOperation(from: "not 5 18446744073709551615") else {
+            return XCTFail("expected a not operation")
+        }
+        XCTAssertEqual(value, 5)
+        XCTAssertEqual(width, 64)
+    }
+
+    func testShiftQueriesShowTheComputedValue() async {
+        let left = await DeveloperToolsProvider().results(matching: "2 << 4")
+        let right = await DeveloperToolsProvider().results(matching: "256 >> 4")
+        XCTAssertTrue(left.contains { $0.title == "32" })
+        XCTAssertTrue(right.contains { $0.title == "16" })
+    }
+
+    func testGenerateUUIDCopiesADifferentValueEachSearch() async throws {
+        let provider = DeveloperToolsProvider()
+        let first = await provider.results(matching: "uuid")
+        let second = await provider.results(matching: "uuid")
+        let firstAction = try XCTUnwrap(first.first { $0.id == "dev.uuid" }?.primaryAction.behavior as? CopyToClipboardAction)
+        let secondAction = try XCTUnwrap(second.first { $0.id == "dev.uuid" }?.primaryAction.behavior as? CopyToClipboardAction)
+        XCTAssertNotEqual(firstAction, secondAction)
+    }
 }

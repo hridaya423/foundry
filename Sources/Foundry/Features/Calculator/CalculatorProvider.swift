@@ -149,7 +149,7 @@ final class CalculatorProvider: CommandProvider {
         }
 
         let expression = currencyAmount(request.amount, code: request.base)
-        let ratesByQuote = Dictionary(uniqueKeysWithValues: rates.map { ($0.quote, $0) })
+        let ratesByQuote = Dictionary(rates.map { ($0.quote, $0) }, uniquingKeysWith: { first, _ in first })
         return quotes.compactMap { ratesByQuote[$0] }.map { rate in
             let result = currencyAmount(request.amount * rate.rate, code: rate.quote)
             return CalculatorEvaluation(expression: expression, result: result, copyValue: result, note: rate.date.map { "Rate from \($0)" })
@@ -471,7 +471,7 @@ final class CalculatorProvider: CommandProvider {
     }
 
     private static func formatCurrency(_ value: Double) -> String {
-        if abs(value.rounded() - value) < 0.0000000001 { return String(Int64(value.rounded())) }
+        if let integer = integerText(value) { return integer }
         return String(format: "%.2f", value)
             .replacingOccurrences(of: #"\.0+$"#, with: "", options: .regularExpression)
             .replacingOccurrences(of: #"(\.\d)0$"#, with: "$1", options: .regularExpression)
@@ -619,18 +619,17 @@ final class CalculatorProvider: CommandProvider {
     }
 
     private static func format(_ value: Double) -> String {
-        if abs(value.rounded() - value) < 0.0000000001 {
-            guard value >= Double(Int64.min), value <= Double(Int64.max) else {
-                return String(format: "%.12g", value)
-            }
-            return String(Int64(value.rounded()))
-        }
-
+        if let integer = integerText(value) { return integer }
         return String(format: "%.12g", value)
     }
 
     private static func formatConversion(_ value: Double) -> String {
-        if abs(value.rounded() - value) < 0.0000000001 { return String(Int64(value.rounded())) }
+        if let integer = integerText(value) { return integer }
         return String(format: "%.1f", value)
+    }
+
+    private static func integerText(_ value: Double) -> String? {
+        guard abs(value.rounded() - value) < 0.0000000001, let integer = Int64(exactly: value.rounded()) else { return nil }
+        return String(integer)
     }
 }

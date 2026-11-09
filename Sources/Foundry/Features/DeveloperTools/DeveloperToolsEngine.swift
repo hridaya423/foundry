@@ -99,8 +99,8 @@ enum DeveloperToolsEngine {
         for formatter in timestampInputFormatters {
             if let date = formatter.date(from: trimmed) {
                 return [
-                    TimestampConversion(label: "Unix seconds", value: String(Int(date.timeIntervalSince1970.rounded()))),
-                    TimestampConversion(label: "Unix milliseconds", value: String(Int((date.timeIntervalSince1970 * 1000).rounded()))),
+                    TimestampConversion(label: "Unix seconds", value: integerText(date.timeIntervalSince1970)),
+                    TimestampConversion(label: "Unix milliseconds", value: integerText(date.timeIntervalSince1970 * 1000)),
                     TimestampConversion(label: "ISO 8601", value: iso8601Formatter.withLockUnchecked { $0.string(from: date) })
                 ]
             }
@@ -124,7 +124,7 @@ enum DeveloperToolsEngine {
         if text.contains(" not ") || text.hasPrefix("not ") {
             let parts = numbers(in: text)
             guard let first = parts.first else { return nil }
-            let width = Int(parts.dropFirst().first ?? 64)
+            let width = Int(min(max(parts.dropFirst().first ?? 64, 1), 64))
             return .not(first, width)
         }
         if text.contains("<<") || text.contains("shift left") {
@@ -264,11 +264,16 @@ enum DeveloperToolsEngine {
         return false
     }
 
+    private static func integerText(_ value: Double) -> String {
+        if let integer = Int64(exactly: value.rounded()) { return String(integer) }
+        return String(format: "%.0f", value)
+    }
+
     private static func conversions(for date: Date) -> [TimestampConversion] {
         [
             TimestampConversion(label: "ISO 8601", value: iso8601Formatter.withLockUnchecked { $0.string(from: date) }),
-            TimestampConversion(label: "Unix seconds", value: String(Int(date.timeIntervalSince1970.rounded()))),
-            TimestampConversion(label: "Unix milliseconds", value: String(Int((date.timeIntervalSince1970 * 1000).rounded()))),
+            TimestampConversion(label: "Unix seconds", value: integerText(date.timeIntervalSince1970)),
+            TimestampConversion(label: "Unix milliseconds", value: integerText(date.timeIntervalSince1970 * 1000)),
             TimestampConversion(label: "Local", value: localDateFormatter.string(from: date))
         ]
     }

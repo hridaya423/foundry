@@ -225,10 +225,18 @@ final class DeveloperToolsProvider: CommandProvider {
                 bitwiseResult(title: String(output, radix: 16).uppercased(), subtitle: "Hex", expression: String(output))
             ]
         case let .shiftLeft(value, amount):
-            return [bitwiseResult(title: "\(value) << \(amount)", subtitle: "Shift left", expression: "\(value) << \(amount)")]
+            return shiftResults(output: amount >= 64 ? 0 : value << amount, subtitle: "Shift left")
         case let .shiftRight(value, amount):
-            return [bitwiseResult(title: "\(value) >> \(amount)", subtitle: "Shift right", expression: "\(value) >> \(amount)")]
+            return shiftResults(output: amount >= 64 ? 0 : value >> amount, subtitle: "Shift right")
         }
+    }
+
+    private func shiftResults(output: UInt64, subtitle: String) -> [CommandResult] {
+        [
+            bitwiseResult(title: String(output), subtitle: subtitle, expression: String(output)),
+            bitwiseResult(title: String(output, radix: 2), subtitle: "Binary", expression: String(output)),
+            bitwiseResult(title: String(output, radix: 16).uppercased(), subtitle: "Hex", expression: String(output))
+        ]
     }
 
     private func bitwiseOutputs(lhs: UInt64, rhs: UInt64, label: String, value: UInt64) -> [CommandResult] {
@@ -363,7 +371,7 @@ final class DeveloperToolsProvider: CommandProvider {
         )
     }
 
-    private let staticCommands: [StaticCommand] = [
+    private var staticCommands: [StaticCommand] { [
         StaticCommand(id: "dev.uuid", title: "Generate UUID", subtitle: "Copy a new UUID", aliases: ["uuid", "guid", "identifier"], icon: "number",
             fallback: "ID",  action: CopyToClipboardAction(UUID().uuidString)),
         StaticCommand(
@@ -398,7 +406,7 @@ final class DeveloperToolsProvider: CommandProvider {
             aliases: ["random", "faker", "fake data"], icon: "dice", fallback: "RD",
             action: CopyToClipboardAction(DeveloperToolsEngine.randomHexColor())
         )
-    ]
+    ] }
 }
 
 private struct StaticCommand {
