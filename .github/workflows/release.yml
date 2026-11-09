@@ -20,6 +20,8 @@ jobs:
     timeout-minutes: 60
     permissions:
       contents: read
+    outputs:
+      signed: ${{ steps.signing.outputs.enabled }}
     env:
       BUILD_NUMBER: ${{ github.run_number }}
       CODE_SIGN_IDENTITY: "-"
@@ -111,17 +113,25 @@ jobs:
       actions: read
       contents: write
     steps:
+      - name: Check out release notes
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+          sparse-checkout: docs/release-notes
+          path: source
+
       - name: Download app package
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           name: foundry-release
           path: release
 
-      - name: Replace versioned release
+      - name: Publish versioned release
         env:
           GH_TOKEN: ${{ github.token }}
           GITHUB_SHA: ${{ github.sha }}
           GITHUB_RUN_NUMBER: ${{ github.run_number }}
+          SIGNED: ${{ needs.build.outputs.signed }}
         run: |
           set -euo pipefail
           version="$(tr -d '[:space:]' < release/release-version)"
@@ -139,16 +149,47 @@ jobs:
           cp "$dmg_asset" release/Foundry.dmg
           cp "$zip_asset" release/Foundry.zip
           assets=("$dmg_asset" "$zip_asset" release/Foundry.dmg release/Foundry.zip)
-          if gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            gh release delete "$tag" --repo "$GITHUB_REPOSITORY" --yes --cleanup-tag
+
+          title="Foundry ${version} (build ${GITHUB_RUN_NUMBER})"
+          notes="$RUNNER_TEMP/release-notes.md"
+          : > "$notes"
+          if [[ "$SIGNED" != "true" ]]; then
+            title="${title} UNSIGNED"
+            {
+              echo "> **Unsigned build.** This build is ad-hoc signed and not notarized. macOS Gatekeeper blocks it on other Macs."
+              echo "> The Developer ID signing secrets were missing when it was built. See docs/distribution.md."
+              echo
+            } >> "$notes"
           fi
+          notes_source="source/docs/release-notes/${version}.md"
+          if [[ -f "$notes_source" ]]; then
+            cat "$notes_source" >> "$notes"
+          else
+            echo "Automated build from commit ${GITHUB_SHA}. Download the .dmg, drag Foundry to Applications, then open the launcher with ⌘Space, or the shortcut you chose during setup." >> "$notes"
+          fi
+          {
+            echo
+            echo "Requires an Apple silicon Mac (arm64) running macOS 14 or later. Build ${GITHUB_RUN_NUMBER} from commit ${GITHUB_SHA}."
+          } >> "$notes"
+
           if gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/${tag}" >/dev/null 2>&1; then
-            gh api --method DELETE "repos/${GITHUB_REPOSITORY}/git/refs/tags/${tag}"
+            gh api --method PATCH "repos/${GITHUB_REPOSITORY}/git/refs/tags/${tag}" -f sha="$GITHUB_SHA" -F force=true >/dev/null
           fi
 
-          gh release create "$tag" "${assets[@]}" \
-            --repo "$GITHUB_REPOSITORY" \
-            --target "$GITHUB_SHA" \
-            --title "Foundry ${version} (build ${GITHUB_RUN_NUMBER})" \
-            --notes "Automated build from commit ${GITHUB_SHA}. Download the .dmg, drag Foundry to Applications, then open the launcher with ⌘Space, or the shortcut you chose during setup." \
-            --latest
+          if gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload "$tag" "${assets[@]}" --repo "$GITHUB_REPOSITORY" --clobber
+            keep=("${assets[@]##*/}")
+            while IFS= read -r name; do
+              if [[ ! " ${keep[*]} " =~ " ${name} " ]]; then
+                gh release delete-asset "$tag" "$name" --repo "$GITHUB_REPOSITORY" --yes
+              fi
+            done < <(gh release view "$tag" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name')
+            gh release edit "$tag" --repo "$GITHUB_REPOSITORY" --title "$title" --notes-file "$notes" --latest
+          else
+            gh release create "$tag" "${assets[@]}" \
+              --repo "$GITHUB_REPOSITORY" \
+              --target "$GITHUB_SHA" \
+              --title "$title" \
+              --notes-file "$notes" \
+              --latest
+          fi
