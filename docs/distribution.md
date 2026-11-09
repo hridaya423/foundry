@@ -2,8 +2,15 @@
 
 The release workflow (`.github/workflows/release.yml`) publishes a signed,
 notarized DMG whenever `VERSION` changes on `main`. If the signing secrets are
-absent it falls back to an ad-hoc build — functional, but Gatekeeper-blocked for
-anyone who downloads it.
+absent it falls back to an ad-hoc build. That build is Gatekeeper-blocked for
+anyone who downloads it, so the release title ends in `UNSIGNED` and the body
+starts with a warning.
+
+The build is arm64 only (the `macos-26` runner is Apple silicon) and the app
+declares macOS 14.0 as its minimum. The release text says both.
+
+A commit message containing `[skip ci]` skips both workflows. Use it when you
+publish a release by hand.
 
 ## One-time setup (requires an active paid Apple Developer membership)
 
@@ -19,7 +26,15 @@ anyone who downloads it.
    security find-identity -v -p codesigning   # find "Developer ID Application: ..."
    security export -k login.keychain-db -t identities -f pkcs12 \
      -P "choose-a-p12-password" -o ~/DeveloperID.p12
-   base64 -i ~/DeveloperID.p12 | pbcopy       # cert goes on the clipboard
+   base64 -i ~/DeveloperID.p12 -o ~/DeveloperID.p12.b64
+   ```
+
+   Never put the certificate on the clipboard. Foundry's clipboard history can
+   store it. Send the file to GitHub from the shell instead:
+
+   ```sh
+   gh secret set MACOS_DEVELOPER_ID_P12 < ~/DeveloperID.p12.b64
+   rm -P ~/DeveloperID.p12 ~/DeveloperID.p12.b64
    ```
 
 3. **Create an app-specific password** at <https://appleid.apple.com> →
@@ -27,12 +42,13 @@ anyone who downloads it.
 
 4. **Find the Team ID**: developer.apple.com → Membership details → Team ID.
 
-5. **Set the repository secrets** (github.com → repo → Settings → Secrets and
-   variables → Actions → New repository secret):
+5. **Set the other repository secrets** (`gh secret set NAME`, or github.com → repo →
+   Settings → Secrets and variables → Actions → New repository secret). Type each
+   value into the prompt rather than copying it:
 
    | Secret | Value |
    | --- | --- |
-   | `MACOS_DEVELOPER_ID_P12` | the base64 p12 from step 2 |
+   | `MACOS_DEVELOPER_ID_P12` | the base64 p12 from step 2 (already set there) |
    | `MACOS_DEVELOPER_ID_P12_PASSWORD` | the p12 password |
    | `APPLE_ID` | the Apple ID email |
    | `APPLE_APP_PASSWORD` | the app-specific password |
@@ -42,8 +58,11 @@ anyone who downloads it.
 
 Bump `VERSION`, push to `main`. The workflow runs `swift test`, builds
 `build/Foundry.app`, signs it with the Developer ID cert (hardened runtime +
-timestamp), packages `Foundry-<version>-build-<run>.dmg`, notarizes and staples
-it, and replaces the `v<version>` release with the DMG + zip assets.
+timestamp), packages `Foundry-<version>-build-<run>.dmg`, notarizes the DMG and
+staples its ticket, and updates the `v<version>` release in place with the DMG
+and zip assets, so `releases/latest` is never empty. The release body is
+`docs/release-notes/<version>.md` when that file exists. The zip holds the app
+without a stapled ticket.
 
 ## Local build (same pipeline, your keychain)
 
