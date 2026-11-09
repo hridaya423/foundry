@@ -44,3 +44,4 @@ inspo/
 # generated captures and concept art
 docs/qa/2026-11-01-website/**/*.png
 docs/brand/concepts/
+foundry-ad/literal/**/*.log
