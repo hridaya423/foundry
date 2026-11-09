@@ -82,6 +82,10 @@ enum AITransportSupport {
     static func apiKey(_ profile: AIProviderProfile, store: AICredentialStore) throws -> String? {
         guard profile.authentication == .apiKey || profile.authentication == .optionalAPIKey else { return nil }
         guard case let .apiKey(value)? = try credential(profile, store: store), value.isEmpty == false else { return nil }
+        guard AIEndpointPolicy.allowsCredentials(profile.endpoint ?? "") else {
+            throw AITransportError.configuration(
+                "\(profile.name) uses plain HTTP, so Foundry won't send its API key. Use an HTTPS endpoint in Settings › AI.")
+        }
         return value
     }
 

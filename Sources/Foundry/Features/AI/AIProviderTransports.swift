@@ -180,9 +180,12 @@ enum AnthropicTransport {
     }
 
     static func test(profile: AIProviderProfile, credentials: AICredentialStore) async -> AIConnectionTestResult {
-        guard (BestEffort.attempt("read Anthropic api key") {
-            try AITransportSupport.apiKey(profile, store: credentials)
-        } ?? nil) != nil else { return .failure("Add an Anthropic API key before testing this provider.") }
+        do {
+            guard try AITransportSupport.apiKey(profile,
+                store: credentials) != nil else { return .failure("Add an Anthropic API key before testing this provider.") }
+        } catch {
+            return .failure(AITransportSupport.failureMessage(error))
+        }
         return .success("Anthropic credentials are stored. Send a request to verify model access.")
     }
 
@@ -244,20 +247,19 @@ enum AnthropicTransport {
 enum GeminiTransport {
     static func respond(profile: AIProviderProfile, messages: [[String: Any]], tools: [AgentTool], credentials: AICredentialStore) async -> AgentModelResponse {
         guard let endpoint = profile.endpoint,
-              let apiKey = BestEffort.attempt("read Gemini api key", {
-                  try AITransportSupport.apiKey(profile, store: credentials)
-              }) ?? nil,
               let base = URL(string: endpoint),
               var components = URLComponents(
                 url: base.appendingPathComponent("models/\(profile.model):streamGenerateContent"),
                 resolvingAgainstBaseURL: false
               )
         else {
-            return .failure("Add a Gemini API key and valid endpoint before sending requests.", .configuration)
+            return .failure("The Gemini endpoint URL isn't valid. Fix it in Settings › AI.", .configuration)
         }
         components.queryItems = [URLQueryItem(name: "alt", value: "sse")]
         guard let url = components.url else { return .failure("The Gemini endpoint URL isn't valid. Fix it in Settings › AI.", .configuration) }
         do {
+            guard let apiKey = try AITransportSupport.apiKey(profile,
+                store: credentials) else { return .failure("Add a Gemini API key before sending requests.", .configuration) }
             var request = URLRequest(url: url)
             request.httpMethod = "POST"
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -293,9 +295,12 @@ enum GeminiTransport {
     }
 
     static func test(profile: AIProviderProfile, credentials: AICredentialStore) async -> AIConnectionTestResult {
-        guard (BestEffort.attempt("read Gemini api key") {
-            try AITransportSupport.apiKey(profile, store: credentials)
-        } ?? nil) != nil else { return .failure("Add a Gemini API key before testing this provider.") }
+        do {
+            guard try AITransportSupport.apiKey(profile,
+                store: credentials) != nil else { return .failure("Add a Gemini API key before testing this provider.") }
+        } catch {
+            return .failure(AITransportSupport.failureMessage(error))
+        }
         return .success("Gemini credentials are stored. Send a request to verify model access.")
     }
 

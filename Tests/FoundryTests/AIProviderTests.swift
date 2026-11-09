@@ -591,6 +591,40 @@ final class AIProviderTests: XCTestCase {
         XCTAssertTrue(result.isFailure)
     }
 
+    func testAPIKeyIsOnlyReleasedOverHTTPSOrLoopback() throws {
+        let store = StaticKeyCredentialStore()
+        for endpoint in ["https://api.example.com/v1", "http://127.0.0.1:1234/v1", "http://localhost:8080", "http://[::1]:8080"] {
+            let profile = AIProviderProfile(name: "Server", kind: .openAICompatible, authentication: .apiKey, endpoint: endpoint, model: "m")
+            XCTAssertEqual(try AITransportSupport.apiKey(profile, store: store), "secret", endpoint)
+        }
+        for endpoint in ["http://api.example.com/v1", "http://192.168.1.4:1234/v1", "http://127.0.0.1.example.com/v1"] {
+            let profile = AIProviderProfile(name: "Server", kind: .openAICompatible, authentication: .optionalAPIKey, endpoint: endpoint, model: "m")
+            XCTAssertThrowsError(try AITransportSupport.apiKey(profile, store: store), endpoint)
+        }
+    }
+
+    func testAnthropicConnectionTestRefusesAPlainHTTPRemoteEndpoint() async {
+        let profile = AIProviderProfile(name: "Anthropic", kind: .anthropic, authentication: .apiKey, endpoint: "http://api.example.com/v1",
+            model: "claude")
+        let result = await AnthropicTransport.test(profile: profile, credentials: StaticKeyCredentialStore())
+        XCTAssertTrue(result.isFailure)
+        XCTAssertTrue(result.message.contains("HTTPS"), result.message)
+    }
+
+    func testProviderRedirectThatChangesSchemeIsNotFollowed() async throws {
+        defer { RedirectingURLProtocol.reset() }
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [RedirectingURLProtocol.self]
+        let session = URLSession(configuration: configuration, delegate: AIProviderSessionDelegate(), delegateQueue: nil)
+        var request = URLRequest(url: try XCTUnwrap(URL(string: "https://api.example.com/v1/models")))
+        request.setValue("Bearer secret", forHTTPHeaderField: "Authorization")
+
+        let (_, response) = try await session.data(for: request)
+
+        XCTAssertEqual((response as? HTTPURLResponse)?.statusCode, 302)
+        XCTAssertEqual(RedirectingURLProtocol.requestedURLs(), ["https://api.example.com/v1/models"])
+    }
+
     func testIntentHeuristicsRequireLiveSearchForFreshFacts() {
         XCTAssertTrue(AIIntentHeuristics.needsWebSearch("What is the latest macOS release?"))
         XCTAssertTrue(AIIntentHeuristics.needsWebSearch("current weather in San Francisco"))
@@ -829,6 +863,42 @@ private final class BlockingAIChatStore: Sendable, AIChatStoring {
     func savedSnapshots() -> [[AIChatThread]] {
         box.withLockUnchecked { $0.snapshots }
     }
+}
+
+private struct StaticKeyCredentialStore: AICredentialStore {
+    func credential(for profileID: UUID) throws -> AICredential? { .apiKey("secret") }
+    func save(_ credential: AICredential, for profileID: UUID) throws {}
+    func delete(for profileID: UUID) throws {}
+}
+
+private final class RedirectingURLProtocol: URLProtocol {
+    private static let urls = OSAllocatedUnfairLock<[String]>(initialState: [])
+
+    static func requestedURLs() -> [String] { urls.withLock { $0 } }
+    static func reset() { urls.withLock { $0 = [] } }
+
+    override class func canInit(with _: URLRequest) -> Bool { true }
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+
+    override func startLoading() {
+        guard let url = request.url else { return }
+        Self.urls.withLock { $0.append(url.absoluteString) }
+        if url.scheme == "https", var components = URLComponents(url: url, resolvingAgainstBaseURL: false) {
+            components.scheme = "http"
+            let destination = components.url!
+            let response = HTTPURLResponse(url: url, statusCode: 302, httpVersion: "HTTP/1.1", headerFields: ["Location": destination.absoluteString])!
+            client?.urlProtocol(self, wasRedirectedTo: URLRequest(url: destination), redirectResponse: response)
+            client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+            client?.urlProtocolDidFinishLoading(self)
+            return
+        }
+        let response = HTTPURLResponse(url: url, statusCode: 200, httpVersion: "HTTP/1.1", headerFields: nil)!
+        client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+        client?.urlProtocol(self, didLoad: Data("{}".utf8))
+        client?.urlProtocolDidFinishLoading(self)
+    }
+
+    override func stopLoading() {}
 }
 
 private struct EmptyCredentialStore: AICredentialStore {

@@ -3,8 +3,8 @@ import Foundation
 final class AIProviderSessionDelegate: NSObject, URLSessionTaskDelegate {
     func urlSession(_ session: URLSession, task: URLSessionTask, willPerformHTTPRedirection response: HTTPURLResponse,
         newRequest request: URLRequest, completionHandler: @Sendable @escaping (URLRequest?) -> Void) {
-        guard let sourceHost = task.currentRequest?.url?.host?.lowercased(), let destinationHost = request.url?.host?.lowercased(),
-            sourceHost == destinationHost else {
+        guard let source = task.currentRequest?.url, let destination = request.url, source.scheme?.lowercased() == destination.scheme?.lowercased(),
+            source.host?.lowercased() == destination.host?.lowercased(), source.port == destination.port else {
             completionHandler(nil)
             return
         }
