@@ -103,7 +103,7 @@ final class CalculatorTests: XCTestCase {
     }
 
     func testHugeUnitConversionDoesNotTrap() async {
-        let titles = await titles(for: "99999999999999999999 km to m")
-        XCTAssertNotNil(titles)
+        let titles = await titles(for: "99999999999999999999 km")
+        XCTAssertFalse(titles.isEmpty)
     }
 }
