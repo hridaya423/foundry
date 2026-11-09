@@ -27,7 +27,13 @@ final class SnippetRendererTests: XCTestCase {
         ))
 
         XCTAssertEqual(rendered.text, "abcd{unknown}")
-        XCTAssertEqual(rendered.cursorOffsetFromEnd, 13)
+        XCTAssertEqual(rendered.cursorOffsetFromEnd, 12)
+    }
+
+    func testCursorOffsetCountsTheCharactersAfterTheCaret() {
+        XCTAssertEqual(SnippetRenderer.render("ab{cursor}cd", context: context()).cursorOffsetFromEnd, 2)
+        XCTAssertEqual(SnippetRenderer.render("done{cursor}", context: context()).cursorOffsetFromEnd, 0)
+        XCTAssertEqual(SnippetRenderer.render("{cursor}👍🏽!", context: context()).cursorOffsetFromEnd, 2)
     }
 
     private func context() -> SnippetRenderContext {

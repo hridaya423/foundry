@@ -6,8 +6,18 @@ import AppKit
 final class SnippetExpansionServiceTests: XCTestCase {
     private let date = Date(timeIntervalSince1970: 100)
 
+    private func temporaryStore() -> FileSnippetStore {
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent("expansion-snippets-\(UUID().uuidString).json")
+        addTeardownBlock { try? FileManager.default.removeItem(at: url) }
+        return FileSnippetStore(url: url)
+    }
+
+    private func isolatedPaste() -> DirectPasteService {
+        DirectPasteService(pasteboard: NSPasteboard(name: NSPasteboard.Name("SnippetExpansionServiceTests")))
+    }
+
     private func engine(_ snippets: [StoredSnippet] = [StoredSnippet(content: "Hello", keyword: "brb", updatedAt: Date(timeIntervalSince1970: 1))]) -> SnippetExpansionEngine {
-        SnippetExpansionEngine(snippets: snippets, render: { $0.content.uppercased() })
+        SnippetExpansionEngine(snippets: snippets, render: { RenderedSnippet(text: $0.content.uppercased(), cursorOffsetFromEnd: 0) })
     }
 
     func testPrefixAndModifierAreBufferedAndModifierResets() {
@@ -21,7 +31,7 @@ final class SnippetExpansionServiceTests: XCTestCase {
         var value = engine([StoredSnippet(id: "s1", content: "Hello", keyword: "brb", updatedAt: Date(timeIntervalSince1970: 1))])
         ["b", "r", "x"].forEach { _ = value.receive(.character($0)) }; _ = value.receive(.backspace); _ = value.receive(.character("b"))
         guard case let .expanded(expansion) = value.receive(.delimiter(" ")) else { return XCTFail("Expected expansion") }
-        XCTAssertEqual(expansion, .init(snippetID: "s1", renderedContent: "HELLO", delimiter: " ", deleteCount: 3))
+        XCTAssertEqual(expansion, .init(snippetID: "s1", rendered: .init(text: "HELLO", cursorOffsetFromEnd: 0), delimiter: " ", deleteCount: 3))
         XCTAssertEqual(value.buffer, "")
         XCTAssertEqual(value.receive(.delimiter(" ")), .ignored)
     }
@@ -38,6 +48,21 @@ final class SnippetExpansionServiceTests: XCTestCase {
         XCTAssertEqual(expansion.deleteCount, 3)
     }
 
+    func testCursorPlaceholderPlacesTheCaretBeforeTheTypedDelimiter() {
+        var value = SnippetExpansionEngine(snippets: [StoredSnippet(content: "Dear {cursor}, thanks", keyword: "dear")],
+            render: { SnippetRenderer.render($0.content, context: SnippetRenderContext(now: .distantPast, locale: .init(identifier: "en_US_POSIX"),
+                calendar: .init(identifier: .gregorian), clipboard: "")) })
+        "dear".forEach { _ = value.receive(.character(String($0))) }
+        guard case let .expanded(expansion) = value.receive(.delimiter(" ")) else { return XCTFail("Expected expansion") }
+        XCTAssertEqual(expansion.pasteText, "Dear , thanks ")
+        XCTAssertEqual(expansion.cursorOffset, ", thanks ".count)
+
+        var plain = engine(); "brb".forEach { _ = plain.receive(.character(String($0))) }
+        guard case let .expanded(plainExpansion) = plain.receive(.delimiter("\t")) else { return XCTFail("Expected expansion") }
+        XCTAssertEqual(plainExpansion.pasteText, "HELLO\t")
+        XCTAssertEqual(plainExpansion.cursorOffset, 0)
+    }
+
     func testExclusionSecureInputAndAppSwitchReset() {
         var value = SnippetExpansionEngine(snippets: [StoredSnippet(content: "x", keyword: "go")], excludedBundleIdentifiers: ["com.editor"])
         _ = value.receive(.appChanged(bundleIdentifier: "com.editor")); _ = value.receive(.character("g")); _ = value.receive(.character("o"))
@@ -46,7 +71,7 @@ final class SnippetExpansionServiceTests: XCTestCase {
         XCTAssertEqual(value.receive(.delimiter(" ")), .ignored)
         _ = value.receive(.secureInputChanged(false)); _ = value.receive(.character("g")); _ = value.receive(.character("o"))
         guard case let .expanded(lateExpansion) = value.receive(.delimiter(" ")) else { return XCTFail("Expected expansion") }
-        XCTAssertEqual(lateExpansion.renderedContent, "x")
+        XCTAssertEqual(lateExpansion.rendered.text, "x")
         XCTAssertEqual(lateExpansion.delimiter, " ")
         XCTAssertEqual(lateExpansion.deleteCount, 2)
     }
@@ -66,7 +91,8 @@ final class SnippetExpansionServiceTests: XCTestCase {
         var startCount = 0
         var retry: (() -> Void)?
         let service = SnippetExpansionService(
-            directPaste: DirectPasteService(),
+            snippetStore: temporaryStore(),
+            directPaste: isolatedPaste(),
             accessibilityTrusted: { trusted },
             requestAccessibilityPrompt: { promptCount += 1 },
             scheduleAccessibilityRetry: { callback in
@@ -93,7 +119,8 @@ final class SnippetExpansionServiceTests: XCTestCase {
     func testStoppingConfiguredServiceCancelsAccessibilityRetry() {
         var cancelCount = 0
         let service = SnippetExpansionService(
-            directPaste: DirectPasteService(),
+            snippetStore: temporaryStore(),
+            directPaste: isolatedPaste(),
             accessibilityTrusted: { false },
             requestAccessibilityPrompt: {},
             scheduleAccessibilityRetry: { _ in

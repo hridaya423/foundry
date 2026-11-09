@@ -56,7 +56,7 @@ final class SnippetExpansionService {
         engine = SnippetExpansionEngine(
             snippets: snippetStore.load().filter { SnippetRenderer.argumentNames(in: $0.content).isEmpty },
             excludedBundleIdentifiers: excludedBundleIdentifiers,
-            render: { SnippetRenderer.render($0.content).text }
+            render: { SnippetRenderer.render($0.content) }
         )
         engine.setEnabled(isEnabled)
         isConfigured = isEnabled
@@ -150,13 +150,12 @@ final class SnippetExpansionService {
         }
         let input: SnippetExpansionEngine.Input = isDelimiter(characters) ? .delimiter(characters) : .character(characters)
         guard case let .expanded(expansion) = engine.receive(input) else { return Unmanaged.passUnretained(event) }
-        let rendered = SnippetRenderer.render(expansion.renderedContent)
         let directPaste = self.directPaste
         let hapticsEnabled = self.hapticsEnabled
         Task { @MainActor in
             directPaste.captureTarget()
             do {
-                try directPaste.stage(.text(rendered.text + expansion.delimiter), cursorOffset: rendered.cursorOffsetFromEnd)
+                try directPaste.stage(.text(expansion.pasteText), cursorOffset: expansion.cursorOffset)
                 for _ in 0..<expansion.deleteCount { Self.sendBackspace() }
                 try await directPaste.completePendingPaste()
                 let store = self.snippetStore
