@@ -43,17 +43,18 @@ public final class ArtifactStore: Sendable {
     }
 
     @discardableResult
-    public func commit(_ staged: StagedArtifact, validating validator: ((URL) throws -> Bool)? = nil) throws -> URL {
+    public func commit(_ staged: StagedArtifact, to destination: URL? = nil, validating validator: ((URL) throws -> Bool)? = nil) throws -> URL {
+        let destination = destination ?? staged.destination
         defer { discard(staged) }
         guard fileManager.fileExists(atPath: staged.url.path) else { throw CocoaError(.fileNoSuchFile) }
         if let validator, try validator(staged.url) == false { throw ArtifactStoreError.validationFailed }
         do {
             try Self.reservations.withLock { _ in
-                try fileManager.moveItem(at: staged.url, to: staged.destination)
+                try fileManager.moveItem(at: staged.url, to: destination)
             }
         }
         catch CocoaError.fileWriteFileExists { throw ArtifactStoreError.destinationExists }
-        return staged.destination
+        return destination
     }
 
     public func discard(_ staged: StagedArtifact) {

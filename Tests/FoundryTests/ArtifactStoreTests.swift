@@ -107,6 +107,24 @@ final class ArtifactStoreTests: XCTestCase {
         store.discard(current)
     }
 
+    func testCommitMovesAStagedFolderToAnotherDestination() throws {
+        let directory = try temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let store = ArtifactStore()
+        let staged = try store.stage(for: directory.appendingPathComponent("scan.png"))
+        try FileManager.default.removeItem(at: staged.url)
+        try FileManager.default.createDirectory(at: staged.url, withIntermediateDirectories: false)
+        try Data("one".utf8).write(to: staged.url.appendingPathComponent("page-1.png"))
+        let folder = directory.appendingPathComponent("scan")
+
+        let committed = try store.commit(staged, to: folder)
+
+        XCTAssertEqual(committed, folder)
+        XCTAssertEqual(try String(contentsOf: folder.appendingPathComponent("page-1.png")), "one")
+        XCTAssertEqual(try FileManager.default.contentsOfDirectory(atPath: directory.path), ["scan"])
+        XCTAssertNoThrow(try store.stage(for: directory.appendingPathComponent("scan.png")))
+    }
+
     private func temporaryDirectory() throws -> URL {
         let url = FileManager.default.temporaryDirectory.appendingPathComponent("foundry-artifact-").appendingPathComponent(UUID().uuidString)
         try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)

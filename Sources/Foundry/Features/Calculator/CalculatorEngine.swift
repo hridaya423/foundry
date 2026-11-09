@@ -95,6 +95,8 @@ struct CalculatorParser {
     private let characters: [Character]
     private let variables: [String: Double]
     private var index = 0
+    private var lastWasPercent = false
+    private var termIsPercent = false
 
     init(expression: String, variables: [String: Double] = [:]) {
         self.characters = Array(expression)
@@ -117,9 +119,11 @@ struct CalculatorParser {
         while true {
             skipSpaces()
             if consume("+") {
-                value += try parseTerm()
+                let term = try parseTerm()
+                value += termIsPercent ? value * term : term
             } else if consume("-") {
-                value -= try parseTerm()
+                let term = try parseTerm()
+                value -= termIsPercent ? value * term : term
             } else {
                 return value
             }
@@ -127,52 +131,68 @@ struct CalculatorParser {
     }
 
     private mutating func parseTerm() throws -> Double {
-        var value = try parsePower()
+        var value = try parseUnary()
+        var isPercent = lastWasPercent
         while true {
             skipSpaces()
             if consume("*") {
-                value *= try parsePower()
+                value *= try parseUnary()
             } else if consume("/") {
-                let divisor = try parsePower()
+                let divisor = try parseUnary()
                 guard divisor != 0 else { throw ParseError.divisionByZero }
                 value /= divisor
             } else if consume("%") {
-                let divisor = try parsePower()
+                let divisor = try parseUnary()
                 guard divisor != 0 else { throw ParseError.divisionByZero }
                 value = value.truncatingRemainder(dividingBy: divisor)
             } else if canStartImplicitFactor {
-                value *= try parsePower()
+                value *= try parseUnary()
             } else {
+                termIsPercent = isPercent
                 return value
             }
+            isPercent = false
         }
-    }
-
-    private mutating func parsePower() throws -> Double {
-        var value = try parseUnary()
-        skipSpaces()
-        if consume("^") {
-            value = pow(value, try parsePower())
-        }
-        return value
     }
 
     private mutating func parseUnary() throws -> Double {
         skipSpaces()
         if consume("+") { return try parseUnary() }
         if consume("-") { return -(try parseUnary()) }
-        if consume("√") { return sqrt(try parseUnary()) }
+        return try parsePower()
+    }
+
+    private mutating func parsePower() throws -> Double {
+        var value = try parseRadical()
+        skipSpaces()
+        if consume("^") {
+            value = pow(value, try parseUnary())
+            lastWasPercent = false
+        }
+        return value
+    }
+
+    private mutating func parseRadical() throws -> Double {
+        skipSpaces()
+        if consume("√") {
+            let value = sqrt(try parseRadical())
+            lastWasPercent = false
+            return value
+        }
         return try parsePostfix()
     }
 
     private mutating func parsePostfix() throws -> Double {
         var value = try parsePrimary()
+        lastWasPercent = false
         while true {
             skipSpaces()
             if consume("!") {
                 value = try factorial(value)
+                lastWasPercent = false
             } else if consumePostfixPercent() {
                 value /= 100
+                lastWasPercent = true
             } else {
                 return value
             }

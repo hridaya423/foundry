@@ -141,4 +141,35 @@ final class DeveloperToolsProviderTests: XCTestCase {
         let secondAction = try XCTUnwrap(second.first { $0.id == "dev.uuid" }?.primaryAction.behavior as? CopyToClipboardAction)
         XCTAssertNotEqual(firstAction, secondAction)
     }
+
+    func testBitwiseAcceptsHexOperands() {
+        guard case let .and(lhs, rhs)? = DeveloperToolsEngine.bitwiseOperation(from: "0xFF & 0x0F") else {
+            return XCTFail("expected AND operation")
+        }
+        XCTAssertEqual(lhs, 255)
+        XCTAssertEqual(rhs, 15)
+    }
+
+    func testCommaGroupedTimestampFollowsTheSameMagnitudeRuleAsPlainDigits() {
+        let seconds = DeveloperToolsEngine.timestampConversions(for: "1,700,000,000")
+        let plain = DeveloperToolsEngine.timestampConversions(for: "1700000000")
+        XCTAssertEqual(seconds.first { $0.label == "Unix seconds" }?.value, "1700000000")
+        XCTAssertEqual(seconds.map(\.value), plain.map(\.value))
+        let milliseconds = DeveloperToolsEngine.timestampConversions(for: "1,700,000,000,000")
+        XCTAssertEqual(milliseconds.first { $0.label == "Unix seconds" }?.value, "1700000000")
+    }
+
+    func testTimestampAcceptsISO8601WithZoneAndOffset() {
+        for input in ["2023-11-14T22:13:20Z", "2023-11-14T22:13:20.000Z", "2023-11-15T03:43:20+05:30"] {
+            let rows = DeveloperToolsEngine.timestampConversions(for: input)
+            XCTAssertEqual(rows.first { $0.label == "Unix seconds" }?.value, "1700000000", input)
+        }
+    }
+
+    func testBase64DecodeAcceptsURLSafeAndUnpaddedInput() {
+        XCTAssertEqual(DeveloperToolsEngine.base64Decode("aGk"), "hi")
+        XCTAssertEqual(DeveloperToolsEngine.base64Decode("aGk="), "hi")
+        XCTAssertEqual(DeveloperToolsEngine.base64Decode("Pz8-"), "??>")
+        XCTAssertEqual(DeveloperToolsEngine.base64Decode("Pz8_"), "???")
+    }
 }
