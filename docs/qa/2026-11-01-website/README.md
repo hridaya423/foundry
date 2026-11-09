@@ -2,6 +2,8 @@
 
 Plan: `docs/plans/2026-11-01-foundry-last-20.md`. Script: `anvil/scripts/qa.mjs` (`npm run qa`; `--shots` skips Lighthouse; `--trace` records first paint, add `QA_GPU=1` for the real GPU). Routes and stops: `anvil/scripts/qa-routes.json`.
 
+The screenshots (`*.png`) are not tracked. A run writes them next to the reports; the sentences below that describe a capture record what the reviewer saw, and the images are not in the repository.
+
 ## Before (production build, `next start -p 3124`)
 
 Folder: `before/`. 24 captures (6 story stops and 2 pages at 1440, 768, 390), `contact-sheet.html`, `report.json`, `axe-*.json`, `lh-*.json`, `lighthouse.json`, `trace/`.
@@ -20,7 +22,7 @@ Folder: `before/`. 24 captures (6 story stops and 2 pages at 1440, 768, 390), `c
 | `/` rendering | dynamic (`ƒ`), because the page reads `searchParams` for the inspector; could be static |
 | Bytes on `/` | 595 KB total |
 
-### First paint (`before/trace/handover.png`, real GPU)
+### First paint (real GPU)
 
 1. The first painted frame has the copy and the palette but no wordmark. The wordmark is a CSS background image (`.foundry-wordmark`) that loads after first paint, so the top half of the hero is empty.
 2. The SVG wordmark is then replaced by the WebGL tiles, which render visibly brighter and warmer. The swap is a pop, not a handover.
@@ -55,10 +57,10 @@ Folder: `after/` (24 captures, axe, `report.json`, `contact-sheet.html`; `--shot
 | Status, Geist, overflow | 200 / 404, yes, 0 px | unchanged |
 | Console errors | 1 hydration mismatch | 0 every route |
 | axe | 1 minor (`aria-allowed-role`, hero) | unchanged, still open |
-| First painted frame | no wordmark (`before/trace/trace-000.png`) | SVG wordmark present (`c3-trace/trace-000.png`, svg opacity 1, scene not yet ready) |
-| SVG to WebGL handover | visible pop, WebGL brighter and warmer | SVG ramp brightened to the lit tile colour, 160 ms crossfade; `c3-trace/handover.png` |
-| 768 shelf (critic HIGH 1) | file shelf over the headline | clear (`after/home-768-at0.840.png`) |
-| 768 memory (critic HIGH 2) | headline over the tiles | clear (`after/home-768-at2.920.png`) |
+| First painted frame | no wordmark | SVG wordmark present (svg opacity 1, scene not yet ready) |
+| SVG to WebGL handover | visible pop, WebGL brighter and warmer | SVG ramp brightened to the lit tile colour, 160 ms crossfade |
+| 768 shelf (critic HIGH 1) | file shelf over the headline | clear |
+| 768 memory (critic HIGH 2) | headline over the tiles | clear |
 | Nav and footer mark | text "foundry" | Split Mould mark + wordmark |
 
 Correction: `next/image` with `priority` does not emit a `<link rel="preload">` in this build (Next 16.2.7). The image is eager in the server HTML, which is enough for the first frame shown above.
@@ -72,7 +74,7 @@ Correction: `next/image` with `priority` does not emit a `<link rel="preload">` 
   - After (4 cold GPU runs, load 45 to 80): longest 118, 149, 119, 190 ms, split into 3 or 4 tasks. Total blocking unchanged (150 to 285 ms): the work is the same, it no longer lands as one freeze.
   - Profile (before chunking): `renderer.setSize` ~98 ms, `PMREMGenerator.fromScene` ~81 ms, first render ~90 ms (program link in `getUniforms`).
   - Surprise: `createShelfScene` runs while the canvas is `display: none`, so `canvas.clientWidth` is 0 and `small` is always true. Desktop has always rendered without shadows at pixel ratio up to 2. Left as is: the look was tuned in that state.
-  - Handover unchanged: `c3-trace/trace-000.png` wordmark present, `trace-001.png` mid-crossfade.
+  - Handover unchanged: wordmark present in the first frame, mid-crossfade in the second.
 - Recaptured `after/` on this build: 24 shots, 0 errors, 0 overflow, only the known minor axe item.
 
 Not fixed yet: the critic MEDIUMs (Task C4), Lighthouse and long-task budgets on a quiet machine.
@@ -98,7 +100,7 @@ Not done: live Dock, menu bar, panel and install captures (C1 palette fidelity, 
 
 Earlier findings: 7 resolved, 5 partial, 3 unresolved. New: 2 HIGH, 2 MEDIUM, 1 LOW. Settled after the review:
 
-- HIGH 1, closing button wrapped onto two lines: fixed (`width: auto`, `nowrap`); `final/home-*-at3.360.png` show one line.
+- HIGH 1, closing button wrapped onto two lines: fixed (`width: auto`, `nowrap`); the recaptured home shots at 3.36 s show one line.
 - HIGH 2, app size disagreed between pages: `docs/release-notes/1.2.0.md` now says 8.1 MB (was 14.6 MB), matching `/proof` and `docs/benchmarks/2026-10-08-foundry-1.2-report.md`.
 - MEDIUM 1, 320 px: the tab clipping came from a capture taken before the 320 fix. The selected clipboard card is centred on the current build (Coast.jpg at 48 to 272 px of 320). 320 px is now part of the QA gate (48 shots). Adding it surfaced a clipped hero headline (display floor lowered to 24 px), a table that scrolled without being focusable, and duplicate table labels on /methodology; all fixed.
 - MEDIUM 2, calculator panel hid the answer: the result row now shows the result (432, Bonjour, 2024-01-01) in place of "Done".
