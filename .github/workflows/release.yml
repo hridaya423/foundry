@@ -150,5 +150,5 @@ jobs:
             --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" \
             --title "Foundry ${version} (build ${GITHUB_RUN_NUMBER})" \
-            --notes "Automated build from commit ${GITHUB_SHA}. Download the .dmg, drag Foundry to Applications, then open the launcher with ⌥Space." \
+            --notes "Automated build from commit ${GITHUB_SHA}. Download the .dmg, drag Foundry to Applications, then open the launcher with ⌘Space, or the shortcut you chose during setup." \
             --latest

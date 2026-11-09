@@ -17,20 +17,20 @@ Press **⌘Space** anywhere to open the launcher. First-run setup takes ⌘Space
 - Raycast-compatible Script Commands and Apple Shortcuts
 - File search through Spotlight with the `f ` prefix, `kind:` filters, Quick Look, drag-out, and Finder-style actions (Reveal, Copy Path, Open With, Compress, Rename, Share, Trash, Convert, Extract Text)
 - A routed conversion engine — native ImageIO/AVFoundation/PDFKit/textutil/plutil engines plus on-demand Homebrew tools (ffmpeg, ImageMagick, pandoc, LibreOffice), multi-hop routes, PDF merge/extract/OCR, archive handling, staged atomic output, and per-target options (quality, bitrate, DPI, page ranges, metadata stripping, naming templates)
-- Scriptable conversion entry points: `open -a Foundry --convert <paths>`, Finder Open With, and Dock drops
+- Scriptable conversion entry points: Finder Open With, Dock drops, and `open -a Foundry --args --convert <paths>` when Foundry is not already running
 - Settings backup and import
 - Calculator with unit conversions, equations, and a last-10 history
 - Time zone lookups and conversions (`now in sf`, `12pm est`)
 - Currency exchange via Frankfurter with the rate date shown
 - Translator with live language switching
-- Media downloads for direct links, Cobalt, and automatic YouTube support through yt-dlp, with favicons, file thumbnails, context menus, a completion toast, and aggregate speed
+- Media downloads for direct links and automatic YouTube support through yt-dlp, with favicons, file thumbnails, context menus, a completion toast, and aggregate speed
 - Clipboard history for text, files, and images, stored locally in SQLite, with pins, filters, plain-text paste, merge-with-previous, and image metadata
 - Apple Notes search and quick actions
 - File Shelf and file conversion
 - Local photo background removal with optional BEN2 support
 - Mac utilities, system commands, 34 window layouts, Empty Trash, and a desktop-icons toggle
 - Emoji and symbol picker
-- Snippets with keywords, placeholders, tag filtering, usage counts, import/export (Raycast JSON and CSV), and automatic expansion with per-app exclusions and configurable delimiters
+- Snippets with keywords, placeholders, tag filtering, usage counts, Raycast JSON import, JSON and CSV export, and automatic expansion with per-app exclusions and configurable delimiters
 - Vision OCR on images, shelf items, clipboard images, and screen regions
 - Color picker with hex/RGB/HSL/HSV/OKLCH/NSColor formats and a recent-colors strip
 - QR generation (text and Wi-Fi join) and QR/barcode reading
@@ -54,6 +54,6 @@ Install with `INSTALL_APP=1 ./scripts/build-app.sh`. Add `LAUNCH_APP=1` to launc
 
 Run the tests with `swift test`. The package builds with Swift 6.1 (Xcode 16.3) or Swift 6.2; Liquid Glass surfaces need the Swift 6.2 toolchain and fall back to the standard material otherwise.
 
-Release notes: [docs/release-notes/1.2.0.md](docs/release-notes/1.2.0.md). Performance numbers and how to reproduce them: [docs/benchmarks/](docs/benchmarks/).
+Release notes: [docs/release-notes/1.3.0.md](docs/release-notes/1.3.0.md). Performance numbers and how to reproduce them: [docs/benchmarks/](docs/benchmarks/).
 
 YouTube downloads automatically install the current `yt-dlp` formula through Homebrew when needed.

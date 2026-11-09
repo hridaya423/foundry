@@ -128,10 +128,6 @@ if [[ ! -f "$ICON_FILE" ]]; then
     echo "error: Supporting/AppIcon.icns is missing; run scripts/render-icon.swift + iconutil" >&2
     exit 1
 fi
-if [[ -d "$ROOT_DIR/Supporting/AppIcon.iconset" && "$ROOT_DIR/Supporting/AppIcon.iconset" -nt "$ICON_FILE" ]]; then
-    echo "error: AppIcon.iconset is newer than AppIcon.icns; rebuild it with iconutil" >&2
-    exit 1
-fi
 cp "$ICON_FILE" "$RESOURCES_DIR/AppIcon.icns"
 
 cat > "$CONTENTS_DIR/Info.plist" <<EOF
