@@ -159,12 +159,12 @@ enum OpenAICodexTransport {
             guard let frame = decoder.decode(line: line) else { continue }
             if let failure = frame.failureMessage { return .failure(failure, .transient) }
             if frame.isDone {
-                if let toolCall = frame.toolCall { return .toolCall(toolCall, assistantText: decoder.text) }
+                if let toolCall = frame.toolCall { return .toolCalls([toolCall], assistantText: decoder.text) }
                 return .final(AgentProtocolDecoder.displayContent(from: decoder.text))
             }
         }
         let frame = decoder.finish()
-        if let toolCall = frame.toolCall { return .toolCall(toolCall, assistantText: decoder.text) }
+        if let toolCall = frame.toolCall { return .toolCalls([toolCall], assistantText: decoder.text) }
         return .final(AgentProtocolDecoder.displayContent(from: decoder.text))
     }
 
