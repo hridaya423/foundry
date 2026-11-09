@@ -7,13 +7,17 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-THEME="$ROOT/Sources/Foundry/UI/FoundryTheme.swift"
+
+ALLOWED='ImageActions\.swift:[0-9]+:.*String\(format: "NSColor\(red: %'
 
 matches() {
-    find "$ROOT/Sources" -name '*.swift' ! -path "$THEME" -print0 \
-        | xargs -0 grep -nHE "$1" \
-        | grep -v 'NSColor(red:' \
-        || true
+    local out rc=0
+    out=$(grep -rnHE --include='*.swift' --exclude='FoundryTheme.swift' "$1" "$ROOT/Sources") || rc=$?
+    if (( rc > 1 )); then
+        echo "error: grep failed with status $rc" >&2
+        exit 2
+    fi
+    printf '%s\n' "$out" | grep -vE "$ALLOWED" || true
 }
 
 failed=0
