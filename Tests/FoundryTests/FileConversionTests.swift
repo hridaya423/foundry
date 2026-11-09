@@ -668,6 +668,76 @@ final class ConversionExecutorTests: XCTestCase {
         XCTAssertEqual(PDFDocument(url: out)?.pageCount, 2)
     }
 
+    private func makePDF(_ name: String, pages: Int) throws -> URL {
+        let image = NSImage(size: NSSize(width: 20, height: 20), flipped: false) { rect in
+            NSColor.red.setFill()
+            rect.fill()
+            return true
+        }
+        let document = PDFDocument()
+        for index in 0..<pages { document.insert(try XCTUnwrap(PDFPage(image: image)), at: index) }
+        let url = folder.appendingPathComponent(name)
+        XCTAssertTrue(document.write(to: url))
+        return url
+    }
+
+    func testMultiPagePDFToPNGWritesAFolderOfPages() async throws {
+        let source = try makePDF("scan.pdf", pages: 3)
+        let target = try XCTUnwrap(FileConversionService.availableTargets(for: source).first { $0.outputExtension == "png" })
+
+        guard case let .success(out) = await FileConversionService.convert(sourceURL: source, target: target, outputFolderURL: folder) else {
+            return XCTFail("multi-page pdf to png failed")
+        }
+
+        XCTAssertEqual(out.lastPathComponent, "scan")
+        XCTAssertEqual(try FileManager.default.contentsOfDirectory(atPath: out.path).sorted(), ["page-1.png", "page-2.png", "page-3.png"])
+        XCTAssertEqual(try FileManager.default.contentsOfDirectory(atPath: folder.path).sorted(), ["scan", "scan.pdf"])
+    }
+
+    func testSinglePagePDFToJPGStaysOneFile() async throws {
+        let source = try makePDF("one.pdf", pages: 1)
+        let target = try XCTUnwrap(FileConversionService.availableTargets(for: source).first { $0.outputExtension == "jpg" })
+
+        guard case let .success(out) = await FileConversionService.convert(sourceURL: source, target: target, outputFolderURL: folder) else {
+            return XCTFail("single-page pdf to jpg failed")
+        }
+
+        XCTAssertEqual(out.lastPathComponent, "one.jpg")
+        XCTAssertEqual(try FileManager.default.contentsOfDirectory(atPath: folder.path).sorted(), ["one.jpg", "one.pdf"])
+    }
+
+    func testFailedPDFConversionLeavesNothingHidden() async throws {
+        let source = folder.appendingPathComponent("broken.pdf")
+        try Data("not a pdf".utf8).write(to: source)
+        let target = try XCTUnwrap(FileConversionService.availableTargets(for: source).first { $0.outputExtension == "png" })
+
+        let result = await FileConversionService.convert(sourceURL: source, target: target, outputFolderURL: folder)
+
+        guard case .failure = result else { return XCTFail("expected a failure") }
+        XCTAssertEqual(try FileManager.default.contentsOfDirectory(atPath: folder.path), ["broken.pdf"])
+    }
+
+    func testStrippingMetadataBakesTheExifRotationIntoThePixels() async throws {
+        let source = folder.appendingPathComponent("rotated.jpg")
+        let context = try XCTUnwrap(CGContext(data: nil, width: 4, height: 2, bitsPerComponent: 8, bytesPerRow: 0,
+            space: CGColorSpace(name: CGColorSpace.sRGB)!, bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue))
+        context.setFillColor(CGColor(srgbRed: 1, green: 0, blue: 0, alpha: 1))
+        context.fill(CGRect(x: 0, y: 0, width: 4, height: 2))
+        let writer = try XCTUnwrap(CGImageDestinationCreateWithURL(source as CFURL, UTType.jpeg.identifier as CFString, 1, nil))
+        CGImageDestinationAddImage(writer, try XCTUnwrap(context.makeImage()), [kCGImagePropertyOrientation: 6] as CFDictionary)
+        XCTAssertTrue(CGImageDestinationFinalize(writer))
+        let target = try XCTUnwrap(FileConversionService.availableTargets(for: source).first { $0.outputExtension == "png" })
+
+        guard case let .success(out) = await FileConversionService.convert(
+            sourceURL: source, target: target, outputFolderURL: folder, options: ConversionOptions(stripMetadata: true)
+        ) else { return XCTFail("conversion failed") }
+
+        let properties = try XCTUnwrap(CGImageSourceCreateWithURL(out as CFURL, nil).flatMap { CGImageSourceCopyPropertiesAtIndex($0, 0, nil) as? [CFString: Any] })
+        XCTAssertEqual(properties[kCGImagePropertyPixelWidth] as? Int, 2)
+        XCTAssertEqual(properties[kCGImagePropertyPixelHeight] as? Int, 4)
+        XCTAssertNil(properties[kCGImagePropertyOrientation])
+    }
+
     func testZipAndExtractRoundTrip() async throws {
         let source = folder.appendingPathComponent("note.txt")
         try "hello".write(to: source, atomically: true, encoding: .utf8)

@@ -262,7 +262,12 @@ public enum FileConversionService {
                 try await executeMultiHop(route: route, source: sourceURL, staged: staged.url, options: options)
             }
 
-            let committed = try artifactStore.commit(staged) { url in
+            var isDirectory: ObjCBool = false
+            FileManager.default.fileExists(atPath: staged.url.path, isDirectory: &isDirectory)
+            let folderDestination = isDirectory.boolValue
+                ? uniqueDestination(for: sourceURL, ext: "", in: outputFolderURL, options: options)
+                : nil
+            let committed = try artifactStore.commit(staged, to: folderDestination) { url in
                 (FileManager.default.attributesIfPresent(atPath: url.path)?[.size] as? NSNumber)?.intValue ?? 0 > 0
             }
             return .success(committed)
@@ -335,7 +340,17 @@ public enum FileConversionService {
         }
         if options.stripMetadata {
             // Re-encode pixels only — EXIF/XMP/GPS data never reaches the output.
-            guard let image = CGImageSourceCreateImageAtIndex(source, 0, nil) else {
+            let sourceProperties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any]
+            let orientation = sourceProperties?[kCGImagePropertyOrientation] as? Int ?? 1
+            let longestEdge = max(sourceProperties?[kCGImagePropertyPixelWidth] as? Int ?? 0, sourceProperties?[kCGImagePropertyPixelHeight] as? Int ?? 0)
+            let upright = [
+                kCGImageSourceCreateThumbnailFromImageAlways: true,
+                kCGImageSourceCreateThumbnailWithTransform: true,
+                kCGImageSourceThumbnailMaxPixelSize: longestEdge
+            ] as CFDictionary
+            guard let image = orientation > 1 && longestEdge > 0
+                ? CGImageSourceCreateThumbnailAtIndex(source, 0, upright)
+                : CGImageSourceCreateImageAtIndex(source, 0, nil) else {
                 throw FileConversionError.unavailable("Could not read image")
             }
             CGImageDestinationAddImage(destination, image, props as CFDictionary)
@@ -407,8 +422,8 @@ public enum FileConversionService {
     }
 
     /// PDFKit edge — renders selected pages at `options.dpi` (default 144).
-    /// Multi-page selections write `name-N.png` siblings; single page uses the
-    /// plain destination name.
+    /// A multi-page selection turns the staged output into a folder holding
+    /// `page-N.<ext>`; a single page writes the staged file itself.
     private static func convertPDFToImage(input: URL, output: URL, ext: String, options: ConversionOptions) throws {
         guard let document = PDFDocument(url: input), document.pageCount > 0 else {
             throw FileConversionError.unavailable("Could not open PDF")
@@ -416,8 +431,13 @@ public enum FileConversionService {
         let indexes = parsePageSelection(options.pages, pageCount: document.pageCount)
         let scale = max(0.5, min((options.dpi ?? 144) / 72.0, 8))
         let isJPEG = ext == "jpg" || ext == "jpeg"
+        let multiplePages = indexes.count > 1
+        if multiplePages {
+            try FileManager.default.removeItem(at: output)
+            try FileManager.default.createDirectory(at: output, withIntermediateDirectories: false)
+        }
 
-        for (position, pageIndex) in indexes.enumerated() {
+        for pageIndex in indexes {
             try Task.checkCancellation()
             guard let page = document.page(at: pageIndex) else { continue }
             let bounds = page.bounds(for: .mediaBox)
@@ -428,29 +448,22 @@ public enum FileConversionService {
                       bitsPerComponent: 8, bytesPerRow: 0,
                       space: CGColorSpace(name: CGColorSpace.sRGB)!,
                       bitmapInfo: isJPEG ? CGImageAlphaInfo.noneSkipLast.rawValue : CGImageAlphaInfo.premultipliedLast.rawValue
-                  ) else { continue }
+                  ) else { throw FileConversionError.unavailable("Could not render page \(pageIndex + 1)") }
             context.setFillColor(CGColor(srgbRed: 1, green: 1, blue: 1, alpha: 1))
             context.fill(CGRect(x: 0, y: 0, width: width, height: height))
             context.translateBy(x: -bounds.minX * scale, y: -bounds.minY * scale)
             context.scaleBy(x: scale, y: scale)
             page.draw(with: .mediaBox, to: context)
-            guard let image = context.makeImage() else { continue }
+            guard let image = context.makeImage() else { throw FileConversionError.unavailable("Could not render page \(pageIndex + 1)") }
 
-            let pageOutput = pageOutputURL(base: output, index: position, total: indexes.count)
+            let pageOutput = multiplePages ? output.appendingPathComponent("page-\(pageIndex + 1).\(ext)") : output
             guard let destination = CGImageDestinationCreateWithURL(pageOutput as CFURL, (isJPEG ? UTType.jpeg : UTType.png).identifier as CFString,
-                1, nil) else { continue }
+                1, nil) else { throw FileConversionError.unavailable("Could not write page \(pageIndex + 1)") }
             var props: [CFString: Any] = [:]
             if let quality = options.quality, isJPEG { props[kCGImageDestinationLossyCompressionQuality] = quality }
             CGImageDestinationAddImage(destination, image, props as CFDictionary)
-            CGImageDestinationFinalize(destination)
+            guard CGImageDestinationFinalize(destination) else { throw FileConversionError.unavailable("Could not write page \(pageIndex + 1)") }
         }
-    }
-
-    private static func pageOutputURL(base: URL, index: Int, total: Int) -> URL {
-        if total == 1 { return base }
-        let dir = base.deletingLastPathComponent()
-        let name = base.deletingPathExtension().lastPathComponent
-        return dir.appendingPathComponent("\(name)-\(index + 1).\(base.pathExtension)")
     }
 
     /// Parses "1-3", "2,4", "all"/nil into page indexes (clamped to pageCount,
@@ -751,7 +764,7 @@ public enum FileConversionService {
         let magick = try await locateExecutable(.imageMagick)
         var args = [input.path]
         if let maxPixel = options.maxPixelSize { args += ["-resize", "\(maxPixel)x\(maxPixel)>"] }
-        if options.stripMetadata { args.append("-strip") }
+        if options.stripMetadata { args += ["-auto-orient", "-strip"] }
         if let quality = options.quality, lossyImageExts.contains(ext) {
             args += ["-quality", String(Int((quality * 100).rounded()))]
         }
@@ -832,7 +845,7 @@ public enum FileConversionService {
         var index = 1
         while true {
             let suffix = index == 1 ? "" : " \(index)"
-            let candidate = folder.appendingPathComponent("\(stem)\(suffix).\(ext)")
+            let candidate = folder.appendingPathComponent(ext.isEmpty ? "\(stem)\(suffix)" : "\(stem)\(suffix).\(ext)")
             if FileManager.default.fileExists(atPath: candidate.path) == false { return candidate }
             index += 1
         }
