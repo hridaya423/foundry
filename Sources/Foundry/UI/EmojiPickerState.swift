@@ -123,11 +123,37 @@ final class EmojiPickerState {
     }
 
     func moveUp() {
-        moveSelection(offset: -columns)
+        moveRows(-1)
     }
 
     func moveDown() {
-        moveSelection(offset: columns)
+        moveRows(1)
+    }
+
+    private func moveRows(_ rows: Int) {
+        let sections = [recentCells, resultCells].filter { $0.isEmpty == false }
+        guard let start = sections.indices.first(where: { section in sections[section].contains { $0.id == selectedID } }),
+              let index = sections[start].firstIndex(where: { $0.id == selectedID }) else {
+            selectedID = sections.first?.first?.id
+            return
+        }
+        let column = index % columns
+        let lastRow = { [columns] (section: Int) in (sections[section].count - 1) / columns }
+        var section = start
+        var row = index / columns + rows
+        if row < 0 {
+            guard section > 0 else { return }
+            section -= 1
+            row = lastRow(section)
+        } else if row > lastRow(section) {
+            guard section < sections.count - 1 else {
+                selectedID = sections[section].last?.id
+                return
+            }
+            section += 1
+            row = 0
+        }
+        selectedID = sections[section][min(row * columns + column, sections[section].count - 1)].id
     }
 
     func takeSelectedEmoji() -> String? {

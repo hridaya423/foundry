@@ -50,6 +50,33 @@ final class EmojiPickerStateTests: XCTestCase {
         XCTAssertEqual(state.selectedEmoji?.value, "🔥")
     }
 
+    func testVerticalArrowsKeepTheColumnAcrossSections() {
+        let state = EmojiPickerState(localState: LocalStateStore())
+        ["🔥", "🎉", "✅"].forEach(state.recordRecent)
+        state.reset()
+        state.moveRight()
+        state.moveRight()
+        XCTAssertEqual(state.selectedID, state.recentCells[2].id)
+        state.moveDown()
+        XCTAssertEqual(state.selectedID, state.resultCells[2].id)
+        state.moveDown()
+        XCTAssertEqual(state.selectedID, state.resultCells[2 + state.columns].id)
+        state.moveUp()
+        state.moveUp()
+        XCTAssertEqual(state.selectedID, state.recentCells[2].id)
+        state.moveUp()
+        XCTAssertEqual(state.selectedID, state.recentCells[2].id)
+    }
+
+    func testDownFromAColumnPastTheRecentRowLandsOnTheLastRecent() {
+        let state = EmojiPickerState(localState: LocalStateStore())
+        ["🔥", "🎉"].forEach(state.recordRecent)
+        state.reset()
+        state.select(id: state.resultCells[5].id)
+        state.moveUp()
+        XCTAssertEqual(state.selectedID, state.recentCells[1].id)
+    }
+
     func testCellValueCarriesSkinTone() {
         let state = EmojiPickerState(localState: LocalStateStore())
         state.setSkinTone("🏽")
