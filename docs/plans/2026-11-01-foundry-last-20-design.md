@@ -1,5 +1,7 @@
 # Foundry: the last 20% (design)
 
+Status (2026-11-09): executed. This is the design for the website and brand. Its plan is `2026-11-01-foundry-last-20.md`. Merged into `main` as `6bf3fdf` and released in 1.3.0. Evidence: `docs/qa/2026-11-01-website/README.md`.
+
 Scope: the website in `anvil/` first, the brand that the website carries second, and the three touchpoints that must agree with it (app icon, menu bar glyph, DMG). Not in scope: app features, distribution plumbing beyond what the site promises.
 
 The bar: a stranger lands on the page, and within ten seconds believes a serious person made this, downloads it, and the install does not make them feel tricked. Every claim on the page is true today. Every pixel was decided.

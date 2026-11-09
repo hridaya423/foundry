@@ -5,6 +5,8 @@ created: 2026-09-25T20:39:23Z
 ---
 # Foundry Premium: polish, parity, onboarding, performance
 
+Status (2026-11-09): implemented and shipped as 1.2.0 (see `docs/release-notes/1.2.0.md`). Kept for history.
+
 Take Foundry (the macOS app, not the film or site) from a capable prototype to a premium launcher: a signed, auto-updating release; a polished first-run experience; a refined visual system; the launcher features people expect from Raycast and Tinycast; every existing feature brought up to that bar; measured performance gains; and a code and copy deslop, all delivered as gated phases of commits on main.
 
 ## 0. Decisions locked with the user

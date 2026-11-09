@@ -1,5 +1,7 @@
 # Feature-cut audit (P5)
 
+Status (2026-11-09): complete. The one proposed cut (Camera) was declined on 2026-09-29. The later plan `2026-11-01-foundry-last-20-percent.md` cut Camera (commit `4330f2e`, decision D4).
+
 Per the plan: every surface gets a value/cost assessment and a recommendation.
 Nothing is removed without approval. "Cost" covers maintenance surface,
 search-result noise, permissions required, and bundle/memory weight.

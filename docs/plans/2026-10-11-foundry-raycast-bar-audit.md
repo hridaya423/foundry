@@ -1,10 +1,12 @@
 # Foundry vs. the Raycast bar: audit and remediation plan
 
+Status (2026-11-09): complete. All phases 0–6 were implemented on `raycast-quality-overhaul` and merged into `main`. See `docs/HANDOFF.md`.
+
 > **For the executor:** work phase by phase. Every task lists files, the change, and an acceptance check. Run `swift test` (whole suite) only at phase gates. Use the narrowest test filter (`swift test --filter <Suite>`) per task. Don't sweep `foundry-ad/`, `launch-film/`, `anvil/`, or `.devin/` into Foundry commits.
 
 **Goal:** make Foundry *feel* like Raycast. That means instant, invisible when dismissed, honest about what Return will do, and keyboard-perfect, with a codebase that can absorb new features without editing the same 17 switches.
 
-**Evidence base (2026-10-11):** full read of the shell (`PanelController`, `ShellController`, `HotkeyController`, `DirectPasteService`), panel state and view, the search pipeline (`CommandRegistry`, `CommandProviderScheduler`, `CommandRanker`, `ResultSections`), clipboard store, config, theme and rows, plus targeted reads elsewhere. Runtime: clean `swift build` (0 warnings), `swift test` (603 tests, 0 failures, 3 env-skipped, 77 s), `build-app.sh` (8.2 MB bundle), passive sampling of a running build, and one live screenshot (`/tmp/foundry-audit/shots/home.png`, query "als").
+**Evidence base (2026-10-11):** full read of the shell (`PanelController`, `ShellController`, `HotkeyController`, `DirectPasteService`), panel state and view, the search pipeline (`CommandRegistry`, `CommandProviderScheduler`, `CommandRanker`, `ResultSections`), clipboard store, config, theme and rows, plus targeted reads elsewhere. Runtime: clean `swift build` (0 warnings), `swift test` (603 tests, 0 failures, 3 env-skipped, 77 s), `build-app.sh` (8.2 MB bundle), passive sampling of a running build, and one live screenshot (query "als"; the file was in the system temp folder and is gone).
 
 Each finding is labelled **[verified]** (read in code or measured) or **[hypothesis]** (strongly suggested, needs the listed check before you fix it).
 
