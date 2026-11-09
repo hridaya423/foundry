@@ -1,5 +1,7 @@
 # Ear check: renders/foundry-every-job.mp4
 
+Status (2026-11-09): superseded. These times are from the 24.3 s cut. The film is now 30.03 s (`audio/cues.json`, `js/timing.js`): `melt them down` enters at 7.0, the cast starts at 8.8, the kills run 12.0 to 17.97, and the logo lands at 24.63. Measure the ear check again on the current render before using it.
+
 QA (`sound-layer/scripts/qa.py`) passes: 0 failed, 1 warning. These are the five places the measurements can't settle.
 
 1. **0:02.00 to 0:02.80, "job."** The Saturn V hit lands after a 0.4 s dead stop, the shuttle roar runs under it and
