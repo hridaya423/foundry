@@ -100,9 +100,9 @@ final class PanelSession {
             let sections = homeSections
             return sections.suggestions + sections.commands
         }
-        var list = searchListResults
-        if selectedPromotedCalculatorResult != nil {
-            list += Self.calculatorFallbackResults
+        let list = searchListResults
+        if list.isEmpty, selectedPromotedCalculatorResult != nil {
+            return Self.calculatorFallbackResults
         }
         return list
     }
