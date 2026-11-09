@@ -4,7 +4,23 @@ import FoundryServices
 import os
 
 final class CalculatorProvider: CommandProvider {
+    typealias RateSource = @Sendable (URL) async -> [FrankfurterRate]?
+
     let id = "foundry.calculator"
+    private let rateSource: RateSource
+    private let rateCache: CurrencyRateCache
+
+    init(rateSource: @escaping RateSource = CalculatorProvider.fetchRates, rateCache: CurrencyRateCache = .shared) {
+        self.rateSource = rateSource
+        self.rateCache = rateCache
+    }
+
+    static let fetchRates: RateSource = { url in
+        await BestEffort.attempt("fetch exchange rates") {
+            let (data, _) = try await URLSession.shared.data(from: url)
+            return try JSONDecoder().decode([FrankfurterRate].self, from: data)
+        }
+    }
 
     func search(_ request: CommandSearchRequest) async -> [CommandResult] {
         let trimmed = request.query.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -12,14 +28,14 @@ final class CalculatorProvider: CommandProvider {
             return Self.historyResults()
         }
 
-        let currencyConversions = await Self.convertCurrency(request.query)
-        if currencyConversions.isEmpty == false {
-            return Self.conversionResults(currencyConversions)
-        }
-
         let conversions = Self.convert(request.query)
         if conversions.isEmpty == false {
             return Self.conversionResults(conversions)
+        }
+
+        let currencyConversions = await convertCurrency(request.query)
+        if currencyConversions.isEmpty == false {
+            return Self.conversionResults(currencyConversions)
         }
 
         let explicitCalculation = Self.isExplicitCalculation(request.query)
@@ -123,9 +139,9 @@ final class CalculatorProvider: CommandProvider {
         }
     }
 
-    private static func convertCurrency(_ query: String) async -> [CalculatorEvaluation] {
-        guard let request = currencyRequest(from: query) else { return [] }
-        let quotes = request.quote.map { [$0] } ?? preferredCurrencyQuotes(base: request.base)
+    private func convertCurrency(_ query: String) async -> [CalculatorEvaluation] {
+        guard let request = Self.currencyRequest(from: query) else { return [] }
+        let quotes = request.quote.map { [$0] } ?? Self.preferredCurrencyQuotes(base: request.base)
         guard quotes.isEmpty == false else { return [] }
 
         var components = URLComponents(string: "https://api.frankfurter.dev/v2/rates")
@@ -136,31 +152,34 @@ final class CalculatorProvider: CommandProvider {
         guard let url = components?.url else { return [] }
         let cacheKey = "\(request.base):\(quotes.sorted().joined(separator: ","))"
         let rates: [FrankfurterRate]
-        if let cached = CurrencyRateCache.shared.value(for: cacheKey) {
+        if let cached = rateCache.value(for: cacheKey) {
             rates = cached
         } else {
-            let fetched = await BestEffort.attempt("fetch exchange rates") {
-                let (data, _) = try await URLSession.shared.data(from: url)
-                return try JSONDecoder().decode([FrankfurterRate].self, from: data)
-            }
-            guard let fetched else { return [] }
-            CurrencyRateCache.shared.store(fetched, for: cacheKey)
+            guard let fetched = await rateSource(url) else { return [] }
+            rateCache.store(fetched, for: cacheKey)
             rates = fetched
         }
 
-        let expression = currencyAmount(request.amount, code: request.base)
+        let expression = Self.currencyAmount(request.amount, code: request.base)
         let ratesByQuote = Dictionary(rates.map { ($0.quote, $0) }, uniquingKeysWith: { first, _ in first })
         return quotes.compactMap { ratesByQuote[$0] }.map { rate in
-            let result = currencyAmount(request.amount * rate.rate, code: rate.quote)
+            let result = Self.currencyAmount(request.amount * rate.rate, code: rate.quote)
             return CalculatorEvaluation(expression: expression, result: result, copyValue: result, note: rate.date.map { "Rate from \($0)" })
         }
     }
 
+    private static let numberPattern = #"[-+]?(?:\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:[\.,]\d+)?)"#
+
+    private static func numberValue(_ text: String) -> Double? {
+        let groupsThousands = text.range(of: #"^[-+]?\d{1,3}(?:,\d{3})+(?:\.\d+)?$"#, options: .regularExpression) != nil
+        return Double(text.replacingOccurrences(of: ",", with: groupsThousands ? "" : "."))
+    }
+
     private static let symbolCurrencyRegex = try! NSRegularExpression(
-        pattern: #"^([$€£¥₹])\s*([-+]?\d+(?:[\.,]\d+)?)(?:\s*(?:to|in)\s*([a-z]{3}|[$€£¥₹]))?$"#
+        pattern: #"^([$€£¥₹])\s*("# + numberPattern + #")(?:\s*(?:to|in)\s*([a-z]{3}|[$€£¥₹]))?$"#
     )
     private static let wordCurrencyRegex = try! NSRegularExpression(
-        pattern: #"^([-+]?\d+(?:[\.,]\d+)?)\s*([a-z]{3}|dollars?|bucks?|usd|euros?|eur|pounds?|gbp|yen|jpy|rupees?|inr|cad|aud|chf|cny)"#
+        pattern: #"^("# + numberPattern + #")\s*([a-z]{3}|dollars?|bucks?|usd|euros?|eur|pounds?|gbp|yen|jpy|rupees?|inr|cad|aud|chf|cny)"#
             + #"(?:\s*(?:to|in)\s*([a-z]{3}|[$€£¥₹]|dollars?|usd|euros?|eur|pounds?|gbp|yen|jpy|rupees?|inr|cad|aud|chf|cny))?$"#
     )
 
@@ -177,13 +196,14 @@ final class CalculatorProvider: CommandProvider {
             .firstMatch(in: value, range: NSRange(value.startIndex..<value.endIndex, in: value)),
             let amountRange = Range(match.range(at: amountIndex), in: value),
             let baseRange = Range(match.range(at: baseIndex), in: value),
-            let amount = Double(value[amountRange].replacingOccurrences(of: ",", with: ".")),
+            let amount = numberValue(String(value[amountRange])),
             let base = currencyCode(String(value[baseRange])) else { return nil }
 
         let quote: String?
         if match.range(at: quoteIndex).location != NSNotFound,
            let quoteRange = Range(match.range(at: quoteIndex), in: value) {
-            quote = currencyCode(String(value[quoteRange]))
+            guard let code = currencyCode(String(value[quoteRange])) else { return nil }
+            quote = code
         } else {
             quote = nil
         }
@@ -192,7 +212,7 @@ final class CalculatorProvider: CommandProvider {
         return CurrencyRequest(amount: amount, base: base, quote: quote)
     }
 
-    private static let convertRegex = try! NSRegularExpression(pattern: #"^([-+]?\d+(?:[\.,]\d+)?)\s*([a-z0-9/ ]+)$"#)
+    private static let convertRegex = try! NSRegularExpression(pattern: #"^("# + numberPattern + #")\s*([a-z0-9/ ]+)$"#)
 
     private static func convert(_ query: String) -> [CalculatorEvaluation] {
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
@@ -202,8 +222,7 @@ final class CalculatorProvider: CommandProvider {
             let valueRange = Range(match.range(at: 1), in: trimmed),
             let unitRange = Range(match.range(at: 2), in: trimmed) else { return [] }
 
-        let valueText = String(trimmed[valueRange]).replacingOccurrences(of: ",", with: ".")
-        guard let value = Double(valueText) else { return [] }
+        guard let value = numberValue(String(trimmed[valueRange])) else { return [] }
         let unit = String(trimmed[unitRange]).trimmingCharacters(in: .whitespacesAndNewlines)
 
         let conversions: [String]
@@ -424,9 +443,15 @@ final class CalculatorProvider: CommandProvider {
         case "cny": return "CNY"
         default:
             let uppercased = value.uppercased()
-            return uppercased.count == 3 ? uppercased : nil
+            return isoCurrencyCodes.contains(uppercased) ? uppercased : nil
         }
     }
+
+    private static let isoCurrencyCodes: Set<String> = [
+        "AED", "ARS", "AUD", "BDT", "BGN", "BRL", "CAD", "CHF", "CLP", "CNY", "COP", "CZK", "DKK", "EGP", "EUR", "GBP", "HKD", "HUF",
+        "IDR", "ILS", "INR", "ISK", "JPY", "KRW", "KWD", "MXN", "MYR", "NGN", "NOK", "NZD", "PEN", "PHP", "PKR", "PLN", "QAR", "RON",
+        "RUB", "SAR", "SEK", "SGD", "THB", "TRY", "TWD", "UAH", "USD", "VND", "ZAR"
+    ]
 
     private static func currencyName(_ code: String) -> String {
         switch code.uppercased() {
