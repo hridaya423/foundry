@@ -1,5 +1,7 @@
 # Foundry, the last 20% — Implementation Plan
 
+Status (2026-11-09): executed. This is the plan for the Swift app, Phases 0–7, committed 2026-11-01 to 2026-11-02 and released as 1.3.0 (`0f23e20`). It is not the website plan (see `2026-11-01-foundry-last-20.md`). Audits: `2026-11-01-last-20-audits/`.
+
 > **For Claude:** REQUIRED SUB-SKILL: Use `executing-plans` to implement task-by-task. Load `emil-design-eng` for every motion value, `clean-copy` for every string, `onboarding-design` for Phase 3, `test-driven-development` for every behaviour change, `verification-before-completion` before any done claim. Subagents that judge visuals run on `claude-opus-5-5` (memory: design subagents on Opus).
 
 **Goal:** Make every interaction in Foundry feel like the best Mac software made it: Raycast's keyboard truth, Linear's restraint, Things 3's quiet, Arc and Dia's first run. Nothing new in scope; depth on what exists.

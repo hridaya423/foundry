@@ -14,3 +14,34 @@ DerivedData/
 foundry-ad/century/
 foundry-ad/machine/
 foundry-ad/melt/
+
+# film renders and media
+foundry-ad/**/renders/
+launch-film/
+foundry-ad/**/*.mp4
+foundry-ad/**/*.mov
+foundry-ad/**/*.wav
+foundry-ad/**/*.mpeg
+foundry-ad/**/*.ogg
+foundry-ad/**/*.npy
+foundry-ad/research/footage/
+foundry-ad/literal/.hyperframes/
+foundry-ad/literal/**/*.png
+foundry-ad/literal/**/*.jpg
+foundry-ad/literal/**/*.mp3
+*.webm
+*.mkv
+*.m4v
+*.avi
+
+# local tooling and scratch
+.jury/
+inspo/
+.devin/mcp_config.local.json
+.devin/goal/
+.audit/product-polish.tsv
+
+# generated captures and concept art
+docs/qa/2026-11-01-website/**/*.png
+docs/brand/concepts/
+foundry-ad/literal/**/*.log

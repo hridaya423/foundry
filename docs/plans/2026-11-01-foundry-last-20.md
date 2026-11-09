@@ -1,5 +1,7 @@
 # Foundry: the last 20% Implementation Plan
 
+Status (2026-11-09): executed. This is the plan for the website and brand. Its design is `2026-11-01-foundry-last-20-design.md`. It is not the app plan (see `2026-11-01-foundry-last-20-percent.md`). Merged into `main` as `6bf3fdf` and released in 1.3.0.
+
 > **For Claude:** REQUIRED SUB-SKILL: Use `executing-plans` to implement task-by-task. Load `design-engineering` (it routes to the specialists) for every UI task, `emil-design-eng` for motion, `clean-copy` and `prose` for copy, `logo-design` then `brand-identity` for Track A, `verification-before-completion` before any "done".
 
 **Goal:** Take the Foundry website from "works and looks right" to a page the best product studios would sign, with a mark that is not a letter and a dot, every claim true and regenerable, and the install free of apologies.

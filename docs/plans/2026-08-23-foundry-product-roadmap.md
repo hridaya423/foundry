@@ -1,5 +1,7 @@
 # Foundry Product Roadmap Implementation Plan
 
+Status (2026-11-09): superseded by `2026-09-25-foundry-premium-plan.md`. Kept for history.
+
 > **Superseded** by `docs/plans/2026-09-25-foundry-premium-plan.md` where they overlap (P4 core parity replaces the phase order below).
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.

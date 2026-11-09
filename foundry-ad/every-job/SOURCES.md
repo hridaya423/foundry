@@ -1,6 +1,8 @@
 # Sources and licenses
 
-Footage and stills are public domain; fonts are OFL. The music (`tools/score.py`) is a synthesized drone, kick and bass with the recordings below; every sound effect is a real recording (`tools/cues.py`, `audio/CREDITS.md`).
+Footage and stills are public domain; fonts are OFL.
+
+Status (2026-11-09): the music (`tools/score.py`) is computed in code (`tools/synth.py`). The current cue sheet places computed keys, enters and a logo drum (`tools/sfx.py`). Most rows in the Audio table below are recordings from earlier versions. `audio/cues.json` and `audio/CREDITS.md` list what the film places now. `tools/music.py` and `audio/music/` hold earlier ElevenLabs takes that `score.py` does not read.
 
 | Asset | Source | License |
 | --- | --- | --- |
