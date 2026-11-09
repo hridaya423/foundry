@@ -21,7 +21,7 @@ enum OpenAICompatibleTransport {
             if let error = AITransportSupport.classify(httpResponse) {
                 return .failure(error.message, error.failureKind)
             }
-            return try await decodeStream(bytes: bytes)
+            return try await decodeStream(lines: bytes.lines)
         } catch {
             return AITransportSupport.makeFailure(error)
         }
@@ -85,36 +85,25 @@ enum OpenAICompatibleTransport {
         }
     }
 
-    private static func decodeStream(bytes: URLSession.AsyncBytes) async throws -> AgentModelResponse {
+    static func decodeStream<Lines: AsyncSequence>(lines: Lines) async throws -> AgentModelResponse where Lines.Element == String {
         var textParts: [String] = []
-        var toolID: String?
-        var toolName: String?
-        var toolArgumentParts: [String] = []
-        for try await line in bytes.lines {
+        var calls: [Int: StreamedToolCall] = [:]
+        for try await line in lines {
             guard Task.isCancelled == false else { return .failure("Cancelled", .cancelled) }
             let value = line.hasPrefix("data:") ? String(line.dropFirst(5)).trimmingCharacters(in: .whitespaces) : line
-            guard value.isEmpty == false, value != "[DONE]", let data = value.data(using: .utf8),
-                let root = try JSONSerialization.jsonObject(with: data) as? [String: Any] else { continue }
+            guard value != "[DONE]", let root = StreamedToolCall.object(value) else { continue }
+            if let failure = StreamedToolCall.failure(root) { return failure }
             guard let choice = (root["choices"] as? [[String: Any]])?.first else { continue }
             let delta = choice["delta"] as? [String: Any] ?? [:]
             if let content = delta["content"] as? String { textParts.append(content) }
-            if let calls = delta["tool_calls"] as? [[String: Any]], let call = calls.first, let function = call["function"] as? [String: Any] {
-                if let name = function["name"] as? String { toolName = name }
-                if let id = call["id"] as? String { toolID = id }
-                if let arguments = function["arguments"] as? String { toolArgumentParts.append(arguments) }
+            for call in delta["tool_calls"] as? [[String: Any]] ?? [] {
+                let index = call["index"] as? Int ?? 0
+                let function = call["function"] as? [String: Any] ?? [:]
+                calls[index, default: StreamedToolCall()].append(id: call["id"] as? String, name: function["name"] as? String,
+                    arguments: function["arguments"] as? String)
             }
         }
-        let text = textParts.joined()
-        if let toolName {
-            let rawArguments = (BestEffort.attempt("decode tool call arguments") {
-                try JSONSerialization.jsonObject(with: Data(toolArgumentParts.joined().utf8))
-            })
-            let arguments = rawArguments as? [String: Any] ?? [:]
-            var object: [String: Any] = ["name": toolName, "arguments": arguments]
-            object["id"] = toolID
-            return .toolCall(AgentToolCall.from(json: object) ?? AgentToolCall(id: toolID, name: toolName, arguments: [:]), assistantText: text)
-        }
-        return .final(AgentProtocolDecoder.displayContent(from: text))
+        return StreamedToolCall.response(text: textParts.joined(), calls: calls)
     }
 }
 
@@ -173,50 +162,41 @@ enum AnthropicTransport {
             let (bytes, response) = try await AITransportSupport.session.bytes(for: request)
             guard let httpResponse = response as? HTTPURLResponse else { return .failure("Provider returned an invalid response.", .transient) }
             if let error = AITransportSupport.classify(httpResponse) { return .failure(error.message, error.failureKind) }
-            return try await decodeStream(bytes: bytes)
+            return try await decodeStream(lines: bytes.lines)
         } catch {
             return AITransportSupport.makeFailure(error)
         }
     }
 
     static func test(profile: AIProviderProfile, credentials: AICredentialStore) async -> AIConnectionTestResult {
-        guard (BestEffort.attempt("read Anthropic api key") {
-            try AITransportSupport.apiKey(profile, store: credentials)
-        } ?? nil) != nil else { return .failure("Add an Anthropic API key before testing this provider.") }
+        do {
+            guard try AITransportSupport.apiKey(profile,
+                store: credentials) != nil else { return .failure("Add an Anthropic API key before testing this provider.") }
+        } catch {
+            return .failure(AITransportSupport.failureMessage(error))
+        }
         return .success("Anthropic credentials are stored. Send a request to verify model access.")
     }
 
-    private static func decodeStream(bytes: URLSession.AsyncBytes) async throws -> AgentModelResponse {
+    static func decodeStream<Lines: AsyncSequence>(lines: Lines) async throws -> AgentModelResponse where Lines.Element == String {
         var textParts: [String] = []
-        var toolID: String?
-        var toolName: String?
-        var toolArgumentParts: [String] = []
+        var calls: [Int: StreamedToolCall] = [:]
         var event = ""
-        for try await line in bytes.lines {
+        for try await line in lines {
             guard Task.isCancelled == false else { return .failure("Cancelled", .cancelled) }
             if line.hasPrefix("event:") { event = String(line.dropFirst(6)).trimmingCharacters(in: .whitespaces); continue }
-            guard line.hasPrefix("data:"), let data = String(line.dropFirst(5)).trimmingCharacters(in: .whitespaces).data(using: .utf8),
-                let root = try JSONSerialization.jsonObject(with: data) as? [String: Any] else { continue }
+            guard line.hasPrefix("data:"), let root = StreamedToolCall.object(String(line.dropFirst(5))) else { continue }
+            if let failure = StreamedToolCall.failure(root) { return failure }
+            let index = root["index"] as? Int ?? 0
             if event == "content_block_start", let content = root["content_block"] as? [String: Any], content["type"] as? String == "tool_use" {
-                toolID = content["id"] as? String
-                toolName = content["name"] as? String
+                calls[index, default: StreamedToolCall()].append(id: content["id"] as? String, name: content["name"] as? String, arguments: nil)
             }
             if event == "content_block_delta", let delta = root["delta"] as? [String: Any] {
                 if let value = delta["text"] as? String { textParts.append(value) }
-                if let value = delta["partial_json"] as? String { toolArgumentParts.append(value) }
+                if let value = delta["partial_json"] as? String { calls[index]?.append(id: nil, name: nil, arguments: value) }
             }
         }
-        let text = textParts.joined()
-        if let toolName {
-            let rawArguments = (BestEffort.attempt("decode tool call arguments") {
-                try JSONSerialization.jsonObject(with: Data(toolArgumentParts.joined().utf8))
-            })
-            let arguments = rawArguments as? [String: Any] ?? [:]
-            var object: [String: Any] = ["name": toolName, "arguments": arguments]
-            object["id"] = toolID
-            return .toolCall(AgentToolCall.from(json: object) ?? AgentToolCall(id: toolID, name: toolName, arguments: [:]), assistantText: text)
-        }
-        return .final(AgentProtocolDecoder.displayContent(from: text))
+        return StreamedToolCall.response(text: textParts.joined(), calls: calls)
     }
 
     private static func anthropicMessages(_ messages: [[String: Any]]) -> [[String: Any]] {
@@ -244,20 +224,19 @@ enum AnthropicTransport {
 enum GeminiTransport {
     static func respond(profile: AIProviderProfile, messages: [[String: Any]], tools: [AgentTool], credentials: AICredentialStore) async -> AgentModelResponse {
         guard let endpoint = profile.endpoint,
-              let apiKey = BestEffort.attempt("read Gemini api key", {
-                  try AITransportSupport.apiKey(profile, store: credentials)
-              }) ?? nil,
               let base = URL(string: endpoint),
               var components = URLComponents(
                 url: base.appendingPathComponent("models/\(profile.model):streamGenerateContent"),
                 resolvingAgainstBaseURL: false
               )
         else {
-            return .failure("Add a Gemini API key and valid endpoint before sending requests.", .configuration)
+            return .failure("The Gemini endpoint URL isn't valid. Fix it in Settings › AI.", .configuration)
         }
         components.queryItems = [URLQueryItem(name: "alt", value: "sse")]
         guard let url = components.url else { return .failure("The Gemini endpoint URL isn't valid. Fix it in Settings › AI.", .configuration) }
         do {
+            guard let apiKey = try AITransportSupport.apiKey(profile,
+                store: credentials) else { return .failure("Add a Gemini API key before sending requests.", .configuration) }
             var request = URLRequest(url: url)
             request.httpMethod = "POST"
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -286,40 +265,91 @@ enum GeminiTransport {
             let (bytes, response) = try await AITransportSupport.session.bytes(for: request)
             guard let httpResponse = response as? HTTPURLResponse else { return .failure("Provider returned an invalid response.", .transient) }
             if let error = AITransportSupport.classify(httpResponse) { return .failure(error.message, error.failureKind) }
-            return try await decodeStream(bytes: bytes)
+            return try await decodeStream(lines: bytes.lines)
         } catch {
             return AITransportSupport.makeFailure(error)
         }
     }
 
     static func test(profile: AIProviderProfile, credentials: AICredentialStore) async -> AIConnectionTestResult {
-        guard (BestEffort.attempt("read Gemini api key") {
-            try AITransportSupport.apiKey(profile, store: credentials)
-        } ?? nil) != nil else { return .failure("Add a Gemini API key before testing this provider.") }
+        do {
+            guard try AITransportSupport.apiKey(profile,
+                store: credentials) != nil else { return .failure("Add a Gemini API key before testing this provider.") }
+        } catch {
+            return .failure(AITransportSupport.failureMessage(error))
+        }
         return .success("Gemini credentials are stored. Send a request to verify model access.")
     }
 
-    private static func decodeStream(bytes: URLSession.AsyncBytes) async throws -> AgentModelResponse {
+    static func decodeStream<Lines: AsyncSequence>(lines: Lines) async throws -> AgentModelResponse where Lines.Element == String {
         var textParts: [String] = []
-        var toolCall: AgentToolCall?
-        for try await line in bytes.lines {
+        var toolCalls: [AgentToolCall] = []
+        for try await line in lines {
             guard Task.isCancelled == false else { return .failure("Cancelled", .cancelled) }
-            let value = line.hasPrefix("data:") ? String(line.dropFirst(5)).trimmingCharacters(in: .whitespaces) : line
-            guard let data = value.data(using: .utf8),
-                  let root = try JSONSerialization.jsonObject(with: data) as? [String: Any],
-                  let candidate = (root["candidates"] as? [[String: Any]])?.first,
+            let value = line.hasPrefix("data:") ? String(line.dropFirst(5)) : line
+            guard let root = StreamedToolCall.object(value) else { continue }
+            if let failure = StreamedToolCall.failure(root) { return failure }
+            guard let candidate = (root["candidates"] as? [[String: Any]])?.first,
                   let content = candidate["content"] as? [String: Any],
                   let parts = content["parts"] as? [[String: Any]]
             else { continue }
             for part in parts {
                 if let value = part["text"] as? String { textParts.append(value) }
-                if let call = part["functionCall"] as? [String: Any],
-                    let name = call["name"] as? String { toolCall = AgentToolCall.from(json: ["name": name,
-                        "arguments": call["args"] as? [String: Any] ?? [:]]) }
+                if let call = part["functionCall"] as? [String: Any], let name = call["name"] as? String,
+                    let toolCall = AgentToolCall.from(json: ["name": name, "arguments": call["args"] as? [String: Any] ?? [:]]) {
+                    toolCalls.append(toolCall)
+                }
             }
         }
         let text = textParts.joined()
-        if let toolCall { return .toolCall(toolCall, assistantText: text) }
+        if toolCalls.isEmpty == false { return .toolCalls(toolCalls, assistantText: text) }
         return .final(AgentProtocolDecoder.displayContent(from: text))
+    }
+}
+
+struct StreamedToolCall {
+    private var id: String?
+    private var name: String?
+    private var argumentParts: [String] = []
+
+    mutating func append(id: String?, name: String?, arguments: String?) {
+        if let id { self.id = id }
+        if let name { self.name = name }
+        if let arguments { argumentParts.append(arguments) }
+    }
+
+    static func object(_ value: String) -> [String: Any]? {
+        try? JSONSerialization.jsonObject(with: Data(value.trimmingCharacters(in: .whitespaces).utf8)) as? [String: Any]
+    }
+
+    static func failure(_ root: [String: Any]) -> AgentModelResponse? {
+        guard let error = root["error"] as? [String: Any] else { return nil }
+        let code = ["type", "code", "status"].compactMap { error[$0].map { "\($0)" } }.joined(separator: " ").lowercased()
+        let kind: AgentFailureKind
+        if code.contains("rate") || code.contains("429") || code.contains("resource_exhausted") {
+            kind = .rateLimited
+        } else if code.contains("overloaded") || code.contains("503") || code.contains("unavailable") {
+            kind = .unavailable
+        } else {
+            kind = .transient
+        }
+        let detail = (error["message"] as? String).map { " \($0.prefix(400))" } ?? ""
+        return .failure("The AI provider stopped with an error.\(detail)", kind)
+    }
+
+    static func response(text: String, calls: [Int: StreamedToolCall]) -> AgentModelResponse {
+        let toolCalls = calls.sorted { $0.key < $1.key }.compactMap { $0.value.toolCall }
+        if toolCalls.isEmpty == false { return .toolCalls(toolCalls, assistantText: text) }
+        return .final(AgentProtocolDecoder.displayContent(from: text))
+    }
+
+    private var toolCall: AgentToolCall? {
+        guard let name else { return nil }
+        let arguments = (BestEffort.attempt("decode tool call arguments") {
+            try JSONSerialization.jsonObject(with: Data(argumentParts.joined().utf8))
+        }) as? [String: Any] ?? [:]
+        var object: [String: Any] = ["name": name, "arguments": arguments]
+        object["id"] = id
+        return AgentToolCall.from(json: object)
     }
 }

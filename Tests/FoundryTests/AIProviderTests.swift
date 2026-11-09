@@ -164,19 +164,110 @@ final class AIProviderTests: XCTestCase {
         var messages: [[String: Any]] = []
         let call = AgentToolCall(id: "call-provider-123", name: "web_search", arguments: ["query": "Swift"])
 
-        AgentTranscript.appendToolExchange(call: call, assistantText: "Searching", result: "Found it", to: &messages)
+        AgentTranscript.appendToolExchange([(call, "Found it")], assistantText: "Searching", to: &messages)
 
         let assistantCall = (messages[0]["tool_calls"] as? [[String: Any]])?.first
         XCTAssertEqual(assistantCall?["id"] as? String, "call-provider-123")
         XCTAssertEqual(messages[1]["tool_call_id"] as? String, "call-provider-123")
     }
 
+    func testToolTranscriptAnswersEveryParallelCall() {
+        var messages: [[String: Any]] = []
+        let first = AgentToolCall(id: "call-1", name: "web_search", arguments: ["query": "Swift"])
+        let second = AgentToolCall(id: "call-2", name: "system_context", arguments: [:])
+
+        AgentTranscript.appendToolExchange([(first, "A"), (second, "B")], assistantText: "", to: &messages)
+
+        XCTAssertEqual((messages[0]["tool_calls"] as? [[String: Any]])?.compactMap { $0["id"] as? String }, ["call-1", "call-2"])
+        XCTAssertEqual(messages.dropFirst().compactMap { $0["tool_call_id"] as? String }, ["call-1", "call-2"])
+        XCTAssertEqual(messages.dropFirst().compactMap { $0["content"] as? String }, ["A", "B"])
+    }
+
+    func testOpenAICompatibleStreamSkipsNonJSONLinesAndKeepsParallelToolCallsApart() async throws {
+        let response = try await OpenAICompatibleTransport.decodeStream(lines: Self.lines([
+            ": keep-alive",
+            #"data: {"choices":[{"delta":{"tool_calls":[{"index":0,"id":"a","function":{"name":"web_search","arguments":"{\"query\":"}}]}}]}"#,
+            #"data: {"choices":[{"delta":{"tool_calls":[{"index":1,"id":"b","function":{"name":"open_url","arguments":"{\"url\":"}}]}}]}"#,
+            #"data: {"choices":[{"delta":{"tool_calls":[{"index":0,"function":{"arguments":"\"Swift\"}"}}]}}]}"#,
+            #"data: {"choices":[{"delta":{"tool_calls":[{"index":1,"function":{"arguments":"\"https://example.com\"}"}}]}}]}"#,
+            "data: [DONE]"
+        ]))
+
+        guard case let .toolCalls(calls, _) = response else { return XCTFail("Expected tool calls, got \(response)") }
+        XCTAssertEqual(calls, [
+            AgentToolCall(id: "a", name: "web_search", arguments: ["query": "Swift"]),
+            AgentToolCall(id: "b", name: "open_url", arguments: ["url": "https://example.com"])
+        ])
+    }
+
+    func testOpenAICompatibleStreamSurfacesAMidStreamError() async throws {
+        let response = try await OpenAICompatibleTransport.decodeStream(lines: Self.lines([
+            #"data: {"choices":[{"delta":{"content":"Hel"}}]}"#,
+            #"data: {"error":{"message":"Rate limit reached","type":"rate_limit_exceeded"}}"#
+        ]))
+
+        guard case let .failure(message, kind) = response else { return XCTFail("Expected a failure, got \(response)") }
+        XCTAssertEqual(kind, .rateLimited)
+        XCTAssertTrue(message.contains("Rate limit reached"), message)
+    }
+
+    func testAnthropicStreamKeepsParallelToolUseBlocksApartAndSurfacesErrors() async throws {
+        let calls = try await AnthropicTransport.decodeStream(lines: Self.lines([
+            "event: ping",
+            "data: not json",
+            "event: content_block_start",
+            #"data: {"index":0,"content_block":{"type":"tool_use","id":"a","name":"web_search"}}"#,
+            "event: content_block_start",
+            #"data: {"index":1,"content_block":{"type":"tool_use","id":"b","name":"system_context"}}"#,
+            "event: content_block_delta",
+            #"data: {"index":0,"delta":{"partial_json":"{\"query\":\"Swift\"}"}}"#,
+            "event: content_block_delta",
+            #"data: {"index":1,"delta":{"partial_json":"{}"}}"#
+        ]))
+        guard case let .toolCalls(decoded, _) = calls else { return XCTFail("Expected tool calls, got \(calls)") }
+        XCTAssertEqual(decoded, [
+            AgentToolCall(id: "a", name: "web_search", arguments: ["query": "Swift"]),
+            AgentToolCall(id: "b", name: "system_context", arguments: [:])
+        ])
+
+        let failure = try await AnthropicTransport.decodeStream(lines: Self.lines([
+            "event: content_block_delta",
+            #"data: {"index":0,"delta":{"text":"Partial"}}"#,
+            "event: error",
+            #"data: {"type":"error","error":{"type":"overloaded_error","message":"Overloaded"}}"#
+        ]))
+        guard case let .failure(_, kind) = failure else { return XCTFail("Expected a failure, got \(failure)") }
+        XCTAssertEqual(kind, .unavailable)
+    }
+
+    func testGeminiStreamKeepsEveryFunctionCallAndSurfacesErrors() async throws {
+        let calls = try await GeminiTransport.decodeStream(lines: Self.lines([
+            "",
+            #"data: {"candidates":[{"content":{"parts":[{"functionCall":{"name":"web_search","args":{"query":"Swift"}}},"#
+                + #"{"functionCall":{"name":"system_context","args":{}}}]}}]}"#
+        ]))
+        guard case let .toolCalls(decoded, _) = calls else { return XCTFail("Expected tool calls, got \(calls)") }
+        XCTAssertEqual(decoded.map(\.name), ["web_search", "system_context"])
+
+        let failure = try await GeminiTransport.decodeStream(lines: Self.lines([
+            #"data: {"error":{"code":429,"message":"Quota","status":"RESOURCE_EXHAUSTED"}}"#
+        ]))
+        guard case let .failure(_, kind) = failure else { return XCTFail("Expected a failure, got \(failure)") }
+        XCTAssertEqual(kind, .rateLimited)
+    }
+
+    private static func lines(_ values: [String]) -> AsyncThrowingStream<String, Error> {
+        AsyncThrowingStream { continuation in
+            values.forEach { continuation.yield($0) }
+            continuation.finish()
+        }
+    }
+
     func testOpenAICompatibleTranscriptEncodesToolArgumentsAsJSON() throws {
         var messages: [[String: Any]] = []
         AgentTranscript.appendToolExchange(
-            call: AgentToolCall(name: "web_search", arguments: ["query": "Swift"]),
+            [(AgentToolCall(name: "web_search", arguments: ["query": "Swift"]), "Found it")],
             assistantText: "Searching",
-            result: "Found it",
             to: &messages
         )
 
@@ -591,6 +682,40 @@ final class AIProviderTests: XCTestCase {
         XCTAssertTrue(result.isFailure)
     }
 
+    func testAPIKeyIsOnlyReleasedOverHTTPSOrLoopback() throws {
+        let store = StaticKeyCredentialStore()
+        for endpoint in ["https://api.example.com/v1", "http://127.0.0.1:1234/v1", "http://localhost:8080", "http://[::1]:8080"] {
+            let profile = AIProviderProfile(name: "Server", kind: .openAICompatible, authentication: .apiKey, endpoint: endpoint, model: "m")
+            XCTAssertEqual(try AITransportSupport.apiKey(profile, store: store), "secret", endpoint)
+        }
+        for endpoint in ["http://api.example.com/v1", "http://192.168.1.4:1234/v1", "http://127.0.0.1.example.com/v1"] {
+            let profile = AIProviderProfile(name: "Server", kind: .openAICompatible, authentication: .optionalAPIKey, endpoint: endpoint, model: "m")
+            XCTAssertThrowsError(try AITransportSupport.apiKey(profile, store: store), endpoint)
+        }
+    }
+
+    func testAnthropicConnectionTestRefusesAPlainHTTPRemoteEndpoint() async {
+        let profile = AIProviderProfile(name: "Anthropic", kind: .anthropic, authentication: .apiKey, endpoint: "http://api.example.com/v1",
+            model: "claude")
+        let result = await AnthropicTransport.test(profile: profile, credentials: StaticKeyCredentialStore())
+        XCTAssertTrue(result.isFailure)
+        XCTAssertTrue(result.message.contains("HTTPS"), result.message)
+    }
+
+    func testProviderRedirectThatChangesSchemeIsNotFollowed() async throws {
+        defer { RedirectingURLProtocol.reset() }
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [RedirectingURLProtocol.self]
+        let session = URLSession(configuration: configuration, delegate: AIProviderSessionDelegate(), delegateQueue: nil)
+        var request = URLRequest(url: try XCTUnwrap(URL(string: "https://api.example.com/v1/models")))
+        request.setValue("Bearer secret", forHTTPHeaderField: "Authorization")
+
+        let (_, response) = try await session.data(for: request)
+
+        XCTAssertEqual((response as? HTTPURLResponse)?.statusCode, 302)
+        XCTAssertEqual(RedirectingURLProtocol.requestedURLs(), ["https://api.example.com/v1/models"])
+    }
+
     func testIntentHeuristicsRequireLiveSearchForFreshFacts() {
         XCTAssertTrue(AIIntentHeuristics.needsWebSearch("What is the latest macOS release?"))
         XCTAssertTrue(AIIntentHeuristics.needsWebSearch("current weather in San Francisco"))
@@ -829,6 +954,42 @@ private final class BlockingAIChatStore: Sendable, AIChatStoring {
     func savedSnapshots() -> [[AIChatThread]] {
         box.withLockUnchecked { $0.snapshots }
     }
+}
+
+private struct StaticKeyCredentialStore: AICredentialStore {
+    func credential(for profileID: UUID) throws -> AICredential? { .apiKey("secret") }
+    func save(_ credential: AICredential, for profileID: UUID) throws {}
+    func delete(for profileID: UUID) throws {}
+}
+
+private final class RedirectingURLProtocol: URLProtocol {
+    private static let urls = OSAllocatedUnfairLock<[String]>(initialState: [])
+
+    static func requestedURLs() -> [String] { urls.withLock { $0 } }
+    static func reset() { urls.withLock { $0 = [] } }
+
+    override class func canInit(with _: URLRequest) -> Bool { true }
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+
+    override func startLoading() {
+        guard let url = request.url else { return }
+        Self.urls.withLock { $0.append(url.absoluteString) }
+        if url.scheme == "https", var components = URLComponents(url: url, resolvingAgainstBaseURL: false) {
+            components.scheme = "http"
+            let destination = components.url!
+            let response = HTTPURLResponse(url: url, statusCode: 302, httpVersion: "HTTP/1.1", headerFields: ["Location": destination.absoluteString])!
+            client?.urlProtocol(self, wasRedirectedTo: URLRequest(url: destination), redirectResponse: response)
+            client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+            client?.urlProtocolDidFinishLoading(self)
+            return
+        }
+        let response = HTTPURLResponse(url: url, statusCode: 200, httpVersion: "HTTP/1.1", headerFields: nil)!
+        client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+        client?.urlProtocol(self, didLoad: Data("{}".utf8))
+        client?.urlProtocolDidFinishLoading(self)
+    }
+
+    override func stopLoading() {}
 }
 
 private struct EmptyCredentialStore: AICredentialStore {

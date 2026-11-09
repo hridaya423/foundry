@@ -376,6 +376,12 @@ enum AIEndpointPolicy {
         return false
     }
 
+    static func allowsCredentials(_ value: String) -> Bool {
+        guard let normalized = normalized(value), let url = URL(string: normalized), let host = url.host?.lowercased() else { return false }
+        if url.scheme?.lowercased() == "https" { return true }
+        return host == "localhost" || host.hasSuffix(".localhost") || host == "::1" || IPv4Address(host)?.octets.0 == 127
+    }
+
     static func requiresPlainHTTPWarning(_ value: String) -> Bool {
         guard let normalized = normalized(value), let url = URL(string: normalized) else { return false }
         return url.scheme?.lowercased() == "http" && isLoopbackOrPrivate(normalized) == false
