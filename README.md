@@ -1,6 +1,6 @@
 # Foundry
 
-Foundry is a native macOS launcher and command palette. It requires macOS 14 or later.
+Foundry is a native macOS launcher and command palette. It requires macOS 14 or later on an Apple silicon Mac.
 
 ## Download
 
