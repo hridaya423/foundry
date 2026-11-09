@@ -16,9 +16,12 @@ struct SnippetExpansionEngine {
 
     struct Expansion: Equatable {
         let snippetID: String
-        let renderedContent: String
+        let rendered: RenderedSnippet
         let delimiter: String
         let deleteCount: Int
+
+        var pasteText: String { rendered.text + delimiter }
+        var cursorOffset: Int { rendered.cursorOffsetFromEnd == 0 ? 0 : rendered.cursorOffsetFromEnd + delimiter.count }
     }
 
     enum Output: Equatable {
@@ -34,14 +37,14 @@ struct SnippetExpansionEngine {
     private let snippets: [String: StoredSnippet]
     private let ambiguousKeywords: Set<String>
     private let excludedBundleIdentifiers: Set<String>
-    private let render: (StoredSnippet) -> String
+    private let render: (StoredSnippet) -> RenderedSnippet
     private let maxBufferLength: Int
 
     init(
         snippets: [StoredSnippet],
         excludedBundleIdentifiers: [String] = [],
         maxBufferLength: Int = 64,
-        render: @escaping (StoredSnippet) -> String = { $0.content }
+        render: @escaping (StoredSnippet) -> RenderedSnippet = { RenderedSnippet(text: $0.content, cursorOffsetFromEnd: 0) }
     ) {
         self.snippets = Self.normalized(snippets)
         self.ambiguousKeywords = Set(Dictionary(grouping: snippets.filter { !$0.keyword.isEmpty }, by: \ .keyword).filter { $0.value.count > 1 }.keys)
@@ -90,7 +93,7 @@ struct SnippetExpansionEngine {
     private mutating func expand(using delimiter: String) -> Output {
         defer { buffer = "" }
         guard !isExcluded, !ambiguousKeywords.contains(buffer), let snippet = snippets[buffer] else { return .ignored }
-        return .expanded(Expansion(snippetID: snippet.id, renderedContent: render(snippet), delimiter: delimiter, deleteCount: buffer.count))
+        return .expanded(Expansion(snippetID: snippet.id, rendered: render(snippet), delimiter: delimiter, deleteCount: buffer.count))
     }
 
     private var isExcluded: Bool {

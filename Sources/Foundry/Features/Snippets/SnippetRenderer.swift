@@ -56,7 +56,7 @@ enum SnippetRenderer {
             let end = content.index(after: close)
             let token = String(content[open..<end])
             if token == "{cursor}" {
-                if cursorPosition == nil { cursorPosition = result.utf16.count }
+                if cursorPosition == nil { cursorPosition = result.count }
             } else if token.hasPrefix("{date:"), token.hasSuffix("}") {
                 formatter.dateFormat = String(token.dropFirst("{date:".count).dropLast())
                 let formatted = formatter.string(from: context.now)
@@ -68,7 +68,7 @@ enum SnippetRenderer {
             }
             index = end
         }
-        let cursorOffset = cursorPosition.map { result.utf16.count - $0 + 1 } ?? 0
+        let cursorOffset = cursorPosition.map { result.count - $0 } ?? 0
         return RenderedSnippet(text: result, cursorOffsetFromEnd: cursorOffset)
     }
 }
