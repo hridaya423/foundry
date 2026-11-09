@@ -35,6 +35,34 @@ ICON_FILE="$APP_DIR/Contents/Resources/AppIcon.icns"
 [[ "$(stat -f '%z' "$ICON_FILE")" -gt 10000 ]] || { echo "error: AppIcon.icns is suspiciously small" >&2; exit 1; }
 file "$ICON_FILE" | grep -q 'Mac OS X icon' || { echo "error: AppIcon.icns is not a valid icns" >&2; exit 1; }
 codesign --verify --deep --strict "$APP_DIR"
+SIGNATURE_INFO="$(codesign --display --verbose=4 "$APP_DIR" 2>&1)"
+grep -Eq '^CodeDirectory .*flags=0x[0-9a-f]+\([^)]*runtime' <<< "$SIGNATURE_INFO" || {
+    echo "error: hardened runtime is not enabled" >&2
+    exit 1
+}
+case "${CODE_SIGN_IDENTITY:-}" in
+    "Developer ID Application"*)
+        grep -q '^Authority=Developer ID Application' <<< "$SIGNATURE_INFO" || {
+            echo "error: app is not signed by a Developer ID Application certificate" >&2
+            exit 1
+        }
+        grep -q '^Timestamp=' <<< "$SIGNATURE_INFO" || {
+            echo "error: Developer ID signature has no secure timestamp" >&2
+            exit 1
+        }
+        ;;
+    "-")
+        grep -q '^Signature=adhoc' <<< "$SIGNATURE_INFO" || {
+            echo "error: app is not ad-hoc signed although CODE_SIGN_IDENTITY is -" >&2
+            exit 1
+        }
+        ;;
+esac
+EXPECTED_ARCHS="${EXPECTED_ARCHS:-$(uname -m)}"
+[[ "$(lipo -archs "$APP_DIR/Contents/MacOS/Foundry")" == "$EXPECTED_ARCHS" ]] || {
+    echo "error: executable architectures are not: $EXPECTED_ARCHS" >&2
+    exit 1
+}
 ENTITLEMENTS_FILE="$(mktemp -t foundry-entitlements).plist"
 trap 'rm -f "$ENTITLEMENTS_FILE"' EXIT
 codesign --display --entitlements :- "$APP_DIR" 2>/dev/null | tee "$ENTITLEMENTS_FILE" | plutil -lint -
