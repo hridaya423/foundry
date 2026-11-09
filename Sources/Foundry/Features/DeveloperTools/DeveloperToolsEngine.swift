@@ -44,7 +44,12 @@ enum DeveloperToolsEngine {
     }
 
     static func base64Decode(_ value: String) -> String? {
-        let sanitized = value.replacingOccurrences(of: " ", with: "")
+        var sanitized = value
+            .replacingOccurrences(of: " ", with: "")
+            .replacingOccurrences(of: "-", with: "+")
+            .replacingOccurrences(of: "_", with: "/")
+        let remainder = sanitized.count % 4
+        if remainder > 0 { sanitized += String(repeating: "=", count: 4 - remainder) }
         guard let data = Data(base64Encoded: sanitized) else { return nil }
         return String(data: data, encoding: .utf8)
     }
@@ -92,20 +97,25 @@ enum DeveloperToolsEngine {
         }
 
         if let numeric = Double(trimmed.replacingOccurrences(of: ",", with: "")), numeric.isFinite {
-            let date = trimmed.count >= 13 ? Date(timeIntervalSince1970: numeric / 1000) : Date(timeIntervalSince1970: numeric)
+            let date = abs(numeric) >= 1e12 ? Date(timeIntervalSince1970: numeric / 1000) : Date(timeIntervalSince1970: numeric)
             return conversions(for: date)
         }
 
+        if let date = iso8601Parsers.withLockUnchecked({ parsers in parsers.lazy.compactMap { $0.date(from: trimmed) }.first }) {
+            return inputConversions(for: date)
+        }
         for formatter in timestampInputFormatters {
-            if let date = formatter.date(from: trimmed) {
-                return [
-                    TimestampConversion(label: "Unix seconds", value: integerText(date.timeIntervalSince1970)),
-                    TimestampConversion(label: "Unix milliseconds", value: integerText(date.timeIntervalSince1970 * 1000)),
-                    TimestampConversion(label: "ISO 8601", value: iso8601Formatter.withLockUnchecked { $0.string(from: date) })
-                ]
-            }
+            if let date = formatter.date(from: trimmed) { return inputConversions(for: date) }
         }
         return []
+    }
+
+    private static func inputConversions(for date: Date) -> [TimestampConversion] {
+        [
+            TimestampConversion(label: "Unix seconds", value: integerText(date.timeIntervalSince1970)),
+            TimestampConversion(label: "Unix milliseconds", value: integerText(date.timeIntervalSince1970 * 1000)),
+            TimestampConversion(label: "ISO 8601", value: iso8601Formatter.withLockUnchecked { $0.string(from: date) })
+        ]
     }
 
     static func wordCount(_ value: String) -> WordCount {
@@ -287,10 +297,12 @@ enum DeveloperToolsEngine {
             .filter { $0.isEmpty == false }
     }
 
+    private static let operandRegex = try! NSRegularExpression(pattern: "0x[0-9a-f_]+|0b[01_]+|0o[0-7_]+|[0-9]+")
+
     private static func numbers(in value: String) -> [UInt64] {
-        value
-            .split { !$0.isNumber }
-            .compactMap { UInt64($0) }
+        operandRegex.matches(in: value, range: NSRange(value.startIndex..<value.endIndex, in: value))
+            .compactMap { Range($0.range, in: value) }
+            .compactMap { parseUnsignedInteger(String(value[$0])) }
     }
 
     private static func capitalize(_ value: String) -> String {
@@ -311,6 +323,15 @@ enum DeveloperToolsEngine {
         return formatter
     }())
 
+    private static let iso8601Parsers = OSAllocatedUnfairLock<[ISO8601DateFormatter]>(uncheckedState: [
+        ISO8601DateFormatter.Options([.withInternetDateTime]),
+        ISO8601DateFormatter.Options([.withInternetDateTime, .withFractionalSeconds])
+    ].map { options in
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = options
+        return formatter
+    })
+
     private static let localDateFormatter: DateFormatter = {
         let formatter = DateFormatter()
         formatter.dateStyle = .medium
@@ -321,6 +342,8 @@ enum DeveloperToolsEngine {
     private static let timestampInputFormatters: [DateFormatter] = [
         "yyyy-MM-dd HH:mm:ss",
         "yyyy-MM-dd HH:mm",
+        "yyyy-MM-dd'T'HH:mm:ss",
+        "yyyy-MM-dd'T'HH:mm",
         "yyyy-MM-dd",
         "yyyy/MM/dd HH:mm:ss",
         "yyyy/MM/dd HH:mm",
