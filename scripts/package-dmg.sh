@@ -45,6 +45,7 @@ trap 'rm -rf "$STAGING"' EXIT
 # --- Attempt 1: branded DMG via read-write image + Finder layout -------------
 
 branded_dmg() {
+    setopt localoptions err_return
     local rw_dmg="$STAGING/$APP_NAME-rw.dmg"
     local size_mb=$(( $(du -sm "$APP_DIR" | awk '{print $1}') + 48 ))
 
