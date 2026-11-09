@@ -161,7 +161,8 @@ final class ShellController {
 
     private func configureSnippetExpansion() {
         let settings = config.current.snippetExpansion
-        snippetExpansion.configure(isEnabled: settings.isEnabled, excludedBundleIdentifiers: settings.excludedBundleIdentifiers,
+        let ownBundleIdentifier = [Bundle.main.bundleIdentifier].compactMap { $0 }
+        snippetExpansion.configure(isEnabled: settings.isEnabled, excludedBundleIdentifiers: settings.excludedBundleIdentifiers + ownBundleIdentifier,
             delimiters: settings.delimiters, hapticsEnabled: config.current.hapticsEnabled)
     }
 

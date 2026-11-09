@@ -26,6 +26,18 @@ final class SnippetExpansionServiceTests: XCTestCase {
         XCTAssertEqual(value.receive(.delimiter(" ")), .ignored)
     }
 
+    func testRepeatedSecureInputOffBetweenKeysKeepsTheBuffer() {
+        var value = engine([StoredSnippet(id: "s1", content: "Hello", keyword: "brb", updatedAt: Date(timeIntervalSince1970: 1))])
+        for character in ["b", "r", "b"] {
+            _ = value.receive(.secureInputChanged(false))
+            _ = value.receive(.character(character))
+        }
+        _ = value.receive(.secureInputChanged(false))
+        guard case let .expanded(expansion) = value.receive(.delimiter(" ")) else { return XCTFail("Expected expansion") }
+        XCTAssertEqual(expansion.snippetID, "s1")
+        XCTAssertEqual(expansion.deleteCount, 3)
+    }
+
     func testExclusionSecureInputAndAppSwitchReset() {
         var value = SnippetExpansionEngine(snippets: [StoredSnippet(content: "x", keyword: "go")], excludedBundleIdentifiers: ["com.editor"])
         _ = value.receive(.appChanged(bundleIdentifier: "com.editor")); _ = value.receive(.character("g")); _ = value.receive(.character("o"))

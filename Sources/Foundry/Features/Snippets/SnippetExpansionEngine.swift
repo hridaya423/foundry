@@ -75,6 +75,7 @@ struct SnippetExpansionEngine {
             buffer = ""
             return .ignored
         case let .secureInputChanged(value):
+            guard value != isSecureInput else { return .ignored }
             isSecureInput = value
             buffer = ""
             return .ignored
