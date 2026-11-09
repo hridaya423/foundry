@@ -1,6 +1,9 @@
+import AppKit
+import AVFoundation
 import CoreGraphics
 import Foundation
 import ImageIO
+import PDFKit
 import UniformTypeIdentifiers
 import SwiftUI
 import XCTest
@@ -543,6 +546,17 @@ final class ConversionExecutorTests: XCTestCase {
         return url
     }
 
+    private func makeWAV(_ name: String = "tone.wav") throws -> URL {
+        let url = folder.appendingPathComponent(name)
+        let format = AVAudioFormat(standardFormatWithSampleRate: 44_100, channels: 1)!
+        let frames = AVAudioFrameCount(11_025)
+        let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: frames)!
+        buffer.frameLength = frames
+        let file = try AVAudioFile(forWriting: url, settings: format.settings)
+        try file.write(from: buffer)
+        return url
+    }
+
     func testImageIOConversionHonorsQualityAndResize() async throws {
         let source = try makePNG()
         let jpgTarget = FileConversionService.availableTargets(for: source).first { $0.outputExtension == "jpg" }!
@@ -582,6 +596,76 @@ final class ConversionExecutorTests: XCTestCase {
         }
         let text = try String(contentsOf: csvURL, encoding: .utf8)
         XCTAssertTrue(text.contains("\"Ada, Lovelace\""), "comma-containing field should be quoted")
+    }
+
+    func testWAVToM4AExportsThroughAVFoundation() async throws {
+        let source = try makeWAV()
+        let target = try XCTUnwrap(FileConversionService.availableTargets(for: source).first { $0.outputExtension == "m4a" })
+        let result = await FileConversionService.convert(sourceURL: source, target: target, outputFolderURL: folder)
+        guard case let .success(out) = result else { return XCTFail("wav→m4a failed: \(result)") }
+        XCTAssertEqual(out.pathExtension, "m4a")
+        let size = try FileManager.default.attributesOfItem(atPath: out.path)[.size] as? Int ?? 0
+        XCTAssertGreaterThan(size, 0)
+    }
+
+    func testWAVToMP3ConvertsThroughFFmpegWhenInstalled() async throws {
+        let installed = ["/opt/homebrew/bin/ffmpeg", "/usr/local/bin/ffmpeg"].first(where: FileManager.default.isExecutableFile(atPath:))
+        guard installed != nil else { throw XCTSkip("ffmpeg is not installed") }
+        let source = try makeWAV()
+        let target = try XCTUnwrap(FileConversionService.availableTargets(for: source).first { $0.outputExtension == "mp3" })
+        let result = await FileConversionService.convert(sourceURL: source, target: target, outputFolderURL: folder)
+        guard case let .success(out) = result else { return XCTFail("wav→mp3 failed: \(result)") }
+        XCTAssertEqual(out.pathExtension, "mp3")
+        let size = try FileManager.default.attributesOfItem(atPath: out.path)[.size] as? Int ?? 0
+        XCTAssertGreaterThan(size, 0)
+    }
+
+    func testCSVWithCRLFAndBOMParsesEveryRow() async throws {
+        let csv = folder.appendingPathComponent("windows.csv")
+        try "\u{FEFF}name,age\r\nAda,36\r\nBob,28\r\n".write(to: csv, atomically: true, encoding: .utf8)
+        let target = try XCTUnwrap(FileConversionService.availableTargets(for: csv).first { $0.outputExtension == "json" })
+        guard case let .success(jsonURL) = await FileConversionService.convert(sourceURL: csv, target: target, outputFolderURL: folder) else {
+            return XCTFail("csv→json failed")
+        }
+        let objects = try JSONSerialization.jsonObject(with: Data(contentsOf: jsonURL)) as? [[String: String]]
+        XCTAssertEqual(objects?.count, 2)
+        XCTAssertEqual(objects?.first, ["name": "Ada", "age": "36"])
+    }
+
+    func testJSONToCSVIsDeterministicAndRendersNullAndBooleans() async throws {
+        let json = folder.appendingPathComponent("rows.json")
+        try "[{\"b\": true, \"a\": null, \"c\": 2}, {\"a\": \"x\", \"b\": false, \"c\": 3}]".write(to: json, atomically: true, encoding: .utf8)
+        let target = try XCTUnwrap(FileConversionService.availableTargets(for: json).first { $0.outputExtension == "csv" })
+        guard case let .success(csvURL) = await FileConversionService.convert(sourceURL: json, target: target, outputFolderURL: folder) else {
+            return XCTFail("json→csv failed")
+        }
+        XCTAssertEqual(try String(contentsOf: csvURL, encoding: .utf8), "a,b,c\n,true,2\nx,false,3")
+    }
+
+    func testTarGzAcceptsANameWithALeadingDash() async throws {
+        let source = folder.appendingPathComponent("-weird.txt")
+        try "hello".write(to: source, atomically: true, encoding: .utf8)
+        let target = try XCTUnwrap(FileConversionService.availableTargets(for: source).first { $0.outputExtension == "tar.gz" })
+        guard case let .success(out) = await FileConversionService.convert(sourceURL: source, target: target, outputFolderURL: folder) else {
+            return XCTFail("tar.gz failed")
+        }
+        let size = try FileManager.default.attributesOfItem(atPath: out.path)[.size] as? Int ?? 0
+        XCTAssertGreaterThan(size, 0)
+    }
+
+    func testHugePageRangeDoesNotExpandBeforeClamping() async throws {
+        let image = NSImage(size: NSSize(width: 20, height: 20), flipped: false) { rect in
+            NSColor.red.setFill()
+            rect.fill()
+            return true
+        }
+        let document = PDFDocument()
+        for index in 0..<2 { document.insert(try XCTUnwrap(PDFPage(image: image)), at: index) }
+        let source = folder.appendingPathComponent("two.pdf")
+        XCTAssertTrue(document.write(to: source))
+        let out = folder.appendingPathComponent("merged.pdf")
+        try await FileConversionService.mergeToPDF(sources: [source], into: out, options: ConversionOptions(pages: "1-99999999999"))
+        XCTAssertEqual(PDFDocument(url: out)?.pageCount, 2)
     }
 
     func testZipAndExtractRoundTrip() async throws {

@@ -378,6 +378,7 @@ public enum FileConversionService {
             // AVAssetExportSession is not Sendable; cancelExport is documented
             // thread-safe and the completion handler is where we read status.
             nonisolated(unsafe) let sessionRef = session
+            try? FileManager.default.removeItem(at: output)
             session.outputURL = output
             session.outputFileType = ext == "m4a" ? .m4a : .mp4
             session.shouldOptimizeForNetworkUse = true
@@ -465,7 +466,9 @@ public enum FileConversionService {
             if let dash = trimmed.firstIndex(of: "-") {
                 let start = Int(trimmed[..<dash]) ?? 0
                 let end = Int(trimmed[trimmed.index(after: dash)...]) ?? 0
-                if end >= start { result.append(contentsOf: start...end) }
+                let lower = max(start, 1)
+                let upper = min(end, pageCount)
+                if upper >= lower { result.append(contentsOf: lower...upper) }
             } else if let n = Int(trimmed) {
                 result.append(n)
             }
@@ -556,7 +559,8 @@ public enum FileConversionService {
     /// CSV/TSV ↔ JSON, implemented in Foundation (no dependency).
     private static func convertStructured(input: URL, output: URL, from: String, to: String) throws {
         if to == "json" {
-            let text = try String(contentsOf: input, encoding: .utf8)
+            var text = try String(contentsOf: input, encoding: .utf8)
+            if text.hasPrefix("\u{FEFF}") { text.removeFirst() }
             let delimiter: Character = from == "tsv" ? "\t" : ","
             let rows = parseDelimited(text, delimiter: delimiter)
             guard let header = rows.first, rows.count > 1 else {
@@ -582,12 +586,10 @@ public enum FileConversionService {
             var rows: [[String: Any]] = []
             if let array = json as? [[String: Any]] {
                 rows = array
-                for row in array {
-                    for key in row.keys where !columns.contains(key) { columns.append(key) }
-                }
+                columns = Set(array.flatMap(\.keys)).sorted()
             } else if let dict = json as? [String: Any] {
                 columns = ["key", "value"]
-                rows = dict.map { ["key": $0.key, "value": $0.value] }
+                rows = dict.sorted { $0.key < $1.key }.map { ["key": $0.key, "value": $0.value] }
             } else if let array = json as? [Any] {
                 columns = ["value"]
                 rows = array.map { ["value": $0] }
@@ -604,7 +606,7 @@ public enum FileConversionService {
                     if let arr = value as? [Any], let d = try? JSONSerialization.data(withJSONObject: arr) {
                         return escapeDelimited(String(decoding: d, as: UTF8.self), delimiter: delimiter)
                     }
-                    return escapeDelimited(value.map { "\($0)" } ?? "", delimiter: delimiter)
+                    return escapeDelimited(scalarText(value), delimiter: delimiter)
                 }.joined(separator: String(delimiter)))
             }
             try lines.joined(separator: "\n").write(to: output, atomically: true, encoding: .utf8)
@@ -637,7 +639,7 @@ public enum FileConversionService {
                 inQuotes = true
             } else if c == delimiter {
                 row.append(field); field = ""
-            } else if c == "\n" || c == "\r" {
+            } else if c == "\n" || c == "\r" || c == "\r\n" {
                 if c == "\r" {
                     let next = text.index(after: i)
                     if next < text.endIndex && text[next] == "\n" { i = next }
@@ -657,6 +659,12 @@ public enum FileConversionService {
         return rows
     }
 
+    private static func scalarText(_ value: Any?) -> String {
+        guard let value, !(value is NSNull) else { return "" }
+        if let number = value as? NSNumber, CFGetTypeID(number) == CFBooleanGetTypeID() { return number.boolValue ? "true" : "false" }
+        return "\(value)"
+    }
+
     private static func escapeDelimited(_ value: String, delimiter: Character) -> String {
         if value.contains(delimiter) || value.contains("\"") || value.contains("\n") || value.contains("\r") {
             return "\"" + value.replacingOccurrences(of: "\"", with: "\"\"") + "\""
@@ -672,7 +680,7 @@ public enum FileConversionService {
         } else {
             // tar.gz — run from the parent dir so the archive stores clean names.
             let parent = input.deletingLastPathComponent()
-            try await run("/usr/bin/tar", ["-czf", output.path, "-C", parent.path, input.lastPathComponent])
+            try await run("/usr/bin/tar", ["-czf", output.path, "-C", parent.path, "./" + input.lastPathComponent])
         }
     }
 

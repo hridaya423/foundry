@@ -26,7 +26,10 @@ public final class ArtifactStore: Sendable {
     public func stage(for destination: URL) throws -> StagedArtifact {
         let directory = destination.deletingLastPathComponent()
         try fileManager.createDirectory(at: directory, withIntermediateDirectories: true)
-        let url = directory.appendingPathComponent(".\(destination.lastPathComponent).foundry-\(UUID().uuidString)")
+        let stem = destination.deletingPathExtension().lastPathComponent
+        let suffix = destination.pathExtension.isEmpty ? "" : ".\(destination.pathExtension)"
+        let stagedName = ".\(stem).foundry-\(UUID().uuidString)\(suffix)"
+        let url = directory.appendingPathComponent(stagedName)
         let reservation = UUID()
         try Self.reservations.withLock {
             let key = destination.standardizedFileURL.path

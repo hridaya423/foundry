@@ -47,6 +47,23 @@ final class ArtifactStoreTests: XCTestCase {
         XCTAssertFalse(FileManager.default.fileExists(atPath: staged.url.path))
     }
 
+    func testStagedFileKeepsTheDestinationExtension() throws {
+        let directory = try temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let store = ArtifactStore()
+
+        let withExtension = try store.stage(for: directory.appendingPathComponent("result.mp3"))
+        defer { store.discard(withExtension) }
+        XCTAssertEqual(withExtension.url.pathExtension, "mp3")
+        XCTAssertTrue(withExtension.url.lastPathComponent.hasPrefix("."))
+        XCTAssertEqual(withExtension.url.deletingLastPathComponent().standardizedFileURL, directory.standardizedFileURL)
+
+        let withoutExtension = try store.stage(for: directory.appendingPathComponent("result"))
+        defer { store.discard(withoutExtension) }
+        XCTAssertTrue(withoutExtension.url.lastPathComponent.hasPrefix("."))
+        XCTAssertTrue(withoutExtension.url.lastPathComponent.contains(".foundry-"))
+    }
+
     func testTwoStoreInstancesReserveTheSameDestination() throws {
         let directory = try temporaryDirectory()
         defer { try? FileManager.default.removeItem(at: directory) }
