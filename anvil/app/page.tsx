@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import ShelfStory from "./foundry/story/story";
 import "./foundry/foundry.css";
 import "./foundry/story/story.css";
@@ -5,8 +6,7 @@ import "./foundry/story/clipboard.css";
 import "./foundry/story/tools.css";
 import "./foundry/story/memory.css";
 import "./foundry/story/download.css";
-import { storyEnd } from "./foundry/story/download-motion";
-import { authorName, caseStudyUrl, foundryDownloadUrl, foundryVersion, hubUrl, repoUrl, siteDescription, siteUrl } from "./site";
+import { authorName, caseStudyUrl, foundryDownloadUrl, foundryVersion, hubUrl, repoUrl, siteDescription, siteTitle, siteUrl } from "./site";
 import { formatFigure, proofFigures } from "./proof";
 
 const hubPage = { "@type": "WebPage", "@id": caseStudyUrl, url: caseStudyUrl, name: "Foundry case study" };
@@ -53,13 +53,14 @@ const structuredData = {
   ],
 };
 
-export default async function Home({ searchParams }: {
-  searchParams: Promise<{ inspect?: string; at?: string }>;
-}) {
-  const params = await searchParams;
-  const at = Number(params.at ?? 0);
+export const metadata: Metadata = {
+  alternates: { canonical: "/" },
+  openGraph: { type: "website", siteName: "Foundry", title: siteTitle, description: siteDescription, url: "/" },
+};
+
+export default function Home() {
   return <>
     <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData).replace(/</g, "\\u003c") }} />
-    <ShelfStory appSize={formatFigure(proofFigures().find((figure) => figure.id === "app-size")!)} inspect={params.inspect === "1"} initialProgress={Number.isFinite(at) ? Math.max(0, Math.min(storyEnd, at)) : 0} />
+    <ShelfStory appSize={formatFigure(proofFigures().find((figure) => figure.id === "app-size")!)} inspect={false} initialProgress={0} />
   </>;
 }
