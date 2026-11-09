@@ -63,4 +63,13 @@ final class SystemCommandProviderTests: XCTestCase {
         let after = await registry.fullResults(matching: "wifi")
         XCTAssertFalse(after.contains { CommandSettingsCatalog.isSystemSettingsPane($0.id) })
     }
+
+    func testHiddenFilesStateParsesDefaultsOutput() {
+        for output in ["1\n", "true", "YES"] {
+            XCTAssertTrue(ToggleHiddenFilesAction.isShown(defaultsOutput: output), output)
+        }
+        for output in ["0\n", "false", "", nil] {
+            XCTAssertFalse(ToggleHiddenFilesAction.isShown(defaultsOutput: output), output ?? "nil")
+        }
+    }
 }

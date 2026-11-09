@@ -173,16 +173,7 @@ final class SystemCommandProvider: CommandProvider, Sendable {
                 systemIcon: "eye.slash.fill",
                 fallback: "HF",
                 actionTitle: "Toggle",
-                action: RunProcessAction(
-                    path: "/bin/zsh",
-                    arguments: [
-                        "-lc",
-                        "/usr/bin/defaults write com.apple.finder AppleShowAllFiles -bool "
-                            + "$(/usr/bin/defaults read com.apple.finder AppleShowAllFiles 2>/dev/null"
-                            + " | /usr/bin/grep -q true && printf false || printf true);"
-                            + " /usr/bin/killall Finder",
-                    ]
-                )
+                action: ToggleHiddenFilesAction()
             ),
             SystemCommand(
                 id: "system.mute-audio",

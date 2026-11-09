@@ -124,4 +124,20 @@ final class QuicklinkTests: XCTestCase {
         XCTAssertNil(QuicklinkProvider.faviconURL(for: "maps://?q={argument}"))
         XCTAssertNil(QuicklinkProvider.faviconURL(for: "mailto:{argument}"))
     }
+
+    func testArgumentContainingAPlaceholderExpandsOnce() {
+        XCTAssertEqual(QuicklinkTemplate.expand("~/Notes/{argument}", argument: "{query}", context: context), "~/Notes/{query}")
+    }
+
+    func testArgumentWithDollarAndBackslashIsLiteral() {
+        XCTAssertEqual(QuicklinkTemplate.expand("~/Notes/{argument}", argument: #"a$1\b"#, context: context), #"~/Notes/a$1\b"#)
+    }
+
+    func testProviderResultForAPlaceholderArgumentReturns() async {
+        let store = QuicklinkStore(url: FileManager.default.temporaryDirectory.appendingPathComponent("quicklinks-\(UUID().uuidString).json"))
+        let context = self.context
+        let provider = QuicklinkProvider(store: store, context: { context })
+        let results = await provider.results(matching: "g {query}")
+        XCTAssertFalse(results.isEmpty)
+    }
 }

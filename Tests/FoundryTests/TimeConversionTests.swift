@@ -169,4 +169,10 @@ final class TimeConversionTests: XCTestCase {
         let results = await registry.fullResults(matching: "12pm est")
         XCTAssertTrue(results.contains { $0.id.hasPrefix("time.") })
     }
+
+    func testClockWithZoneAndTimeSuffixConverts() {
+        let withSuffix = convert("9am pacific time").map(\.title)
+        XCTAssertFalse(withSuffix.isEmpty)
+        XCTAssertEqual(withSuffix, convert("9am pacific").map(\.title))
+    }
 }

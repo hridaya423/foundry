@@ -92,7 +92,10 @@ enum TimeConversionEngine {
         if text.hasPrefix("at ") { text = String(text.dropFirst(3)) }
         if text.hasSuffix(" time") {
             let token = String(text.dropLast(5)).trimmingCharacters(in: .whitespaces)
-            if token.isEmpty == false { return .now(zoneToken: token) }
+            if token.isEmpty == false {
+                if TimeZoneResolver.resolve(token) != nil { return .now(zoneToken: token) }
+                text = token
+            }
         }
 
         let fullRange = NSRange(text.startIndex..<text.endIndex, in: text)

@@ -276,6 +276,41 @@ struct ToggleDesktopIconsAction: ResultAction, Equatable {
     }
 }
 
+struct ToggleHiddenFilesAction: ResultAction, Equatable {
+    var icon: String? { "eye.slash.fill" }
+
+    static func isShown(defaultsOutput: String?) -> Bool {
+        guard let output = defaultsOutput?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() else { return false }
+        return ["1", "true", "yes"].contains(output)
+    }
+
+    func perform(_ ctx: ActionContext) async -> CommandOutcome {
+        let current = await BestEffort.attempt("read Finder AppleShowAllFiles") {
+            try await ProcessRunner.run(
+                path: "/usr/bin/defaults",
+                arguments: ["read", "com.apple.finder", "AppleShowAllFiles"],
+                timeout: 5
+            )
+        }
+        let currentlyShown = Self.isShown(defaultsOutput: current?.stdout)
+        do {
+            _ = try await ProcessRunner.run(
+                path: "/usr/bin/defaults",
+                arguments: ["write", "com.apple.finder", "AppleShowAllFiles", "-bool", currentlyShown ? "false" : "true"],
+                timeout: 5
+            )
+            _ = try await ProcessRunner.run(path: "/usr/bin/killall", arguments: ["Finder"], timeout: 5)
+            let message = currentlyShown ? "Hidden files hidden" : "Hidden files shown"
+            ctx.diagnostics.log(message)
+            ctx.emit(.feedback(.success(message)))
+            return .success(message: message)
+        } catch {
+            ctx.diagnostics.log("Hidden files toggle failed: \(error.localizedDescription)")
+            return ctx.finish(.failure(message: String(localized: "Could not toggle hidden files"), retryable: true))
+        }
+    }
+}
+
 struct TerminatePortAction: ResultAction, Equatable {
     let port: Int
 
@@ -284,10 +319,21 @@ struct TerminatePortAction: ResultAction, Equatable {
     var icon: String? { "network" }
     var style: ActionStyle { .destructive }
 
+    static func lookupArguments(port: Int) -> [String] {
+        ["-nP", "-iTCP:\(port)", "-sTCP:LISTEN", "-t"]
+    }
+
+    static func targets(fromLookupOutput output: String, excluding ownPID: Int32) -> [String] {
+        var seen = Set<String>()
+        return output.split(whereSeparator: \.isNewline)
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .filter { $0.isEmpty == false && $0 != String(ownPID) && seen.insert($0).inserted }
+    }
+
     func perform(_ ctx: ActionContext) async -> CommandOutcome {
         do {
-            let lookup = try await ProcessRunner.run(path: "/usr/sbin/lsof", arguments: ["-ti", "tcp:\(port)"], timeout: 3)
-            let pids = lookup.stdout.split(whereSeparator: \.isNewline).map(String.init)
+            let lookup = try await ProcessRunner.run(path: "/usr/sbin/lsof", arguments: Self.lookupArguments(port: port), timeout: 3)
+            let pids = Self.targets(fromLookupOutput: lookup.stdout, excluding: ProcessInfo.processInfo.processIdentifier)
             guard lookup.succeeded, pids.isEmpty == false else {
                 let message = String(localized: "No process is listening on port \(port)")
                 ctx.diagnostics.log(message)

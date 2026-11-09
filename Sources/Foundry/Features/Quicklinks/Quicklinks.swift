@@ -38,8 +38,18 @@ struct Quicklink: Codable, Identifiable, Hashable, Sendable {
 }
 
 enum QuicklinkTemplate {
+    private static let argumentPattern = #"\{(argument[^}]*|query)\}"#
+
     static func argumentRange(in link: String) -> Range<String.Index>? {
-        link.range(of: #"\{(argument[^}]*|query)\}"#, options: [.regularExpression, .caseInsensitive])
+        link.range(of: argumentPattern, options: [.regularExpression, .caseInsensitive])
+    }
+
+    static func replacingArguments(in link: String, with replacement: String) -> String {
+        link.replacingOccurrences(
+            of: argumentPattern,
+            with: NSRegularExpression.escapedTemplate(for: replacement),
+            options: [.regularExpression, .caseInsensitive]
+        )
     }
 
     static func expand(_ link: String, argument: String, context: SnippetRenderContext) -> String {
@@ -50,10 +60,7 @@ enum QuicklinkTemplate {
             allowed.remove(charactersIn: "&+=?#/")
             return raw.addingPercentEncoding(withAllowedCharacters: allowed) ?? raw
         }
-        var result = link
-        while let range = argumentRange(in: result) {
-            result.replaceSubrange(range, with: value(argument))
-        }
+        var result = replacingArguments(in: link, with: value(argument))
         for token in ["{clipboard}", "{selection}", "{date}", "{time}"] where result.contains(token) {
             let raw = token == "{clipboard}" ? context.clipboard : SnippetRenderer.render(token, context: context).text
             result = result.replacingOccurrences(of: token, with: value(raw))
@@ -246,10 +253,7 @@ final class QuicklinkProvider: CommandProvider, Sendable {
     }
 
     private static func displayURL(_ link: String, argument: String?) -> String {
-        var display = link
-        while let range = QuicklinkTemplate.argumentRange(in: display) {
-            display.replaceSubrange(range, with: argument ?? "")
-        }
+        var display = QuicklinkTemplate.replacingArguments(in: link, with: argument ?? "")
         if let scheme = display.range(of: "://") {
             display.removeSubrange(display.startIndex..<scheme.upperBound)
         }
