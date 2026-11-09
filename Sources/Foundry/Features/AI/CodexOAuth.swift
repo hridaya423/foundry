@@ -200,7 +200,7 @@ private struct CodexDeviceTokenResponse: Decodable, Sendable {
     }
 }
 
-private final class CodexOAuthCallbackServer: Sendable {
+final class CodexOAuthCallbackServer: Sendable {
     private struct State {
         var listener: NWListener?
         var callbackContinuation: CheckedContinuation<CodexOAuthCallback, Error>?
@@ -231,7 +231,9 @@ private final class CodexOAuthCallbackServer: Sendable {
 
     private func start(on port: UInt16) async throws {
         guard let endpointPort = NWEndpoint.Port(rawValue: port) else { throw OpenAICodexOAuthError.callbackServerUnavailable }
-        let listener = try NWListener(using: .tcp, on: endpointPort)
+        let parameters = NWParameters.tcp
+        parameters.requiredInterfaceType = .loopback
+        let listener = try NWListener(using: parameters, on: endpointPort)
         setListener(listener, port: port)
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
             state.withLock { $0.startContinuation = continuation }
@@ -256,15 +258,19 @@ private final class CodexOAuthCallbackServer: Sendable {
     }
 
     func waitForCallback() async throws -> CodexOAuthCallback {
-        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<CodexOAuthCallback, Error>) in
-            let stopped = state.withLock { state -> Bool in
-                if state.isStopped { return true }
-                state.callbackContinuation = continuation
-                return false
+        try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<CodexOAuthCallback, Error>) in
+                let stopped = state.withLock { state -> Bool in
+                    if state.isStopped { return true }
+                    state.callbackContinuation = continuation
+                    return false
+                }
+                if stopped {
+                    continuation.resume(throwing: OpenAICodexOAuthError.cancelled)
+                }
             }
-            if stopped {
-                continuation.resume(throwing: OpenAICodexOAuthError.cancelled)
-            }
+        } onCancel: {
+            self.stop()
         }
     }
 
@@ -328,6 +334,10 @@ private final class CodexOAuthCallbackServer: Sendable {
         guard parts.count >= 2, parts[0] == "GET", host.map({ expectedHosts.contains($0) }) == true,
             let components = URLComponents(string: "http://localhost\(parts[1])") else {
             sendResponse(connection: connection, status: "400 Bad Request", body: "Bad request")
+            return
+        }
+        guard components.path == "/auth/callback" else {
+            sendResponse(connection: connection, status: "404 Not Found", body: "Not found")
             return
         }
         var callback = CodexOAuthCallback(path: components.path, code: nil, state: nil, error: nil, errorDescription: nil)

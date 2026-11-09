@@ -182,7 +182,7 @@ enum AnthropicTransport {
     static func test(profile: AIProviderProfile, credentials: AICredentialStore) async -> AIConnectionTestResult {
         guard (BestEffort.attempt("read Anthropic api key") {
             try AITransportSupport.apiKey(profile, store: credentials)
-        }) != nil else { return .failure("Add an Anthropic API key before testing this provider.") }
+        } ?? nil) != nil else { return .failure("Add an Anthropic API key before testing this provider.") }
         return .success("Anthropic credentials are stored. Send a request to verify model access.")
     }
 
@@ -246,7 +246,7 @@ enum GeminiTransport {
         guard let endpoint = profile.endpoint,
               let apiKey = BestEffort.attempt("read Gemini api key", {
                   try AITransportSupport.apiKey(profile, store: credentials)
-              }),
+              }) ?? nil,
               let base = URL(string: endpoint),
               var components = URLComponents(
                 url: base.appendingPathComponent("models/\(profile.model):streamGenerateContent"),
@@ -295,7 +295,7 @@ enum GeminiTransport {
     static func test(profile: AIProviderProfile, credentials: AICredentialStore) async -> AIConnectionTestResult {
         guard (BestEffort.attempt("read Gemini api key") {
             try AITransportSupport.apiKey(profile, store: credentials)
-        }) != nil else { return .failure("Add a Gemini API key before testing this provider.") }
+        } ?? nil) != nil else { return .failure("Add a Gemini API key before testing this provider.") }
         return .success("Gemini credentials are stored. Send a request to verify model access.")
     }
 

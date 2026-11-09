@@ -570,6 +570,27 @@ final class AIProviderTests: XCTestCase {
         XCTAssertFalse(WebSearchURLPolicy.isAllowed("http://169.254.169.254/latest/"))
     }
 
+    func testWebSearchURLPolicyAllowsFcAndFdHostnamesButRejectsPrivateIPv6() {
+        for url in ["https://www.fcc.gov/x", "https://fda.gov/", "https://fd.nl/", "https://fcbarcelona.com/"] {
+            XCTAssertTrue(WebSearchURLPolicy.isAllowed(url), url)
+        }
+        for url in ["http://[fd00::1]/", "http://[fc00::1]/", "http://[fe80::1]/", "http://[::1]/"] {
+            XCTAssertFalse(WebSearchURLPolicy.isAllowed(url), url)
+        }
+    }
+
+    func testAnthropicConnectionTestFailsWithoutAStoredKey() async {
+        let profile = AIProviderProfile(name: "Anthropic", kind: .anthropic, authentication: .apiKey, model: "claude")
+        let result = await AnthropicTransport.test(profile: profile, credentials: EmptyCredentialStore())
+        XCTAssertTrue(result.isFailure)
+    }
+
+    func testGeminiConnectionTestFailsWithoutAStoredKey() async {
+        let profile = AIProviderProfile(name: "Gemini", kind: .gemini, authentication: .apiKey, model: "gemini")
+        let result = await GeminiTransport.test(profile: profile, credentials: EmptyCredentialStore())
+        XCTAssertTrue(result.isFailure)
+    }
+
     func testIntentHeuristicsRequireLiveSearchForFreshFacts() {
         XCTAssertTrue(AIIntentHeuristics.needsWebSearch("What is the latest macOS release?"))
         XCTAssertTrue(AIIntentHeuristics.needsWebSearch("current weather in San Francisco"))
@@ -808,4 +829,10 @@ private final class BlockingAIChatStore: Sendable, AIChatStoring {
     func savedSnapshots() -> [[AIChatThread]] {
         box.withLockUnchecked { $0.snapshots }
     }
+}
+
+private struct EmptyCredentialStore: AICredentialStore {
+    func credential(for profileID: UUID) throws -> AICredential? { nil }
+    func save(_ credential: AICredential, for profileID: UUID) throws {}
+    func delete(for profileID: UUID) throws {}
 }

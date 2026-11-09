@@ -156,7 +156,7 @@ enum WebSearchURLPolicy {
         if let ipv4 = IPv4Address(host) {
             return ipv4.isPublic
         }
-        if host == "::1" || host.hasPrefix("fe80:") || host.hasPrefix("fc") || host.hasPrefix("fd") {
+        if host.contains(":"), host == "::1" || host.hasPrefix("fe80:") || host.hasPrefix("fc") || host.hasPrefix("fd") {
             return false
         }
         return true

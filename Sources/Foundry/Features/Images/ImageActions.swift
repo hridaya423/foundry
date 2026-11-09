@@ -421,7 +421,7 @@ struct ReadQRCodeAction: ResultAction, Equatable {
             }
             ctx.pasteboard.clearContents()
             ctx.pasteboard.setString(payload, forType: .string)
-            ctx.diagnostics.log("Decoded QR payload: \(payload)")
+            ctx.diagnostics.log("Decoded QR payload (\(payload.count) characters)")
             ctx.emit(.feedback(.success("Copied \(payload)")))
             return .copied(content: payload)
         } catch {
