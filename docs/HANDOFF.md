@@ -1,31 +1,39 @@
-# HANDOFF — Foundry Premium plan
+# HANDOFF — Foundry
 
 Read this first if you are picking this work up (a new session, another machine, or another agent). Follow the `receive-handoff` rules: the state files named below are ground truth; continue, don't restart; never `reset`/`checkout`/`clean` existing work.
 
+## Where things stand (2026-11-09)
+
+- Version 1.3.0 is released (`d5519b4`, tag `v1.3.0`). `origin/main` is at `d5519b4`.
+- Local `main` is at `e0feee5` and is not pushed. Six audit plans are merged on it: 001 conversion output staging, 002 numeric crash guards, 003 snippet expansion, 004 command logic fixes, 005 AI and sign-in hardening, 006 README and release text (commits `d40d3df` to `e0feee5`). Plan 003 is not yet tried in the running app.
+- A fix-all run is in progress. Each agent works in its own worktree under `~/.t3/worktrees/anvil/`, branched from `e0feee5`. The coordinator merges the branches. Do not push, open a PR or change `VERSION` without the owner.
+- `progress.md` has the current state at the top and the history below it.
+- Distribution: `.github/workflows/release.yml` publishes a signed, notarized DMG when `VERSION` changes on `main` and the signing secrets are set (otherwise an ad-hoc build). See `docs/distribution.md`. The earlier note that distribution is out of scope no longer matches the repository.
+
 ## Goal
 
-**Current workstream (2026-10-11):** `docs/plans/2026-10-11-foundry-raycast-bar-audit.md` — a harsh 56-finding audit of Foundry measured against **Raycast**. Phases 0–6: measurement lab → window/keyboard correctness → search quality → performance/data → architecture → UI/UX polish → platform. Work lands in **phased commits**; the goal ends when every phase is implemented. The user's bar: "every little detail to feel as polished as possible."
+The sections below record earlier workstreams. They are history, not a to-do list. Use them to learn why the code looks as it does.
 
-The earlier premium plan (`docs/plans/2026-09-25-foundry-premium-plan.md`) is fully implemented and shipped as 1.2.0 — see "Prior state" below.
+**Previous workstream (2026-10-11, complete and merged):** `docs/plans/2026-10-11-foundry-raycast-bar-audit.md`, a 56-finding audit of Foundry measured against **Raycast**. Phases 0–6: measurement lab → window/keyboard correctness → search quality → performance/data → architecture → UI/UX polish → platform. The user's bar: "every little detail to feel as polished as possible."
 
-**Explicitly out of scope for now (user's call): signing, notarization, Sparkle/autoupdate, DMG, Homebrew.** Do not work on distribution.
+The earlier premium plan (`docs/plans/2026-09-25-foundry-premium-plan.md`) shipped as 1.2.0. See "Prior state" below. The 2026-11-01 "last 20%" plans shipped as 1.3.0.
 
 ## State files (keep them updated — this is how a killed session resumes)
 
 | File | Role |
 | --- | --- |
-| `docs/plans/2026-10-11-foundry-raycast-bar-audit.md` | Live plan — the audit with per-finding files, fixes, and acceptance criteria. |
+| `progress.md` | Current state at the top, dated history below. Update it after every completed unit. |
+| `docs/plans/` | Plans, each with a status line at the top. |
 | `docs/benchmarks/2026-10-11-latency-budgets.md` | Latency budgets from Phase 0 instrumentation. |
-| `.devin/goal/report.md` | Progress ledger (tracked in git). Update after every completed unit. |
 | This file | Orientation + how to work. |
 
-All work lands as small commits on `main`. `git log --oneline` is the record of what is done. Stage exact files only — `launch-film/` (the film project) and `anvil/` (the marketing site) are tracked but separate concerns; don't include their changes in Foundry commits. `.devin/` is untracked goal state.
+All work lands as small commits on `main`. `git log --oneline` is the record of what is done. Stage exact files only — `anvil/` (the marketing site) and `foundry-ad/` (film projects) are separate concerns; don't include their changes in Foundry commits. `launch-film/` and `.devin/` are ignored by `.gitignore`.
 
-## Where things stand (2026-10-12 — Raycast-bar audit COMPLETE)
+## Raycast-bar audit, complete (2026-10-12, superseded by the state above)
 
-**All phases 0–6 are implemented** on branch `raycast-quality-overhaul` (18 commits, `2d94634`→`03cfe33`). Not yet merged to `main`. Gate at head: `swift build` + `swift build -c release` clean (0 warnings), **650 tests, 0 failures, 6 skipped**, `lint-lines.sh` PASS at 160, `lint-design.sh` PASS, `lint-l10n.sh` PASS, snapshot references compare-clean.
+**All phases 0–6 were implemented** on branch `raycast-quality-overhaul` (18 commits, `2d94634`→`03cfe33`). The branch is merged into `main` and was deleted on 2026-11-03. Gate at head: `swift build` + `swift build -c release` clean (0 warnings), **650 tests, 0 failures, 6 skipped**, `lint-lines.sh` PASS at 160, `lint-design.sh` PASS, `lint-l10n.sh` PASS, snapshot references compare-clean.
 
-Phase ledger (see `.devin/goal/report.md` for detail):
+Phase ledger (the detailed ledger `.devin/goal/report.md` is no longer tracked; it stays in git history):
 
 - **4.5/4.1–4.3** — `@unchecked Sendable` 60→3 justified; typed `ResultPayload`; feature-owned `ResultAction` (ActionRunner 1551→136); `CommandPanelState` split.
 - **Lint** — ratcheted to 160.
@@ -60,9 +68,9 @@ Commits on `main` tell the story — newest first:
 
 All Phase 4 items landed on `raycast-quality-overhaul`: the `@unchecked Sendable` audit finished at 3 justified sites (method was compiler-driven flips onto `OSAllocatedUnfairLock<State>`), typed `ResultPayload` replaced id-prefix dispatch, feature-owned `ResultAction` shrank `ActionRunner` to a 136-line executor, `CommandPanelState` split into focused states, and `lint-lines.sh` ratchets at 160.
 
-## Prior state (1.2.0, 2026-10-08)
+## Prior state (1.2.0, 2026-10-08, superseded by 1.3.0)
 
-- The megaplan (`~/.devin/plans/plan-2b52c0932c2a6746.md`) is implemented: P0 brand (custom `.icns` + designed DMG with Finder layout), P1 conversion graph/router over native+brew engines, P2 conversion UX + Finder-style file actions + `--convert`, P3 Downloads/Snippets/Clipboard facelift, P4 parity commands (OCR, color picker, QR gen/decode, plain paste, confetti), P5 onboarding motion + panel entrance, P6 perf (18 MB → 7.8 MB via pre-sign strip, icons off-main, async `lsof`, `CommandPanelState` split 1463 → 923+357+216, external-engine batch conversions parallelized at cap 2 with native engines staying sequential, markdown parse cache tightened to 50), P7 release docs.
+- The megaplan (a file outside the repository that no longer exists) was implemented: P0 brand (custom `.icns` + designed DMG with Finder layout), P1 conversion graph/router over native+brew engines, P2 conversion UX + Finder-style file actions + `--convert`, P3 Downloads/Snippets/Clipboard facelift, P4 parity commands (OCR, color picker, QR gen/decode, plain paste, confetti), P5 onboarding motion + panel entrance, P6 perf (18 MB → 7.8 MB via pre-sign strip, icons off-main, async `lsof`, `CommandPanelState` split 1463 → 923+357+216, external-engine batch conversions parallelized at cap 2 with native engines staying sequential, markdown parse cache tightened to 50), P7 release docs.
 - `VERSION` is `1.2.0`; release notes are in `docs/release-notes/1.2.0.md`.
 - `swift test`: 602 tests, 0 failures (3 skipped). `build-app.sh` produces a signed ~8.1 MB bundle; `package-dmg.sh` produces the branded DMG.
 - Review-findings pass (post-`7afe028`): fixed five conversion-state defects — Install & Convert now seeds `itemOutcomes` (it reported 0 files), `startOver()` closes its `OperationCoordinator` record, mutating sources mid-batch cancels+invalidates in-flight work, `installTool()` guards stale generations on every exit, and the Downloads completion haptic is injected + gated by `hapticsEnabled`. Also closed the review's real spec gaps: clipboard row hover actions (copy / paste / OCR / remove) and image OCR + barcode decode affordances, File Shelf OCR/barcode context actions, download "Redownload", QR "Save as PNG…" (injectable `offerQRSave` — modal code must never run under tests), conversion-result Quick Look + Share buttons, a searchable format picker (>8 targets), try-it confetti with a cancellable 1.2 s advance, panel-entrance `CASpringAnimation` settle, action-panel spring, Keep Awake in the status menu (with on-state), snippet-expansion `recordUse` by snippetID, and a per-batch completion haptic. Corrected the clipboard footer to the real keymap: ↵ Paste, ⌘↵ Copy, ⌘P Pin.
@@ -93,7 +101,7 @@ Plan: `docs/plans/2026-11-01-foundry-last-20.md`. Evidence: `docs/qa/2026-11-01-
 2. Live `search.immediate`/`search.complete` through real keystrokes: run `scripts/drive-signposts.swift 30` (hotkey mode) on a host that grants Accessibility.
 3. Deferred refactors. Done in 1.2: `CommandPanelState` split into `CommandPanelState.swift` (core/search/actions) + `+Settings` (config mutation, backup, command prefs) + `+Modes` (feature-mode navigation). Still open: P6.1 `@Observable` migration of remaining legacy state objects, P6.2 lazy feature states.
 4. Liquid Glass render cost needs an Xcode 26 / Swift 6.2 build.
-5. Distribution (notarization, Sparkle, Homebrew) is still out of scope; signing + designed DMG are done in-repo. Note: pushing a change to `VERSION` triggers `.github/workflows/release.yml`.
+5. Sparkle auto-update and Homebrew are not set up. Signing, the designed DMG and the release workflow are in the repository (`docs/distribution.md`). Pushing a change to `VERSION` triggers `.github/workflows/release.yml`.
 
 ## Known flakes and quirks
 
@@ -106,4 +114,4 @@ Plan: `docs/plans/2026-11-01-foundry-last-20.md`. Evidence: `docs/qa/2026-11-01-
 
 - Repo root: this directory. `Package.swift` declares `// swift-tools-version: 6.1` and builds with Swift 6.1 (Xcode 16.3, macOS 15 SDK) or 6.2 (Xcode 26). Liquid Glass (`glassEffect`) is compiled only under `#if compiler(>=6.2)`; 6.1 builds use the `NSVisualEffectView` fallback.
 - `swift build` / `swift test` for the package; `./scripts/build-app.sh` stages `build/Foundry.app`; `./scripts/verify-packaging.sh` checks the bundle.
-- Foundry commits must not sweep in `launch-film/` or `.devin/` changes.
+- Foundry commits must not sweep in `anvil/` or `foundry-ad/` changes.
