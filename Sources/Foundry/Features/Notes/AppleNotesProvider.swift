@@ -6,6 +6,14 @@ import os
 final class AppleNotesProvider: CommandProvider {
     let id = "foundry.apple-notes"
 
+    private let runScript: @Sendable ([String]) -> ProcessResult?
+
+    init(runScript: @escaping @Sendable ([String]) -> ProcessResult? = {
+        ProcessRunner.runSynchronously(path: "/usr/bin/osascript", arguments: $0, timeout: 20, outputLimit: 4 * 1024 * 1024)
+    }) {
+        self.runScript = runScript
+    }
+
     var searchPolicy: CommandProviderSearchPolicy { CommandProviderSearchPolicy(tier: .deferred) }
 
     func isActive(for query: String) -> Bool {
@@ -17,8 +25,11 @@ final class AppleNotesProvider: CommandProvider {
         let search = normalizedSearch(from: request.query)
         guard search.count >= 2 else { return [] }
 
-        guard let notes = allNotes() else {
-            return [unavailableResult]
+        let notes: [AppleNoteResult]
+        switch notesCache.fetch(refresh: fetchAllNotes) {
+        case let .notes(fetched): notes = fetched
+        case .denied: return [deniedResult]
+        case .failed: return [failedResult]
         }
         let needle = search.lowercased()
         return notes
@@ -65,40 +76,43 @@ final class AppleNotesProvider: CommandProvider {
         return ""
     }
 
-    private final class NotesCacheBox: Sendable {
-        private let cached = OSAllocatedUnfairLock<(at: Date, notes: [AppleNoteResult])?>(initialState: nil)
-        private let ttl: TimeInterval = 60
+    enum Fetch: Sendable {
+        case notes([AppleNoteResult])
+        case denied
+        case failed
+    }
 
-        func notes(refresh: () -> [AppleNoteResult]?) -> [AppleNoteResult]? {
+    /// Keeps a failure for a short while too, so a slow or refused Notes is not asked again on every keystroke.
+    private final class NotesCacheBox: Sendable {
+        private let cached = OSAllocatedUnfairLock<(at: Date, fetch: Fetch)?>(initialState: nil)
+
+        func fetch(refresh: () -> Fetch) -> Fetch {
             cached.withLockUnchecked { cached in
-                if let cached, Date().timeIntervalSince(cached.at) < ttl { return cached.notes }
-                guard let notes = refresh() else { return cached?.notes }
-                cached = (Date(), notes)
-                return notes
+                if let cached {
+                    let ttl: TimeInterval = if case .notes = cached.fetch { 60 } else { 15 }
+                    if Date().timeIntervalSince(cached.at) < ttl { return cached.fetch }
+                }
+                let fetch = refresh()
+                cached = (Date(), fetch)
+                return fetch
             }
         }
     }
 
     private let notesCache = NotesCacheBox()
 
-    private func allNotes() -> [AppleNoteResult]? {
-        notesCache.notes(refresh: fetchAllNotes)
-    }
-
-    private func fetchAllNotes() -> [AppleNoteResult]? {
-        guard let result = ProcessRunner.runSynchronously(
-            path: "/usr/bin/osascript",
-            arguments: listScriptArguments(),
-            timeout: 3,
-            outputLimit: 4 * 1024 * 1024
-        ), result.succeeded,
-        let data = result.stdout.data(using: .utf8) else { return nil }
-        return BestEffort.attempt("decode notes results") {
-            try JSONDecoder().decode([AppleNoteResult].self, from: data)
+    private func fetchAllNotes() -> Fetch {
+        guard let result = runScript(listScriptArguments()) else { return .failed }
+        guard result.succeeded else {
+            return result.stderr.contains("-1743") || result.stderr.localizedCaseInsensitiveContains("not authori") ? .denied : .failed
         }
+        let notes = BestEffort.attempt("decode notes results") {
+            try JSONDecoder().decode([AppleNoteResult].self, from: Data(result.stdout.utf8))
+        }
+        return notes.map(Fetch.notes) ?? .failed
     }
 
-    private let unavailableResult = CommandResult(
+    private let deniedResult = CommandResult(
         id: "apple-note.unavailable",
         title: "Couldn’t search Apple Notes",
         subtitle: "Check Automation access in System Settings › Privacy & Security",
@@ -112,23 +126,31 @@ final class AppleNotesProvider: CommandProvider {
         secondaryActions: []
     )
 
+    private let failedResult = CommandResult(
+        id: "apple-note.failed",
+        title: "Apple Notes didn’t answer",
+        subtitle: "Try again in a moment",
+        icon: CommandIcon(fallback: "AN", systemName: "exclamationmark.triangle"),
+        payload: .command,
+        primaryAction: CommandAction(id: "apple-note.failed.open", title: "Open Apple Notes",
+            behavior: RunProcessAction(path: "/usr/bin/open", arguments: ["-a", "Notes"])),
+        secondaryActions: []
+    )
+
     private func listScriptArguments() -> [String] {
         [
             "-l", "JavaScript",
             "-e", """
             function run(argv) {
                 const Notes = Application('Notes');
-                const strip = s => String(s || '')
-                    .replace(/<[^>]*>/g, ' ')
-                    .replace(/&nbsp;/g, ' ')
-                    .replace(/&amp;/g, '&')
-                    .replace(/\\s+/g, ' ')
-                    .trim();
-                return JSON.stringify(Notes.notes().map(n => ({
-                    id: n.id(),
-                    title: n.name(),
-                    preview: strip(n.body()).slice(0, 180),
-                })).slice(0, 4000));
+                const strip = s => String(s || '').replace(/\\s+/g, ' ').trim();
+                const notes = Notes.notes;
+                const ids = notes.id(), titles = notes.name(), texts = notes.plaintext();
+                return JSON.stringify(ids.slice(0, 4000).map((id, i) => ({
+                    id: id,
+                    title: String(titles[i] || ''),
+                    preview: strip(texts[i]).slice(0, 180),
+                })));
             }
             """
         ]
@@ -145,7 +167,7 @@ final class AppleNotesProvider: CommandProvider {
     }
 }
 
-private struct AppleNoteResult: Decodable {
+struct AppleNoteResult: Decodable, Sendable {
     let id: String
     let title: String
     let preview: String
