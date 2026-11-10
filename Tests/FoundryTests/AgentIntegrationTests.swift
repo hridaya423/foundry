@@ -255,6 +255,32 @@ final class AgentIntegrationTests: XCTestCase {
         XCTAssertTrue(AgentHookBridge.send(envelope, socketURL: socketURL))
     }
 
+    func testUninstallTakesOutOnlyFoundrysHooks() throws {
+        let installer = AgentIntegrationInstaller(homeDirectory: temporaryDirectory,
+            executableURL: URL(fileURLWithPath: "/Applications/Foundry.app/Contents/MacOS/Foundry"))
+        let userHook: [String: Any] = ["matcher": "Bash", "hooks": [["type": "command", "command": "/usr/local/bin/security-hook"]]]
+        try FileManager.default.createDirectory(at: installer.claudeSettingsURL.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try JSONSerialization.data(withJSONObject: ["model": "opus", "hooks": ["SessionStart": [userHook]]]).write(to: installer.claudeSettingsURL)
+
+        for provider in AgentBridgeProvider.allCases {
+            try installer.install(provider)
+            XCTAssertTrue(installer.status(for: provider).installed, "\(provider)")
+            try installer.uninstall(provider)
+            XCTAssertFalse(installer.status(for: provider).installed, "\(provider)")
+        }
+
+        let claude = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(contentsOf: installer.claudeSettingsURL)) as? [String: Any])
+        XCTAssertEqual(claude["model"] as? String, "opus")
+        XCTAssertEqual(Array((claude["hooks"] as? [String: Any] ?? [:]).keys), ["SessionStart"])
+        XCTAssertFalse(try String(contentsOf: installer.claudeSettingsURL, encoding: .utf8).contains("\\/"))
+        for url in [installer.codexHooksURL, installer.cursorHooksURL] {
+            let root = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(contentsOf: url)) as? [String: Any])
+            XCTAssertNil(root["hooks"], url.lastPathComponent)
+        }
+        XCTAssertFalse(FileManager.default.fileExists(atPath: installer.codexScriptURL.path))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: installer.openCodePluginURL.path))
+    }
+
     func testServerSurvivesAClientThatHangsUpBeforeTheAck() async throws {
         let socketDirectory = URL(fileURLWithPath: "/tmp/foundry-agent-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: socketDirectory, withIntermediateDirectories: true)

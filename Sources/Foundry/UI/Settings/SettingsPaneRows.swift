@@ -6,6 +6,7 @@ struct AgentIntegrationRow: View {
     let provider: AgentBridgeProvider
     let status: AgentIntegrationStatus
     let install: () -> Void
+    let remove: () -> Void
 
     var body: some View {
         HStack(spacing: 10) {
@@ -22,19 +23,24 @@ struct AgentIntegrationRow: View {
                 Text("Installed")
                     .font(FoundryTheme.micro)
                     .foregroundStyle(FoundryTheme.success)
+                rowButton("Remove", action: remove)
             } else {
-                Button("Install", action: install)
-                    .buttonStyle(.plain)
-                    .font(FoundryTheme.micro)
-                    .foregroundStyle(FoundryTheme.textPrimary)
-                    .padding(.horizontal, 9)
-                    .padding(.vertical, 6)
-                    .background(FoundryTheme.fillTint)
-                    .clipShape(RoundedRectangle(cornerRadius: FoundryTheme.Radius.control, style: .continuous))
+                rowButton("Install", action: install)
             }
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 9)
+    }
+
+    private func rowButton(_ title: LocalizedStringResource, action: @escaping () -> Void) -> some View {
+        Button(String(localized: title), action: action)
+            .buttonStyle(.plain)
+            .font(FoundryTheme.micro)
+            .foregroundStyle(FoundryTheme.textPrimary)
+            .padding(.horizontal, 9)
+            .padding(.vertical, 6)
+            .background(FoundryTheme.fillTint)
+            .clipShape(RoundedRectangle(cornerRadius: FoundryTheme.Radius.control, style: .continuous))
     }
 }
 

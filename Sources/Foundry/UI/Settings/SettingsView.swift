@@ -796,7 +796,8 @@ struct SettingsView: View {
                     AgentIntegrationRow(
                         provider: provider,
                         status: state.agents.integrationStatus(for: provider),
-                        install: { state.agents.installIntegration(for: provider) }
+                        install: { state.agents.installIntegration(for: provider) },
+                        remove: { state.agents.removeIntegration(for: provider) }
                     )
                     if provider != AgentBridgeProvider.allCases.last {
                         SettingsDivider()

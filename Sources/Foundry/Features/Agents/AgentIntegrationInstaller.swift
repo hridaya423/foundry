@@ -124,6 +124,32 @@ struct AgentIntegrationInstaller: Sendable {
         }
     }
 
+    /// Takes out only what Foundry added; the user's own hooks and settings stay.
+    func uninstall(_ provider: AgentBridgeProvider) throws {
+        switch provider {
+        case .claude:
+            guard FileManager.default.fileExists(atPath: claudeSettingsURL.path) else { return }
+            var root = try loadJSON(at: claudeSettingsURL)
+            root["hooks"] = try claudeHooksWithoutFoundry(root).nilIfEmpty
+            try writeJSON(root, to: claudeSettingsURL)
+        case .codex:
+            if FileManager.default.fileExists(atPath: codexHooksURL.path) {
+                var root = try loadJSON(at: codexHooksURL)
+                root["hooks"] = try codexHooksWithoutFoundry(root).nilIfEmpty
+                try writeJSON(root, to: codexHooksURL)
+            }
+            try? FileManager.default.removeItem(at: codexScriptURL)
+        case .cursor:
+            guard FileManager.default.fileExists(atPath: cursorHooksURL.path) else { return }
+            var root = try loadJSON(at: cursorHooksURL)
+            root["hooks"] = try cursorHooksWithoutFoundry(root).nilIfEmpty
+            try writeJSON(root, to: cursorHooksURL)
+        case .opencode:
+            guard let content = try? String(contentsOf: openCodePluginURL, encoding: .utf8), Self.isManagedOpenCodePlugin(content) else { return }
+            try FileManager.default.removeItem(at: openCodePluginURL)
+        }
+    }
+
     private func installCodex() throws {
         let scriptDirectory = codexScriptURL.deletingLastPathComponent()
         try FileManager.default.createDirectory(at: scriptDirectory, withIntermediateDirectories: true)
@@ -131,24 +157,11 @@ struct AgentIntegrationInstaller: Sendable {
         try FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: codexScriptURL.path)
 
         var root = FileManager.default.fileExists(atPath: codexHooksURL.path) ? try loadJSON(at: codexHooksURL) : [:]
-        let hooks: [String: Any]
-        if let existing = root["hooks"] as? [String: Any] {
-            hooks = existing
-        } else if root["hooks"] == nil {
-            hooks = [:]
-        } else {
-            throw AgentIntegrationInstallError.invalidSettingsStructure(codexHooksURL)
-        }
-        var updatedHooks = hooks
+        var updatedHooks = try codexHooksWithoutFoundry(root)
         for (event, matcher) in [("SessionStart", "startup|resume"), ("UserPromptSubmit", nil), ("Stop", nil)] as [(String, String?)] {
-            guard updatedHooks[event] == nil || updatedHooks[event] is [[String: Any]] else {
-                throw AgentIntegrationInstallError.invalidSettingsStructure(codexHooksURL)
-            }
-            let current = updatedHooks[event] as? [[String: Any]] ?? []
-            let filtered = current.compactMap { pruneManagedCodexHandlers(from: $0) }
             var group: [String: Any] = ["hooks": [["type": "command", "command": codexScriptURL.path, "timeout": event == "Stop" ? 30 : 2]]]
             if let matcher { group["matcher"] = matcher }
-            updatedHooks[event] = filtered + [group]
+            updatedHooks[event] = (updatedHooks[event] as? [[String: Any]] ?? []) + [group]
         }
         root["hooks"] = updatedHooks
         try writeJSON(root, to: codexHooksURL)
@@ -170,87 +183,80 @@ struct AgentIntegrationInstaller: Sendable {
     private func installCursor() throws {
         var root = FileManager.default.fileExists(atPath: cursorHooksURL.path) ? try loadJSON(at: cursorHooksURL) : [:]
         root["version"] = root["version"] ?? 1
-        var hooks: [String: Any]
-        if let existing = root["hooks"] as? [String: Any] {
-            hooks = existing
-        } else if root["hooks"] == nil {
-            hooks = [:]
-        } else {
-            throw AgentIntegrationInstallError.invalidSettingsStructure(cursorHooksURL)
-        }
+        var hooks = try cursorHooksWithoutFoundry(root)
         let command = "\(executableURL.path.shellQuoted) --agent-bridge cursor || printf '%s' '{\"continue\":true}'"
         for event in Self.cursorHookEvents {
-            guard hooks[event] == nil || hooks[event] is [[String: Any]] else {
-                throw AgentIntegrationInstallError.invalidSettingsStructure(cursorHooksURL)
-            }
-            let current = hooks[event] as? [[String: Any]] ?? []
-            hooks[event] = current.filter { !isManagedCursorHandler($0) } + [["command": command, "timeout": 3]]
-        }
-        for event in ["beforeShellExecution", "beforeMCPExecution"] {
-            guard let current = hooks[event] as? [[String: Any]] else { continue }
-            let filtered = current.filter { !isManagedCursorHandler($0) }
-            if filtered.isEmpty { hooks.removeValue(forKey: event) } else { hooks[event] = filtered }
+            hooks[event] = (hooks[event] as? [[String: Any]] ?? []) + [["command": command, "timeout": 3]]
         }
         root["hooks"] = hooks
         try writeJSON(root, to: cursorHooksURL)
     }
 
     private func installClaude() throws {
-        var root: [String: Any]
-        if FileManager.default.fileExists(atPath: claudeSettingsURL.path) {
-            root = try loadJSON(at: claudeSettingsURL)
-        } else {
-            root = [:]
-        }
-
-        var hooks: [String: Any]
-        if let existing = root["hooks"] as? [String: Any] {
-            hooks = existing
-        } else if root["hooks"] == nil {
-            hooks = [:]
-        } else {
-            throw AgentIntegrationInstallError.invalidSettingsStructure(claudeSettingsURL)
-        }
-
+        var root = FileManager.default.fileExists(atPath: claudeSettingsURL.path) ? try loadJSON(at: claudeSettingsURL) : [:]
+        var hooks = try claudeHooksWithoutFoundry(root)
         for event in Self.claudeHookEvents {
-            let existingGroups: [Any]
-            if let groups = hooks[event] as? [Any] {
-                existingGroups = groups
-            } else if hooks[event] == nil {
-                existingGroups = []
-            } else {
-                throw AgentIntegrationInstallError.invalidSettingsStructure(claudeSettingsURL)
-            }
-            var cleanedGroups: [[String: Any]] = []
-            for rawGroup in existingGroups {
-                guard var group = rawGroup as? [String: Any] else {
-                    throw AgentIntegrationInstallError.invalidSettingsStructure(claudeSettingsURL)
-                }
-                guard let rawHandlers = group["hooks"] as? [Any] else {
-                    cleanedGroups.append(group)
-                    continue
-                }
-                let handlers = rawHandlers.filter { rawHandler in
-                    !isManagedClaudeHandler(rawHandler as? [String: Any] ?? [:])
-                }
-                guard handlers.isEmpty == false else { continue }
-                group["hooks"] = handlers
-                cleanedGroups.append(group)
-            }
-            var groups = cleanedGroups
-            groups.append([
+            hooks[event] = (hooks[event] as? [[String: Any]] ?? []) + [[
                 "hooks": [[
                     "type": "command",
                     "command": executableURL.path,
                     "args": [Self.claudeHookArgument, AgentBridgeProvider.claude.rawValue],
                     "timeout": 2
                 ]]
-            ])
-            hooks[event] = groups
+            ]]
         }
-
         root["hooks"] = hooks
         try writeJSON(root, to: claudeSettingsURL)
+    }
+
+    private func existingHooks(in root: [String: Any], at url: URL) throws -> [String: Any] {
+        guard let hooks = root["hooks"] else { return [:] }
+        guard let hooks = hooks as? [String: Any] else { throw AgentIntegrationInstallError.invalidSettingsStructure(url) }
+        return hooks
+    }
+
+    private func claudeHooksWithoutFoundry(_ root: [String: Any]) throws -> [String: Any] {
+        var hooks = try existingHooks(in: root, at: claudeSettingsURL)
+        for event in Self.claudeHookEvents {
+            guard let rawGroups = hooks[event] else { continue }
+            guard let groups = rawGroups as? [Any] else { throw AgentIntegrationInstallError.invalidSettingsStructure(claudeSettingsURL) }
+            var cleanedGroups: [[String: Any]] = []
+            for rawGroup in groups {
+                guard var group = rawGroup as? [String: Any] else { throw AgentIntegrationInstallError.invalidSettingsStructure(claudeSettingsURL) }
+                guard let rawHandlers = group["hooks"] as? [Any] else {
+                    cleanedGroups.append(group)
+                    continue
+                }
+                let handlers = rawHandlers.filter { !isManagedClaudeHandler($0 as? [String: Any] ?? [:]) }
+                guard handlers.isEmpty == false else { continue }
+                group["hooks"] = handlers
+                cleanedGroups.append(group)
+            }
+            hooks[event] = cleanedGroups.isEmpty ? nil : cleanedGroups
+        }
+        return hooks
+    }
+
+    private func codexHooksWithoutFoundry(_ root: [String: Any]) throws -> [String: Any] {
+        var hooks = try existingHooks(in: root, at: codexHooksURL)
+        for event in Self.codexHookEvents {
+            guard let rawGroups = hooks[event] else { continue }
+            guard let groups = rawGroups as? [[String: Any]] else { throw AgentIntegrationInstallError.invalidSettingsStructure(codexHooksURL) }
+            let filtered = groups.compactMap { pruneManagedCodexHandlers(from: $0) }
+            hooks[event] = filtered.isEmpty ? nil : filtered
+        }
+        return hooks
+    }
+
+    private func cursorHooksWithoutFoundry(_ root: [String: Any]) throws -> [String: Any] {
+        var hooks = try existingHooks(in: root, at: cursorHooksURL)
+        for event in Self.cursorHookEvents + ["beforeShellExecution", "beforeMCPExecution"] {
+            guard let rawHandlers = hooks[event] else { continue }
+            guard let handlers = rawHandlers as? [[String: Any]] else { throw AgentIntegrationInstallError.invalidSettingsStructure(cursorHooksURL) }
+            let filtered = handlers.filter { !isManagedCursorHandler($0) }
+            hooks[event] = filtered.isEmpty ? nil : filtered
+        }
+        return hooks
     }
 
     private func installOpenCode() throws {
@@ -290,7 +296,7 @@ struct AgentIntegrationInstaller: Sendable {
     private func writeJSON(_ root: [String: Any], to url: URL) throws {
         let directory = url.deletingLastPathComponent()
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-        let data = try JSONSerialization.data(withJSONObject: root, options: [.prettyPrinted, .sortedKeys])
+        let data = try JSONSerialization.data(withJSONObject: root, options: [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes])
         try data.write(to: url, options: .atomic)
         try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: url.path)
     }
@@ -485,4 +491,8 @@ struct AgentIntegrationInstaller: Sendable {
         void foundryAgentBridgeVersion
         """
     }
+}
+
+private extension Dictionary {
+    var nilIfEmpty: Self? { isEmpty ? nil : self }
 }

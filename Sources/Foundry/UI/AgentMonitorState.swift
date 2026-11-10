@@ -128,9 +128,17 @@ final class AgentMonitorState {
     }
 
     func installIntegration(for provider: AgentBridgeProvider) {
+        changeIntegration { try integrationInstaller.install(provider) }
+    }
+
+    func removeIntegration(for provider: AgentBridgeProvider) {
+        changeIntegration { try integrationInstaller.uninstall(provider) }
+    }
+
+    private func changeIntegration(_ change: () throws -> Void) {
         integrationError = nil
         do {
-            try integrationInstaller.install(provider)
+            try change()
             refreshIntegrationStatuses()
         } catch {
             integrationError = error.localizedDescription
