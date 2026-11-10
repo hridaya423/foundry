@@ -103,21 +103,21 @@ final class BrowserProvider: CommandProvider, Sendable {
         switch source {
         case .firefox:
             query = """
-                SELECT moz_places.id, moz_places.title, moz_places.url, moz_historyvisits.visit_date \
+                SELECT moz_places.id, moz_places.title, moz_places.url, MAX(moz_historyvisits.visit_date) AS last_visit \
                 FROM moz_historyvisits JOIN moz_places ON moz_places.id = moz_historyvisits.place_id \
-                ORDER BY moz_historyvisits.visit_date DESC LIMIT 100;
+                GROUP BY moz_places.id ORDER BY last_visit DESC LIMIT 2000;
                 """
         case .safari:
             query = """
-                SELECT history_items.id, history_items.title, history_items.url, history_visits.visit_time \
+                SELECT history_items.id, history_visits.title, history_items.url, MAX(history_visits.visit_time) AS last_visit \
                 FROM history_visits JOIN history_items ON history_items.id = history_visits.history_item \
-                ORDER BY history_visits.visit_time DESC LIMIT 100;
+                GROUP BY history_items.id ORDER BY last_visit DESC LIMIT 2000;
                 """
         default:
             query = """
-                SELECT urls.id, urls.title, urls.url, visits.visit_time \
+                SELECT urls.id, urls.title, urls.url, MAX(visits.visit_time) AS last_visit \
                 FROM visits JOIN urls ON urls.id = visits.url \
-                ORDER BY visits.visit_time DESC LIMIT 100;
+                GROUP BY urls.id ORDER BY last_visit DESC LIMIT 2000;
                 """
         }
 
@@ -216,11 +216,12 @@ final class BrowserProvider: CommandProvider, Sendable {
         if let liveTabs = firefoxNativeTabs(), liveTabs.isEmpty == false {
             return liveTabs
         }
-        return BrowserSource.firefox.sessionStoreFiles(in: homeDirectory).flatMap { file in
-            let session = BestEffort.attempt("read Firefox session \(file.lastPathComponent)", {
-                FirefoxSessionParser.parse(try Data(contentsOf: file))
-            }) ?? nil
-            guard let session else { return [BrowserRecord]() }
+        return BrowserSource.firefox.sessionStoreFiles(in: homeDirectory).flatMap { candidates in
+            let current = candidates.lazy.compactMap { file in
+                (BestEffort.attempt("read Firefox session \(file.lastPathComponent)") { FirefoxSessionParser.parse(try Data(contentsOf: file)) } ?? nil)
+                    .map { (file, $0) }
+            }.first
+            guard let (file, session) = current else { return [BrowserRecord]() }
             return session.tabs.enumerated().compactMap { index, tab in
                 guard let url = URL(string: tab.url), url.scheme != nil else { return nil }
                 return BrowserRecord(
@@ -461,9 +462,10 @@ enum BrowserSource: String, CaseIterable, Sendable, Hashable {
         return profileDirectories(in: home).map { $0.appendingPathComponent("Bookmarks") }.filter { FileManager.default.fileExists(atPath: $0.path) }
     }
 
-    func sessionStoreFiles(in home: URL) -> [URL] {
+    /// Each profile's session files, newest first: only the first that parses holds the open tabs.
+    func sessionStoreFiles(in home: URL) -> [[URL]] {
         guard self == .firefox else { return [] }
-        return profileDirectories(in: home).flatMap { profile in
+        return profileDirectories(in: home).map { profile in
             let backup = profile.appendingPathComponent("sessionstore-backups")
             let preferred = [
                 backup.appendingPathComponent("recovery.jsonlz4"),
@@ -606,7 +608,18 @@ struct BrowserRecord: Sendable {
     }
 }
 
-struct LiveTab: Decodable { let title: String; let url: String }
+struct LiveTab: Decodable {
+    let title: String
+    let url: String
+
+    private enum CodingKeys: String, CodingKey { case title, url }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        title = (try? container.decodeIfPresent(String.self, forKey: .title)) ?? ""
+        url = (try? container.decodeIfPresent(String.self, forKey: .url)) ?? ""
+    }
+}
 struct FirefoxLiveTabs: Decodable {
     let tabs: [LiveTab]
 }
@@ -776,6 +789,10 @@ private enum LocalSQLite {
         let data = result.stdout.data(using: .utf8),
         let raw = BestEffort.attempt("parse sqlite output", { try JSONSerialization.jsonObject(with: data) }),
         let objects = raw as? [[String: Any]] else { return [] }
-        return objects.map { row in row.reduce(into: [String: String]()) { result, item in result[item.key] = String(describing: item.value) } }
+        return objects.map { row in
+            row.reduce(into: [String: String]()) { result, item in
+                if item.value is NSNull == false { result[item.key] = String(describing: item.value) }
+            }
+        }
     }
 }

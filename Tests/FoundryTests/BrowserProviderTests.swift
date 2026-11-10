@@ -1,5 +1,6 @@
 import Foundation
 import XCTest
+import FoundryServices
 @testable import Foundry
 
 final class BrowserProviderTests: XCTestCase {
@@ -130,6 +131,45 @@ final class BrowserProviderTests: XCTestCase {
         XCTAssertEqual(payload.tabs.count, 1)
         XCTAssertEqual(payload.tabs.first?.title, "Firefox tab")
         XCTAssertEqual(payload.tabs.first?.url, "https://example.com")
+    }
+
+    func testOneTabWithANullURLDoesNotDropTheOthers() throws {
+        let data = Data(#"{"tabs":[{"title":"Kept","url":"https://example.com"},{"title":null,"url":null}]}"#.utf8)
+        let payload = try JSONDecoder().decode(FirefoxLiveTabs.self, from: data)
+        XCTAssertEqual(payload.tabs.map(\.title), ["Kept", ""])
+    }
+
+    func testHistoryKeepsPagesBeyondTheLastHundredVisitsAndNullTitlesFallBackToTheURL() async throws {
+        let home = temporaryHome()
+        defer { try? FileManager.default.removeItem(at: home) }
+        let profile = home.appendingPathComponent("Library/Application Support/Google/Chrome/Default")
+        try FileManager.default.createDirectory(at: profile, withIntermediateDirectories: true)
+        let visits = (1...150).map { "INSERT INTO visits (url, visit_time) VALUES (1, \(1_000 + $0));" }.joined()
+        let script = "CREATE TABLE urls (id INTEGER PRIMARY KEY, title TEXT, url TEXT); CREATE TABLE visits (id INTEGER PRIMARY KEY, url INTEGER, visit_time INTEGER);"
+            + "INSERT INTO urls VALUES (1, 'Busy page', 'https://busy.example'), (2, NULL, 'https://zebra.example');"
+            + "INSERT INTO visits (url, visit_time) VALUES (2, 10);" + visits
+        let created = ProcessRunner.runSynchronously(path: "/usr/bin/sqlite3", arguments: [profile.appendingPathComponent("History").path, script], timeout: 10)
+        XCTAssertEqual(created?.succeeded, true)
+
+        let results = await BrowserProvider(homeDirectory: home).results(matching: "history zebra")
+
+        XCTAssertEqual(results.map(\.title), ["https://zebra.example"])
+    }
+
+    func testFirefoxShowsTabsFromTheCurrentSessionOnlyNotOlderBackups() async throws {
+        let home = temporaryHome()
+        defer { try? FileManager.default.removeItem(at: home) }
+        let backups = home.appendingPathComponent("Library/Application Support/Firefox/Profiles/abc.default/sessionstore-backups")
+        try FileManager.default.createDirectory(at: backups, withIntermediateDirectories: true)
+        let session = { (title: String) in
+            Data(#"{"windows":[{"tabs":[{"index":1,"entries":[{"url":"https://example.com/\#(title)","title":"\#(title)"}]}]}]}"#.utf8)
+        }
+        try session("Current").write(to: backups.appendingPathComponent("recovery.js"))
+        try session("Closed").write(to: backups.appendingPathComponent("previous.js"))
+
+        let results = await BrowserProvider(homeDirectory: home, liveTabsCacheLifetime: 0).results(matching: "firefox tabs")
+
+        XCTAssertEqual(results.filter { $0.title == "Current" || $0.title == "Closed" }.map(\.title), ["Current"])
     }
 
     func testProviderReturnsNoResultsWhenBrowserDataIsUnavailable() async {
