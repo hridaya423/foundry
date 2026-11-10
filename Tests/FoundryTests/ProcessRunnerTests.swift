@@ -47,7 +47,7 @@ final class ProcessRunnerTests: XCTestCase {
 
         let result = ProcessRunner.runSynchronously(
             path: "/bin/sh",
-            arguments: ["-c", "sleep 30 >/dev/null 2>&1 & echo $! > '\(pidFile.path)'; wait"],
+            arguments: ["-c", "trap '' TERM; sleep 30 >/dev/null 2>&1 & echo $! > '\(pidFile.path)'; wait"],
             timeout: 2
         )
 
@@ -61,6 +61,25 @@ final class ProcessRunnerTests: XCTestCase {
         }
         if alive { kill(child, SIGKILL) }
         XCTAssertFalse(alive, "the timed-out script's background child must not outlive it")
+    }
+
+    func testRunReturnsWhenTheChildExitsWhileItsBackgroundChildHoldsThePipe() throws {
+        let pidFile = FileManager.default.temporaryDirectory.appendingPathComponent("foundry-holder-\(UUID().uuidString).pid")
+        defer { try? FileManager.default.removeItem(at: pidFile) }
+        let started = Date()
+
+        let result = ProcessRunner.runSynchronously(
+            path: "/bin/sh",
+            arguments: ["-c", "sleep 30 & echo $! > '\(pidFile.path)'; echo done"],
+            timeout: 20
+        )
+
+        if let text = try? String(contentsOf: pidFile, encoding: .utf8), let holder = Int32(text.trimmingCharacters(in: .whitespacesAndNewlines)) {
+            kill(holder, SIGKILL)
+        }
+        XCTAssertEqual(result?.stdout, "done\n")
+        XCTAssertEqual(result?.timedOut, false)
+        XCTAssertLessThan(Date().timeIntervalSince(started), 5)
     }
 
     func testAsyncRunnerTerminatesChildWhenCancelled() async {

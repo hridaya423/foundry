@@ -191,8 +191,8 @@ public enum ProcessRunner {
         }
 
         clearHandlers(stdoutPipe: stdoutPipe, stderrPipe: stderrPipe)
-        let stdoutRemainder = stdoutPipe.fileHandleForReading.readDataToEndOfFile()
-        let stderrRemainder = stderrPipe.fileHandleForReading.readDataToEndOfFile()
+        let stdoutRemainder = drainWithoutWaiting(stdoutPipe.fileHandleForReading)
+        let stderrRemainder = drainWithoutWaiting(stderrPipe.fileHandleForReading)
         stdoutBuffer.append(stdoutRemainder)
         stderrBuffer.append(stderrRemainder)
         stdoutLines.append(stdoutRemainder)
@@ -208,6 +208,19 @@ public enum ProcessRunner {
             timedOut: flags.timedOut,
             cancelled: flags.cancelled
         )
+    }
+
+    /// Reads what is already in the pipe: a background child the command left behind may hold it open for much longer.
+    private static func drainWithoutWaiting(_ handle: FileHandle) -> Data {
+        let descriptor = handle.fileDescriptor
+        _ = fcntl(descriptor, F_SETFL, fcntl(descriptor, F_GETFL) | O_NONBLOCK)
+        var data = Data()
+        var buffer = [UInt8](repeating: 0, count: 64 * 1024)
+        while true {
+            let count = read(descriptor, &buffer, buffer.count)
+            guard count > 0 else { return data }
+            data.append(buffer, count: count)
+        }
     }
 
     private static func clearHandlers(stdoutPipe: Pipe, stderrPipe: Pipe) {
@@ -251,7 +264,7 @@ private final class ManagedProcessControl: Sendable {
             return process.processIdentifier
         }
         guard pid > 0 else { return }
-        guard setpgid(pid, pid) == 0 else { return }
+        guard getpgid(pid) == pid || setpgid(pid, pid) == 0 else { return }
         state.withLock { $0.processGroupID = pid }
     }
 
