@@ -44,9 +44,14 @@ enum TimeZoneResolver {
             return ResolvedZone(zone: zone, name: match.name, standardAbbrev: match.std, daylightAbbrev: match.dst)
         }
         if let match = cityIndex[key], let zone = TimeZone(identifier: match.identifier) {
-            return ResolvedZone(zone: zone, name: match.name)
+            return labelled(zone, name: match.name)
         }
         return nil
+    }
+
+    static func labelled(_ zone: TimeZone, name: String) -> ResolvedZone {
+        let match = abbreviations[zone.identifier]
+        return ResolvedZone(zone: zone, name: name, standardAbbrev: match?.std, daylightAbbrev: match?.dst)
     }
 
     private static func normalize(_ value: String) -> String {
@@ -156,6 +161,12 @@ enum TimeZoneResolver {
 
         // Fixed reference zones
         add("Etc/UTC", "UTC", "UTC", nil, ["utc", "gmt", "zulu"])
+        return table
+    }()
+
+    private static let abbreviations: [String: NamedZone] = {
+        var table = Dictionary(named.values.map { ($0.identifier, $0) }, uniquingKeysWith: { first, _ in first })
+        table["Asia/Calcutta"] = table["Asia/Kolkata"]
         return table
     }()
 

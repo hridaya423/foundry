@@ -453,3 +453,22 @@ Every pane was captured in the real window at 720 x 560 in dark and at 820 x 600
 The segmented control (Snippets) and the slider (General) stay stock; both render neutral.
 Not verified live: hover, press and focus states, the open picker menu, and VoiceOver reading the panes. The Mac mini is still locked.
 `./scripts/check.sh` passed and `swift test` ran 933 tests with 0 failures on `d2325cd`.
+
+Fifth pass, rough edges in the launcher itself (2026-11-10). Driven live on the locked Mac mini (en_GB, no battery):
+a scratch test drove the real panel with in-process key events and captured each frame. The driver is deleted.
+- [x] R1 The user's own zone label depended on the system locale: "Your time (GMT+5:30)" instead of "IST" on en_US, "GMT-7"
+  instead of "PDT" on en_GB. The local zone, UTC and cities found by zone identifier now use the curated abbreviations
+  (`testTheLocalZoneUsesItsCuratedAbbreviationInEveryLocale`, `testACityFoundByItsZoneIdentifierUsesTheCuratedAbbreviation`, red first).
+- [x] R2 Home showed a Battery widget reading "—" on a Mac without a battery. Home leaves it out there; the saved layout keeps it
+  (`testHomeLeavesOutTheBatteryWidgetOnAMacWithoutABattery`). Seen in a mini frame.
+- [x] R3 The clear button followed the query, not the field: it showed over an empty actions filter and cleared the query under
+  the open menu. It now follows the field's own text. Seen in mini frames with and without a filter.
+- [x] R4 The footer said "Copy Result" for the calculator and "Copy" everywhere else. It says "Copy".
+- [x] R5 "settings" put Foundry's own Settings below the fold. The command is "Foundry Settings" and ranks second
+  (golden table, red first). Third on the mini, where the System Settings app sits second.
+- [x] R6 Return or Copy on an empty Snippets list asked for Accessibility with "Your item is copied", or said "Copied snippet".
+  Neither happens now (`testInsertingFromAnEmptySnippetListAsksNothingAndCopiesNothing`, red first). Found in a mini frame.
+- [x] R7 Return on an empty Clipboard History showed a red "Select an item to paste." under the empty state. It does nothing now.
+Left: "1/0" gives no answer; the launch-time layout-recursion warning and two first-responder warnings in the log are not traced.
+Not verified live: Esc and arrows in feature modes, which go through SwiftUI commands that need a key window; the mini is locked.
+`./scripts/check.sh` passed and `swift test` ran 937 tests with 0 failures.

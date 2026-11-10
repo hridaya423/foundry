@@ -262,7 +262,7 @@ final class CommandPanelStateTests: XCTestCase {
 
         clipboard.select(id: clipboard.items.first?.id ?? "missing")
         XCTAssertFalse(state.directPasteSelectedClipboardItem())
-        XCTAssertEqual(state.actionFeedback, .failure("Select an item to paste."))
+        XCTAssertNil(state.actionFeedback, "an empty history already says so; Return adds no error")
         XCTAssertNil(clipboard.error)
 
         let item = ClipboardHistoryItem(payload: .text("hello"))
@@ -319,6 +319,26 @@ final class CommandPanelStateTests: XCTestCase {
         state.mode = .clipboardHistory
         state.directPasteSelectedClipboardItem()
         XCTAssertTrue(directPaste.hasPendingPaste)
+        state.shutdown()
+    }
+
+    func testInsertingFromAnEmptySnippetListAsksNothingAndCopiesNothing() async {
+        let diagnostics = DiagnosticsService()
+        let config = ConfigService(diagnostics: diagnostics, url: temporaryURL())
+        let pasteboard = NSPasteboard(name: NSPasteboard.Name("CommandPanelStateTests.emptySnippets"))
+        let directPaste = DirectPasteService.isolated(pasteboard: pasteboard, ownProcessIdentifier: 7,
+            targetProvider: { DirectPasteTestTarget(processIdentifier: 42) }, accessibilityTrusted: { false })
+        let clipboard = ClipboardHistoryState(pasteboard: TestClipboardPasteboard(), persistence: nil, configuration: config.current.clipboard)
+        let state = makeState(diagnostics: diagnostics, config: config, clipboard: clipboard,
+            actionRunner: ActionRunner.isolated(diagnostics: diagnostics, directPasteService: directPaste))
+        state.mode = .snippets
+        XCTAssertNil(state.snippets.selectedItem)
+
+        XCTAssertFalse(state.insertOrCopySelectedSnippet())
+        await Task.yield()
+        XCTAssertNil(state.pendingPrompt)
+        XCTAssertFalse(state.copySelectedSnippet())
+        XCTAssertNil(state.actionFeedback)
         state.shutdown()
     }
 

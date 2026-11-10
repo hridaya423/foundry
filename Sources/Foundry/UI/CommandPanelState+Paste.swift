@@ -27,10 +27,7 @@ extension CommandPanelState {
 
     @discardableResult
     func directPasteSelectedClipboardItem() -> Bool {
-        guard let item = clipboardHistory.selectedItem else {
-            showActionFeedback(.failure(String(localized: "Select an item to paste.")))
-            return false
-        }
+        guard let item = clipboardHistory.selectedItem else { return false }
         if pasteNeedsAccessibility() {
             clipboardHistory.copySelected()
             return false
@@ -121,7 +118,7 @@ extension CommandPanelState {
     }
 
     func insertOrCopySelectedSnippet() -> Bool {
-        guard askForSnippetArguments(copyOnly: false) == false else { return false }
+        guard snippets.selectedItem != nil, askForSnippetArguments(copyOnly: false) == false else { return false }
         if pasteNeedsAccessibility() {
             snippets.copySelected()
             return false
@@ -131,7 +128,7 @@ extension CommandPanelState {
     }
 
     func copySelectedSnippet() -> Bool {
-        guard askForSnippetArguments(copyOnly: true) == false else { return false }
+        guard snippets.selectedItem != nil, askForSnippetArguments(copyOnly: true) == false else { return false }
         snippets.copySelected()
         showActionFeedback(.success(String(localized: "Copied snippet")))
         return true

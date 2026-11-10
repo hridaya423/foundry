@@ -44,7 +44,7 @@ final class RankingGoldenTests: XCTestCase {
         Case(query: "ai", top: ["Ask AI", "Mail", "Paste Clipboard as Plain Text"]),
         Case(query: "capture", top: ["Capture Text from Screen", "Open Screenshot"]),
         Case(query: "confetti", top: ["Make Confetti"]),
-        Case(query: "settings", top: ["Open System Settings", "Open VPN Settings", "Open Focus Settings"]),
+        Case(query: "settings", top: ["Open System Settings", "Foundry Settings", "Open VPN Settings"]),
         Case(query: "notes", top: ["Notes"]),
         Case(query: "xcode", top: ["Xcode", "Read QR Code", "Wi-Fi QR Code"]),
     ]

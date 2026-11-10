@@ -245,7 +245,7 @@ final class BuiltInCommandProvider: CommandProvider {
             ),
             BuiltInCommand(
                 id: "foundry.settings",
-                title: "Open Foundry Settings",
+                title: "Foundry Settings",
                 subtitle: "Customize Home, commands, and Foundry preferences",
                 aliases: ["foundry config", "config", "preferences"],
                 systemIcon: "slider.horizontal.3",

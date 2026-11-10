@@ -71,7 +71,7 @@ final class SystemMetricsSampler: Sendable {
         let slow = state.withLock { state -> (battery: (percent: Int?, charging: Bool, hasBattery: Bool), disk: (free: Int64, total: Int64), ip: String?) in
             let now = Date()
             if needs.contains(.battery), now.timeIntervalSince(state.lastBatterySample) >= 30 {
-                state.cachedBattery = batteryInfo()
+                state.cachedBattery = Self.batteryInfo()
                 state.lastBatterySample = now
             }
             if needs.contains(.disk), now.timeIntervalSince(state.lastDiskSample) >= 30 {
@@ -169,7 +169,9 @@ final class SystemMetricsSampler: Sendable {
         return (min(used, total), total)
     }
 
-    private func batteryInfo() -> (percent: Int?, charging: Bool, hasBattery: Bool) {
+    static let machineHasBattery = batteryInfo().hasBattery
+
+    private static func batteryInfo() -> (percent: Int?, charging: Bool, hasBattery: Bool) {
         guard let snapshot = IOPSCopyPowerSourcesInfo()?.takeRetainedValue(),
               let sources = IOPSCopyPowerSourcesList(snapshot)?.takeRetainedValue() as? [CFTypeRef] else {
             return (nil, false, false)

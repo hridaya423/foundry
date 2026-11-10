@@ -481,9 +481,13 @@ struct CommandPanelView: View {
             }
     }
 
+    private var searchText: Binding<String> {
+        state.session.isShowingActions ? $state.session.actionFilter : $state.session.query
+    }
+
     private var searchField: some View {
         LauncherSearchField(
-            text: state.session.isShowingActions ? $state.session.actionFilter : $state.session.query,
+            text: searchText,
             placeholder: state.session.isShowingActions ? "Search actions…" : state.searchHint ?? "Search for apps and commands…",
             onTab: {
                 guard state.session.isShowingActions == false else { return }
@@ -500,13 +504,13 @@ struct CommandPanelView: View {
 
     private var searchHeaderControls: some View {
         HStack(spacing: 6) {
-            if state.session.query.isEmpty == false {
+            if searchText.wrappedValue.isEmpty == false {
                 FoundryIconButton(
                     systemName: "xmark.circle.fill",
                     accessibilityLabel: "Clear search",
                     tint: FoundryTheme.textQuaternary
                 ) {
-                    state.session.query = ""
+                    searchText.wrappedValue = ""
                     inputFocused = true
                 }
                 .transition(reduceMotion ? .opacity : .opacity.combined(with: .scale(scale: 0.7)))

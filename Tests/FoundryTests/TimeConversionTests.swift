@@ -113,6 +113,19 @@ final class TimeConversionTests: XCTestCase {
         XCTAssertTrue(rows[0].subtitle.contains("Your time (PDT)"))
     }
 
+    func testTheLocalZoneUsesItsCuratedAbbreviationInEveryLocale() {
+        let rows = convert("12pm est", local: TimeZone(identifier: "Asia/Kolkata")!)
+        XCTAssertTrue(rows[0].subtitle.contains("Your time (IST)"), rows[0].subtitle)
+        XCTAssertEqual(rows[0].copyText, "9:30 PM IST")
+        let legacy = convert("12pm est", local: TimeZone(identifier: "Asia/Calcutta")!)
+        XCTAssertEqual(legacy[0].copyText, "9:30 PM IST")
+    }
+
+    func testACityFoundByItsZoneIdentifierUsesTheCuratedAbbreviation() {
+        XCTAssertEqual(TimeZoneResolver.resolve("calcutta")?.abbreviation(for: now), "IST")
+        XCTAssertEqual(TimeZoneResolver.resolve("asia/tokyo")?.abbreviation(for: now), "JST")
+    }
+
     func testExplicitMultiTarget() {
         let rows = convert("12pm est to pst and ist")
         XCTAssertEqual(rows.map(\.title), ["9:00 AM", "9:30 PM"])

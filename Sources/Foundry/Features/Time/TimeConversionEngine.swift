@@ -47,7 +47,7 @@ enum TimeConversionEngine {
 
     static func conversions(for query: String, now: Date, local: TimeZone) -> [Conversion] {
         guard let parsed = parse(query) else { return [] }
-        let here = TimeZoneResolver.ResolvedZone(zone: local, name: "Your time")
+        let here = TimeZoneResolver.labelled(local, name: "Your time")
         switch parsed {
         case let .now(sourceToken, targetTokens):
             return nowRows(sourceToken: sourceToken, targetTokens: targetTokens, now: now, here: here)
@@ -229,7 +229,7 @@ enum TimeConversionEngine {
         _ tokens: [String], source: TimeZoneResolver.ResolvedZone, here: TimeZoneResolver.ResolvedZone, at instant: Date
     ) -> [TimeZoneResolver.ResolvedZone] {
         guard tokens.isEmpty else { return tokens.compactMap { zone($0, here: here) } }
-        let utc = TimeZoneResolver.ResolvedZone(zone: utcZone, name: "UTC")
+        let utc = TimeZoneResolver.labelled(utcZone, name: "UTC")
         var offsets: Set = [source.zone.secondsFromGMT(for: instant)]
         let defaults = [here, utc].filter { offsets.insert($0.zone.secondsFromGMT(for: instant)).inserted }
         return defaults.isEmpty ? [utc] : defaults

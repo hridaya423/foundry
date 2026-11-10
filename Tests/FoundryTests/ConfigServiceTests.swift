@@ -381,6 +381,15 @@ final class ConfigServiceTests: XCTestCase {
     }
 
     @MainActor
+    func testHomeLeavesOutTheBatteryWidgetOnAMacWithoutABattery() {
+        let service = ConfigService(diagnostics: DiagnosticsService(), url: temporaryDirectory.appendingPathComponent("config.json"))
+        XCTAssertTrue(WidgetBoardState(configService: service, hasBattery: true).homeWidgets.contains(.battery))
+        let desktop = WidgetBoardState(configService: service, hasBattery: false)
+        XCTAssertFalse(desktop.homeWidgets.contains(.battery))
+        XCTAssertTrue(desktop.config.enabled.contains(.battery))
+    }
+
+    @MainActor
     func testWidgetBoardReloadPicksUpARestoredConfig() throws {
         let url = temporaryDirectory.appendingPathComponent("config.json")
         let service = ConfigService(diagnostics: DiagnosticsService(), url: url, persistDebounce: 0.01)

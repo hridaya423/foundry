@@ -20,6 +20,7 @@ final class WidgetBoardState {
     private let diagnostics: DiagnosticsService
     var persistenceErrorHandler: ((Error) -> Void)?
     private let sampler = SystemMetricsSampler()
+    private let hasBattery: Bool
     private let weatherService = WeatherService()
     private let stockService = StockService()
 
@@ -31,8 +32,10 @@ final class WidgetBoardState {
     private var weatherRequestID: UUID?
     private var stockRequestID: UUID?
 
-    init(configService: ConfigService, diagnostics: DiagnosticsService = DiagnosticsService()) {
+    init(configService: ConfigService, diagnostics: DiagnosticsService = DiagnosticsService(),
+         hasBattery: Bool = SystemMetricsSampler.machineHasBattery) {
         self.configService = configService
+        self.hasBattery = hasBattery
         self.diagnostics = diagnostics
         self.config = configService.current.widgets
         reload()
@@ -67,6 +70,8 @@ final class WidgetBoardState {
                 return config.weatherCity.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
             case .stock:
                 return config.stockSymbol.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
+            case .battery:
+                return hasBattery
             default:
                 return true
             }

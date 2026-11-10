@@ -52,7 +52,7 @@ final class CalculatorProvider: CommandProvider {
                 icon: CommandIcon(fallback: "=", systemName: "function"),
                 route: .calculator,
                 payload: .calculation(expression: evaluation.expression, value: result),
-                primaryAction: CommandAction(id: "calculator.\(expression).copy", title: "Copy Result", behavior: CopyToClipboardAction(evaluation.copyValue)),
+                primaryAction: CommandAction(id: "calculator.\(expression).copy", title: "Copy", behavior: CopyToClipboardAction(evaluation.copyValue)),
                 secondaryActions: [
                     CommandAction(id: "calculator.\(expression).copy-expression", title: "Copy Expression",
                         behavior: CopyToClipboardAction(evaluation.expression))
@@ -122,7 +122,7 @@ final class CalculatorProvider: CommandProvider {
                 icon: CommandIcon(fallback: "=", systemName: "clock"),
                 route: .calculator,
                 payload: .calculation(expression: entry.expression, value: entry.result),
-                primaryAction: CommandAction(id: "calculator.history.\(index).copy", title: "Copy Result", behavior: CopyToClipboardAction(entry.result)),
+                primaryAction: CommandAction(id: "calculator.history.\(index).copy", title: "Copy", behavior: CopyToClipboardAction(entry.result)),
                 secondaryActions: [
                     CommandAction(id: "calculator.history.\(index).copy-expression", title: "Copy Expression",
                         behavior: CopyToClipboardAction(entry.expression))
@@ -140,7 +140,7 @@ final class CalculatorProvider: CommandProvider {
                 icon: CommandIcon(fallback: "⇄", systemName: "arrow.left.arrow.right"),
                 route: .calculator,
                 payload: .calculationConversion(expression: conversion.expression, value: conversion.result),
-                primaryAction: CommandAction(id: "calculator.convert.\(index).copy", title: "Copy Result",
+                primaryAction: CommandAction(id: "calculator.convert.\(index).copy", title: "Copy",
                     behavior: CopyToClipboardAction(conversion.copyValue)),
                 secondaryActions: [
                     CommandAction(id: "calculator.convert.\(index).copy-expression", title: "Copy Conversion",
