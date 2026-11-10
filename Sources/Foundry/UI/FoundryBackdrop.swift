@@ -34,6 +34,7 @@ struct VisualEffectView: NSViewRepresentable {
 struct FoundryBackdrop: View {
     var intensity: Double = 0.72
     var isOpaque = false
+    var cornerRadius = FoundryTheme.Radius.panel
 
     @Environment(\.colorScheme) private var colorScheme
 
@@ -61,8 +62,8 @@ struct FoundryBackdrop: View {
                 if #available(macOS 26.0, *) {
                     ZStack {
                         Color.clear
-                            .glassEffect(.regular, in: FoundrySmoothedRectangle(cornerRadius: FoundryTheme.Radius.panel, smoothing: 0.75))
-                        FoundrySmoothedRectangle(cornerRadius: FoundryTheme.Radius.panel, smoothing: 0.75)
+                            .glassEffect(.regular, in: FoundrySmoothedRectangle(cornerRadius: cornerRadius, smoothing: 0.75))
+                        FoundrySmoothedRectangle(cornerRadius: cornerRadius, smoothing: 0.75)
                             .fill(panelWash)
                     }
                 } else {

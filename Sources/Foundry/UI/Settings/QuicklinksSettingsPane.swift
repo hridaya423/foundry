@@ -34,51 +34,51 @@ struct QuicklinksSettingsPane: View {
                         .padding(12)
                 }
                 ForEach($links) { $link in
-                    VStack(spacing: 6) {
-                        HStack(spacing: 8) {
-                            TextField("Name", text: $link.name)
-                                .frame(width: 150)
-                            TextField("Keyword", text: $link.keyword)
-                                .frame(width: 70)
-                            TextField("https://example.com/search?q={argument}", text: $link.link)
-                            Button {
-                                guard let index = links.firstIndex(where: { $0.id == link.id }) else { return }
-                                removed = (links.remove(at: index), index)
-                            } label: {
-                                Image(systemName: "minus.circle")
-                            }
-                            .buttonStyle(.borderless)
-                            .accessibilityLabel("Delete \(link.name)")
+                    HStack(spacing: 8) {
+                        field("Name", text: $link.name)
+                            .frame(width: 150)
+                        field("Keyword", text: $link.keyword)
+                            .frame(width: 64)
+                        field("https://example.com/search?q={argument}", text: $link.link)
+                        if let app = Self.appName(for: link.openWithBundleID) {
+                            Text("in \(app)")
+                                .font(FoundryTheme.caption)
+                                .foregroundStyle(FoundryTheme.textTertiary)
+                                .lineLimit(1)
                         }
-                        .textFieldStyle(.roundedBorder)
-
-                        HStack(spacing: 10) {
-                            Toggle("Enabled", isOn: $link.isEnabled)
-                                .toggleStyle(.checkbox)
-                            Toggle("Site icon", isOn: Binding(
+                        Toggle("", isOn: $link.isEnabled)
+                            .labelsHidden()
+                            .toggleStyle(.switch)
+                            .controlSize(.mini)
+                            .accessibilityLabel("Enable \(link.name)")
+                        Menu {
+                            Toggle("Show Site Icon", isOn: Binding(
                                 get: { link.useFavicon != false },
                                 set: { link.useFavicon = $0 ? nil : false }
                             ))
-                            .toggleStyle(.checkbox)
                             .disabled(settings.quicklinkSiteIcons == false)
-                            Spacer()
-                            Text("Open with")
-                                .foregroundStyle(FoundryTheme.textTertiary)
-                            Button(Self.appName(for: link.openWithBundleID) ?? "Default", action: { pickApp(for: link.id) })
-                                .buttonStyle(.borderless)
-                                .accessibilityLabel("Choose app for \(link.name)")
+                            Button("Open With…") { pickApp(for: link.id) }
                             if link.openWithBundleID != nil {
-                                Button { link.openWithBundleID = nil } label: {
-                                    Image(systemName: "xmark.circle.fill")
-                                }
-                                .buttonStyle(.borderless)
-                                .accessibilityLabel("Use default app for \(link.name)")
+                                Button("Open With the Default App") { link.openWithBundleID = nil }
                             }
+                            Divider()
+                            Button("Delete", role: .destructive) {
+                                guard let index = links.firstIndex(where: { $0.id == link.id }) else { return }
+                                removed = (links.remove(at: index), index)
+                            }
+                        } label: {
+                            Image(systemName: "ellipsis")
+                                .font(FoundryTheme.Glyph.xs)
+                                .foregroundStyle(FoundryTheme.textSecondary)
+                                .frame(width: FoundryTheme.Control.mini, height: FoundryTheme.Control.mini)
+                                .contentShape(Rectangle())
                         }
-                        .font(FoundryTheme.caption)
+                        .menuStyle(.borderlessButton)
+                        .menuIndicator(.hidden)
+                        .fixedSize()
+                        .accessibilityLabel("Options for \(link.name)")
                     }
-                    .controlSize(.small)
-                    .padding(.horizontal, 12)
+                    .padding(.horizontal, 10)
                     .padding(.vertical, 8)
                     .opacity(link.isEnabled ? 1 : FoundryTheme.Alpha.half)
                     if link.id != links.last?.id { SettingsDivider() }
@@ -112,6 +112,16 @@ struct QuicklinksSettingsPane: View {
         }
         .onAppear { links = store.load() }
         .onChange(of: links) { _, updated in save(updated) }
+    }
+
+    private func field(_ placeholder: LocalizedStringKey, text: Binding<String>) -> some View {
+        TextField(placeholder, text: text)
+            .textFieldStyle(.plain)
+            .font(FoundryTheme.bodySecondary)
+            .foregroundStyle(FoundryTheme.textPrimary)
+            .padding(.horizontal, 8)
+            .frame(height: FoundryTheme.Control.compact)
+            .background(FoundryTheme.fillHover, in: RoundedRectangle(cornerRadius: FoundryTheme.Radius.control, style: .continuous))
     }
 
     private func save(_ updated: [Quicklink]) {

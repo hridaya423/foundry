@@ -28,7 +28,7 @@ struct SettingsGroup<Content: View>: View {
             .clipShape(RoundedRectangle(cornerRadius: FoundryTheme.Radius.row, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: FoundryTheme.Radius.row, style: .continuous)
-                    .stroke(FoundryTheme.separator, lineWidth: 1)
+                    .stroke(FoundryTheme.fillTint, lineWidth: 1)
             )
     }
 }

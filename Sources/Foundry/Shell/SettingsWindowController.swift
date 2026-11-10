@@ -8,6 +8,12 @@ import SwiftUI
 @MainActor
 final class SettingsWindowController: NSWindowController {
     init(state: CommandPanelState) {
+        let window = Self.makeWindow(rootView: SettingsView(state: state))
+        Self.place(window, autosaveName: "FoundrySettings")
+        super.init(window: window)
+    }
+
+    static func makeWindow(rootView: some View) -> NSWindow {
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 820, height: 600),
             styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
@@ -17,13 +23,12 @@ final class SettingsWindowController: NSWindowController {
         window.title = String(localized: "Settings")
         window.titleVisibility = .hidden
         window.titlebarAppearsTransparent = true
-        window.minSize = NSSize(width: 680, height: 480)
+        window.minSize = NSSize(width: 720, height: 560)
         window.isReleasedWhenClosed = false
-        window.contentViewController = NSHostingController(rootView: FoundryIncreaseContrastRoot {
-            SettingsView(state: state)
-        })
-        Self.place(window, autosaveName: "FoundrySettings")
-        super.init(window: window)
+        window.isOpaque = false
+        window.backgroundColor = .clear
+        window.contentViewController = NSHostingController(rootView: FoundryIncreaseContrastRoot { rootView })
+        return window
     }
 
     static func place(_ window: NSWindow, autosaveName: String) {

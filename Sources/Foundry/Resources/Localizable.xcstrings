@@ -597,9 +597,6 @@
     "Choose a model available through ChatGPT" : {
 
     },
-    "Choose app for %@" : {
-
-    },
     "Choose or drop files to convert" : {
 
     },
@@ -1269,9 +1266,6 @@
 
     },
     "Delete" : {
-
-    },
-    "Delete %@" : {
 
     },
     "Delete Model" : {
@@ -2216,6 +2210,12 @@
     "Open Source Page" : {
 
     },
+    "Open With the Default App" : {
+
+    },
+    "Open With…" : {
+
+    },
     "Open agent session" : {
 
     },
@@ -2223,9 +2223,6 @@
 
     },
     "Open waiting files" : {
-
-    },
-    "Open with" : {
 
     },
     "Opened %@" : {
@@ -2263,6 +2260,9 @@
           }
         }
       }
+    },
+    "Options for %@" : {
+
     },
     "Or type a bundle ID, such as com.example.app" : {
 
@@ -2847,6 +2847,9 @@
     "Shortcut %@" : {
 
     },
+    "Show Site Icon" : {
+
+    },
     "Show all window layouts" : {
 
     },
@@ -2886,9 +2889,6 @@
           }
         }
       }
-    },
-    "Site icon" : {
-
     },
     "Site icons" : {
 
@@ -3369,9 +3369,6 @@
     "Use decimal or prefixed inputs like 0xff. Search also supports 5 & 3, 5 << 1, and not 5 8." : {
 
     },
-    "Use default app for %@" : {
-
-    },
     "Use this profile for new AI chats" : {
 
     },
@@ -3511,6 +3508,9 @@
 
     },
     "image" : {
+
+    },
+    "in %@" : {
 
     },
     "macOS asks once. Come back and run this again after you allow it." : {

@@ -227,6 +227,8 @@ enum FoundryTheme {
     // MARK: Radii — 6 badge, 8 control, 10 row, 14 overlay, 26 panel
 
     enum Radius {
+        /// A titled window clips its own corners.
+        static let window: CGFloat = 0
         static let tile: CGFloat = 2
         static let badge: CGFloat = 6
         static let control: CGFloat = 8

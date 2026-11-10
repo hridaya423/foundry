@@ -179,7 +179,11 @@ final class ShellController {
 
     func showPanel() {
         let span = diagnostics.startSpan("panel.hotkeyToFront")
-        activation.activate()
+        // AppKit raises the app's main window on activation, so a Settings
+        // window left behind another app would jump forward with the panel.
+        if panelController.otherWindowsVisible() == false {
+            activation.activate()
+        }
         panelState.resetForOpen()
         panelController.show()
         DispatchQueue.main.async { [diagnostics] in

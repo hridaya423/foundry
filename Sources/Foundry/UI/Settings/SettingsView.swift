@@ -15,6 +15,7 @@ struct SettingsView: View {
     @State private var pendingBackup: FoundryBackup?
     @State private var pendingRetention: ClipboardRetention?
     @FocusState private var searchFocused: Bool
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
     var body: some View {
         HStack(spacing: 0) {
@@ -22,6 +23,8 @@ struct SettingsView: View {
             Divider()
             detailPane
         }
+        .background(FoundryBackdrop(intensity: state.settings.themeIntensity, isOpaque: reduceTransparency,
+            cornerRadius: FoundryTheme.Radius.window))
         .ignoresSafeArea(.container, edges: .top)
         .onAppear {
             searchFocused = true

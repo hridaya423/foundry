@@ -723,23 +723,28 @@ struct CommandPanelView: View {
                     }
                 }
                 .padding(.horizontal, 16)
-                .padding(.vertical, selectedAnswer == nil ? 8 : 12)
+                .id(resultsContentID)
             }
+            .contentMargins(.vertical, selectedAnswer == nil ? 8 : 12, for: .scrollContent)
             .scrollIndicators(.never)
             .background(Color.clear)
             .onChange(of: state.session.selectionScrollToken) { _, _ in
                 guard let resultID = state.session.selectedResultID else { return }
+                let order = state.session.navigableResults.map(\.id)
+                let targetIndex = order.firstIndex(of: resultID) ?? 0
+                if targetIndex == 0 { return proxy.scrollTo(resultsContentID, anchor: .top) }
+                if targetIndex == order.count - 1 { return proxy.scrollTo(resultsContentID, anchor: .bottom) }
                 // Minimal scroll: only move when the target left the
                 // viewport, and only far enough to reveal it — not a
                 // re-center on every arrow press.
                 guard visibleResultIDs.contains(resultID) == false else { return }
-                let order = state.session.navigableResults.map(\.id)
                 let lastVisibleIndex = order.lastIndex(where: { visibleResultIDs.contains($0) }) ?? -1
-                let targetIndex = order.firstIndex(of: resultID) ?? 0
                 proxy.scrollTo(resultID, anchor: targetIndex > lastVisibleIndex ? .bottom : .top)
             }
         }
     }
+
+    private var resultsContentID: String { "results.content" }
 
     private var displayedResults: [CommandResult] {
         state.session.searchListResults
