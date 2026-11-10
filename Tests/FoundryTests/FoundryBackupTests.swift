@@ -98,9 +98,53 @@ final class FoundryBackupTests: XCTestCase {
         XCTAssertEqual(Array(backup.files.keys), ["config.json"])
         try backup.restore(to: destination, scripts: scriptStore())
 
-        XCTAssertEqual(try Data(contentsOf: destination.config.appendingPathExtension("pre-import")), oldConfig)
+        XCTAssertEqual(try preImportCopies(of: destination.config).map { try Data(contentsOf: $0) }, [oldConfig])
         XCTAssertEqual(try Data(contentsOf: destination.snippets), oldSnippets)
-        XCTAssertFalse(FileManager.default.fileExists(atPath: destination.snippets.appendingPathExtension("pre-import").path))
+        XCTAssertEqual(try preImportCopies(of: destination.snippets), [])
+    }
+
+    func testEachImportKeepsItsOwnPreImportCopy() throws {
+        let source = locations(), destination = locations()
+        try seed(source)
+        try seed(destination)
+        let original = try Data(contentsOf: destination.config)
+        let backup = try FoundryBackup.make(locations: source, scriptDirectories: [], appVersion: "1.1.0")
+
+        try backup.restore(to: destination, scripts: scriptStore(), now: Date(timeIntervalSince1970: 1_000))
+        try backup.restore(to: destination, scripts: scriptStore(), now: Date(timeIntervalSince1970: 2_000))
+
+        let copies = try preImportCopies(of: destination.config)
+        XCTAssertEqual(copies.count, 2)
+        XCTAssertTrue(try copies.contains { try Data(contentsOf: $0) == original })
+    }
+
+    func testFailedRestorePutsBackEveryFileItReplaced() throws {
+        let source = locations(), destination = locations()
+        try seed(source)
+        try JSONEncoder().encode([StoredSnippet(title: "From backup", content: "x")]).write(to: source.snippets)
+        try Data("[]".utf8).write(to: source.quicklinks)
+        try seed(destination)
+        let before = try destination.byName.mapValues { try Data(contentsOf: $0) }
+        let backup = try FoundryBackup.make(locations: source, scriptDirectories: ["/tmp/new"], appVersion: "1.1.0")
+        XCTAssertNotEqual(backup.files["quicklinks.json"], before["quicklinks.json"])
+        let scripts = scriptStore()
+        let scriptsBefore = scripts.directories
+        struct DiskFull: Error {}
+
+        XCTAssertThrowsError(try backup.restore(to: destination, scripts: scripts) { data, url in
+            guard url != destination.snippets else { throw DiskFull() }
+            try data.write(to: url, options: .atomic)
+        })
+
+        for (name, url) in destination.byName {
+            XCTAssertEqual(try Data(contentsOf: url), before[name], name)
+        }
+        XCTAssertEqual(scripts.directories, scriptsBefore)
+    }
+
+    private func preImportCopies(of url: URL) throws -> [URL] {
+        try FileManager.default.contentsOfDirectory(at: url.deletingLastPathComponent(), includingPropertiesForKeys: nil)
+            .filter { $0.lastPathComponent.hasPrefix("\(url.lastPathComponent).pre-import-") }
     }
 
     func testDecodeRejectsForeignNewerUnknownAndDamagedBackups() throws {

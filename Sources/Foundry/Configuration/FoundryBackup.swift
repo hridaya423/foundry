@@ -79,18 +79,31 @@ struct FoundryBackup: Codable, Equatable {
         return backup
     }
 
-    func restore(to locations: Locations = .standard, scripts: ScriptDirectoryStore = .shared) throws {
+    func restore(to locations: Locations = .standard, scripts: ScriptDirectoryStore = .shared, now: Date = Date(),
+        write: (Data, URL) throws -> Void = { try $0.write(to: $1, options: .atomic) }) throws {
         let fileManager = FileManager.default
-        for (name, url) in locations.byName {
-            guard var contents = files[name] else { continue }
-            if name == "config.json" { contents = try Self.keepingLocalTrust(contents, at: url) }
-            try fileManager.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
-            if fileManager.fileExists(atPath: url.path) {
-                let saved = url.appendingPathExtension("pre-import")
-                BestEffort.attempt("stale backup cleanup") { try fileManager.removeItem(at: saved) }
-                try fileManager.copyItem(at: url, to: saved)
+        var replaced: [(url: URL, saved: URL?)] = []
+        do {
+            for (name, url) in locations.byName.sorted(by: { $0.key < $1.key }) {
+                guard var contents = files[name] else { continue }
+                if name == "config.json" { contents = try Self.keepingLocalTrust(contents, at: url) }
+                try fileManager.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+                let saved = fileManager.fileExists(atPath: url.path) ? try fileManager.setAside(url, label: "pre-import", moving: false, now: now) : nil
+                replaced.append((url, saved))
+                try write(contents, url)
             }
-            try contents.write(to: url, options: .atomic)
+        } catch {
+            for (url, saved) in replaced.reversed() {
+                BestEffort.attempt("roll back \(url.lastPathComponent)") {
+                    if let saved {
+                        _ = try fileManager.replaceItemAt(url, withItemAt: saved, backupItemName: nil, options: [])
+                        try fileManager.copyItem(at: url, to: saved)
+                    } else if fileManager.fileExists(atPath: url.path) {
+                        try fileManager.removeItem(at: url)
+                    }
+                }
+            }
+            throw error
         }
         scripts.directories = scriptDirectories
     }
@@ -116,5 +129,21 @@ struct FoundryBackup: Codable, Equatable {
             case let .damaged(name): "The backup's \(name) is damaged."
             }
         }
+    }
+}
+
+extension FileManager {
+    @discardableResult
+    func setAside(_ url: URL, label: String, moving: Bool, now: Date = Date()) throws -> URL {
+        let stamp = now.formatted(Date.ISO8601FormatStyle(dateSeparator: .omitted, timeSeparator: .omitted))
+        let name = "\(url.lastPathComponent).\(label)-\(stamp)"
+        var aside = url.deletingLastPathComponent().appendingPathComponent(name)
+        var attempt = 2
+        while fileExists(atPath: aside.path) {
+            aside = url.deletingLastPathComponent().appendingPathComponent("\(name)-\(attempt)")
+            attempt += 1
+        }
+        if moving { try moveItem(at: url, to: aside) } else { try copyItem(at: url, to: aside) }
+        return aside
     }
 }

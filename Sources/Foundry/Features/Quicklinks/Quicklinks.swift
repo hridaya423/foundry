@@ -125,9 +125,12 @@ final class QuicklinkStore: Sendable {
             if let cached { return cached }
             let loaded: [Quicklink]
             if FileManager.default.fileExists(atPath: url.path) {
-                loaded = BestEffort.attempt("load quicklinks") {
-                    try JSONDecoder().decode([Quicklink].self, from: Data(contentsOf: url))
-                } ?? QuicklinkTemplate.defaults
+                if let decoded = BestEffort.attempt("load quicklinks", { try JSONDecoder().decode([Quicklink].self, from: Data(contentsOf: url)) }) {
+                    loaded = decoded
+                } else {
+                    BestEffort.attempt("set aside unreadable quicklinks") { try FileManager.default.setAside(url, label: "corrupt", moving: true) }
+                    loaded = QuicklinkTemplate.defaults
+                }
             } else {
                 loaded = QuicklinkTemplate.defaults
             }
@@ -137,6 +140,7 @@ final class QuicklinkStore: Sendable {
     }
 
     func save(_ links: [Quicklink]) throws {
+        guard cached.withLock({ $0 }) != links else { return }
         try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]

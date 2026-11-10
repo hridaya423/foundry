@@ -112,6 +112,25 @@ final class QuicklinkTests: XCTestCase {
         XCTAssertEqual(QuicklinkStore(url: url).load().map(\.name), ["One"])
     }
 
+    func testCorruptQuicklinksAreSetAsideAndReopeningSavesNothing() throws {
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent("quicklinks-corrupt-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let url = folder.appendingPathComponent("quicklinks.json")
+        let data = Data("{ broken".utf8)
+        try data.write(to: url)
+        let store = QuicklinkStore(url: url)
+
+        let loaded = store.load()
+        XCTAssertEqual(loaded, QuicklinkTemplate.defaults)
+        try store.save(loaded)
+
+        XCTAssertFalse(FileManager.default.fileExists(atPath: url.path))
+        let asides = try FileManager.default.contentsOfDirectory(atPath: folder.path).filter { $0.hasPrefix("quicklinks.json.corrupt-") }
+        XCTAssertEqual(asides.count, 1)
+        XCTAssertEqual(try Data(contentsOf: folder.appendingPathComponent(XCTUnwrap(asides.first))), data)
+    }
+
     func testFaviconURLUsesTheLinksOwnHost() {
         XCTAssertEqual(
             QuicklinkProvider.faviconURL(for: "https://www.google.com/search?q={argument}")?.absoluteString,

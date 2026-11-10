@@ -60,9 +60,11 @@ final class FileSnippetStore: SnippetStore, Sendable {
 
     func load() -> [StoredSnippet] {
         guard FileManager.default.fileExists(atPath: url.path) else { return [] }
-        return BestEffort.attempt("load snippets") {
-            try JSONDecoder().decode([StoredSnippet].self, from: Data(contentsOf: url))
-        } ?? []
+        if let snippets = BestEffort.attempt("load snippets", { try JSONDecoder().decode([StoredSnippet].self, from: Data(contentsOf: url)) }) {
+            return snippets
+        }
+        BestEffort.attempt("set aside unreadable snippets") { try FileManager.default.setAside(url, label: "corrupt", moving: true) }
+        return []
     }
 
     @discardableResult

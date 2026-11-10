@@ -18,17 +18,22 @@ final class LibraryPersistenceTests: XCTestCase {
         XCTAssertEqual(store.load(), [snippet])
     }
 
-    func testCorruptSnippetDataFallsBackWithoutReplacingTheFile() throws {
-        let url = FileManager.default.temporaryDirectory
-            .appendingPathComponent("foundry-snippets-corrupt-\(UUID().uuidString)")
-        defer { try? FileManager.default.removeItem(at: url) }
+    func testCorruptSnippetFileIsSetAsideBeforeTheNextSave() throws {
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent("foundry-snippets-corrupt-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let url = folder.appendingPathComponent("snippets.json")
         let data = Data("not json".utf8)
         try data.write(to: url)
-
         let store = FileSnippetStore(url: url)
 
         XCTAssertTrue(store.load().isEmpty)
-        XCTAssertEqual(try Data(contentsOf: url), data)
+        if case .failure = store.save([StoredSnippet(title: "New", content: "fresh")]) { XCTFail("Expected the save to succeed") }
+
+        let asides = try FileManager.default.contentsOfDirectory(atPath: folder.path).filter { $0.hasPrefix("snippets.json.corrupt-") }
+        XCTAssertEqual(asides.count, 1)
+        XCTAssertEqual(try Data(contentsOf: folder.appendingPathComponent(XCTUnwrap(asides.first))), data)
+        XCTAssertEqual(store.load().map(\.title), ["New"])
     }
 
     @MainActor func testSnippetKeywordIsTrimmedBeforeSaving() {
