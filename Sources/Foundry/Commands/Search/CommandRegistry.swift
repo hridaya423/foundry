@@ -64,7 +64,8 @@ final class CommandRegistry: Sendable {
         }
         let (providerCandidates, timings) = await collectCandidates(query: query, providers: activeProviders, aliases: customAliases,
             timeout: .milliseconds(80), priority: .userInitiated)
-        var candidates = providerCandidates.filter { isCommandEnabled($0.result) }
+        let isEnabled = isCommandEnabled
+        var candidates = providerCandidates.filter { isEnabled($0.result) }
         let sensitivity = configService?.current.searchSensitivity ?? .medium
 
         for provider in supplementalProviders {
@@ -112,7 +113,8 @@ final class CommandRegistry: Sendable {
         }
 
         let rankSpan = diagnostics.startSpan("search.phase2.rank")
-        candidates = ranker.deduplicated(candidates.filter { isCommandEnabled($0.result) })
+        let isEnabled = isCommandEnabled
+        candidates = ranker.deduplicated(candidates.filter { isEnabled($0.result) })
         let isScopedQuery = isMediaQuery(query) || FileSearchProvider.fileQuery(query) != nil
         candidates = scopedCandidates(candidates, query: query)
         logSearchTimings(timings)
@@ -195,7 +197,8 @@ final class CommandRegistry: Sendable {
             }
         }
 
-        let sorted = ranker.ordered(allCandidates.filter { isCommandEnabled($0.result) }, query: nil)
+        let isEnabled = isCommandEnabled
+        let sorted = ranker.ordered(allCandidates.filter { isEnabled($0.result) }, query: nil)
 
         let apps = sorted.filter { result in
             if case .app = result.payload { return true }
@@ -300,12 +303,14 @@ final class CommandRegistry: Sendable {
         providers.filter { $0.searchPolicy.includesSupplementalResults }
     }
 
-    private func isCommandEnabled(_ result: CommandResult) -> Bool {
-        let preferences = configService?.current.commandPreferences
-        if CommandSettingsCatalog.isSystemSettingsPane(result.id), preferences?[CommandSettingsCatalog.systemSettingsID]?.isEnabled == false {
-            return false
+    /// Reads the preferences once, then answers for every result in a batch.
+    private var isCommandEnabled: (CommandResult) -> Bool {
+        let preferences = configService?.current.commandPreferences ?? [:]
+        let settingsDisabled = preferences[CommandSettingsCatalog.systemSettingsID]?.isEnabled == false
+        return { result in
+            if settingsDisabled, CommandSettingsCatalog.isSystemSettingsPane(result.id) { return false }
+            return preferences[result.id]?.isEnabled ?? true
         }
-        return preferences?[result.id]?.isEnabled ?? true
     }
 
     private func isMediaQuery(_ query: String) -> Bool {
