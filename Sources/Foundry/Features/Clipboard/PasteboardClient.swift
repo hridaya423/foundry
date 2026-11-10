@@ -41,3 +41,10 @@ final class SystemPasteboardClient: PasteboardClient {
         }
     }
 }
+
+extension NSPasteboard {
+    func copy(_ string: String) {
+        clearContents()
+        setString(string, forType: .string)
+    }
+}

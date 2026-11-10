@@ -171,8 +171,7 @@ private struct CopyMessageButton: View {
 
     var body: some View {
         Button {
-            NSPasteboard.general.clearContents()
-            NSPasteboard.general.setString(content, forType: .string)
+            NSPasteboard.general.copy(content)
             copied = true
             Task { try? await Task.sleep(for: .seconds(1.2)); copied = false }
         } label: {
@@ -491,7 +490,7 @@ private struct QuickAIThreadPicker: View {
                 .foregroundStyle(FoundryTheme.textPrimary)
                 .lineLimit(1)
             Spacer(minLength: 4)
-            Text(Self.relative.localizedString(for: thread.updatedAt, relativeTo: .now))
+            Text(RelativeDateTimeFormatter.abbreviated.localizedString(for: thread.updatedAt, relativeTo: .now))
                 .font(FoundryTheme.caption.monospacedDigit())
                 .foregroundStyle(FoundryTheme.textTertiary)
         }
@@ -516,12 +515,6 @@ private struct QuickAIThreadPicker: View {
         quickAI.selectThread(thread)
         isPresented = false
     }
-
-    private static let relative: RelativeDateTimeFormatter = {
-        let formatter = RelativeDateTimeFormatter()
-        formatter.unitsStyle = .abbreviated
-        return formatter
-    }()
 }
 
 struct QuickAIModelMenu: View {

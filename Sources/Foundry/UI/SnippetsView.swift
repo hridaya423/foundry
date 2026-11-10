@@ -470,14 +470,9 @@ struct SnippetEditor: View {
 
     static func edited(_ date: Date, now: Date = .now) -> String {
         guard now.timeIntervalSince(date) >= 60 else { return String(localized: "Edited just now") }
-        return String(localized: "Edited \(relative.localizedString(for: date, relativeTo: now))")
+        return String(localized: "Edited \(RelativeDateTimeFormatter.abbreviated.localizedString(for: date, relativeTo: now))")
     }
 
-    private static let relative: RelativeDateTimeFormatter = {
-        let formatter = RelativeDateTimeFormatter()
-        formatter.unitsStyle = .abbreviated
-        return formatter
-    }()
 
     private var fieldBackground: some View {
         RoundedRectangle(cornerRadius: FoundryTheme.Radius.row, style: .continuous)

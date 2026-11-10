@@ -12,8 +12,7 @@ struct CopyToClipboardAction: ResultAction, Equatable {
     var shortcut: ActionShortcut? { ActionShortcut(key: "c", modifiers: [.shift, .command]) }
 
     func perform(_ ctx: ActionContext) async -> CommandOutcome {
-        ctx.pasteboard.clearContents()
-        ctx.pasteboard.setString(value, forType: .string)
+        ctx.pasteboard.copy(value)
         ctx.diagnostics.log("Copied to clipboard")
         return ctx.finish(.copied(content: value), feedback: .success(Self.copiedMessage(for: value)))
     }

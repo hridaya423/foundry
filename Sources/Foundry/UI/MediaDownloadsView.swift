@@ -456,8 +456,7 @@ private struct MediaDownloadRow: View {
         if let url = URL(string: item.sourceURL) {
             Button("Open Source Page") { NSWorkspace.shared.open(url) }
             Button("Copy URL") {
-                NSPasteboard.general.clearContents()
-                NSPasteboard.general.setString(item.sourceURL, forType: .string)
+                NSPasteboard.general.copy(item.sourceURL)
                 notify(.success(String(localized: "Copied link")))
             }
         }

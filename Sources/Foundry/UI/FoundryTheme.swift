@@ -339,3 +339,11 @@ extension AgentSessionStatus {
         }
     }
 }
+
+extension RelativeDateTimeFormatter {
+    @MainActor static let abbreviated: RelativeDateTimeFormatter = {
+        let formatter = RelativeDateTimeFormatter()
+        formatter.unitsStyle = .abbreviated
+        return formatter
+    }()
+}

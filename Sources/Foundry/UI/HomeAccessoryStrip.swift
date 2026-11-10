@@ -303,14 +303,9 @@ private struct AgentWidgetRow: View {
         default: label = session.status.rawValue
         }
         guard let updatedAt = session.updatedAt else { return label }
-        return "\(label) · \(Self.relativeFormatter.localizedString(for: updatedAt, relativeTo: Date()))"
+        return "\(label) · \(RelativeDateTimeFormatter.abbreviated.localizedString(for: updatedAt, relativeTo: Date()))"
     }
 
-    private static let relativeFormatter: RelativeDateTimeFormatter = {
-        let formatter = RelativeDateTimeFormatter()
-        formatter.unitsStyle = .abbreviated
-        return formatter
-    }()
 
     private var statusColor: Color { session.status.color }
 }

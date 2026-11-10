@@ -22,8 +22,7 @@ extension CommandPanelState {
     }
 
     private func copyEmoji(_ value: String) {
-        NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(value, forType: .string)
+        NSPasteboard.general.copy(value)
     }
 
     @discardableResult

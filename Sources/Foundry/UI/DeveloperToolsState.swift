@@ -168,8 +168,7 @@ final class DeveloperToolsState {
     }
 
     func copy(_ value: String) {
-        NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(value, forType: .string)
+        NSPasteboard.general.copy(value)
         onFeedback?(.success(String(localized: "Copied \(value.prefix(40))")))
     }
 

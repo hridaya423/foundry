@@ -173,8 +173,7 @@ final class SnippetState {
 
     func copySelected(arguments: [String: String] = [:]) {
         guard let selectedItem else { return }
-        NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(SnippetRenderer.render(selectedItem.content, arguments: arguments).text, forType: .string)
+        NSPasteboard.general.copy(SnippetRenderer.render(selectedItem.content, arguments: arguments).text)
         markUsed(id: selectedItem.id)
     }
 

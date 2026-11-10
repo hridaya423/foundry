@@ -109,8 +109,7 @@ struct ExtractTextFromImageAction: ResultAction, Equatable {
                 return .failure(message: String(localized: "No text found in \(name)"), retryable: false)
             }
             let text = sections.joined(separator: "\n\n")
-            ctx.pasteboard.clearContents()
-            ctx.pasteboard.setString(text, forType: .string)
+            ctx.pasteboard.copy(text)
             ctx.diagnostics.log("OCR extracted text from \(sections.count) of \(urls.count) images")
             return .copied(content: text)
         } catch {
@@ -161,13 +160,11 @@ struct PickColorAction: ResultAction, Equatable {
         let formats = Self.colorFormats(for: color)
         let recents = ctx.localState.get(\.colorPickerRecents)
         if let chosen = await chooseColorFormat(hex: hex, color: color, formats: formats, recents: recents, ctx: ctx) {
-            ctx.pasteboard.clearContents()
-            ctx.pasteboard.setString(chosen, forType: .string)
+            ctx.pasteboard.copy(chosen)
             ctx.emit(.feedback(.success("Copied \(chosen)")))
             return .copied(content: chosen)
         }
-        ctx.pasteboard.clearContents()
-        ctx.pasteboard.setString(hex, forType: .string)
+        ctx.pasteboard.copy(hex)
         ctx.emit(.feedback(.success("Copied \(hex)")))
         return .copied(content: hex)
     }
@@ -419,8 +416,7 @@ struct ReadQRCodeAction: ResultAction, Equatable {
             guard let payload = payloads.first else {
                 return .failure(message: String(localized: "No QR code found in \(url.lastPathComponent)"), retryable: false)
             }
-            ctx.pasteboard.clearContents()
-            ctx.pasteboard.setString(payload, forType: .string)
+            ctx.pasteboard.copy(payload)
             ctx.diagnostics.log("Decoded QR payload (\(payload.count) characters)")
             ctx.emit(.feedback(.success("Copied \(payload)")))
             return .copied(content: payload)
@@ -461,8 +457,7 @@ struct RecognizeScreenTextAction: ResultAction, Equatable {
             guard text.isEmpty == false else {
                 return .failure(message: String(localized: "No text found in the captured region"), retryable: false)
             }
-            ctx.pasteboard.clearContents()
-            ctx.pasteboard.setString(text, forType: .string)
+            ctx.pasteboard.copy(text)
             ctx.diagnostics.log("Screen OCR captured \(lines.count) line(s)")
             ctx.emit(.feedback(.success("Copied \(lines.count) line(s) of text")))
             return .copied(content: text)

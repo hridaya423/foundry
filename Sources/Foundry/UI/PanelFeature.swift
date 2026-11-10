@@ -70,8 +70,7 @@ struct ScriptOutput: Equatable, PanelFeature {
         dismiss: @MainActor () -> Void
     ) -> Bool {
         guard shortcut.key == "\r" else { return false }
-        NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(text, forType: .string)
+        NSPasteboard.general.copy(text)
         panel.showActionFeedback(.success(String(localized: "Copied output")))
         return true
     }

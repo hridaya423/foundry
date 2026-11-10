@@ -121,8 +121,7 @@ final class TranslatorState {
 
     func copyResult() {
         guard result.isEmpty == false else { return }
-        NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(result, forType: .string)
+        NSPasteboard.general.copy(result)
         onFeedback?(.success(String(localized: "Copied translation")))
     }
 

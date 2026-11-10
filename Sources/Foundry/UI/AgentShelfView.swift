@@ -206,7 +206,7 @@ private struct AgentShelfRow: View {
                             .foregroundStyle(statusColor)
                     }
                     if let updatedAt = session.updatedAt {
-                        Text(Self.relative.localizedString(for: updatedAt, relativeTo: Date()))
+                        Text(RelativeDateTimeFormatter.abbreviated.localizedString(for: updatedAt, relativeTo: Date()))
                             .font(FoundryTheme.caption)
                             .foregroundStyle(FoundryTheme.textQuaternary)
                     }
@@ -233,10 +233,4 @@ private struct AgentShelfRow: View {
     }
 
     private var statusColor: Color { session.status.color }
-
-    private static let relative: RelativeDateTimeFormatter = {
-        let formatter = RelativeDateTimeFormatter()
-        formatter.unitsStyle = .abbreviated
-        return formatter
-    }()
 }

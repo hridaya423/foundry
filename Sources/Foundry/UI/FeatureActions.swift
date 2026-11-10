@@ -129,8 +129,7 @@ extension CommandPanelState {
             actions.append(featureAction("source", String(localized: "Open Source Page"), icon: "safari") { NSWorkspace.shared.open(url) })
             actions.append(featureAction("copy-link", String(localized: "Copy Link"), icon: "link", key: "c", modifiers: [.shift, .command]) {
                 [weak self] in
-                NSPasteboard.general.clearContents()
-                NSPasteboard.general.setString(item.sourceURL, forType: .string)
+                NSPasteboard.general.copy(item.sourceURL)
                 self?.showActionFeedback(.success(String(localized: "Copied link")))
             })
         }

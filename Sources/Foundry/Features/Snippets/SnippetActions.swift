@@ -41,7 +41,7 @@ struct CopySnippetAction: ResultAction, Equatable {
              retryable: false) }
         if SnippetRenderer.argumentNames(in: snippet.content).isEmpty == false { return .open(route: .snippet(id: id, then: .copy)) }
         let rendered = SnippetRenderer.render(snippet.content, context: ctx.snippetContext())
-        ctx.pasteboard.clearContents(); ctx.pasteboard.setString(rendered.text, forType: .string)
+        ctx.pasteboard.copy(rendered.text)
         recordSnippetUse(id: id, in: ctx)
         return ctx.finish(.copied(content: rendered.text), feedback: .success(String(localized: "Copied to clipboard")))
     }
