@@ -231,7 +231,7 @@ export default function Launcher({ onOpen }: { onOpen?: (target: LauncherTarget)
             </div>
           ))}
         </div>
-        <div className="launcher-preview" aria-live="polite">
+        <div className="launcher-preview" aria-live={engaged ? "polite" : "off"}>
           <AnimatePresence mode="popLayout" initial={false}>
             <motion.div
               key={shown ? `${shown.id}:${shown.id === "calculator" ? answer : ""}` : "none"}
