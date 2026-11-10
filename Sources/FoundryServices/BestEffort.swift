@@ -16,7 +16,7 @@ public enum BestEffort {
     @discardableResult
     public static func attempt<T>(_ label: String, _ body: () throws -> T) -> T? {
         do { return try body() } catch {
-            logger.error("\(label, privacy: .public): \(error.localizedDescription, privacy: .public)")
+            logger.error("\(label, privacy: .public): \(error.localizedDescription, privacy: .private)")
             return nil
         }
     }
@@ -36,7 +36,7 @@ public enum BestEffort {
     /// Logs an error at `.error` level — for `catch` blocks at call sites
     /// that can't use ``attempt(_:_:)``.
     public static func log(_ label: String, _ error: any Error) {
-        logger.error("\(label, privacy: .public): \(error.localizedDescription, privacy: .public)")
+        logger.error("\(label, privacy: .public): \(error.localizedDescription, privacy: .private)")
     }
 }
 

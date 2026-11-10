@@ -15,7 +15,7 @@ public final class DiagnosticsService: Sendable {
     public init() {}
 
     public func log(_ message: String) {
-        logger.info("\(message, privacy: .public)")
+        logger.info("\(message, privacy: .private)")
     }
 
     /// Point-in-time signpost for correlating spans with UI commits
