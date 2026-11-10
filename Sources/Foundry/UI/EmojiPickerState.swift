@@ -75,15 +75,13 @@ final class EmojiPickerState {
         return base + skinTone
     }
 
-    static func stripTones(_ value: String) -> String {
+    nonisolated static func stripTones(_ value: String) -> String {
         String(String.UnicodeScalarView(value.unicodeScalars.filter { (0x1F3FB ... 0x1F3FF).contains($0.value) == false }))
     }
 
     var visibleEmoji: [EmojiItem] {
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        guard trimmed.isEmpty == false else {
-            return Self.allEmoji.filter { Self.stripTones($0.value) == $0.value }
-        }
+        guard trimmed.isEmpty == false else { return Self.browseEmoji }
         return Self.allEmoji.filter { item in
             item.value == trimmed
                 || item.name.contains(trimmed)
@@ -95,6 +93,13 @@ final class EmojiPickerState {
         let cells = cells
         guard let selectedID else { return cells.first?.item }
         return (cells.first { $0.id == selectedID } ?? cells.first)?.item
+    }
+
+    nonisolated static func prewarmCatalog() {
+        Task.detached(priority: .utility) {
+            _ = browseEmoji
+            _ = toneableBases
+        }
     }
 
     func reset() {
@@ -187,9 +192,11 @@ struct EmojiItem: Identifiable, Hashable, Sendable {
 }
 
 private extension EmojiPickerState {
-    static let allEmoji: [EmojiItem] = loadEmojiCatalog() + extraSymbols
+    nonisolated static let allEmoji: [EmojiItem] = loadEmojiCatalog() + extraSymbols
 
-    static let toneableBases: Set<String> = {
+    nonisolated static let browseEmoji = allEmoji.filter { stripTones($0.value) == $0.value }
+
+    nonisolated static let toneableBases: Set<String> = {
         let values = Set(allEmoji.map(\.value))
         var bases = Set<String>()
         for value in values {
@@ -199,7 +206,7 @@ private extension EmojiPickerState {
         return bases
     }()
 
-    static func loadEmojiCatalog() -> [EmojiItem] {
+    nonisolated static func loadEmojiCatalog() -> [EmojiItem] {
         guard let url = Bundle.packagedResources?.url(forResource: "emoji", withExtension: "tsv") else {
             return []
         }
@@ -218,7 +225,7 @@ private extension EmojiPickerState {
         }
     }
 
-    static let extraSymbols: [EmojiItem] = [
+    nonisolated static let extraSymbols: [EmojiItem] = [
         EmojiItem("⌘", "command symbol", ["mac", "keyboard"]),
         EmojiItem("⌥", "option symbol", ["mac", "keyboard"]),
         EmojiItem("⇧", "shift symbol", ["mac", "keyboard"]),

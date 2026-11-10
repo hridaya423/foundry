@@ -31,7 +31,7 @@ final class PanelRouter {
 
     func resetTransientFeatures() {
         guard let panel else { return }
-        panel.emojiPicker.reset()
+        if panel.mode == .emojiPicker { panel.emojiPicker.reset() }
         panel.pendingSnippetArguments = nil
         panel.scriptOutput = nil
         let built = panel.builtFeatures

@@ -44,6 +44,7 @@ final class PanelController: NSObject, NSWindowDelegate {
     }
 
     func prewarm() {
+        EmojiPickerState.prewarmCatalog()
         if panel == nil {
             panel = makePanel()
         }
