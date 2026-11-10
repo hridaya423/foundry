@@ -199,8 +199,8 @@ enum AnthropicTransport {
         return StreamedToolCall.response(text: textParts.joined(), calls: calls)
     }
 
-    private static func anthropicMessages(_ messages: [[String: Any]]) -> [[String: Any]] {
-        messages.compactMap { message in
+    static func anthropicMessages(_ messages: [[String: Any]]) -> [[String: Any]] {
+        let converted: [[String: Any]] = messages.compactMap { message in
             guard let role = message["role"] as? String, role != "system" else { return nil }
             if role == "assistant", let calls = message["tool_calls"] as? [[String: Any]] {
                 var blocks: [[String: Any]] = []
@@ -217,6 +217,15 @@ enum AnthropicTransport {
                     "content": content]]]
             }
             return ["role": role, "content": message["content"] ?? ""]
+        }
+        return converted.reduce(into: []) { merged, message in
+            if let blocks = message["content"] as? [[String: Any]], blocks.allSatisfy({ $0["type"] as? String == "tool_result" }),
+                let last = merged.last, last["role"] as? String == "user", let previous = last["content"] as? [[String: Any]],
+                previous.allSatisfy({ $0["type"] as? String == "tool_result" }) {
+                merged[merged.count - 1]["content"] = previous + blocks
+            } else {
+                merged.append(message)
+            }
         }
     }
 }
@@ -241,23 +250,7 @@ enum GeminiTransport {
             request.httpMethod = "POST"
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")
             request.setValue(apiKey, forHTTPHeaderField: "x-goog-api-key")
-            var contents: [[String: Any]] = []
-            for message in messages {
-                guard let role = message["role"] as? String else { continue }
-                let geminiRole = role == "assistant" ? "model" : "user"
-                if role == "assistant", let calls = message["tool_calls"] as? [[String: Any]] {
-                    let parts = calls.compactMap { call -> [String: Any]? in
-                        guard let function = call["function"] as? [String: Any], let name = function["name"] as? String else { return nil }
-                        return ["functionCall": ["name": name, "args": function["arguments"] as? [String: Any] ?? [:]]]
-                    }
-                    if parts.isEmpty == false { contents.append(["role": geminiRole, "parts": parts]) }
-                } else if role == "tool", let name = message["name"] as? String, let result = message["content"] as? String {
-                    contents.append(["role": "user", "parts": [["functionResponse": ["name": name, "response": ["content": result]]]]])
-                } else if let content = message["content"] as? String {
-                    contents.append(["role": geminiRole, "parts": [["text": content]]])
-                }
-            }
-            var body: [String: Any] = ["contents": contents]
+            var body: [String: Any] = ["contents": geminiContents(messages)]
             if profile.capabilities.tools && tools.isEmpty == false {
                 body["tools"] = [["function_declarations": tools.map { ["name": $0.name, "description": $0.description, "parameters": $0.parameters] }]]
             }
@@ -269,6 +262,33 @@ enum GeminiTransport {
         } catch {
             return AITransportSupport.makeFailure(error)
         }
+    }
+
+    static func geminiContents(_ messages: [[String: Any]]) -> [[String: Any]] {
+        var contents: [[String: Any]] = []
+        for message in messages {
+            guard let role = message["role"] as? String else { continue }
+            let geminiRole = role == "assistant" ? "model" : "user"
+            if role == "assistant", let calls = message["tool_calls"] as? [[String: Any]] {
+                let parts = calls.compactMap { call -> [String: Any]? in
+                    guard let function = call["function"] as? [String: Any], let name = function["name"] as? String else { return nil }
+                    return ["functionCall": ["name": name, "args": function["arguments"] as? [String: Any] ?? [:]]]
+                }
+                if parts.isEmpty == false { contents.append(["role": geminiRole, "parts": parts]) }
+            } else if role == "tool", let name = message["name"] as? String, let result = message["content"] as? String {
+                let part: [String: Any] = ["functionResponse": ["name": name, "response": ["content": result]]]
+                if var last = contents.last, var parts = last["parts"] as? [[String: Any]], parts.allSatisfy({ $0["functionResponse"] != nil }) {
+                    parts.append(part)
+                    last["parts"] = parts
+                    contents[contents.count - 1] = last
+                } else {
+                    contents.append(["role": "user", "parts": [part]])
+                }
+            } else if let content = message["content"] as? String {
+                contents.append(["role": geminiRole, "parts": [["text": content]]])
+            }
+        }
+        return contents
     }
 
     static func test(profile: AIProviderProfile, credentials: AICredentialStore) async -> AIConnectionTestResult {

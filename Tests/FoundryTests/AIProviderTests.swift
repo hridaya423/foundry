@@ -873,6 +873,24 @@ final class AIProviderTests: XCTestCase {
         XCTAssertEqual(legacy.toolEvent?.encoded, legacy.content)
         XCTAssertNil(AIChatMessage(role: .assistant, content: "running:x").toolEvent)
     }
+
+    func testParallelToolResultsReturnInOneTurn() throws {
+        var messages: [[String: Any]] = [["role": "user", "content": "weather in two cities"]]
+        AgentTranscript.appendToolExchange([
+            (AgentToolCall(id: "a", name: "web_search", arguments: ["query": "paris"]), "sunny"),
+            (AgentToolCall(id: "b", name: "web_search", arguments: ["query": "rome"]), "rain")
+        ], assistantText: "", to: &messages)
+
+        let anthropic = AnthropicTransport.anthropicMessages(messages)
+        XCTAssertEqual(anthropic.map { $0["role"] as? String }, ["user", "assistant", "user"])
+        let results = try XCTUnwrap(anthropic.last?["content"] as? [[String: Any]])
+        XCTAssertEqual(results.map { $0["tool_use_id"] as? String }, ["a", "b"])
+
+        let gemini = GeminiTransport.geminiContents(messages)
+        XCTAssertEqual(gemini.map { $0["role"] as? String }, ["user", "model", "user"])
+        let parts = try XCTUnwrap(gemini.last?["parts"] as? [[String: Any]])
+        XCTAssertEqual(parts.count, 2)
+    }
 }
 
 private final class DelayedAIChatStore: Sendable, AIChatStoring {
