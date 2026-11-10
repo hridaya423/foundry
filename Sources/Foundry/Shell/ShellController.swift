@@ -75,6 +75,7 @@ final class ShellController {
         self.statusItemController = statusItemController
         self.onboardingState = onboardingState
         self.panelState.shell = self
+        panelState.snippets.onSaved = { [weak self] in self?.configureSnippetExpansion() }
         statusItemController.onTogglePanel = { [weak self] in
             self?.togglePanel()
         }

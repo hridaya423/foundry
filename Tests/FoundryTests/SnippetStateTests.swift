@@ -12,6 +12,28 @@ final class SnippetStateTests: XCTestCase {
         return state
     }
 
+    func testNewSnippetWithAFilterActiveIsTheOneShownAndEdited() {
+        let state = makeState([StoredSnippet(title: "Mail", content: "hi", tags: ["work"], updatedAt: Date(timeIntervalSince1970: 1))])
+        state.query = "mail"
+        state.selectedTag = "work"
+
+        state.newSnippet()
+        state.updateSelected(title: "Fresh", content: "new body", keyword: "", tags: [])
+
+        XCTAssertEqual(state.selectedItem?.title, "Fresh")
+        XCTAssertEqual(state.items.first { $0.title == "Mail" }?.content, "hi")
+    }
+
+    func testSavingSnippetsNotifiesSoExpansionReloads() {
+        let state = makeState([])
+        var saves = 0
+        state.onSaved = { saves += 1 }
+
+        state.newSnippet()
+
+        XCTAssertEqual(saves, 1)
+    }
+
     func testDuplicateKeywordWarningNamesTheSelectedSnippetsClashFirst() {
         let state = makeState([
             StoredSnippet(id: "a", title: "A", content: "1", keyword: ";addr"),

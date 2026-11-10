@@ -121,6 +121,8 @@ final class SnippetState {
     }
 
     func newSnippet() {
+        query = ""
+        selectedTag = nil
         let snippet = StoredSnippet(title: "Untitled Snippet")
         items.insert(snippet, at: 0)
         freshSnippetID = snippet.id
@@ -217,6 +219,7 @@ final class SnippetState {
     }
 
     @ObservationIgnored var onFeedback: ((ActionFeedback) -> Void)?
+    @ObservationIgnored var onSaved: (() -> Void)?
 
     nonisolated static func importSummary(added: Int, total: Int) -> String {
         guard added > 0 else { return String(localized: "No new snippets in that file") }
@@ -298,6 +301,7 @@ final class SnippetState {
         switch store.save(items) {
         case .success:
             persistenceError = nil
+            onSaved?()
         case let .failure(error):
             persistenceError = String(localized: "Could not save snippets: \(error.localizedDescription)")
         }
