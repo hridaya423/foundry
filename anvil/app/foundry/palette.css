@@ -80,5 +80,5 @@ html:has(.palette[open]) { overflow: hidden; }
 }
 .palette-button:hover kbd { color: var(--f-text); background: #ffffff1a; }
 @media (hover: none) {
-  .palette-button { display: none; }
+  .palette-button, .palette-hint { display: none; }
 }

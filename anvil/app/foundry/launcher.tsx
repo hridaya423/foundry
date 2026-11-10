@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useId, useState, type CSSProperties, type KeyboardEvent, type ReactNode } from "react";
-import { AnimatePresence, motion } from "motion/react";
+import { AnimatePresence, MotionConfig, motion } from "motion/react";
 import { shelfCells, shelfStops } from "./story/shelf-motion";
 import { tileText } from "./story/tile-glyphs";
 import { toolStop } from "./story/tools-motion";
@@ -182,6 +182,7 @@ export default function Launcher({ onOpen }: { onOpen?: (target: LauncherTarget)
   }
 
   return (
+    <MotionConfig reducedMotion="user">
     <section
       className="foundry-palette launcher"
       aria-label="Try Foundry"
@@ -247,5 +248,6 @@ export default function Launcher({ onOpen }: { onOpen?: (target: LauncherTarget)
         </div>
       </div>
     </section>
+    </MotionConfig>
   );
 }
