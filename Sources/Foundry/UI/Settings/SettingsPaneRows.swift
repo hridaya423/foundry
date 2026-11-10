@@ -223,10 +223,11 @@ struct AISettingsSection: View {
                         SettingsDivider()
                         VStack(alignment: .leading, spacing: 10) {
                             SettingsLabel(title: "ChatGPT subscription", subtitle: "Sign in with your ChatGPT account instead of an API key")
-                            Text(
-                                "Foundry relies on a private, undocumented Codex endpoint that OpenAI has not published and may change " +
-                                    "or shut down without notice. OAuth credentials are stored only in the macOS Keychain; Foundry " +
-                                    "never reads browser cookies.")
+                            Text("""
+                                Foundry relies on a private, undocumented Codex endpoint that OpenAI has not published and may change \
+                                or shut down without notice. OAuth credentials are stored only in the macOS Keychain; Foundry \
+                                never reads browser cookies.
+                                """)
                                 .font(FoundryTheme.caption)
                                 .foregroundStyle(FoundryTheme.textTertiary)
                                 .fixedSize(horizontal: false, vertical: true)

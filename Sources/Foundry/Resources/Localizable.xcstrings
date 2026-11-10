@@ -1,1022 +1,3590 @@
 {
-  "sourceLanguage": "en",
-  "strings": {
-    "A file with that name already exists": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "A file with that name already exists"
-          }
-        }
-      }
+  "sourceLanguage" : "en",
+  "strings" : {
+    "" : {
+
     },
-    "Accessibility permission required for window control": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Accessibility permission required for window control"
-          }
-        }
-      }
+    "%@" : {
+
     },
-    "Already in the File Shelf": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Already in the File Shelf"
+    "%@ %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ %2$@"
           }
         }
       }
     },
-    "An action with this cancellation ID is already running": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "An action with this cancellation ID is already running"
+    "%@ (%@%lld%%)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ (%2$@%3$lld%%)"
           }
         }
       }
     },
-    "Audio device updated": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Audio device updated"
-          }
-        }
-      }
+    "%@ (Detected)" : {
+
     },
-    "Backup imported": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Backup imported"
-          }
-        }
-      }
+    "%@ Firefox tabs stay searchable through your other browsers." : {
+
     },
-    "Cannot rebuild Foundry": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Cannot rebuild Foundry"
-          }
-        }
-      }
+    "%@ Is Taken. Choose Another Shortcut…" : {
+
     },
-    "Clipboard has no text": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Clipboard has no text"
-          }
-        }
-      }
+    "%@ answers Tab" : {
+
     },
-    "Clipboard has no text to encode": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Clipboard has no text to encode"
-          }
-        }
-      }
+    "%@ characters" : {
+
     },
-    "Clipboard is empty": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Clipboard is empty"
-          }
-        }
-      }
+    "%@ copy" : {
+
     },
-    "Close": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Close"
-          }
-        }
-      }
+    "%@ could not be registered. Choose another shortcut." : {
+
     },
-    "Copied snippet": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Copied snippet"
-          }
-        }
-      }
+    "%@ doesn’t support jumping to a session yet." : {
+
     },
-    "Copied to clipboard": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Copied to clipboard"
+    "%@ is already used by %@." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ is already used by %2$@."
           }
         }
       }
     },
-    "Copy": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Copy"
-          }
-        }
-      }
+    "%@ is disabled. Enable it in Foundry Settings to use this provider." : {
+
     },
-    "Could not capture the screen": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Could not capture the screen"
-          }
-        }
-      }
+    "%@ is not running" : {
+
     },
-    "Could not create Foundry folder": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Could not create Foundry folder"
-          }
-        }
-      }
+    "%@ is taken by another app. Record a different shortcut." : {
+
     },
-    "Could not empty the Trash": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Could not empty the Trash"
-          }
-        }
-      }
+    "%@ moved to ⌥ Space" : {
+
     },
-    "Could not extract text": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Could not extract text"
+    "%@ opened. %@ works from any app." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ opened. %2$@ works from any app."
           }
         }
       }
     },
-    "Could not generate QR code": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Could not generate QR code"
-          }
-        }
-      }
+    "%@ opens Foundry" : {
+
     },
-    "Could not move to Trash": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Could not move to Trash"
-          }
-        }
-      }
+    "%@ timed out" : {
+
     },
-    "Could not open Foundry folder": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Could not open Foundry folder"
+    "%@ timed out after %lld s" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ timed out after %2$lld s"
           }
         }
       }
     },
-    "Could not open file with that app": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Could not open file with that app"
+    "%@ unavailable: %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ unavailable: %2$@"
           }
         }
       }
     },
-    "Could not open link": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Could not open link"
-          }
-        }
-      }
+    "%@ use ⌘ Space." : {
+
     },
-    "Could not open link with that app": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Could not open link with that app"
-          }
-        }
-      }
+    "%@ uses ⌘ Space." : {
+
     },
-    "Could not open the share menu": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Could not open the share menu"
+    "%@ · %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ · %2$@"
           }
         }
       }
     },
-    "Could not read QR code": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Could not read QR code"
+    "%@ · ⌘%lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ · ⌘%2$lld"
           }
         }
       }
     },
-    "Could not rename file": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Could not rename file"
+    "%@, %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@, %2$@"
           }
         }
       }
     },
-    "Could not save imported snippets": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Could not save imported snippets"
-          }
-        }
-      }
+    "%@?" : {
+
     },
-    "Could not save snippet": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Could not save snippet"
-          }
-        }
-      }
+    "%lld" : {
+
     },
-    "Could not stage paste": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Could not stage paste"
-          }
-        }
-      }
+    "%lld Files" : {
+
     },
-    "Could not switch audio device": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Could not switch audio device"
-          }
-        }
-      }
+    "%lld MB" : {
+
     },
-    "Could not terminate process": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Could not terminate process"
-          }
-        }
-      }
+    "%lld active" : {
+
     },
-    "Could not toggle desktop icons": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Could not toggle desktop icons"
-          }
-        }
-      }
+    "%lld chars" : {
+
     },
-    "Could not update Keep Awake": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Could not update Keep Awake"
+    "%lld days" : {
+
+    },
+    "%lld downloading" : {
+
+    },
+    "%lld files" : {
+
+    },
+    "%lld imported" : {
+
+    },
+    "%lld items" : {
+
+    },
+    "%lld links aren’t supported and were left in the box." : {
+
+    },
+    "%lld of %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$lld of %2$lld"
           }
         }
       }
     },
-    "Couldn't add those files": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Couldn't add those files"
+    "%lld of %lld Selected" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$lld of %2$lld Selected"
           }
         }
       }
     },
-    "Created snippet": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Created snippet"
+    "%lld of %lld items" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$lld of %2$lld items"
           }
         }
       }
+    },
+    "%lld percent" : {
+
+    },
+    "%lld placeholders to fill in" : {
+
     },
-    "Cut": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Cut"
+    "%lld snippets" : {
+
+    },
+    "%lld snippets from %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$lld snippets from %2$@"
           }
         }
       }
+    },
+    "%lld%%" : {
+
+    },
+    "%lld°" : {
+
+    },
+    "+ %lld more" : {
+
+    },
+    "+%lld" : {
+
+    },
+    "." : {
+
+    },
+    "1 File" : {
+
+    },
+    "1 day" : {
+
+    },
+    "1 file" : {
+
+    },
+    "1 link isn’t supported and was left in the box." : {
+
+    },
+    "1 month" : {
+
+    },
+    "1 week" : {
+
+    },
+    "1 year" : {
+
+    },
+    "3 months" : {
+
+    },
+    "30 seconds" : {
+
+    },
+    "5 minutes" : {
+
     },
-    "Download folder changed": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Download folder changed"
+    "90 seconds" : {
+
+    },
+    "A file with that name already exists" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A file with that name already exists"
           }
         }
       }
+    },
+    "AI Settings…" : {
+
+    },
+    "AI endpoints: %@" : {
+
+    },
+    "API key" : {
+
     },
-    "Edit": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Edit"
+    "Access Foundry, Clipboard History, and Settings from the menu bar" : {
+
+    },
+    "Accessibility" : {
+
+    },
+    "Accessibility permission required for window control" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Accessibility permission required for window control"
           }
         }
       }
+    },
+    "Action cancelled" : {
+
+    },
+    "Actions" : {
+
+    },
+    "Add Folder…" : {
+
+    },
+    "Add Quicklink" : {
+
+    },
+    "Add a file to see the formats\nit can become." : {
+
+    },
+    "Add a running app to the exclusion list" : {
+
+    },
+    "Add an API key before listing models." : {
+
+    },
+    "Add bundle identifier" : {
+
+    },
+    "Add files" : {
+
+    },
+    "Add provider" : {
+
     },
-    "Enter a network name": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Enter a network name"
+    "Add running app…" : {
+
+    },
+    "Add to Shelf" : {
+
+    },
+    "Added %lld %@ to File Shelf%@%@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Added %1$lld %2$@ to File Shelf%3$@%4$@"
           }
         }
       }
+    },
+    "Added to File Shelf" : {
+
+    },
+    "Agent event socket" : {
+
+    },
+    "Agents" : {
+
+    },
+    "Alfred" : {
+
+    },
+    "Aliases" : {
+
+    },
+    "All available widgets are already on Home." : {
+
     },
-    "Failed to rebuild Foundry app": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Failed to rebuild Foundry app"
+    "All pages — e.g. 1-3, 5" : {
+
+    },
+    "Allow" : {
+
+    },
+    "Allow Accessibility to arrange windows." : {
+
+    },
+    "Allow Accessibility to paste into %@." : {
+
+    },
+    "Allow Foundry to route requests to this profile" : {
+
+    },
+    "Allow Screen Recording to read text from the screen." : {
+
+    },
+    "Already in the File Shelf" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Already in the File Shelf"
           }
         }
       }
     },
-    "Failed to run process": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Failed to run process"
+    "An action with this cancellation ID is already running" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "An action with this cancellation ID is already running"
           }
         }
       }
+    },
+    "Another app has ⌘ Space." : {
+
+    },
+    "Apply" : {
+
     },
-    "Finder could not empty the Trash": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Finder could not empty the Trash"
+    "Approximate ceiling for all retained data" : {
+
+    },
+    "Argument" : {
+
+    },
+    "Arrange the frontmost window" : {
+
+    },
+    "Ask AI" : {
+
+    },
+    "Ask AI with Tab" : {
+
+    },
+    "Asked %lld apps to quit" : {
+
+    },
+    "Audio device updated" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Audio device updated"
           }
         }
       }
+    },
+    "Available in the installed Foundry app" : {
+
+    },
+    "Available widgets" : {
+
     },
-    "Foundry": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Foundry"
+    "Back" : {
+
+    },
+    "Background removal cancelled" : {
+
+    },
+    "Background removal model" : {
+
+    },
+    "Backup" : {
+
+    },
+    "Backup imported" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Backup imported"
           }
         }
       }
+    },
+    "Base" : {
+
+    },
+    "Base64" : {
+
+    },
+    "Battery" : {
+
+    },
+    "Bits" : {
+
     },
-    "Foundry relies on a private, undocumented Codex endpoint that OpenAI has not published and may change or shut down without notice. OAuth credentials are stored only in the macOS Keychain; Foundry never reads browser cookies.": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Foundry relies on a private, undocumented Codex endpoint that OpenAI has not published and may change or shut down without notice. OAuth credentials are stored only in the macOS Keychain; Foundry never reads browser cookies."
+    "Bring your snippets" : {
+
+    },
+    "Browser history and other matches" : {
+
+    },
+    "CPU" : {
+
+    },
+    "CPU %@, memory %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "CPU %1$@, memory %2$@"
           }
         }
       }
+    },
+    "Calculator" : {
+
+    },
+    "Calendar" : {
+
+    },
+    "Cancel" : {
+
+    },
+    "Cancel Background Removal" : {
+
+    },
+    "Cancel Download" : {
+
     },
-    "Grant Accessibility access in System Settings to control windows": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Grant Accessibility access in System Settings to control windows"
+    "Cancel current action" : {
+
+    },
+    "Cancel download" : {
+
+    },
+    "Cancel ⌘." : {
+
+    },
+    "Cannot rebuild Foundry" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cannot rebuild Foundry"
           }
         }
       }
+    },
+    "Capture paused. New copies aren’t saved." : {
+
+    },
+    "Case" : {
+
+    },
+    "Change" : {
+
+    },
+    "Change Download Folder…" : {
+
+    },
+    "Charge level and state" : {
+
     },
-    "Inserted snippet": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Inserted snippet"
+    "ChatGPT login cancelled." : {
+
+    },
+    "ChatGPT subscription" : {
+
+    },
+    "ChatGPT subscription connected." : {
+
+    },
+    "ChatGPT subscription disconnected." : {
+
+    },
+    "Chats" : {
+
+    },
+    "Checking converter readiness…" : {
+
+    },
+    "Choose" : {
+
+    },
+    "Choose File…" : {
+
+    },
+    "Choose Save Location" : {
+
+    },
+    "Choose a model" : {
+
+    },
+    "Choose a model available through ChatGPT" : {
+
+    },
+    "Choose app for %@" : {
+
+    },
+    "Choose or drop files to convert" : {
+
+    },
+    "City name" : {
+
+    },
+    "Clear" : {
+
+    },
+    "Clear All" : {
+
+    },
+    "Clear Filters" : {
+
+    },
+    "Clear History…" : {
+
+    },
+    "Clear List" : {
+
+    },
+    "Clear Shelf" : {
+
+    },
+    "Clear Shelf…" : {
+
+    },
+    "Clear all %lld items, including %lld pinned?" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Clear all %1$lld items, including %2$lld pinned?"
           }
         }
       }
+    },
+    "Clear all %lld items?" : {
+
+    },
+    "Clear all files" : {
+
+    },
+    "Clear finished, failed and cancelled downloads from this list. The files stay on disk." : {
+
     },
-    "Invalid name": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Invalid name"
+    "Clipboard" : {
+
+    },
+    "Clipboard History" : {
+
+    },
+    "Clipboard has no text" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Clipboard has no text"
           }
         }
       }
     },
-    "Moved to Trash": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Moved to Trash"
+    "Clipboard has no text to encode" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Clipboard has no text to encode"
           }
         }
       }
+    },
+    "Clipboard history" : {
+
+    },
+    "Clipboard history and snippets are kept." : {
+
     },
-    "No files found": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "No files found"
+    "Clipboard history is empty" : {
+
+    },
+    "Clipboard is empty" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Clipboard is empty"
           }
         }
       }
+    },
+    "Clock" : {
+
     },
-    "No follow-up action available": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "No follow-up action available"
+    "Close" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Close"
           }
         }
       }
+    },
+    "Command-Delete removes this row" : {
+
+    },
+    "Commands" : {
+
     },
-    "No originating application is available": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "No originating application is available"
+    "Compact panel" : {
+
+    },
+    "Complete ChatGPT sign-in in your browser." : {
+
+    },
+    "Config folder" : {
+
+    },
+    "Connect Foundry to Firefox?" : {
+
+    },
+    "Connected" : {
+
+    },
+    "Connection" : {
+
+    },
+    "Continue" : {
+
+    },
+    "Continue Anyway" : {
+
+    },
+    "Conversion cancelled" : {
+
+    },
+    "Conversion cancelled after creating %lld of %lld files" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Conversion cancelled after creating %1$lld of %2$lld files"
           }
         }
       }
+    },
+    "Convert" : {
+
+    },
+    "Convert %lld Files" : {
+
+    },
+    "Convert File" : {
+
+    },
+    "Convert Files" : {
+
+    },
+    "Convert Unix seconds, milliseconds, or ISO 8601 dates." : {
+
+    },
+    "Convert text into common identifier styles." : {
+
+    },
+    "Converter readiness changed; setup is required before retrying" : {
+
     },
-    "No snippets to export": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "No snippets to export"
+    "Converter unavailable: %@" : {
+
+    },
+    "Converting %lld files to %@…" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Converting %1$lld files to %2$@…"
           }
         }
       }
+    },
+    "Copied" : {
+
+    },
+    "Copied %@" : {
+
+    },
+    "Copied both items" : {
+
     },
-    "No text found in the captured region": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "No text found in the captured region"
+    "Copied image" : {
+
+    },
+    "Copied link" : {
+
+    },
+    "Copied output" : {
+
+    },
+    "Copied snippet" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copied snippet"
           }
         }
       }
     },
-    "Off": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Off"
+    "Copied to clipboard" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copied to clipboard"
           }
         }
       }
+    },
+    "Copied translation" : {
+
     },
-    "On": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "On"
+    "Copied “%@”" : {
+
+    },
+    "Copied. Press ⌘V where you want it." : {
+
+    },
+    "Copy" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copy"
           }
         }
       }
+    },
+    "Copy %@" : {
+
+    },
+    "Copy Link" : {
+
+    },
+    "Copy Merged with Previous" : {
+
+    },
+    "Copy Output" : {
+
+    },
+    "Copy URL" : {
+
+    },
+    "Copy answer" : {
+
     },
-    "Opened Foundry folder": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Opened Foundry folder"
+    "Copy text, files, or images while Foundry is running and they will appear here." : {
+
+    },
+    "Copy translation" : {
+
+    },
+    "Copy value" : {
+
+    },
+    "Could not capture the screen" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Could not capture the screen"
           }
         }
       }
+    },
+    "Could not compress “%@”" : {
+
     },
-    "Opened file": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Opened file"
+    "Could not create Foundry folder" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Could not create Foundry folder"
           }
         }
       }
     },
-    "Opened link": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Opened link"
+    "Could not empty the Trash" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Could not empty the Trash"
           }
         }
       }
     },
-    "Paste": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Paste"
+    "Could not export snippets: %@" : {
+
+    },
+    "Could not extract text" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Could not extract text"
           }
         }
       }
+    },
+    "Could not force quit %@" : {
+
     },
-    "Pasted as plain text": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Pasted as plain text"
+    "Could not generate QR code" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Could not generate QR code"
           }
         }
       }
+    },
+    "Could not import snippets: %@" : {
+
+    },
+    "Could not import the backup. Your settings were left as they were." : {
+
     },
-    "Private endpoint — may break without notice": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Private endpoint — may break without notice"
+    "Could not load models. %@" : {
+
+    },
+    "Could not move to Trash" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Could not move to Trash"
           }
         }
       }
+    },
+    "Could not open %@" : {
+
     },
-    "Quicklink could not be deleted": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Quicklink could not be deleted"
+    "Could not open Foundry folder" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Could not open Foundry folder"
           }
         }
       }
     },
-    "Quicklink deleted": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Quicklink deleted"
+    "Could not open file with that app" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Could not open file with that app"
           }
         }
       }
     },
-    "Quicklink not found": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Quicklink not found"
+    "Could not open link" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Could not open link"
           }
         }
       }
     },
-    "Quit Foundry": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Quit Foundry"
+    "Could not open link with that app" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Could not open link with that app"
           }
         }
       }
     },
-    "Quitting Foundry": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Quitting Foundry"
+    "Could not open the share menu" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Could not open the share menu"
           }
         }
       }
     },
-    "Ranking reset": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ranking reset"
+    "Could not quit %@" : {
+
+    },
+    "Could not read QR code" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Could not read QR code"
           }
         }
       }
+    },
+    "Could not remove the ChatGPT credential." : {
+
     },
-    "Redo": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Redo"
+    "Could not rename file" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Could not rename file"
           }
         }
       }
     },
-    "Restored previous window frame": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Restored previous window frame"
+    "Could not reset Foundry settings. Your existing configuration was kept." : {
+
+    },
+    "Could not run %@" : {
+
+    },
+    "Could not run %@: %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Could not run %1$@: %2$@"
           }
         }
       }
     },
-    "Script not run": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Script not run"
+    "Could not save imported snippets" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Could not save imported snippets"
           }
         }
       }
     },
-    "Select All": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Select All"
+    "Could not save snippet" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Could not save snippet"
           }
         }
       }
+    },
+    "Could not save snippets: %@" : {
+
+    },
+    "Could not save the backup: %@" : {
+
     },
-    "Settings": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Settings"
+    "Could not stage paste" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Could not stage paste"
           }
         }
       }
     },
-    "Settings reset": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Settings reset"
+    "Could not start snippet expansion. Check Accessibility access and try again." : {
+
+    },
+    "Could not switch audio device" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Could not switch audio device"
           }
         }
       }
     },
-    "Sign in with your ChatGPT account instead of an API key": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Sign in with your ChatGPT account instead of an API key"
+    "Could not terminate process" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Could not terminate process"
           }
         }
       }
     },
-    "Snippet deleted": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Snippet deleted"
+    "Could not toggle desktop icons" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Could not toggle desktop icons"
           }
         }
       }
+    },
+    "Could not toggle hidden files" : {
+
     },
-    "Snippet export failed": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Snippet export failed"
+    "Could not update Keep Awake" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Could not update Keep Awake"
           }
         }
       }
+    },
+    "Could not update launch at login: %@" : {
+
+    },
+    "Could not update the Keychain credential." : {
+
     },
-    "Snippet import failed": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Snippet import failed"
+    "Couldn't Remove Background" : {
+
+    },
+    "Couldn't add those files" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn't add those files"
           }
         }
       }
+    },
+    "Couldn't load or save clipboard history: %@" : {
+
+    },
+    "Couldn't paste: %@" : {
+
+    },
+    "Couldn't prepare the input" : {
+
     },
-    "Snippet not found": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Snippet not found"
+    "Couldn't prepare the input for “%@”" : {
+
+    },
+    "Couldn't read this image." : {
+
+    },
+    "Couldn't run “%@”" : {
+
+    },
+    "Couldn't save the QR code" : {
+
+    },
+    "Couldn't set up the Firefox connector" : {
+
+    },
+    "Couldn't stop the process on port %lld" : {
+
+    },
+    "Couldn’t change %@. Change its hotkey in %@ settings." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Couldn’t change %1$@. Change its hotkey in %2$@ settings."
           }
         }
       }
     },
-    "Started Foundry app rebuild": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Started Foundry app rebuild"
+    "Count words, characters, lines, and paragraphs as you type." : {
+
+    },
+    "Create a snippet or pick one from the list." : {
+
+    },
+    "Created snippet" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Created snippet"
           }
         }
       }
     },
-    "Terminated process": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Terminated process"
-          }
+    "Credential removed." : {
+
+    },
+    "Credential stored in Keychain." : {
+
+    },
+    "Current clipboard text size" : {
+
+    },
+    "Current conditions for a city" : {
+
+    },
+    "Current files are kept next to the originals as .pre-import copies." : {
+
+    },
+    "Current processor usage" : {
+
+    },
+    "Current time and time zone" : {
+
+    },
+    "Customize widgets" : {
+
+    },
+    "Cut" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cut"
+          }
+        }
+      }
+    },
+    "Date" : {
+
+    },
+    "Default" : {
+
+    },
+    "Define in Dictionary" : {
+
+    },
+    "Delete" : {
+
+    },
+    "Delete %@" : {
+
+    },
+    "Delete Model" : {
+
+    },
+    "Delete the background-removal model?" : {
+
+    },
+    "Delete “%@”?" : {
+
+    },
+    "Delete…" : {
+
+    },
+    "Detailed model is ready" : {
+
+    },
+    "Developer Tools" : {
+
+    },
+    "Discover models from this endpoint" : {
+
+    },
+    "Disk" : {
+
+    },
+    "Disk Used" : {
+
+    },
+    "Dismiss" : {
+
+    },
+    "Done" : {
+
+    },
+    "Download" : {
+
+    },
+    "Download a video or audio file" : {
+
+    },
+    "Download cancelled" : {
+
+    },
+    "Download complete" : {
+
+    },
+    "Download complete: %@" : {
+
+    },
+    "Download folder changed" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Download folder changed"
+          }
+        }
+      }
+    },
+    "Download progress" : {
+
+    },
+    "Downloaded %@" : {
+
+    },
+    "Downloaded YouTube media to %@" : {
+
+    },
+    "Downloaded media with yt-dlp" : {
+
+    },
+    "Downloads" : {
+
+    },
+    "Drop files anywhere on Foundry. They stay here temporarily until you remove them or quit." : {
+
+    },
+    "Drop files here" : {
+
+    },
+    "Drop more files or click to add" : {
+
+    },
+    "Drop to add files" : {
+
+    },
+    "Drop to add to the shelf" : {
+
+    },
+    "Drop to shelve, convert or compress" : {
+
+    },
+    "Dropped %lld file%@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Dropped %1$lld file%2$@"
+          }
+        }
+      }
+    },
+    "Duplicate" : {
+
+    },
+    "During setup Foundry moved %@ to ⌥ Space to free ⌘ Space." : {
+
+    },
+    "Edit" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Edit"
+          }
+        }
+      }
+    },
+    "Edit Snippet" : {
+
+    },
+    "Edited %@" : {
+
+    },
+    "Edited just now" : {
+
+    },
+    "Empty" : {
+
+    },
+    "Empty Trash" : {
+
+    },
+    "Empty the Trash?" : {
+
+    },
+    "Enable %@" : {
+
+    },
+    "Enabled" : {
+
+    },
+    "Encode plain text or decode a Base64 value." : {
+
+    },
+    "Endpoint" : {
+
+    },
+    "Enter a decimal value, prefixed value like 0xff, or radix notation like 16 ff." : {
+
+    },
+    "Enter a model name." : {
+
+    },
+    "Enter a network name" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enter a network name"
+          }
+        }
+      }
+    },
+    "Enter a new name." : {
+
+    },
+    "Enter a valid Ollama endpoint." : {
+
+    },
+    "Enter a valid endpoint." : {
+
+    },
+    "Enter a valid left value like 5, 0xff, or 0b1010." : {
+
+    },
+    "Enter an absolute HTTP or HTTPS endpoint without embedded credentials." : {
+
+    },
+    "Everything on your Mac, one keystroke away." : {
+
+    },
+    "Expand after" : {
+
+    },
+    "Expand keywords as you type" : {
+
+    },
+    "Export Snippets…" : {
+
+    },
+    "Export snippets from Raycast, then choose the file." : {
+
+    },
+    "Exported %lld snippet%@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Exported %1$lld snippet%2$@"
+          }
+        }
+      }
+    },
+    "Exported %lld snippets to %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Exported %1$lld snippets to %2$@"
+          }
+        }
+      }
+    },
+    "Export…" : {
+
+    },
+    "Extract Text" : {
+
+    },
+    "Extract Text (OCR)" : {
+
+    },
+    "Failed" : {
+
+    },
+    "Failed to rebuild Foundry app" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Failed to rebuild Foundry app"
+          }
+        }
+      }
+    },
+    "Failed to run process" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Failed to run process"
+          }
+        }
+      }
+    },
+    "Fallback" : {
+
+    },
+    "Favorite %@" : {
+
+    },
+    "File Shelf" : {
+
+    },
+    "File Shelf is empty" : {
+
+    },
+    "Filter by tag %@" : {
+
+    },
+    "Filter formats…" : {
+
+    },
+    "Find apps, commands, emoji, system tools, and shelf actions." : {
+
+    },
+    "Finder could not empty the Trash" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Finder could not empty the Trash"
+          }
+        }
+      }
+    },
+    "Finish Device Login" : {
+
+    },
+    "Finished %@" : {
+
+    },
+    "Folder names" : {
+
+    },
+    "Folders and skipped names you added are removed. This can't be undone." : {
+
+    },
+    "Force quit %@" : {
+
+    },
+    "Forever" : {
+
+    },
+    "Found %lld model%@." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Found %1$lld model%2$@."
+          }
+        }
+      }
+    },
+    "Foundry" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Foundry"
+          }
+        }
+      }
+    },
+    "Foundry can connect to your open Firefox tabs. Firefox will open its Add-ons Debugging page and Finder will show the local connector package for you to load. Foundry only receives tab titles and URLs." : {
+
+    },
+    "Foundry can’t tell which language this is. Choose it from the menu." : {
+
+    },
+    "Foundry could not give ⌘ Space back to every launcher. Set it in that app's settings." : {
+
+    },
+    "Foundry could not load its settings. Editing is disabled until they are reset. %@" : {
+
+    },
+    "Foundry lives in the menu bar" : {
+
+    },
+    "Foundry menu" : {
+
+    },
+    "Foundry moves and resizes the frontmost window. Nothing else." : {
+
+    },
+    "Foundry reads what you already saved. Nothing in the other app changes." : {
+
+    },
+    "Foundry relies on a private, undocumented Codex endpoint that OpenAI has not published and may change or shut down without notice. OAuth credentials are stored only in the macOS Keychain; Foundry never reads browser cookies." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Foundry relies on a private, undocumented Codex endpoint that OpenAI has not published and may change or shut down without notice. OAuth credentials are stored only in the macOS Keychain; Foundry never reads browser cookies."
+          }
+        }
+      }
+    },
+    "Foundry won’t open after a restart. Start it at login?" : {
+
+    },
+    "Foundry works without any of these. Each one unlocks specific features, and macOS asks only when you use them." : {
+
+    },
+    "Free space on Macintosh HD" : {
+
+    },
+    "Generate" : {
+
+    },
+    "Get started" : {
+
+    },
+    "Give ⌘ Space Back" : {
+
+    },
+    "Global shortcut" : {
+
+    },
+    "Global shortcuts: %@" : {
+
+    },
+    "Grant Accessibility access in System Settings to control windows" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Grant Accessibility access in System Settings to control windows"
+          }
+        }
+      }
+    },
+    "Grant…" : {
+
+    },
+    "Guests scan the code to join the network." : {
+
+    },
+    "Haptic feedback" : {
+
+    },
+    "Hid %@" : {
+
+    },
+    "Hide settings for %@" : {
+
+    },
+    "Hold ⌘ on Home to see which number opens each favorite." : {
+
+    },
+    "Home" : {
+
+    },
+    "Home accessories" : {
+
+    },
+    "Home strip" : {
+
+    },
+    "Hotkey" : {
+
+    },
+    "I stopped after reaching the maximum of 6 tool steps." : {
+
+    },
+    "Image" : {
+
+    },
+    "Images, documents, archives and PDFs work out of the box. Audio and video need FFmpeg." : {
+
+    },
+    "Immediately" : {
+
+    },
+    "Import" : {
+
+    },
+    "Import Snippets…" : {
+
+    },
+    "Import from Raycast…" : {
+
+    },
+    "Import or export snippets" : {
+
+    },
+    "Imported %lld snippets" : {
+
+    },
+    "Imported %lld snippets · %lld already in your library" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Imported %1$lld snippets · %2$lld already in your library"
+          }
+        }
+      }
+    },
+    "Imported %lld snippets, skipped %lld duplicates" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Imported %1$lld snippets, skipped %2$lld duplicates"
+          }
+        }
+      }
+    },
+    "Import…" : {
+
+    },
+    "Increase separation from content behind Foundry" : {
+
+    },
+    "Insert" : {
+
+    },
+    "Insert Placeholder" : {
+
+    },
+    "Insert a dynamic placeholder at the cursor" : {
+
+    },
+    "Inserted snippet" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Inserted snippet"
+          }
+        }
+      }
+    },
+    "Install" : {
+
+    },
+    "Install %@" : {
+
+    },
+    "Install Connector" : {
+
+    },
+    "Install Only" : {
+
+    },
+    "Install a bridge in Settings › Agents to see Claude Code, Codex, Cursor and OpenCode here." : {
+
+    },
+    "Install and Convert" : {
+
+    },
+    "Installed" : {
+
+    },
+    "Installed once via Homebrew" : {
+
+    },
+    "Invalid name" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Invalid name"
+          }
+        }
+      }
+    },
+    "Items in the Trash are permanently deleted. This cannot be undone." : {
+
+    },
+    "Its API key is deleted from the Keychain." : {
+
+    },
+    "Its icon opens the panel and Settings." : {
+
+    },
+    "JSON" : {
+
+    },
+    "Keep Awake" : {
+
+    },
+    "Keep at least one folder" : {
+
+    },
+    "Keep existing items but stop recording new copies" : {
+
+    },
+    "Keep for" : {
+
+    },
+    "Keep typing a file name." : {
+
+    },
+    "Keychain credential stored" : {
+
+    },
+    "Keyword" : {
+
+    },
+    "Keywords expand when one of these is typed" : {
+
+    },
+    "Keywords won’t expand. Allow Accessibility in Settings › Snippets." : {
+
+    },
+    "Keywords won’t expand. Turn on expansion in Settings › Snippets." : {
+
+    },
+    "Latest quote for a ticker" : {
+
+    },
+    "Launch at login" : {
+
+    },
+    "Launcher shortcut becomes %@" : {
+
+    },
+    "Live" : {
+
+    },
+    "Live CPU and memory load" : {
+
+    },
+    "Live updates are off. Open Settings › Agents." : {
+
+    },
+    "Loading" : {
+
+    },
+    "Loading layouts…" : {
+
+    },
+    "Log Out" : {
+
+    },
+    "Log out of this Mac?" : {
+
+    },
+    "Looking for agent sessions…" : {
+
+    },
+    "Main browser" : {
+
+    },
+    "Maximum number of entries" : {
+
+    },
+    "Media download failed: %@" : {
+
+    },
+    "Memory" : {
+
+    },
+    "Merging %lld files into one PDF…" : {
+
+    },
+    "Model" : {
+
+    },
+    "Model data removed" : {
+
+    },
+    "Model download cancelled" : {
+
+    },
+    "Model name" : {
+
+    },
+    "Models" : {
+
+    },
+    "Month at a glance" : {
+
+    },
+    "Move %@ down" : {
+
+    },
+    "Move %@ up" : {
+
+    },
+    "Move Foundry to Applications" : {
+
+    },
+    "Moved to Trash" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Moved to Trash"
+          }
+        }
+      }
+    },
+    "Moved “%@” to Trash" : {
+
+    },
+    "Moving %@ to ⌥ Space" : {
+
+    },
+    "Name" : {
+
+    },
+    "Needed to convert to %@" : {
+
+    },
+    "Network" : {
+
+    },
+    "Network name (SSID)" : {
+
+    },
+    "Never" : {
+
+    },
+    "New Chat" : {
+
+    },
+    "New Snippet" : {
+
+    },
+    "New name" : {
+
+    },
+    "New: ⌘1 to ⌘8 open your favorites. Hold ⌘ on Home to see which is which." : {
+
+    },
+    "No %@ in your history" : {
+
+    },
+    "No Home widgets yet. Add one below." : {
+
+    },
+    "No QR code found in %@" : {
+
+    },
+    "No actions match “%@”" : {
+
+    },
+    "No agent sessions yet" : {
+
+    },
+    "No barcode or QR code found in this image." : {
+
+    },
+    "No chats yet" : {
+
+    },
+    "No commands are available." : {
+
+    },
+    "No commands match this search." : {
+
+    },
+    "No converter for this file yet" : {
+
+    },
+    "No emoji for “%@”" : {
+
+    },
+    "No file names contain “%@”. Folders are set in Settings › File Search." : {
+
+    },
+    "No files found" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No files found"
+          }
+        }
+      }
+    },
+    "No follow-up action available" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No follow-up action available"
+          }
+        }
+      }
+    },
+    "No matching chats" : {
+
+    },
+    "No matching snippets" : {
+
+    },
+    "No new snippets in that file" : {
+
+    },
+    "No originating application is available" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No originating application is available"
+          }
+        }
+      }
+    },
+    "No process is listening on port %lld" : {
+
+    },
+    "No quicklinks yet." : {
+
+    },
+    "No results" : {
+
+    },
+    "No running apps" : {
+
+    },
+    "No settings match “%@”" : {
+
+    },
+    "No snippet selected" : {
+
+    },
+    "No snippets to export" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No snippets to export"
+          }
+        }
+      }
+    },
+    "No snippets yet" : {
+
+    },
+    "No text found in %@" : {
+
+    },
+    "No text found in the captured region" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No text found in the captured region"
+          }
+        }
+      }
+    },
+    "No text found in this image. Try a sharper screenshot." : {
+
+    },
+    "No window layouts available" : {
+
+    },
+    "Not Now" : {
+
+    },
+    "Not granted" : {
+
+    },
+    "Not selected" : {
+
+    },
+    "Nothing matches “%@”" : {
+
+    },
+    "Nothing matches “%@”. Turn on fallbacks in Settings to search the web or ask AI." : {
+
+    },
+    "Now a key" : {
+
+    },
+    "Now open something" : {
+
+    },
+    "OK" : {
+
+    },
+    "Observation" : {
+
+    },
+    "Off" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Off"
+          }
+        }
+      }
+    },
+    "Offline" : {
+
+    },
+    "Ollama returned invalid model data." : {
+
+    },
+    "On" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "On"
+          }
+        }
+      }
+    },
+    "One keystroke opens everything" : {
+
+    },
+    "One placeholder to fill in" : {
+
+    },
+    "One-minute Unix load average" : {
+
+    },
+    "One-time model download" : {
+
+    },
+    "Only files can go on the shelf. Drop them from Finder." : {
+
+    },
+    "Only runs when Accessibility access is already granted" : {
+
+    },
+    "Open" : {
+
+    },
+    "Open %@" : {
+
+    },
+    "Open %@ and enter %@." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Open %1$@ and enter %2$@."
+          }
+        }
+      }
+    },
+    "Open Actions (⌘K) to change the folder." : {
+
+    },
+    "Open Agent Settings" : {
+
+    },
+    "Open Download Folder" : {
+
+    },
+    "Open Foundry" : {
+
+    },
+    "Open Foundry (%@)" : {
+
+    },
+    "Open Foundry from anywhere" : {
+
+    },
+    "Open Keyboard Shortcuts" : {
+
+    },
+    "Open Link" : {
+
+    },
+    "Open Settings" : {
+
+    },
+    "Open Source Page" : {
+
+    },
+    "Open agent session" : {
+
+    },
+    "Open network" : {
+
+    },
+    "Open waiting files" : {
+
+    },
+    "Open with" : {
+
+    },
+    "Opened %@" : {
+
+    },
+    "Opened Foundry folder" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Opened Foundry folder"
+          }
+        }
+      }
+    },
+    "Opened file" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Opened file"
+          }
+        }
+      }
+    },
+    "Opened link" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Opened link"
+          }
+        }
+      }
+    },
+    "Or type a bundle ID, e.g. com.example.app" : {
+
+    },
+    "PDF pages to convert" : {
+
+    },
+    "Panel contrast" : {
+
+    },
+    "Password" : {
+
+    },
+    "Paste" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Paste"
+          }
+        }
+      }
+    },
+    "Paste API key" : {
+
+    },
+    "Paste JSON to validate and pretty-print it." : {
+
+    },
+    "Paste a YouTube, playlist, social video or direct media link above, then press Return." : {
+
+    },
+    "Paste a full video or audio URL, starting with https://." : {
+
+    },
+    "Pasted as plain text" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pasted as plain text"
+          }
+        }
+      }
+    },
+    "Pause" : {
+
+    },
+    "Pause Clipboard" : {
+
+    },
+    "Pause capture" : {
+
+    },
+    "Physical memory usage" : {
+
+    },
+    "Pick a format to copy.\n%@" : {
+
+    },
+    "Pin" : {
+
+    },
+    "Pinned" : {
+
+    },
+    "Preferences could not be saved. Your previous settings were kept." : {
+
+    },
+    "Preparing command catalog…" : {
+
+    },
+    "Press %@, type %@, and press Return to open %@." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Press %1$@, type %2$@, and press Return to open %3$@."
+          }
+        }
+      }
+    },
+    "Press %@, type %@, and press Return." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Press %1$@, type %2$@, and press Return."
+          }
+        }
+      }
+    },
+    "Press Tab to ask AI about what you typed." : {
+
+    },
+    "Press shortcut…" : {
+
+    },
+    "Press the new shortcut" : {
+
+    },
+    "Press ⌘1 to show everything." : {
+
+    },
+    "Preview" : {
+
+    },
+    "Primary local IP address" : {
+
+    },
+    "Privacy Settings" : {
+
+    },
+    "Private endpoint — may break without notice" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Private endpoint — may break without notice"
+          }
+        }
+      }
+    },
+    "Process completed" : {
+
+    },
+    "Provider bridges" : {
+
+    },
+    "Provider hooks and plugins can send observation events here" : {
+
+    },
+    "Provider profiles" : {
+
+    },
+    "QR code copied to clipboard" : {
+
+    },
+    "Quick Look" : {
+
+    },
+    "Quicklink could not be deleted" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Quicklink could not be deleted"
+          }
+        }
+      }
+    },
+    "Quicklink deleted" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Quicklink deleted"
+          }
+        }
+      }
+    },
+    "Quicklink not found" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Quicklink not found"
+          }
+        }
+      }
+    },
+    "Quicklinks could not be saved: %@" : {
+
+    },
+    "Quicklinks you added are removed. This can't be undone." : {
+
+    },
+    "Quit" : {
+
+    },
+    "Quit %@" : {
+
+    },
+    "Quit Foundry" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Quit Foundry"
+          }
+        }
+      }
+    },
+    "Quitting Foundry" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Quitting Foundry"
+          }
+        }
+      }
+    },
+    "Ran “%@”" : {
+
+    },
+    "Ranking reset" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ranking reset"
+          }
+        }
+      }
+    },
+    "Raycast" : {
+
+    },
+    "Read QR or Barcode" : {
+
+    },
+    "Ready" : {
+
+    },
+    "Recent files in Downloads" : {
+
+    },
+    "Recent local coding sessions" : {
+
+    },
+    "Record Your Own" : {
+
+    },
+    "Recording a new shortcut" : {
+
+    },
+    "Records a new shortcut" : {
+
+    },
+    "Redo" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Redo"
+          }
+        }
+      }
+    },
+    "Redownload" : {
+
+    },
+    "Refresh" : {
+
+    },
+    "Refresh sessions" : {
+
+    },
+    "Remove" : {
+
+    },
+    "Remove %@" : {
+
+    },
+    "Remove %@ from favorites" : {
+
+    },
+    "Remove %@ from history" : {
+
+    },
+    "Remove %@?" : {
+
+    },
+    "Remove %lld older clipboard items?" : {
+
+    },
+    "Remove Background" : {
+
+    },
+    "Remove Background (Detailed)" : {
+
+    },
+    "Remove Items" : {
+
+    },
+    "Remove Model Data…" : {
+
+    },
+    "Remove Profile" : {
+
+    },
+    "Remove Profile…" : {
+
+    },
+    "Remove a widget to add another." : {
+
+    },
+    "Remove all %lld files from the shelf?" : {
+
+    },
+    "Remove from File Shelf" : {
+
+    },
+    "Remove from List" : {
+
+    },
+    "Remove from Shelf" : {
+
+    },
+    "Remove from list" : {
+
+    },
+    "Remove the background from the selected images" : {
+
+    },
+    "Removed “%@”" : {
+
+    },
+    "Rename" : {
+
+    },
+    "Rename “%@”" : {
+
+    },
+    "Renamed to “%@”" : {
+
+    },
+    "Reopening sooner than this resumes where you left off." : {
+
+    },
+    "Replace" : {
+
+    },
+    "Replace the selection in %@" : {
+
+    },
+    "Replace your %lld quicklinks with the defaults?" : {
+
+    },
+    "Replace your Foundry settings?" : {
+
+    },
+    "Replace your search folders with the defaults?" : {
+
+    },
+    "Request Access" : {
+
+    },
+    "Requested by an external integration." : {
+
+    },
+    "Requesting a device code…" : {
+
+    },
+    "Requires %@" : {
+
+    },
+    "Reset" : {
+
+    },
+    "Reset all Foundry settings?" : {
+
+    },
+    "Reset settings" : {
+
+    },
+    "Reset…" : {
+
+    },
+    "Restart" : {
+
+    },
+    "Restart this Mac?" : {
+
+    },
+    "Restore Defaults…" : {
+
+    },
+    "Restore every preference to its default" : {
+
+    },
+    "Restored previous window frame" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restored previous window frame"
+          }
+        }
+      }
+    },
+    "Resume" : {
+
+    },
+    "Resume Clipboard" : {
+
+    },
+    "Retain items" : {
+
+    },
+    "Retry" : {
+
+    },
+    "Retry Download" : {
+
+    },
+    "Retry download" : {
+
+    },
+    "Return key in search" : {
+
+    },
+    "Return to Home after" : {
+
+    },
+    "Reveal" : {
+
+    },
+    "Reveal in Finder" : {
+
+    },
+    "Reveal or open the downloaded file" : {
+
+    },
+    "Review and accept the private Codex backend warning before signing in." : {
+
+    },
+    "Run" : {
+
+    },
+    "Run scripts from “%@”?" : {
+
+    },
+    "Running" : {
+
+    },
+    "Runs on this Mac" : {
+
+    },
+    "Same" : {
+
+    },
+    "Save" : {
+
+    },
+    "Save as PNG…" : {
+
+    },
+    "Screen locked" : {
+
+    },
+    "Script folders: %@" : {
+
+    },
+    "Script not run" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Script not run"
+          }
+        }
+      }
+    },
+    "Scripts in %@ can run any command as you. Only trust folders whose scripts you wrote or reviewed. Foundry will not ask again for this folder." : {
+
+    },
+    "Scripts in this folder are not trusted" : {
+
+    },
+    "Search Files" : {
+
+    },
+    "Search chats…" : {
+
+    },
+    "Search commands" : {
+
+    },
+    "Search covers text, file names and source apps. Press esc to clear." : {
+
+    },
+    "Search files" : {
+
+    },
+    "Search folders" : {
+
+    },
+    "Search sensitivity" : {
+
+    },
+    "Search settings" : {
+
+    },
+    "Search the web" : {
+
+    },
+    "Select All" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Select All"
+          }
+        }
+      }
+    },
+    "Select an item to paste." : {
+
+    },
+    "Select file" : {
+
+    },
+    "Select snippet" : {
+
+    },
+    "Selected" : {
+
+    },
+    "Send" : {
+
+    },
+    "Set Up" : {
+
+    },
+    "Set city" : {
+
+    },
+    "Set symbol" : {
+
+    },
+    "Settings" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Settings"
+          }
+        }
+      }
+    },
+    "Settings and Quit" : {
+
+    },
+    "Settings reset" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Settings reset"
+          }
+        }
+      }
+    },
+    "Settings, snippets, quicklinks and script folders. Clipboard history and API keys are not included." : {
+
+    },
+    "Settings…" : {
+
+    },
+    "Shortcut" : {
+
+    },
+    "Shortcut %@" : {
+
+    },
+    "Show all window layouts" : {
+
+    },
+    "Show each site’s icon in Quicklinks and Media Downloads. Foundry gets the icon from the site." : {
+
+    },
+    "Show in Finder" : {
+
+    },
+    "Show in menu bar" : {
+
+    },
+    "Show only the search bar until you type" : {
+
+    },
+    "Show settings for %@" : {
+
+    },
+    "Shut Down" : {
+
+    },
+    "Shut down this Mac?" : {
+
+    },
+    "Sign Out" : {
+
+    },
+    "Sign in with ChatGPT" : {
+
+    },
+    "Sign in with your ChatGPT account instead of an API key" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sign in with your ChatGPT account instead of an API key"
+          }
+        }
+      }
+    },
+    "Site icon" : {
+
+    },
+    "Site icons" : {
+
+    },
+    "Skin Tone %@" : {
+
+    },
+    "Skin tone" : {
+
+    },
+    "Skin tone (⌘1–6)" : {
+
+    },
+    "Skip" : {
+
+    },
+    "Skip setup" : {
+
+    },
+    "Skipped folders" : {
+
+    },
+    "Snippet deleted" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Snippet deleted"
+          }
+        }
+      }
+    },
+    "Snippet expansion" : {
+
+    },
+    "Snippet export failed" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Snippet export failed"
+          }
+        }
+      }
+    },
+    "Snippet import failed" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Snippet import failed"
+          }
+        }
+      }
+    },
+    "Snippet library" : {
+
+    },
+    "Snippet not found" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Snippet not found"
+          }
+        }
+      }
+    },
+    "Snippet preview, %@" : {
+
+    },
+    "Snippet title" : {
+
+    },
+    "Snippets" : {
+
+    },
+    "So the shortcut works after a restart." : {
+
+    },
+    "Some commands couldn't load: %@" : {
+
+    },
+    "Sort by" : {
+
+    },
+    "Source language" : {
+
+    },
+    "Spotlight still has ⌘ Space." : {
+
+    },
+    "Spotlight’s ⌘ Space turned off" : {
+
+    },
+    "Start Foundry automatically when you sign in" : {
+
+    },
+    "Start a chat first" : {
+
+    },
+    "Start typing" : {
+
+    },
+    "Started Foundry app rebuild" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Started Foundry app rebuild"
+          }
+        }
+      }
+    },
+    "Starts when you log in" : {
+
+    },
+    "Step %lld of %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Step %1$lld of %2$lld"
+          }
+        }
+      }
+    },
+    "Stock" : {
+
+    },
+    "Stock ticker" : {
+
+    },
+    "Stop" : {
+
+    },
+    "Stop (⌘.)" : {
+
+    },
+    "Stop searching this folder" : {
+
+    },
+    "Stopped" : {
+
+    },
+    "Storage cap" : {
+
+    },
+    "Subtle taps for drops, snippet expansion, and celebrations" : {
+
+    },
+    "Suggested shortcut" : {
+
+    },
+    "Suggested: %@. Only layouts without a shortcut get one." : {
+
+    },
+    "Supported links" : {
+
+    },
+    "Swap" : {
+
+    },
+    "Swap languages" : {
+
+    },
+    "Swap languages (⌘S)" : {
+
+    },
+    "Switch Model" : {
+
+    },
+    "System" : {
+
+    },
+    "System Load" : {
+
+    },
+    "System load" : {
+
+    },
+    "System thermal pressure" : {
+
+    },
+    "Tab" : {
+
+    },
+    "Take ⌘ Space" : {
+
+    },
+    "Target language" : {
+
+    },
+    "Terminated process" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Terminated process"
+          }
+        }
+      }
+    },
+    "Test" : {
+
+    },
+    "Test endpoint and credentials" : {
+
+    },
+    "Testing connection…" : {
+
+    },
+    "That app isn't installed" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "That app isn't installed"
+          }
+        }
+      }
+    },
+    "That command is no longer available" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "That command is no longer available"
+          }
+        }
+      }
+    },
+    "That file isn’t a Raycast Quicklinks export." : {
+
+    },
+    "That isn’t valid Base64. It should look like SGVsbG8gd29ybGQ= (letters, digits, + and /, padded with =)." : {
+
+    },
+    "That isn’t valid JSON%@. Example: {\"name\": \"Foundry\", \"tags\": [1, 2]}" : {
+
+    },
+    "That link isn't a valid URL" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "That link isn't a valid URL"
+          }
         }
       }
     },
-    "That app isn't installed": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "That app isn't installed"
+    "That link isn't valid" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "That link isn't valid"
           }
         }
       }
+    },
+    "That shortcut is unavailable. Choose another key combination." : {
+
+    },
+    "That’s it. %@, a few letters, Return." : {
+
     },
-    "That command is no longer available": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "That command is no longer available"
+    "That’s the whole idea" : {
+
+    },
+    "That’s the whole idea. %@ opened." : {
+
+    },
+    "The file no longer exists" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The file no longer exists"
           }
         }
       }
+    },
+    "The files stay where they are." : {
+
+    },
+    "The provider returned invalid model data." : {
+
+    },
+    "The saved files have been moved or deleted." : {
+
+    },
+    "The script printed nothing." : {
+
+    },
+    "Thermal" : {
+
+    },
+    "They don't fit the new limit. This can't be undone." : {
+
     },
-    "That link isn't a valid URL": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "That link isn't a valid URL"
+    "Thinking" : {
+
+    },
+    "This Mac could not be locked" : {
+
+    },
+    "This backup changes:\n%@\n\nCurrent files are kept next to the originals as .pre-import copies." : {
+
+    },
+    "This can’t be undone." : {
+
+    },
+    "This endpoint reported no models." : {
+
+    },
+    "This endpoint uses unencrypted HTTP. Use it only on a network you trust." : {
+
+    },
+    "This image couldn’t be read. Try a PNG or JPEG." : {
+
+    },
+    "This removes it from Foundry. You can’t undo this." : {
+
+    },
+    "Those %@ already on File Shelf" : {
+
+    },
+    "Time since last boot" : {
+
+    },
+    "Timestamp" : {
+
+    },
+    "Today's day and date" : {
+
+    },
+    "Tool installation cancelled" : {
+
+    },
+    "Tool installation failed: %@" : {
+
+    },
+    "Tool installed" : {
+
+    },
+    "Translate" : {
+
+    },
+    "Translating" : {
+
+    },
+    "Trash emptied" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Trash emptied"
           }
         }
       }
+    },
+    "Trust and Run" : {
+
+    },
+    "Trusted" : {
+
+    },
+    "Try Apple Intelligence" : {
+
     },
-    "That link isn't valid": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "That link isn't valid"
+    "Try a feeling or an object, like “happy” or “pizza”." : {
+
+    },
+    "Try this profile after temporary provider failures" : {
+
+    },
+    "Turn On" : {
+
+    },
+    "Turn on ChatGPT sign-in before enabling the unofficial backend." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Turn on ChatGPT sign-in before enabling the unofficial backend."
           }
         }
       }
+    },
+    "Turning off Spotlight’s ⌘ Space" : {
+
+    },
+    "Type %@ and press Return" : {
+
+    },
+    "Type a decimal, hex (0x), octal (0o) or binary (0b) number." : {
+
+    },
+    "Type a file name. Add kind:image or kind:pdf to narrow it." : {
+
+    },
+    "Type a keyword and your query, for example “g swift concurrency”. Use {argument}, {clipboard}, {selection}, {date} or {time} in the link. {selection} needs Accessibility access." : {
+
+    },
+    "Type a sum like 12*7 to calculate it, then press Return to copy." : {
+
+    },
+    "Type an app, a file, or something you copied" : {
+
+    },
+    "Type clip to see everything you copied." : {
+
+    },
+    "Unavailable" : {
+
     },
-    "The file no longer exists": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "The file no longer exists"
+    "Undo" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Undo"
           }
         }
       }
     },
-    "Trash emptied": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Trash emptied"
+    "Unpin" : {
+
+    },
+    "Unpinned items older than this are dropped" : {
+
+    },
+    "Uptime" : {
+
+    },
+    "Use %@" : {
+
+    },
+    "Use ChatGPT sign-in (unofficial)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Use ChatGPT sign-in (unofficial)"
           }
         }
       }
+    },
+    "Use Device Code" : {
+
+    },
+    "Use Suggested" : {
+
+    },
+    "Use as fallback result" : {
+
+    },
+    "Use by default" : {
+
+    },
+    "Use decimal or prefixed inputs like 0xff. Search also supports 5 & 3, 5 << 1, and not 5 8." : {
+
+    },
+    "Use default app for %@" : {
+
+    },
+    "Use this profile for new AI chats" : {
+
+    },
+    "Use “%@” with…" : {
+
+    },
+    "Use ⌥ Space" : {
+
+    },
+    "Used %lld×" : {
+
+    },
+    "Used boot volume space" : {
+
+    },
+    "Used by Remove Background (Detailed) on the File Shelf" : {
+
+    },
+    "Used for browser history and open-tab results" : {
+
+    },
+    "Using %@" : {
+
+    },
+    "View all" : {
+
+    },
+    "WEP" : {
+
+    },
+    "WPA / WPA2 / WPA3" : {
+
+    },
+    "Waiting for ChatGPT device approval…" : {
+
+    },
+    "Weather" : {
+
+    },
+    "Weather city" : {
+
+    },
+    "Web" : {
+
+    },
+    "Welcome" : {
+
+    },
+    "Welcome Guide" : {
+
+    },
+    "Welcome to Foundry" : {
+
+    },
+    "What Return does on a snippet result" : {
+
+    },
+    "When nothing matches" : {
+
+    },
+    "Wi-Fi QR Code" : {
+
+    },
+    "Widget options" : {
+
     },
-    "Turn on ChatGPT sign-in before enabling the unofficial backend.": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Turn on ChatGPT sign-in before enabling the unofficial backend."
+    "Window" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Window"
           }
         }
       }
     },
-    "Undo": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Undo"
+    "Window layout shortcuts" : {
+
+    },
+    "Window layouts" : {
+
+    },
+    "Window was constrained while applying %@" : {
+
+    },
+    "Words" : {
+
+    },
+    "Workspace" : {
+
+    },
+    "Write your snippet…" : {
+
+    },
+    "You can download it again later." : {
+
+    },
+    "You're running Foundry straight from the disk image, so macOS is keeping it in a temporary sandbox. Features like launch at login won't work until it's installed. Quit, drag Foundry into Applications from the DMG window, then open it again." : {
+
+    },
+    "Your item is copied. Press ⌘V to paste it now." : {
+
+    },
+    "^[%lld snippet](inflect: true). Import and export use Raycast's JSON format." : {
+
+    },
+    "comma separated" : {
+
+    },
+    "e.g. AAPL" : {
+
+    },
+    "esc" : {
+
+    },
+    "files" : {
+
+    },
+    "https://api.example.com/v1" : {
+
+    },
+    "https://example.com/search?q={argument}" : {
+
+    },
+    "image" : {
+
+    },
+    "macOS asks once. Come back and run this again after you allow it." : {
+
+    },
+    "macOS or another app already uses this shortcut, so it is off." : {
+
+    },
+    "menu.item.settings" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Settings…"
           }
         }
       }
+    },
+    "nothing copied" : {
+
+    },
+    "or click to choose — images, documents,\nmedia, archives" : {
+
+    },
+    "other apps" : {
+
+    },
+    "the launcher" : {
+
+    },
+    "the previous app" : {
+
     },
-    "Use ChatGPT sign-in (unofficial)": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Use ChatGPT sign-in (unofficial)"
+    "those images" : {
+
+    },
+    "to Foundry" : {
+
+    },
+    "~%@ download" : {
+
+    },
+    "·" : {
+
+    },
+    "“%@” failed" : {
+
+    },
+    "“%@” failed: %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "“%1$@” failed: %2$@"
           }
         }
       }
     },
-    "Window": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Window"
+    "“%@” is used by %lld snippets. Rename one to turn expansion back on." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "“%1$@” is used by %2$lld snippets. Rename one to turn expansion back on."
           }
         }
       }
+    },
+    "↵" : {
+
+    },
+    "⌘ Space is yours" : {
+
+    },
+    "⌘K shows every action for the selected result." : {
+
+    },
+    "✋%@" : {
+
     },
-    "menu.item.settings": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Settings…"
+    "✋%@  ⌘%lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "✋%1$@  ⌘%2$lld"
           }
         }
       }
     },
-    "🎉": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "🎉"
+    "🎉" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "🎉"
           }
         }
       }
     }
   },
-  "version": "1.0"
+  "version" : "1.0"
 }
