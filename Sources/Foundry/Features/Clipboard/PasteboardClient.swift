@@ -17,10 +17,11 @@ final class SystemPasteboardClient: PasteboardClient {
         }
         guard !hostile else { return nil }
         let sourceBundle = NSWorkspace.shared.frontmostApplication?.bundleIdentifier
-        if let urls = pasteboard.readObjects(forClasses: [NSURL.self], options: nil) as? [URL], !urls.isEmpty {
+        if let urls = pasteboard.readObjects(forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]) as? [URL], !urls.isEmpty {
             return PasteboardSnapshot(types: types, payload: .files(urls), sourceBundleIdentifier: sourceBundle)
         }
-        if let value = pasteboard.string(forType: .string), !value.isEmpty {
+        if let value = pasteboard.string(forType: .string) ?? (pasteboard.readObjects(forClasses: [NSURL.self]) as? [URL])?.first?.absoluteString,
+           !value.isEmpty {
             return PasteboardSnapshot(types: types, payload: .text(value), sourceBundleIdentifier: sourceBundle)
         }
         if let data = pasteboard.data(forType: .tiff), !data.isEmpty {

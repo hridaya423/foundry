@@ -190,6 +190,20 @@ final class ClipboardHistoryTests: XCTestCase {
         XCTAssertEqual(snapshot?.payload, .image(data))
     }
 
+    func testCopiedWebLinkIsTextAndCopiedFileIsAFile() throws {
+        let pasteboard = NSPasteboard(name: NSPasteboard.Name("ClipboardHistoryTests.link"))
+        defer { pasteboard.releaseGlobally() }
+        let link = try XCTUnwrap(URL(string: "https://example.com/page"))
+        pasteboard.clearContents()
+        pasteboard.writeObjects([link as NSURL])
+        XCTAssertEqual(SystemPasteboardClient(pasteboard).snapshot()?.payload, .text("https://example.com/page"))
+
+        let file = URL(fileURLWithPath: "/tmp/report.pdf")
+        pasteboard.clearContents()
+        pasteboard.writeObjects([file as NSURL])
+        XCTAssertEqual(SystemPasteboardClient(pasteboard).snapshot()?.payload, .files([file]))
+    }
+
     func testHostilePasteboardTypesAreRejectedAndChangesConsumed() async {
         let pasteboard = TestPasteboardClient()
         let state = await MainActor.run { ClipboardHistoryState(pasteboard: pasteboard, persistence: nil) }
