@@ -19,7 +19,7 @@ final class ShellController {
     private let snippetExpansion: SnippetExpansionService
     private var hasStarted = false
     private var workspaceObservers: [NSObjectProtocol] = []
-    private lazy var settingsWindow = SettingsWindowController(state: panelState)
+    private var settingsWindow: SettingsWindowController?
 
     init(
         registry: CommandRegistry,
@@ -68,13 +68,13 @@ final class ShellController {
         }
         let onboardingController = OnboardingWindowController(state: onboardingState)
         self.onboardingController = onboardingController
-        panelController.otherWindowsVisible = { [weak onboardingController] in
-            onboardingController?.isVisible == true
-        }
         let statusItemController = StatusItemController(state: panelState)
         self.statusItemController = statusItemController
         self.onboardingState = onboardingState
         self.panelState.shell = self
+        panelController.otherWindowsVisible = { [weak self, weak onboardingController] in
+            onboardingController?.isVisible == true || self?.settingsWindow?.window?.isVisible == true
+        }
         panelState.snippets.onSaved = { [weak self] in self?.configureSnippetExpansion() }
         statusItemController.onTogglePanel = { [weak self] in
             self?.togglePanel()
@@ -267,6 +267,8 @@ extension ShellController: ShellPort {
     }
 
     func openSettings() {
+        let settingsWindow = self.settingsWindow ?? SettingsWindowController(state: panelState)
+        self.settingsWindow = settingsWindow
         settingsWindow.show()
     }
 
