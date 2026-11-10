@@ -20,7 +20,7 @@ Other notices:
 | Licence | Not MIT. The file header reads: "Copyright 2025, GreenSock. All rights reserved. Subject to the terms at https://gsap.com/standard-license." |
 | Used by | The film projects in `foundry-ad/` only. The website in `anvil/` does not depend on it (`anvil/package.json`). |
 
-Owner to confirm: that the GreenSock terms permit this use, and how the repository may redistribute the file. The licence text is not stored in the repository.
+GSAP has been free since 2025 under the standard no-charge licence at that URL. It allows commercial use and shipping the file inside a project. Its one exclusion is tools that compete with Webflow, which these films are not.
 
 ## Instrument Serif Italic
 
@@ -33,7 +33,7 @@ Owner to confirm: that the GreenSock terms permit this use, and how the reposito
 | Licence | SIL Open Font License 1.1 (from the name table, licence URL https://scripts.sil.org/OFL) |
 | Used by | `foundry-ad/every-job/index.html` |
 
-Owner to confirm: the SIL OFL asks that the licence text travel with the font. The repository holds `OFL-Geist.txt` and `OFL-IBMPlexMono.txt` beside it, but no OFL file for this font.
+The licence text is `foundry-ad/every-job/assets/fonts/OFL-InstrumentSerif.txt`.
 
 ## coast.jpg
 
@@ -44,15 +44,15 @@ Owner to confirm: the SIL OFL asks that the licence text travel with the font. T
 | Licence | unknown, owner to confirm |
 | Used by | The clipboard card in the story (`anvil/app/foundry/story/clipboard-motion.ts`) and the brand page background (`anvil/app/brand/brand.css`) |
 
-The file has no author, copyright or source field. `progress.md` records "coast.jpg has no recorded source" and "Coast photo (no recorded source)". The alt text calls it "an illustrative clipboard image".
+The file has no author, copyright or source field. `progress.md` records "coast.jpg has no recorded source" and "Coast photo (no recorded source)". The alt text calls it "an illustrative clipboard image". It looks generated, and no stock or photographer source has been found. Replace it if a source turns up that forbids this use.
 
 ## emoji.tsv
 
 | | |
 | --- | --- |
 | File | `Sources/Foundry/Resources/emoji.tsv` (3,944 lines: emoji, name, search keywords) |
-| Source | unknown, owner to confirm |
-| Licence | unknown, owner to confirm |
+| Source | emojibase-data (https://emojibase.dev), built on Unicode CLDR |
+| Licence | MIT (emojibase); Unicode License v3 (CLDR) |
 | Used by | The emoji picker, bundled by `Package.swift` |
 
-The file has no header. It entered the repository in commit `4caca23` ("remove file indexer and add emoji", 2026-06-25) without a source note. The keyword lists need a source.
+The file has no header. It entered the repository in commit `4caca23` ("remove file indexer and add emoji", 2026-06-25) without a source note. Its names and keywords match emojibase-data 16.0.3 entry for entry (for example 😀: "grinning face", cheerful, cheery, face, grin, happy, laugh, nice, smile, smiling, teeth). emojibase-data is MIT-licensed, and its labels come from Unicode CLDR under the Unicode License v3.
