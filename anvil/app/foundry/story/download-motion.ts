@@ -5,8 +5,8 @@ export const downloadStart = memorySettled + .26;
 export const downloadSettled = downloadStart + .17;
 export const storyEnd = downloadStart + .28;
 export const arrowCells = [[0, -3], [0, -2], [-2, -2], [2, -2], [-1, -1], [1, -1], [0, 0]] as const;
-const desktopTrail = [[.445, .55], [.463, .58], [.484, .615]];
-const mobileTrail = [[.44, .47], [.465, .5], [.485, .53]];
+const desktopTrail = [[0, 0], [.032, .037], [.06, .07], [.1, .105], [.132, .138], [.166, .165], [.204, .20], [.238, .24], [.277, .29], [.304, .325], [.332, .365], [.445, .55], [.463, .58], [.484, .615]];
+const mobileTrail = [[0, 0], [.045, .05], [.09, .10], [.135, .15], [.18, .20], [.44, .47], [.465, .5], [.485, .53]];
 
 export function downloadPoints(width: number, height: number) {
   const mobile = width < 900;
