@@ -24,12 +24,7 @@ struct SettingsGroup<Content: View>: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0, content: content)
             .padding(.horizontal, 2)
-            .background(FoundryTheme.fillSubtle)
-            .clipShape(RoundedRectangle(cornerRadius: FoundryTheme.Radius.row, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: FoundryTheme.Radius.row, style: .continuous)
-                    .stroke(FoundryTheme.fillTint, lineWidth: 1)
-            )
+            .background(FoundryTheme.fillSubtle, in: RoundedRectangle(cornerRadius: FoundryTheme.Radius.overlay, style: .continuous))
     }
 }
 
@@ -96,7 +91,7 @@ struct SettingsToggleRow: View {
             Spacer()
             Toggle("", isOn: Binding(get: { isOn }, set: { value in set(value) }))
                 .labelsHidden()
-                .toggleStyle(.switch)
+                .toggleStyle(FoundrySwitchStyle())
                 .accessibilityLabel(Text(title))
                 .accessibilityValue(isOn ? String(localized: "On") : String(localized: "Off"))
         }
@@ -158,7 +153,7 @@ struct SettingsTextFieldRow: View {
             }
         }
         .padding(.horizontal, 12)
-        .padding(.vertical, 11)
+        .padding(.vertical, 12)
         .onAppear { text = value }
         .onChange(of: value) { _, newValue in text = newValue }
     }
@@ -198,11 +193,9 @@ struct SettingsSecureFieldRow: View {
             Button("Save") {
                 commit(value)
             }
-            .buttonStyle(.bordered)
-            .controlSize(.small)
         }
         .padding(.horizontal, 12)
-        .padding(.vertical, 11)
+        .padding(.vertical, 12)
     }
 }
 
@@ -308,7 +301,6 @@ struct ActiveWidgetRow: View {
     let moveUp: () -> Void
     let moveDown: () -> Void
     let remove: () -> Void
-    @State private var isHovering = false
 
     var body: some View {
         HStack(spacing: 10) {
@@ -318,19 +310,16 @@ struct ActiveWidgetRow: View {
                 .frame(width: 20)
             SettingsLabel(title: kind.title, subtitle: kind.summary)
             Spacer()
-            HStack(spacing: 10) {
+            HStack(spacing: 2) {
                 SettingsIconButton(symbol: "chevron.up", label: "Move \(kind.title) up", action: moveUp)
                     .disabled(isFirst)
                 SettingsIconButton(symbol: "chevron.down", label: "Move \(kind.title) down", action: moveDown)
                     .disabled(isLast)
                 SettingsIconButton(symbol: "minus", label: "Remove \(kind.title)", action: remove, tint: FoundryTheme.destructive)
             }
-            .opacity(isHovering ? 1 : FoundryTheme.Alpha.half)
         }
-        .padding(.horizontal, 10)
+        .padding(.horizontal, 12)
         .padding(.vertical, 8)
-        .contentShape(Rectangle())
-        .onHover { isHovering = $0 }
     }
 }
 
@@ -352,7 +341,7 @@ struct AvailableWidgetRow: View {
                     .foregroundStyle(FoundryTheme.textSecondary)
                     .frame(width: 24, height: 24)
             }
-            .padding(.horizontal, 10)
+            .padding(.horizontal, 12)
             .padding(.vertical, 8)
         }
         .buttonStyle(.plain)
@@ -364,6 +353,8 @@ struct SettingsIconButton: View {
     let label: LocalizedStringResource
     let action: () -> Void
     var tint: Color = FoundryTheme.textSecondary
+    @State private var hovering = false
+    @Environment(\.isEnabled) private var isEnabled
 
     var body: some View {
         Button(action: action) {
@@ -371,10 +362,13 @@ struct SettingsIconButton: View {
                 .font(FoundryTheme.Glyph.xs)
                 .foregroundStyle(tint)
                 .frame(width: 28, height: 28)
-                .background(FoundryTheme.fillTint)
-                .clipShape(RoundedRectangle(cornerRadius: FoundryTheme.Radius.control, style: .continuous))
+                .background(hovering && isEnabled ? FoundryTheme.fillTint : .clear,
+                    in: RoundedRectangle(cornerRadius: FoundryTheme.Radius.control, style: .continuous))
+                .opacity(isEnabled ? 1 : FoundryTheme.Alpha.half)
+                .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(FoundryQuietButtonStyle())
+        .onHover { hovering = $0 }
         .accessibilityLabel(Text(label))
         .help(Text(label))
     }
@@ -401,7 +395,7 @@ struct ConfigFieldRow: View {
             Spacer()
         }
         .padding(.horizontal, 12)
-        .padding(.vertical, 11)
+        .padding(.vertical, 12)
         .onAppear { text = initialValue }
     }
 }
@@ -490,8 +484,8 @@ struct CommandSettingsRow: View {
 
                 Toggle("", isOn: Binding(get: { row.preference.isEnabled }, set: { value in setEnabled(value) }))
                     .labelsHidden()
-                    .toggleStyle(.switch)
-                    .scaleEffect(0.82)
+                    .toggleStyle(FoundrySwitchStyle())
+                    .controlSize(.small)
                     .accessibilityLabel("Enable \(row.title)")
 
                 Button {
@@ -567,16 +561,21 @@ struct CommandSettingsRow: View {
                         .padding(.leading, 56)
                 }
 
-                Toggle("Use as fallback result", isOn: Binding(
-                    get: { row.preference.fallbackEligible },
-                    set: { setFallbackEligible($0) }
-                ))
-                .toggleStyle(.switch)
-                .font(FoundryTheme.caption)
-                .foregroundStyle(FoundryTheme.textTertiary)
+                HStack(spacing: FoundryTheme.Spacing.xs) {
+                    Toggle("Use as fallback result", isOn: Binding(
+                        get: { row.preference.fallbackEligible },
+                        set: { setFallbackEligible($0) }
+                    ))
+                    .toggleStyle(FoundrySwitchStyle())
+                    .controlSize(.small)
+                    Text("Use as fallback result")
+                        .font(FoundryTheme.caption)
+                        .foregroundStyle(FoundryTheme.textTertiary)
+                        .accessibilityHidden(true)
+                }
             }
         }
-        .padding(.horizontal, 10)
+        .padding(.horizontal, 12)
         .padding(.vertical, 7)
         .onChange(of: row.preference.aliases) { _, newValue in
             aliasesText = newValue.joined(separator: ", ")
@@ -699,7 +698,7 @@ struct ExcludedAppsRow: View {
                 .accessibilityLabel("Add bundle identifier")
         }
         .padding(.horizontal, 12)
-        .padding(.vertical, 11)
+        .padding(.vertical, 12)
     }
 
     private func appName(for bundleID: String) -> String {
@@ -761,6 +760,7 @@ struct SettingsRailButton: View {
     let title: String
     let symbol: String
     let isSelected: Bool
+    let selection: Namespace.ID
     let action: () -> Void
     @State private var hovering = false
 
@@ -778,13 +778,19 @@ struct SettingsRailButton: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, FoundryTheme.Spacing.xs)
             .frame(height: FoundryTheme.Control.compact)
-            .background(
-                isSelected ? FoundryTheme.fillSelected : hovering ? FoundryTheme.fillHover : .clear,
-                in: RoundedRectangle(cornerRadius: FoundryTheme.Radius.control, style: .continuous)
-            )
+            .background {
+                if isSelected {
+                    RoundedRectangle(cornerRadius: FoundryTheme.Radius.control, style: .continuous)
+                        .fill(FoundryTheme.fillSelected)
+                        .matchedGeometryEffect(id: "selection", in: selection)
+                } else if hovering {
+                    RoundedRectangle(cornerRadius: FoundryTheme.Radius.control, style: .continuous)
+                        .fill(FoundryTheme.fillHover)
+                }
+            }
             .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(FoundryQuietButtonStyle())
         .onHover { hovering = $0 }
         .accessibilityAddTraits(isSelected ? .isSelected : [])
     }

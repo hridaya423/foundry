@@ -1,5 +1,8 @@
 import AppKit
+import SwiftUI
 import XCTest
+import FoundryDomain
+import FoundryServices
 @testable import Foundry
 
 @MainActor
@@ -22,6 +25,37 @@ final class SettingsWindowTests: XCTestCase {
         XCTAssertEqual(second.frame.size, saved.size)
         XCTAssertEqual(second.frame, restored.frame, "a saved frame is not overridden by center()")
         XCTAssertEqual(second.frameAutosaveName, name)
+    }
+
+    func testTheWindowKeepsItsDefaultAndMinimumSizeOnceItsContentLaysOut() {
+        let window = SettingsWindowController.makeWindow(rootView: Color.clear)
+        XCTAssertEqual(window.frame.size, NSSize(width: 820, height: 600))
+
+        window.layoutIfNeeded()
+        RunLoop.main.run(until: Date().addingTimeInterval(0.3))
+
+        XCTAssertEqual(window.minSize, NSSize(width: 720, height: 560), "the hosting controller must not replace the minimum with the content's own")
+        XCTAssertEqual(window.frame.size, NSSize(width: 820, height: 600))
+    }
+
+    func testReopeningOnTheCommandsPaneLoadsItsCatalog() throws {
+        let diagnostics = DiagnosticsService()
+        let config = ConfigService(diagnostics: diagnostics, url: FileManager.default.temporaryDirectory.appendingPathComponent("settings-\(UUID()).json"))
+        let state = CommandPanelState.isolated(
+            registry: CommandRegistry(providers: [], usageRanking: UsageRankingStore.scratch(diagnostics), diagnostics: diagnostics, configService: config),
+            actionRunner: ActionRunner.isolated(diagnostics: diagnostics),
+            diagnostics: diagnostics,
+            config: config
+        )
+        defer { state.shutdown() }
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: isolatedDefaultsSuite("settings-reopen")))
+        defaults.set(SettingsCategory.commands.rawValue, forKey: "settings.lastPane")
+
+        let window = SettingsWindowController.makeWindow(rootView: SettingsView(state: state).defaultAppStorage(defaults))
+        window.layoutIfNeeded()
+        RunLoop.main.run(until: Date().addingTimeInterval(0.5))
+
+        XCTAssertTrue(state.settings.isCommandCatalogReady, "the remembered pane loads without a click on its rail item")
     }
 
     func testRetentionChoicesKeepAnUnusualCurrentValue() {

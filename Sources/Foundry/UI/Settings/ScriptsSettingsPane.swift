@@ -27,33 +27,33 @@ struct ScriptsSettingsPane: View {
                                 """
                         )
                         Spacer()
+                        Text("Trusted")
+                            .font(FoundryTheme.bodySecondary)
+                            .foregroundStyle(FoundryTheme.textSecondary)
+                            .accessibilityHidden(true)
                         Toggle("Trusted", isOn: Binding(
                             get: { trusted.contains(directory) },
                             set: { store.setTrusted($0, for: directory); reload() }
                         ))
-                        .toggleStyle(.switch)
+                        .toggleStyle(FoundrySwitchStyle())
                         .controlSize(.small)
-                        Button {
+                        .accessibilityLabel("Trust \((directory as NSString).lastPathComponent)")
+                        SettingsIconButton(symbol: "folder", label: "Open \(directory)") {
                             createIfNeeded(directory)
                             NSWorkspace.shared.open(URL(fileURLWithPath: directory))
-                        } label: { Image(systemName: "folder") }
-                        .buttonStyle(.borderless)
-                        .accessibilityLabel("Open \(directory)")
-                        Button {
+                        }
+                        SettingsIconButton(symbol: "minus", label: "Remove \(directory)") {
                             store.directories = directories.filter { $0 != directory }
                             reload()
-                        } label: { Image(systemName: "minus.circle") }
-                        .buttonStyle(.borderless)
-                        .accessibilityLabel("Remove \(directory)")
+                        }
                     }
                     .padding(.horizontal, 12)
-                    .padding(.vertical, 9)
+                    .padding(.vertical, 12)
                     if directory != directories.last { SettingsDivider() }
                 }
             }
 
             Button("Add Folder…", action: addFolder)
-                .controlSize(.small)
         }
         .onAppear(perform: reload)
     }

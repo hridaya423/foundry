@@ -154,9 +154,6 @@
     "%lld Files" : {
 
     },
-    "%lld MB" : {
-
-    },
     "%lld active" : {
 
     },
@@ -298,9 +295,6 @@
     "API key" : {
 
     },
-    "Access Foundry, Clipboard History, and Settings from the menu bar" : {
-
-    },
     "Accessibility" : {
 
     },
@@ -362,6 +356,9 @@
       }
     },
     "Added to File Shelf" : {
+
+    },
+    "Adds a Foundry menu with Clipboard History and Settings" : {
 
     },
     "Agent event socket" : {
@@ -1562,6 +1559,9 @@
     "Folders and skipped names you added are removed. This can't be undone." : {
 
     },
+    "For browser history and open tabs" : {
+
+    },
     "Force quit %@" : {
 
     },
@@ -1839,9 +1839,6 @@
 
     },
     "Keywords won’t expand. Turn on expansion in Settings › Snippets." : {
-
-    },
-    "Latest Release" : {
 
     },
     "Latest quote for a ticker" : {
@@ -2534,6 +2531,9 @@
     "Refresh sessions" : {
 
     },
+    "Releases" : {
+
+    },
     "Remove" : {
 
     },
@@ -2603,7 +2603,7 @@
     "Renamed to “%@”" : {
 
     },
-    "Reopening sooner than this resumes where you left off." : {
+    "Reopen sooner to resume where you were" : {
 
     },
     "Replace" : {
@@ -3033,7 +3033,7 @@
     "Stop (⌘.)" : {
 
     },
-    "Stop searching this folder" : {
+    "Stop searching %@" : {
 
     },
     "Stopped" : {
@@ -3266,6 +3266,9 @@
         }
       }
     },
+    "Trust %@" : {
+
+    },
     "Trust and Run" : {
 
     },
@@ -3363,7 +3366,7 @@
     "Use as fallback result" : {
 
     },
-    "Use by default" : {
+    "Use by Default" : {
 
     },
     "Use decimal or prefixed inputs like 0xff. Search also supports 5 & 3, 5 << 1, and not 5 8." : {
@@ -3385,9 +3388,6 @@
 
     },
     "Used by Remove Background (Detailed) on the File Shelf" : {
-
-    },
-    "Used for browser history and open-tab results" : {
 
     },
     "Using %@" : {

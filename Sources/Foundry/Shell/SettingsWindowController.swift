@@ -23,11 +23,15 @@ final class SettingsWindowController: NSWindowController {
         window.title = String(localized: "Settings")
         window.titleVisibility = .hidden
         window.titlebarAppearsTransparent = true
-        window.minSize = NSSize(width: 720, height: 560)
+        let minimum = NSSize(width: 720, height: 560)
+        window.minSize = minimum
         window.isReleasedWhenClosed = false
-        window.isOpaque = false
-        window.backgroundColor = .clear
-        window.contentViewController = NSHostingController(rootView: FoundryIncreaseContrastRoot { rootView })
+        window.backgroundColor = NSColor(FoundryTheme.windowGround)
+        // A hosting view replaces the window's `minSize` with the SwiftUI content's own minimum on first layout, so the content states it too.
+        let content = NSHostingView(rootView: FoundryIncreaseContrastRoot { rootView }
+            .frame(minWidth: minimum.width, minHeight: minimum.height))
+        content.safeAreaRegions = []
+        window.contentView = content
         return window
     }
 

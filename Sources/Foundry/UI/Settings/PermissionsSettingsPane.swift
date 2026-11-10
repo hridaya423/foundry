@@ -20,22 +20,29 @@ struct PermissionsSettingsPane: View {
                             .foregroundStyle(FoundryTheme.textSecondary)
                             .frame(width: 20)
                             .accessibilityHidden(true)
-                        SettingsLabel(title: LocalizedStringResource(stringLiteral: kind.title),
-                            subtitle: LocalizedStringResource(stringLiteral: kind.purpose))
+                        VStack(alignment: .leading, spacing: 2) {
+                            HStack(spacing: FoundryTheme.Spacing.xs) {
+                                Text(kind.title)
+                                    .font(FoundryTheme.body)
+                                    .foregroundStyle(FoundryTheme.textPrimary)
+                                Text(status.label)
+                                    .font(FoundryTheme.bodySecondary)
+                                    .foregroundStyle(status == .granted ? FoundryTheme.success : FoundryTheme.textTertiary)
+                            }
+                            Text(kind.purpose)
+                                .font(FoundryTheme.bodySecondary)
+                                .foregroundStyle(FoundryTheme.textTertiary)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
                         Spacer()
-                        Text(status.label)
-                            .font(FoundryTheme.bodySecondary)
-                            .foregroundStyle(status == .granted ? FoundryTheme.success : FoundryTheme.textTertiary)
                         if status == .notGranted {
                             Button("Grant…") { permissions.request(kind) }
-                                .controlSize(.small)
                         } else {
                             Button("Open Settings") { NSWorkspace.shared.open(kind.settingsURL) }
-                                .controlSize(.small)
                         }
                     }
                     .padding(.horizontal, 12)
-                    .padding(.vertical, 10)
+                    .padding(.vertical, 12)
                     .accessibilityElement(children: .combine)
                     if kind != PermissionKind.allCases.last { SettingsDivider() }
                 }

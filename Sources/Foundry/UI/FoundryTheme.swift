@@ -135,6 +135,13 @@ enum FoundryTheme {
     static let warning = adaptive(dark: NSColor(red: 1.0, green: 0.72, blue: 0.34, alpha: 1), light: NSColor(red: 0.62, green: 0.36, blue: 0.0, alpha: 1))
     static let accent = adaptive(dark: NSColor(red: 0.42, green: 0.66, blue: 1.0, alpha: 1), light: NSColor(red: 0.10, green: 0.40, blue: 0.90, alpha: 1))
 
+    /// The ground of an opaque Foundry window, near the tone the panel's glass settles at.
+    static let windowGround = adaptive(dark: NSColor(white: 0.055, alpha: 1), light: NSColor(white: 0.96, alpha: 1))
+    /// Ink drawn on a `textPrimary` fill: a switch knob, a checkmark.
+    static let onPrimary = adaptive(dark: NSColor(white: 0.08, alpha: 1), light: .white)
+    /// The knob of a switch that is off.
+    static let knobOff = adaptive(dark: NSColor(white: 0.62, alpha: 1), light: .white)
+
     private static func adaptive(dark: NSColor, light: NSColor) -> Color {
         Color(nsColor: NSColor(name: nil) { $0.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua ? dark : light })
     }
@@ -227,8 +234,6 @@ enum FoundryTheme {
     // MARK: Radii — 6 badge, 8 control, 10 row, 14 overlay, 26 panel
 
     enum Radius {
-        /// A titled window clips its own corners.
-        static let window: CGFloat = 0
         static let tile: CGFloat = 2
         static let badge: CGFloat = 6
         static let control: CGFloat = 8

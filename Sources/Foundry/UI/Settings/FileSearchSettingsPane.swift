@@ -22,16 +22,14 @@ struct FileSearchSettingsPane: View {
                             title: LocalizedStringResource(stringLiteral: FileManager.default.displayName(atPath: (folder as NSString).expandingTildeInPath)),
                             subtitle: LocalizedStringResource(stringLiteral: folder))
                         Spacer()
-                        Button {
+                        SettingsIconButton(symbol: "minus",
+                            label: config.folders.count == 1 ? "Keep at least one folder" : "Stop searching \(folder)") {
                             settings.updateFileSearch { $0.folders.removeAll { $0 == folder } }
-                        } label: { Image(systemName: "minus.circle") }
-                        .buttonStyle(.borderless)
+                        }
                         .disabled(config.folders.count == 1)
-                        .help(config.folders.count == 1 ? "Keep at least one folder" : "Stop searching this folder")
-                        .accessibilityLabel("Remove \(folder)")
                     }
                     .padding(.horizontal, 12)
-                    .padding(.vertical, 9)
+                    .padding(.vertical, 12)
                     if folder != config.folders.last { SettingsDivider() }
                 }
             }
@@ -40,7 +38,6 @@ struct FileSearchSettingsPane: View {
                 Button("Restore Defaults…") { confirmingRestore = true }
                     .disabled(config == .default)
             }
-            .controlSize(.small)
             .confirmationDialog("Replace your search folders with the defaults?", isPresented: $confirmingRestore) {
                 Button("Replace", role: .destructive) { settings.updateFileSearch { $0 = .default } }
             } message: {

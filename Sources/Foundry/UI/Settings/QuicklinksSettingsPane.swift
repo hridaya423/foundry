@@ -36,7 +36,7 @@ struct QuicklinksSettingsPane: View {
                 ForEach($links) { $link in
                     HStack(spacing: 8) {
                         field("Name", text: $link.name)
-                            .frame(width: 150)
+                            .frame(width: 130)
                         field("Keyword", text: $link.keyword)
                             .frame(width: 64)
                         field("https://example.com/search?q={argument}", text: $link.link)
@@ -48,8 +48,8 @@ struct QuicklinksSettingsPane: View {
                         }
                         Toggle("", isOn: $link.isEnabled)
                             .labelsHidden()
-                            .toggleStyle(.switch)
-                            .controlSize(.mini)
+                            .toggleStyle(FoundrySwitchStyle())
+                            .controlSize(.small)
                             .accessibilityLabel("Enable \(link.name)")
                         Menu {
                             Toggle("Show Site Icon", isOn: Binding(
@@ -78,7 +78,7 @@ struct QuicklinksSettingsPane: View {
                         .fixedSize()
                         .accessibilityLabel("Options for \(link.name)")
                     }
-                    .padding(.horizontal, 10)
+                    .padding(.horizontal, 12)
                     .padding(.vertical, 8)
                     .opacity(link.isEnabled ? 1 : FoundryTheme.Alpha.half)
                     if link.id != links.last?.id { SettingsDivider() }
@@ -99,7 +99,6 @@ struct QuicklinksSettingsPane: View {
                 Spacer()
                 Button("Restore Defaults…") { confirmingRestore = true }
             }
-            .controlSize(.small)
             .confirmationDialog("Replace your \(links.count) quicklinks with the defaults?", isPresented: $confirmingRestore) {
                 Button("Replace", role: .destructive) { links = QuicklinkTemplate.defaults }
             } message: {

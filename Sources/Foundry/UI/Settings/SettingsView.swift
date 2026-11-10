@@ -15,7 +15,8 @@ struct SettingsView: View {
     @State private var pendingBackup: FoundryBackup?
     @State private var pendingRetention: ClipboardRetention?
     @FocusState private var searchFocused: Bool
-    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @Namespace private var railSelection
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         HStack(spacing: 0) {
@@ -23,11 +24,11 @@ struct SettingsView: View {
             Divider()
             detailPane
         }
-        .background(FoundryBackdrop(intensity: state.settings.themeIntensity, isOpaque: reduceTransparency,
-            cornerRadius: FoundryTheme.Radius.window))
+        .background(FoundryTheme.windowGround)
         .ignoresSafeArea(.container, edges: .top)
         .onAppear {
             searchFocused = true
+            select(category)
             consumePendingCommandReveal()
         }
         .onChange(of: state.pendingSettingsDeepLink) { _, _ in consumePendingCommandReveal() }
@@ -90,7 +91,8 @@ struct SettingsView: View {
                 VStack(alignment: .leading, spacing: 2) {
                     if isSearching == false {
                         ForEach(SettingsCategory.allCases) { item in
-                            SettingsRailButton(title: item.title, symbol: item.symbol, isSelected: category == item) { select(item) }
+                            SettingsRailButton(title: item.title, symbol: item.symbol, isSelected: category == item,
+                                selection: railSelection) { select(item) }
                         }
                     } else if searchMatches.isEmpty {
                         Text("No settings match \u{201C}\(searchQuery)\u{201D}")
@@ -101,10 +103,12 @@ struct SettingsView: View {
                     } else {
                         ForEach(searchMatches) { item in
                             SettingsRailButton(title: item.title, symbol: item.pane.symbol,
-                                isSelected: highlightedAnchor == item.anchorID && category == item.pane) { reveal(item) }
+                                isSelected: highlightedAnchor == item.anchorID && category == item.pane,
+                                selection: railSelection) { reveal(item) }
                         }
                     }
                 }
+                .animation(reduceMotion ? nil : FoundryTheme.Motion.state, value: category)
             }
             .scrollIndicators(.never)
         }
@@ -112,7 +116,6 @@ struct SettingsView: View {
         .padding(.top, FoundryTheme.Control.rowDouble)
         .padding(.bottom, FoundryTheme.Spacing.sm)
         .frame(width: 208, alignment: .leading)
-        .background(FoundryTheme.fillSubtle)
     }
 
     private func select(_ item: SettingsCategory) {
@@ -137,9 +140,9 @@ struct SettingsView: View {
                 .font(FoundryTheme.title)
                 .foregroundStyle(FoundryTheme.textPrimary)
                 .accessibilityAddTraits(.isHeader)
+                .frame(height: FoundryTheme.Control.compact)
                 .padding(.horizontal, FoundryTheme.Spacing.lg)
-                .padding(.top, FoundryTheme.Spacing.lg)
-                .padding(.bottom, FoundryTheme.Spacing.xs)
+                .padding(.top, FoundryTheme.Control.rowDouble)
 
             if let error = state.settings.configLoadError {
                 SettingsNotice(
@@ -148,14 +151,14 @@ struct SettingsView: View {
                     actionTitle: "Reset",
                     action: state.settings.resetConfiguration
                 )
-                .padding(.horizontal, 24)
-                .padding(.bottom, 10)
+                .padding(.horizontal, FoundryTheme.Spacing.lg)
+                .padding(.top, FoundryTheme.Spacing.sm)
             }
 
             if let error = state.settings.settingsPersistenceError {
                 SettingsNotice(text: LocalizedStringResource(stringLiteral: error), symbol: "exclamationmark.triangle")
-                    .padding(.horizontal, 24)
-                    .padding(.bottom, 10)
+                    .padding(.horizontal, FoundryTheme.Spacing.lg)
+                    .padding(.top, FoundryTheme.Spacing.sm)
             }
 
             ScrollViewReader { proxy in
@@ -195,9 +198,12 @@ struct SettingsView: View {
                         }
                     }
                     .padding(.horizontal, FoundryTheme.Spacing.lg)
-                    .padding(.vertical, FoundryTheme.Spacing.md)
+                    .padding(.top, FoundryTheme.Spacing.sm)
+                    .padding(.bottom, FoundryTheme.Spacing.lg)
                     .frame(maxWidth: 720, alignment: .leading)
+                    .buttonStyle(SettingsButtonStyle())
                 }
+                .mask(scrollEdgeFade)
                 .onChange(of: pendingAnchor) { _, anchor in
                     guard let anchor else { return }
                     DispatchQueue.main.async {
@@ -208,6 +214,16 @@ struct SettingsView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+    }
+
+    private var scrollEdgeFade: some View {
+        VStack(spacing: 0) {
+            LinearGradient(colors: [.clear, .black], startPoint: .top, endPoint: .bottom)
+                .frame(height: FoundryTheme.Spacing.sm)
+            Rectangle()
+            LinearGradient(colors: [.black, .clear], startPoint: .top, endPoint: .bottom)
+                .frame(height: FoundryTheme.Spacing.lg)
+        }
     }
 
     private func anchor(_ id: String) -> SettingsAnchor {
@@ -227,10 +243,9 @@ struct SettingsView: View {
                     Button("Show in Finder") {
                         NSWorkspace.shared.activateFileViewerSelecting([ConfigService.configURL])
                     }
-                    .controlSize(.small)
                 }
                 .padding(.horizontal, 12)
-                .padding(.vertical, 11)
+                .padding(.vertical, 12)
             }
             .modifier(anchor("advanced.config"))
 
@@ -240,12 +255,10 @@ struct SettingsView: View {
                         subtitle: "Settings, snippets, quicklinks and script folders. Clipboard history and API keys are not included.")
                     Spacer()
                     Button("Export…", action: exportBackup)
-                        .controlSize(.small)
                     Button("Import…", action: chooseBackup)
-                        .controlSize(.small)
                 }
                 .padding(.horizontal, 12)
-                .padding(.vertical, 11)
+                .padding(.vertical, 12)
             }
             .modifier(anchor("advanced.backup"))
             .confirmationDialog("Replace your Foundry settings?", isPresented: Binding(get: { pendingBackup != nil },
@@ -265,10 +278,9 @@ struct SettingsView: View {
                         SettingsLabel(title: "Background removal model", subtitle: "Used by Remove Background (Detailed) on the File Shelf")
                         Spacer()
                         Button("Remove Model Data…", role: .destructive) { confirmingModelRemoval = true }
-                            .controlSize(.small)
                     }
                     .padding(.horizontal, 12)
-                    .padding(.vertical, 11)
+                    .padding(.vertical, 12)
                 }
                 .modifier(anchor("advanced.backgroundModel"))
                 .confirmationDialog("Delete the background-removal model?", isPresented: $confirmingModelRemoval) {
@@ -283,10 +295,9 @@ struct SettingsView: View {
                     SettingsLabel(title: "Reset settings", subtitle: "Restore every preference to its default")
                     Spacer()
                     Button("Reset…", role: .destructive) { confirmingReset = true }
-                        .controlSize(.small)
                 }
                 .padding(.horizontal, 12)
-                .padding(.vertical, 11)
+                .padding(.vertical, 12)
             }
             .modifier(anchor("advanced.reset"))
             .confirmationDialog("Reset all Foundry settings?", isPresented: $confirmingReset) {
@@ -350,10 +361,8 @@ struct SettingsView: View {
                 }
                 Spacer()
                 Link("Website", destination: Self.websiteURL)
-                Link("Latest Release", destination: Self.releasesURL)
+                Link("Releases", destination: Self.releasesURL)
             }
-            .buttonStyle(.bordered)
-            .controlSize(.small)
             .padding(14)
         }
         .modifier(anchor("about.version"))
@@ -382,7 +391,7 @@ struct SettingsView: View {
                         }
                     }
                     .padding(.horizontal, 12)
-                    .padding(.vertical, 11)
+                    .padding(.vertical, 12)
                     if let error = state.settings.hotkeyError {
                         Text(error)
                             .font(FoundryTheme.bodySecondary)
@@ -415,7 +424,7 @@ struct SettingsView: View {
                 VStack(spacing: 0) {
                     SettingsToggleRow(
                         title: "Show in menu bar",
-                        subtitle: "Access Foundry, Clipboard History, and Settings from the menu bar",
+                        subtitle: "Adds a Foundry menu with Clipboard History and Settings",
                         isOn: state.settings.showMenuBarIcon,
                         set: state.settings.setMenuBarIconVisible
                     )
@@ -445,24 +454,16 @@ struct SettingsView: View {
 
             SettingsGroup {
                 HStack(spacing: 12) {
-                    SettingsLabel(title: "Return to Home after", subtitle: "Reopening sooner than this resumes where you left off.")
+                    SettingsLabel(title: "Return to Home after", subtitle: "Reopen sooner to resume where you were")
                     Spacer()
-                    Picker("Return to Home after", selection: Binding(
-                        get: { state.settings.popToRootAfterSeconds },
-                        set: { state.settings.setPopToRootAfter($0) }
-                    )) {
-                        Text("Immediately").tag(0.0)
-                        Text("30 seconds").tag(30.0)
-                        Text("90 seconds").tag(90.0)
-                        Text("5 minutes").tag(300.0)
-                        Text("Never").tag(Double.greatestFiniteMagnitude)
-                    }
-                    .labelsHidden()
-                    .pickerStyle(.menu)
-                    .frame(width: FoundryTheme.Control.settingsColumn, alignment: .trailing)
+                    SettingsMenuPicker(title: "Return to Home after", options: [
+                        (0, String(localized: "Immediately")), (30, String(localized: "30 seconds")),
+                        (90, String(localized: "90 seconds")), (300, String(localized: "5 minutes")),
+                        (.greatestFiniteMagnitude, String(localized: "Never"))
+                    ], selection: state.settings.popToRootAfterSeconds) { state.settings.setPopToRootAfter($0) }
                 }
                 .padding(.horizontal, 12)
-                .padding(.vertical, 11)
+                .padding(.vertical, 12)
             }
             .modifier(anchor("general.popToRoot"))
 
@@ -476,20 +477,11 @@ struct SettingsView: View {
                 HStack(spacing: 12) {
                     SettingsLabel(title: "Search sensitivity", subtitle: LocalizedStringResource(stringLiteral: state.settings.searchSensitivity.subtitle))
                     Spacer()
-                    Picker("Search sensitivity", selection: Binding(
-                        get: { state.settings.searchSensitivity },
-                        set: { state.settings.setSearchSensitivity($0) }
-                    )) {
-                        ForEach(SearchSensitivity.allCases) { sensitivity in
-                            Text(sensitivity.title).tag(sensitivity)
-                        }
-                    }
-                    .labelsHidden()
-                    .pickerStyle(.menu)
-                    .frame(width: FoundryTheme.Control.settingsColumn, alignment: .trailing)
+                    SettingsMenuPicker(title: "Search sensitivity", options: SearchSensitivity.allCases.map { ($0, $0.title) },
+                        selection: state.settings.searchSensitivity) { state.settings.setSearchSensitivity($0) }
                 }
                 .padding(.horizontal, 12)
-                .padding(.vertical, 11)
+                .padding(.vertical, 12)
             }
             .modifier(anchor("general.sensitivity"))
         }
@@ -503,13 +495,11 @@ struct SettingsView: View {
                         subtitle: "^[\(state.snippets.items.count) snippet](inflect: true). Import and export use Raycast's JSON format.")
                     Spacer()
                     Button("Import…") { state.snippets.importFromFile() }
-                        .controlSize(.small)
                     Button("Export…") { state.snippets.exportToFile() }
-                        .controlSize(.small)
                         .disabled(state.snippets.items.isEmpty)
                 }
                 .padding(.horizontal, 12)
-                .padding(.vertical, 11)
+                .padding(.vertical, 12)
             }
             .modifier(anchor("snippets.library"))
             snippetExpansionContent
@@ -521,22 +511,13 @@ struct SettingsView: View {
     private var browserContent: some View {
         SettingsGroup {
             HStack(spacing: 12) {
-                SettingsLabel(title: "Main browser", subtitle: "Used for browser history and open-tab results")
+                SettingsLabel(title: "Main browser", subtitle: "For browser history and open tabs")
                 Spacer()
-                Picker("Main browser", selection: Binding(
-                    get: { state.settings.mainBrowser ?? .safari },
-                    set: { state.settings.setMainBrowser($0) }
-                )) {
-                    ForEach(state.installedBrowsers, id: \.self) { browser in
-                        Text(browser.displayName).tag(browser)
-                    }
-                }
-                .labelsHidden()
-                .pickerStyle(.menu)
-                .frame(width: FoundryTheme.Control.settingsColumn, alignment: .trailing)
+                SettingsMenuPicker(title: "Main browser", options: state.installedBrowsers.map { ($0, $0.displayName) },
+                    selection: state.settings.mainBrowser ?? .safari) { state.settings.setMainBrowser($0) }
             }
             .padding(.horizontal, 12)
-            .padding(.vertical, 11)
+            .padding(.vertical, 12)
         }
         .modifier(anchor("browser.main"))
     }
@@ -557,15 +538,11 @@ struct SettingsView: View {
                     Spacer()
                     if !state.accessibilityTrusted {
                         Button("Request Access") { state.settings.requestSnippetExpansionAccessibility() }
-                            .buttonStyle(.bordered)
-                            .controlSize(.small)
                     }
                     Button("Privacy Settings") { state.settings.openSnippetExpansionPrivacySettings() }
-                        .buttonStyle(.bordered)
-                        .controlSize(.small)
                 }
                 .padding(.horizontal, 12)
-                .padding(.vertical, 10)
+                .padding(.vertical, 12)
                 SettingsDivider()
                 VStack(alignment: .leading, spacing: 10) {
                     SettingsLabel(title: "Expand after", subtitle: "Keywords expand when one of these is typed")
@@ -575,13 +552,13 @@ struct SettingsView: View {
                                 get: { state.settings.snippetExpansion.delimiters.contains(option.delimiter) },
                                 set: { state.settings.setSnippetExpansionDelimiter(option.delimiter, enabled: $0) }
                             ))
-                            .toggleStyle(.checkbox)
+                            .toggleStyle(FoundryCheckboxStyle())
                         }
                     }
                     .font(FoundryTheme.bodySecondary)
                 }
                 .padding(.horizontal, 12)
-                .padding(.vertical, 11)
+                .padding(.vertical, 12)
                 SettingsDivider()
                 HStack(spacing: 12) {
                     SettingsLabel(title: "Return key in search", subtitle: "What Return does on a snippet result")
@@ -598,7 +575,7 @@ struct SettingsView: View {
                     .frame(width: FoundryTheme.Control.settingsColumn, alignment: .trailing)
                 }
                 .padding(.horizontal, 12)
-                .padding(.vertical, 11)
+                .padding(.vertical, 12)
                 SettingsDivider()
                 ExcludedAppsRow(
                     title: "Excluded apps",
@@ -651,7 +628,7 @@ struct SettingsView: View {
                 .tint(FoundryTheme.textSecondary)
             }
             .padding(.horizontal, 12)
-            .padding(.vertical, 11)
+            .padding(.vertical, 12)
         }
     }
 
@@ -662,10 +639,9 @@ struct SettingsView: View {
                     subtitle: "Suggested: \(WindowHotkeySuggestions.summary). Only layouts without a shortcut get one.")
                 Spacer()
                 Button("Use Suggested") { state.settings.applySuggestedWindowHotkeys() }
-                    .controlSize(.small)
             }
             .padding(.horizontal, 12)
-            .padding(.vertical, 10)
+            .padding(.vertical, 12)
         }
     }
 
@@ -696,13 +672,12 @@ struct SettingsView: View {
                         .foregroundStyle(FoundryTheme.textPrimary)
                 }
                 .padding(.horizontal, 12)
-                .padding(.vertical, 10)
+                .padding(.vertical, 12)
             }
 
             if state.settings.isCommandCatalogLoading && state.settings.commandCatalogCount == 0 {
                 HStack(spacing: 8) {
                     ProgressView()
-                        .controlSize(.small)
                     Text("Preparing command catalog…")
                         .font(FoundryTheme.bodySecondary)
                         .foregroundStyle(FoundryTheme.textTertiary)
@@ -928,67 +903,48 @@ struct SettingsView: View {
                 HStack {
                     SettingsLabel(title: "Retain items", subtitle: "Maximum number of entries")
                     Spacer()
-                    Picker("Retain items", selection: Binding(
-                        get: { state.clipboardHistory.policy.maxItems },
-                        set: {
-                            applyRetention(
-                                maxItems: $0,
-                                maxBytes: state.clipboardHistory.policy.maxBytes,
-                                maxAgeDays: Int(state.clipboardHistory.policy.maxAge / 86_400)
-                            )
-                        }
-                    )) {
-                        ForEach(Self.itemLimits(current: state.clipboardHistory.policy.maxItems), id: \.self) { limit in
-                            Text(limit.formatted()).tag(limit)
-                        }
+                    SettingsMenuPicker(title: "Retain items",
+                        options: Self.itemLimits(current: state.clipboardHistory.policy.maxItems).map { ($0, $0.formatted()) },
+                        selection: state.clipboardHistory.policy.maxItems) {
+                        applyRetention(
+                            maxItems: $0,
+                            maxBytes: state.clipboardHistory.policy.maxBytes,
+                            maxAgeDays: Int(state.clipboardHistory.policy.maxAge / 86_400)
+                        )
                     }
-                    .labelsHidden()
-                    .pickerStyle(.menu)
-                    .frame(width: FoundryTheme.Control.settingsColumn, alignment: .trailing)
-                }.padding(.horizontal, 12).padding(.vertical, 10)
+                }.padding(.horizontal, 12).padding(.vertical, 12)
                 SettingsDivider()
                 HStack {
                     SettingsLabel(title: "Keep for", subtitle: "Unpinned items older than this are dropped")
                     Spacer()
-                    Picker("Keep for", selection: Binding(
-                        get: { Int(state.clipboardHistory.policy.maxAge / 86_400) },
-                        set: {
-                            applyRetention(
-                                maxItems: state.clipboardHistory.policy.maxItems,
-                                maxBytes: state.clipboardHistory.policy.maxBytes,
-                                maxAgeDays: $0
-                            )
-                        }
-                    )) {
-                        let current = Int(state.clipboardHistory.policy.maxAge / 86_400)
-                        ForEach(Array(Set([1, 7, 30, 90, 365, ClipboardConfig.maximumMaxAgeDays, current])).sorted(), id: \.self) { days in
-                            Text(Self.retentionLabel(days: days)).tag(days)
-                        }
+                    let current = Int(state.clipboardHistory.policy.maxAge / 86_400)
+                    SettingsMenuPicker(title: "Keep for",
+                        options: Set([1, 7, 30, 90, 365, ClipboardConfig.maximumMaxAgeDays, current]).sorted()
+                            .map { ($0, Self.retentionLabel(days: $0)) },
+                        selection: current) {
+                        applyRetention(
+                            maxItems: state.clipboardHistory.policy.maxItems,
+                            maxBytes: state.clipboardHistory.policy.maxBytes,
+                            maxAgeDays: $0
+                        )
                     }
-                    .labelsHidden()
-                    .pickerStyle(.menu)
-                    .frame(width: FoundryTheme.Control.settingsColumn, alignment: .trailing)
-                }.padding(.horizontal, 12).padding(.vertical, 10)
+                }.padding(.horizontal, 12).padding(.vertical, 12)
                 SettingsDivider()
                 HStack {
                     SettingsLabel(title: "Storage cap", subtitle: "Approximate ceiling for all retained data")
                     Spacer()
-                    Stepper(
-                        value: Binding(
-                            get: { state.clipboardHistory.policy.maxBytes / (1_024 * 1_024) },
-                            set: {
-                                applyRetention(
-                                    maxItems: state.clipboardHistory.policy.maxItems,
-                                    maxBytes: $0 * 1_024 * 1_024,
-                                    maxAgeDays: Int(state.clipboardHistory.policy.maxAge / 86_400)
-                                )
-                            }
-                        ),
-                        in: (ClipboardConfig.minimumMaxBytes / (1_024 * 1_024))...(ClipboardConfig.maximumMaxBytes / (1_024 * 1_024)),
-                        step: 256
-                    ) { Text("\(state.clipboardHistory.policy.maxBytes / (1_024 * 1_024)) MB") }
-                    .frame(width: FoundryTheme.Control.settingsColumn, alignment: .trailing)
-                }.padding(.horizontal, 12).padding(.vertical, 10)
+                    let megabyte = 1_024 * 1_024
+                    SettingsMenuPicker(title: "Storage cap",
+                        options: Set([256, 512, 1_024, 2_048, 4_096].map { $0 * megabyte } + [state.clipboardHistory.policy.maxBytes]).sorted()
+                            .map { ($0, Int64($0).formatted(.byteCount(style: .memory))) },
+                        selection: state.clipboardHistory.policy.maxBytes) {
+                        applyRetention(
+                            maxItems: state.clipboardHistory.policy.maxItems,
+                            maxBytes: $0,
+                            maxAgeDays: Int(state.clipboardHistory.policy.maxAge / 86_400)
+                        )
+                    }
+                }.padding(.horizontal, 12).padding(.vertical, 12)
                 SettingsDivider()
                 ExcludedAppsRow(
                     title: "Excluded apps",

@@ -23,24 +23,13 @@ struct AgentIntegrationRow: View {
                 Text("Installed")
                     .font(FoundryTheme.micro)
                     .foregroundStyle(FoundryTheme.success)
-                rowButton("Remove", action: remove)
+                Button("Remove", action: remove)
             } else {
-                rowButton("Install", action: install)
+                Button("Install", action: install)
             }
         }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 9)
-    }
-
-    private func rowButton(_ title: LocalizedStringResource, action: @escaping () -> Void) -> some View {
-        Button(String(localized: title), action: action)
-            .buttonStyle(.plain)
-            .font(FoundryTheme.micro)
-            .foregroundStyle(FoundryTheme.textPrimary)
-            .padding(.horizontal, 9)
-            .padding(.vertical, 6)
-            .background(FoundryTheme.fillTint)
-            .clipShape(RoundedRectangle(cornerRadius: FoundryTheme.Radius.control, style: .continuous))
+        .padding(.horizontal, 12)
+        .padding(.vertical, 12)
     }
 }
 
@@ -104,7 +93,7 @@ struct AISettingsSection: View {
                                 }
                             }
                             .padding(.horizontal, 12)
-                            .padding(.vertical, 10)
+                            .padding(.vertical, 12)
                             .background(state.selectedAIProfileID == profile.id ? FoundryTheme.fillSelected : Color.clear)
                             .clipShape(RoundedRectangle(cornerRadius: FoundryTheme.Radius.control, style: .continuous))
                         }
@@ -128,14 +117,16 @@ struct AISettingsSection: View {
                     HStack(spacing: 10) {
                         SettingsLabel(title: "Default", subtitle: "Use this profile for new AI chats")
                         Spacer()
-                        Button(state.defaultAIProfileID == profile.id ? "Selected" : "Use by default") {
-                            state.setDefaultAIProfile(profile.id)
+                        if state.defaultAIProfileID == profile.id {
+                            Text("Selected")
+                                .font(FoundryTheme.bodySecondary)
+                                .foregroundStyle(FoundryTheme.textTertiary)
+                        } else {
+                            Button("Use by Default") { state.setDefaultAIProfile(profile.id) }
                         }
-                        .buttonStyle(.bordered)
-                        .controlSize(.small)
                     }
                     .padding(.horizontal, 12)
-                    .padding(.vertical, 10)
+                    .padding(.vertical, 12)
                     SettingsDivider()
                     SettingsToggleRow(
                         title: "Fallback",
@@ -192,8 +183,6 @@ struct AISettingsSection: View {
                                         Text("Refresh")
                                     }
                                 }
-                                .buttonStyle(.bordered)
-                                .controlSize(.small)
                             }
                             if state.aiAvailableModels.isEmpty == false {
                                 Menu {
@@ -209,7 +198,7 @@ struct AISettingsSection: View {
                             }
                         }
                         .padding(.horizontal, 12)
-                        .padding(.vertical, 10)
+                        .padding(.vertical, 12)
                     }
                     if profile.authentication == .apiKey || profile.authentication == .optionalAPIKey {
                         SettingsDivider()
@@ -245,17 +234,12 @@ struct AISettingsSection: View {
                                             .foregroundStyle(FoundryTheme.success)
                                         Spacer()
                                         Button("Sign Out") { state.logoutCodex() }
-                                            .buttonStyle(.bordered)
-                                            .controlSize(.small)
                                     }
                                 } else {
                                     HStack(spacing: 8) {
                                         Button("Sign in with ChatGPT") { state.loginCodexBrowser() }
-                                            .buttonStyle(.borderedProminent)
-                                            .controlSize(.small)
+                                            .buttonStyle(SettingsButtonStyle(isProminent: true))
                                         Button("Use Device Code") { state.requestCodexDeviceLogin() }
-                                            .buttonStyle(.bordered)
-                                            .controlSize(.small)
                                     }
                                 }
                                 if let device = state.codexDeviceAuthorization {
@@ -265,17 +249,14 @@ struct AISettingsSection: View {
                                         .fixedSize(horizontal: false, vertical: true)
                                     HStack(spacing: 8) {
                                         Button("Finish Device Login") { state.completeCodexDeviceLogin() }
-                                            .buttonStyle(.borderedProminent)
-                                            .controlSize(.small)
+                                            .buttonStyle(SettingsButtonStyle(isProminent: true))
                                         Button("Cancel") { state.cancelCodexLogin() }
-                                            .buttonStyle(.bordered)
-                                            .controlSize(.small)
                                     }
                                 }
                             }
                         }
                         .padding(.horizontal, 12)
-                        .padding(.vertical, 11)
+                        .padding(.vertical, 12)
                     }
                     SettingsDivider()
                     HStack(spacing: 10) {
@@ -291,11 +272,9 @@ struct AISettingsSection: View {
                                 Text("Test")
                             }
                         }
-                        .buttonStyle(.bordered)
-                        .controlSize(.small)
                     }
                     .padding(.horizontal, 12)
-                    .padding(.vertical, 10)
+                    .padding(.vertical, 12)
                 }
 
                 if let status = state.aiProfileStatus {

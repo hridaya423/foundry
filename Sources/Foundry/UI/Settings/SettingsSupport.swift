@@ -65,7 +65,7 @@ struct SettingsAnchor: ViewModifier {
         content
             .id(id)
             .overlay(
-                RoundedRectangle(cornerRadius: FoundryTheme.Radius.row, style: .continuous)
+                RoundedRectangle(cornerRadius: FoundryTheme.Radius.overlay, style: .continuous)
                     .stroke(FoundryTheme.stroke, lineWidth: highlighted ? 2 : 0)
                     .allowsHitTesting(false)
             )
