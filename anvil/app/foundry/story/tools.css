@@ -55,6 +55,6 @@
 @keyframes tool-out {
   to { opacity: 0; transform: translateY(-6px); }
 }
-.tool-in { animation: tool-in 200ms cubic-bezier(.23, 1, .32, 1) both; }
-.tool-out { animation: tool-out 160ms cubic-bezier(.23, 1, .32, 1) both; pointer-events: none; }
+.tool-in { animation: tool-in 200ms var(--f-ease-out) both; }
+.tool-out { animation: tool-out 160ms var(--f-ease-out) both; pointer-events: none; }
 .launcher-compact .launcher-enter[data-done] { color: var(--f-text); font-variant-numeric: tabular-nums; white-space: nowrap; }

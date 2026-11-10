@@ -8,6 +8,7 @@ import { toolStop } from "./story/tools-motion";
 import { clipboardItems } from "./story/clipboard-motion";
 import { calculate } from "./calculate";
 import "./launcher.css";
+import { easeOut } from "./tokens";
 
 export type LauncherTarget = { progress: number; section: string };
 
@@ -224,7 +225,7 @@ export default function Launcher({ onOpen }: { onOpen?: (target: LauncherTarget)
               onPointerMove={() => point(index)}
               onClick={() => matches[index] && run(index)}
             >
-              {index === active && <motion.span layoutId={`${id}-selection`} className="launcher-selection" transition={{ duration: .12, ease: [0.23, 1, 0.32, 1] }} />}
+              {index === active && <motion.span layoutId={`${id}-selection`} className="launcher-selection" transition={{ duration: .12, ease: easeOut }} />}
               <span className="launcher-icon">{icons[command.id]}</span>
               <span className="launcher-name">{command.name}</span>
               {index === active && <span className="launcher-enter" data-pressed={pressed || undefined} aria-hidden="true"><Key>↵</Key></span>}
@@ -239,7 +240,7 @@ export default function Launcher({ onOpen }: { onOpen?: (target: LauncherTarget)
               initial={{ opacity: 0, y: 10, filter: "blur(4px)" }}
               animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
               exit={{ opacity: 0, y: -8, filter: "blur(4px)" }}
-              transition={{ duration: .32, ease: [0.23, 1, 0.32, 1] }}
+              transition={{ duration: .32, ease: easeOut }}
             >
               {shown ? <Preview id={shown.id} expression={current.trim()} answer={answer} /> : <p className="launcher-preview-label">No commands match “{current.trim()}”.</p>}
             </motion.div>

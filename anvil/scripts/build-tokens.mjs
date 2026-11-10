@@ -11,8 +11,12 @@ export function cssFrom({ color, tile, motion }) {
   return `:root {\n${lines.join("\n")}\n}\n`;
 }
 
-export function moduleFrom({ color }) {
-  return `export const color = ${JSON.stringify(color, null, 2)} as const;\n`;
+export function moduleFrom({ color, motion }) {
+  const curves = Object.entries(motion).flatMap(([name, value]) => {
+    const points = /^cubic-bezier\((.*)\)$/.exec(value)?.[1].split(",").map(Number);
+    return points ? [`export const ${name.replace(/-(\w)/g, (_, letter) => letter.toUpperCase())} = ${JSON.stringify(points)} as const;`] : [];
+  });
+  return `export const color = ${JSON.stringify(color, null, 2)} as const;\n${curves.map((line) => `\n${line}`).join("")}${curves.length ? "\n" : ""}`;
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {

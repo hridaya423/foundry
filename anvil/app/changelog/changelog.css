@@ -20,6 +20,6 @@
 .changelog tbody th { font-weight: 400; color: var(--f-text); }
 .changelog td { color: var(--f-muted); }
 @keyframes changelog-arrive { from { opacity: 0; transform: translateY(8px); } }
-html[data-arriving] .changelog > * { animation: changelog-arrive 360ms cubic-bezier(.23, 1, .32, 1) both; }
+html[data-arriving] .changelog > * { animation: changelog-arrive 360ms var(--f-ease-out) both; }
 @media (prefers-reduced-motion: reduce) { html[data-arriving] .changelog > * { animation: none; } }
 @media (hover: hover) and (pointer: fine) { .changelog p a:hover { text-decoration-color: currentColor; } }

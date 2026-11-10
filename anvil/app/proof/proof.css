@@ -17,6 +17,6 @@
 .proof .proof-links a { overflow-wrap: anywhere; }
 .proof .site-footer { margin-top: 96px; padding-top: 24px; border-top: 1px solid color-mix(in srgb, var(--f-chalk) 20%, transparent); }
 @keyframes proof-arrive { from { opacity: 0; transform: translateY(8px); } }
-html[data-arriving] .proof > :not(.site-header) { animation: proof-arrive 360ms cubic-bezier(.23, 1, .32, 1) both; }
+html[data-arriving] .proof > :not(.site-header) { animation: proof-arrive 360ms var(--f-ease-out) both; }
 @media (prefers-reduced-motion: reduce) { html[data-arriving] .proof > * { animation: none; } }
 @media (hover: hover) and (pointer: fine) { .proof p a:hover { text-decoration-color: currentColor; } }

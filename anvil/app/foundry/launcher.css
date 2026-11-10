@@ -260,7 +260,7 @@
   animation-delay: calc(var(--y) * 18ms + var(--x) * 6ms);
 }
 .launcher-orange i[data-background] {
-  animation: launcher-tile 520ms cubic-bezier(.34, 1.4, .64, 1) both, launcher-cutout 4.6s cubic-bezier(.65, 0, .35, 1) infinite;
+  animation: launcher-tile 520ms cubic-bezier(.34, 1.4, .64, 1) both, launcher-cutout 4.6s var(--f-ease-in-out) infinite;
   animation-delay: calc(var(--y) * 18ms + var(--x) * 6ms), calc(900ms + var(--y) * 22ms);
 }
 @keyframes launcher-cutout {
@@ -308,7 +308,7 @@
   border-radius: calc(var(--pt) * 12);
   font-size: calc(var(--pt) * 12);
   color: var(--l-secondary);
-  animation: launcher-clip 480ms cubic-bezier(.23, 1, .32, 1) both;
+  animation: launcher-clip 480ms var(--f-ease-out) both;
   animation-delay: calc(var(--i) * 70ms);
 }
 .launcher-clips li > span:last-child {

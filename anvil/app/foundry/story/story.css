@@ -15,7 +15,7 @@ html:has(.story-shell) { scroll-behavior: auto; }
 .shelf-file-anchor, .shelf-image-anchor { display: none; }
 .shelf-actions { display: flex; justify-content: center; gap: 28px; width: max-content; max-width: 100%; margin: 44px auto 0; }
 .shelf-actions button { position: relative; height: 48px; padding: 0 4px; color: var(--f-muted); font-size: 14px; white-space: nowrap; transition: color 150ms; }
-:is(.shelf-actions, .tools-nav) button::after { content: ""; position: absolute; height: 2px; bottom: 2px; left: 4px; right: 4px; background: var(--f-accent); transform: scaleX(0); transform-origin: left; transition: transform 180ms cubic-bezier(.23, 1, .32, 1); }
+:is(.shelf-actions, .tools-nav) button::after { content: ""; position: absolute; height: 2px; bottom: 2px; left: 4px; right: 4px; background: var(--f-accent); transform: scaleX(0); transform-origin: left; transition: transform 180ms var(--f-ease-out); }
 :is(.shelf-actions button[aria-pressed="true"], .tools-nav button[aria-selected="true"]) { color: var(--f-text); }
 :is(.shelf-actions button[aria-pressed="true"], .tools-nav button[aria-selected="true"])::after { transform: scaleX(1); }
 .shelf-still { display: grid; grid-template-columns: 140px 1fr; align-items: center; gap: 20px 70px; max-width: 760px; margin: 55px auto; text-align: center; }

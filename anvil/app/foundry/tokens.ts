@@ -18,3 +18,6 @@ export const color = {
   "chalk-ink": "#211d19",
   "chalk-ink-muted": "#51483e"
 } as const;
+
+export const easeOut = [0.23,1,0.32,1] as const;
+export const easeInOut = [0.65,0,0.35,1] as const;

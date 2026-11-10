@@ -28,3 +28,9 @@ test("the committed tokens.ts matches docs/brand/tokens.json", () => {
   const tokens = JSON.parse(readFileSync(new URL("../../docs/brand/tokens.json", import.meta.url)));
   assert.equal(readFileSync(new URL("../app/foundry/tokens.ts", import.meta.url), "utf8"), moduleFrom(tokens));
 });
+
+test("each easing curve is exported to scripts as its four control points", () => {
+  const source = moduleFrom({ color: {}, motion: { "ease-out": "cubic-bezier(0.23, 1, 0.32, 1)", press: "120ms" } });
+  assert.match(source, /export const easeOut = \[0\.23,1,0\.32,1\] as const;/);
+  assert.doesNotMatch(source, /press/);
+});

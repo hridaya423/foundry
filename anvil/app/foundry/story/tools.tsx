@@ -5,6 +5,7 @@ import { animate, motion, useMotionValueEvent, useTransform, type MotionValue } 
 import { toolExamples, toolBeat, toolsEnd, toolsEnter, toolsStop } from "./tools-motion";
 import { phase } from "./shelf-motion";
 import { Key, Tiles, toolIcon } from "../launcher";
+import { easeOut } from "../tokens";
 
 const overlayLabels: Partial<Record<(typeof toolExamples)[number]["id"], [before: string | null, after: string]>> = {
   calculator: [null, "24 × 18 = 432"],
@@ -58,7 +59,7 @@ export default function ToolsStory({ progress, animated, selection, reveal, tran
     previous.set(selected);
     changeSelected(index);
     transition.jump(0);
-    animate(transition, 1, { duration: .3, ease: [0.23, 1, 0.32, 1] });
+    animate(transition, 1, { duration: .3, ease: easeOut });
     reveal.jump(0);
     selection.set(index);
   }

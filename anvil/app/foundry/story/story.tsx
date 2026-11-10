@@ -20,6 +20,7 @@ import { downloadStart, storyEnd } from "./download-motion";
 import { phase, shelfCells, shelfStops } from "./shelf-motion";
 import { methodologyFigureTargets } from "../methodology-figure";
 import { hashForProgress, stopForHash } from "./story-hash";
+import { easeInOut } from "../tokens";
 
 const scrollSpring = { stiffness: 400, damping: 50, mass: 1 };
 const zoneAt = (value: number) => value < 0.34 ? "hero" : value > downloadStart ? "closing" : value > 1.08 ? "after" : value > 0.51 ? "shelf" : "transition";
@@ -116,7 +117,7 @@ export default function ShelfStory({ inspect, initialProgress, appSize }: { insp
     event.preventDefault();
     setDeparting(true);
     history.replaceState({ ...history.state, foundryProgress: progress.get() }, "");
-    animate(departure, 1, { duration: .7, ease: [.65, 0, .35, 1] }).then(() => {
+    animate(departure, 1, { duration: .7, ease: easeInOut }).then(() => {
       holdFigure();
       document.documentElement.dataset.arriving = "tiles";
       router.push("/methodology");
