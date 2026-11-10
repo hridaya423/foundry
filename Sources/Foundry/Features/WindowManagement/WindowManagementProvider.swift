@@ -33,7 +33,9 @@ final class WindowManagementProvider: CommandProvider {
             guard Task.isCancelled == false else { return nil }
             let aliases = request.customAliases[command.id] ?? []
             if layoutOverviewQuery == false {
-                guard Self.matches(command, query: prepared, aliases: aliases, sensitivity: request.sensitivity) else { return nil }
+                guard SearchScoring.matches(prepared, searchableMask: command.searchableMask, normalizedTitle: command.normalizedTitle,
+                    normalizedSubtitle: command.normalizedSubtitle, normalizedAliases: command.normalizedAliases, customAliases: aliases,
+                    sensitivity: request.sensitivity) else { return nil }
             }
             return CommandResult(
                 id: command.id,
@@ -55,19 +57,6 @@ final class WindowManagementProvider: CommandProvider {
             .map(\.result)
     }
 
-    private static func matches(_ command: WindowCommand, query: SearchScoring.PreparedQuery, aliases: [String], sensitivity: SearchSensitivity) -> Bool {
-        var searchableMask = command.searchableMask
-        for alias in aliases {
-            searchableMask |= SearchScoring.characterMask(SearchScoring.normalize(alias))
-        }
-        guard SearchScoring.probableMatch(query: query, searchableMask: searchableMask, sensitivity: sensitivity) else { return false }
-        let normalizedAliases = aliases.isEmpty
-            ? command.normalizedAliases
-            : command.normalizedAliases + aliases.map(SearchScoring.normalize)
-        return SearchScoring.matchPrepared(query: query, normalizedTitle: command.normalizedTitle,
-            normalizedSubtitle: command.normalizedSubtitle, normalizedKeywords: [], normalizedAliases: normalizedAliases,
-            sensitivity: sensitivity) != nil
-    }
 }
 
 private struct WindowCommand {
@@ -95,7 +84,7 @@ private struct WindowCommand {
         self.normalizedTitle = SearchScoring.normalize(title)
         self.normalizedSubtitle = SearchScoring.normalize(subtitle)
         self.normalizedAliases = aliases.map(SearchScoring.normalize)
-        self.searchableMask = ([title, subtitle] + aliases).reduce(0) { $0 | SearchScoring.characterMask($1) }
+        self.searchableMask = ([normalizedTitle, normalizedSubtitle] + normalizedAliases).reduce(0) { $0 | SearchScoring.characterMask($1) }
     }
 
     var result: CommandResult {

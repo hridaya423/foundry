@@ -41,19 +41,9 @@ final class AppSearchProvider: CommandProvider, Sendable {
         func match(_ app: InstalledApp) -> CommandResult? {
             let resultID = "app.\(app.identity)"
             let aliases = request.customAliases[resultID] ?? []
-            var searchableMask = app.searchableMask
-            for alias in aliases {
-                searchableMask |= SearchScoring.characterMask(SearchScoring.normalize(alias))
-            }
-            guard SearchScoring.probableMatch(query: normalizedQuery, searchableMask: searchableMask, sensitivity: request.sensitivity),
-                  SearchScoring.matchPrepared(
-                      query: normalizedQuery,
-                      normalizedTitle: app.normalizedName,
-                      normalizedSubtitle: nil,
-                      normalizedKeywords: app.normalizedSearchCandidates,
-                      normalizedAliases: aliases.map(SearchScoring.normalize),
-                      sensitivity: request.sensitivity
-                  ) != nil else { return nil }
+            guard SearchScoring.matches(normalizedQuery, searchableMask: app.searchableMask, normalizedTitle: app.normalizedName,
+                normalizedSubtitle: nil, normalizedKeywords: app.normalizedSearchCandidates, normalizedAliases: [], customAliases: aliases,
+                sensitivity: request.sensitivity) else { return nil }
             return result(for: app, isRunning: running.contains(app.bundleIdentifier), searchAliases: aliases,
                 searchKeywords: app.normalizedSearchCandidates)
         }

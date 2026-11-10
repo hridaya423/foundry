@@ -4,6 +4,11 @@ import FoundryServices
 @testable import Foundry
 
 final class SystemCommandProviderTests: XCTestCase {
+    func testTypoInACapitalisedWordStillMatches() async {
+        let titles = await SystemCommandProvider().results(matching: "oqen").map(\.title)
+        XCTAssertTrue(titles.contains("Open Family Settings"), "\(titles)")
+    }
+
     func testSettingsShortcutsOpenNativeSystemSettingsPanes() async throws {
         let provider = SystemCommandProvider()
         let shortcuts = [

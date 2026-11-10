@@ -10,24 +10,9 @@ final class BuiltInCommandProvider: CommandProvider {
         return commands.compactMap { command in
             guard Task.isCancelled == false else { return nil }
             let aliases = request.customAliases[command.id] ?? []
-            var searchableMask = command.searchableMask
-            for alias in aliases {
-                searchableMask |= SearchScoring.characterMask(SearchScoring.normalize(alias))
-            }
-            guard SearchScoring.probableMatch(query: prepared, searchableMask: searchableMask, sensitivity: request.sensitivity) else { return nil }
-            let normalizedAliases = aliases.isEmpty
-                ? command.normalizedAliases
-                : command.normalizedAliases + aliases.map(SearchScoring.normalize)
-            guard SearchScoring.matchPrepared(
-                query: prepared,
-                normalizedTitle: command.normalizedTitle,
-                normalizedSubtitle: command.normalizedSubtitle,
-                normalizedKeywords: [],
-                normalizedAliases: normalizedAliases,
-                sensitivity: request.sensitivity
-            ) != nil else {
-                return nil
-            }
+            guard SearchScoring.matches(prepared, searchableMask: command.searchableMask, normalizedTitle: command.normalizedTitle,
+                normalizedSubtitle: command.normalizedSubtitle, normalizedAliases: command.normalizedAliases, customAliases: aliases,
+                sensitivity: request.sensitivity) else { return nil }
 
             return CommandResult(
                 id: command.id,
@@ -314,6 +299,6 @@ private struct BuiltInCommand {
         self.normalizedTitle = SearchScoring.normalize(title)
         self.normalizedSubtitle = SearchScoring.normalize(subtitle)
         self.normalizedAliases = aliases.map(SearchScoring.normalize)
-        self.searchableMask = ([title, subtitle] + aliases).reduce(0) { $0 | SearchScoring.characterMask($1) }
+        self.searchableMask = ([normalizedTitle, normalizedSubtitle] + normalizedAliases).reduce(0) { $0 | SearchScoring.characterMask($1) }
     }
 }

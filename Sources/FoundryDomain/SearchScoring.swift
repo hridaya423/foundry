@@ -485,6 +485,26 @@ public enum SearchScoring {
     /// the mask difference lower-bounds edit distance. Providers iterating a
     /// catalog can precompute one mask per item (title + subtitle + keywords)
     /// and skip `match`/`matchPrepared` entirely for impossible candidates.
+    /// Bitmask pre-filter, then the full match, over precomputed normalised
+    /// fields plus the user's raw custom aliases.
+    public static func matches(
+        _ query: PreparedQuery,
+        searchableMask: UInt64,
+        normalizedTitle: String,
+        normalizedSubtitle: String?,
+        normalizedKeywords: [String] = [],
+        normalizedAliases: [String],
+        customAliases: [String],
+        sensitivity: SearchSensitivity
+    ) -> Bool {
+        let customAliases = customAliases.map(normalize)
+        let mask = customAliases.reduce(searchableMask) { $0 | characterMask($1) }
+        guard probableMatch(query: query, searchableMask: mask, sensitivity: sensitivity) else { return false }
+        return matchPrepared(query: query, normalizedTitle: normalizedTitle, normalizedSubtitle: normalizedSubtitle,
+            normalizedKeywords: normalizedKeywords, normalizedAliases: customAliases.isEmpty ? normalizedAliases : normalizedAliases + customAliases,
+            sensitivity: sensitivity) != nil
+    }
+
     public static func probableMatch(query: PreparedQuery, searchableMask: UInt64, sensitivity: SearchSensitivity = .medium) -> Bool {
         let limit = fuzzyEditLimit(queryTokens: query.tokens, sensitivity: sensitivity)
         return query.tokenMasks.allSatisfy { ($0 & ~searchableMask).nonzeroBitCount <= limit }
