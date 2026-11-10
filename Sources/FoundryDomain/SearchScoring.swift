@@ -390,27 +390,29 @@ public enum SearchScoring {
         let editLimit = fuzzyEditLimit(queryTokens: queryTokens, sensitivity: sensitivity)
         for (tokenIndex, token) in queryTokens.enumerated() {
             var bestMatch: (index: Int, alignment: FuzzyAlignment, distance: Int?)?
+            let tokenEditLimit = token.count >= 3 ? editLimit : 0
             for index in candidateTokens.indices where index >= candidateIndex {
                 // A pair can only match within `editLimit` edits if at most
                 // `editLimit` query characters are absent from the candidate —
                 // the mask difference is a lower bound on the true distance,
                 // so this skips provably-impossible pairs without the DP.
-                if (query.tokenMasks[tokenIndex] & ~candidateMasks[index]).nonzeroBitCount > editLimit { continue }
+                if (query.tokenMasks[tokenIndex] & ~candidateMasks[index]).nonzeroBitCount > tokenEditLimit { continue }
                 let alignment: FuzzyAlignment?
                 let distance: Int?
                 if let fuzzyAlignment = fuzzyAlignment(pattern: queryCharacters[tokenIndex], candidate: candidateCharacters[index]) {
                     alignment = fuzzyAlignment
                     distance = nil
                 } else {
+                    guard tokenEditLimit > 0 else { continue }
                     let editDistance = editDistanceWithin(
                         queryCharacters[tokenIndex],
                         candidateCharacters[index],
-                        limit: editLimit
+                        limit: tokenEditLimit
                     )
-                    alignment = editDistance <= editLimit
+                    alignment = editDistance <= tokenEditLimit
                         ? FuzzyAlignment(score: max(1, 64 - editDistance * 20 - abs(token.count - candidateTokens[index].count) * 2))
                         : nil
-                    distance = editDistance <= editLimit ? editDistance : nil
+                    distance = editDistance <= tokenEditLimit ? editDistance : nil
                 }
                 guard let alignment else { continue }
                 if bestMatch == nil || alignment.score > bestMatch!.alignment.score {

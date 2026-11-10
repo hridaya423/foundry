@@ -12,11 +12,15 @@ final class SettingsWindowTests: XCTestCase {
         first.setFrame(saved, display: false)
         first.saveFrame(usingName: name)
 
-        let second = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 680, height: 480), styleMask: [.titled, .resizable],
-            backing: .buffered, defer: true)
+        let blank = NSRect(x: 0, y: 0, width: 680, height: 480)
+        let restored = NSWindow(contentRect: blank, styleMask: [.titled, .resizable], backing: .buffered, defer: true)
+        XCTAssertTrue(restored.setFrameUsingName(name))
+
+        let second = NSWindow(contentRect: blank, styleMask: [.titled, .resizable], backing: .buffered, defer: true)
         SettingsWindowController.place(second, autosaveName: name)
 
-        XCTAssertEqual(second.frame, saved, "a saved frame is not overridden by center()")
+        XCTAssertEqual(second.frame.size, saved.size)
+        XCTAssertEqual(second.frame, restored.frame, "a saved frame is not overridden by center()")
         XCTAssertEqual(second.frameAutosaveName, name)
     }
 

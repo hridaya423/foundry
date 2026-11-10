@@ -100,18 +100,14 @@ final class PanelSession {
             let sections = homeSections
             return sections.suggestions + sections.commands
         }
-        let list = searchListResults
-        if list.isEmpty, selectedPromotedCalculatorResult != nil {
-            return Self.calculatorFallbackResults
-        }
-        return list
+        return searchListResults
     }
 
     /// `results` minus rows the view does not paint when a calculator answer
     /// is promoted to its card, or when the shelf holds files.
     var searchListResults: [CommandResult] {
         var list = results
-        if let selected = selectedPromotedCalculatorResult {
+        if let selected = selectedAnswer {
             list = list.filter { $0.id != selected.id && $0.payload.isCalculatorConversion == false }
         }
         if mode == .search, fileShelf?.files.isEmpty == false, query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
@@ -145,63 +141,22 @@ final class PanelSession {
         return [FoundryDomain.WindowPlacement.leftHalf, .rightHalf, .topHalf, .bottomHalf, .maximize, .restore].contains(action.placement)
     }
 
-    /// `calculator.*` rows promote to the answer card; the `calculator.fallback.*`
-    /// rows offered under it are ordinary list rows, not promotions.
-    static func isPromotedCalculatorResult(_ result: CommandResult) -> Bool {
-        switch result.payload {
-        case .calculation, .calculationConversion: return true
-        default: return false
-        }
-    }
-
     /// The selected result when it promotes to a calculator card. Reads
     /// `results` directly — `selectedResult` itself resolves through
     /// `navigableResults`, which consults this property.
-    private var selectedPromotedCalculatorResult: CommandResult? {
+    private var selectedAnswer: CommandResult? {
         guard let selectedResultID,
               let selected = results.first(where: { $0.id == selectedResultID }),
-              PanelSession.isPromotedCalculatorResult(selected) else { return nil }
+              selected.payload.isAnswer else { return nil }
         return selected
     }
-
-    /// Static rows offered under a promoted calculator answer. Real
-    /// CommandResults so arrow keys reach them like anything else.
-    static let calculatorFallbackResults: [CommandResult] = [
-        CommandResult(
-            id: "calculator.fallback.clipboard",
-            title: "Clipboard History",
-            subtitle: "Search copied text, files, and images",
-            icon: CommandIcon(fallback: "CB", systemName: "doc.on.clipboard"),
-            payload: .calculatorFallback,
-            primaryAction: CommandAction(id: "calculator.fallback.clipboard.open", title: "Open", behavior: OpenClipboardHistoryAction()),
-            secondaryActions: []
-        ),
-        CommandResult(
-            id: "calculator.fallback.fileshelf",
-            title: "File Shelf",
-            subtitle: "Hold files for quick actions",
-            icon: CommandIcon(fallback: "FS", systemName: "tray.full"),
-            payload: .calculatorFallback,
-            primaryAction: CommandAction(id: "calculator.fallback.fileshelf.open", title: "Open", behavior: OpenFileShelfAction()),
-            secondaryActions: []
-        ),
-        CommandResult(
-            id: "calculator.fallback.settings",
-            title: "Open Foundry Settings",
-            subtitle: "Customize Home, commands, and Foundry preferences",
-            icon: CommandIcon(fallback: "ST", systemName: "slider.horizontal.3"),
-            payload: .calculatorFallback,
-            primaryAction: CommandAction(id: "calculator.fallback.settings.open", title: "Open", behavior: OpenSettingsAction()),
-            secondaryActions: []
-        ),
-    ]
 
     /// Favorites/Reset Ranking/Configure only make sense on durable commands
     /// and apps — not on ephemeral rows like files, clipboard items,
     /// calculator answers, or one-shot Ask-AI prompts.
     private func supportsMetaActions(_ result: CommandResult) -> Bool {
         switch result.payload {
-        case .file, .calculation, .calculationConversion, .calculatorFallback, .aiPrompt:
+        case .file, .calculation, .calculationConversion, .time, .aiPrompt:
             return false
         default:
             return true

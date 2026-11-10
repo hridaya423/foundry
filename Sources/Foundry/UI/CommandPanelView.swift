@@ -29,9 +29,9 @@ struct CommandPanelView: View {
         self.widgetBoard = state.widgetBoard
     }
 
-    private var selectedCalculatorResult: CommandResult? {
+    private var selectedAnswer: CommandResult? {
         guard let selectedResult = state.session.selectedResult,
-              PanelSession.isPromotedCalculatorResult(selectedResult) else { return nil }
+              selectedResult.payload.isAnswer else { return nil }
         return selectedResult
     }
 
@@ -43,7 +43,7 @@ struct CommandPanelView: View {
     private var isHome: Bool {
         state.mode == .search
             && state.session.query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-            && selectedCalculatorResult == nil
+            && selectedAnswer == nil
             && state.session.isShowingActions == false
     }
 
@@ -82,6 +82,10 @@ struct CommandPanelView: View {
             }
 
             if state.compactCollapsed == false {
+                if shouldShowHomeAccessory {
+                    homeAccessoryStrip
+                }
+
                 surfaceContent
                     .id(surfaceSpec.id)
 
@@ -107,10 +111,6 @@ struct CommandPanelView: View {
                     .padding(.horizontal, 16)
                     .padding(.bottom, 6)
                 }
-                if shouldShowHomeAccessory {
-                    homeAccessoryStrip
-                }
-
                 panelFooter
             }
         }
@@ -618,7 +618,7 @@ struct CommandPanelView: View {
         .background(FoundryTheme.fillSubtle)
         .clipShape(RoundedRectangle(cornerRadius: FoundryTheme.Radius.overlay, style: .continuous))
         .padding(.horizontal, 16)
-        .padding(.vertical, 4)
+        .padding(.bottom, 4)
         .animation(reduceMotion ? nil : FoundryTheme.Motion.state, value: fileShelf.files.count)
         .animation(reduceMotion ? nil : FoundryTheme.Motion.state, value: agents.sessions.count)
     }
@@ -664,22 +664,15 @@ struct CommandPanelView: View {
         ScrollViewReader { proxy in
             ScrollView {
                 LazyVStack(spacing: isHome ? 2 : 3) {
-                    if let selectedCalculatorResult {
-                        CalculatorResultCard(result: selectedCalculatorResult, alternatives: calculatorAlternativeResults,
-                            query: state.session.query) { result in
+                    if let selectedAnswer {
+                        AnswerCard(result: selectedAnswer, alternatives: answerAlternatives) { result in
                             state.session.select(resultID: result.id)
                         }
                         .padding(.bottom, 18)
 
-                        if displayedResults.isEmpty == false {
+                        if let first = displayedResults.first, first.payload.usesTheQuery {
                             CalculatorUseWithHeader(query: state.session.query)
                                 .padding(.bottom, 4)
-                        } else {
-                            CalculatorUseWithHeader(query: state.session.query)
-                                .padding(.bottom, 4)
-                            ForEach(calculatorFallbackResults, id: \.id) { result in
-                                resultRow(result, showKind: true)
-                            }
                         }
                     }
 
@@ -726,7 +719,7 @@ struct CommandPanelView: View {
                     }
                 }
                 .padding(.horizontal, 16)
-                .padding(.vertical, selectedCalculatorResult == nil ? 8 : 12)
+                .padding(.vertical, selectedAnswer == nil ? 8 : 12)
             }
             .scrollIndicators(.never)
             .background(Color.clear)
@@ -748,15 +741,11 @@ struct CommandPanelView: View {
         state.session.searchListResults
     }
 
-    private var calculatorAlternativeResults: [CommandResult] {
-        guard let selectedCalculatorResult else { return [] }
+    private var answerAlternatives: [CommandResult] {
+        guard let selectedAnswer else { return [] }
         return state.session.results.filter { result in
-            result.payload.isCalculatorConversion && result.id != selectedCalculatorResult.id
+            result.payload.isCalculatorConversion && result.id != selectedAnswer.id
         }
-    }
-
-    private var calculatorFallbackResults: [CommandResult] {
-        PanelSession.calculatorFallbackResults
     }
 
     private var isWindowLayoutQuery: Bool {
@@ -865,6 +854,8 @@ struct CommandPanelView: View {
         switch result.payload {
         case .quicklink: return "Quicklink"
         case .file: return "File"
+        case .time: return "Time"
+        case .aiPrompt: return "AI"
         default: break
         }
         switch result.route {

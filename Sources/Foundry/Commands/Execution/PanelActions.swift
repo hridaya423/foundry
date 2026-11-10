@@ -10,7 +10,7 @@ struct OpenQuickAIAction: ResultAction, Equatable {
     let prompt: String
 
     var icon: String? { "sparkles" }
-    var resultSection: ResultSection? { .fallback }
+    var resultSection: ResultSection? { prompt.isEmpty ? nil : .fallback }
 
     func perform(_ ctx: ActionContext) async -> CommandOutcome {
         .open(route: .quickAI(initialPrompt: prompt))

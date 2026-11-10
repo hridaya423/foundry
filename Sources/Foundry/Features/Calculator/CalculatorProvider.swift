@@ -164,8 +164,13 @@ final class CalculatorProvider: CommandProvider {
         let ratesByQuote = Dictionary(rates.map { ($0.quote, $0) }, uniquingKeysWith: { first, _ in first })
         return quotes.compactMap { ratesByQuote[$0] }.map { rate in
             let result = Self.currencyAmount(request.amount * rate.rate, code: rate.quote)
-            return CalculatorEvaluation(expression: expression, result: result, copyValue: result, note: rate.date.map { "Rate from \($0)" })
+            return CalculatorEvaluation(expression: expression, result: result, copyValue: result, note: rate.date.map(Self.rateNote))
         }
+    }
+
+    static func rateNote(isoDay: String) -> String {
+        guard let date = try? Date(isoDay, strategy: .iso8601.year().month().day()) else { return String(localized: "Rate from \(isoDay)") }
+        return String(localized: "Rate from \(date.formatted(.dateTime.day().month(.abbreviated)))")
     }
 
     private static let numberPattern = #"[-+]?(?:\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:[\.,]\d+)?)"#

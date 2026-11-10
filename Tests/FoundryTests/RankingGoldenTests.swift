@@ -64,6 +64,21 @@ final class RankingGoldenTests: XCTestCase {
         }
     }
 
+    func testAnAnswerRanksFirstAndOnlyFallbacksFollowIt() async throws {
+        let registry = try makeRegistry()
+        _ = await registry.fullResults(matching: "warm")
+
+        for query in ["2+2", "sqrt(16)", "10!", "1/3", "5 km"] {
+            let results = await registry.fullResults(matching: query)
+            XCTAssertEqual(results.first?.payload.isAnswer, true, "\(query): \(results.map(\.title))")
+            let others = results.filter { $0.payload.isAnswer == false }
+            XCTAssertFalse(others.isEmpty, "\(query) offers no fallback")
+            XCTAssertEqual(others.filter { $0.payload.usesTheQuery == false }.map(\.title), [], query)
+        }
+        let time = await registry.fullResults(matching: "time in tokyo")
+        XCTAssertEqual(time.first?.payload.isAnswer, true, "\(time.map(\.title))")
+    }
+
     /// Prints actual top-3 for every candidate query — run with
     /// FOUNDRY_GOLDEN_RECORD=1 when updating the table deliberately.
     func testRecordGoldenTable() async throws {
@@ -107,6 +122,7 @@ final class RankingGoldenTests: XCTestCase {
             providers: [
                 AppSearchProvider(diagnostics: diagnostics, roots: [appRoot]),
                 CalculatorProvider(),
+                TimeConversionProvider(),
                 DeveloperToolsProvider(),
                 MacUtilitiesProvider(processSnapshotProvider: EmptyProcessSnapshotProvider()),
                 TranslationProvider(),

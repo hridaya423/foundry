@@ -4,25 +4,41 @@ import Foundation
 /// zone conversions. Everything takes `now` and the user's `local` zone so
 /// results are deterministic under test.
 ///
-/// Supported forms:
-///   now | time | current time                     -> local, UTC, unix rows
-///   now in <zone> | time in <zone> | <zone> time | what time is it in <zone>
-///   H[:MM][am|pm] [in] <zone> [today|tomorrow|yesterday|<weekday>] [to|in <zone>[,|and <zone>]*]
+/// Supported forms (filler such as "what's the", "right now" and "?" is ignored):
+///   now | current time | what time is it | utc      -> local time in UTC, unix row
+///   time in <zone> | time <zone> | <zone> time | <zone> now | now in <zone>
+///   <zone> to <zone>[, <zone>]                      -> the current time, converted
+///   H[:MM][am|pm] [in] <zone> [to|in <zone>[,|and <zone>]*]
+///   <zone> H[:MM]am|pm [to|in <zone>…]
 ///   noon | midnight in place of a numeric time
+///   today | tomorrow | yesterday | <weekday> anywhere after the time
 ///
 /// A bare time with no zone words returns nothing — the zone is what makes the
-/// intent unambiguous. Without an explicit modifier the instant is the *next*
-/// occurrence of that wall time in the source zone, so conversions never point
-/// into the past. `matchingPolicy: .nextTime` skips nonexistent wall times
-/// (spring-forward gaps) forward and `.first` picks the first occurrence of
-/// ambiguous ones (fall-back).
+/// intent unambiguous. Without a day word the time is read on the source
+/// zone's current day. A weekday means its next occurrence. `matchingPolicy:
+/// .nextTime` skips nonexistent wall times (spring-forward gaps) forward and
+/// `.first` picks the first occurrence of ambiguous ones (fall-back).
 enum TimeConversionEngine {
+    struct Reading: Hashable, Sendable {
+        let time: String
+        let place: String
+        let abbreviation: String?
+        let day: String?
+
+        var caption: String {
+            ([place] + [abbreviation == place ? nil : abbreviation, day].compactMap { $0 }).joined(separator: " · ")
+        }
+    }
+
     struct Conversion: Equatable {
-        let title: String      // "9:00 AM" or "Fri 9:00 AM" when the target day differs from local today
-        let subtitle: String   // "12:00 PM EDT in New York → Your time (PDT)"
+        let source: Reading
+        let target: Reading
+        let subtitle: String   // "12:00 PM EDT in Eastern Time → Your time (PDT)"
         let copyText: String   // "9:00 AM PDT"
         let copyLine: String?  // "12:00 PM EDT → 9:00 AM PDT"; nil for current-time rows
         let isoText: String    // "2026-09-12T01:00:00Z"
+
+        var title: String { target.time }
     }
 
     static func recognizes(_ query: String) -> Bool {
@@ -31,18 +47,19 @@ enum TimeConversionEngine {
 
     static func conversions(for query: String, now: Date, local: TimeZone) -> [Conversion] {
         guard let parsed = parse(query) else { return [] }
+        let here = TimeZoneResolver.ResolvedZone(zone: local, name: "Your time")
         switch parsed {
-        case let .now(zoneToken):
-            return nowRows(zoneToken: zoneToken, now: now, local: local)
+        case let .now(sourceToken, targetTokens):
+            return nowRows(sourceToken: sourceToken, targetTokens: targetTokens, now: now, here: here)
         case let .convert(spec):
-            return convertRows(spec: spec, now: now, local: local)
+            return convertRows(spec: spec, now: now, here: here)
         }
     }
 
     // MARK: - Parsing
 
     private enum ParsedQuery {
-        case now(zoneToken: String?)
+        case now(sourceToken: String?, targetTokens: [String])
         case convert(TimeSpec)
     }
 
@@ -50,109 +67,136 @@ enum TimeConversionEngine {
         var hour: Int
         var minute: Int
         var sourceToken: String
-        var hasExplicitTargets = false
         var targetTokens: [String] = []
         var dayOffset: Int?
         var weekday: Int? // Calendar weekday: 1 = Sunday
     }
 
     private static let nowWords: Set<String> = [
-        "now", "time", "the time", "current time", "what time is it",
-        "what time is it now", "what time is it right now", "what's the time"
+        "now", "time now", "current time", "the time", "what time is it", "what's the time", "whats the time", "what is the time",
+        "utc", "gmt", "unix time"
     ]
-    private static let nowPrefixes = [
-        "now in ", "time in ", "current time in ", "the time in ", "what time is it in "
-    ]
+    private static let leadingFiller = ["what's the ", "whats the ", "what is the ", "what ", "the ", "current ", "local ", "at "]
+    private static let trailingFiller = ["?", " right now", " now", " currently", " at the moment", " please"]
+    private static let localTokens: Set<String> = ["my time", "local", "local time", "here", "me", "mine"]
     private static let weekdays: [String: Int] = [
         "sunday": 1, "monday": 2, "tuesday": 3, "wednesday": 4,
         "thursday": 5, "friday": 6, "saturday": 7
     ]
 
-    private static let timeSpecRegex = try? NSRegularExpression(
-        pattern: #"^(noon|midnight|\d{1,2}(?::\d{2})?\s*(?:am|pm)?)\s+(.+)$"#
+    private static let clockPattern = #"noon|midnight|\d{1,2}(?::\d{2})?\s*(?:am|pm)?"#
+    private static let strictClockPattern = #"noon|midnight|\d{1,2}:\d{2}\s*(?:am|pm)?|\d{1,2}\s*(?:am|pm)"#
+    private static let timeFirstRegex = try? NSRegularExpression(pattern: "^(\(clockPattern))\\s+(.+)$")
+    private static let zoneFirstRegex = try? NSRegularExpression(pattern: "^(.+?)\\s+(\(strictClockPattern))(?:\\s+(.+))?$")
+    private static let nowInRegex = try? NSRegularExpression(pattern: #"^(?:now|time(?: is it)?) (?:in|at|for) (.+)$"#)
+    private static let clockRegex = try? NSRegularExpression(pattern: #"^(\d{1,2})(?::(\d{2}))?\s*(am|pm)?$"#)
+    private static let dayWordRegex = try? NSRegularExpression(
+        pattern: #"(?:^|\s)(?:on )?(today|tomorrow|yesterday|sunday|monday|tuesday|wednesday|thursday|friday|saturday)(?=\s|$)"#
     )
-    private static let clockRegex = try? NSRegularExpression(
-        pattern: #"^(\d{1,2})(?::(\d{2}))?\s*(am|pm)?$"#
-    )
-    private static let dayModifierRegex = try? NSRegularExpression(
-        pattern: #"\s+(today|tomorrow|yesterday|sunday|monday|tuesday|wednesday|thursday|friday|saturday)$"#
-    )
+
+    private static func groups(_ regex: NSRegularExpression?, in text: String) -> [String?]? {
+        guard let match = regex?.firstMatch(in: text, range: NSRange(text.startIndex..<text.endIndex, in: text)) else { return nil }
+        return (0..<match.numberOfRanges).map { Range(match.range(at: $0), in: text).map { String(text[$0]) } }
+    }
 
     private static func parse(_ raw: String) -> ParsedQuery? {
         var text = raw.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
-        guard text.isEmpty == false else { return nil }
         text = text.replacingOccurrences(of: "a.m.", with: "am").replacingOccurrences(of: "p.m.", with: "pm")
         text = text.components(separatedBy: .whitespaces).filter { $0.isEmpty == false }.joined(separator: " ")
+        guard text.isEmpty == false else { return nil }
 
-        if nowWords.contains(text) { return .now(zoneToken: nil) }
-        for prefix in nowPrefixes where text.hasPrefix(prefix) {
-            let token = String(text.dropFirst(prefix.count)).trimmingCharacters(in: .whitespaces)
-            return token.isEmpty ? nil : .now(zoneToken: token)
+        var saidNow = false
+        while nowWords.contains(text) == false, let filler = trailingFiller.first(where: { text.hasSuffix($0) && text.count > $0.count }) {
+            text = String(text.dropLast(filler.count)).trimmingCharacters(in: .whitespaces)
+            saidNow = saidNow || filler != "?"
         }
-        if text.hasPrefix("at ") { text = String(text.dropFirst(3)) }
-        if text.hasSuffix(" time") {
-            let token = String(text.dropLast(5)).trimmingCharacters(in: .whitespaces)
-            if token.isEmpty == false {
-                if TimeZoneResolver.resolve(token) != nil { return .now(zoneToken: token) }
-                text = token
+        if nowWords.contains(text) {
+            return .now(sourceToken: nil, targetTokens: ["utc", "gmt"].contains(text) ? ["utc"] : [])
+        }
+        while let filler = leadingFiller.first(where: text.hasPrefix) {
+            text = String(text.dropFirst(filler.count))
+        }
+
+        if let zone = groups(nowInRegex, in: text)?[1] {
+            return .now(sourceToken: nil, targetTokens: [zone])
+        }
+        if text.hasPrefix("time "), isZone(String(text.dropFirst(5))) {
+            return .now(sourceToken: nil, targetTokens: [String(text.dropFirst(5))])
+        }
+        if text.hasSuffix(" time") || saidNow, isZone(text) {
+            return .now(sourceToken: nil, targetTokens: [text])
+        }
+
+        if let parts = groups(timeFirstRegex, in: text), let clock = parts[1].flatMap(clockTime), let rest = parts[2] {
+            return .convert(spec(hour: clock.0, minute: clock.1, zones: rest))
+        }
+        if let parts = groups(zoneFirstRegex, in: text), let zone = parts[1], let clock = parts[2].flatMap(clockTime) {
+            return .convert(spec(hour: clock.0, minute: clock.1, zones: [zone, parts[3]].compactMap { $0 }.joined(separator: " ")))
+        }
+        if text.rangeOfCharacter(from: .decimalDigits) == nil, let split = text.range(of: " to ") ?? text.range(of: " in ") {
+            let source = String(text[..<split.lowerBound])
+            let targets = targetTokens(String(text[split.upperBound...]))
+            if isZone(source), targets.contains(where: isZone) {
+                return .now(sourceToken: source, targetTokens: targets)
             }
         }
+        return nil
+    }
 
-        let fullRange = NSRange(text.startIndex..<text.endIndex, in: text)
-        guard let match = timeSpecRegex?.firstMatch(in: text, range: fullRange),
-              let timeRange = Range(match.range(at: 1), in: text),
-              let restRange = Range(match.range(at: 2), in: text),
-              let (hour, minute) = clockTime(String(text[timeRange])) else { return nil }
+    private static func isZone(_ token: String) -> Bool {
+        localTokens.contains(token) || resolve(token) != nil
+    }
 
+    private static func resolve(_ token: String) -> TimeZoneResolver.ResolvedZone? {
+        TimeZoneResolver.resolve(token) ?? (token.hasSuffix(" time") ? TimeZoneResolver.resolve(String(token.dropLast(5))) : nil)
+    }
+
+    private static func targetTokens(_ text: String) -> [String] {
+        text.replacingOccurrences(of: " and ", with: ",")
+            .split(separator: ",")
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .filter { $0.isEmpty == false }
+    }
+
+    private static func spec(hour: Int, minute: Int, zones: String) -> TimeSpec {
         var spec = TimeSpec(hour: hour, minute: minute, sourceToken: "")
-        var rest = String(text[restRange]).trimmingCharacters(in: .whitespaces)
-
-        // A trailing day/weekday modifies the source regardless of position.
-        if let modMatch = dayModifierRegex?.firstMatch(in: rest, range: NSRange(rest.startIndex..<rest.endIndex, in: rest)),
-           let modRange = Range(modMatch.range(at: 1), in: rest),
-           let stripRange = Range(modMatch.range, in: rest) {
-            let word = String(rest[modRange])
-            switch word {
+        var rest = zones
+        if let match = dayWordRegex?.firstMatch(in: rest, range: NSRange(rest.startIndex..<rest.endIndex, in: rest)),
+           let wordRange = Range(match.range(at: 1), in: rest), let whole = Range(match.range, in: rest) {
+            switch String(rest[wordRange]) {
             case "today": spec.dayOffset = 0
             case "tomorrow": spec.dayOffset = 1
             case "yesterday": spec.dayOffset = -1
-            default: spec.weekday = weekdays[word]
+            case let word: spec.weekday = weekdays[word]
             }
-            rest = String(rest[..<stripRange.lowerBound]).trimmingCharacters(in: .whitespaces)
+            rest.replaceSubrange(whole, with: " ")
+            rest = rest.components(separatedBy: .whitespaces).filter { $0.isEmpty == false }.joined(separator: " ")
         }
 
         if rest.hasPrefix("in ") { rest = String(rest.dropFirst(3)) }
         while rest.hasSuffix(" to") || rest.hasSuffix(" in") || rest.hasSuffix(",") {
             rest = String(rest.dropLast(rest.hasSuffix(",") ? 1 : 3)).trimmingCharacters(in: .whitespaces)
         }
-
-        if let split = rest.range(of: " to ") ?? rest.range(of: " in ") {
+        if rest.hasPrefix("to ") {
+            spec.targetTokens = targetTokens(String(rest.dropFirst(3)))
+        } else if let split = rest.range(of: " to ") ?? rest.range(of: " in ") {
             spec.sourceToken = String(rest[..<split.lowerBound]).trimmingCharacters(in: .whitespaces)
-            spec.hasExplicitTargets = true
-            spec.targetTokens = rest[split.upperBound...]
-                .replacingOccurrences(of: " and ", with: ",")
-                .split(separator: ",")
-                .map { $0.trimmingCharacters(in: .whitespaces) }
-                .filter { $0.isEmpty == false }
+            spec.targetTokens = targetTokens(String(rest[split.upperBound...]))
         } else {
             spec.sourceToken = rest
         }
-        return .convert(spec)
+        return spec
     }
 
     private static func clockTime(_ token: String) -> (Int, Int)? {
         if token == "noon" { return (12, 0) }
         if token == "midnight" { return (0, 0) }
-        let range = NSRange(token.startIndex..<token.endIndex, in: token)
-        guard let match = clockRegex?.firstMatch(in: token, range: range) else { return nil }
-        guard let hour = Int(String(token[Range(match.range(at: 1), in: token)!])) else { return nil }
-        let minute = Range(match.range(at: 2), in: token).flatMap { Int(String(token[$0])) } ?? 0
+        guard let parts = groups(clockRegex, in: token), let hour = parts[1].flatMap(Int.init) else { return nil }
+        let minute = parts[2].flatMap(Int.init) ?? 0
         guard minute <= 59 else { return nil }
-        if let meridiemRange = Range(match.range(at: 3), in: token) {
-            let meridiem = token[meridiemRange]
+        if let meridiem = parts[3] {
             guard (1...12).contains(hour) else { return nil }
-            let base = hour % 12
-            return meridiem == "pm" ? (base + 12, minute) : (base, minute)
+            return (hour % 12 + (meridiem == "pm" ? 12 : 0), minute)
         }
         guard (0...23).contains(hour) else { return nil }
         return (hour, minute)
@@ -168,92 +212,96 @@ enum TimeConversionEngine {
         if let weekday = spec.weekday {
             components.weekday = weekday
             anchor = now
-        } else if let offset = spec.dayOffset {
-            guard let day = calendar.date(byAdding: .day, value: offset, to: calendar.startOfDay(for: now)) else { return nil }
-            anchor = day.addingTimeInterval(-1)
         } else {
-            anchor = now
+            guard let day = calendar.date(byAdding: .day, value: spec.dayOffset ?? 0, to: calendar.startOfDay(for: now)) else { return nil }
+            anchor = day.addingTimeInterval(-1)
         }
         return calendar.nextDate(after: anchor, matching: components, matchingPolicy: .nextTime, repeatedTimePolicy: .first, direction: .forward)
     }
 
     // MARK: - Rendering
 
-    private static func convertRows(spec: TimeSpec, now: Date, local: TimeZone) -> [Conversion] {
-        let source: TimeZoneResolver.ResolvedZone
-        if spec.sourceToken.isEmpty {
-            source = TimeZoneResolver.ResolvedZone(zone: local, name: "Your time")
-        } else {
-            guard let resolved = TimeZoneResolver.resolve(spec.sourceToken) else { return [] }
-            source = resolved
-        }
-
-        let targets: [TimeZoneResolver.ResolvedZone]
-        if spec.hasExplicitTargets {
-            let resolved = spec.targetTokens.compactMap(TimeZoneResolver.resolve)
-            guard resolved.isEmpty == false else { return [] }
-            targets = resolved
-        } else {
-            var list = [TimeZoneResolver.ResolvedZone(zone: local, name: "Your time")]
-            if local != utcZone { list.append(TimeZoneResolver.ResolvedZone(zone: utcZone, name: "UTC")) }
-            targets = list
-        }
-
-        guard let instant = instant(for: spec, in: source.zone, after: now) else { return [] }
-        return targets.map { render(instant: instant, source: source, target: $0, now: now, local: local) }
+    private static func zone(_ token: String, here: TimeZoneResolver.ResolvedZone) -> TimeZoneResolver.ResolvedZone? {
+        localTokens.contains(token) ? here : resolve(token)
     }
 
-    private static func nowRows(zoneToken: String?, now: Date, local: TimeZone) -> [Conversion] {
-        guard let token = zoneToken else {
-            var rows = [
-                renderNow(instant: now, zone: TimeZoneResolver.ResolvedZone(zone: local, name: "Your time"), now: now, local: local),
-                renderNow(instant: now, zone: TimeZoneResolver.ResolvedZone(zone: utcZone, name: "UTC"), now: now, local: local)
-            ]
+    private static func targets(
+        _ tokens: [String], source: TimeZoneResolver.ResolvedZone, here: TimeZoneResolver.ResolvedZone
+    ) -> [TimeZoneResolver.ResolvedZone] {
+        guard tokens.isEmpty else { return tokens.compactMap { zone($0, here: here) } }
+        let utc = TimeZoneResolver.ResolvedZone(zone: utcZone, name: "UTC")
+        let defaults = [here, utc].filter { $0.zone != source.zone }
+        return defaults.isEmpty ? [utc] : defaults
+    }
+
+    private static func convertRows(spec: TimeSpec, now: Date, here: TimeZoneResolver.ResolvedZone) -> [Conversion] {
+        guard let source = spec.sourceToken.isEmpty ? here : zone(spec.sourceToken, here: here),
+              let instant = instant(for: spec, in: source.zone, after: now) else { return [] }
+        let namesDay = spec.weekday != nil || spec.dayOffset != nil
+        return targets(spec.targetTokens, source: source, here: here).map {
+            render(instant: instant, source: source, target: $0, here: here, namesDay: namesDay, isNow: false)
+        }
+    }
+
+    private static func nowRows(sourceToken: String?, targetTokens: [String], now: Date, here: TimeZoneResolver.ResolvedZone) -> [Conversion] {
+        guard let source = sourceToken.map({ zone($0, here: here) }) ?? here else { return [] }
+        var rows = targets(targetTokens, source: source, here: here).map {
+            render(instant: now, source: source, target: $0, here: here, namesDay: false, isNow: sourceToken == nil)
+        }
+        if sourceToken == nil, targetTokens.isEmpty {
+            let stamp = String(Int(now.timeIntervalSince1970))
             rows.append(Conversion(
-                title: String(Int(now.timeIntervalSince1970)),
+                source: reading(now, in: here, day: nil),
+                target: Reading(time: stamp, place: "Unix timestamp", abbreviation: nil, day: nil),
                 subtitle: "Unix timestamp",
-                copyText: String(Int(now.timeIntervalSince1970)),
+                copyText: stamp,
                 copyLine: nil,
                 isoText: isoString(now)
             ))
-            return rows
         }
-        guard let zone = TimeZoneResolver.resolve(token) else { return [] }
-        return [renderNow(instant: now, zone: zone, now: now, local: local)]
+        return rows
     }
 
-    private static func renderNow(instant: Date, zone: TimeZoneResolver.ResolvedZone, now: Date, local: TimeZone) -> Conversion {
-        let time = timeString(instant, in: zone.zone)
-        let prefix = dayPrefix(instant: instant, zone: zone.zone, now: now, local: local)
-        let abbreviation = zone.abbreviation(for: instant)
-        return Conversion(
-            title: prefix + time,
-            subtitle: "\(zone.name) (\(abbreviation)) · \(offsetDescription(of: zone.zone, at: instant, relativeTo: local))",
-            copyText: "\(time) \(abbreviation)",
-            copyLine: nil,
-            isoText: isoString(instant)
-        )
+    private static func reading(_ instant: Date, in zone: TimeZoneResolver.ResolvedZone, day: String?) -> Reading {
+        Reading(time: timeString(instant, in: zone.zone), place: zone.name, abbreviation: zone.abbreviation(for: instant), day: day)
     }
 
     private static func render(
-        instant: Date, source: TimeZoneResolver.ResolvedZone, target: TimeZoneResolver.ResolvedZone, now: Date, local: TimeZone
+        instant: Date, source: TimeZoneResolver.ResolvedZone, target: TimeZoneResolver.ResolvedZone, here: TimeZoneResolver.ResolvedZone,
+        namesDay: Bool, isNow: Bool
     ) -> Conversion {
-        let sourceTime = timeString(instant, in: source.zone)
-        let targetTime = timeString(instant, in: target.zone)
-        let sourceAbbrev = source.abbreviation(for: instant)
-        let targetAbbrev = target.abbreviation(for: instant)
+        let sourceDay = dayText(instant, in: source.zone, format: "yyyy-MM-dd")
+        let targetDay = dayText(instant, in: target.zone, format: "yyyy-MM-dd")
+        var sourceLabel: String?
+        var targetLabel: String?
+        if namesDay {
+            sourceLabel = dayText(instant, in: source.zone, format: "EEE")
+            targetLabel = dayText(instant, in: target.zone, format: "EEE")
+        } else if targetDay != sourceDay {
+            let later = targetDay > sourceDay
+            targetLabel = isNow ? (later ? "tomorrow" : "yesterday") : (later ? "next day" : "previous day")
+        }
 
-        let sourcePrefix = dayPrefix(instant: instant, zone: source.zone, now: now, local: local)
-        let left = source.zone == local
-            ? "\(sourcePrefix)\(sourceTime) \(sourceAbbrev)"
-            : "\(sourcePrefix)\(sourceTime) \(sourceAbbrev) in \(source.name)"
-        let right = target.zone == local ? "Your time (\(targetAbbrev))" : "\(target.name) (\(targetAbbrev))"
+        let from = reading(instant, in: source, day: sourceLabel)
+        let to = reading(instant, in: target, day: targetLabel)
+        let fromText = [sourceLabel, from.time, from.abbreviation].compactMap { $0 }.joined(separator: " ")
+        let toText = [to.time, to.abbreviation].compactMap { $0 }.joined(separator: " ")
+        let dayNote = targetLabel.map { " · \($0)" } ?? ""
 
+        let subtitle: String
+        if isNow {
+            subtitle = "\(target.name) (\(to.abbreviation ?? "")) · \(offsetDescription(of: target.zone, at: instant, relativeTo: here.zone))\(dayNote)"
+        } else {
+            let left = source.zone == here.zone ? fromText : "\(fromText) in \(source.name)"
+            let right = target.zone == here.zone ? "Your time (\(to.abbreviation ?? ""))" : "\(target.name) (\(to.abbreviation ?? ""))"
+            subtitle = "\(left) → \(right)\(dayNote)"
+        }
         return Conversion(
-            title: dayPrefix(instant: instant, zone: target.zone, now: now, local: local) + targetTime,
-            subtitle: "\(left) → \(right)",
-            copyText: "\(targetTime) \(targetAbbrev)",
-            copyLine: "\(sourcePrefix)\(sourceTime) \(sourceAbbrev) → \(targetTime) \(targetAbbrev)",
+            source: from,
+            target: to,
+            subtitle: subtitle,
+            copyText: toText,
+            copyLine: isNow ? nil : "\(fromText) → \(toText)",
             isoText: isoString(instant)
         )
     }
@@ -263,12 +311,7 @@ enum TimeConversionEngine {
     private static let utcZone = TimeZone(identifier: "Etc/UTC")!
 
     private static func timeString(_ date: Date, in zone: TimeZone) -> String {
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "en_US_POSIX")
-        formatter.calendar = Calendar(identifier: .gregorian)
-        formatter.timeZone = zone
-        formatter.dateFormat = "h:mm a"
-        return formatter.string(from: date)
+        dayText(date, in: zone, format: "h:mm a")
     }
 
     private static func dayText(_ date: Date, in zone: TimeZone, format: String) -> String {
@@ -278,12 +321,6 @@ enum TimeConversionEngine {
         formatter.timeZone = zone
         formatter.dateFormat = format
         return formatter.string(from: date)
-    }
-
-    /// "Fri " when the instant's day in `zone` differs from local today, else "".
-    private static func dayPrefix(instant: Date, zone: TimeZone, now: Date, local: TimeZone) -> String {
-        guard dayText(instant, in: zone, format: "yyyy-MM-dd") != dayText(now, in: local, format: "yyyy-MM-dd") else { return "" }
-        return dayText(instant, in: zone, format: "EEE") + " "
     }
 
     private static func offsetDescription(of zone: TimeZone, at instant: Date, relativeTo local: TimeZone) -> String {

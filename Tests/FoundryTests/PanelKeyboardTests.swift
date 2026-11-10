@@ -340,20 +340,6 @@ final class PanelKeyboardTests: XCTestCase {
         state.shutdown()
     }
 
-    func testCalculatorFallbackRowsAreReachableByKeyboard() {
-        let state = makeState()
-        let calc = result("calculator.expr", title: "42", payload: .calculation(expression: "6*7", value: "42"), primary: CopyToClipboardAction("42"))
-        state.session.results = [calc]
-        state.session.query = "6*7"
-        state.session.selectedResultID = calc.id
-
-        let navigableIDs = state.session.navigableResults.map(\.id)
-        for fallback in PanelSession.calculatorFallbackResults {
-            XCTAssertTrue(navigableIDs.contains(fallback.id), "fallback \(fallback.id) must be keyboard-reachable")
-        }
-        state.shutdown()
-    }
-
     func testFileShelfRowIsNotNavigableWhenShelfHoldsFiles() {
         let state = makeState()
         state.session.results = [

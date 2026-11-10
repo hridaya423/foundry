@@ -32,7 +32,7 @@ final class TimeConversionProvider: CommandProvider {
                 subtitle: conversion.subtitle,
                 icon: CommandIcon(fallback: "◷", systemName: "clock"),
                 searchKeywords: [request.query],
-                payload: .command,
+                payload: .time(from: conversion.source, to: conversion.target),
                 primaryAction: CommandAction(id: "\(resultID).copy", title: "Copy", behavior: CopyToClipboardAction(conversion.copyText)),
                 secondaryActions: actions
             )

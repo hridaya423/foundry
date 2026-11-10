@@ -23,7 +23,7 @@ final class PanelSessionTests: XCTestCase {
             primaryAction: CommandAction(id: id + ".primary", title: "Open", behavior: OpenHomeAction()), secondaryActions: [])
     }
 
-    func testCalculatorFallbackRowsAreNavigableOnlyWhenTheyAreDrawn() {
+    func testAPromotedAnswerLeavesTheListToTheOtherRows() {
         let session = makeSession()
         let calc = result("calculator.expr", payload: .calculation(expression: "6*7", value: "42"))
         session.query = "6*7"
@@ -32,6 +32,6 @@ final class PanelSessionTests: XCTestCase {
         XCTAssertEqual(session.navigableResults.map(\.id), ["test.command"])
 
         session.results = [calc]
-        XCTAssertEqual(session.navigableResults.map(\.id), PanelSession.calculatorFallbackResults.map(\.id))
+        XCTAssertEqual(session.navigableResults, [])
     }
 }

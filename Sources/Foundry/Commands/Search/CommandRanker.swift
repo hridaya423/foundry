@@ -10,6 +10,8 @@ final class CommandRanker: Sendable {
         self.configService = configService
     }
 
+    static let answerScore = 10.0
+
     func deduplicated(_ candidates: [RankCandidate]) -> [RankCandidate] {
         var seen = Set<String>()
         return candidates.filter { seen.insert($0.result.id).inserted }
@@ -37,6 +39,8 @@ final class CommandRanker: Sendable {
                 let base: Double
                 if query == nil {
                     base = 0
+                } else if candidate.result.payload.isAnswer {
+                    base = Self.answerScore
                 } else {
                     // Results a provider matched through channels we don't
                     // re-score (file contents, process tables) sit below the
@@ -50,7 +54,7 @@ final class CommandRanker: Sendable {
                     candidate: candidate,
                     preference: preference,
                     match: match,
-                    score: base + usage + (preference?.favoriteRank == nil ? 0 : 0.01),
+                    score: candidate.result.payload.isAnswer ? base : base + usage + (preference?.favoriteRank == nil ? 0 : 0.01),
                     usageBoost: usageBoosts[candidate.result.id] ?? 0
                 )
             }
@@ -70,6 +74,11 @@ final class CommandRanker: Sendable {
                     if lhs.usageBoost != rhs.usageBoost { return lhs.usageBoost > rhs.usageBoost }
                 } else if lhs.score != rhs.score {
                     return lhs.score > rhs.score
+                }
+
+                if lhs.candidate.result.payload.isAnswer, rhs.candidate.result.payload.isAnswer,
+                   lhs.candidate.sourceOrder != rhs.candidate.sourceOrder {
+                    return lhs.candidate.sourceOrder < rhs.candidate.sourceOrder
                 }
 
                 // Deterministic tie-breaks — a strict weak ordering, so the

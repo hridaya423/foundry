@@ -26,8 +26,7 @@ enum ResultPayload: Hashable, Sendable {
     case calculation(expression: String, value: String)
     /// `calculator.convert.*` row — a calculation but never the promoted card.
     case calculationConversion(expression: String, value: String)
-    /// `calculator.fallback.*` static rows under a promoted answer.
-    case calculatorFallback
+    case time(from: TimeConversionEngine.Reading, to: TimeConversionEngine.Reading)
     case quicklink(id: String)
     case script(path: String)
     case url(URL)
@@ -39,6 +38,21 @@ enum ResultPayload: Hashable, Sendable {
 }
 
 extension ResultPayload {
+    /// Results that answer the query itself. They rank first and show as the card above the list.
+    var isAnswer: Bool {
+        switch self {
+        case .calculation, .calculationConversion, .time: true
+        default: false
+        }
+    }
+
+    var usesTheQuery: Bool {
+        switch self {
+        case .aiPrompt, .quicklink: true
+        default: false
+        }
+    }
+
     var isCalculatorConversion: Bool {
         if case .calculationConversion = self { return true }
         return false

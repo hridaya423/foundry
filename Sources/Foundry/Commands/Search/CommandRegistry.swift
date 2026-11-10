@@ -123,7 +123,10 @@ final class CommandRegistry: Sendable {
             diagnostics.endSpan(rankSpan)
             return fallback
         }
-        let ordered = Array(ranker.ordered(candidates, query: query).prefix(Self.resultLimit(for: query)))
+        var ordered = Array(ranker.ordered(candidates, query: query).prefix(Self.resultLimit(for: query)))
+        if isScopedQuery == false, ordered.allSatisfy(\.payload.isAnswer) {
+            ordered += await fallbackResults(for: query, sensitivity: sensitivity)
+        }
         diagnostics.endSpan(rankSpan)
         return ordered
     }

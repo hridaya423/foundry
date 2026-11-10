@@ -3,9 +3,22 @@ import XCTest
 
 final class CalculatorProviderTests: XCTestCase {
     @MainActor
-    func testArithmeticUsesEqualsAndConversionsUseAnArrow() {
-        XCTAssertEqual(CalculatorResultCard.separator(for: "4"), "=")
-        XCTAssertEqual(CalculatorResultCard.separator(for: "9.20 Euro"), "→")
+    func testAnswerCardSplitsEachKindOfAnswer() async {
+        let provider = CalculatorProvider(rateSource: { _ in [FrankfurterRate(quote: "EUR", rate: 0.9, date: "2026-11-10")] },
+            rateCache: CurrencyRateCache())
+        let sum = AnswerCard.content(for: await provider.results(matching: "2+2")[0])
+        XCTAssertEqual([sum.left.value, sum.separator, sum.right.value], ["2+2", "=", "4"])
+
+        let currency = AnswerCard.content(for: await provider.results(matching: "10 usd to eur")[0])
+        XCTAssertEqual(currency.left, AnswerCard.Side(value: "$10", caption: "US Dollar"))
+        XCTAssertEqual(currency.right, AnswerCard.Side(value: "€9", caption: "Euro"))
+        XCTAssertEqual(currency.note, "Rate from \(Date(timeIntervalSince1970: 1_794_268_800).formatted(.dateTime.day().month(.abbreviated)))")
+
+        let now = ISO8601DateFormatter().date(from: "2026-11-10T17:05:00Z")!
+        let time = await TimeConversionProvider(now: { now }, localZone: { TimeZone(identifier: "Europe/London")! }).results(matching: "12 pm EST to BST")
+        let card = AnswerCard.content(for: time[0])
+        XCTAssertEqual(card.left, AnswerCard.Side(value: "12:00 PM", caption: "Eastern Time · EST"))
+        XCTAssertEqual(card.right, AnswerCard.Side(value: "5:00 PM", caption: "London · GMT"))
     }
 
     func testTwoArgumentLogUsesSecondArgumentAsBase() async {

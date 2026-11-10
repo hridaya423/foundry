@@ -738,6 +738,9 @@
     "Continue Anyway" : {
 
     },
+    "Conversion" : {
+
+    },
     "Conversion cancelled" : {
 
     },
@@ -2478,6 +2481,9 @@
         }
       }
     },
+    "Rate from %@" : {
+
+    },
     "Raycast" : {
 
     },
@@ -3214,6 +3220,9 @@
 
     },
     "Those %@ already on File Shelf" : {
+
+    },
+    "Time" : {
 
     },
     "Time since last boot" : {

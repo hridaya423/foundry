@@ -15,13 +15,46 @@ final class TimeConversionTests: XCTestCase {
 
     // MARK: - Current time
 
-    func testNowReturnsLocalUTCAndUnixRows() {
+    func testNowReturnsUTCAndUnixRowsFromLocalTime() {
         let rows = convert("now")
-        XCTAssertEqual(rows.count, 3)
-        XCTAssertEqual(rows[0].title, "10:00 AM")
-        XCTAssertTrue(rows[0].subtitle.contains("Your time"))
-        XCTAssertEqual(rows[1].title, "2:00 PM")
-        XCTAssertEqual(rows[2].title, String(Int(now.timeIntervalSince1970)))
+        XCTAssertEqual(rows.map(\.title), ["2:00 PM", String(Int(now.timeIntervalSince1970))])
+        XCTAssertEqual(rows[0].source, TimeConversionEngine.Reading(time: "10:00 AM", place: "Your time", abbreviation: "EDT", day: nil))
+        XCTAssertEqual(rows[0].target.caption, "UTC")
+    }
+
+    func testFillerWordsAroundAPlaceStillAnswer() {
+        for query in ["time in SF now", "time in sf", "sf time", "time sf", "sf now", "what's the time in sf?", "What time is it in SF right now",
+                      "current time in sf", "sf time now"] {
+            XCTAssertEqual(convert(query).map(\.title), ["7:00 AM"], query)
+        }
+        XCTAssertEqual(convert("what's the time").first?.title, "2:00 PM")
+        XCTAssertEqual(convert("utc").map(\.title), ["2:00 PM"])
+    }
+
+    func testZoneToZoneConvertsTheCurrentTime() {
+        let rows = convert("est to ist")
+        XCTAssertEqual(rows.map(\.title), ["7:30 PM"])
+        XCTAssertEqual(rows[0].source.time, "10:00 AM")
+        XCTAssertEqual(rows[0].copyLine, "10:00 AM EDT → 7:30 PM IST")
+    }
+
+    func testZoneBeforeTheClockAndDayWordsAnywhere() {
+        XCTAssertEqual(convert("tokyo 9am", local: la).first?.isoText, "2026-09-11T00:00:00Z")
+        XCTAssertEqual(convert("9am tomorrow tokyo", local: la).first?.isoText, "2026-09-12T00:00:00Z")
+        XCTAssertEqual(convert("tomorrow 9am in tokyo", local: la).first?.isoText, "2026-09-12T00:00:00Z")
+        XCTAssertEqual(convert("3pm pst to my time").map(\.title), ["6:00 PM"])
+    }
+
+    func testATimeIsReadOnTheSourceZonesCurrentDay() {
+        // 9 AM in New York has passed at 10 AM; the answer stays on today instead of jumping to tomorrow.
+        let rows = convert("9am est to london")
+        XCTAssertEqual(rows.first?.isoText, "2026-09-11T13:00:00Z")
+        XCTAssertNil(rows.first?.target.day)
+    }
+
+    func testTargetOnAnotherDayIsLabelled() {
+        XCTAssertEqual(convert("3pm pst in ist").first?.target.day, "next day")
+        XCTAssertEqual(convert("time in auckland").first?.target.day, "tomorrow")
     }
 
     func testNowInTokyo() {
@@ -53,14 +86,15 @@ final class TimeConversionTests: XCTestCase {
     // MARK: - Conversions
 
     func testConversionToLocalAndUTC() {
-        let rows = convert("12pm est")
+        let rows = convert("12pm est", local: la)
         XCTAssertEqual(rows.count, 2)
-        XCTAssertEqual(rows[0].title, "12:00 PM")
-        XCTAssertEqual(rows[0].subtitle, "12:00 PM EDT → Your time (EDT)")
-        XCTAssertEqual(rows[0].copyText, "12:00 PM EDT")
-        XCTAssertEqual(rows[0].copyLine, "12:00 PM EDT → 12:00 PM EDT")
+        XCTAssertEqual(rows[0].title, "9:00 AM")
+        XCTAssertEqual(rows[0].subtitle, "12:00 PM EDT in Eastern Time → Your time (PDT)")
+        XCTAssertEqual(rows[0].copyText, "9:00 AM PDT")
+        XCTAssertEqual(rows[0].copyLine, "12:00 PM EDT → 9:00 AM PDT")
         XCTAssertEqual(rows[0].isoText, "2026-09-11T16:00:00Z")
         XCTAssertEqual(rows[1].title, "4:00 PM")
+        XCTAssertEqual(convert("12pm est").map(\.title), ["4:00 PM"], "the user's own zone is not offered as a target for itself")
     }
 
     func testConversionToOtherLocalZone() {
@@ -97,8 +131,10 @@ final class TimeConversionTests: XCTestCase {
 
     func testTomorrowModifier() {
         // now is Friday; 12pm tomorrow in NY is Saturday -> weekday prefix shows the shift
-        let rows = convert("12pm est tomorrow")
-        XCTAssertEqual(rows.first?.title, "Sat 12:00 PM")
+        let rows = convert("12pm est tomorrow", local: la)
+        XCTAssertEqual(rows.first?.title, "9:00 AM")
+        XCTAssertEqual(rows.first?.source.day, "Sat")
+        XCTAssertEqual(rows.first?.target.day, "Sat")
         XCTAssertEqual(rows.first?.isoText, "2026-09-12T16:00:00Z")
     }
 
@@ -106,7 +142,8 @@ final class TimeConversionTests: XCTestCase {
         // Friday 11pm in Tokyo: this Friday's 9am already passed -> next Friday Sep 18 9am JST
         let rows = convert("9am tokyo friday")
         XCTAssertEqual(rows.first?.isoText, "2026-09-18T00:00:00Z")
-        XCTAssertEqual(rows.first?.title, "Thu 8:00 PM")
+        XCTAssertEqual(rows.first?.title, "8:00 PM")
+        XCTAssertEqual(rows.first?.target.day, "Thu")
         XCTAssertTrue(rows[0].subtitle.contains("Fri 9:00 AM JST in Tokyo"))
     }
 

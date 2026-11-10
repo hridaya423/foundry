@@ -273,7 +273,7 @@ struct ResultRow: View {
                     .lineLimit(1)
 
                 // Commands explain themselves by title; a detail line is noise.
-                if let subtitle = result.subtitle, ResultSection.of(result) != .commands {
+                if let subtitle = result.subtitle, ResultSection.of(result) != .commands || result.payload.isAnswer {
                     Text(subtitle)
                         .font(FoundryTheme.rowDetail)
                         .foregroundStyle(FoundryTheme.textTertiary)
