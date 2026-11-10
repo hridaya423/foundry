@@ -112,6 +112,18 @@ final class QuicklinkTests: XCTestCase {
         XCTAssertEqual(QuicklinkStore(url: url).load().map(\.name), ["One"])
     }
 
+    func testReloadReadsQuicklinksReplacedOnDisk() throws {
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent("quicklinks-reload-\(UUID().uuidString).json")
+        defer { try? FileManager.default.removeItem(at: url) }
+        let store = QuicklinkStore(url: url)
+        try store.save([Quicklink(name: "Old", link: "https://old.example")])
+        try JSONEncoder().encode([Quicklink(name: "Restored", link: "https://new.example")]).write(to: url)
+
+        store.reload()
+
+        XCTAssertEqual(store.load().map(\.name), ["Restored"])
+    }
+
     func testCorruptQuicklinksAreSetAsideAndReopeningSavesNothing() throws {
         let folder = FileManager.default.temporaryDirectory.appendingPathComponent("quicklinks-corrupt-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)

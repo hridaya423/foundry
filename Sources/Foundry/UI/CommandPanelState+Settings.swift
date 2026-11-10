@@ -14,6 +14,8 @@ extension CommandPanelState {
         settings.apply(config: config)
         clipboardHistory.updateConfiguration(config.clipboard)
         snippets.load()
+        widgetBoard.reload()
+        QuicklinkStore.shared.reload()
         registry.reloadUsage()
         aiSettings.reloadFromConfig()
         settings.rebuildCommandRows()

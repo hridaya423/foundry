@@ -387,6 +387,22 @@ final class ConfigServiceTests: XCTestCase {
     }
 
     @MainActor
+    func testWidgetBoardReloadPicksUpARestoredConfig() throws {
+        let url = temporaryDirectory.appendingPathComponent("config.json")
+        let service = ConfigService(diagnostics: DiagnosticsService(), url: url, persistDebounce: 0.01)
+        let board = WidgetBoardState(configService: service)
+        service.flush()
+        var restored = service.current
+        restored.widgets.enabled = [.system]
+        try JSONEncoder().encode(restored).write(to: url)
+        try service.reload()
+
+        board.reload()
+
+        XCTAssertEqual(board.config.enabled, [.system])
+    }
+
+    @MainActor
     func testWidgetBoardDoesNotBackfillRemovedWidgetsAfterRebuild() {
         let service = ConfigService(
             diagnostics: DiagnosticsService(),

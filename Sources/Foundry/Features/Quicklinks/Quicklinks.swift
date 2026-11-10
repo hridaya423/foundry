@@ -139,6 +139,10 @@ final class QuicklinkStore: Sendable {
         }
     }
 
+    func reload() {
+        cached.withLock { $0 = nil }
+    }
+
     func save(_ links: [Quicklink]) throws {
         guard cached.withLock({ $0 }) != links else { return }
         try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)

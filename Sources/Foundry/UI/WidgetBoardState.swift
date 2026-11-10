@@ -34,6 +34,12 @@ final class WidgetBoardState {
     init(configService: ConfigService, diagnostics: DiagnosticsService = DiagnosticsService()) {
         self.configService = configService
         self.diagnostics = diagnostics
+        self.config = configService.current.widgets
+        reload()
+    }
+
+    /// Re-reads the widget config, normalising legacy layouts — at launch and after a backup restore.
+    func reload() {
         let saved = configService.current.widgets
         var normalized = saved
         if saved == .legacyDefault || saved == .legacyExpandedDefault || saved == .legacyDemo {
@@ -44,7 +50,7 @@ final class WidgetBoardState {
             normalized.enabled.removeAll { $0 == .agents }
         }
         normalized.enabled = Array(normalized.enabled.prefix(WidgetBoardConfig.maxEnabled))
-        self.config = normalized
+        config = normalized
         if normalized != saved {
             do {
                 try configService.updateWidgets(normalized, showAgentShelf: normalized.enabled.contains(.agents))
