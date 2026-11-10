@@ -121,6 +121,10 @@ private struct ClipboardHistoryRow: View {
     @State private var isHovering = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
+    private var truncation: Text.TruncationMode {
+        if case .files = item.payload { .middle } else { .tail }
+    }
+
     var body: some View {
         HStack(spacing: FoundryTheme.Spacing.sm) {
             Group {
@@ -139,7 +143,7 @@ private struct ClipboardHistoryRow: View {
                 .font(FoundryTheme.body)
                 .foregroundStyle(FoundryTheme.textPrimary)
                 .lineLimit(1)
-                .truncationMode(.middle)
+                .truncationMode(truncation)
 
             Spacer(minLength: 6)
 

@@ -6,6 +6,7 @@ final class SystemPasteboardClient: PasteboardClient {
     let pasteboard: NSPasteboard
     init(_ pasteboard: NSPasteboard = .general) { self.pasteboard = pasteboard }
     var changeCount: Int { pasteboard.changeCount }
+    static func source(frontmost: String?, own: String?) -> String? { frontmost == own ? nil : frontmost }
     func snapshot() -> PasteboardSnapshot? {
         let types = pasteboard.types ?? []
         let hostile = types.map(\.rawValue).contains {
@@ -16,7 +17,7 @@ final class SystemPasteboardClient: PasteboardClient {
                 || $0.localizedCaseInsensitiveContains("foundry")
         }
         guard !hostile else { return nil }
-        let sourceBundle = NSWorkspace.shared.frontmostApplication?.bundleIdentifier
+        let sourceBundle = Self.source(frontmost: NSWorkspace.shared.frontmostApplication?.bundleIdentifier, own: Bundle.main.bundleIdentifier)
         if let urls = pasteboard.readObjects(forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]) as? [URL], !urls.isEmpty {
             return PasteboardSnapshot(types: types, payload: .files(urls), sourceBundleIdentifier: sourceBundle)
         }

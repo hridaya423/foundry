@@ -87,26 +87,18 @@ final class PreviewSnapshotTests: XCTestCase {
             diagnostics: diagnostics,
             config: config
         )
-        for pane in ["general", "agents", "clipboard"] {
+        for pane in SettingsCategory.allCases {
             let defaults = try XCTUnwrap(UserDefaults(suiteName: isolatedDefaultsSuite("settings-snap")))
-            defaults.set(pane, forKey: "settings.lastPane")
+            defaults.set(pane.rawValue, forKey: "settings.lastPane")
+            if pane == .commands { state.settings.prepareCommandCatalog() }
             for appearance in [NSAppearance.Name.aqua, .darkAqua] {
-                let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 820, height: 600),
-                    styleMask: [.titled, .closable, .resizable, .fullSizeContentView], backing: .buffered, defer: false)
-                window.appearance = NSAppearance(named: appearance)
-                window.contentViewController = NSHostingController(rootView: SettingsView(state: state).defaultAppStorage(defaults))
-                window.setContentSize(NSSize(width: 820, height: 600))
-                window.orderFront(nil)
-                RunLoop.main.run(until: Date().addingTimeInterval(0.8))
-                let name = "settings-\(pane)-\(appearance == .aqua ? "light" : "dark").png"
-                let capture = Process()
-                capture.executableURL = URL(fileURLWithPath: "/usr/sbin/screencapture")
-                capture.arguments = ["-x", "-o", "-l", "\(window.windowNumber)", URL(fileURLWithPath: dir).appendingPathComponent(name).path]
-                try capture.run()
-                capture.waitUntilExit()
-                window.orderOut(nil)
+                let rep = try SnapshotHarness.render(SettingsView(state: state).defaultAppStorage(defaults), size: CGSize(width: 820, height: 600),
+                    appearance: appearance)
+                try XCTUnwrap(rep.representation(using: .png, properties: [:]))
+                    .write(to: URL(fileURLWithPath: dir).appendingPathComponent("settings-\(pane.rawValue)-\(appearance == .aqua ? "light" : "dark").png"))
             }
         }
+        state.shutdown()
     }
 
     /// 5.2 row anatomy: 40pt single-line rows, 24pt icons, inline subtitle,

@@ -352,7 +352,7 @@ struct SnippetEditor: View {
 
             HStack(spacing: 10) {
                 labeledField(icon: "number", placeholder: "Keyword", text: $keyword)
-                labeledField(icon: "tag", placeholder: "Tags, comma separated", text: $tags)
+                labeledField(icon: "tag", placeholder: "Tags", text: $tags)
             }
 
             ZStack(alignment: .topLeading) {

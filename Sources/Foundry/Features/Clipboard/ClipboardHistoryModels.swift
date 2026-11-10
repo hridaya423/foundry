@@ -75,7 +75,7 @@ struct ClipboardHistoryItem: Identifiable, Codable, Hashable {
             return memoryCost == 0 ? "Image" : ByteCountFormatter.string(fromByteCount: Int64(max(data.count, memoryCost)), countStyle: .file)
         }
     }
-    var kindLabel: String { switch payload { case .text: "Text"; case .files: "Files"; case .image: "Image" } }
+    var kindLabel: String { switch payload { case .text(let v): Self.isLink(v) ? "Link" : "Text"; case .files: "Files"; case .image: "Image" } }
     var systemImage: String { switch payload { case .text(let v): Self.isLink(v) ? "link" : "doc.text"; case .files: "doc.on.doc"; case .image: "photo" } }
     var timeLabel: String { timeLabel(relativeTo: Date()) }
     func timeLabel(relativeTo now: Date) -> String {

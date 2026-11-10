@@ -4,6 +4,12 @@ import XCTest
 @testable import Foundry
 
 final class ClipboardHistoryTests: XCTestCase {
+    func testACopyMadeWhileFoundryIsFrontmostHasNoSource() {
+        XCTAssertNil(SystemPasteboardClient.source(frontmost: "com.foundry.app", own: "com.foundry.app"))
+        XCTAssertEqual(SystemPasteboardClient.source(frontmost: "com.apple.Safari", own: "com.foundry.app"), "com.apple.Safari")
+        XCTAssertNil(SystemPasteboardClient.source(frontmost: nil, own: "com.foundry.app"))
+    }
+
     func testPayloadsAndMetadataRoundTrip() throws {
         let values = [
             ClipboardHistoryItem(payload: .text("hello"), createdAt: Date(timeIntervalSince1970: 10), sourceBundleIdentifier: "com.example", isPinned: true),
@@ -185,6 +191,7 @@ final class ClipboardHistoryTests: XCTestCase {
 
         state.kindFilter = .links
         XCTAssertEqual(state.visibleItems.map(\.title), ["https://example.com/path"])
+        XCTAssertEqual(state.visibleItems.map(\.kindLabel), ["Link"])
         state.kindFilter = .text
         XCTAssertEqual(state.visibleItems.map(\.title), ["first line"])
         state.kindFilter = .images
