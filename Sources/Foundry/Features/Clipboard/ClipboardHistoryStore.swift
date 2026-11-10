@@ -32,11 +32,10 @@ final class ClipboardHistoryStore: ClipboardHistoryPersisting, Sendable {
                 do { legacy = try JSONDecoder().decode([ClipboardHistoryItem].self, from: Data(contentsOf: legacyURL)) }
                 catch { throw ClipboardHistoryPersistenceError.corruptArchive(error) }
                 try write(legacy, db: db)
-                let migrated = legacyURL.appendingPathExtension("migrated")
-                BestEffort.attempt("clipboard migration cleanup") { try FileManager.default.removeItem(at: migrated) }
-                try FileManager.default.moveItem(at: legacyURL, to: migrated)
+                try FileManager.default.removeItem(at: legacyURL)
                 items = try selectAll(db)
             }
+            try? FileManager.default.removeItem(at: legacyURL.appendingPathExtension("migrated"))
             return items
         }
     }
@@ -75,6 +74,7 @@ final class ClipboardHistoryStore: ClipboardHistoryPersisting, Sendable {
         }
         try exec(db, """
             PRAGMA journal_mode=WAL;
+            PRAGMA secure_delete=ON;
             CREATE TABLE IF NOT EXISTS items (
                 id TEXT PRIMARY KEY, created_at REAL NOT NULL, kind TEXT NOT NULL, text TEXT, files TEXT,
                 signature TEXT NOT NULL, pinned INTEGER NOT NULL DEFAULT 0, source TEXT, position INTEGER NOT NULL
@@ -202,19 +202,15 @@ final class ClipboardHistoryStore: ClipboardHistoryPersisting, Sendable {
         }
     }
 
-    /// Number of image payloads hydrated eagerly on load — the rest carry
-    /// an empty placeholder and are read from disk on demand.
-    static let eagerImageLimit = 24
-
     private func selectAll(_ db: OpaquePointer?) throws -> [ClipboardHistoryItem] {
         let statement = try prepare(db, "SELECT id, created_at, kind, text, files, signature, pinned, source FROM items ORDER BY position")
         defer { sqlite3_finalize(statement) }
         func column(_ index: Int32) -> String? { sqlite3_column_text(statement, index).map { String(cString: $0) } }
         var items: [ClipboardHistoryItem] = []
-        var hydratedImages = 0
         while sqlite3_step(statement) == SQLITE_ROW {
             guard let id = column(0), let kind = column(2), let signature = column(5) else { continue }
             let payload: ClipboardPayload
+            var storedByteCount: Int?
             switch kind {
             case "text": payload = .text(column(3) ?? "")
             case "files":
@@ -223,15 +219,8 @@ final class ClipboardHistoryStore: ClipboardHistoryPersisting, Sendable {
                 } ?? []
                 payload = .files(paths.map { URL(fileURLWithPath: $0) })
             default:
-                hydratedImages += 1
-                if hydratedImages <= Self.eagerImageLimit,
-                   let data = BestEffort.attempt("hydrate clipboard image", {
-                       try Data(contentsOf: imagesURL.appendingPathComponent(signature))
-                   }) {
-                    payload = .image(data)
-                } else {
-                    payload = .image(Data())
-                }
+                payload = .image(Data())
+                storedByteCount = (try? FileManager.default.attributesOfItem(atPath: imagesURL.appendingPathComponent(signature).path))?[.size] as? Int
             }
             items.append(ClipboardHistoryItem(
                 id: id,
@@ -239,7 +228,8 @@ final class ClipboardHistoryStore: ClipboardHistoryPersisting, Sendable {
                 createdAt: Date(timeIntervalSinceReferenceDate: sqlite3_column_double(statement, 1)),
                 sourceBundleIdentifier: column(7),
                 isPinned: sqlite3_column_int(statement, 6) != 0,
-                signature: signature
+                signature: signature,
+                storedByteCount: storedByteCount
             ))
         }
         return items

@@ -41,12 +41,14 @@ struct ClipboardHistoryItem: Identifiable, Codable, Hashable {
     let signature: String
     var isPinned: Bool
     let sourceBundleIdentifier: String?
+    /// Size of an image whose bytes stay on disk until it is shown.
+    var storedByteCount: Int?
     init(id: String = UUID().uuidString, payload: ClipboardPayload, createdAt: Date = Date(), sourceBundleIdentifier: String? = nil,
-        isPinned: Bool = false, signature: String? = nil) {
+        isPinned: Bool = false, signature: String? = nil, storedByteCount: Int? = nil) {
         self.id = id; self.createdAt = createdAt; self.payload = payload; self.signature = signature ?? payload.signature;
-            self.sourceBundleIdentifier = sourceBundleIdentifier; self.isPinned = isPinned
+            self.sourceBundleIdentifier = sourceBundleIdentifier; self.isPinned = isPinned; self.storedByteCount = storedByteCount
     }
-    var memoryCost: Int { payload.byteCount }
+    var memoryCost: Int { max(payload.byteCount, storedByteCount ?? 0) }
     static func isLink(_ text: String) -> Bool {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard trimmed.contains(where: \.isWhitespace) == false, let url = URL(string: trimmed), let scheme = url.scheme?.lowercased() else { return false }
@@ -70,7 +72,7 @@ struct ClipboardHistoryItem: Identifiable, Codable, Hashable {
         case .files(let urls):
             return urls.first?.deletingLastPathComponent().path ?? "Files"
         case .image(let data):
-            return data.isEmpty ? "Image" : ByteCountFormatter.string(fromByteCount: Int64(data.count), countStyle: .file)
+            return memoryCost == 0 ? "Image" : ByteCountFormatter.string(fromByteCount: Int64(max(data.count, memoryCost)), countStyle: .file)
         }
     }
     var kindLabel: String { switch payload { case .text: "Text"; case .files: "Files"; case .image: "Image" } }

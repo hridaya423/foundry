@@ -27,7 +27,16 @@ final class ClipboardHistoryStoreTests: XCTestCase {
             ClipboardHistoryItem(payload: .files([URL(fileURLWithPath: "/tmp/a b.txt")]), isPinned: true)
         ]
         try store().save(items)
-        let loaded = try store().load()
+        let reader = store()
+        let loaded = try reader.load().map { item in
+            var hydrated = item
+            if case let .image(data) = item.payload, data.isEmpty, let bytes = try reader.imageData(signature: item.signature) {
+                XCTAssertEqual(item.storedByteCount, bytes.count)
+                hydrated.payload = .image(bytes)
+                hydrated.storedByteCount = nil
+            }
+            return hydrated
+        }
         XCTAssertEqual(loaded, items)
     }
 
@@ -45,9 +54,7 @@ final class ClipboardHistoryStoreTests: XCTestCase {
         XCTAssertEqual(try FileManager.default.contentsOfDirectory(atPath: store.imagesURL.path), [])
     }
 
-    /// Image payloads past the eager cap load with empty bytes but keep the
-    /// real content signature — `imageData` hydrates them from disk.
-    func testImagesBeyondEagerLimitHydrateFromDisk() throws {
+    func testImagesStayOnDiskUntilShownButCountTowardTheSizeLimit() throws {
         let store = store()
         let images = (0..<30).map { ClipboardHistoryItem(payload: .image(Data(repeating: UInt8($0), count: 64))) }
         try store.save(images)
@@ -56,29 +63,27 @@ final class ClipboardHistoryStoreTests: XCTestCase {
         XCTAssertEqual(loaded.count, 30)
         for (index, item) in loaded.enumerated() {
             guard case let .image(data) = item.payload else { return XCTFail("expected image at \(index)") }
-            if index < ClipboardHistoryStore.eagerImageLimit {
-                XCTAssertEqual(data, Data(repeating: UInt8(index), count: 64))
-            } else {
-                XCTAssertTrue(data.isEmpty, "image \(index) should be lazily-loaded")
-                XCTAssertEqual(try store.imageData(signature: item.signature), Data(repeating: UInt8(index), count: 64))
-            }
+            XCTAssertTrue(data.isEmpty, "image \(index) should stay on disk")
+            XCTAssertEqual(item.memoryCost, 64)
+            XCTAssertEqual(try store.imageData(signature: item.signature), Data(repeating: UInt8(index), count: 64))
         }
-        // A lazy row re-saved keeps its signature so hydration still works.
+        XCTAssertEqual(ClipboardHistoryPolicy(maxBytes: 64 * 10).bounded(loaded).count, 10)
         try store.save(loaded)
-        XCTAssertEqual(try store.load().count, 30)
         for (index, item) in try store.load().enumerated() {
             XCTAssertEqual(try store.imageData(signature: item.signature), Data(repeating: UInt8(index), count: 64))
         }
     }
 
-    func testLegacyArchiveMigratesOnceAndIsKeptAsMigrated() throws {
+    func testLegacyArchiveMigratesOnceAndLeavesNoPlaintextCopy() throws {
         let legacy = root.appendingPathComponent("clipboard-history.json")
-        let items = [ClipboardHistoryItem(payload: .text("from 1.0")), ClipboardHistoryItem(payload: .image(image))]
+        let leftover = legacy.appendingPathExtension("migrated")
+        let items = [ClipboardHistoryItem(payload: .text("from 1.0")), ClipboardHistoryItem(payload: .text("second"))]
         try ClipboardHistoryPersistence(url: legacy).save(items)
+        try Data("old plaintext".utf8).write(to: leftover)
 
         XCTAssertEqual(try store().load(), items)
         XCTAssertFalse(FileManager.default.fileExists(atPath: legacy.path))
-        XCTAssertTrue(FileManager.default.fileExists(atPath: legacy.appendingPathExtension("migrated").path))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: leftover.path))
 
         try store().save([])
         try ClipboardHistoryPersistence(url: legacy).save(items)
