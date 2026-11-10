@@ -7,7 +7,7 @@ final class DirectPasteServiceTests: XCTestCase {
     func testCaptureIgnoresFoundryAndStagesTextWithMarker() throws {
         let pasteboard = NSPasteboard(name: NSPasteboard.Name("DirectPasteServiceTests"))
         let target = FakeTarget(processIdentifier: 42)
-        let service = DirectPasteService(pasteboard: pasteboard, ownProcessIdentifier: 7) { target }
+        let service = DirectPasteService.isolated(pasteboard: pasteboard, ownProcessIdentifier: 7) { target }
 
         service.captureTarget()
         try service.stage(ClipboardPayload.text("hello"))
@@ -19,7 +19,7 @@ final class DirectPasteServiceTests: XCTestCase {
 
     func testCaptureDoesNotKeepOwnProcessAsTarget() {
         let target = FakeTarget(processIdentifier: 7)
-        let service = DirectPasteService(ownProcessIdentifier: 7) { target }
+        let service = DirectPasteService.isolated(ownProcessIdentifier: 7) { target }
         service.captureTarget()
         XCTAssertFalse(service.hasPendingPaste)
         XCTAssertThrowsError(try service.stage(.text("hello"))) { error in
@@ -30,14 +30,14 @@ final class DirectPasteServiceTests: XCTestCase {
     func testStageFilesAndImages() throws {
         let pasteboard = NSPasteboard(name: NSPasteboard.Name("DirectPasteServiceTests.payload"))
         let target = FakeTarget(processIdentifier: 42)
-        let service = DirectPasteService(pasteboard: pasteboard) { target }
+        let service = DirectPasteService.isolated(pasteboard: pasteboard) { target }
         service.captureTarget()
         try service.stage(ClipboardPayload.files([URL(fileURLWithPath: "/tmp/example.txt")]))
         XCTAssertNotNil(pasteboard.readObjects(forClasses: [NSURL.self], options: nil))
         XCTAssertThrowsError(try service.stage(ClipboardPayload.image(Data([1, 2, 3])))) { error in
             XCTAssertEqual(error as? DirectPasteError, .stagingFailed)
         }
-        let imageService = DirectPasteService(pasteboard: pasteboard) { target }
+        let imageService = DirectPasteService.isolated(pasteboard: pasteboard) { target }
         imageService.captureTarget()
         try imageService.stage(ClipboardPayload.image(Data([1, 2, 3])))
         XCTAssertEqual(pasteboard.data(forType: .tiff), Data([1, 2, 3]))
@@ -48,7 +48,7 @@ final class DirectPasteServiceTests: XCTestCase {
         pasteboard.clearContents()
         pasteboard.setString("before", forType: .string)
         let target = FakeTarget(processIdentifier: 42)
-        let service = DirectPasteService(pasteboard: pasteboard) { target }
+        let service = DirectPasteService.isolated(pasteboard: pasteboard) { target }
         service.captureTarget()
         try service.stage(.text("first"))
 
@@ -64,7 +64,7 @@ final class DirectPasteServiceTests: XCTestCase {
         pasteboard.setString("before", forType: .string)
         let target = FakeTarget(processIdentifier: 42)
         var events: [DirectPasteEvent] = []
-        let service = DirectPasteService(
+        let service = DirectPasteService.isolated(
             pasteboard: pasteboard,
             ownProcessIdentifier: 7,
             targetProvider: { target },
@@ -90,7 +90,7 @@ final class DirectPasteServiceTests: XCTestCase {
         let pasteboard = NSPasteboard(name: NSPasteboard.Name("DirectPasteServiceTests.activation"))
         pasteboard.setString("before", forType: .string)
         let target = FakeTarget(processIdentifier: 42, activates: false)
-        let service = DirectPasteService(pasteboard: pasteboard, targetProvider: { target }, accessibilityTrusted: { true })
+        let service = DirectPasteService.isolated(pasteboard: pasteboard, targetProvider: { target }, accessibilityTrusted: { true })
         service.captureTarget(); try service.stage(.text("hello"))
 
         do { try await service.completePendingPaste(after: .zero); XCTFail("Expected activation failure") }
@@ -103,7 +103,7 @@ final class DirectPasteServiceTests: XCTestCase {
         let pasteboard = NSPasteboard(name: NSPasteboard.Name("DirectPasteServiceTests.event"))
         pasteboard.setString("before", forType: .string)
         let target = FakeTarget(processIdentifier: 42)
-        let service = DirectPasteService(pasteboard: pasteboard, targetProvider: { target }, accessibilityTrusted: { true }, sendPaste: { false })
+        let service = DirectPasteService.isolated(pasteboard: pasteboard, targetProvider: { target }, accessibilityTrusted: { true }, sendPaste: { false })
         service.captureTarget(); try service.stage(.text("hello"))
 
         do { try await service.completePendingPaste(after: .zero); XCTFail("Expected event failure") }
@@ -116,7 +116,7 @@ final class DirectPasteServiceTests: XCTestCase {
         let pasteboard = NSPasteboard(name: NSPasteboard.Name("DirectPasteServiceTests.cancel"))
         pasteboard.setString("before", forType: .string)
         let target = FakeTarget(processIdentifier: 42)
-        let service = DirectPasteService(pasteboard: pasteboard, targetProvider: { target }, accessibilityTrusted: { true })
+        let service = DirectPasteService.isolated(pasteboard: pasteboard, targetProvider: { target }, accessibilityTrusted: { true })
         service.captureTarget(); try service.stage(.text("hello"))
         let task = Task { @MainActor in try await service.completePendingPaste(after: .seconds(10)) }
         task.cancel()
@@ -131,7 +131,7 @@ final class DirectPasteServiceTests: XCTestCase {
         pasteboard.setString("before", forType: .string)
         let target = FakeTarget(processIdentifier: 42)
         var events: [DirectPasteEvent] = []
-        let service = DirectPasteService(
+        let service = DirectPasteService.isolated(
             pasteboard: pasteboard,
             ownProcessIdentifier: 7,
             targetProvider: { target },
@@ -156,7 +156,7 @@ final class DirectPasteServiceTests: XCTestCase {
         let target = FakeTarget(processIdentifier: 42)
         var events: [DirectPasteEvent] = []
         let pasteSent = expectation(description: "paste event sent")
-        let service = DirectPasteService(
+        let service = DirectPasteService.isolated(
             pasteboard: pasteboard,
             targetProvider: { target },
             accessibilityTrusted: { true },

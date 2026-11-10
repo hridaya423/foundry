@@ -17,10 +17,7 @@ final class LocalStateStoreTests: XCTestCase {
     }
 
     private func legacySuite() -> UserDefaults {
-        let name = "foundry.legacy.\(UUID())"
-        let defaults = UserDefaults(suiteName: name)!
-        addTeardownBlock { UserDefaults(suiteName: name)?.removePersistentDomain(forName: name) }
-        return defaults
+        UserDefaults(suiteName: isolatedDefaultsSuite("foundry.legacy"))!
     }
 
     func testMigrationImportsEveryLegacyKeyAndRemovesThem() {

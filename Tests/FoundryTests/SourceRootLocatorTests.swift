@@ -93,10 +93,6 @@ final class SourceRootLocatorTests: XCTestCase {
     }
 
     private func makeDefaults() throws -> UserDefaults {
-        let suite = "SourceRootLocatorTests.\(UUID().uuidString)"
-        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
-        defaults.removePersistentDomain(forName: suite)
-        addTeardownBlock { UserDefaults(suiteName: suite)?.removePersistentDomain(forName: suite) }
-        return defaults
+        try XCTUnwrap(UserDefaults(suiteName: isolatedDefaultsSuite("SourceRootLocatorTests")))
     }
 }

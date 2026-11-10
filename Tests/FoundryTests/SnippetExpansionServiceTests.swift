@@ -13,7 +13,7 @@ final class SnippetExpansionServiceTests: XCTestCase {
     }
 
     private func isolatedPaste() -> DirectPasteService {
-        DirectPasteService(pasteboard: NSPasteboard(name: NSPasteboard.Name("SnippetExpansionServiceTests")))
+        DirectPasteService.isolated()
     }
 
     private func engine(_ snippets: [StoredSnippet] = [StoredSnippet(content: "Hello", keyword: "brb", updatedAt: Date(timeIntervalSince1970: 1))]) -> SnippetExpansionEngine {

@@ -353,7 +353,7 @@ private final class BlockingClipboardPersistence: Sendable, ClipboardHistoryPers
         defer { try? FileManager.default.removeItem(at: url) }
         let store = ClipboardHistoryPersistence(url: url)
         try store.save((0..<5).map { ClipboardHistoryItem(payload: .text("item \($0)"), createdAt: Date().addingTimeInterval(-Double($0))) })
-        let state = ClipboardHistoryState(persistence: store)
+        let state = ClipboardHistoryState(pasteboard: TestClipboardPasteboard(), persistence: store)
         XCTAssertEqual(state.items.count, 5)
         XCTAssertEqual(state.itemsRemoved(maxItems: 3, maxBytes: state.policy.maxBytes, maxAgeDays: 90), 2)
         XCTAssertEqual(state.itemsRemoved(maxItems: 10, maxBytes: state.policy.maxBytes, maxAgeDays: 90), 0)

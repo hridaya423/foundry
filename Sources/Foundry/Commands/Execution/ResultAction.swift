@@ -27,6 +27,7 @@ final class ActionContext {
     let openApplication: (URL, NSWorkspace.OpenConfiguration, @escaping @Sendable (NSRunningApplication?, Error?) -> Void) -> Void
     let confirmScriptDirectory: (String) async -> Bool
     let resetRanking: (String) -> Void
+    let trashItem: (URL) throws -> Void
     let scriptTimeout: TimeInterval
     let scriptOutputLimit: Int
     let invocation: CommandInvocation
@@ -48,6 +49,7 @@ final class ActionContext {
         openApplication: @escaping (URL, NSWorkspace.OpenConfiguration, @escaping @Sendable (NSRunningApplication?, Error?) -> Void) -> Void,
         confirmScriptDirectory: @escaping @MainActor (String) async -> Bool,
         resetRanking: @escaping (String) -> Void,
+        trashItem: @escaping (URL) throws -> Void,
         scriptTimeout: TimeInterval,
         scriptOutputLimit: Int,
         invocation: CommandInvocation,
@@ -68,6 +70,7 @@ final class ActionContext {
         self.openApplication = openApplication
         self.confirmScriptDirectory = confirmScriptDirectory
         self.resetRanking = resetRanking
+        self.trashItem = trashItem
         self.scriptTimeout = scriptTimeout
         self.scriptOutputLimit = scriptOutputLimit
         self.invocation = invocation

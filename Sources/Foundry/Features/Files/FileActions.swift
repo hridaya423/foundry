@@ -136,7 +136,7 @@ struct MoveToTrashAction: ResultAction, Equatable {
     func perform(_ ctx: ActionContext) async -> CommandOutcome {
         let url = URL(fileURLWithPath: path)
         do {
-            try FileManager.default.trashItem(at: url, resultingItemURL: nil)
+            try ctx.trashItem(url)
             ctx.diagnostics.log("Moved to Trash: \(path)")
             return ctx.finish(
                 .refreshResults(message: String(localized: "Moved to Trash")),

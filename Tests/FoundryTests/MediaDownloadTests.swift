@@ -352,7 +352,7 @@ final class MediaDownloadTests: XCTestCase {
     @MainActor
     func testActionRunnerPublishesStructuredProgressToTheManager() async {
         let manager = MediaDownloadManager()
-        let runner = ActionRunner(
+        let runner = ActionRunner.isolated(
             diagnostics: DiagnosticsService(),
             mediaDownloadService: ProgressMediaDownloadService(),
             mediaDownloadManager: manager
@@ -380,7 +380,7 @@ final class MediaDownloadTests: XCTestCase {
     func testBatchActionStartsEveryLinkAsAnIndependentDownload() async throws {
         let service = RecordingMediaDownloadService()
         let manager = MediaDownloadManager()
-        let runner = ActionRunner(
+        let runner = ActionRunner.isolated(
             diagnostics: DiagnosticsService(),
             mediaDownloadService: service,
             mediaDownloadManager: manager

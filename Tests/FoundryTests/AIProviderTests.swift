@@ -481,7 +481,7 @@ final class AIProviderTests: XCTestCase {
 
         DispatchQueue.global().asyncAfter(deadline: .now() + 0.05) { store.releaseSave() }
         state.shutdown()
-        while store.savedSnapshots().count < 2 { try await Task.sleep(for: .milliseconds(10)) }
+        await waitUntil { store.savedSnapshots().count >= 2 }
 
         XCTAssertEqual(store.savedSnapshots().last, latest)
     }

@@ -55,9 +55,9 @@ final class PanelKeyboardTests: XCTestCase {
             diagnostics: diagnostics,
             configService: config
         )
-        return CommandPanelState(
+        return CommandPanelState.isolated(
             registry: registry,
-            actionRunner: ActionRunner(diagnostics: diagnostics),
+            actionRunner: ActionRunner.isolated(diagnostics: diagnostics),
             diagnostics: diagnostics,
             config: config,
             snippetStore: FileSnippetStore(url: FileManager.default.temporaryDirectory.appendingPathComponent("foundry-kbd-snippets-\(UUID().uuidString).json"))
@@ -173,7 +173,7 @@ final class PanelKeyboardTests: XCTestCase {
         let clipboard = ClipboardHistoryState(pasteboard: pasteboard, persistence: nil, configuration: config.current.clipboard)
         let registry = CommandRegistry(providers: [], usageRanking: UsageRankingStore.scratch(diagnostics), diagnostics: diagnostics,
             configService: config)
-        let state = CommandPanelState(registry: registry, actionRunner: ActionRunner(diagnostics: diagnostics), diagnostics: diagnostics,
+        let state = CommandPanelState.isolated(registry: registry, actionRunner: ActionRunner.isolated(diagnostics: diagnostics), diagnostics: diagnostics,
             config: config, clipboardHistory: clipboard)
         let item = ClipboardHistoryItem(payload: .text("https://foundry.app"))
         pasteboard.snapshotValue = PasteboardSnapshot(types: [.string], payload: item.payload, sourceBundleIdentifier: "com.example")
@@ -208,7 +208,7 @@ final class PanelKeyboardTests: XCTestCase {
         let clipboard = ClipboardHistoryState(pasteboard: pasteboard, persistence: nil, configuration: config.current.clipboard)
         let registry = CommandRegistry(providers: [], usageRanking: UsageRankingStore.scratch(diagnostics), diagnostics: diagnostics,
             configService: config)
-        let state = CommandPanelState(registry: registry, actionRunner: ActionRunner(diagnostics: diagnostics), diagnostics: diagnostics,
+        let state = CommandPanelState.isolated(registry: registry, actionRunner: ActionRunner.isolated(diagnostics: diagnostics), diagnostics: diagnostics,
             config: config, clipboardHistory: clipboard)
         let shell = RecordingShellPort()
         var notices: [ActionFeedback] = []

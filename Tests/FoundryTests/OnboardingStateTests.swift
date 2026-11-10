@@ -13,7 +13,7 @@ final class OnboardingStateTests: XCTestCase {
         let diagnostics = DiagnosticsService()
         let config = ConfigService(diagnostics: diagnostics, url: FileManager.default.temporaryDirectory.appendingPathComponent("foundry-onboarding-\(UUID().uuidString).json"))
         let registry = CommandRegistry(providers: [], usageRanking: UsageRankingStore.scratch(diagnostics), diagnostics: diagnostics, configService: config)
-        let panel = CommandPanelState(registry: registry, actionRunner: ActionRunner(diagnostics: diagnostics), diagnostics: diagnostics, config: config)
+        let panel = CommandPanelState.isolated(registry: registry, actionRunner: ActionRunner.isolated(diagnostics: diagnostics), diagnostics: diagnostics, config: config)
         return OnboardingState(panel: panel, permissions: PermissionHealthState(accessibilityTrusted: { false }), localState: localState,
             version: "1.1.0", importSources: { imports }, appleIntelligence: { appleIntelligence }, registerLoginItem: loginItem)
     }
@@ -203,7 +203,7 @@ final class OnboardingStateTests: XCTestCase {
     }
 
     func testSpotlightSetEnabledPreservesEntryAndWritesFlag() {
-        let suite = "foundry-spotlight-\(UUID().uuidString)"
+        let suite = isolatedDefaultsSuite("foundry-spotlight")
         let suiteDefaults = UserDefaults(suiteName: suite)!
         suiteDefaults.set(["64": ["enabled": true, "value": ["type": "standard"]]], forKey: "AppleSymbolicHotKeys")
         XCTAssertTrue(SpotlightShortcut.setEnabled(false, suiteName: suite, reloadPreferences: {}))
@@ -236,7 +236,7 @@ final class OnboardingStateTests: XCTestCase {
     }
 
     func testRaycastHoldingCommandSpaceMovesToOptionSpace() {
-        let suite = "foundry-raycast-\(UUID().uuidString)"
+        let suite = isolatedDefaultsSuite("foundry-raycast")
         let rival = LauncherRival.raycast(suiteName: suite)
         XCTAssertFalse(rival.holdsCommandSpace())
         UserDefaults(suiteName: suite)!.set("Command-49", forKey: "raycastGlobalHotkey")

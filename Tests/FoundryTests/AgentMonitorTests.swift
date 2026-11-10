@@ -119,7 +119,7 @@ final class AgentMonitorTests: XCTestCase {
     func testArrowsWalkActiveFirstWithinTheChosenProvider() async throws {
         var done = card(.claude, "done")
         done.status = .completed
-        let agents = AgentMonitorState(collector: FixedCollector(cards: [done, card(.codex, "x"), card(.claude, "live")]))
+        let agents = AgentMonitorState.isolated(collector: FixedCollector(cards: [done, card(.codex, "x"), card(.claude, "live")]))
         agents.refresh()
         for _ in 0..<50 where agents.hasLoaded == false { try await Task.sleep(for: .milliseconds(20)) }
         agents.moveSelection(offset: 1)

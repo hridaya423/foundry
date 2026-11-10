@@ -31,7 +31,7 @@ final class SettingsSearchTests: XCTestCase {
         let diagnostics = DiagnosticsService()
         let config = ConfigService(diagnostics: diagnostics, url: FileManager.default.temporaryDirectory.appendingPathComponent("foundry-settings-\(UUID().uuidString).json"))
         let registry = CommandRegistry(providers: [], usageRanking: UsageRankingStore.scratch(diagnostics), diagnostics: diagnostics, configService: config)
-        let state = CommandPanelState(registry: registry, actionRunner: ActionRunner(diagnostics: diagnostics), diagnostics: diagnostics, config: config)
+        let state = CommandPanelState.isolated(registry: registry, actionRunner: ActionRunner.isolated(diagnostics: diagnostics), diagnostics: diagnostics, config: config)
         var opened = 0
         let shell = RecordingShellPort()
         shell.onOpenSettings = { opened += 1 }
@@ -47,7 +47,7 @@ final class SettingsSearchTests: XCTestCase {
         let diagnostics = DiagnosticsService()
         let config = ConfigService(diagnostics: diagnostics, url: FileManager.default.temporaryDirectory.appendingPathComponent("foundry-settings-\(UUID().uuidString).json"))
         let registry = CommandRegistry(providers: [], usageRanking: UsageRankingStore.scratch(diagnostics), diagnostics: diagnostics, configService: config)
-        let state = CommandPanelState(registry: registry, actionRunner: ActionRunner(diagnostics: diagnostics), diagnostics: diagnostics, config: config)
+        let state = CommandPanelState.isolated(registry: registry, actionRunner: ActionRunner.isolated(diagnostics: diagnostics), diagnostics: diagnostics, config: config)
         var opened = 0
         let shell = RecordingShellPort()
         shell.onOpenSettings = { opened += 1 }
@@ -66,7 +66,7 @@ final class SettingsSearchTests: XCTestCase {
         let diagnostics = DiagnosticsService()
         let config = ConfigService(diagnostics: diagnostics, url: FileManager.default.temporaryDirectory.appendingPathComponent("foundry-settings-\(UUID().uuidString).json"))
         let registry = CommandRegistry(providers: [], usageRanking: UsageRankingStore.scratch(diagnostics), diagnostics: diagnostics, configService: config)
-        let state = CommandPanelState(registry: registry, actionRunner: ActionRunner(diagnostics: diagnostics), diagnostics: diagnostics, config: config)
+        let state = CommandPanelState.isolated(registry: registry, actionRunner: ActionRunner.isolated(diagnostics: diagnostics), diagnostics: diagnostics, config: config)
         state.shell = RecordingShellPort()
 
         try config.updatePopToRootAfter(300)

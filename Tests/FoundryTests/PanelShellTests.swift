@@ -28,9 +28,9 @@ final class PanelShellTests: XCTestCase {
             diagnostics: diagnostics,
             configService: config
         )
-        let state = CommandPanelState(
+        let state = CommandPanelState.isolated(
             registry: registry,
-            actionRunner: ActionRunner(diagnostics: diagnostics),
+            actionRunner: ActionRunner.isolated(diagnostics: diagnostics),
             diagnostics: diagnostics,
             config: config
         )
@@ -40,13 +40,14 @@ final class PanelShellTests: XCTestCase {
     /// The launcher contract: when the panel dismisses, it must really leave
     /// the screen — an alpha-0 ordered-in window still composites and still
     /// shows up to window-list callers.
-    func testHideOrdersPanelOut() async {
+    func testHideOrdersPanelOut() async throws {
+        try requireWindowTestsEnabled()
         let (state, _) = makeState()
         let activation = FakeActivation()
         let controller = PanelController(
             state: state,
             diagnostics: DiagnosticsService(),
-            directPasteService: DirectPasteService(),
+            directPasteService: DirectPasteService.isolated(),
             activation: activation,
             otherWindowsVisible: { false }
         )
@@ -58,9 +59,10 @@ final class PanelShellTests: XCTestCase {
         XCTAssertTrue(orderedOut, "hide() must orderOut — an invisible-but-onscreen panel is a leak")
     }
 
-    func testExecutedHideLeavesTheScreenImmediately() {
+    func testExecutedHideLeavesTheScreenImmediately() throws {
+        try requireWindowTestsEnabled()
         let (state, _) = makeState()
-        let controller = PanelController(state: state, diagnostics: DiagnosticsService(), directPasteService: DirectPasteService(),
+        let controller = PanelController(state: state, diagnostics: DiagnosticsService(), directPasteService: DirectPasteService.isolated(),
             activation: FakeActivation(), otherWindowsVisible: { false })
         controller.show()
         XCTAssertTrue(controller.isVisible)
@@ -70,13 +72,14 @@ final class PanelShellTests: XCTestCase {
 
     /// Focus goes back to the previously active app when nothing else of ours
     /// is on screen.
-    func testHideRestoresFocusWhenNoOtherWindows() async {
+    func testHideRestoresFocusWhenNoOtherWindows() async throws {
+        try requireWindowTestsEnabled()
         let (state, _) = makeState()
         let activation = FakeActivation()
         let controller = PanelController(
             state: state,
             diagnostics: DiagnosticsService(),
-            directPasteService: DirectPasteService(),
+            directPasteService: DirectPasteService.isolated(),
             activation: activation,
             otherWindowsVisible: { false }
         )
@@ -88,13 +91,14 @@ final class PanelShellTests: XCTestCase {
 
     /// But deactivation must not tear down another Foundry window — e.g. the
     /// onboarding flow that stays open while the panel is hidden.
-    func testHideKeepsAppActiveWhenOtherWindowVisible() async {
+    func testHideKeepsAppActiveWhenOtherWindowVisible() async throws {
+        try requireWindowTestsEnabled()
         let (state, _) = makeState()
         let activation = FakeActivation()
         let controller = PanelController(
             state: state,
             diagnostics: DiagnosticsService(),
-            directPasteService: DirectPasteService(),
+            directPasteService: DirectPasteService.isolated(),
             activation: activation,
             otherWindowsVisible: { true }
         )

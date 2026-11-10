@@ -10,7 +10,7 @@ final class FirstRunTests: XCTestCase {
         let config = ConfigService(diagnostics: diagnostics,
             url: FileManager.default.temporaryDirectory.appendingPathComponent("foundry-first-\(UUID().uuidString).json"))
         let registry = CommandRegistry(providers: [], usageRanking: UsageRankingStore.scratch(diagnostics), diagnostics: diagnostics, configService: config)
-        return CommandPanelState(registry: registry, actionRunner: ActionRunner(diagnostics: diagnostics), diagnostics: diagnostics,
+        return CommandPanelState.isolated(registry: registry, actionRunner: ActionRunner.isolated(diagnostics: diagnostics), diagnostics: diagnostics,
             config: config, localState: localState)
     }
 

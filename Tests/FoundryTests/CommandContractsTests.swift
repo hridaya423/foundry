@@ -70,9 +70,9 @@ final class CommandContractsTests: XCTestCase {
             diagnostics: DiagnosticsService(),
             configService: config
         )
-        let state = CommandPanelState(
+        let state = CommandPanelState.isolated(
             registry: registry,
-            actionRunner: ActionRunner(diagnostics: DiagnosticsService()),
+            actionRunner: ActionRunner.isolated(diagnostics: DiagnosticsService()),
             diagnostics: DiagnosticsService(),
             config: config
         )
@@ -93,10 +93,10 @@ final class CommandContractsTests: XCTestCase {
     func testSuggestedWindowHotkeysFillOnlyFreeLayoutsAndChords() {
         let config = ConfigService(diagnostics: DiagnosticsService(),
             url: FileManager.default.temporaryDirectory.appendingPathComponent("foundry-wh-\(UUID().uuidString).json"))
-        let state = CommandPanelState(
+        let state = CommandPanelState.isolated(
             registry: CommandRegistry(providers: [], usageRanking: UsageRankingStore.scratch(DiagnosticsService()),
                 diagnostics: DiagnosticsService(), configService: config),
-            actionRunner: ActionRunner(diagnostics: DiagnosticsService()), diagnostics: DiagnosticsService(), config: config)
+            actionRunner: ActionRunner.isolated(diagnostics: DiagnosticsService()), diagnostics: DiagnosticsService(), config: config)
         let mine = FoundryHotkey(keyCode: 1, modifiers: 256, displayName: "⌘S")
         state.settings.setCommandHotkey(mine, for: "window.leftHalf")
         let center = WindowHotkeySuggestions.all.first { $0.placement == .center }!.hotkey

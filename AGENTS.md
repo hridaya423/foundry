@@ -11,9 +11,9 @@ A macOS launcher: a Swift package at the repo root, and its website in `anvil/` 
 
 ## Tests
 
-Foundry is usually running on the dev Mac. The full suite unlinks its agent socket and registers global hotkeys. Do not run `swift test` unfiltered. Run classes: `swift test --filter 'ClassA|ClassB'`.
+`swift test` is safe to run while Foundry is open. Tests get the live agent socket, pasteboard, clipboard database, preferences and Trash through the seams in `Tests/FoundryTests/Helpers/IsolatedMachine.swift`, and `./scripts/lint-tests-isolation.sh` fails when a test bypasses them.
 
-Do not run test classes that construct `CommandPanelState`, `ShellController`, `OnboardingState` or `PanelController`, or that use `NSPasteboard.general`, unless the task says to.
+Tests that open real windows or register global hotkeys skip unless `FOUNDRY_WINDOW_TESTS=1` is set. Set it only on a machine where Foundry is not running.
 
 ## Lints
 

@@ -24,6 +24,7 @@ jobs:
           ./scripts/lint-lines.sh
           ./scripts/lint-design.sh
           ./scripts/lint-l10n.sh
+          ./scripts/lint-tests-isolation.sh
 
       - name: Test (includes light-mode snapshot comparisons)
         run: swift test

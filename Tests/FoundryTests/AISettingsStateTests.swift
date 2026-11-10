@@ -10,7 +10,7 @@ final class AISettingsStateTests: XCTestCase {
         state.selectedAIProfileID = AIProviderProfile.ollamaID
 
         state.refreshAIModels()
-        while state.aiModelsLoading { try await Task.sleep(for: .milliseconds(10)) }
+        await waitUntil { state.aiModelsLoading == false }
 
         XCTAssertTrue(state.aiAvailableModels.isEmpty)
         XCTAssertEqual(state.aiProfileStatus, "Could not load models. Provider request failed: offline")
@@ -22,7 +22,7 @@ final class AISettingsStateTests: XCTestCase {
         state.selectedAIProfileID = AIProviderProfile.ollamaID
 
         state.refreshAIModels()
-        while state.aiModelsLoading { try await Task.sleep(for: .milliseconds(10)) }
+        await waitUntil { state.aiModelsLoading == false }
 
         XCTAssertTrue(state.aiAvailableModels.isEmpty)
         XCTAssertEqual(state.aiProfileStatus, "This endpoint reported no models.")
@@ -35,7 +35,7 @@ final class AISettingsStateTests: XCTestCase {
         state.selectedAIProfileID = AIProviderProfile.ollamaID
 
         state.refreshAIModels()
-        while state.aiModelsLoading { try await Task.sleep(for: .milliseconds(10)) }
+        await waitUntil { state.aiModelsLoading == false }
 
         XCTAssertEqual(state.aiAvailableModels, models)
         XCTAssertEqual(state.aiProfileStatus, "Found 2 models.")

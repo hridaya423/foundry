@@ -92,8 +92,8 @@ final class EmojiPickerStateTests: XCTestCase {
         let panel: any PanelFeature = state
         let config = ConfigService(diagnostics: DiagnosticsService(),
             url: FileManager.default.temporaryDirectory.appendingPathComponent("foundry-emoji-\(UUID().uuidString).json"))
-        let host = CommandPanelState(registry: CommandRegistry(providers: [], usageRanking: UsageRankingStore.scratch(DiagnosticsService()),
-            diagnostics: DiagnosticsService(), configService: config), actionRunner: ActionRunner(diagnostics: DiagnosticsService()),
+        let host = CommandPanelState.isolated(registry: CommandRegistry(providers: [], usageRanking: UsageRankingStore.scratch(DiagnosticsService()),
+            diagnostics: DiagnosticsService(), configService: config), actionRunner: ActionRunner.isolated(diagnostics: DiagnosticsService()),
             diagnostics: DiagnosticsService(), config: config)
         XCTAssertTrue(panel.handleModeShortcut(ActionShortcut(key: "4", modifiers: [.command]), panel: host) {})
         XCTAssertEqual(state.skinTone, "🏽")

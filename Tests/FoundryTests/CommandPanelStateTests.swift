@@ -18,9 +18,9 @@ final class CommandPanelStateTests: XCTestCase {
             diagnostics: diagnostics,
             configService: config
         )
-        let state = CommandPanelState(
+        let state = CommandPanelState.isolated(
             registry: registry,
-            actionRunner: ActionRunner(diagnostics: diagnostics),
+            actionRunner: ActionRunner.isolated(diagnostics: diagnostics),
             diagnostics: diagnostics,
             config: config
         )
@@ -40,7 +40,7 @@ final class CommandPanelStateTests: XCTestCase {
         let diagnostics = DiagnosticsService()
         let config = ConfigService(diagnostics: diagnostics, url: FileManager.default.temporaryDirectory.appendingPathComponent("foundry-panel-missing-\(UUID().uuidString).json"))
         let registry = CommandRegistry(providers: [], usageRanking: UsageRankingStore.scratch(diagnostics), diagnostics: diagnostics, configService: config)
-        let state = CommandPanelState(registry: registry, actionRunner: ActionRunner(diagnostics: diagnostics), diagnostics: diagnostics, config: config)
+        let state = CommandPanelState.isolated(registry: registry, actionRunner: ActionRunner.isolated(diagnostics: diagnostics), diagnostics: diagnostics, config: config)
 
         await state.executeCommand(commandID: "missing.command")
 
@@ -60,9 +60,9 @@ final class CommandPanelStateTests: XCTestCase {
             diagnostics: diagnostics,
             configService: config
         )
-        let state = CommandPanelState(
+        let state = CommandPanelState.isolated(
             registry: registry,
-            actionRunner: ActionRunner(diagnostics: diagnostics),
+            actionRunner: ActionRunner.isolated(diagnostics: diagnostics),
             diagnostics: diagnostics,
             config: config
         )
@@ -86,9 +86,9 @@ final class CommandPanelStateTests: XCTestCase {
             diagnostics: diagnostics,
             configService: config
         )
-        let state = CommandPanelState(
+        let state = CommandPanelState.isolated(
             registry: registry,
-            actionRunner: ActionRunner(diagnostics: diagnostics),
+            actionRunner: ActionRunner.isolated(diagnostics: diagnostics),
             diagnostics: diagnostics,
             config: config
         )
@@ -120,9 +120,9 @@ final class CommandPanelStateTests: XCTestCase {
             diagnostics: diagnostics,
             configService: config
         )
-        let state = CommandPanelState(
+        let state = CommandPanelState.isolated(
             registry: registry,
-            actionRunner: ActionRunner(diagnostics: diagnostics),
+            actionRunner: ActionRunner.isolated(diagnostics: diagnostics),
             diagnostics: diagnostics,
             config: config
         )
@@ -149,9 +149,9 @@ final class CommandPanelStateTests: XCTestCase {
             diagnostics: diagnostics,
             configService: config
         )
-        let state = CommandPanelState(
+        let state = CommandPanelState.isolated(
             registry: registry,
-            actionRunner: ActionRunner(diagnostics: diagnostics, mediaDownloadService: media),
+            actionRunner: ActionRunner.isolated(diagnostics: diagnostics, mediaDownloadService: media),
             diagnostics: diagnostics,
             config: config
         )
@@ -204,7 +204,8 @@ final class CommandPanelStateTests: XCTestCase {
 
     /// Launch does a one-shot capture, not a running poll — the timer arms
     /// only when the panel opens.
-    func testShellCompositionCapturesClipboardOnceAtLaunchAndReloadsArchive() {
+    func testShellCompositionCapturesClipboardOnceAtLaunchAndReloadsArchive() throws {
+        try requireWindowTestsEnabled()
         let diagnostics = DiagnosticsService()
         let archiveURL = temporaryURL()
         let config = ConfigService(diagnostics: diagnostics, url: temporaryURL())
@@ -212,7 +213,7 @@ final class CommandPanelStateTests: XCTestCase {
         let persistence = ClipboardHistoryPersistence(url: archiveURL)
         let clipboard = ClipboardHistoryState(pasteboard: pasteboard, persistence: persistence, configuration: config.current.clipboard)
         let registry = CommandRegistry(providers: [], usageRanking: UsageRankingStore.scratch(diagnostics), diagnostics: diagnostics, configService: config)
-        let actionRunner = ActionRunner(diagnostics: diagnostics)
+        let actionRunner = ActionRunner.isolated(diagnostics: diagnostics)
         let shell = ShellController(registry: registry, actionRunner: actionRunner, config: config, diagnostics: diagnostics, clipboardHistory: clipboard)
         pasteboard.snapshotValue = PasteboardSnapshot(types: [.string], payload: .text("captured at launch"), sourceBundleIdentifier: "com.example")
         pasteboard.changeCountValue += 1
@@ -252,9 +253,9 @@ final class CommandPanelStateTests: XCTestCase {
         let config = ConfigService(diagnostics: diagnostics, url: temporaryURL())
         let pasteboard = NSPasteboard(name: NSPasteboard.Name("CommandPanelStateTests.directPaste"))
         let target = DirectPasteTestTarget(processIdentifier: 42)
-        let directPaste = DirectPasteService(pasteboard: pasteboard, ownProcessIdentifier: 7, targetProvider: { target },
+        let directPaste = DirectPasteService.isolated(pasteboard: pasteboard, ownProcessIdentifier: 7, targetProvider: { target },
             accessibilityTrusted: { true })
-        let actionRunner = ActionRunner(diagnostics: diagnostics, directPasteService: directPaste)
+        let actionRunner = ActionRunner.isolated(diagnostics: diagnostics, directPasteService: directPaste)
         let pasteboardClient = TestClipboardPasteboard()
         let clipboard = ClipboardHistoryState(pasteboard: pasteboardClient, persistence: nil, configuration: config.current.clipboard)
         let state = makeState(diagnostics: diagnostics, config: config, clipboard: clipboard, actionRunner: actionRunner)
@@ -280,8 +281,8 @@ final class CommandPanelStateTests: XCTestCase {
         let diagnostics = DiagnosticsService()
         let config = ConfigService(diagnostics: diagnostics, url: temporaryURL())
         let pasteboard = NSPasteboard(name: NSPasteboard.Name("CommandPanelStateTests.noTarget"))
-        let directPaste = DirectPasteService(pasteboard: pasteboard, ownProcessIdentifier: 7) { nil }
-        let actionRunner = ActionRunner(diagnostics: diagnostics, directPasteService: directPaste)
+        let directPaste = DirectPasteService.isolated(pasteboard: pasteboard, ownProcessIdentifier: 7, targetProvider: { nil }, accessibilityTrusted: { true })
+        let actionRunner = ActionRunner.isolated(diagnostics: diagnostics, directPasteService: directPaste)
         let pasteboardClient = TestClipboardPasteboard()
         let clipboard = ClipboardHistoryState(pasteboard: pasteboardClient, persistence: nil, configuration: config.current.clipboard)
         let state = makeState(diagnostics: diagnostics, config: config, clipboard: clipboard, actionRunner: actionRunner)
@@ -302,8 +303,8 @@ final class CommandPanelStateTests: XCTestCase {
         let config = ConfigService(diagnostics: diagnostics, url: temporaryURL())
         let pasteboard = NSPasteboard(name: NSPasteboard.Name("CommandPanelStateTests.optionReturn"))
         let target = DirectPasteTestTarget(processIdentifier: 42)
-        let directPaste = DirectPasteService(pasteboard: pasteboard, ownProcessIdentifier: 7) { target }
-        let actionRunner = ActionRunner(diagnostics: diagnostics, directPasteService: directPaste)
+        let directPaste = DirectPasteService.isolated(pasteboard: pasteboard, ownProcessIdentifier: 7, targetProvider: { target }, accessibilityTrusted: { true })
+        let actionRunner = ActionRunner.isolated(diagnostics: diagnostics, directPasteService: directPaste)
         let pasteboardClient = TestClipboardPasteboard()
         let clipboard = ClipboardHistoryState(pasteboard: pasteboardClient, persistence: nil, configuration: config.current.clipboard)
         let state = makeState(diagnostics: diagnostics, config: config, clipboard: clipboard, actionRunner: actionRunner)
@@ -325,9 +326,9 @@ final class CommandPanelStateTests: XCTestCase {
         let diagnostics = DiagnosticsService()
         let config = ConfigService(diagnostics: diagnostics, url: temporaryURL())
         let pasteboard = NSPasteboard(name: NSPasteboard.Name("CommandPanelStateTests.noAccessibility"))
-        let directPaste = DirectPasteService(pasteboard: pasteboard, ownProcessIdentifier: 7,
+        let directPaste = DirectPasteService.isolated(pasteboard: pasteboard, ownProcessIdentifier: 7,
             targetProvider: { DirectPasteTestTarget(processIdentifier: 42) }, accessibilityTrusted: { false })
-        let actionRunner = ActionRunner(diagnostics: diagnostics, directPasteService: directPaste)
+        let actionRunner = ActionRunner.isolated(diagnostics: diagnostics, directPasteService: directPaste)
         let pasteboardClient = TestClipboardPasteboard()
         let clipboard = ClipboardHistoryState(pasteboard: pasteboardClient, persistence: nil, configuration: config.current.clipboard)
         let state = makeState(diagnostics: diagnostics, config: config, clipboard: clipboard, actionRunner: actionRunner)
@@ -356,8 +357,8 @@ final class CommandPanelStateTests: XCTestCase {
         let diagnostics = DiagnosticsService()
         let config = ConfigService(diagnostics: diagnostics, url: temporaryURL())
         let pasteboard = NSPasteboard(name: NSPasteboard.Name("CommandPanelStateTests.plainReturn"))
-        let directPaste = DirectPasteService(pasteboard: pasteboard, ownProcessIdentifier: 7) { DirectPasteTestTarget(processIdentifier: 42) }
-        let actionRunner = ActionRunner(diagnostics: diagnostics, directPasteService: directPaste)
+        let directPaste = DirectPasteService.isolated(pasteboard: pasteboard, ownProcessIdentifier: 7) { DirectPasteTestTarget(processIdentifier: 42) }
+        let actionRunner = ActionRunner.isolated(diagnostics: diagnostics, directPasteService: directPaste)
         let pasteboardClient = TestClipboardPasteboard()
         let clipboard = ClipboardHistoryState(pasteboard: pasteboardClient, persistence: nil, configuration: config.current.clipboard)
         let state = makeState(diagnostics: diagnostics, config: config, clipboard: clipboard, actionRunner: actionRunner)
@@ -379,7 +380,7 @@ final class CommandPanelStateTests: XCTestCase {
         let diagnostics = DiagnosticsService()
         let config = ConfigService(diagnostics: diagnostics, url: temporaryURL())
         let registry = CommandRegistry(providers: [], usageRanking: UsageRankingStore.scratch(diagnostics), diagnostics: diagnostics, configService: config)
-        let state = CommandPanelState(registry: registry, actionRunner: ActionRunner(diagnostics: diagnostics), diagnostics: diagnostics, config: config)
+        let state = CommandPanelState.isolated(registry: registry, actionRunner: ActionRunner.isolated(diagnostics: diagnostics), diagnostics: diagnostics, config: config)
         var clock = Date(timeIntervalSince1970: 1000)
         state.now = { clock }
 
@@ -412,7 +413,7 @@ final class CommandPanelStateTests: XCTestCase {
     func testTranslatorChordsWaitForAResultAndSwapWithOrWithoutShift() {
         let diagnostics = DiagnosticsService()
         let config = ConfigService(diagnostics: diagnostics, url: temporaryURL())
-        let state = makeState(diagnostics: diagnostics, config: config, clipboard: ClipboardHistoryState(persistence: nil))
+        let state = makeState(diagnostics: diagnostics, config: config, clipboard: ClipboardHistoryState(pasteboard: TestClipboardPasteboard(), persistence: nil))
         state.router.openTranslator(language: "french")
         XCTAssertFalse(state.performModeShortcut(ActionShortcut(key: "c", modifiers: [.shift, .command])) {})
         XCTAssertFalse(state.performModeShortcut(ActionShortcut(key: "\r", modifiers: [.command])) {})
@@ -425,7 +426,7 @@ final class CommandPanelStateTests: XCTestCase {
     func testWhatsNewShowsOnceForUpgradersOnly() throws {
         let diagnostics = DiagnosticsService()
         let fresh = ConfigService(diagnostics: diagnostics, url: temporaryURL())
-        let freshState = makeState(diagnostics: diagnostics, config: fresh, clipboard: ClipboardHistoryState(persistence: nil))
+        let freshState = makeState(diagnostics: diagnostics, config: fresh, clipboard: ClipboardHistoryState(pasteboard: TestClipboardPasteboard(), persistence: nil))
         XCTAssertFalse(freshState.showsWhatsNew)
         XCTAssertEqual(fresh.current.localState.whatsNewSeenVersion, WhatsNew.version, "fresh installs never see it later")
         freshState.shutdown()
@@ -433,14 +434,14 @@ final class CommandPanelStateTests: XCTestCase {
         let url = temporaryURL()
         try JSONEncoder().encode(FoundryConfig()).write(to: url)
         let upgraded = ConfigService(diagnostics: diagnostics, url: url)
-        let state = makeState(diagnostics: diagnostics, config: upgraded, clipboard: ClipboardHistoryState(persistence: nil))
+        let state = makeState(diagnostics: diagnostics, config: upgraded, clipboard: ClipboardHistoryState(pasteboard: TestClipboardPasteboard(), persistence: nil))
         XCTAssertTrue(state.showsWhatsNew)
         state.dismissWhatsNew()
         XCTAssertFalse(state.showsWhatsNew)
         upgraded.flush()
         state.shutdown()
         let reopened = makeState(diagnostics: diagnostics, config: ConfigService(diagnostics: diagnostics, url: url),
-            clipboard: ClipboardHistoryState(persistence: nil))
+            clipboard: ClipboardHistoryState(pasteboard: TestClipboardPasteboard(), persistence: nil))
         XCTAssertFalse(reopened.showsWhatsNew)
         reopened.shutdown()
     }
@@ -449,7 +450,7 @@ final class CommandPanelStateTests: XCTestCase {
         let diagnostics = DiagnosticsService()
         let config = ConfigService(diagnostics: diagnostics, url: temporaryURL())
         let registry = CommandRegistry(providers: [], usageRanking: UsageRankingStore.scratch(diagnostics), diagnostics: diagnostics, configService: config)
-        let state = CommandPanelState(registry: registry, actionRunner: ActionRunner(diagnostics: diagnostics), diagnostics: diagnostics, config: config)
+        let state = CommandPanelState.isolated(registry: registry, actionRunner: ActionRunner.isolated(diagnostics: diagnostics), diagnostics: diagnostics, config: config)
         var clock = Date(timeIntervalSince1970: 1000)
         state.now = { clock }
 
@@ -473,7 +474,7 @@ final class CommandPanelStateTests: XCTestCase {
         let diagnostics = DiagnosticsService()
         let config = ConfigService(diagnostics: diagnostics, url: temporaryURL())
         let registry = CommandRegistry(providers: [], usageRanking: UsageRankingStore.scratch(diagnostics), diagnostics: diagnostics, configService: config)
-        let state = CommandPanelState(registry: registry, actionRunner: ActionRunner(diagnostics: diagnostics), diagnostics: diagnostics, config: config)
+        let state = CommandPanelState.isolated(registry: registry, actionRunner: ActionRunner.isolated(diagnostics: diagnostics), diagnostics: diagnostics, config: config)
 
         XCTAssertFalse(state.compactCollapsed)
         state.settings.setWindowMode(.compact)
@@ -506,7 +507,7 @@ final class CommandPanelStateTests: XCTestCase {
         let diagnostics = DiagnosticsService()
         let config = ConfigService(diagnostics: diagnostics, url: temporaryURL())
         let registry = CommandRegistry(providers: [], usageRanking: UsageRankingStore.scratch(diagnostics), diagnostics: diagnostics, configService: config)
-        let state = CommandPanelState(registry: registry, actionRunner: ActionRunner(diagnostics: diagnostics), diagnostics: diagnostics, config: config)
+        let state = CommandPanelState.isolated(registry: registry, actionRunner: ActionRunner.isolated(diagnostics: diagnostics), diagnostics: diagnostics, config: config)
         let result = CommandResult(
             id: "test.file",
             title: "Report",
@@ -546,7 +547,7 @@ final class CommandPanelStateTests: XCTestCase {
         let diagnostics = DiagnosticsService()
         let config = ConfigService(diagnostics: diagnostics, url: temporaryURL())
         let registry = CommandRegistry(providers: [], usageRanking: UsageRankingStore.scratch(diagnostics), diagnostics: diagnostics, configService: config)
-        let state = CommandPanelState(registry: registry, actionRunner: ActionRunner(diagnostics: diagnostics), diagnostics: diagnostics, config: config)
+        let state = CommandPanelState.isolated(registry: registry, actionRunner: ActionRunner.isolated(diagnostics: diagnostics), diagnostics: diagnostics, config: config)
         let result = CommandResult(
             id: "test.shortcuts",
             title: "Report",
@@ -585,7 +586,7 @@ final class CommandPanelStateTests: XCTestCase {
         let diagnostics = DiagnosticsService()
         let config = ConfigService(diagnostics: diagnostics, url: temporaryURL())
         let registry = CommandRegistry(providers: [], usageRanking: UsageRankingStore.scratch(diagnostics), diagnostics: diagnostics, configService: config)
-        let state = CommandPanelState(registry: registry, actionRunner: ActionRunner(diagnostics: diagnostics), diagnostics: diagnostics, config: config)
+        let state = CommandPanelState.isolated(registry: registry, actionRunner: ActionRunner.isolated(diagnostics: diagnostics), diagnostics: diagnostics, config: config)
         state.mode = .developerTools
         XCTAssertTrue(state.performModeShortcut(ActionShortcut(key: "3", modifiers: [.command])) {})
         XCTAssertEqual(state.developerTools.selectedTool, DeveloperToolsState.Tool.allCases[2])
@@ -597,7 +598,7 @@ final class CommandPanelStateTests: XCTestCase {
         let diagnostics = DiagnosticsService()
         let config = ConfigService(diagnostics: diagnostics, url: temporaryURL())
         let registry = CommandRegistry(providers: [], usageRanking: UsageRankingStore.scratch(diagnostics), diagnostics: diagnostics, configService: config)
-        let state = CommandPanelState(registry: registry, actionRunner: ActionRunner(diagnostics: diagnostics), diagnostics: diagnostics, config: config)
+        let state = CommandPanelState.isolated(registry: registry, actionRunner: ActionRunner.isolated(diagnostics: diagnostics), diagnostics: diagnostics, config: config)
         var lookedAt: [URL] = []
         let shell = RecordingShellPort()
         shell.onQuickLook = { lookedAt.append($0) }
@@ -624,7 +625,7 @@ final class CommandPanelStateTests: XCTestCase {
             diagnostics: diagnostics,
             configService: config
         )
-        let state = CommandPanelState(registry: registry, actionRunner: ActionRunner(diagnostics: diagnostics), diagnostics: diagnostics, config: config)
+        let state = CommandPanelState.isolated(registry: registry, actionRunner: ActionRunner.isolated(diagnostics: diagnostics), diagnostics: diagnostics, config: config)
         let result = CommandResult(
             id: "test.favorite",
             title: "Favorite Me",
@@ -662,7 +663,7 @@ final class CommandPanelStateTests: XCTestCase {
 
     private func makeState(diagnostics: DiagnosticsService, config: ConfigService, clipboard: ClipboardHistoryState, actionRunner: ActionRunner? = nil) -> CommandPanelState {
         let registry = CommandRegistry(providers: [], usageRanking: UsageRankingStore.scratch(diagnostics), diagnostics: diagnostics, configService: config)
-        return CommandPanelState(registry: registry, actionRunner: actionRunner ?? ActionRunner(diagnostics: diagnostics), diagnostics: diagnostics, config: config, clipboardHistory: clipboard)
+        return CommandPanelState.isolated(registry: registry, actionRunner: actionRunner ?? ActionRunner.isolated(diagnostics: diagnostics), diagnostics: diagnostics, config: config, clipboardHistory: clipboard)
     }
 
     private func temporaryURL() -> URL {
@@ -681,9 +682,9 @@ final class CommandPanelStateTests: XCTestCase {
             diagnostics: diagnostics,
             configService: config
         )
-        let state = CommandPanelState(
+        let state = CommandPanelState.isolated(
             registry: registry,
-            actionRunner: ActionRunner(diagnostics: diagnostics),
+            actionRunner: ActionRunner.isolated(diagnostics: diagnostics),
             diagnostics: diagnostics,
             config: config
         )

@@ -81,14 +81,14 @@ final class PreviewSnapshotTests: XCTestCase {
         guard let dir = ProcessInfo.processInfo.environment["FOUNDRY_QA_SNAPSHOT_DIR"] else { throw XCTSkip("snapshot dir not set") }
         let diagnostics = DiagnosticsService()
         let config = ConfigService(diagnostics: diagnostics, url: FileManager.default.temporaryDirectory.appendingPathComponent("settings-\(UUID()).json"))
-        let state = CommandPanelState(
+        let state = CommandPanelState.isolated(
             registry: CommandRegistry(providers: [], usageRanking: UsageRankingStore.scratch(diagnostics), diagnostics: diagnostics, configService: config),
-            actionRunner: ActionRunner(diagnostics: diagnostics),
+            actionRunner: ActionRunner.isolated(diagnostics: diagnostics),
             diagnostics: diagnostics,
             config: config
         )
         for pane in ["general", "agents", "clipboard"] {
-            let defaults = try XCTUnwrap(UserDefaults(suiteName: "settings-snap-\(UUID())"))
+            let defaults = try XCTUnwrap(UserDefaults(suiteName: isolatedDefaultsSuite("settings-snap")))
             defaults.set(pane, forKey: "settings.lastPane")
             for appearance in [NSAppearance.Name.aqua, .darkAqua] {
                 let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 820, height: 600),
@@ -227,7 +227,7 @@ final class PreviewSnapshotTests: XCTestCase {
         let diagnostics = DiagnosticsService()
         let config = ConfigService(diagnostics: diagnostics, url: FileManager.default.temporaryDirectory.appendingPathComponent("snap-\(UUID()).json"))
         let registry = CommandRegistry(providers: [], usageRanking: UsageRankingStore.scratch(diagnostics), diagnostics: diagnostics, configService: config)
-        let state = CommandPanelState(registry: registry, actionRunner: ActionRunner(diagnostics: diagnostics), diagnostics: diagnostics, config: config)
+        let state = CommandPanelState.isolated(registry: registry, actionRunner: ActionRunner.isolated(diagnostics: diagnostics), diagnostics: diagnostics, config: config)
         let file = CommandResult(id: "file.a", title: "Report.pdf", subtitle: "~/Documents", icon: CommandIcon(fallback: "F", systemName: "doc"),
             payload: .file(URL(fileURLWithPath: "/tmp/Report.pdf")),
             primaryAction: CommandAction(id: "file.open", title: "Open", behavior: OpenHomeAction()),
@@ -279,7 +279,7 @@ final class PreviewSnapshotTests: XCTestCase {
         let config = ConfigService(diagnostics: diagnostics, url: FileManager.default.temporaryDirectory.appendingPathComponent("snap-\(UUID()).json"))
         let clipboard = ClipboardHistoryState(pasteboard: pasteboard, persistence: nil, configuration: config.current.clipboard)
         let registry = CommandRegistry(providers: [], usageRanking: UsageRankingStore.scratch(diagnostics), diagnostics: diagnostics, configService: config)
-        let state = CommandPanelState(registry: registry, actionRunner: ActionRunner(diagnostics: diagnostics), diagnostics: diagnostics,
+        let state = CommandPanelState.isolated(registry: registry, actionRunner: ActionRunner.isolated(diagnostics: diagnostics), diagnostics: diagnostics,
             config: config, clipboardHistory: clipboard)
         for text in ["Meeting notes for Thursday", "https://foundry.app/download"] {
             pasteboard.snapshotValue = PasteboardSnapshot(types: [.string], payload: .text(text), sourceBundleIdentifier: "com.apple.Safari")

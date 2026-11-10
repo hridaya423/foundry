@@ -42,7 +42,7 @@ final class ActionRunnerTests: XCTestCase {
     }
 
     func testExecutionReturnsTypedClipboardOutcomeAndFeedbackEvent() async {
-        let runner = ActionRunner(diagnostics: DiagnosticsService(), pasteboard: NSPasteboard(name: NSPasteboard.Name("ActionRunnerTests")))
+        let runner = ActionRunner.isolated(diagnostics: DiagnosticsService(), pasteboard: NSPasteboard(name: NSPasteboard.Name("ActionRunnerTests")))
         let request = CommandExecutionRequest(
             commandID: "test.copy",
             action: CommandAction(id: "test.copy.perform", title: "Copy", behavior: CopyToClipboardAction("value"))
@@ -64,7 +64,7 @@ final class ActionRunnerTests: XCTestCase {
 
     func testCopySnippetRendersAtExecutionUsingInjectedContext() async {
         let store = TestSnippetStore(snippets: [StoredSnippet(id: "one", title: "One", content: "{clipboard}")])
-        let runner = ActionRunner(
+        let runner = ActionRunner.isolated(
             diagnostics: DiagnosticsService(),
             snippetStore: store,
             pasteboard: NSPasteboard(name: NSPasteboard.Name("ActionRunnerTests.snippet")),
@@ -78,7 +78,7 @@ final class ActionRunnerTests: XCTestCase {
     }
 
     func testExecutionReturnsProcessFailureWithoutThrowingAcrossTheBoundary() async {
-        let runner = ActionRunner(diagnostics: DiagnosticsService())
+        let runner = ActionRunner.isolated(diagnostics: DiagnosticsService())
         let request = CommandExecutionRequest(
             commandID: "test.process",
             action: CommandAction(id: "test.process.perform", title: "Run", behavior: RunProcessAction(path: "/path/that/does/not/exist", arguments: []))
@@ -94,7 +94,7 @@ final class ActionRunnerTests: XCTestCase {
     }
 
     func testOpenActionReturnsTypedRouteWithPayload() async {
-        let runner = ActionRunner(diagnostics: DiagnosticsService())
+        let runner = ActionRunner.isolated(diagnostics: DiagnosticsService())
         let request = CommandExecutionRequest(
             commandID: "test.translate",
             action: CommandAction(
@@ -111,7 +111,7 @@ final class ActionRunnerTests: XCTestCase {
     }
 
     func testOCRWithoutScreenRecordingAsksBeforeCapturing() async {
-        let runner = ActionRunner(diagnostics: DiagnosticsService())
+        let runner = ActionRunner.isolated(diagnostics: DiagnosticsService())
         var asked: [String] = []
         var requested: [PermissionKind] = []
         runner.panel.canCaptureScreen = { false }
@@ -130,7 +130,7 @@ final class ActionRunnerTests: XCTestCase {
 
     func testResetRankingRunsThroughTheExecutorBoundary() async {
         var resetCommandID: String?
-        let runner = ActionRunner(
+        let runner = ActionRunner.isolated(
             diagnostics: DiagnosticsService(),
             resetRanking: { resetCommandID = $0 }
         )
@@ -150,7 +150,7 @@ final class ActionRunnerTests: XCTestCase {
     }
 
     func testDestructiveActionRequiresConfirmation() async {
-        let runner = ActionRunner(
+        let runner = ActionRunner.isolated(
             diagnostics: DiagnosticsService(),
             confirmAction: { _, _ in false }
         )
@@ -165,7 +165,7 @@ final class ActionRunnerTests: XCTestCase {
     }
 
     func testDeletingSnippetSaysItCannotBeUndone() async {
-        let runner = ActionRunner(diagnostics: DiagnosticsService())
+        let runner = ActionRunner.isolated(diagnostics: DiagnosticsService())
         var asked: PanelPromptSpec?
         runner.panel.requestPrompt = { spec in asked = spec; return .cancelled }
         let request = CommandExecutionRequest(
@@ -179,7 +179,7 @@ final class ActionRunnerTests: XCTestCase {
     }
 
     func testWindowPermissionKeepsThePanelStateAvailable() async {
-        let runner = ActionRunner(
+        let runner = ActionRunner.isolated(
             diagnostics: DiagnosticsService(),
             windowManager: PermissionWindowManager()
         )
@@ -195,7 +195,7 @@ final class ActionRunnerTests: XCTestCase {
 
     func testWindowPermissionDoesNotOpenSettingsAcrossRepeatedAttemptsButExplicitURLDoes() async {
         var openedURLs: [URL] = []
-        let runner = ActionRunner(
+        let runner = ActionRunner.isolated(
             diagnostics: DiagnosticsService(),
             windowManager: PermissionWindowManager(),
             openURL: { url in
@@ -229,7 +229,7 @@ final class ActionRunnerTests: XCTestCase {
     }
 
     func testCancellationCancelsAProcessExecution() async throws {
-        let runner = ActionRunner(diagnostics: DiagnosticsService())
+        let runner = ActionRunner.isolated(diagnostics: DiagnosticsService())
         let cancellationID = UUID()
         let request = CommandExecutionRequest(
             commandID: "test.sleep",
@@ -246,7 +246,7 @@ final class ActionRunnerTests: XCTestCase {
     }
 
     func testCallerCancellationCancelsTheOwnedExecution() async throws {
-        let runner = ActionRunner(diagnostics: DiagnosticsService())
+        let runner = ActionRunner.isolated(diagnostics: DiagnosticsService())
         let request = CommandExecutionRequest(
             commandID: "test.sleep.caller-cancel",
             action: CommandAction(
@@ -265,7 +265,7 @@ final class ActionRunnerTests: XCTestCase {
     }
 
     func testDuplicateCancellationIDsDoNotReplaceTheOriginalExecution() async throws {
-        let runner = ActionRunner(diagnostics: DiagnosticsService())
+        let runner = ActionRunner.isolated(diagnostics: DiagnosticsService())
         let cancellationID = UUID()
         let request = CommandExecutionRequest(
             commandID: "test.sleep.duplicate",
@@ -293,7 +293,7 @@ final class ActionRunnerTests: XCTestCase {
 
     func testOpenAppCancellationCompletesBeforeDelayedWorkspaceCallback() async throws {
         var callback: ((NSRunningApplication?, Error?) -> Void)?
-        let runner = ActionRunner(
+        let runner = ActionRunner.isolated(
             diagnostics: DiagnosticsService(),
             openApplication: { _, _, completion in callback = completion }
         )
@@ -312,7 +312,7 @@ final class ActionRunnerTests: XCTestCase {
 
     func testMediaExecutionsHaveIndependentCancellationOwnership() async throws {
         let media = FakeMediaDownloadService()
-        let runner = ActionRunner(
+        let runner = ActionRunner.isolated(
             diagnostics: DiagnosticsService(),
             mediaDownloadService: media
         )
@@ -382,7 +382,7 @@ final class ActionRunnerTests: XCTestCase {
         defer { try? FileManager.default.removeItem(at: folder) }
         let source = folder.appendingPathComponent("note.txt")
         try "hello".write(to: source, atomically: true, encoding: .utf8)
-        let runner = ActionRunner(diagnostics: DiagnosticsService())
+        let runner = ActionRunner.isolated(diagnostics: DiagnosticsService())
 
         let outcome = await runner.execute(CommandExecutionRequest(
             commandID: "test.file",
@@ -402,7 +402,8 @@ final class ActionRunnerTests: XCTestCase {
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         let source = folder.appendingPathComponent("doomed.txt")
         try "bye".write(to: source, atomically: true, encoding: .utf8)
-        let runner = ActionRunner(diagnostics: DiagnosticsService(), confirmAction: { _, _ in true })
+        let runner = ActionRunner.isolated(diagnostics: DiagnosticsService(), trashItem: { try FileManager.default.removeItem(at: $0) },
+            confirmAction: { _, _ in true })
 
         let outcome = await runner.execute(CommandExecutionRequest(
             commandID: "test.file",
@@ -421,7 +422,7 @@ final class ActionRunnerTests: XCTestCase {
         defer { try? FileManager.default.removeItem(at: folder) }
         let source = folder.appendingPathComponent("safe.txt")
         try "hi".write(to: source, atomically: true, encoding: .utf8)
-        let runner = ActionRunner(diagnostics: DiagnosticsService(), confirmAction: { _, _ in false })
+        let runner = ActionRunner.isolated(diagnostics: DiagnosticsService(), confirmAction: { _, _ in false })
 
         let outcome = await runner.execute(CommandExecutionRequest(
             commandID: "test.file",
@@ -433,7 +434,7 @@ final class ActionRunnerTests: XCTestCase {
     }
 
     func testRevealFileReturnsTypedFileResults() async {
-        let runner = ActionRunner(diagnostics: DiagnosticsService())
+        let runner = ActionRunner.isolated(diagnostics: DiagnosticsService())
 
         let outcome = await runner.execute(CommandExecutionRequest(
             commandID: "test.file",
@@ -447,7 +448,7 @@ final class ActionRunnerTests: XCTestCase {
         let pasteboard = NSPasteboard(name: NSPasteboard.Name("ActionRunnerTests.qr"))
         pasteboard.clearContents()
         pasteboard.setString("https://example.com", forType: .string)
-        let runner = ActionRunner(diagnostics: DiagnosticsService(), pasteboard: pasteboard)
+        let runner = ActionRunner.isolated(diagnostics: DiagnosticsService(), pasteboard: pasteboard)
 
         let outcome = await runner.execute(CommandExecutionRequest(
             commandID: "test.qr",
@@ -462,7 +463,7 @@ final class ActionRunnerTests: XCTestCase {
     func testGenerateQRCodeFailsOnEmptyClipboard() async {
         let pasteboard = NSPasteboard(name: NSPasteboard.Name("ActionRunnerTests.qrempty"))
         pasteboard.clearContents()
-        let runner = ActionRunner(diagnostics: DiagnosticsService(), pasteboard: pasteboard)
+        let runner = ActionRunner.isolated(diagnostics: DiagnosticsService(), pasteboard: pasteboard)
 
         let outcome = await runner.execute(CommandExecutionRequest(
             commandID: "test.qr",
@@ -487,7 +488,7 @@ final class ActionRunnerTests: XCTestCase {
         try Self.renderTextImage(text: "HELLO WORLD").write(to: imageURL)
 
         let pasteboard = NSPasteboard(name: NSPasteboard.Name("ActionRunnerTests.ocr"))
-        let runner = ActionRunner(diagnostics: DiagnosticsService(), pasteboard: pasteboard)
+        let runner = ActionRunner.isolated(diagnostics: DiagnosticsService(), pasteboard: pasteboard)
 
         let outcome = await runner.execute(CommandExecutionRequest(
             commandID: "test.ocr",
@@ -510,7 +511,7 @@ final class ActionRunnerTests: XCTestCase {
         let imageURL = folder.appendingPathComponent("label.png")
         try Self.renderTextImage(text: "HELLO WORLD").write(to: imageURL)
 
-        let runner = ActionRunner(diagnostics: DiagnosticsService())
+        let runner = ActionRunner.isolated(diagnostics: DiagnosticsService())
         var previewed: URL?
         runner.panel.onQuickLook = { url in previewed = url }
 
@@ -527,7 +528,7 @@ final class ActionRunnerTests: XCTestCase {
     }
 
     func testExtractTextFromImageFailsOnMissingFile() async {
-        let runner = ActionRunner(diagnostics: DiagnosticsService())
+        let runner = ActionRunner.isolated(diagnostics: DiagnosticsService())
 
         let outcome = await runner.execute(CommandExecutionRequest(
             commandID: "test.ocr",
@@ -540,7 +541,7 @@ final class ActionRunnerTests: XCTestCase {
     }
 
     func testCelebrateStaysOpen() async {
-        let runner = ActionRunner(diagnostics: DiagnosticsService())
+        let runner = ActionRunner.isolated(diagnostics: DiagnosticsService())
 
         let outcome = await runner.execute(CommandExecutionRequest(
             commandID: "test.party",

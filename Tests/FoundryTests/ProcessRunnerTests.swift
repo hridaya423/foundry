@@ -41,15 +41,26 @@ final class ProcessRunnerTests: XCTestCase {
         XCTAssertEqual(result?.cancelled, false)
     }
 
-    func testSynchronousRunnerTerminatesDescendants() {
+    func testSynchronousRunnerTerminatesDescendants() throws {
+        let pidFile = FileManager.default.temporaryDirectory.appendingPathComponent("foundry-descendant-\(UUID().uuidString).pid")
+        defer { try? FileManager.default.removeItem(at: pidFile) }
+
         let result = ProcessRunner.runSynchronously(
             path: "/bin/sh",
-            arguments: ["-c", "sleep 30 & wait"],
-            timeout: 0.1
+            arguments: ["-c", "sleep 30 >/dev/null 2>&1 & echo $! > '\(pidFile.path)'; wait"],
+            timeout: 2
         )
 
-        XCTAssertNotNil(result)
         XCTAssertEqual(result?.timedOut, true)
+        let text = try String(contentsOf: pidFile, encoding: .utf8).trimmingCharacters(in: .whitespacesAndNewlines)
+        let child = try XCTUnwrap(Int32(text))
+        var alive = true
+        for _ in 0..<60 where alive {
+            alive = kill(child, 0) == 0
+            if alive { Thread.sleep(forTimeInterval: 0.05) }
+        }
+        if alive { kill(child, SIGKILL) }
+        XCTAssertFalse(alive, "the timed-out script's background child must not outlive it")
     }
 
     func testAsyncRunnerTerminatesChildWhenCancelled() async {

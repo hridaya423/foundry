@@ -12,7 +12,7 @@ final class OnboardingSnapshotTests: XCTestCase {
         let diagnostics = DiagnosticsService()
         let config = ConfigService(diagnostics: diagnostics, url: FileManager.default.temporaryDirectory.appendingPathComponent("foundry-snap-\(UUID().uuidString).json"))
         let registry = CommandRegistry(providers: [], usageRanking: UsageRankingStore.scratch(diagnostics), diagnostics: diagnostics, configService: config)
-        let panel = CommandPanelState(registry: registry, actionRunner: ActionRunner(diagnostics: diagnostics), diagnostics: diagnostics, config: config)
+        let panel = CommandPanelState.isolated(registry: registry, actionRunner: ActionRunner.isolated(diagnostics: diagnostics), diagnostics: diagnostics, config: config)
         let state = OnboardingState(panel: panel, permissions: PermissionHealthState(accessibilityTrusted: { false }), localState: LocalStateStore(),
             importSources: { [ImportSource(kind: .alfred, available: 12), ImportSource(kind: .raycast)] }, appleIntelligence: { true },
             registerLoginItem: { _ in })

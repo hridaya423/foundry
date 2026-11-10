@@ -86,8 +86,8 @@ final class ScriptCommandTests: XCTestCase {
     func testTimeoutAndOutputCap() async throws {
         let store = trustedStore()
         let slow = try writeScript("slow.sh", body: "sleep 5", title: "Slow")
-        let slowOutcome = await run(runner(store: store, timeout: 0.3), path: slow, mode: .compact)
-        XCTAssertEqual(slowOutcome, .failure(message: "slow.sh timed out after 0 s", retryable: true))
+        let slowOutcome = await run(runner(store: store, timeout: 1), path: slow, mode: .compact)
+        XCTAssertEqual(slowOutcome, .failure(message: "slow.sh timed out after 1 s", retryable: true))
 
         let chatty = try writeScript("chatty.sh", body: "yes line | head -n 100000; echo END", title: "Chatty")
         let chattyOutcome = await run(runner(store: store, outputLimit: 1024), path: chatty, mode: .compact)
@@ -107,7 +107,7 @@ final class ScriptCommandTests: XCTestCase {
     }
 
     private func runner(store: ScriptDirectoryStore, timeout: TimeInterval = 5, outputLimit: Int = 256 * 1024, confirm: @escaping @MainActor (String) -> Bool = { _ in true }) -> ActionRunner {
-        ActionRunner(diagnostics: DiagnosticsService(), openURL: { _ in true }, scriptDirectories: store, confirmScriptDirectory: confirm, scriptTimeout: timeout, scriptOutputLimit: outputLimit)
+        ActionRunner.isolated(diagnostics: DiagnosticsService(), openURL: { _ in true }, scriptDirectories: store, confirmScriptDirectory: confirm, scriptTimeout: timeout, scriptOutputLimit: outputLimit)
     }
 
     private func run(_ runner: ActionRunner, path: String, mode: ScriptOutputMode) async -> CommandOutcome {

@@ -13,6 +13,7 @@ final class ActionRunner {
     private let mediaDownloadService: any MediaDownloading
     private let mediaDownloadManager: MediaDownloadManager
     private let resetRanking: (String) -> Void
+    private let trashItem: (URL) throws -> Void
     /// nil = confirm through the panel prompt (ConfirmBar). Tests inject a
     /// closure so confirmations never depend on panel state.
     private let confirmAction: (@MainActor (CommandActionDescriptor, CommandInvocationSource) async -> Bool)?
@@ -39,6 +40,7 @@ final class ActionRunner {
         mediaDownloadService: any MediaDownloading = MediaDownloadService(),
         mediaDownloadManager: MediaDownloadManager = MediaDownloadManager(),
         resetRanking: @escaping (String) -> Void = { _ in },
+        trashItem: @escaping (URL) throws -> Void = { try FileManager.default.trashItem(at: $0, resultingItemURL: nil) },
         confirmAction: (@MainActor (CommandActionDescriptor, CommandInvocationSource) async -> Bool)? = nil,
         windowManager: any WindowManaging = NativeWindowManager(),
         openURL: @escaping (URL) -> Bool = { NSWorkspace.shared.open($0) },
@@ -65,6 +67,7 @@ final class ActionRunner {
         self.mediaDownloadService = mediaDownloadService
         self.mediaDownloadManager = mediaDownloadManager
         self.resetRanking = resetRanking
+        self.trashItem = trashItem
         self.confirmAction = confirmAction
         self.windowManager = windowManager
         self.openURL = openURL
@@ -137,6 +140,7 @@ final class ActionRunner {
                 await panel.requestPrompt(RunScriptAction.trustSpec(for: directory)).confirmed
             },
             resetRanking: resetRanking,
+            trashItem: trashItem,
             scriptTimeout: scriptTimeout,
             scriptOutputLimit: scriptOutputLimit,
             invocation: request.invocation,

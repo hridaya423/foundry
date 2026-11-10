@@ -34,7 +34,7 @@ final class CommandPanelState {
 
     @ObservationIgnored lazy var emojiPicker = EmojiPickerState(localState: localState)
     let fileShelf = FileShelfState()
-    let agents = AgentMonitorState()
+    let agents: AgentMonitorState
     let clipboardHistory: ClipboardHistoryState
     let snippets: SnippetState
     let localState: LocalStateStore
@@ -124,8 +124,10 @@ final class CommandPanelState {
         snippetStore: (any SnippetStore)? = nil,
         mediaDownloadManager: MediaDownloadManager = MediaDownloadManager(),
         clipboardHistory: ClipboardHistoryState? = nil,
-        localState: LocalStateStore = .shared
+        localState: LocalStateStore = .shared,
+        agents: AgentMonitorState = AgentMonitorState()
     ) {
+        self.agents = agents
         self.registry = registry
         self.searchCoordinator = CommandSearchCoordinator(registry: registry, diagnostics: diagnostics)
         self.actionRunner = actionRunner

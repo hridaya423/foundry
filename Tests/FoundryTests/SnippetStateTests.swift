@@ -132,10 +132,10 @@ final class SnippetStateTests: XCTestCase {
         let diagnostics = DiagnosticsService()
         let config = ConfigService(diagnostics: diagnostics,
             url: FileManager.default.temporaryDirectory.appendingPathComponent("foundry-snip-\(UUID().uuidString).json"))
-        let state = CommandPanelState(
+        let state = CommandPanelState.isolated(
             registry: CommandRegistry(providers: [], usageRanking: UsageRankingStore.scratch(diagnostics), diagnostics: diagnostics,
                 configService: config),
-            actionRunner: ActionRunner(diagnostics: diagnostics), diagnostics: diagnostics, config: config,
+            actionRunner: ActionRunner.isolated(diagnostics: diagnostics), diagnostics: diagnostics, config: config,
             snippetStore: InMemorySnippetStore(snippets: [
                 StoredSnippet(id: "plain", title: "Plain", content: "x"),
                 StoredSnippet(id: "ask", title: "Ask", content: "Hi {argument}"),
@@ -153,7 +153,7 @@ final class SnippetStateTests: XCTestCase {
 
     func testRootSnippetWithArgumentsRoutesToThePromptAndOffersEdit() async {
         let store = InMemorySnippetStore(snippets: [StoredSnippet(id: "a", title: "Greet", content: "Hi {argument name=\"to\"}")])
-        let runner = ActionRunner(diagnostics: DiagnosticsService(), snippetStore: store)
+        let runner = ActionRunner.isolated(diagnostics: DiagnosticsService(), snippetStore: store)
         let insert = CommandAction(id: "i", title: "Insert", behavior: PasteSnippetAction(id: "a"))
         let outcome = await runner.execute(CommandExecutionRequest(commandID: "i", action: insert)) { _ in }
         XCTAssertEqual(outcome, .open(route: .snippet(id: "a", then: .insert)))

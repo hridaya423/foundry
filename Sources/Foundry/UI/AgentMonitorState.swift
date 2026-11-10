@@ -37,7 +37,7 @@ final class AgentMonitorState {
     private let titleService = AgentTitleService()
     private let diagnostics: DiagnosticsService
     private var collector: any AgentMonitorCollecting
-    private let socketServer = AgentEventSocketServer()
+    private let socketServer: AgentEventSocketServer
     private let integrationInstaller: AgentIntegrationInstaller
     private var pollingTask: Task<Void, Never>?
     private var refreshTask: Task<Void, Never>?
@@ -51,8 +51,10 @@ final class AgentMonitorState {
     init(
         integrationInstaller: AgentIntegrationInstaller = AgentIntegrationInstaller(),
         collector: any AgentMonitorCollecting = AgentMonitorCollector(),
-        diagnostics: DiagnosticsService = DiagnosticsService()
+        diagnostics: DiagnosticsService = DiagnosticsService(),
+        socketURL: URL = AgentEventSocketServer.socketURL
     ) {
+        self.socketServer = AgentEventSocketServer(socketURL: socketURL)
         self.integrationInstaller = integrationInstaller
         self.collector = collector
         self.diagnostics = diagnostics

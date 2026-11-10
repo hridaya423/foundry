@@ -19,10 +19,10 @@ enum SnapshotHarness {
         .appendingPathComponent("Fixtures/Snapshots", isDirectory: true)
 
     /// Per-channel difference above this counts as a changed pixel.
-    static let channelTolerance: UInt8 = 24
+    static let channelTolerance: UInt8 = 20
     /// Fraction of changed pixels still accepted — covers rasterisation
     /// differences between hosts without hiding layout regressions.
-    static let maxMismatchFraction = 0.02
+    static let maxMismatchFraction = 0.001
 
     static func render<V: View>(_ view: V, size: CGSize, appearance: NSAppearance.Name = .aqua) throws -> NSBitmapImageRep {
         let window = NSWindow(
