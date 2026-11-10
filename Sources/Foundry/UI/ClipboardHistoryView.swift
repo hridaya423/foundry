@@ -346,35 +346,35 @@ struct ClipboardImagePreview: View {
     @State private var image: NSImage?
 
     var body: some View {
-        Group {
-            if let image {
-                Image(nsImage: image)
-                    .resizable()
-                    .aspectRatio(contentMode: .fit)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .clipShape(RoundedRectangle(cornerRadius: FoundryTheme.Radius.control, style: .continuous))
-                    .accessibilityLabel("Copied image")
+        Color.clear
+            .overlay {
+                if let image {
+                    Image(nsImage: image)
+                        .resizable()
+                        .aspectRatio(contentMode: .fit)
+                        .clipShape(RoundedRectangle(cornerRadius: FoundryTheme.Radius.control, style: .continuous))
+                        .accessibilityLabel("Copied image")
+                }
             }
-        }
-        .task(id: signature) {
-            let key = signature as NSString
-            if let cached = Self.imageCache.object(forKey: key) {
-                image = cached
-                return
+            .task(id: signature) {
+                let key = signature as NSString
+                if let cached = Self.imageCache.object(forKey: key) {
+                    image = cached
+                    return
+                }
+                let decoded = await Task.detached(priority: .utility) {
+                    guard let source = CGImageSourceCreateWithData(data as CFData, nil) else { return nil as CGImage? }
+                    return CGImageSourceCreateThumbnailAtIndex(source, 0, [
+                        kCGImageSourceCreateThumbnailFromImageAlways: true,
+                        kCGImageSourceThumbnailMaxPixelSize: 1200,
+                        kCGImageSourceCreateThumbnailWithTransform: true
+                    ] as CFDictionary)
+                }.value.map { NSImage(cgImage: $0, size: .zero) }
+                if let decoded {
+                    let pixels = decoded.representations.first.map { $0.pixelsWide * $0.pixelsHigh } ?? 0
+                    Self.imageCache.setObject(decoded, forKey: key, cost: pixels * 4)
+                }
+                image = decoded
             }
-            let decoded = await Task.detached(priority: .utility) {
-                guard let source = CGImageSourceCreateWithData(data as CFData, nil) else { return nil as CGImage? }
-                return CGImageSourceCreateThumbnailAtIndex(source, 0, [
-                    kCGImageSourceCreateThumbnailFromImageAlways: true,
-                    kCGImageSourceThumbnailMaxPixelSize: 1200,
-                    kCGImageSourceCreateThumbnailWithTransform: true
-                ] as CFDictionary)
-            }.value.map { NSImage(cgImage: $0, size: .zero) }
-            if let decoded {
-                let pixels = decoded.representations.first.map { $0.pixelsWide * $0.pixelsHigh } ?? 0
-                Self.imageCache.setObject(decoded, forKey: key, cost: pixels * 4)
-            }
-            image = decoded
-        }
     }
 }

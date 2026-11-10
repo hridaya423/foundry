@@ -1,4 +1,5 @@
 import os
+import SwiftUI
 import XCTest
 @testable import Foundry
 
@@ -32,6 +33,28 @@ final class ClipboardHistoryTests: XCTestCase {
 
         state.stop()
         XCTAssertFalse(state.isMonitoring)
+    }
+
+    @MainActor
+    func testSelectedImageIsDecodedForThePreview() throws {
+        let image = NSImage(size: NSSize(width: 40, height: 20), flipped: false) { rect in
+            NSColor.red.setFill()
+            rect.fill()
+            return true
+        }
+        let pasteboard = TestClipboardPasteboard()
+        let clipboard = ClipboardHistoryState(pasteboard: pasteboard, persistence: nil, configuration: .default)
+        pasteboard.snapshotValue = PasteboardSnapshot(types: [.tiff], payload: .image(try XCTUnwrap(image.tiffRepresentation)), sourceBundleIdentifier: nil)
+        pasteboard.changeCountValue += 1
+        clipboard.captureIfChanged()
+        let signature = try XCTUnwrap(clipboard.selectedItem?.signature)
+        ClipboardImagePreview.releaseCachedImages()
+
+        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 736, height: 420), styleMask: [.titled], backing: .buffered, defer: false)
+        window.contentView = NSHostingView(rootView: ClipboardHistoryView(state: clipboard))
+        RunLoop.main.run(until: Date().addingTimeInterval(1))
+
+        XCTAssertNotNil(ClipboardImagePreview.imageCache.object(forKey: signature as NSString))
     }
 
     @MainActor
