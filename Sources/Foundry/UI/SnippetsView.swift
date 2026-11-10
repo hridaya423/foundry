@@ -73,20 +73,26 @@ struct SnippetsView: View {
             } else if state.visibleItems.isEmpty {
                 noMatchesState
             } else {
-                ScrollView {
-                    LazyVStack(spacing: 3) {
-                        ForEach(state.visibleItems) { snippet in
-                            SnippetRow(
-                                snippet: snippet,
-                                subtitle: Self.firstLine(of: snippet.content),
-                                isSelected: state.selectedItem?.id == snippet.id,
-                                select: { state.select(id: snippet.id) }
-                            )
+                ScrollViewReader { proxy in
+                    ScrollView {
+                        LazyVStack(spacing: 3) {
+                            ForEach(state.visibleItems) { snippet in
+                                SnippetRow(
+                                    snippet: snippet,
+                                    subtitle: Self.firstLine(of: snippet.content),
+                                    isSelected: state.selectedItem?.id == snippet.id,
+                                    select: { state.select(id: snippet.id) }
+                                )
+                            }
                         }
+                        .padding(.bottom, 2)
                     }
-                    .padding(.bottom, 2)
+                    .scrollIndicators(.never)
+                    .onChange(of: state.selectedID) { _, id in
+                        guard let id else { return }
+                        proxy.scrollTo(id)
+                    }
                 }
-                .scrollIndicators(.never)
             }
         }
         .padding(16)

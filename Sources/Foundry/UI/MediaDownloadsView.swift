@@ -149,18 +149,24 @@ struct MediaDownloadsView: View {
     }
 
     private var queue: some View {
-        ScrollView {
-            LazyVStack(spacing: 18) {
-                if activeItems.isEmpty == false {
-                    downloadSection(title: "Active", items: activeItems)
-                }
+        ScrollViewReader { proxy in
+            ScrollView {
+                LazyVStack(spacing: 18) {
+                    if activeItems.isEmpty == false {
+                        downloadSection(title: "Active", items: activeItems)
+                    }
 
-                if recentItems.isEmpty == false {
-                    downloadSection(title: "Recent", items: recentItems, canClear: true)
+                    if recentItems.isEmpty == false {
+                        downloadSection(title: "Recent", items: recentItems, canClear: true)
+                    }
                 }
+                .padding(.horizontal, 20)
+                .padding(.vertical, 16)
             }
-            .padding(.horizontal, 20)
-            .padding(.vertical, 16)
+            .onChange(of: manager.selectedID) { _, id in
+                guard let id else { return }
+                proxy.scrollTo(id)
+            }
         }
     }
 
