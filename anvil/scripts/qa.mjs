@@ -5,7 +5,8 @@ import { fileURLToPath } from "node:url";
 export function routesFrom(config) {
   return config.routes.flatMap((route) => config.widths.flatMap((width) => {
     const height = config.heights[width];
-    return route.stops ? route.stops.map((stop) => ({ path: route.path, width, height, stop })) : [{ path: route.path, width, height }];
+    const status = route.status ?? 200;
+    return route.stops ? route.stops.map((stop) => ({ path: route.path, width, height, stop, status })) : [{ path: route.path, width, height, status }];
   }));
 }
 
@@ -44,6 +45,7 @@ async function capture(base, out, config) {
     const page = await context.newPage();
     const errors = [];
     page.on("pageerror", (error) => errors.push(error.message));
+    page.on("console", (message) => { if (message.type() === "error" && !(shot.status === 404 && message.text().includes("404"))) errors.push(message.text()); });
     const response = await page.goto(urlFor(base, shot), { waitUntil: "networkidle" });
     await settle(page);
     const name = shotName(shot);
@@ -63,7 +65,7 @@ async function capture(base, out, config) {
       violations = result.violations.map((v) => ({ id: v.id, impact: v.impact, nodes: v.nodes.length, help: v.help }));
       writeFileSync(join(out, `axe-${name.replace(".png", ".json")}`), JSON.stringify(result.violations, null, 2));
     }
-    report.push({ name, status: response?.status(), errors, violations, ...facts });
+    report.push({ name, status: response?.status(), expectedStatus: shot.status, errors, violations, ...facts, expectsScene: shot.width >= 900 && shot.height > 740 });
     await context.close();
   }
   await browser.close();
@@ -139,6 +141,16 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
     const report = await capture(base, out, config);
     contactSheet(out, report);
     writeFileSync(join(out, "report.json"), JSON.stringify(report, null, 2));
+    const problems = report.flatMap((shot) => [
+      ...shot.errors.map((error) => `${shot.name}: ${error}`),
+      ...(shot.status !== shot.expectedStatus ? [`${shot.name}: HTTP ${shot.status}, expected ${shot.expectedStatus}`] : []),
+      ...(shot.expectsScene && shot.scene === "still" ? [`${shot.name}: the 3D scene fell back to the still image`] : []),
+      ...(shot.overflow > 0 ? [`${shot.name}: ${shot.overflow}px of horizontal overflow`] : []),
+      ...shot.clipped.map((label) => `${shot.name}: "${label}" is cut off`),
+      ...(shot.violations ?? []).filter(({ impact }) => impact === "serious" || impact === "critical").map(({ id, help }) => `${shot.name}: axe ${id} (${help})`),
+    ]);
+    for (const problem of problems) console.error(problem);
+    if (problems.length) process.exitCode = 1;
     if (mode !== "--shots") writeFileSync(join(out, "lighthouse.json"), JSON.stringify(await audit(base, out, config), null, 2));
   }
   console.log(`wrote ${out}`);

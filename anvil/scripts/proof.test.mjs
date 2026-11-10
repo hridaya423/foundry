@@ -35,3 +35,10 @@ test("every figure source exists in the repository", async () => {
   const { existsSync } = await import("node:fs");
   for (const { id, source } of proofFigures()) assert.ok(existsSync(new URL(`../../${source}`, import.meta.url)), `${id}: ${source} missing`);
 });
+
+test("the app size beside the current version names the version it was measured on", async () => {
+  const { appSizeLabel } = await import("../app/proof.ts");
+  const figure = proofFigures().find(({ id }) => id === "app-size");
+  assert.equal(appSizeLabel(), `${formatFigure(figure)} in ${figure.version.replace(/^Foundry /, "")}`);
+  assert.match(appSizeLabel(), / in \d+\.\d+\.\d+$/);
+});

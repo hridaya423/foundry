@@ -44,3 +44,10 @@ test("releases are newest first", () => {
   const sorted = [...versions].sort((a, b) => b.localeCompare(a, undefined, { numeric: true }));
   assert.deepEqual(versions, sorted);
 });
+
+test("the sitemap dates every page with the newest release date", async () => {
+  const { default: sitemap } = await import("../app/sitemap.ts");
+  const { latestReleaseDate } = await import("../app/changelog.ts");
+  assert.equal(latestReleaseDate(), releases()[0].date);
+  for (const { lastModified } of sitemap()) assert.equal(lastModified, latestReleaseDate());
+});

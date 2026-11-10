@@ -39,3 +39,8 @@ export function stripFigures() {
     return figure;
   });
 }
+
+export function appSizeLabel() {
+  const figure = proofFigures().find(({ id }) => id === "app-size")!;
+  return `${formatFigure(figure)} in ${figure.version.replace(/^Foundry /, "")}`;
+}

@@ -8,7 +8,11 @@ const config = JSON.parse(readFileSync(new URL("./qa-routes.json", import.meta.u
 test("story route expands into one capture per stop and width", () => {
   const captures = routesFrom(config).filter((capture) => capture.path === "/");
   assert.equal(captures.length, 6 * config.widths.length);
-  assert.deepEqual(captures[0], { path: "/", width: 1440, height: 900, stop: 0 });
+  assert.deepEqual(captures[0], { path: "/", width: 1440, height: 900, stop: 0, status: 200 });
+});
+
+test("the missing page is expected to answer 404", () => {
+  assert.deepEqual(new Set(routesFrom(config).filter((capture) => capture.path === "/missing-page").map((capture) => capture.status)), new Set([404]));
 });
 
 test("plain routes capture once per width with no stop", () => {

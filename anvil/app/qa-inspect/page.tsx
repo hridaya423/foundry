@@ -7,7 +7,7 @@ import "../foundry/story/tools.css";
 import "../foundry/story/memory.css";
 import "../foundry/story/download.css";
 import { storyEnd } from "../foundry/story/download-motion";
-import { formatFigure, proofFigures } from "../proof";
+import { appSizeLabel } from "../proof";
 
 export const metadata: Metadata = { robots: { index: false } };
 
@@ -15,5 +15,5 @@ export default async function Inspect({ searchParams }: {
   searchParams: Promise<{ at?: string }>;
 }) {
   const at = Number((await searchParams).at ?? 0);
-  return <ShelfStory appSize={formatFigure(proofFigures().find((figure) => figure.id === "app-size")!)} inspect initialProgress={Number.isFinite(at) ? Math.max(0, Math.min(storyEnd, at)) : 0} />;
+  return <ShelfStory appSize={appSizeLabel()} inspect initialProgress={Number.isFinite(at) ? Math.max(0, Math.min(storyEnd, at)) : 0} />;
 }

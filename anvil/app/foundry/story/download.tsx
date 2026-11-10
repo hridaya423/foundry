@@ -17,7 +17,7 @@ export default function DownloadStory({ progress, animated, appSize }: { progres
     <div className="download-still-arrow" aria-hidden="true">{arrowCells.map(([x, y]) => <span key={`${x}:${y}`} style={{ gridColumn: x + 3, gridRow: y + 4 }} />)}</div>
     <div className="download-action">
       <a href={foundryDownloadUrl} className="foundry-cta">Download for macOS</a>
-      <p>v{foundryVersion} · macOS 14+ · {appSize} · No telemetry · <Link href="/proof">Proof</Link></p>
+      <p>v{foundryVersion} · macOS 14+ on Apple silicon · {appSize.replaceAll(" ", "\u00a0")} · No telemetry · <Link href="/proof">Proof</Link></p>
     </div>
     <SiteFooter />
   </motion.section>;

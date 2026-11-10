@@ -76,7 +76,7 @@ export default function ToolsStory({ progress, animated, selection, reveal, tran
     <motion.div ref={tabs} className="tools-nav" role="tablist" aria-label="Explore tools" onKeyDown={onKeyDown} style={{ opacity: controlsOpacity }}>
       {toolExamples.map((tool, index) => <button key={tool.id} id={`tool-tab-${tool.id}`} role="tab" aria-selected={selected === index} aria-controls="tool-panel" tabIndex={selected === index ? 0 : -1} onClick={() => select(index)}>{tool.name}</button>)}
     </motion.div>
-    <article id="tool-panel" className="tool-example" role="tabpanel" aria-labelledby={`tool-tab-${item.id}`} data-tool={item.id}>
+    <div id="tool-panel" className="tool-example" role="tabpanel" aria-labelledby={`tool-tab-${item.id}`} data-tool={item.id}>
       <div className="tool-surface tool-source"><span>{item.source}</span><p>{item.input}</p></div>
       <motion.div className="tool-surface tool-result" role="status" style={animated ? { opacity: reveal } : undefined} aria-hidden={animated && !complete}><span>{item.resultLabel}</span>{animated ? <p>{item.result}</p> : <Tiles key={item.id} text={item.result} />}</motion.div>
       <div className="tool-choreography" aria-hidden="true">
@@ -96,6 +96,6 @@ export default function ToolsStory({ progress, animated, selection, reveal, tran
         </div>
         <p>{item.detail}</p>
       </motion.div>
-    </article>
+    </div>
   </motion.section>;
 }

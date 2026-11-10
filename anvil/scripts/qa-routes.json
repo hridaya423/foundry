@@ -39,7 +39,8 @@
       "path": "/brand"
     },
     {
-      "path": "/missing-page"
+      "path": "/missing-page",
+      "status": 404
     }
   ]
 }

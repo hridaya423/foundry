@@ -15,13 +15,10 @@ import { createShelfTiles, phase, heroLift, introProgress, writePeelExitPose, wr
 const yieldToMain = () => new Promise((resolve) => setTimeout(resolve, 0));
 
 export async function createShelfScene(canvas: HTMLCanvasElement, tiles: Tile[]) {
-  const small = canvas.clientWidth < 900;
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, powerPreference: "low-power" });
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, small ? 2 : 1.5));
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   renderer.setClearColor(0x0f0d0c, 0);
   renderer.outputColorSpace = THREE.SRGBColorSpace;
-  renderer.shadowMap.enabled = !small;
-  renderer.shadowMap.type = THREE.PCFShadowMap;
   const scene = new THREE.Scene();
   const camera = new THREE.OrthographicCamera(0, 1280, 0, -720, 0.1, 4000);
   camera.position.z = 1800;
@@ -38,17 +35,6 @@ export async function createShelfScene(canvas: HTMLCanvasElement, tiles: Tile[])
   const key = new THREE.DirectionalLight(0xfffaf4, 2.2);
   key.position.set(-300, 500, 1600);
   key.target.position.set(640, -360, 0);
-  key.castShadow = true;
-  key.shadow.mapSize.set(2048, 2048);
-  key.shadow.camera.left = -1400;
-  key.shadow.camera.right = 1400;
-  key.shadow.camera.top = 1100;
-  key.shadow.camera.bottom = -1100;
-  key.shadow.camera.near = 10;
-  key.shadow.camera.far = 4000;
-  key.shadow.normalBias = 0.3;
-  key.shadow.bias = -0.00015;
-  key.shadow.radius = 3;
   scene.add(key, key.target);
   const { material, normalMap, roughnessMap } = createChalkMaterial();
   const tileMaterial = material.clone();
@@ -87,8 +73,6 @@ export async function createShelfScene(canvas: HTMLCanvasElement, tiles: Tile[])
   const instances = new THREE.InstancedMesh(square, tileMaterial, capacity);
   instances.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
   instances.frustumCulled = false;
-  instances.castShadow = true;
-  instances.receiveShadow = true;
   scene.add(instances);
   const partials = new THREE.Group();
   const parts: THREE.BufferGeometry[] = [];
@@ -100,7 +84,6 @@ export async function createShelfScene(canvas: HTMLCanvasElement, tiles: Tile[])
     paint(geometry, face);
     if (tile.order !== undefined) {
       const mesh = new THREE.Mesh(geometry, material);
-      mesh.castShadow = mesh.receiveShadow = true;
       scene.add(mesh);
       loose.push({ tile, mesh });
       geometries.push(geometry);
@@ -115,16 +98,9 @@ export async function createShelfScene(canvas: HTMLCanvasElement, tiles: Tile[])
   if (merged) {
     geometries.push(merged);
     const contours = new THREE.Mesh(merged, material);
-    contours.castShadow = contours.receiveShadow = true;
     partials.add(contours);
   }
   scene.add(partials);
-  const planeGeometry = new THREE.PlaneGeometry(1, 1);
-  const planeMaterial = new THREE.ShadowMaterial({ opacity: 0.12 });
-  const plane = new THREE.Mesh(planeGeometry, planeMaterial);
-  plane.receiveShadow = true;
-  plane.position.z = -12;
-  scene.add(plane);
   const object = new THREE.Object3D();
   const face = new THREE.Color();
   const toolFace = new THREE.Color();
@@ -156,8 +132,6 @@ export async function createShelfScene(canvas: HTMLCanvasElement, tiles: Tile[])
         paletteX: (next.palette.x - next.wordmark.x) / scale,
         paletteY: (next.palette.y - next.wordmark.y) / scale,
       }, tiles);
-      plane.scale.set(next.width * 1.5, next.height * 1.5, 1);
-      plane.position.set(next.width / 2, -next.height / 2, -12);
     },
     compile() {
       return renderer.compileAsync(scene, camera);
@@ -214,7 +188,6 @@ export async function createShelfScene(canvas: HTMLCanvasElement, tiles: Tile[])
         mesh.rotation.set(pose.rx, pose.ry, -pose.rz);
         mesh.scale.set(pose.sx * 24 / tile.width, pose.sy * 24 / tile.height, Math.min(pose.sx, pose.sy));
       }
-      plane.visible = progress < toolsEnter;
       renderer.render(scene, camera);
       canvas.dataset.progress = progress.toFixed(4);
       canvas.dataset.drawCalls = String(renderer.info.render.calls);
@@ -229,10 +202,7 @@ export async function createShelfScene(canvas: HTMLCanvasElement, tiles: Tile[])
       tileMaterial.dispose();
       normalMap.dispose();
       roughnessMap.dispose();
-      planeGeometry.dispose();
-      planeMaterial.dispose();
       environment.dispose();
-      key.shadow.dispose();
       renderer.dispose();
     },
   };

@@ -7,7 +7,7 @@ import "./foundry/story/tools.css";
 import "./foundry/story/memory.css";
 import "./foundry/story/download.css";
 import { authorName, caseStudyUrl, foundryDownloadUrl, foundryVersion, hubUrl, repoUrl, siteDescription, siteTitle, siteUrl } from "./site";
-import { formatFigure, proofFigures } from "./proof";
+import { appSizeLabel } from "./proof";
 
 const hubPage = { "@type": "WebPage", "@id": caseStudyUrl, url: caseStudyUrl, name: "Foundry case study" };
 const person = { "@type": "Person", "@id": `${hubUrl}/#person`, name: authorName, url: hubUrl };
@@ -23,6 +23,7 @@ const structuredData = {
       url: siteUrl.href,
       applicationCategory: "UtilitiesApplication",
       operatingSystem: "macOS 14 or later",
+      processorRequirements: "Apple silicon (arm64)",
       softwareVersion: foundryVersion,
       downloadUrl: foundryDownloadUrl,
       license: `${repoUrl}/blob/main/LICENSE`,
@@ -61,6 +62,6 @@ export const metadata: Metadata = {
 export default function Home() {
   return <>
     <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData).replace(/</g, "\\u003c") }} />
-    <ShelfStory appSize={formatFigure(proofFigures().find((figure) => figure.id === "app-size")!)} inspect={false} initialProgress={0} />
+    <ShelfStory appSize={appSizeLabel()} inspect={false} initialProgress={0} />
   </>;
 }

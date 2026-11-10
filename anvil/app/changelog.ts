@@ -44,3 +44,7 @@ export function releases(): Release[] {
     .map((notes) => ({ ...notes, date: releaseDates[notes.version] }))
     .sort((a, b) => b.version.localeCompare(a.version, undefined, { numeric: true }));
 }
+
+export function latestReleaseDate() {
+  return releases()[0].date;
+}

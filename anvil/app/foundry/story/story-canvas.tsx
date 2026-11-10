@@ -61,6 +61,7 @@ export default function ShelfCanvas({ progress, departure, clipboardBelt, toolSe
       if (reduced.matches || compact.matches) { stop(); return; }
       if (scene || initializing) return;
       initializing = true;
+      let created: Awaited<ReturnType<typeof import("./shelf-scene").createShelfScene>> | undefined;
       try {
         const [module, response] = await Promise.all([
           import("./shelf-scene"), fetch("/assets/foundry/tile-layout.json"),
@@ -68,7 +69,7 @@ export default function ShelfCanvas({ progress, departure, clipboardBelt, toolSe
         if (!response.ok) throw new Error("Wordmark tiles unavailable");
         const tiles: Tile[] = await response.json();
         if (disposed || reduced.matches || compact.matches) return;
-        const created = await module.createShelfScene(canvas!, tiles);
+        created = await module.createShelfScene(canvas!, tiles);
         if (disposed) { created.dispose(); return; }
         await created.compile();
         await new Promise((resolve) => setTimeout(resolve, 0));
@@ -78,7 +79,9 @@ export default function ShelfCanvas({ progress, departure, clipboardBelt, toolSe
         onModeChange(true);
         resize();
         draw();
-      } catch {
+      } catch (error) {
+        console.error("Shelf scene failed; showing the still image", error);
+        if (created !== scene) created?.dispose();
         stop();
       } finally {
         initializing = false;
