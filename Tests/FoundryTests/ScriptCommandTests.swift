@@ -18,6 +18,19 @@ final class ScriptCommandTests: XCTestCase {
         try? FileManager.default.removeItem(at: directory)
     }
 
+    func testRemovingAScriptFolderRevokesItsTrust() {
+        let store = ScriptDirectoryStore(localState: LocalStateStore())
+        store.directories = ["/tmp/kept", "/tmp/removed"]
+        store.setTrusted(true, for: "/tmp/kept")
+        store.setTrusted(true, for: "/tmp/removed")
+
+        store.directories = ["/tmp/kept"]
+        store.directories = ["/tmp/kept", "/tmp/removed"]
+
+        XCTAssertTrue(store.isTrusted("/tmp/kept"))
+        XCTAssertFalse(store.isTrusted("/tmp/removed"))
+    }
+
     func testDirectiveParsing() throws {
         let script = try XCTUnwrap(ScriptDirectives.parse("""
         #!/bin/bash

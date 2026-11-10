@@ -72,7 +72,13 @@ final class ScriptDirectoryStore: Sendable {
 
     var directories: [String] {
         get { localState.get(\.scriptDirectories) ?? [Self.defaultDirectory] }
-        set { localState.set(\.scriptDirectories, newValue) }
+        set {
+            let removed = Set(directories.map(Self.canonical)).subtracting(newValue.map(Self.canonical))
+            localState.update { state in
+                state.scriptDirectories = newValue
+                state.trustedScriptDirectories.removeAll(where: removed.contains)
+            }
+        }
     }
 
     func isTrusted(_ directory: String) -> Bool {
