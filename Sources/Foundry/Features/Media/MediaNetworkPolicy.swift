@@ -6,7 +6,7 @@ import os
 protocol MediaArtifactFileSystem: Sendable {
     func createDirectory(at url: URL) throws
     func fileExists(at url: URL) -> Bool
-    func readData(at url: URL) throws -> Data
+    func readPrefix(at url: URL, length: Int) throws -> Data
     func moveItem(at source: URL, to destination: URL) throws
     func removeItem(at url: URL) throws
     func temporaryDirectory(prefix: String) throws -> URL
@@ -23,7 +23,11 @@ extension FileManager: MediaArtifactFileSystem {
     }
 
     func fileExists(at url: URL) -> Bool { fileExists(atPath: url.path) }
-    func readData(at url: URL) throws -> Data { try Data(contentsOf: url) }
+    func readPrefix(at url: URL, length: Int) throws -> Data {
+        let handle = try FileHandle(forReadingFrom: url)
+        defer { try? handle.close() }
+        return try handle.read(upToCount: length) ?? Data()
+    }
     func temporaryDirectory(prefix: String) throws -> URL {
         let url = temporaryDirectory.appendingPathComponent("\(prefix)-\(UUID().uuidString)", isDirectory: true)
         try createDirectory(at: url)
@@ -145,11 +149,20 @@ struct MediaNetworkPolicy: Sendable {
         guard size > 0, size <= maxBytes else { throw MediaNetworkPolicyFailure.responseTooLarge }
         let extensionName = url.pathExtension.lowercased()
         guard Self.mediaExtensions.contains(extensionName) else { throw MediaNetworkPolicyFailure.mimeMismatch }
-        let data = try fileSystem.readData(at: url)
-        guard hasMediaSignature(data.prefix(4096)),
+        let data = try fileSystem.readPrefix(at: url, length: 4096)
+        guard hasMediaSignature(data),
               signatureMatchesExtension(data, extensionName: extensionName) else {
             throw MediaNetworkPolicyFailure.invalidSignature
         }
+    }
+
+    /// The server picks the name; the bytes pick the extension, so a download never lands as `.command` or `.app`.
+    func mediaFileName(_ name: String, prefix: Data) -> String {
+        let source = URL(fileURLWithPath: name)
+        let ext = source.pathExtension.lowercased()
+        if Self.mediaExtensions.contains(ext), signatureMatchesExtension(prefix, extensionName: ext) { return name }
+        let detected = ["mp4", "webm", "ogg", "flac", "wav", "avi", "aiff", "mp3", "aac"].first { signatureMatchesExtension(prefix, extensionName: $0) }
+        return source.deletingPathExtension().lastPathComponent + "." + (detected ?? "media")
     }
 
     func reserveDestination(named name: String, in folder: URL, fileSystem: any MediaArtifactFileSystem = FileManager.default) throws -> URL {
@@ -207,7 +220,7 @@ struct MediaNetworkPolicy: Sendable {
 
     private static let mediaExtensions: Set<String> = [
         "mp4", "m4v", "mov", "webm", "mkv", "avi",
-        "mp3", "m4a", "aac", "wav", "flac", "ogg", "opus"
+        "mp3", "m4a", "aac", "wav", "flac", "ogg", "opus", "aiff"
     ]
 
     private func signatureMatchesExtension(_ data: Data, extensionName: String) -> Bool {
@@ -222,6 +235,9 @@ struct MediaNetworkPolicy: Sendable {
         case "mp3": return bytes.starts(with: [0x49, 0x44, 0x33]) || (bytes.count >= 2 && bytes[0] == 0xFF && (bytes[1] & 0xE0) == 0xE0)
         case "aac": return bytes.starts(with: [0xFF, 0xF1]) || bytes.starts(with: [0xFF, 0xF9])
         case "m4a": return bytes.count >= 8 && String(decoding: bytes[4..<8], as: UTF8.self) == "ftyp"
+        case "aiff":
+            return bytes.count >= 12 && bytes.starts(with: [0x46, 0x4F, 0x52, 0x4D])
+                && ["AIFF", "AIFC"].contains(String(decoding: bytes[8..<12], as: UTF8.self))
         case "avi": return bytes.count >= 12 && bytes.starts(with: [0x52, 0x49, 0x46, 0x46]) && String(decoding: bytes[8..<12], as: UTF8.self) == "AVI "
         default: return false
         }

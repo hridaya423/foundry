@@ -207,13 +207,13 @@ final class MediaDownloadService: MediaDownloading, Sendable {
             currentItem: nil,
             totalItems: nil
         ), progress)
-        let (temporaryURL, response) = try await downloadFile(from: sourceURL, title: sourceURL.lastPathComponent, progress: progress)
+        let (temporaryURL, response, prefix) = try await downloadFile(from: sourceURL, title: sourceURL.lastPathComponent, progress: progress)
         var shouldRemoveTemporary = true
         defer {
             if shouldRemoveTemporary { try? dependencies.artifactFileSystem.removeItem(at: temporaryURL) }
         }
-        let fallbackName = response?.suggestedFilename ?? sourceURL.lastPathComponent
-        let name = fallbackName.isEmpty ? "media-\(Int(Date().timeIntervalSince1970)).\(sourceURL.pathExtension)" : fallbackName
+        let fallbackName = response.suggestedFilename ?? sourceURL.lastPathComponent
+        let name = dependencies.networkPolicy.mediaFileName(fallbackName.isEmpty ? "media-\(Int(Date().timeIntervalSince1970))" : fallbackName, prefix: prefix)
         let destination = try dependencies.networkPolicy.reserveDestination(named: name, in: downloadFolder, fileSystem: dependencies.artifactFileSystem)
         defer { dependencies.networkPolicy.releaseDestination(destination) }
         try dependencies.artifactFileSystem.moveItem(at: temporaryURL, to: destination)
@@ -327,13 +327,14 @@ final class MediaDownloadService: MediaDownloading, Sendable {
             currentItem: nil,
             totalItems: nil
         ), progress)
-        let (temporaryURL, fileResponse) = try await downloadFile(from: downloadURL, title: sourceURL.host ?? "Media download", progress: progress)
+        let (temporaryURL, fileResponse, prefix) = try await downloadFile(from: downloadURL, title: sourceURL.host ?? "Media download", progress: progress)
         var shouldRemoveTemporary = true
         defer {
             if shouldRemoveTemporary { try? dependencies.artifactFileSystem.removeItem(at: temporaryURL) }
         }
-        let fallbackName = fileResponse?.suggestedFilename ?? response.filename ?? "media-\(Int(Date().timeIntervalSince1970))"
-        let destination = try dependencies.networkPolicy.reserveDestination(named: fallbackName, in: downloadFolder,
+        let fallbackName = fileResponse.suggestedFilename ?? response.filename ?? "media-\(Int(Date().timeIntervalSince1970))"
+        let destination = try dependencies.networkPolicy.reserveDestination(named: dependencies.networkPolicy.mediaFileName(fallbackName, prefix: prefix),
+            in: downloadFolder,
             fileSystem: dependencies.artifactFileSystem)
         defer { dependencies.networkPolicy.releaseDestination(destination) }
         try dependencies.artifactFileSystem.moveItem(at: temporaryURL, to: destination)
@@ -358,6 +359,7 @@ final class MediaDownloadService: MediaDownloading, Sendable {
                 "--extractor-args", "youtube:player_client=android,web",
                 "-f", "bv*[vcodec^=avc1][height<=1080]+ba[ext=m4a]/b[ext=mp4]/b",
                 "--merge-output-format", "mp4",
+                "--max-filesize", String(dependencies.networkPolicy.maxBytes),
                 "-P", staging.path,
                 "-o", "%(title).200B [%(id)s].%(ext)s",
                 url.absoluteString,
@@ -396,7 +398,7 @@ final class MediaDownloadService: MediaDownloading, Sendable {
         from sourceURL: URL,
         title: String,
         progress: (@MainActor @Sendable (MediaDownloadProgress) -> Void)?
-    ) async throws -> (URL, URLResponse?) {
+    ) async throws -> (URL, HTTPURLResponse, Data) {
         let delegate = MediaDownloadDelegate(title: title, progress: progress, policy: dependencies.networkPolicy,
             fileSystem: dependencies.artifactFileSystem, trustEvaluator: dependencies.trustEvaluator)
         let result = try await withTaskCancellationHandler {
@@ -406,14 +408,16 @@ final class MediaDownloadService: MediaDownloading, Sendable {
         } onCancel: {
             delegate.cancel()
         }
-        if let response = result.1 as? HTTPURLResponse {
-            let prefix = try dependencies.artifactFileSystem.readData(at: result.0).prefix(4096)
+        do {
+            guard let response = result.1 as? HTTPURLResponse else { throw MediaNetworkPolicyFailure.invalidStatus(0) }
+            let prefix = try dependencies.artifactFileSystem.readPrefix(at: result.0, length: 4096)
             let bytes = try dependencies.artifactFileSystem.fileSize(at: result.0)
-            try dependencies.networkPolicy.validate(response: response, prefix: Data(prefix), receivedBytes: bytes)
-        } else {
-            throw MediaNetworkPolicyFailure.invalidStatus(0)
+            try dependencies.networkPolicy.validate(response: response, prefix: prefix, receivedBytes: bytes)
+            return (result.0, response, prefix)
+        } catch {
+            try? dependencies.artifactFileSystem.removeItem(at: result.0)
+            throw error
         }
-        return result
     }
 
     private func cobaltResponseData(_ request: URLRequest) async throws -> (Data, URLResponse) {

@@ -108,6 +108,8 @@ final class MediaDownloadTests: XCTestCase {
             XCTAssertTrue(runner.arguments[1].contains("youtube:player_client=android,web"))
             XCTAssertTrue(runner.arguments[1].contains("bv*[vcodec^=avc1][height<=1080]+ba[ext=m4a]/b[ext=mp4]/b"))
             XCTAssertTrue(runner.arguments[1].contains("--merge-output-format"))
+            let limit = runner.arguments[1].firstIndex(of: "--max-filesize").map { runner.arguments[1][$0 + 1] }
+            XCTAssertEqual(limit, String(512 * 1024 * 1024), "yt-dlp stops at the size limit instead of downloading first")
         } catch {
             XCTFail("Unexpected error: \(error)")
         }
@@ -189,6 +191,46 @@ final class MediaDownloadTests: XCTestCase {
             XCTFail("Expected cancellation")
         } catch is CancellationError {
         }
+    }
+
+    func testDirectDownloadTakesItsExtensionFromTheBytesNotTheServer() async throws {
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent("foundry-media-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: folder) }
+        ServedMediaURLProtocol.serve(Data([0, 0, 0, 0x18]) + Data("ftypisom".utf8) + Data(count: 64),
+            headers: ["Content-Type": "video/mp4", "Content-Disposition": #"attachment; filename="clip.command""#])
+        defer { ServedMediaURLProtocol.serve(Data(), headers: [:]) }
+
+        _ = try await servedService(destination: folder).download(urlString: "https://example.com/clip.mp4")
+
+        XCTAssertEqual(try FileManager.default.contentsOfDirectory(atPath: folder.path), ["clip.mp4"])
+    }
+
+    func testDirectDownloadThatFailsValidationLeavesNoTemporaryFile() async throws {
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent("foundry-media-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: folder) }
+        ServedMediaURLProtocol.serve(Data("#!/bin/sh\necho hi\n".utf8), headers: ["Content-Type": "video/mp4"])
+        defer { ServedMediaURLProtocol.serve(Data(), headers: [:]) }
+        let fileSystem = StagingRecordingFileSystem()
+
+        do {
+            _ = try await servedService(destination: folder, fileSystem: fileSystem).download(urlString: "https://example.com/clip.mp4")
+            XCTFail("a script is not media")
+        } catch {}
+
+        let staged = fileSystem.staged
+        XCTAssertEqual(staged.count, 1)
+        XCTAssertEqual(staged.filter { FileManager.default.fileExists(atPath: $0.path) }, [])
+    }
+
+    private func servedService(destination: URL, fileSystem: any MediaArtifactFileSystem = FileManager.default) -> MediaDownloadService {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [ServedMediaURLProtocol.self]
+        return MediaDownloadService(dependencies: .init(
+            session: URLSession(configuration: configuration),
+            destination: destination,
+            artifactFileSystem: fileSystem,
+            networkPolicy: MediaNetworkPolicy(locator: StaticPublicMediaNetworkLocator())
+        ))
     }
 
     func testYTDLPParserReportsPlaylistPositionAndByteProgress() {
@@ -426,6 +468,42 @@ private struct EmptyMediaNetworkLocator: MediaNetworkAddressLocating {
 
 private struct StaticPublicMediaNetworkLocator: MediaNetworkAddressLocating {
     func addresses(for _: String) -> [String] { ["93.184.216.34"] }
+}
+
+private final class ServedMediaURLProtocol: URLProtocol {
+    private static let served = OSAllocatedUnfairLock(initialState: (body: Data(), headers: [String: String]()))
+
+    static func serve(_ body: Data, headers: [String: String]) {
+        served.withLock { $0 = (body, headers) }
+    }
+
+    override class func canInit(with _: URLRequest) -> Bool { true }
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+    override func startLoading() {
+        let (body, headers) = Self.served.withLock { $0 }
+        guard let url = request.url, let response = HTTPURLResponse(url: url, statusCode: 200, httpVersion: "HTTP/1.1", headerFields: headers) else { return }
+        client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+        client?.urlProtocol(self, didLoad: body)
+        client?.urlProtocolDidFinishLoading(self)
+    }
+    override func stopLoading() {}
+}
+
+private final class StagingRecordingFileSystem: MediaArtifactFileSystem {
+    private let moves = OSAllocatedUnfairLock(initialState: [URL]())
+    var staged: [URL] { moves.withLock { $0 } }
+
+    func createDirectory(at url: URL) throws { try FileManager.default.createDirectory(at: url) }
+    func fileExists(at url: URL) -> Bool { FileManager.default.fileExists(at: url) }
+    func readPrefix(at url: URL, length: Int) throws -> Data { try FileManager.default.readPrefix(at: url, length: length) }
+    func moveItem(at source: URL, to destination: URL) throws {
+        if destination.lastPathComponent.hasPrefix("foundry-download-") { moves.withLock { $0.append(destination) } }
+        try FileManager.default.moveItem(at: source, to: destination)
+    }
+    func removeItem(at url: URL) throws { try FileManager.default.removeItem(at: url) }
+    func temporaryDirectory(prefix: String) throws -> URL { try FileManager.default.temporaryDirectory(prefix: prefix) }
+    func fileSize(at url: URL) throws -> Int64 { try FileManager.default.fileSize(at: url) }
+    func regularFiles(in directory: URL) throws -> [URL] { try FileManager.default.regularFiles(in: directory) }
 }
 
 private final class DelayedMediaURLProtocol: URLProtocol {
