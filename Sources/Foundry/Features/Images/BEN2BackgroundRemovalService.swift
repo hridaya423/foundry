@@ -1,4 +1,5 @@
 import CryptoKit
+import os
 import Foundation
 import ImageIO
 import UniformTypeIdentifiers
@@ -53,7 +54,7 @@ private actor BEN2Runtime {
         let model = root.appendingPathComponent("models/\(BEN2Artifact.filename)")
         let runtime = root.appendingPathComponent("runtime")
         let modelState: BEN2ComponentState = fm.fileExists(atPath: model.path)
-            ? (BestEffort.attempt("hash BEN2 model") { try BEN2Artifact.sha256(at: model) } == BEN2Artifact.sha256 ? .ready : .invalid)
+            ? (BestEffort.attempt("hash BEN2 model") { try FileDigest.sha256(at: model) } == BEN2Artifact.sha256 ? .ready : .invalid)
             : .missing
         let runtimeManifest = runtime.appendingPathComponent("runtime-manifest.json")
         let runtimeState: BEN2ComponentState = fm.fileExists(atPath: runtimeManifest.path)
@@ -215,7 +216,7 @@ private actor BEN2Runtime {
 
     private func verifiedPaths(root: URL) throws -> Paths? {
         guard let script = Bundle.packagedResources?.url(forResource: "background_removal_worker", withExtension: "py"),
-              (BestEffort.attempt("hash worker script") { try BEN2Artifact.sha256(at: script) }) == BEN2Artifact.workerSHA256 else { return nil }
+              (BestEffort.attempt("hash worker script") { try FileDigest.sha256(at: script) }) == BEN2Artifact.workerSHA256 else { return nil }
         let model = root.appendingPathComponent("models/\(BEN2Artifact.filename)")
         let python = root.appendingPathComponent("runtime/bin/python")
         guard isValidModelSync(at: model), Self.isRuntimeReady(python: python,
@@ -226,7 +227,7 @@ private actor BEN2Runtime {
     private func isValidModelSync(at url: URL) -> Bool {
         guard let size = FileManager.default.attributesIfPresent(atPath: url.path)?[.size] as? NSNumber,
               size.int64Value == BEN2Artifact.byteSize else { return false }
-        return BestEffort.attempt("hash BEN2 model") { try BEN2Artifact.sha256(at: url) } == BEN2Artifact.sha256
+        return BestEffort.attempt("hash BEN2 model") { try FileDigest.sha256(at: url) } == BEN2Artifact.sha256
     }
 
     private func isPNG(at url: URL) -> Bool {
@@ -264,7 +265,7 @@ private actor BEN2Runtime {
 
         return (await BestEffort.attempt("hash BEN2 model") {
             try await Task.detached {
-                try BEN2Artifact.sha256(at: url) == BEN2Artifact.sha256
+                try FileDigest.sha256(at: url) == BEN2Artifact.sha256
             }.value
         }) ?? false
     }
@@ -280,7 +281,7 @@ private actor BEN2Runtime {
         guard let decoded,
             decoded.python == "3.13",
             decoded.packages == BEN2Artifact.packages,
-            (BestEffort.attempt("hash BEN2 python") { try BEN2Artifact.sha256(at: python) }) == decoded.pythonSHA256,
+            (BestEffort.attempt("hash BEN2 python") { try FileDigest.sha256(at: python) }) == decoded.pythonSHA256,
             let inventory,
             inventory == decoded.inventory else { return false }
         return inventory.isEmpty == false
@@ -288,7 +289,7 @@ private actor BEN2Runtime {
 
     private func writeManifest(runtime: URL) throws {
         let python = runtime.appendingPathComponent("bin/python")
-        let manifest = RuntimeManifest(python: "3.13", pythonSHA256: try BEN2Artifact.sha256(at: python), packages: BEN2Artifact.packages,
+        let manifest = RuntimeManifest(python: "3.13", pythonSHA256: try FileDigest.sha256(at: python), packages: BEN2Artifact.packages,
             inventory: try Self.runtimeInventory(at: runtime))
         try JSONEncoder().encode(manifest).write(to: runtime.appendingPathComponent("runtime-manifest.json"), options: .atomic)
     }
@@ -302,7 +303,7 @@ private actor BEN2Runtime {
             let values = try url.resourceValues(forKeys: [.isRegularFileKey, .fileSizeKey])
             guard values.isRegularFile == true else { continue }
             let relative = String(url.path.dropFirst(runtime.path.count + 1))
-            files.append(RuntimeFile(path: relative, size: Int64(values.fileSize ?? 0), sha256: try BEN2Artifact.sha256(at: url)))
+            files.append(RuntimeFile(path: relative, size: Int64(values.fileSize ?? 0), sha256: try FileDigest.sha256(at: url)))
         }
         return files.sorted { $0.path < $1.path }
     }
@@ -381,13 +382,26 @@ private enum BEN2Artifact {
     static let downloadURL = URL(string: "https://huggingface.co/PramaLLC/BEN2/resolve/\(revision)/BEN2_Base.onnx?download=true")!
     static let defaultRoot = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
         .appendingPathComponent("Foundry/BackgroundRemoval", isDirectory: true)
+}
+
+/// SHA-256 of a file, remembered until the file's inode, size or change times move.
+enum FileDigest {
+    private static let remembered = OSAllocatedUnfairLock(initialState: [String: (stamp: [Int], digest: String)]())
 
     static func sha256(at url: URL) throws -> String {
+        var info = stat()
+        guard stat(url.path, &info) == 0 else { throw CocoaError(.fileReadNoSuchFile, userInfo: [NSFilePathErrorKey: url.path]) }
+        let stamp = [Int(info.st_ino), Int(info.st_size), info.st_mtimespec.tv_sec, info.st_mtimespec.tv_nsec,
+            info.st_ctimespec.tv_sec, info.st_ctimespec.tv_nsec]
+        if let known = remembered.withLock({ $0[url.path] }), known.stamp == stamp { return known.digest }
         var digest = SHA256()
         let handle = try FileHandle(forReadingFrom: url)
+        defer { try? handle.close() }
         while let chunk = try handle.read(upToCount: 4 * 1024 * 1024), chunk.isEmpty == false {
             digest.update(data: chunk)
         }
-        return digest.finalize().map { String(format: "%02x", $0) }.joined()
+        let hex = digest.finalize().map { String(format: "%02x", $0) }.joined()
+        remembered.withLock { $0[url.path] = (stamp, hex) }
+        return hex
     }
 }

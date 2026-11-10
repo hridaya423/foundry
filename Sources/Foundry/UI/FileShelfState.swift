@@ -62,7 +62,11 @@ final class FileShelfState {
         ]
         backgroundRemovalFileID = nil
         backgroundRemovalEngine = nil
-        ben2Assessment = BEN2BackgroundRemovalService.assess()
+        ben2Assessment = BEN2Assessment(modelState: .missing, runtimeState: .missing, setupPlan: nil)
+        Task { [weak self] in
+            let assessment = await Task.detached(priority: .utility) { BEN2BackgroundRemovalService.assess() }.value
+            self?.ben2Assessment = assessment
+        }
     }
 
     var isDetailedModelReady: Bool { ben2Assessment.modelState == .ready && ben2Assessment.runtimeState == .ready }
