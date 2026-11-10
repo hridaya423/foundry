@@ -228,14 +228,16 @@ final class ShellController {
         })
 
         do {
-            try hotkeyController.registerCommandHotkeys(hotkeys) { [weak self] commandID in
+            let failed = try hotkeyController.registerCommandHotkeys(hotkeys) { [weak self] commandID in
                 Task { @MainActor [weak self] in
                     guard let self else { return }
                     await self.runCommandHotkey(commandID: commandID)
                 }
             }
-            diagnostics.log("Registered \(hotkeys.count) command hotkey\(hotkeys.count == 1 ? "" : "s")")
+            panelState.settings.setUnavailableCommandHotkeys(failed)
+            diagnostics.log("Registered \(hotkeys.count - failed.count) of \(hotkeys.count) command hotkeys")
         } catch {
+            panelState.settings.setUnavailableCommandHotkeys(Array(hotkeys.keys))
             diagnostics.log("Failed to register command hotkeys: \(error.localizedDescription)")
         }
     }

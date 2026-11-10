@@ -110,6 +110,29 @@ final class CommandContractsTests: XCTestCase {
         state.shutdown()
     }
 
+    @MainActor
+    func testRecorderRefusesAChordAnotherCommandUses() {
+        let config = ConfigService(diagnostics: DiagnosticsService(),
+            url: FileManager.default.temporaryDirectory.appendingPathComponent("foundry-dup-\(UUID().uuidString).json"))
+        let state = CommandPanelState.isolated(
+            registry: CommandRegistry(providers: [], usageRanking: UsageRankingStore.scratch(DiagnosticsService()),
+                diagnostics: DiagnosticsService(), configService: config),
+            actionRunner: ActionRunner.isolated(diagnostics: DiagnosticsService()), diagnostics: DiagnosticsService(), config: config)
+        let chord = FoundryHotkey(keyCode: 1, modifiers: 256, displayName: "⌘S")
+
+        state.settings.setCommandHotkey(chord, for: "first.command")
+        state.settings.setCommandHotkey(chord, for: "second.command")
+        state.settings.setCommandHotkey(state.settings.hotkey, for: "third.command")
+
+        XCTAssertEqual(config.current.commandPreferences["first.command"]?.globalHotkey?.displayName, "⌘S")
+        XCTAssertNil(config.current.commandPreferences["second.command"]?.globalHotkey)
+        XCTAssertEqual(state.settings.commandHotkeyIssues["second.command"], "⌘S is already used by first.command.")
+        XCTAssertNotNil(state.settings.commandHotkeyIssues["third.command"])
+        state.settings.setCommandHotkey(nil, for: "second.command")
+        XCTAssertNil(state.settings.commandHotkeyIssues["second.command"])
+        state.shutdown()
+    }
+
     func testExecutionRequestPreservesInvocationContext() {
         let request = CommandExecutionRequest(
             commandID: "foundry.test",

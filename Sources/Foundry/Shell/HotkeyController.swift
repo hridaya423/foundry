@@ -68,43 +68,32 @@ final class HotkeyController {
         registeredHotkey = hotkey
     }
 
+    /// Registers each command hotkey on its own, so one chord taken by macOS or another app disables only that command.
+    /// Returns the IDs of the commands whose hotkeys could not be registered.
+    @discardableResult
     func registerCommandHotkeys(
         _ hotkeys: [String: FoundryHotkey],
         onPressed: @escaping (String) -> Void
-    ) throws {
-        let previousHotkeys = registeredCommandHotkeys
-        let previousHandler = onCommandPressed
+    ) throws -> [String] {
         unregisterCommandHotkeys()
-        guard hotkeys.isEmpty == false else { return }
+        guard hotkeys.isEmpty == false else { return [] }
 
         try ensureEventHandler()
-        var newRefs: [UInt32: EventHotKeyRef] = [:]
-        var newCommandIDs: [UInt32: String] = [:]
-        do {
-            for (offset, entry) in hotkeys.sorted(by: { $0.key < $1.key }).enumerated() {
-                let id = Self.commandHotkeyBaseID + UInt32(offset)
-                let ref = try registerRaw(hotkey: entry.value, id: id)
-                newRefs[id] = ref
-                newCommandIDs[id] = entry.key
+        var failed: [String] = []
+        var registered: [String: FoundryHotkey] = [:]
+        for (offset, entry) in hotkeys.sorted(by: { $0.key < $1.key }).enumerated() {
+            let id = Self.commandHotkeyBaseID + UInt32(offset)
+            guard let ref = try? registerRaw(hotkey: entry.value, id: id) else {
+                failed.append(entry.key)
+                continue
             }
-        } catch {
-            for ref in newRefs.values {
-                UnregisterEventHotKey(ref)
-            }
-            if previousHotkeys.isEmpty == false {
-                BestEffort.attempt("restore previous command hotkeys") {
-                    try registerCommandHotkeys(previousHotkeys) { commandID in
-                        previousHandler?(commandID)
-                    }
-                }
-            }
-            throw error
+            hotkeyRefs[id] = ref
+            commandIDsByHotkeyID[id] = entry.key
+            registered[entry.key] = entry.value
         }
-
-        hotkeyRefs.merge(newRefs) { _, new in new }
-        registeredCommandHotkeys = hotkeys
-        commandIDsByHotkeyID = newCommandIDs
+        registeredCommandHotkeys = registered
         onCommandPressed = onPressed
+        return failed
     }
 
     func unregisterCommandHotkeys() {

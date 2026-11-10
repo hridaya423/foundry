@@ -722,7 +722,8 @@ struct SettingsView: View {
                                     state.settings.commandHotkeyOwner(
                                         keyCode: keyCode, modifiers: modifiers, excluding: row.id
                                     )
-                                }
+                                },
+                                hotkeyIssue: state.settings.commandHotkeyIssues[row.id]
                             )
                             .modifier(anchor("commands.\(row.id)"))
                             .overlay(alignment: .bottom) {

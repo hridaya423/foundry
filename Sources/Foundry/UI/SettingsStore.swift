@@ -445,7 +445,22 @@ final class SettingsStore {
         return nil
     }
 
+    /// Why a command's shortcut is not active, keyed by command ID — shown under its recorder.
+    private(set) var commandHotkeyIssues: [String: String] = [:]
+
+    func setUnavailableCommandHotkeys(_ commandIDs: [String]) {
+        commandHotkeyIssues = Dictionary(uniqueKeysWithValues: commandIDs.map {
+            ($0, String(localized: "macOS or another app already uses this shortcut, so it is off."))
+        })
+    }
+
     func setCommandHotkey(_ hotkey: FoundryHotkey?, for commandID: String) {
+        if let hotkey, let owner = commandHotkeyOwner(keyCode: hotkey.keyCode, modifiers: hotkey.modifiers, excluding: commandID) {
+            let name = owner == "launcher" ? String(localized: "the launcher") : commandRows.first { $0.id == owner }?.title ?? owner
+            commandHotkeyIssues[commandID] = String(localized: "\(hotkey.displayName) is already used by \(name).")
+            return
+        }
+        commandHotkeyIssues[commandID] = nil
         var preference = commandPreference(for: commandID)
         preference.globalHotkey = hotkey.map {
             CommandHotkey(keyCode: $0.keyCode, modifiers: $0.modifiers, displayName: $0.displayName)

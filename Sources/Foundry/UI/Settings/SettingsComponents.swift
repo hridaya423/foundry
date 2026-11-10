@@ -418,6 +418,7 @@ struct CommandSettingsRow: View {
     let toggleExpanded: () -> Void
     /// Owner of a chord (`launcher`/commandID) or nil when free.
     let hotkeyConflict: (UInt32, UInt32) -> String?
+    let hotkeyIssue: String?
 
     @State private var aliasesText: String
 
@@ -431,7 +432,8 @@ struct CommandSettingsRow: View {
         setFallbackEligible: @escaping (Bool) -> Void,
         reset: @escaping () -> Void,
         toggleExpanded: @escaping () -> Void,
-        hotkeyConflict: @escaping (UInt32, UInt32) -> String?
+        hotkeyConflict: @escaping (UInt32, UInt32) -> String?,
+        hotkeyIssue: String? = nil
     ) {
         self.row = row
         self.isExpanded = isExpanded
@@ -443,6 +445,7 @@ struct CommandSettingsRow: View {
         self.reset = reset
         self.toggleExpanded = toggleExpanded
         self.hotkeyConflict = hotkeyConflict
+        self.hotkeyIssue = hotkeyIssue
         _aliasesText = State(initialValue: row.preference.aliases.joined(separator: ", "))
     }
 
@@ -556,6 +559,12 @@ struct CommandSettingsRow: View {
                         .help("Suggested shortcut")
                     }
                     Spacer()
+                }
+                if let hotkeyIssue {
+                    Text(hotkeyIssue)
+                        .font(FoundryTheme.caption)
+                        .foregroundStyle(FoundryTheme.warning)
+                        .padding(.leading, 56)
                 }
 
                 Toggle("Use as fallback result", isOn: Binding(
