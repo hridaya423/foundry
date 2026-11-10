@@ -4,7 +4,7 @@ import FoundryServices
 
 @MainActor
 final class FirefoxConnectorInstaller {
-    static let extensionID = "firefox-connector@foundry.local"
+    nonisolated static let extensionID = "firefox-connector@foundry.local"
     private let diagnostics: DiagnosticsService
     private let localState: LocalStateStore
     /// In-panel prompt seam — defaults to decline so modal UI never runs
@@ -60,7 +60,6 @@ final class FirefoxConnectorInstaller {
             "name": "com.hridya.foundry",
             "description": "Foundry Firefox tab connector",
             "path": executable.path,
-            "args": ["--firefox-native-host"],
             "type": "stdio",
             "allowed_extensions": [Self.extensionID]
         ]
@@ -113,6 +112,11 @@ enum FirefoxNativeTabsStore {
 }
 
 enum FirefoxNativeHost {
+    /// Firefox starts a host with the manifest path and the extension ID; it has no field for extra arguments.
+    static func isLaunch(_ arguments: [String]) -> Bool {
+        arguments.contains("--firefox-native-host") || arguments.contains(FirefoxConnectorInstaller.extensionID)
+    }
+
     static func run() {
         let home = FileManager.default.homeDirectoryForCurrentUser
         while let message = readMessage() {

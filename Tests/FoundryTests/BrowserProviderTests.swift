@@ -198,3 +198,12 @@ final class BrowserProviderTests: XCTestCase {
         FileManager.default.temporaryDirectory.appendingPathComponent("foundry-browser-tests-\(UUID().uuidString)")
     }
 }
+
+final class FirefoxNativeHostLaunchTests: XCTestCase {
+    func testFirefoxsOwnLaunchArgumentsStartTheHost() {
+        let firefoxLaunch = ["/Applications/Foundry.app/Contents/MacOS/Foundry",
+            "/Users/me/Library/Application Support/Mozilla/NativeMessagingHosts/com.hridya.foundry.json", "firefox-connector@foundry.local"]
+        XCTAssertTrue(FirefoxNativeHost.isLaunch(firefoxLaunch))
+        XCTAssertFalse(FirefoxNativeHost.isLaunch(["/Applications/Foundry.app/Contents/MacOS/Foundry"]))
+    }
+}

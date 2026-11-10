@@ -20,7 +20,7 @@ if let bridgeIndex = CommandLine.arguments.firstIndex(of: "--agent-bridge"),
     exit(EXIT_SUCCESS)
 }
 
-if CommandLine.arguments.contains("--firefox-native-host") {
+if FirefoxNativeHost.isLaunch(CommandLine.arguments) {
     FirefoxNativeHost.run()
     exit(EXIT_SUCCESS)
 }
