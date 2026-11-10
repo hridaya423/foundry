@@ -375,6 +375,7 @@ final class ConfigService: Sendable {
         var pendingPersist: DispatchWorkItem?
         var pendingSnapshot: FoundryConfig?
         var persistedWriteCount = 0
+        var onSaveFailure: (@Sendable (String) -> Void)?
     }
 
     private let diagnostics: DiagnosticsService
@@ -424,14 +425,23 @@ final class ConfigService: Sendable {
                 diagnostics.log("Could not load config at \(url.path): \(error.localizedDescription)")
             }
         }
-        var migrated = false
+        var migratedKeys: [String] = []
         if loadError == nil, let legacyDefaults {
-            migrated = UserDefaultsMigration.apply(to: &current.localState, defaults: legacyDefaults)
+            migratedKeys = UserDefaultsMigration.apply(to: &current.localState, defaults: legacyDefaults)
         }
         self.state = OSAllocatedUnfairLock(uncheckedState: State(current: current, loadError: loadError))
-        if migrated {
+        if let legacyDefaults, migratedKeys.isEmpty == false {
             schedulePersist(current)
+            flush()
+            if state.withLockUnchecked({ $0.pendingSnapshot == nil }) {
+                migratedKeys.forEach(legacyDefaults.removeObject(forKey:))
+            }
         }
+    }
+
+    /// Called on the persist queue when a debounced write fails; the snapshot stays pending so the next write retries it.
+    func onSaveFailure(_ handler: @escaping @Sendable (String) -> Void) {
+        state.withLockUnchecked { $0.onSaveFailure = handler }
     }
 
     static var configURL: URL {
@@ -580,8 +590,10 @@ final class ConfigService: Sendable {
     }
 
     func resetToDefaults() throws {
-        let defaults = FoundryConfig()
-        try write(defaults)
+        if loadErrorMessage != nil, FileManager.default.fileExists(atPath: url.path) {
+            try FileManager.default.setAside(url, label: "unreadable", moving: false)
+        }
+        try write(FoundryConfig())
         flush()
     }
 
@@ -636,6 +648,7 @@ final class ConfigService: Sendable {
             diagnostics.log("Saved config to \(url.path)")
         } catch {
             diagnostics.log("Failed to save config: \(error.localizedDescription)")
+            state.withLockUnchecked { $0.onSaveFailure }?(error.localizedDescription)
         }
     }
 
@@ -643,7 +656,7 @@ final class ConfigService: Sendable {
     /// anywhere the next reader is a fresh process.
     func flush() {
         state.withLockUnchecked { $0.pendingPersist?.cancel(); $0.pendingPersist = nil }
-        persistPending()
+        persistQueue.sync { persistPending() }
     }
 
     /// Drop a scheduled write without persisting — backup restore replaces
@@ -681,17 +694,16 @@ enum FoundryConfigMigrationError: LocalizedError, Equatable {
 
 /// One-shot import of the UserDefaults keys `FoundryLocalState` replaced.
 /// Runs inside ConfigService.init — the only place Sources may touch
-/// UserDefaults.standard for app state. Each key is removed as it lands so
-/// the import can't run twice or resurrect deleted values.
+/// UserDefaults.standard for app state. It returns the keys it read; the
+/// service removes them only after the config holding them is on disk.
 enum UserDefaultsMigration {
     @discardableResult
-    static func apply(to state: inout FoundryLocalState, defaults: UserDefaults) -> Bool {
-        var migrated = false
+    static func apply(to state: inout FoundryLocalState, defaults: UserDefaults) -> [String] {
+        var migrated: [String] = []
         func move<Value>(_ key: String, _ read: (UserDefaults, String) -> Value?, assign: (inout FoundryLocalState, Value) -> Void) {
             guard let value = read(defaults, key) else { return }
             assign(&state, value)
-            defaults.removeObject(forKey: key)
-            migrated = true
+            migrated.append(key)
         }
         move("foundry.mainBrowser", { $0.string(forKey: $1) }) { $0.mainBrowser = $1 }
         move("preferredCurrencyQuote", { $0.string(forKey: $1) }) { $0.preferredCurrencyQuote = $1 }

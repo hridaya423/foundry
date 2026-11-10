@@ -56,6 +56,9 @@ final class SettingsStore {
         self.configService = configService
         self.diagnostics = diagnostics
         self.registry = registry
+        configService.onSaveFailure { [weak self] reason in
+            Task { @MainActor in self?.showSettingsPersistenceError(ConfigSaveFailure(reason: reason)) }
+        }
     }
 
     /// Mirrors a config snapshot onto the store — used at init and after a
@@ -505,4 +508,9 @@ final class SettingsStore {
         }
         panel?.session.refreshFavorites()
     }
+}
+
+private struct ConfigSaveFailure: LocalizedError {
+    let reason: String
+    var errorDescription: String? { reason }
 }

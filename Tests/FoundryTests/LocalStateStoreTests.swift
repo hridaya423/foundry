@@ -20,7 +20,7 @@ final class LocalStateStoreTests: XCTestCase {
         UserDefaults(suiteName: isolatedDefaultsSuite("foundry.legacy"))!
     }
 
-    func testMigrationImportsEveryLegacyKeyAndRemovesThem() {
+    func testMigrationImportsEveryLegacyKeyAndLeavesRemovalToTheService() {
         let defaults = legacySuite()
         defaults.set("firefox", forKey: "foundry.mainBrowser")
         defaults.set("JPY", forKey: "preferredCurrencyQuote")
@@ -40,7 +40,7 @@ final class LocalStateStoreTests: XCTestCase {
         defaults.set([["1+1", "2"]], forKey: "foundry.calculator.history")
 
         var state = FoundryLocalState()
-        XCTAssertTrue(UserDefaultsMigration.apply(to: &state, defaults: defaults))
+        XCTAssertEqual(UserDefaultsMigration.apply(to: &state, defaults: defaults).count, 16)
 
         XCTAssertEqual(state.mainBrowser, "firefox")
         XCTAssertEqual(state.preferredCurrencyQuote, "JPY")
@@ -59,11 +59,51 @@ final class LocalStateStoreTests: XCTestCase {
         XCTAssertEqual(state.trustedScriptDirectories, ["/tmp/scripts"])
         XCTAssertEqual(state.calculatorHistory, [["1+1", "2"]])
 
-        XCTAssertNil(defaults.string(forKey: "foundry.mainBrowser"))
-        XCTAssertNil(defaults.object(forKey: OnboardingState.stepKey))
-        XCTAssertNil(defaults.stringArray(forKey: "foundry.scripts.directories"))
-        // Keys already migrated don't re-run or clobber current values.
-        XCTAssertFalse(UserDefaultsMigration.apply(to: &state, defaults: defaults))
+        XCTAssertEqual(defaults.string(forKey: "foundry.mainBrowser"), "firefox")
+    }
+
+    func testLegacyKeysStayWhenTheMigratedConfigCannotBeWritten() throws {
+        let blocker = configURL().deletingLastPathComponent()
+        try FileManager.default.createDirectory(at: blocker.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try Data().write(to: blocker)
+        let defaults = legacySuite()
+        defaults.set("arc", forKey: "foundry.mainBrowser")
+
+        let service = ConfigService(diagnostics: DiagnosticsService(), url: blocker.appendingPathComponent("config.json"),
+            persistDebounce: 0.01, legacyDefaults: defaults)
+
+        XCTAssertEqual(service.current.localState.mainBrowser, "arc")
+        XCTAssertEqual(defaults.string(forKey: "foundry.mainBrowser"), "arc")
+    }
+
+    func testResetKeepsACopyOfAnUnreadableConfig() throws {
+        let url = configURL()
+        try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+        let unreadable = Data("not json".utf8)
+        try unreadable.write(to: url)
+        let service = ConfigService(diagnostics: DiagnosticsService(), url: url, persistDebounce: 0.01, legacyDefaults: nil)
+        XCTAssertNotNil(service.loadErrorMessage)
+
+        try service.resetToDefaults()
+
+        let copies = try FileManager.default.contentsOfDirectory(at: url.deletingLastPathComponent(), includingPropertiesForKeys: nil)
+            .filter { $0.lastPathComponent.hasPrefix("config.json.unreadable-") }
+        XCTAssertEqual(try copies.map { try Data(contentsOf: $0) }, [unreadable])
+        XCTAssertNoThrow(try JSONDecoder().decode(FoundryConfig.self, from: Data(contentsOf: url)))
+    }
+
+    func testAFailedSaveIsReported() throws {
+        let blocker = configURL().deletingLastPathComponent()
+        try FileManager.default.createDirectory(at: blocker.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try Data().write(to: blocker)
+        let service = ConfigService(diagnostics: DiagnosticsService(), url: blocker.appendingPathComponent("config.json"),
+            persistDebounce: 0.01, legacyDefaults: nil)
+        let reported = expectation(description: "save failure reported")
+        service.onSaveFailure { _ in reported.fulfill() }
+
+        try service.updateLocalState { $0.mainBrowser = "arc" }
+
+        wait(for: [reported], timeout: 2)
     }
 
     func testConfigServiceImportsLegacyDefaultsAtInit() throws {
