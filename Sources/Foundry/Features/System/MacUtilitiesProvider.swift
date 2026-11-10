@@ -75,7 +75,8 @@ final class MacUtilitiesProvider: CommandProvider {
                 return haystacks.contains { SearchScoring.normalize($0).contains(normalizedNeedle) }
             }
             .prefix(8)
-            .map { process in
+            .compactMap { process in
+                guard let pid = Int32(process.pid), pid > 0 else { return nil }
                 let name = process.executableName.isEmpty ? process.args : process.executableName
                 return makeResult(
                     id: "mac.kill.\(process.pid)",
@@ -84,7 +85,7 @@ final class MacUtilitiesProvider: CommandProvider {
                     icon: "xmark.app.fill",
                     fallback: "KP",
                     route: .macUtility,
-                    primary: TerminateProcessAction(pid: Int32(process.pid) ?? 0)
+                    primary: TerminateProcessAction(pid: pid)
                 )
             }
     }
@@ -168,14 +169,11 @@ final class MacUtilitiesProvider: CommandProvider {
 
     private func audioDeviceResults(prepared: SearchScoring.PreparedQuery, sensitivity: SearchSensitivity) -> [CommandResult] {
         let normalized = prepared.normalized
-        let wantsOutput = normalized.contains("audio") || normalized.contains("sound") || normalized.contains("speaker") || normalized.contains("output")
-        let wantsInput = normalized.contains("microphone") || normalized.contains("mic") || normalized.contains("input")
-        guard wantsOutput || wantsInput else { return [] }
+        guard Self.audioKind(query: normalized, hasInput: true, hasOutput: true) != nil else { return [] }
 
         let devices = AudioDevicesUtility.devices()
         return devices.compactMap { device in
-            let kindMatches = (wantsInput && device.hasInput) || (wantsOutput && device.hasOutput)
-            guard kindMatches else { return nil }
+            guard let kind = Self.audioKind(query: normalized, hasInput: device.hasInput, hasOutput: device.hasOutput) else { return nil }
             let deviceAliases = [
                 device.hasOutput ? "output audio" : "",
                 device.hasInput ? "input audio" : "",
@@ -188,7 +186,6 @@ final class MacUtilitiesProvider: CommandProvider {
                 aliases: deviceAliases,
                 sensitivity: sensitivity
             ) != nil else { return nil }
-            let kind: AudioDeviceKind = wantsInput && device.hasInput && wantsOutput == false ? .input : .output
             return makeResult(
                 id: "mac.audio.\(device.id).\(kind == .output ? "out" : "in")",
                 title: "Use \(device.name)",
@@ -200,6 +197,16 @@ final class MacUtilitiesProvider: CommandProvider {
                 primary: SetAudioDeviceAction(id: device.id, kind: kind)
             )
         }
+    }
+
+    /// "Audio" and "sound" mean output unless the query also names the input side.
+    static func audioKind(query normalized: String, hasInput: Bool, hasOutput: Bool) -> AudioDeviceKind? {
+        let wantsInput = ["microphone", "mic", "input"].contains { normalized.contains($0) }
+        let wantsOutput = ["speaker", "output"].contains { normalized.contains($0) }
+            || (wantsInput == false && ["audio", "sound"].contains { normalized.contains($0) })
+        if wantsOutput && hasOutput { return .output }
+        if wantsInput && hasInput { return .input }
+        return nil
     }
 
     private func makeResult(id: String, title: String, subtitle: String, icon: String, fallback: String, route: SearchRoute? = nil,

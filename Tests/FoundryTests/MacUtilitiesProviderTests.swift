@@ -21,4 +21,29 @@ final class MacUtilitiesProviderTests: XCTestCase {
     func testKillPortNeverTargetsItsOwnProcess() {
         XCTAssertEqual(TerminatePortAction.targets(fromLookupOutput: "12\n34\n12\n\n", excluding: 34), ["12"])
     }
+
+    func testAudioQueriesOfferEachDeviceOnlyForTheSideItHas() {
+        XCTAssertEqual(MacUtilitiesProvider.audioKind(query: "input audio", hasInput: true, hasOutput: false), .input)
+        XCTAssertNil(MacUtilitiesProvider.audioKind(query: "input audio", hasInput: false, hasOutput: true))
+        XCTAssertEqual(MacUtilitiesProvider.audioKind(query: "audio", hasInput: true, hasOutput: true), .output)
+        XCTAssertNil(MacUtilitiesProvider.audioKind(query: "audio", hasInput: true, hasOutput: false))
+        XCTAssertEqual(MacUtilitiesProvider.audioKind(query: "mic", hasInput: true, hasOutput: true), .input)
+    }
+
+    func testKillRowsNameAppsWithSpacesAndSkipUnreadablePIDs() async {
+        let provider = MacUtilitiesProvider(processSnapshotProvider: FixedProcesses(rows: [
+            ProcessInfoRow(pid: "4242", startedAt: nil, args: "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+                executablePath: "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"),
+            ProcessInfoRow(pid: "not-a-pid", startedAt: nil, args: "/Applications/Google Drive.app/Contents/MacOS/Google Drive")
+        ]))
+
+        let results = await provider.results(matching: "kill google")
+
+        XCTAssertEqual(results.filter { $0.id.hasPrefix("mac.kill.") }.map(\.title), ["Kill Google Chrome"])
+    }
+}
+
+private struct FixedProcesses: ProcessSnapshotProviding {
+    let rows: [ProcessInfoRow]
+    func capture() -> [ProcessInfoRow] { rows }
 }

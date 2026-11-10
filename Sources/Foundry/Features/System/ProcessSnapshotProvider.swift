@@ -5,9 +5,11 @@ struct ProcessInfoRow: Equatable, Sendable {
     let pid: String
     let startedAt: Date?
     let args: String
+    var executablePath: String?
 
     var executableName: String {
-        args.split(separator: " ").first.map { URL(fileURLWithPath: String($0)).lastPathComponent } ?? ""
+        if let executablePath { return URL(fileURLWithPath: executablePath).lastPathComponent }
+        return args.split(separator: " ").first.map { URL(fileURLWithPath: String($0)).lastPathComponent } ?? ""
     }
 }
 
@@ -63,7 +65,7 @@ final class NativeProcessSnapshotProvider: Sendable, ProcessSnapshotProviding {
         let startedAt = Date(
             timeIntervalSince1970: Double(bsdInfo.pbi_start_tvsec) + Double(bsdInfo.pbi_start_tvusec) / 1_000_000
         )
-        return ProcessInfoRow(pid: String(pid), startedAt: startedAt, args: args)
+        return ProcessInfoRow(pid: String(pid), startedAt: startedAt, args: args, executablePath: path)
     }
 
     private func shouldReadArguments(name: String, path: String) -> Bool {
