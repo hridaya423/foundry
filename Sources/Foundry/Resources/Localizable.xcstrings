@@ -1844,6 +1844,9 @@
     "Keywords won’t expand. Turn on expansion in Settings › Snippets." : {
 
     },
+    "Latest Release" : {
+
+    },
     "Latest quote for a ticker" : {
 
     },
@@ -2258,7 +2261,7 @@
         }
       }
     },
-    "Or type a bundle ID, e.g. com.example.app" : {
+    "Or type a bundle ID, such as com.example.app" : {
 
     },
     "PDF pages to convert" : {
@@ -3411,6 +3414,9 @@
     "Web" : {
 
     },
+    "Website" : {
+
+    },
     "Welcome" : {
 
     },
@@ -3469,6 +3475,16 @@
     },
     "Your item is copied. Press ⌘V to paste it now." : {
 
+    },
+    "^[%lld script](inflect: true) · %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "^[%1$lld script](inflect: true) · %2$@"
+          }
+        }
+      }
     },
     "^[%lld snippet](inflect: true). Import and export use Raycast's JSON format." : {
 

@@ -683,10 +683,13 @@ struct ExcludedAppsRow: View {
                 }
             }
 
-            TextField("Or type a bundle ID, e.g. com.example.app", text: $manualID)
+            TextField("Or type a bundle ID, such as com.example.app", text: $manualID)
                 .textFieldStyle(.plain)
-                .font(FoundryTheme.mono)
-                .foregroundStyle(FoundryTheme.textSecondary)
+                .font(FoundryTheme.bodySecondary)
+                .foregroundStyle(FoundryTheme.textPrimary)
+                .padding(.horizontal, FoundryTheme.Spacing.xs)
+                .frame(height: FoundryTheme.Control.compact)
+                .background(FoundryTheme.fillHover, in: RoundedRectangle(cornerRadius: FoundryTheme.Radius.control, style: .continuous))
                 .onSubmit {
                     let value = manualID.trimmingCharacters(in: .whitespacesAndNewlines)
                     guard value.isEmpty == false else { return }
@@ -751,5 +754,38 @@ struct FlowLayout: Layout {
             x += size.width + spacing
             lineHeight = max(lineHeight, size.height)
         }
+    }
+}
+
+struct SettingsRailButton: View {
+    let title: String
+    let symbol: String
+    let isSelected: Bool
+    let action: () -> Void
+    @State private var hovering = false
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: FoundryTheme.Spacing.xs) {
+                Image(systemName: symbol)
+                    .font(FoundryTheme.Glyph.sm)
+                    .frame(width: FoundryTheme.Control.glyph)
+                Text(title)
+                    .font(FoundryTheme.body)
+                    .lineLimit(1)
+            }
+            .foregroundStyle(isSelected ? FoundryTheme.textPrimary : FoundryTheme.textSecondary)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, FoundryTheme.Spacing.xs)
+            .frame(height: FoundryTheme.Control.compact)
+            .background(
+                isSelected ? FoundryTheme.fillSelected : hovering ? FoundryTheme.fillHover : .clear,
+                in: RoundedRectangle(cornerRadius: FoundryTheme.Radius.control, style: .continuous)
+            )
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .onHover { hovering = $0 }
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 }

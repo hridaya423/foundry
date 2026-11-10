@@ -21,7 +21,10 @@ struct ScriptsSettingsPane: View {
                     HStack(spacing: 10) {
                         SettingsLabel(
                             title: LocalizedStringResource(stringLiteral: (directory as NSString).lastPathComponent),
-                            subtitle: LocalizedStringResource(stringLiteral: "\(ScriptCommandProvider.scan(directory).count) scripts · \(directory)")
+                            subtitle: """
+                                ^[\(ScriptCommandProvider.scan(directory).count) script](inflect: true) · \
+                                \((directory as NSString).abbreviatingWithTildeInPath)
+                                """
                         )
                         Spacer()
                         Toggle("Trusted", isOn: Binding(

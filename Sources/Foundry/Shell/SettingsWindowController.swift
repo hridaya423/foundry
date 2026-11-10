@@ -15,6 +15,8 @@ final class SettingsWindowController: NSWindowController {
             defer: false
         )
         window.title = String(localized: "Settings")
+        window.titleVisibility = .hidden
+        window.titlebarAppearsTransparent = true
         window.minSize = NSSize(width: 680, height: 480)
         window.isReleasedWhenClosed = false
         window.contentViewController = NSHostingController(rootView: FoundryIncreaseContrastRoot {

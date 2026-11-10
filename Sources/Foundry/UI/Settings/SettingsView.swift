@@ -17,14 +17,12 @@ struct SettingsView: View {
     @FocusState private var searchFocused: Bool
 
     var body: some View {
-        NavigationSplitView {
+        HStack(spacing: 0) {
             settingsRail
-                .frame(minWidth: 210)
-                .navigationSplitViewColumnWidth(min: 210, ideal: 210, max: 260)
-                .toolbar(removing: .sidebarToggle)
-        } detail: {
+            Divider()
             detailPane
         }
+        .ignoresSafeArea(.container, edges: .top)
         .onAppear {
             searchFocused = true
             consumePendingCommandReveal()
@@ -70,24 +68,7 @@ struct SettingsView: View {
     }
 
     private var settingsRail: some View {
-        List(selection: railSelection) {
-            if isSearching == false {
-                ForEach(SettingsCategory.allCases) { item in
-                    Label(item.title, systemImage: item.symbol).tag(item.rawValue)
-                }
-            } else if searchMatches.isEmpty {
-                Text("No settings match \u{201C}\(searchQuery)\u{201D}")
-                    .font(FoundryTheme.bodySecondary)
-                    .foregroundStyle(FoundryTheme.textTertiary)
-                    .selectionDisabled()
-            } else {
-                ForEach(searchMatches) { item in
-                    Label(item.title, systemImage: item.pane.symbol).tag(item.id)
-                }
-            }
-        }
-        .listStyle(.sidebar)
-        .safeAreaInset(edge: .top, spacing: 0) {
+        VStack(alignment: .leading, spacing: FoundryTheme.Spacing.sm) {
             HStack(spacing: FoundryTheme.Spacing.xs) {
                 Image(systemName: "magnifyingglass")
                     .font(FoundryTheme.Glyph.xs)
@@ -101,25 +82,34 @@ struct SettingsView: View {
             .padding(.horizontal, FoundryTheme.Spacing.sm)
             .frame(height: FoundryTheme.Control.compact)
             .background(FoundryTheme.fillHover, in: RoundedRectangle(cornerRadius: FoundryTheme.Radius.control, style: .continuous))
-            .padding(.horizontal, FoundryTheme.Spacing.md)
-            .padding(.bottom, FoundryTheme.Spacing.xs)
-        }
-    }
 
-    private var railSelection: Binding<String?> {
-        Binding(
-            get: {
-                guard isSearching else { return category.rawValue }
-                return searchMatches.first { $0.anchorID == highlightedAnchor && $0.pane == category }?.id
-            },
-            set: { id in
-                if let item = searchMatches.first(where: { $0.id == id }) {
-                    reveal(item)
-                } else if let id, let item = SettingsCategory(rawValue: id) {
-                    select(item)
+            ScrollView {
+                VStack(alignment: .leading, spacing: 2) {
+                    if isSearching == false {
+                        ForEach(SettingsCategory.allCases) { item in
+                            SettingsRailButton(title: item.title, symbol: item.symbol, isSelected: category == item) { select(item) }
+                        }
+                    } else if searchMatches.isEmpty {
+                        Text("No settings match \u{201C}\(searchQuery)\u{201D}")
+                            .font(FoundryTheme.bodySecondary)
+                            .foregroundStyle(FoundryTheme.textTertiary)
+                            .padding(.horizontal, FoundryTheme.Spacing.sm)
+                            .padding(.top, 4)
+                    } else {
+                        ForEach(searchMatches) { item in
+                            SettingsRailButton(title: item.title, symbol: item.pane.symbol,
+                                isSelected: highlightedAnchor == item.anchorID && category == item.pane) { reveal(item) }
+                        }
+                    }
                 }
             }
-        )
+            .scrollIndicators(.never)
+        }
+        .padding(.horizontal, FoundryTheme.Spacing.sm)
+        .padding(.top, FoundryTheme.Control.rowDouble)
+        .padding(.bottom, FoundryTheme.Spacing.sm)
+        .frame(width: 208, alignment: .leading)
+        .background(FoundryTheme.fillSubtle)
     }
 
     private func select(_ item: SettingsCategory) {
@@ -140,6 +130,14 @@ struct SettingsView: View {
 
     private var detailPane: some View {
         VStack(alignment: .leading, spacing: 0) {
+            Text(category.title)
+                .font(FoundryTheme.title)
+                .foregroundStyle(FoundryTheme.textPrimary)
+                .accessibilityAddTraits(.isHeader)
+                .padding(.horizontal, FoundryTheme.Spacing.lg)
+                .padding(.top, FoundryTheme.Spacing.lg)
+                .padding(.bottom, FoundryTheme.Spacing.xs)
+
             if let error = state.settings.configLoadError {
                 SettingsNotice(
                     text: "Foundry could not load its settings. Editing is disabled until they are reset. \(error)",
@@ -207,7 +205,6 @@ struct SettingsView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .navigationTitle(category.title)
     }
 
     private func anchor(_ id: String) -> SettingsAnchor {
@@ -220,7 +217,8 @@ struct SettingsView: View {
                 HStack(spacing: 12) {
                     SettingsLabel(
                         title: "Config folder",
-                        subtitle: LocalizedStringResource(stringLiteral: ConfigService.configURL.deletingLastPathComponent().path)
+                        subtitle: LocalizedStringResource(stringLiteral:
+                            (ConfigService.configURL.deletingLastPathComponent().path as NSString).abbreviatingWithTildeInPath)
                     )
                     Spacer()
                     Button("Show in Finder") {
@@ -348,11 +346,18 @@ struct SettingsView: View {
                         .textSelection(.enabled)
                 }
                 Spacer()
+                Link("Website", destination: Self.websiteURL)
+                Link("Latest Release", destination: Self.releasesURL)
             }
+            .buttonStyle(.bordered)
+            .controlSize(.small)
             .padding(14)
         }
         .modifier(anchor("about.version"))
     }
+
+    private static let websiteURL = URL(string: "https://foundry.hridya.tech")!
+    private static let releasesURL = URL(string: "https://github.com/hridaya423/foundry/releases/latest")!
 
     private static var versionString: String {
         let info = Bundle.main.infoDictionary ?? [:]
@@ -769,7 +774,7 @@ struct SettingsView: View {
                             .font(FoundryTheme.body)
                             .foregroundStyle(state.agents.socketListening ? FoundryTheme.success : FoundryTheme.warning)
                     }
-                    Text(AgentEventSocketServer.socketURL.path)
+                    Text((AgentEventSocketServer.socketURL.path as NSString).abbreviatingWithTildeInPath)
                         .font(FoundryTheme.mono)
                         .foregroundStyle(FoundryTheme.textQuaternary)
                         .lineLimit(1)

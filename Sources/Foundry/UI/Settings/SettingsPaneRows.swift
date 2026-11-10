@@ -16,7 +16,7 @@ struct AgentIntegrationRow: View {
                 .frame(width: 22)
             SettingsLabel(
                                 title: LocalizedStringResource(stringLiteral: provider.title),
-                                subtitle: LocalizedStringResource(stringLiteral: status.detail ?? status.path.path)
+                                subtitle: LocalizedStringResource(stringLiteral: status.detail ?? (status.path.path as NSString).abbreviatingWithTildeInPath)
                             )
             Spacer()
             if status.installed {
