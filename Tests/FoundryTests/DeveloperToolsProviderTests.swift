@@ -110,7 +110,78 @@ final class DeveloperToolsProviderTests: XCTestCase {
 
         XCTAssertTrue(DeveloperToolsEngine.looksLikeRadixValue("0xff"))
         XCTAssertTrue(DeveloperToolsEngine.looksLikeRadixValue("0b1010"))
-        XCTAssertTrue(DeveloperToolsEngine.looksLikeRadixValue("16 ff"))
+        XCTAssertFalse(DeveloperToolsEngine.looksLikeRadixValue("16 ff"))
+    }
+
+    private func values(for query: String) async -> [String: String] {
+        let results = await DeveloperToolsProvider().results(matching: query)
+        return Dictionary(results.compactMap { result in
+            if case let .value(label) = result.payload { return (label, result.title) }
+            return nil
+        }, uniquingKeysWith: { first, _ in first })
+    }
+
+    func testANumberWithAUnitIsNotABaseConversion() async {
+        for query in ["25 c to f", "20 f", "36 hello"] {
+            let results = await values(for: query)
+            XCTAssertEqual(results, [:], query)
+        }
+        let explicit = await values(for: "base 16 ff")
+        XCTAssertEqual(explicit["Decimal"], "255")
+    }
+
+    func testANumberConvertsToANamedBase() async {
+        let hex = await values(for: "255 to hex")
+        let binary = await values(for: "10 in binary")
+        let decimal = await values(for: "0xff to decimal")
+        XCTAssertEqual(hex, ["Hex": "FF"])
+        XCTAssertEqual(binary, ["Binary": "1010"])
+        XCTAssertEqual(decimal, ["Decimal": "255"])
+    }
+
+    func testHashesOfText() async {
+        let md5 = await values(for: "md5 hello")
+        let sha1 = await values(for: "sha1 hello")
+        let sha256 = await values(for: "sha256 abc")
+        let bare = await values(for: "md5")
+        XCTAssertEqual(md5, ["MD5": "5d41402abc4b2a76b9719d911017c592"])
+        XCTAssertEqual(sha1, ["SHA-1": "aaf4c61ddcc5e8a2dabede0f3b482cd9aea9434d"])
+        XCTAssertEqual(sha256, ["SHA-256": "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"])
+        XCTAssertEqual(bare, [:])
+    }
+
+    func testURLEncodingAndDecoding() async {
+        let encoded = await values(for: "url encode hello world&x=1")
+        let decoded = await values(for: "url decode hello%20world%26x%3D1")
+        XCTAssertEqual(encoded, ["URL encoded": "hello%20world%26x%3D1"])
+        XCTAssertEqual(decoded, ["URL decoded": "hello world&x=1"])
+    }
+
+    func testABareUnixTimestampConverts() async {
+        let seconds = await values(for: "1731258000")
+        let milliseconds = await values(for: "1731258000000")
+        let ordinary = await values(for: "12345")
+        XCTAssertEqual(seconds["ISO 8601"], "2024-11-10T17:00:00.000Z")
+        XCTAssertEqual(milliseconds["ISO 8601"], "2024-11-10T17:00:00.000Z")
+        XCTAssertEqual(ordinary, [:])
+    }
+
+    func testColoursConvertBetweenNotations() async {
+        let red = await values(for: "#ff0000")
+        let short = await values(for: "#0af")
+        let rgb = await values(for: "rgb(0, 170, 255)")
+        let word = await values(for: "facade")
+        XCTAssertEqual(red, ["RGB": "rgb(255, 0, 0)", "HSL": "hsl(0, 100%, 50%)"])
+        XCTAssertEqual(short, ["RGB": "rgb(0, 170, 255)", "HSL": "hsl(200, 100%, 50%)"])
+        XCTAssertEqual(rgb, ["Hex": "#00AAFF", "HSL": "hsl(200, 100%, 50%)"])
+        XCTAssertEqual(word, [:])
+    }
+
+    func testGeneratedValuesNameWhatTheyAre() async {
+        let base64 = await values(for: "base64 hello")
+        let radix = await values(for: "0xff")
+        XCTAssertEqual(base64["Encoded"], "aGVsbG8=")
+        XCTAssertEqual(radix, ["Binary": "11111111", "Octal": "377", "Decimal": "255", "Hex": "FF"])
     }
 
     func testHugeTimestampDoesNotTrap() {

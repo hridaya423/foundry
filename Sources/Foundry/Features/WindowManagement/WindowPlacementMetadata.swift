@@ -151,7 +151,7 @@ struct WindowPlacementMetadata {
         case .maximize:
             self.init(
                 "Maximize Window", "Fill the visible screen", "Window maximized",
-                ["maximize", "max", "fill", "fill screen", "fit screen", "full size", "zoom"],
+                ["maximize", "max", "fill", "fill screen", "fit screen", "full size", "zoom", "fullscreen", "full screen"],
                 "arrow.up.left.and.arrow.down.right", "MX"
             )
         case .center:

@@ -327,7 +327,7 @@ public enum SearchScoring {
             } else {
                 guard allowFuzzy,
                       let fuzzy = fuzzyDetails(query: query,
-                          candidateTokens: candidateTokens, sensitivity: sensitivity) else {
+                          candidateTokens: candidateTokens, sensitivity: sensitivity, allowsSubsequence: field == .title) else {
                     return nil
                 }
                 details = fuzzy
@@ -363,7 +363,7 @@ public enum SearchScoring {
     }
 
     private static func fuzzyDetails(query: PreparedQuery, candidateTokens: [Substring],
-        sensitivity: SearchSensitivity) -> MatchDetails? {
+        sensitivity: SearchSensitivity, allowsSubsequence: Bool) -> MatchDetails? {
         let queryTokens = query.tokens
         let minimumQueryLength: Int
         let densityThreshold: Double
@@ -390,7 +390,7 @@ public enum SearchScoring {
         let editLimit = fuzzyEditLimit(queryTokens: queryTokens, sensitivity: sensitivity)
         for (tokenIndex, token) in queryTokens.enumerated() {
             var bestMatch: (index: Int, alignment: FuzzyAlignment, distance: Int?)?
-            let tokenEditLimit = token.count >= 3 ? editLimit : 0
+            let tokenEditLimit = token.count < 5 ? 0 : sensitivity == .low || token.count >= 8 ? editLimit : 1
             for index in candidateTokens.indices where index >= candidateIndex {
                 // A pair can only match within `editLimit` edits if at most
                 // `editLimit` query characters are absent from the candidate —
@@ -399,7 +399,9 @@ public enum SearchScoring {
                 if (query.tokenMasks[tokenIndex] & ~candidateMasks[index]).nonzeroBitCount > tokenEditLimit { continue }
                 let alignment: FuzzyAlignment?
                 let distance: Int?
-                if let fuzzyAlignment = fuzzyAlignment(pattern: queryCharacters[tokenIndex], candidate: candidateCharacters[index]) {
+                if allowsSubsequence,
+                   queryCharacters[tokenIndex].first == candidateCharacters[index].first || token.count >= 4 && candidateTokens[index].contains(token),
+                   let fuzzyAlignment = fuzzyAlignment(pattern: queryCharacters[tokenIndex], candidate: candidateCharacters[index]) {
                     alignment = fuzzyAlignment
                     distance = nil
                 } else {

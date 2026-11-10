@@ -125,7 +125,8 @@ struct AnswerPane: View {
                     } label: {
                         captionLabel(caption, showsChevron: true)
                     }
-                    .menuStyle(.borderlessButton)
+                    .menuStyle(.button)
+                    .buttonStyle(.plain)
                     .menuIndicator(.hidden)
                     .fixedSize()
                 }

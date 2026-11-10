@@ -57,6 +57,15 @@ final class TimeConversionTests: XCTestCase {
         XCTAssertEqual(convert("time in auckland").first?.target.day, "tomorrow")
     }
 
+    func testALocalZoneOnUTCGetsOneDefaultRow() {
+        let london = TimeZone(identifier: "Europe/London")!
+        let winter = ISO8601DateFormatter().date(from: "2026-11-10T14:00:00Z")!
+        let rows = TimeConversionEngine.conversions(for: "9am pst", now: winter, local: london)
+        XCTAssertEqual(rows.map(\.title), ["5:00 PM"])
+        XCTAssertEqual(rows.first?.target.place, "Your time")
+        XCTAssertEqual(TimeConversionEngine.conversions(for: "now", now: winter, local: london).first?.target.caption, "UTC")
+    }
+
     func testNowInTokyo() {
         let rows = convert("now in tokyo")
         XCTAssertEqual(rows.count, 1)

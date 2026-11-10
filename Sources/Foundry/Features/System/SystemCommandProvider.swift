@@ -241,7 +241,7 @@ final class SystemCommandProvider: CommandProvider, Sendable {
                 title: "Open Accessibility Settings",
                 subtitle: "Review Accessibility permissions and controls",
                 aliases: ["accessibility", "permissions", "privacy accessibility"],
-                systemIcon: "figure.circle.fill",
+                systemIcon: "accessibility",
                 fallback: "AC",
                 url: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility"
             ),
@@ -682,7 +682,7 @@ final class SystemCommandProvider: CommandProvider, Sendable {
     }
 }
 
-private struct SystemCommand: Sendable {
+struct SystemCommand: Sendable {
     let id: String
     let title: String
     let subtitle: String

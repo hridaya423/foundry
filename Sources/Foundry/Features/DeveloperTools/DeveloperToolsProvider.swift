@@ -17,6 +17,9 @@ final class DeveloperToolsProvider: CommandProvider {
         results.append(contentsOf: unixTimestampResults(query: trimmed))
         results.append(contentsOf: bitwiseResults(query: trimmed))
         results.append(contentsOf: baseConversionResults(query: trimmed))
+        results.append(contentsOf: hashResults(query: trimmed))
+        results.append(contentsOf: urlCodingResults(query: trimmed))
+        results.append(contentsOf: colorResults(query: trimmed))
         results.append(contentsOf: wordCountResults(query: trimmed))
         results.append(contentsOf: loremResults(query: trimmed, sensitivity: request.sensitivity))
         results.append(contentsOf: randomDataResults(query: trimmed, sensitivity: request.sensitivity))
@@ -45,7 +48,8 @@ final class DeveloperToolsProvider: CommandProvider {
                 subtitle: "Copy a new UUID",
                 icon: "number",
                 fallback: "ID",
-                primary: CopyToClipboardAction(UUID().uuidString)
+                primary: CopyToClipboardAction(UUID().uuidString),
+                isValue: false
             ),
             makeResult(
                 id: "dev.lorem.default",
@@ -53,7 +57,8 @@ final class DeveloperToolsProvider: CommandProvider {
                 subtitle: "Copy 24 placeholder words",
                 icon: "text.alignleft",
                 fallback: "LO",
-                primary: CopyToClipboardAction(DeveloperToolsEngine.lorem(words: 24))
+                primary: CopyToClipboardAction(DeveloperToolsEngine.lorem(words: 24)),
+                isValue: false
             ),
             makeResult(
                 id: "dev.random-email.default",
@@ -61,7 +66,8 @@ final class DeveloperToolsProvider: CommandProvider {
                 subtitle: "Copy a disposable-looking email address",
                 icon: "at",
                 fallback: "RD",
-                primary: CopyToClipboardAction(DeveloperToolsEngine.randomEmail())
+                primary: CopyToClipboardAction(DeveloperToolsEngine.randomEmail()),
+                isValue: false
             )
         ]
     }
@@ -86,7 +92,8 @@ final class DeveloperToolsProvider: CommandProvider {
                 fallback: command.fallback,
                 searchAliases: command.aliases + aliases,
                 searchKeywords: [],
-                primary: command.action
+                primary: command.action,
+                isValue: false
             )
         }
     }
@@ -165,7 +172,8 @@ final class DeveloperToolsProvider: CommandProvider {
                 icon: "curlybraces.square",
                 fallback: "JS",
                 primary: CopyToClipboardAction(formatted),
-                secondary: [CommandAction(id: "dev.json.paste", title: "Paste", behavior: PasteTextAction(formatted))]
+                secondary: [CommandAction(id: "dev.json.paste", title: "Paste", behavior: PasteTextAction(formatted))],
+                isValue: false
             )
         ]
     }
@@ -186,7 +194,9 @@ final class DeveloperToolsProvider: CommandProvider {
     }
 
     private func unixTimestampResults(query: String) -> [CommandResult] {
-        guard let payload = SearchScoring.payload(in: query, prefixes: ["unix", "timestamp"]), payload.isEmpty == false else { return [] }
+        let isBareTimestamp = query.range(of: #"^\d{10}(\d{3})?$"#, options: .regularExpression) != nil
+        guard let payload = isBareTimestamp ? query : SearchScoring.payload(in: query, prefixes: ["unix", "timestamp"]),
+              payload.isEmpty == false else { return [] }
         return DeveloperToolsEngine.timestampConversions(for: payload).enumerated().map { index, conversion in
             makeResult(
                 id: "dev.timestamp.\(index).\(conversion.value.hashValue)",
@@ -267,16 +277,47 @@ final class DeveloperToolsProvider: CommandProvider {
         } else {
             candidate = nil
         }
-        guard let candidate, let conversion = DeveloperToolsEngine.baseConversion(from: candidate) else { return [] }
+        guard let conversion = candidate.flatMap(DeveloperToolsEngine.baseConversion) ?? DeveloperToolsEngine.namedBaseConversion(from: query)
+        else { return [] }
         return conversion.map { item in
             makeResult(
                 id: "dev.base.\(item.label).\(item.value.hashValue)",
                 title: item.value,
-                subtitle: item.label == "Decimal" ? "Base conversion" : item.label,
+                subtitle: item.label,
                 icon: "number",
                 fallback: "10",
                 primary: CopyToClipboardAction(item.value)
             )
+        }
+    }
+
+    private func hashResults(query: String) -> [CommandResult] {
+        DeveloperToolsEngine.hashAlgorithms.compactMap { algorithm in
+            guard let payload = SearchScoring.payload(in: query, prefixes: [algorithm.prefix]), payload.isEmpty == false else { return nil }
+            let digest = algorithm.digest(Data(payload.utf8))
+            return makeResult(id: "dev.hash.\(algorithm.prefix).\(digest)", title: digest, subtitle: algorithm.label, icon: "number.square",
+                fallback: "#", primary: CopyToClipboardAction(digest))
+        }
+    }
+
+    private func urlCodingResults(query: String) -> [CommandResult] {
+        let codings: [(prefixes: [String], label: String, transform: (String) -> String?)] = [
+            (["url encode", "urlencode", "encode url"], "URL encoded", DeveloperToolsEngine.urlEncode),
+            (["url decode", "urldecode", "decode url"], "URL decoded", { $0.removingPercentEncoding })
+        ]
+        return codings.compactMap { coding in
+            guard let payload = SearchScoring.payload(in: query, prefixes: coding.prefixes), payload.isEmpty == false,
+                  let output = coding.transform(payload) else { return nil }
+            return makeResult(id: "dev.url.\(coding.label).\(output.hashValue)", title: output, subtitle: coding.label, icon: "link", fallback: "%",
+                primary: CopyToClipboardAction(output),
+                secondary: [CommandAction(id: "dev.url.\(coding.label).paste", title: "Paste", behavior: PasteTextAction(output))])
+        }
+    }
+
+    private func colorResults(query: String) -> [CommandResult] {
+        DeveloperToolsEngine.colorConversions(for: query).map { item in
+            makeResult(id: "dev.color.\(item.label).\(item.value)", title: item.value, subtitle: item.label, icon: "paintpalette", fallback: "C",
+                primary: CopyToClipboardAction(item.value))
         }
     }
 
@@ -296,7 +337,8 @@ final class DeveloperToolsProvider: CommandProvider {
                 secondary: [
                     CommandAction(id: "dev.wordcount.characters", title: "Copy Characters", behavior: CopyToClipboardAction(String(stats.characters))),
                     CommandAction(id: "dev.wordcount.summary", title: "Copy Summary", behavior: CopyToClipboardAction("\(title) · \(subtitle)"))
-                ]
+                ],
+                isValue: false
             )
         ]
     }
@@ -319,7 +361,8 @@ final class DeveloperToolsProvider: CommandProvider {
                 icon: "text.alignleft",
                 fallback: "LO",
                 primary: CopyToClipboardAction(text),
-                secondary: [CommandAction(id: "dev.lorem.paste", title: "Paste", behavior: PasteTextAction(text))]
+                secondary: [CommandAction(id: "dev.lorem.paste", title: "Paste", behavior: PasteTextAction(text))],
+                isValue: false
             )
         ]
     }
@@ -356,7 +399,8 @@ final class DeveloperToolsProvider: CommandProvider {
         searchAliases: [String] = [],
         searchKeywords: [String] = [],
         primary: any ResultAction,
-        secondary: [CommandAction] = []
+        secondary: [CommandAction] = [],
+        isValue: Bool = true
     ) -> CommandResult {
         CommandResult(
             id: id,
@@ -365,7 +409,7 @@ final class DeveloperToolsProvider: CommandProvider {
             icon: CommandIcon(fallback: fallback, systemName: icon),
             searchAliases: searchAliases,
             searchKeywords: searchKeywords,
-            payload: .command,
+            payload: isValue ? .value(label: subtitle) : .command,
             primaryAction: CommandAction(id: id + ".primary", title: "Copy", behavior: primary),
             secondaryActions: secondary
         )

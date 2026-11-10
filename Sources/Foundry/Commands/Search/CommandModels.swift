@@ -33,6 +33,8 @@ enum ResultPayload: Hashable, Sendable {
     case note(id: String)
     /// `foundry.quick.*` Ask-AI prompt rows.
     case aiPrompt
+    /// A generated value the user copies. The label names what it is ("Hex", "SHA-256").
+    case value(label: String)
     /// Feature command rows and transient mode rows with no entity identity.
     case command
 }
@@ -43,6 +45,15 @@ extension ResultPayload {
         switch self {
         case .calculation, .calculationConversion, .time: true
         default: false
+        }
+    }
+
+    /// The fixed rank of a result computed from the query. Such results keep the order their provider gave them.
+    var computedScore: Double? {
+        switch self {
+        case .calculation, .calculationConversion, .time: 10
+        case .value: 5
+        default: nil
         }
     }
 

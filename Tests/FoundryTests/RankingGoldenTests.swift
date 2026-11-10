@@ -17,12 +17,12 @@ final class RankingGoldenTests: XCTestCase {
     }
 
     private static let cases: [Case] = [
-        Case(query: "als", top: ["Almost Maximize Window", "Open Notifications Settings", "Random Data"]),
+        Case(query: "als", top: ["Almost Maximize Window"]),
         Case(query: "saf", top: ["Safari"]),
         Case(query: "term", top: ["Terminal"]),
         Case(query: "sys", top: ["Open System Settings", "Open Console", "Open Software Update Settings"]),
         Case(query: "cl", top: ["Clipboard History", "Clear Clipboard", "Create Snippet from Clipboard"]),
-        Case(query: "mail", top: ["Mail", "Open Internet Accounts Settings", "File Shelf"]),
+        Case(query: "mail", top: ["Mail", "Open Internet Accounts Settings", "Random Data"]),
         Case(query: "calc", top: ["Calculator"]),
         Case(query: "12*34", top: ["408"]),
         Case(query: "emoji", top: ["Emoji & Symbols"]),
@@ -38,9 +38,9 @@ final class RankingGoldenTests: XCTestCase {
         Case(query: "center", top: ["Center Window", "Tile Window Center Two Thirds", "Tile Window Center Half"]),
         Case(query: "trans", top: ["Open Transfer or Reset Settings", "Convert File", "Translate"]),
         Case(query: "shelf", top: ["File Shelf"]),
-        Case(query: "convert", top: ["Convert File", "Change Case", "Open Bluetooth Settings"]),
+        Case(query: "convert", top: ["Convert File", "Change Case", "Unix Timestamp"]),
         Case(query: "downloads", top: ["Downloads"]),
-        Case(query: "dev", top: ["Developer Tools", "Open Profiles Settings", "Open Notifications Settings"]),
+        Case(query: "dev", top: ["Developer Tools", "Open Profiles Settings", "Open Bluetooth Settings"]),
         Case(query: "ai", top: ["Ask AI", "Mail", "Paste Clipboard as Plain Text"]),
         Case(query: "capture", top: ["Capture Text from Screen", "Open Screenshot"]),
         Case(query: "confetti", top: ["Make Confetti"]),
@@ -51,7 +51,7 @@ final class RankingGoldenTests: XCTestCase {
 
     func testGoldenQueriesProduceExpectedTopResults() async throws {
         let registry = try makeRegistry()
-        _ = await registry.fullResults(matching: "warm")
+        try await warm(registry)
 
         for goldenCase in Self.cases {
             let results = await registry.fullResults(matching: goldenCase.query)
@@ -66,7 +66,7 @@ final class RankingGoldenTests: XCTestCase {
 
     func testAnAnswerRanksFirstAndOnlyFallbacksFollowIt() async throws {
         let registry = try makeRegistry()
-        _ = await registry.fullResults(matching: "warm")
+        try await warm(registry)
 
         for query in ["2+2", "sqrt(16)", "10!", "1/3", "5 km"] {
             let results = await registry.fullResults(matching: query)
@@ -79,6 +79,22 @@ final class RankingGoldenTests: XCTestCase {
         XCTAssertEqual(time.first?.payload.isAnswer, true, "\(time.map(\.title))")
     }
 
+    func testComputedValuesLeadInTheOrderTheirToolGivesThem() async throws {
+        let registry = try makeRegistry()
+        try await warm(registry)
+
+        let radix = await registry.fullResults(matching: "0xff")
+        XCTAssertEqual(radix.prefix(4).map(\.title), ["255", "FF", "11111111", "377"])
+        let encoded = await registry.fullResults(matching: "base64 hello")
+        XCTAssertEqual(encoded.first?.title, "aGVsbG8=")
+        let colour = await registry.fullResults(matching: "#ff0000")
+        XCTAssertEqual(colour.prefix(2).map(\.title), ["rgb(255, 0, 0)", "hsl(0, 100%, 50%)"])
+        let stamp = await registry.fullResults(matching: "1731258000")
+        XCTAssertEqual(stamp.dropFirst().first?.title, "2024-11-10T17:00:00.000Z")
+        let volume = await registry.fullResults(matching: "volume 50")
+        XCTAssertEqual(volume.first?.title, "Set Volume to 50%")
+    }
+
     /// Prints actual top-3 for every candidate query — run with
     /// FOUNDRY_GOLDEN_RECORD=1 when updating the table deliberately.
     func testRecordGoldenTable() async throws {
@@ -86,7 +102,7 @@ final class RankingGoldenTests: XCTestCase {
             throw XCTSkip("set FOUNDRY_GOLDEN_RECORD=1 to print candidate top-3s")
         }
         let registry = try makeRegistry()
-        _ = await registry.fullResults(matching: "warm")
+        try await warm(registry)
         for query in Self.candidates {
             let results = await registry.fullResults(matching: query)
             let top = results.prefix(8).map { "\($0.id)=\($0.title)" }
@@ -101,6 +117,14 @@ final class RankingGoldenTests: XCTestCase {
         "downloads", "dev", "ai", "capture", "confetti", "settings",
         "notes", "xcode",
     ]
+
+    private func warm(_ registry: CommandRegistry) async throws {
+        for _ in 0..<100 {
+            if await registry.fullResults(matching: "safari").first?.title == "Safari" { return }
+            try await Task.sleep(for: .milliseconds(50))
+        }
+        XCTFail("the app index never loaded")
+    }
 
     private func makeRegistry() throws -> CommandRegistry {
         let diagnostics = DiagnosticsService()

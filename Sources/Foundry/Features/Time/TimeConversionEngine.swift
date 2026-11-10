@@ -226,11 +226,12 @@ enum TimeConversionEngine {
     }
 
     private static func targets(
-        _ tokens: [String], source: TimeZoneResolver.ResolvedZone, here: TimeZoneResolver.ResolvedZone
+        _ tokens: [String], source: TimeZoneResolver.ResolvedZone, here: TimeZoneResolver.ResolvedZone, at instant: Date
     ) -> [TimeZoneResolver.ResolvedZone] {
         guard tokens.isEmpty else { return tokens.compactMap { zone($0, here: here) } }
         let utc = TimeZoneResolver.ResolvedZone(zone: utcZone, name: "UTC")
-        let defaults = [here, utc].filter { $0.zone != source.zone }
+        var offsets: Set = [source.zone.secondsFromGMT(for: instant)]
+        let defaults = [here, utc].filter { offsets.insert($0.zone.secondsFromGMT(for: instant)).inserted }
         return defaults.isEmpty ? [utc] : defaults
     }
 
@@ -238,14 +239,14 @@ enum TimeConversionEngine {
         guard let source = spec.sourceToken.isEmpty ? here : zone(spec.sourceToken, here: here),
               let instant = instant(for: spec, in: source.zone, after: now) else { return [] }
         let namesDay = spec.weekday != nil || spec.dayOffset != nil
-        return targets(spec.targetTokens, source: source, here: here).map {
+        return targets(spec.targetTokens, source: source, here: here, at: instant).map {
             render(instant: instant, source: source, target: $0, here: here, namesDay: namesDay, isNow: false)
         }
     }
 
     private static func nowRows(sourceToken: String?, targetTokens: [String], now: Date, here: TimeZoneResolver.ResolvedZone) -> [Conversion] {
         guard let source = sourceToken.map({ zone($0, here: here) }) ?? here else { return [] }
-        var rows = targets(targetTokens, source: source, here: here).map {
+        var rows = targets(targetTokens, source: source, here: here, at: now).map {
             render(instant: now, source: source, target: $0, here: here, namesDay: false, isNow: sourceToken == nil)
         }
         if sourceToken == nil, targetTokens.isEmpty {

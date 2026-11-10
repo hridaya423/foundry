@@ -79,7 +79,7 @@ final class SystemMetricsSampler: Sendable {
                 state.lastDiskSample = now
             }
             if needs.contains(.network), now.timeIntervalSince(state.lastNetworkSample) >= 30 {
-                state.cachedIPAddress = localIPAddress()
+                state.cachedIPAddress = Self.localIPAddress()
                 state.lastNetworkSample = now
             }
             return (state.cachedBattery, state.cachedDisk, state.cachedIPAddress)
@@ -209,7 +209,7 @@ final class SystemMetricsSampler: Sendable {
         return (0, 0)
     }
 
-    private func localIPAddress() -> String? {
+    static func localIPAddress() -> String? {
         var interfaces: UnsafeMutablePointer<ifaddrs>?
         guard getifaddrs(&interfaces) == 0, let firstInterface = interfaces else { return nil }
         defer { freeifaddrs(interfaces) }

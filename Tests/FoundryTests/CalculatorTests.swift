@@ -76,9 +76,45 @@ final class CalculatorTests: XCTestCase {
         let temperature = await titles(for: "100 f")
         let distance = await titles(for: "5 km")
         let mass = await titles(for: "1 kg")
-        XCTAssertEqual(temperature, ["37.8 celsius", "310.9 kelvin"])
-        XCTAssertEqual(distance, ["5000 m", "3.1 mi"])
+        XCTAssertEqual(temperature, ["37.78 °C", "310.93 K"])
+        XCTAssertEqual(distance, ["5000 m", "3.11 mi"])
         XCTAssertEqual(mass.first, "2.2 lb")
+    }
+
+    func testConversionToANamedUnit() async {
+        let cases = [
+            "5 km to miles": "3.11 mi", "72 f to c": "22.22 °C", "3 hours in minutes": "180 min", "1gb in mb": "1000 MB",
+            "100 kg in lb": "220.46 lb", "1 cup to ml": "236.59 ml", "5 in to cm": "12.7 cm", "30 cm in in": "11.81 in",
+            "-40 °F to °C": "-40 °C", "convert 2 miles to km": "3.22 km", "16 px to pt": "12 pt", "2 pt to ml": "946.35 ml",
+            "30 mpg to l/100km": "7.84 L/100km", "90 minutes in hours": "1.5 hr", "1.5 Kilometers As Feet": "4921.26 ft"
+        ]
+        for (query, expected) in cases {
+            let result = await titles(for: query)
+            XCTAssertEqual(result, [expected], query)
+        }
+    }
+
+    func testSmallConversionsKeepTheirDigits() async {
+        let millimetres = await titles(for: "5 mm")
+        let inch = await titles(for: "1 inch to ft")
+        XCTAssertEqual(millimetres, ["0.5 cm", "0.197 in"])
+        XCTAssertEqual(inch, ["0.0833 ft"])
+    }
+
+    func testUnitsOfDifferentKindsDoNotConvert() async {
+        for query in ["5 km to kg", "3 hours in miles", "5 km to", "5 to km"] {
+            let result = await titles(for: query)
+            XCTAssertEqual(result, [], query)
+        }
+    }
+
+    func testWordedArithmetic() async {
+        let cases = ["15% of 200": "30", "10 mod 3": "1", "1,000 * 3": "3000", "12,500.5 + 1": "12501.5", "6 times 7": "42",
+            "10 divided by 4": "2.5", "3 plus 4 minus 2": "5", "3 x 4": "12", "max(1,000)": "1"]
+        for (query, expected) in cases {
+            let result = await titles(for: query)
+            XCTAssertEqual(result, [expected], query)
+        }
     }
 
     // MARK: - Copy output
@@ -119,9 +155,9 @@ final class CalculatorTests: XCTestCase {
         let thousands = await titles(for: "1,000 km")
         let millions = await titles(for: "1,234,567 m")
         let decimalComma = await titles(for: "1,5 km")
-        XCTAssertEqual(thousands, ["1000000 m", "621.4 mi"])
-        XCTAssertEqual(millions.first, "1234.6 km")
-        XCTAssertEqual(decimalComma, ["1500 m", "0.9 mi"])
+        XCTAssertEqual(thousands, ["1000000 m", "621.37 mi"])
+        XCTAssertEqual(millions.first, "1234.57 km")
+        XCTAssertEqual(decimalComma, ["1500 m", "0.932 mi"])
         XCTAssertEqual(rateRequests.withLock { $0 }, 0)
     }
 
@@ -129,7 +165,7 @@ final class CalculatorTests: XCTestCase {
         let unknown = await titles(for: "5 abc")
         let unitFirst = await titles(for: "5 kg")
         XCTAssertTrue(unknown.isEmpty)
-        XCTAssertEqual(unitFirst.first, "11.0 lb")
+        XCTAssertEqual(unitFirst.first, "11.02 lb")
         XCTAssertEqual(rateRequests.withLock { $0 }, 0)
     }
 

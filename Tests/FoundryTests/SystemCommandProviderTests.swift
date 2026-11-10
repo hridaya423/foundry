@@ -4,9 +4,12 @@ import FoundryServices
 @testable import Foundry
 
 final class SystemCommandProviderTests: XCTestCase {
-    func testTypoInACapitalisedWordStillMatches() async {
-        let titles = await SystemCommandProvider().results(matching: "oqen").map(\.title)
-        XCTAssertTrue(titles.contains("Open Family Settings"), "\(titles)")
+    func testTypoInACapitalisedWordStillMatches() {
+        let command = SystemCommand(id: "test", title: "Zebra Quilt", subtitle: "Stripes", aliases: [], systemIcon: "", fallback: "", actionTitle: "",
+            action: LogAction(""))
+        XCTAssertTrue(SearchScoring.matches(SearchScoring.PreparedQuery(query: "zebro"), searchableMask: command.searchableMask,
+            normalizedTitle: command.normalizedTitle, normalizedSubtitle: command.normalizedSubtitle, normalizedAliases: [], customAliases: [],
+            sensitivity: .medium))
     }
 
     func testSettingsShortcutsOpenNativeSystemSettingsPanes() async throws {

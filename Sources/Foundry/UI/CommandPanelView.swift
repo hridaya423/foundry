@@ -856,6 +856,7 @@ struct CommandPanelView: View {
         case .file: return "File"
         case .time: return "Time"
         case .aiPrompt: return "AI"
+        case let .value(label): return label
         default: break
         }
         switch result.route {

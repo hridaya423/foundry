@@ -12,6 +12,37 @@ final class MacUtilitiesProviderTests: XCTestCase {
         XCTAssertTrue(explicit.contains { $0.id == "mac.port.1" })
     }
 
+    func testQuitQueriesNameAnAppByWordPrefix() {
+        XCTAssertEqual(MacUtilitiesProvider.quitRequest(in: "quit saf")?.needle, "saf")
+        XCTAssertEqual(MacUtilitiesProvider.quitRequest(in: "quit")?.needle, "")
+        XCTAssertEqual(MacUtilitiesProvider.quitRequest(in: "force quit chrome")?.force, true)
+        XCTAssertEqual(MacUtilitiesProvider.quitRequest(in: "quit chrome")?.force, false)
+        XCTAssertNil(MacUtilitiesProvider.quitRequest(in: "quite"))
+
+        XCTAssertTrue(MacUtilitiesProvider.appName("Google Chrome", matches: "chr"))
+        XCTAssertTrue(MacUtilitiesProvider.appName("Safari", matches: ""))
+        XCTAssertFalse(MacUtilitiesProvider.appName("Wallpaper", matches: "all"))
+    }
+
+    func testVolumeQueriesCarryALevel() {
+        XCTAssertEqual(MacUtilitiesProvider.volumeLevel(in: "volume 50"), 50)
+        XCTAssertEqual(MacUtilitiesProvider.volumeLevel(in: "set volume to 30%"), 30)
+        XCTAssertEqual(MacUtilitiesProvider.volumeLevel(in: "vol 0"), 0)
+        XCTAssertNil(MacUtilitiesProvider.volumeLevel(in: "volume 150"))
+        XCTAssertNil(MacUtilitiesProvider.volumeLevel(in: "volume"))
+        XCTAssertNil(MacUtilitiesProvider.volumeLevel(in: "50"))
+    }
+
+    func testVolumeAndAddressQueriesProduceRows() async {
+        let provider = MacUtilitiesProvider()
+        let volume = await provider.results(matching: "volume 40")
+        XCTAssertEqual(volume.first { $0.id == "mac.volume.40" }?.title, "Set Volume to 40%")
+        for query in ["my ip", "ip", "IP address", "what's my ip"] {
+            XCTAssertTrue(MacUtilitiesProvider.asksForAddress(query), query)
+        }
+        XCTAssertFalse(MacUtilitiesProvider.asksForAddress("zip"))
+    }
+
     func testKillPortLooksUpListenersOnly() {
         let arguments = TerminatePortAction.lookupArguments(port: 3000)
         XCTAssertTrue(arguments.contains("-sTCP:LISTEN"))

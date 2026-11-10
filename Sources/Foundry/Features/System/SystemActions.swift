@@ -120,7 +120,7 @@ struct QuitApplicationAction: ResultAction, Equatable {
     let bundleID: String?
     let name: String
 
-    var icon: String? { "app.badge.xmark" }
+    var icon: String? { "xmark.app" }
     var style: ActionStyle { .destructive }
 
     func perform(_ ctx: ActionContext) async -> CommandOutcome {
@@ -184,7 +184,7 @@ struct HideApplicationAction: ResultAction, Equatable {
 }
 
 struct QuitAllApplicationsAction: ResultAction, Equatable {
-    var icon: String? { "app.badge.xmark" }
+    var icon: String? { "xmark.app" }
     var style: ActionStyle { .destructive }
 
     func perform(_ ctx: ActionContext) async -> CommandOutcome {

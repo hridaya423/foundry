@@ -24,6 +24,8 @@ final class MacUtilitiesProvider: CommandProvider {
         results.append(contentsOf: quitAppResults(query: trimmed))
         results.append(contentsOf: runningAppResults(query: trimmed))
         results.append(contentsOf: quitAllResults(query: prepared, sensitivity: request.sensitivity))
+        results.append(contentsOf: volumeResults(query: trimmed))
+        results.append(contentsOf: addressResults(query: trimmed))
         results.append(contentsOf: await portResults(query: trimmed))
         results.append(contentsOf: audioDeviceResults(prepared: prepared, sensitivity: request.sensitivity))
 
@@ -90,27 +92,76 @@ final class MacUtilitiesProvider: CommandProvider {
             }
     }
 
+    static func quitRequest(in query: String) -> (needle: String, force: Bool)? {
+        if let needle = SearchScoring.payload(in: query, prefixes: ["force quit", "force close"]) { return (needle, true) }
+        if let needle = SearchScoring.payload(in: query, prefixes: ["quit application", "quit app", "close app", "quit"]) { return (needle, false) }
+        return nil
+    }
+
+    static func appName(_ name: String, matches needle: String) -> Bool {
+        let name = SearchScoring.normalize(name)
+        let needle = SearchScoring.normalize(needle)
+        return needle.isEmpty || name.hasPrefix(needle) || name.split(separator: " ").contains { $0.hasPrefix(needle) }
+    }
+
     private func quitAppResults(query: String) -> [CommandResult] {
-        guard let needle = SearchScoring.payload(in: query, prefixes: ["quit", "close app", "quit app", "quit application"]),
-            needle.isEmpty == false else { return [] }
+        guard let request = Self.quitRequest(in: query) else { return [] }
+        let ownPID = ProcessInfo.processInfo.processIdentifier
         return NSWorkspace.shared.runningApplications
             .filter { app in
-                guard let name = app.localizedName, app.activationPolicy != .prohibited else { return false }
-                return SearchScoring.normalize(name).contains(SearchScoring.normalize(needle))
+                guard let name = app.localizedName, app.processIdentifier != ownPID,
+                      request.needle.isEmpty ? app.activationPolicy == .regular : app.activationPolicy != .prohibited else { return false }
+                return Self.appName(name, matches: request.needle)
             }
             .prefix(8)
             .map { app in
                 let name = app.localizedName ?? "Application"
-                return makeResult(
-                    id: "mac.quit.\(app.processIdentifier)",
-                    title: "Quit \(name)",
+                let action: any ResultAction = request.force ? ForceQuitApplicationAction(bundleID: app.bundleIdentifier, name: name)
+                    : QuitApplicationAction(bundleID: app.bundleIdentifier, name: name)
+                let id = "mac.\(request.force ? "force-quit" : "quit").\(app.processIdentifier)"
+                return CommandResult(
+                    id: id,
+                    title: request.force ? "Force Quit \(name)" : "Quit \(name)",
                     subtitle: app.bundleIdentifier ?? "Running application",
-                    icon: "app.badge.xmark",
-                    fallback: "QA",
+                    icon: CommandIcon(fallback: "QA", filePath: app.bundleURL?.path, systemName: "xmark.app"),
                     route: .macUtility,
-                    primary: QuitApplicationAction(bundleID: app.bundleIdentifier, name: name)
+                    payload: .command,
+                    primaryAction: CommandAction(id: id + ".primary", title: request.force ? "Force Quit" : "Quit", behavior: action),
+                    secondaryActions: []
                 )
             }
+    }
+
+    static func volumeLevel(in query: String) -> Int? {
+        guard let payload = SearchScoring.payload(in: query, prefixes: ["set volume to", "set volume", "volume", "vol"]),
+              let level = Int(payload.trimmingCharacters(in: CharacterSet(charactersIn: " %"))), (0...100).contains(level) else { return nil }
+        return level
+    }
+
+    private func volumeResults(query: String) -> [CommandResult] {
+        guard let level = Self.volumeLevel(in: query) else { return [] }
+        return [makeResult(id: "mac.volume.\(level)", title: "Set Volume to \(level)%", subtitle: "Change the output volume",
+            icon: "speaker.wave.2.fill", fallback: "VO", route: .macUtility, aliases: [query],
+            primary: RunProcessAction(path: "/usr/bin/osascript", arguments: ["-e", "set volume output volume \(level)"]))]
+    }
+
+    static func asksForAddress(_ query: String) -> Bool {
+        ["ip", "my ip", "ip address", "my ip address", "local ip", "what is my ip", "what s my ip", "whats my ip"]
+            .contains(SearchScoring.normalize(query))
+    }
+
+    private func addressResults(query: String) -> [CommandResult] {
+        guard Self.asksForAddress(query), let address = SystemMetricsSampler.localIPAddress() else { return [] }
+        return [CommandResult(
+            id: "mac.address.\(address)",
+            title: address,
+            subtitle: "Local IP",
+            icon: CommandIcon(fallback: "IP", systemName: "network"),
+            route: .macUtility,
+            payload: .value(label: "Local IP"),
+            primaryAction: CommandAction(id: "mac.address.copy", title: "Copy", behavior: CopyToClipboardAction(address)),
+            secondaryActions: []
+        )]
     }
 
     private func runningAppResults(query: String) -> [CommandResult] {

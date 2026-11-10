@@ -1,3 +1,4 @@
+import CryptoKit
 import Foundation
 import FoundryServices
 import os
@@ -192,10 +193,10 @@ enum DeveloperToolsEngine {
 
     static func radixConversions(for number: UInt64) -> [RadixConversion] {
         [
-            RadixConversion(label: "Binary", value: String(number, radix: 2)),
-            RadixConversion(label: "Octal", value: String(number, radix: 8)),
             RadixConversion(label: "Decimal", value: String(number, radix: 10)),
-            RadixConversion(label: "Hex", value: String(number, radix: 16).uppercased())
+            RadixConversion(label: "Hex", value: String(number, radix: 16).uppercased()),
+            RadixConversion(label: "Binary", value: String(number, radix: 2)),
+            RadixConversion(label: "Octal", value: String(number, radix: 8))
         ]
     }
 
@@ -269,9 +270,82 @@ enum DeveloperToolsEngine {
     static func looksLikeRadixValue(_ value: String) -> Bool {
         let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         if trimmed.hasPrefix("0x") || trimmed.hasPrefix("0b") || trimmed.hasPrefix("0o") { return true }
-        let parts = trimmed.split(separator: " ", maxSplits: 1, omittingEmptySubsequences: true)
-        if parts.count == 2, let radix = Int(parts[0]), (2...36).contains(radix) { return true }
         return false
+    }
+
+    private static let namedBases = ["hex": "Hex", "hexadecimal": "Hex", "binary": "Binary", "bin": "Binary", "octal": "Octal", "oct": "Octal",
+        "decimal": "Decimal", "dec": "Decimal"]
+
+    static func namedBaseConversion(from value: String) -> [RadixConversion]? {
+        let parts = value.lowercased().split(separator: " ")
+        guard parts.count == 3, ["to", "in", "as"].contains(parts[1]), let label = namedBases[String(parts[2])],
+              let number = parseUnsignedInteger(String(parts[0])) else { return nil }
+        return radixConversions(for: number).filter { $0.label == label }
+    }
+
+    struct HashAlgorithm: Sendable {
+        let prefix: String
+        let label: String
+        let digest: @Sendable (Data) -> String
+    }
+
+    private static func hex<D: Sequence>(_ digest: D) -> String where D.Element == UInt8 {
+        digest.map { String(format: "%02x", $0) }.joined()
+    }
+
+    static let hashAlgorithms = [
+        HashAlgorithm(prefix: "md5", label: "MD5") { hex(Insecure.MD5.hash(data: $0)) },
+        HashAlgorithm(prefix: "sha1", label: "SHA-1") { hex(Insecure.SHA1.hash(data: $0)) },
+        HashAlgorithm(prefix: "sha256", label: "SHA-256") { hex(SHA256.hash(data: $0)) },
+        HashAlgorithm(prefix: "sha384", label: "SHA-384") { hex(SHA384.hash(data: $0)) },
+        HashAlgorithm(prefix: "sha512", label: "SHA-512") { hex(SHA512.hash(data: $0)) }
+    ]
+
+    static func urlEncode(_ value: String) -> String? {
+        value.addingPercentEncoding(withAllowedCharacters: .alphanumerics.union(CharacterSet(charactersIn: "-._~")))
+    }
+
+    private static let hexColor = try! NSRegularExpression(pattern: "^#([0-9a-f]{3}|[0-9a-f]{6})$", options: .caseInsensitive)
+    private static let rgbColor = try! NSRegularExpression(pattern: #"^rgb\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})\s*\)$"#,
+        options: .caseInsensitive)
+
+    static func colorConversions(for value: String) -> [RadixConversion] {
+        let text = value.trimmingCharacters(in: .whitespaces)
+        let whole = NSRange(text.startIndex..<text.endIndex, in: text)
+        let channels: [Int]
+        let isHex: Bool
+        if hexColor.firstMatch(in: text, range: whole) != nil {
+            let digits = Array(text.dropFirst())
+            let pairs = digits.count == 3 ? digits.map { "\($0)\($0)" } : stride(from: 0, to: 6, by: 2).map { String(digits[$0...$0 + 1]) }
+            channels = pairs.compactMap { Int($0, radix: 16) }
+            isHex = true
+        } else if let match = rgbColor.firstMatch(in: text, range: whole) {
+            channels = (1...3).compactMap { Range(match.range(at: $0), in: text).flatMap { Int(text[$0]) } }
+            guard channels.allSatisfy({ $0 <= 255 }) else { return [] }
+            isHex = false
+        } else {
+            return []
+        }
+
+        let (red, green, blue) = (Double(channels[0]) / 255, Double(channels[1]) / 255, Double(channels[2]) / 255)
+        let (high, low) = (max(red, green, blue), min(red, green, blue))
+        let lightness = (high + low) / 2
+        let chroma = high - low
+        let saturation = chroma == 0 ? 0 : chroma / (1 - abs(2 * lightness - 1))
+        var hue = 0.0
+        if chroma > 0 {
+            switch high {
+            case red: hue = ((green - blue) / chroma).truncatingRemainder(dividingBy: 6)
+            case green: hue = (blue - red) / chroma + 2
+            default: hue = (red - green) / chroma + 4
+            }
+            hue = (hue * 60 + 360).truncatingRemainder(dividingBy: 360)
+        }
+        let hsl = "hsl(\(Int(hue.rounded())), \(Int((saturation * 100).rounded()))%, \(Int((lightness * 100).rounded()))%)"
+        let first = isHex
+            ? RadixConversion(label: "RGB", value: "rgb(\(channels[0]), \(channels[1]), \(channels[2]))")
+            : RadixConversion(label: "Hex", value: "#" + channels.map { String(format: "%02X", $0) }.joined())
+        return [first, RadixConversion(label: "HSL", value: hsl)]
     }
 
     private static func integerText(_ value: Double) -> String {
@@ -281,10 +355,10 @@ enum DeveloperToolsEngine {
 
     private static func conversions(for date: Date) -> [TimestampConversion] {
         [
+            TimestampConversion(label: "Local", value: localDateFormatter.string(from: date)),
             TimestampConversion(label: "ISO 8601", value: iso8601Formatter.withLockUnchecked { $0.string(from: date) }),
             TimestampConversion(label: "Unix seconds", value: integerText(date.timeIntervalSince1970)),
-            TimestampConversion(label: "Unix milliseconds", value: integerText(date.timeIntervalSince1970 * 1000)),
-            TimestampConversion(label: "Local", value: localDateFormatter.string(from: date))
+            TimestampConversion(label: "Unix milliseconds", value: integerText(date.timeIntervalSince1970 * 1000))
         ]
     }
 

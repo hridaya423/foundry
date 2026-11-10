@@ -170,7 +170,7 @@ final class QuicklinkProvider: CommandProvider, Sendable {
         id: "quicklink.create",
         title: "Create Quicklink",
         subtitle: "Name, link with {argument}, keyword — edit in Settings",
-        icon: CommandIcon(fallback: "QL", systemName: "plus.link"),
+        icon: CommandIcon(fallback: "QL", systemName: "link.badge.plus"),
         payload: .quicklink(id: "create"),
         primaryAction: CommandAction(id: "quicklink.create.open", title: "Create", behavior: OpenCommandSettingsAction(.quicklinks)),
         secondaryActions: []
