@@ -63,20 +63,20 @@ struct AgentSessionMetadata: Codable, Equatable, Sendable {
     let workingDirectory: String?
     let project: String?
     let model: String?
-    let terminalCommand: String?
+    let resumeSessionID: String?
 
     init(
         title: String? = nil,
         workingDirectory: String? = nil,
         project: String? = nil,
         model: String? = nil,
-        terminalCommand: String? = nil
+        resumeSessionID: String? = nil
     ) {
         self.title = title
         self.workingDirectory = workingDirectory
         self.project = project
         self.model = model
-        self.terminalCommand = terminalCommand
+        self.resumeSessionID = resumeSessionID
     }
 
     init(from decoder: Decoder) throws {
@@ -85,7 +85,7 @@ struct AgentSessionMetadata: Codable, Equatable, Sendable {
         workingDirectory = try container.decodeIfPresent(String.self, forKey: .workingDirectory)
         project = try container.decodeIfPresent(String.self, forKey: .project)
         model = try container.decodeIfPresent(String.self, forKey: .model)
-        terminalCommand = try container.decodeIfPresent(String.self, forKey: .terminalCommand)
+        resumeSessionID = try container.decodeIfPresent(String.self, forKey: .resumeSessionID)
     }
 }
 
@@ -363,9 +363,12 @@ actor AgentSessionStore {
     private func makeCard(for envelope: AgentEventEnvelope, key: AgentSessionKey) -> AgentSessionCard {
         let metadata = envelope.metadata
         let openTarget: AgentOpenTarget
-        if let command = metadata?.terminalCommand {
-            openTarget = .terminal(command: command, cwd: metadata?.workingDirectory)
-        } else {
+        switch (envelope.provider, metadata?.resumeSessionID) {
+        case let (.claude, sessionID?):
+            openTarget = .terminal(command: "claude --resume \(sessionID.shellQuoted)", cwd: metadata?.workingDirectory)
+        case let (.codex, sessionID?):
+            openTarget = .terminal(command: "codex resume \(sessionID.shellQuoted)", cwd: metadata?.workingDirectory)
+        default:
             openTarget = .application(name: envelope.provider.rawValue)
         }
         return AgentSessionCard(

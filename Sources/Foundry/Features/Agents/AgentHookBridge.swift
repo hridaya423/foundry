@@ -63,7 +63,7 @@ enum AgentHookBridge {
         let isSubagent = hookEvent.lowercased().contains("subagent") && agentID != nil
         let sessionID = isSubagent ? "\(baseSessionID):agent:\(agentID!)" : baseSessionID
         let parentSessionID = isSubagent ? baseSessionID : string(object, keys: ["parent_session_id", "parentSessionId"])
-        let metadata = commandHookMetadata(provider: provider, object: object, sessionID: baseSessionID, environment: environment)
+        let metadata = commandHookMetadata(object: object, sessionID: baseSessionID, environment: environment)
         let event: AgentEvent
 
         switch hookEvent.lowercased() {
@@ -218,16 +218,14 @@ enum AgentHookBridge {
         )
     }
 
-    private static func commandHookMetadata(provider: AgentProviderKind, object: [String: Any], sessionID: String,
-        environment: [String: String]) -> AgentSessionMetadata {
+    private static func commandHookMetadata(object: [String: Any], sessionID: String, environment: [String: String]) -> AgentSessionMetadata {
         let cwd = string(object, keys: ["cwd", "working_directory"]) ?? environment["PWD"]
-        let command = provider == .codex ? "codex resume \(sessionID)" : "claude --resume \(sessionID)"
         return AgentSessionMetadata(
             title: pathComponent(cwd),
             workingDirectory: cwd,
             project: pathComponent(cwd),
             model: string(object, keys: ["model", "model_name"]),
-            terminalCommand: command
+            resumeSessionID: sessionID
         )
     }
 
@@ -237,8 +235,7 @@ enum AgentHookBridge {
             title: nestedString(properties, paths: [["title"], ["info", "title"]]) ?? pathComponent(cwd),
             workingDirectory: cwd,
             project: pathComponent(cwd),
-            model: nestedString(properties, paths: [["model"], ["info", "model"]]),
-            terminalCommand: nil
+            model: nestedString(properties, paths: [["model"], ["info", "model"]])
         )
     }
 
@@ -254,6 +251,8 @@ enum AgentHookBridge {
         var timeout = timeval(tv_sec: 1, tv_usec: 500_000)
         setsockopt(descriptor, SOL_SOCKET, SO_RCVTIMEO, &timeout, socklen_t(MemoryLayout<timeval>.size))
         setsockopt(descriptor, SOL_SOCKET, SO_SNDTIMEO, &timeout, socklen_t(MemoryLayout<timeval>.size))
+        var noSignal: Int32 = 1
+        setsockopt(descriptor, SOL_SOCKET, SO_NOSIGPIPE, &noSignal, socklen_t(MemoryLayout<Int32>.size))
 
         var address = sockaddr_un()
         address.sun_family = sa_family_t(AF_UNIX)

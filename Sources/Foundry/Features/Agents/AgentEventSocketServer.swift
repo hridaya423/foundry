@@ -161,12 +161,13 @@ final class AgentEventSocketServer: Sendable {
         return data
     }
 
+    /// `MSG_NOSIGNAL` rather than `SO_NOSIGPIPE`: macOS refuses socket options once the client has hung up.
     private static func writeAll(_ data: Data, to client: Int32) {
         data.withUnsafeBytes { bytes in
             guard let baseAddress = bytes.baseAddress else { return }
             var offset = 0
             while offset < data.count {
-                let count = write(client, baseAddress.advanced(by: offset), data.count - offset)
+                let count = send(client, baseAddress.advanced(by: offset), data.count - offset, MSG_NOSIGNAL)
                 guard count > 0 else { return }
                 offset += count
             }

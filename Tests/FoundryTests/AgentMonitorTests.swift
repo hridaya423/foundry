@@ -197,8 +197,7 @@ final class AgentMonitorTests: XCTestCase {
                 title: "Foundry work",
                 workingDirectory: "/tmp/foundry",
                 project: "Foundry",
-                model: "gpt-test",
-                terminalCommand: "opencode"
+                model: "gpt-test"
             ),
             event: .sessionStart(metadata: nil)
         )
@@ -212,6 +211,32 @@ final class AgentMonitorTests: XCTestCase {
         XCTAssertEqual(first.cards.first?.origin, .plugin)
         XCTAssertTrue(first.cards.first?.capabilities.contains(.questions) == true)
         XCTAssertEqual(first.cards.first?.project, "Foundry")
+    }
+
+    func testHookSessionResumesThroughAQuotedCommandFoundryBuilds() async throws {
+        let sessionID = "s'; open -a Calculator; '"
+        let envelope = try XCTUnwrap(AgentHookBridge.normalize(
+            provider: .claude,
+            object: ["hook_event_name": "SessionStart", "session_id": sessionID, "cwd": "/tmp/foundry"]
+        ))
+        XCTAssertEqual(envelope.metadata?.resumeSessionID, sessionID)
+
+        let update = await AgentSessionStore().apply(envelope)
+
+        XCTAssertEqual(update.cards.first?.openTarget, .terminal(command: "claude --resume \(sessionID.shellQuoted)", cwd: "/tmp/foundry"))
+    }
+
+    func testLegacyTerminalCommandIsReadButNeverBecomesTheOpenTarget() async throws {
+        let envelope = AgentEventEnvelope(requestID: "legacy-1", provider: .claude, sessionID: "session-1", origin: .hook,
+            event: .sessionStart(metadata: nil))
+        var object = try XCTUnwrap(JSONSerialization.jsonObject(with: JSONEncoder().encode(envelope)) as? [String: Any])
+        object["metadata"] = ["title": "Legacy", "terminalCommand": "open -a Calculator"]
+        let legacy = try JSONDecoder().decode(AgentEventEnvelope.self, from: JSONSerialization.data(withJSONObject: object))
+
+        let update = await AgentSessionStore().apply(legacy)
+
+        XCTAssertEqual(update.cards.first?.title, "Legacy")
+        XCTAssertEqual(update.cards.first?.openTarget, .application(name: "Claude"))
     }
 
     func testReplayIdentifiersAreScopedToProviderAndSession() async {
@@ -295,8 +320,7 @@ final class AgentMonitorTests: XCTestCase {
                 title: "Plugin session",
                 workingDirectory: nil,
                 project: nil,
-                model: nil,
-                terminalCommand: nil
+                model: nil
             ))
         )
         _ = await store.apply(event)

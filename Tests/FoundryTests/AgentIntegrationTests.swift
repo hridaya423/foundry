@@ -1,4 +1,5 @@
 import Foundation
+import os
 import XCTest
 @testable import Foundry
 
@@ -252,5 +253,46 @@ final class AgentIntegrationTests: XCTestCase {
             event: .sessionStart(metadata: nil)
         )
         XCTAssertTrue(AgentHookBridge.send(envelope, socketURL: socketURL))
+    }
+
+    func testServerSurvivesAClientThatHangsUpBeforeTheAck() async throws {
+        let socketDirectory = URL(fileURLWithPath: "/tmp/foundry-agent-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: socketDirectory, withIntermediateDirectories: true)
+        let socketURL = socketDirectory.appendingPathComponent("agents.sock")
+        let server = AgentEventSocketServer(socketURL: socketURL)
+        defer {
+            server.stop()
+            try? FileManager.default.removeItem(at: socketDirectory)
+        }
+        let clientClosed = OSAllocatedUnfairLock(initialState: false)
+        let answered = expectation(description: "first event answered")
+        XCTAssertTrue(server.start { envelope in
+            if envelope.requestID == "hang-up" {
+                while clientClosed.withLock({ $0 }) == false { try? await Task.sleep(nanoseconds: 10_000_000) }
+                answered.fulfill()
+            }
+            return .accepted(requestID: envelope.requestID)
+        })
+
+        let payload = try JSONEncoder().encode(AgentEventEnvelope(requestID: "hang-up", provider: .claude, sessionID: "session-1",
+            origin: .hook, event: .sessionStart(metadata: nil)))
+        let client = socket(AF_UNIX, SOCK_STREAM, 0)
+        var address = sockaddr_un()
+        address.sun_family = sa_family_t(AF_UNIX)
+        withUnsafeMutableBytes(of: &address.sun_path) { $0.copyBytes(from: Array(socketURL.path.utf8) + [0]) }
+        let connected = withUnsafePointer(to: &address) {
+            $0.withMemoryRebound(to: sockaddr.self, capacity: 1) { connect(client, $0, socklen_t(MemoryLayout<sockaddr_un>.size)) }
+        }
+        XCTAssertEqual(connected, 0)
+        _ = payload.withUnsafeBytes { write(client, $0.baseAddress, payload.count) }
+        shutdown(client, SHUT_WR)
+        close(client)
+        clientClosed.withLock { $0 = true }
+
+        await fulfillment(of: [answered], timeout: 2)
+        try await Task.sleep(nanoseconds: 300_000_000)
+        let next = AgentEventEnvelope(requestID: "after", provider: .claude, sessionID: "session-2", origin: .hook,
+            event: .sessionStart(metadata: nil))
+        XCTAssertTrue(AgentHookBridge.send(next, socketURL: socketURL))
     }
 }
