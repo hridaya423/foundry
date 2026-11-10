@@ -284,10 +284,6 @@ final class PanelController: NSObject, NSWindowDelegate {
         return panel
     }
 
-    static func contentSize(for _: CommandPanelState.Mode) -> NSSize {
-        rootSize
-    }
-
     private func frame(for panel: NSWindow) -> NSRect {
         let screen = NSScreen.screens.first(where: { NSMouseInRect(NSEvent.mouseLocation, $0.frame, false) })
             ?? NSScreen.main

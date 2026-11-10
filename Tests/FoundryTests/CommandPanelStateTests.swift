@@ -317,7 +317,7 @@ final class CommandPanelStateTests: XCTestCase {
         directPaste.captureTarget()
 
         state.mode = .clipboardHistory
-        state.pasteOrCopySelectedClipboardItem()
+        state.directPasteSelectedClipboardItem()
         XCTAssertTrue(directPaste.hasPendingPaste)
         state.shutdown()
     }

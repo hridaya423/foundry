@@ -158,10 +158,6 @@ extension CommandPanelState {
         return true
     }
 
-    func pasteOrCopySelectedClipboardItem() {
-        directPasteSelectedClipboardItem()
-    }
-
     /// Without Accessibility, paste cannot reach the other app. The item is
     /// already copied; ask in the panel instead of failing after it closes.
     func pasteNeedsAccessibility() -> Bool {

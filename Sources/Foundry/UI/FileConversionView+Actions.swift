@@ -172,8 +172,6 @@ extension FileConversionView {
                     } else {
                         ProgressView()
                     }
-                case .artifactBytes:
-                    ProgressView()
                 case .indeterminate:
                     ProgressView()
                 }

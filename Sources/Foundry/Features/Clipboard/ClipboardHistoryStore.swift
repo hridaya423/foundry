@@ -15,7 +15,10 @@ final class ClipboardHistoryStore: ClipboardHistoryPersisting, Sendable {
     /// `withLockUnchecked`, mirroring the previous NSLock discipline.
     private let lock = OSAllocatedUnfairLock<OpaquePointer?>(uncheckedState: nil)
 
-    init(directory: URL = ClipboardHistoryStore.defaultDirectory, legacyURL: URL = ClipboardHistoryPersistence().url) {
+    init(
+        directory: URL = ClipboardHistoryStore.defaultDirectory,
+        legacyURL: URL = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".config/foundry/clipboard-history.json")
+    ) {
         databaseURL = directory.appendingPathComponent("clipboard.sqlite")
         imagesURL = directory.appendingPathComponent("clipboard-images", isDirectory: true)
         self.legacyURL = legacyURL

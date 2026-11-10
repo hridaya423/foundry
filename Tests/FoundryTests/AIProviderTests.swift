@@ -576,31 +576,6 @@ final class AIProviderTests: XCTestCase {
         )
     }
 
-    @MainActor
-    func testQuickAIUsesCompactPanelSize() {
-        XCTAssertEqual(PanelController.contentSize(for: .search), PanelController.contentSize(for: .quickAI))
-        XCTAssertEqual(PanelController.contentSize(for: .quickAI).height, 495)
-    }
-
-    @MainActor
-    func testEveryPanelModeUsesTheSameFixedSize() {
-        let modes: [CommandPanelState.Mode] = [
-            .search,
-            .quickAI,
-            .emojiPicker,
-            .fileShelf,
-            .clipboardHistory,
-            .snippets,
-            .fileConversion,
-            .translator,
-            .developerTools
-        ]
-
-        for mode in modes {
-            XCTAssertEqual(PanelController.contentSize(for: mode), NSSize(width: 750, height: 495))
-        }
-    }
-
     func testWebSearchHTMLParserExtractsCleanResults() {
         let html = """
         <a rel="nofollow" class="result__a" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fopenai.com%2Fresearch&amp;rut=x"><b>OpenAI</b> Research &amp; Releases</a>

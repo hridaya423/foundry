@@ -42,3 +42,8 @@ final class RecordingShellPort: ShellPort {
     var isQuickLookShowing: Bool { quickLookShowing }
     func closeQuickLook() { onCloseQuickLook?() }
 }
+
+struct OpenHomeAction: ResultAction, Equatable {
+    var icon: String? { "house" }
+    func perform(_ ctx: ActionContext) async -> CommandOutcome { .open(route: .home) }
+}

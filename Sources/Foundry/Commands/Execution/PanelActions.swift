@@ -122,11 +122,6 @@ struct OpenWelcomeGuideAction: ResultAction, Equatable {
     func perform(_ ctx: ActionContext) async -> CommandOutcome { .open(route: .welcomeGuide) }
 }
 
-struct OpenHomeAction: ResultAction, Equatable {
-    var icon: String? { "house" }
-    func perform(_ ctx: ActionContext) async -> CommandOutcome { .open(route: .home) }
-}
-
 struct OpenMediaDownloadsAction: ResultAction, Equatable {
     var icon: String? { "arrow.down.circle" }
     func perform(_ ctx: ActionContext) async -> CommandOutcome { .open(route: .mediaDownloads) }

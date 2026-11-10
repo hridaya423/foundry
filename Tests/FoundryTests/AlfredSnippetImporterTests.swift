@@ -19,7 +19,6 @@ final class AlfredSnippetImporterTests: XCTestCase {
         XCTAssertEqual(snippets.count, 3)
         XCTAssertEqual(Set(snippets.map(\.title)), ["Signature", "Address", "Sam"])
         XCTAssertEqual(snippets.first { $0.title == "Signature" }?.content, "Best,\nSam")
-        XCTAssertEqual(AlfredSnippetImporter.duplicateKeywords(in: snippets), ["sig"])
     }
 
     func testMissingPreferencesBundleImportsNothing() {

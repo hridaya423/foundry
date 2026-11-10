@@ -251,7 +251,7 @@ final class PreviewSnapshotTests: XCTestCase {
         state.pendingDropURLs = [URL(fileURLWithPath: #filePath), URL(fileURLWithPath: "/System/Library/CoreServices/Finder.app")]
         state.moveSelectionDown()
         try renderPanel(state, named: "drop-chooser", dir: dir)
-        state.cancelDrop()
+        state.pendingDropURLs = nil
         state.open(.emojiPicker)
         state.emojiPicker.reset()
         try renderPanel(state, named: "emoji", dir: dir)

@@ -76,8 +76,6 @@ extension CommandPanelState {
         }
     }
 
-    func cancelDrop() { pendingDropURLs = nil }
-
     func resolveSelectedDrop() -> Bool {
         guard dropChoices.indices.contains(dropSelection) else { return false }
         resolveDrop(dropChoices[dropSelection])

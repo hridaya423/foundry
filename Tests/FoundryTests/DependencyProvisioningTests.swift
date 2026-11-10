@@ -49,37 +49,11 @@ final class DependencyProvisioningTests: XCTestCase {
         XCTAssertNotEqual(base.fingerprint, other.fingerprint)
     }
 
-    func testArtifactProgressAggregatesDeltasAcrossArtifacts() async throws {
-        let artifacts = [Artifact(origin: "a", destination: "A", downloadBytes: 10), Artifact(origin: "b", destination: "B", downloadBytes: 20)]
-        let recorder = CumulativeArtifactExecutor(values: [[3, 10], [5, 20]])
-        let plan = SetupPlan(commands: [], artifacts: artifacts, mutationScope: "u", cleanupOwnership: "c", disclosure: "d")
-        let events = try await DependencyProvisioner(executor: RecordingExecutor(), artifactProvisioner: recorder).provision(plan: plan, approvedFingerprint: plan.fingerprint)
-        let progress = events.compactMap { event -> OperationProgress? in if case let .progress(value) = event { return value }; return nil }
-        XCTAssertEqual(progress.filter { if case .bytes = $0 { return true }; return false }, [.bytes(completed: 3, total: 30), .bytes(completed: 10, total: 30), .bytes(completed: 15, total: 30), .bytes(completed: 30, total: 30)])
-        XCTAssertEqual(progress.filter { if case .artifactBytes = $0 { return true }; return false }, [.artifactBytes(artifact: "A", completed: 3, total: 10), .artifactBytes(artifact: "A", completed: 10, total: 10), .artifactBytes(artifact: "B", completed: 5, total: 20), .artifactBytes(artifact: "B", completed: 20, total: 20)])
-    }
-
     func testEmptyPlanIsTypedRejectionWithoutSideEffects() async {
         let executor = RecordingExecutor(); let plan = SetupPlan(commands: [], artifacts: [], mutationScope: "u", cleanupOwnership: "c", disclosure: "d")
         do { _ = try await DependencyProvisioner(executor: executor).provision(plan: plan, approvedFingerprint: plan.fingerprint); XCTFail("expected empty plan") }
         catch ProvisioningError.emptyPlan { } catch { XCTFail("unexpected error: \(error)") }
         XCTAssertTrue(executor.commands.isEmpty)
-    }
-
-    func testReceiptDestinationMismatchStopsRemainingArtifacts() async {
-        let a = Artifact(origin: "a", destination: "A"); let b = Artifact(origin: "b", destination: "B")
-        let recorder = ReceiptArtifactExecutor(receipts: [SetupReceipt(destination: "wrong", verifiedIntegrity: "verified"), SetupReceipt(destination: "B", verifiedIntegrity: "verified")])
-        let plan = SetupPlan(commands: [], artifacts: [a, b], mutationScope: "u", cleanupOwnership: "c", disclosure: "d")
-        do { _ = try await DependencyProvisioner(executor: RecordingExecutor(), artifactProvisioner: recorder).provision(plan: plan, approvedFingerprint: plan.fingerprint); XCTFail("expected mismatch") } catch ProvisioningError.receiptMismatch { } catch { XCTFail("unexpected error") }
-        XCTAssertEqual(recorder.artifacts, [a])
-    }
-
-    func testReceiptIntegrityMismatchStopsRemainingArtifacts() async {
-        let a = Artifact(origin: "a", destination: "A", integrityExpectation: "hash"); let b = Artifact(origin: "b", destination: "B")
-        let recorder = ReceiptArtifactExecutor(receipts: [SetupReceipt(destination: "A", verifiedIntegrity: "wrong"), SetupReceipt(destination: "B", verifiedIntegrity: "verified")])
-        let plan = SetupPlan(commands: [], artifacts: [a, b], mutationScope: "u", cleanupOwnership: "c", disclosure: "d")
-        do { _ = try await DependencyProvisioner(executor: RecordingExecutor(), artifactProvisioner: recorder).provision(plan: plan, approvedFingerprint: plan.fingerprint); XCTFail("expected mismatch") } catch ProvisioningError.receiptMismatch { } catch { XCTFail("unexpected error") }
-        XCTAssertEqual(recorder.artifacts, [a])
     }
 
     func testVersionParsingIsStrictAndNumeric() async throws {
@@ -112,15 +86,6 @@ final class DependencyProvisioningTests: XCTestCase {
         }
     }
 
-    func testArtifactExecutorReceivesExactArtifactAndProgress() async throws {
-        let artifact = Artifact(origin: "https://example/x", destination: "/tmp/x", downloadBytes: 10, installBytes: 20)
-        let artifactExecutor = RecordingArtifactExecutor()
-        let service = DependencyProvisioner(executor: RecordingExecutor(), artifactProvisioner: artifactExecutor)
-        let events = try await service.provision(plan: SetupPlan(commands: [], artifacts: [artifact], mutationScope: "u", cleanupOwnership: "c", disclosure: "d"), approvedFingerprint: SetupPlan(commands: [], artifacts: [artifact], mutationScope: "u", cleanupOwnership: "c", disclosure: "d").fingerprint)
-        XCTAssertEqual(artifactExecutor.artifacts, [artifact])
-        XCTAssertTrue(events.contains { if case .progress(.bytes(10, 10)) = $0 { return true }; return false })
-    }
-
     func testCapabilityAssessmentUsesProbeAndReportsVersionStates() async throws {
         let locator = ExecutableLocator(fileInfo: { $0 == "/bin/tool" })
         let requirement = try CapabilityRequirement(executableName: "tool", explicitPaths: ["/bin/tool"], pathDirectories: [], versionArguments: ["--version"], minimumVersion: "2")
@@ -148,19 +113,12 @@ final class DependencyProvisioningTests: XCTestCase {
         XCTAssertTrue(events.contains { if case .failed = $0 { return true }; return false })
     }
 
-    func testArtifactPlanWithoutProvisionerFailsBeforeCompletion() async {
-        let artifact = Artifact(origin: "x", destination: "y")
-        let plan = SetupPlan(commands: [], artifacts: [artifact], mutationScope: "u", cleanupOwnership: "c", disclosure: "d")
-        do { _ = try await DependencyProvisioner(executor: RecordingExecutor()).provision(plan: plan, approvedFingerprint: plan.fingerprint); XCTFail("expected unavailable") }
-        catch ProvisioningError.artifactProvisionerUnavailable { }
-        catch { XCTFail("unexpected error: \(error)") }
-    }
-
     func testProvisioningReportsAggregateItemProgress() async throws {
-        let plan = SetupPlan(commands: [ExactCommand(executable: "one", arguments: [])], artifacts: [Artifact(origin: "x", destination: "y")], mutationScope: "u", cleanupOwnership: "c", disclosure: "d")
-        let events = try await DependencyProvisioner(executor: RecordingExecutor(), artifactProvisioner: RecordingArtifactExecutor()).provision(plan: plan, approvedFingerprint: plan.fingerprint)
+        let commands = [ExactCommand(executable: "one", arguments: []), ExactCommand(executable: "two", arguments: [])]
+        let plan = SetupPlan(commands: commands, artifacts: [], mutationScope: "u", cleanupOwnership: "c", disclosure: "d")
+        let events = try await DependencyProvisioner(executor: RecordingExecutor()).provision(plan: plan, approvedFingerprint: plan.fingerprint)
         let progress = events.compactMap { event -> OperationProgress? in if case let .progress(value) = event { return value }; return nil }
-        XCTAssertEqual(progress, [.items(completed: 0, total: 2), .items(completed: 1, total: 2), .artifactBytes(artifact: "y", completed: 10, total: nil), .bytes(completed: 10, total: nil), .items(completed: 2, total: 2)])
+        XCTAssertEqual(progress, [.items(completed: 0, total: 2), .items(completed: 1, total: 2), .items(completed: 2, total: 2)])
     }
 }
 
@@ -177,36 +135,6 @@ private final class RecordingExecutor: Sendable, ProvisioningExecutor {
                 throw ProvisioningError.executionFailed("failed")
             }
             if box.results.isEmpty == false { box.results.removeFirst() }
-        }
-    }
-}
-
-private final class RecordingArtifactExecutor: Sendable, ArtifactProvisioner {
-    private let box = OSAllocatedUnfairLock<[Artifact]>(initialState: [])
-    var artifacts: [Artifact] { box.withLock { $0 } }
-    func provision(_ artifact: Artifact, progress: (@Sendable (OperationProgress) -> Void)?) async throws -> SetupReceipt { box.withLock { $0.append(artifact) }; progress?(.bytes(completed: 10, total: artifact.downloadBytes)); return SetupReceipt(destination: artifact.destination, verifiedIntegrity: artifact.integrityExpectation) }
-}
-
-private final class CumulativeArtifactExecutor: Sendable, ArtifactProvisioner {
-    private let values: [[Int64]]
-    private let index = OSAllocatedUnfairLock(initialState: 0)
-    init(values: [[Int64]]) { self.values = values }
-    func provision(_ artifact: Artifact, progress: (@Sendable (OperationProgress) -> Void)?) async throws -> SetupReceipt {
-        let current = index.withLock { index in defer { index += 1 }; return index }
-        for value in values[current] { progress?(.bytes(completed: value, total: artifact.downloadBytes)) }
-        return SetupReceipt(destination: artifact.destination, verifiedIntegrity: artifact.integrityExpectation)
-    }
-}
-private final class ReceiptArtifactExecutor: Sendable, ArtifactProvisioner {
-    private let receipts: [SetupReceipt]
-    private let box = OSAllocatedUnfairLock(uncheckedState: (index: 0, artifacts: [Artifact]()))
-    init(receipts: [SetupReceipt]) { self.receipts = receipts }
-    var artifacts: [Artifact] { box.withLockUnchecked { $0.artifacts } }
-    func provision(_ artifact: Artifact, progress: (@Sendable (OperationProgress) -> Void)?) async throws -> SetupReceipt {
-        box.withLockUnchecked { box in
-            box.artifacts.append(artifact)
-            defer { box.index += 1 }
-            return receipts[box.index]
         }
     }
 }

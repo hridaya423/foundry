@@ -442,10 +442,6 @@ final class ConfigService: Sendable {
         }
     }
 
-    func updateAgentShelfVisibility(_ isVisible: Bool) throws {
-        try update { $0.showAgentShelf = isVisible }
-    }
-
     func updateMenuBarIconVisibility(_ isVisible: Bool) throws {
         try update { $0.showMenuBarIcon = isVisible }
     }

@@ -27,13 +27,4 @@ struct AlfredSnippetImporter {
                 return StoredSnippet(title: title, content: content, keyword: file.alfredsnippet.keyword ?? "", tags: ["Alfred"])
             }
     }
-
-    static func duplicateKeywords(in snippets: [StoredSnippet]) -> Set<String> {
-        var seen: Set<String> = []
-        var duplicates: Set<String> = []
-        for keyword in snippets.map(\.keyword) where keyword.isEmpty == false {
-            if seen.insert(keyword).inserted == false { duplicates.insert(keyword) }
-        }
-        return duplicates
-    }
 }

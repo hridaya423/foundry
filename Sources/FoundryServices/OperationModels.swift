@@ -5,7 +5,6 @@ public enum OperationPhase: Equatable, Sendable {
 }
 public enum OperationProgress: Equatable, Sendable {
     case bytes(completed: Int64, total: Int64?)
-    case artifactBytes(artifact: String, completed: Int64, total: Int64?)
     case items(completed: Int, total: Int?)
     case indeterminate
 }

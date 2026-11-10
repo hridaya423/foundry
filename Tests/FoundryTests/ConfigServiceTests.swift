@@ -140,8 +140,7 @@ final class ConfigServiceTests: XCTestCase {
 
         try service.updateHotkey(hotkey)
         try service.updateThemeIntensity(0.45)
-        try service.updateAgentShelfVisibility(false)
-        try service.updateWidgets(widgets)
+        try service.updateWidgets(widgets, showAgentShelf: false)
         try service.updateAIConfig(ai)
         try service.updateSearchSensitivity(.high)
         service.flush()
@@ -344,15 +343,6 @@ final class ConfigServiceTests: XCTestCase {
     }
 
     @MainActor
-    func testOllamaHostValidationAcceptsOnlyAbsoluteHTTPURLs() {
-        XCTAssertEqual(AISettingsState.validatedOllamaHost(" https://localhost:11434 "), "https://localhost:11434")
-        XCTAssertEqual(AISettingsState.validatedOllamaHost("http://127.0.0.1:11434"), "http://127.0.0.1:11434")
-        XCTAssertNil(AISettingsState.validatedOllamaHost("localhost:11434"))
-        XCTAssertNil(AISettingsState.validatedOllamaHost("file:///tmp/ollama"))
-        XCTAssertNil(AISettingsState.validatedOllamaHost("http:///missing-host"))
-    }
-
-    @MainActor
     func testAISettingsStateInitializesFromConfigSelection() {
         let service = ConfigService(diagnostics: DiagnosticsService(), url: temporaryDirectory.appendingPathComponent("config.json"))
         let state = AISettingsState(config: service, diagnostics: DiagnosticsService())
@@ -438,7 +428,7 @@ final class ConfigServiceTests: XCTestCase {
         let url = temporaryDirectory.appendingPathComponent("config.json")
         let service = ConfigService(diagnostics: DiagnosticsService(), url: url)
         let widgets = WidgetBoardConfig(enabled: [.weather, .stock], weatherCity: "San Francisco", stockSymbol: "AAPL")
-        try service.updateWidgets(widgets)
+        try service.updateWidgets(widgets, showAgentShelf: false)
 
         let board = WidgetBoardState(configService: service)
 

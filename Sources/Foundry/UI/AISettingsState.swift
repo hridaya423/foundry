@@ -6,11 +6,6 @@ import Observation
 @MainActor
 @Observable
 final class AISettingsState {
-    var isOllamaEnabled: Bool
-    var ollamaHost: String
-    var ollamaModel: String
-    var ollamaHostError: String?
-    var ollamaModelError: String?
     var aiProfiles: [AIProviderProfile]
     var defaultAIProfileID: UUID?
     var fallbackAIProfileIDs: [UUID]
@@ -47,11 +42,6 @@ final class AISettingsState {
         self.aiCredentialStore = credentialStore
         self.codexOAuthService = codexOAuthService
         self.modelListFetcher = modelListFetcher
-        self.isOllamaEnabled = config.current.ai.isOllamaEnabled
-        self.ollamaHost = config.current.ai.ollamaHost
-        self.ollamaModel = config.current.ai.ollamaModel
-        self.ollamaHostError = nil
-        self.ollamaModelError = nil
         self.aiProfiles = config.current.ai.profiles
         self.defaultAIProfileID = config.current.ai.defaultProfileID
         self.fallbackAIProfileIDs = config.current.ai.fallbackProfileIDs
@@ -66,11 +56,6 @@ final class AISettingsState {
     /// restore replaces config.json underneath the running app.
     func reloadFromConfig() {
         let ai = configService.current.ai
-        isOllamaEnabled = ai.isOllamaEnabled
-        ollamaHost = ai.ollamaHost
-        ollamaModel = ai.ollamaModel
-        ollamaHostError = nil
-        ollamaModelError = nil
         aiProfiles = ai.profiles
         defaultAIProfileID = ai.defaultProfileID
         fallbackAIProfileIDs = ai.fallbackProfileIDs
@@ -405,15 +390,6 @@ final class AISettingsState {
         codexOAuthTask?.cancel()
         codexOAuthTask = nil
         Task { await codexOAuthService.cancelCurrentLogin() }
-    }
-
-    static func validatedOllamaHost(_ host: String) -> String? {
-        let value = host.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard let url = URL(string: value),
-              let scheme = url.scheme?.lowercased(),
-              scheme == "http" || scheme == "https",
-              url.host != nil else { return nil }
-        return value
     }
 
     private func persistCodexLoginMethod(_ method: OpenAICodexLoginMethod) {
