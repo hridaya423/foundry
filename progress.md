@@ -367,3 +367,37 @@ Design: `anvil/docs/plans/2026-10-24-craft-pass-design.md`.
 - Deleted locally: raycast-quality-overhaul, local/p5-snippet-preview, imgbot, minicmp/old-mini, cline and codex checkpoints, tags pre-squash-backup, v1, v1.0.0, v1.1.0, and the mini/* and origin/* tracking refs (except mini/polish). GitHub and the mini Mac still have their copies.
 - Backup: ~/Honey/.backups/anvil-2026-11-03/ (refs.bundle, refs.txt, wip-worktree.tgz, wip.diff). Restore a branch with `git fetch ~/Honey/.backups/anvil-2026-11-03/refs.bundle refs/heads/<name>:refs/heads/<name>`.
 - Left untracked on purpose: launch-film/, .jury/, inspo/, docs/qa/2026-11-01-website PNGs, docs/brand/concepts, literal film media.
+
+## Paper-cut sweep (2026-11-10, main thread, no subagents)
+
+User installed a build of main over 1.1.0 and reported five rough edges, then asked for all such edges to be found and fixed.
+Tools: `Tests/FoundryTests/ZZBatteryTests.swift` (prints top results for a query list, `FOUNDRY_BATTERY=<file>`) and
+`Tests/FoundryTests/ZZGalleryTests.swift` (renders the real panel per query, `FOUNDRY_GALLERY_DIR`, `FOUNDRY_GALLERY_QUERIES="a|b"`).
+Both are scratch, untracked, and must be deleted before the final commit. Offscreen renders paint the glass backdrop red; ignore the colour.
+An `async` XCTest never runs SwiftUI `.task` bodies during `RunLoop.main.run`; render from synchronous tests.
+
+Reported by the user:
+- [x] A1 Clipboard image preview never appeared (`7b4178b`).
+- [x] A2 Widget strip is back under the search field (`ef9033c`, seen in a gallery render).
+- [x] A3 "time in SF now" and other filler-word forms answer (`ef9033c`, `testFillerWordsAroundAPlaceStillAnswer`).
+- [x] A4 Time conversions use the answer card (`ef9033c`, seen in a gallery render).
+- [x] A5 Settings has its own rail and pane title again (`d51f64b`, every pane rendered offscreen, dark and light).
+
+Found by the sweep:
+- [x] B1, B2 Answers rank first (`ef9033c`, `testAnAnswerRanksFirstAndOnlyFallbacksFollowIt`).
+- [x] B3 Unit conversion with a target, from one table in `UnitConversion.swift` (`aa79cc2`, `testConversionToANamedUnit`).
+- [x] B4 "15% of 200", "10 mod 3", "1,000 * 3", worded operators (`aa79cc2`, `testWordedArithmetic`).
+- [x] B5 Fallbacks follow an answer instead of unrelated commands (`ef9033c`).
+- [x] B6 Time rows: no "Wed" prefix, one default row when local is on UTC (`aa79cc2`, `testALocalZoneOnUTCGetsOneDefaultRow`).
+- [x] B7 Home Ask AI row has no subtitle (`ef9033c`).
+- [x] B8 Quit rows skip Foundry itself and show the app icon (`aa79cc2`). In the test process the installed Foundry still lists, which is correct.
+- [x] B9 Hashes, URL coding, bare timestamps, colours, "255 to hex"; value rows are labelled (`aa79cc2`, `DeveloperToolsProviderTests`).
+- [x] B10 "force quit <app>", "volume 50", "my ip", "fullscreen" (`aa79cc2`). "hide all" and bare "kill" still fall through to Ask AI.
+- [ ] B11 Clipboard "Source: Foundry" when the panel was open during the copy.
+- [x] B12 Currency rate date sits in the card header (`ef9033c`).
+- [x] B13 Fuzzy matching was too loose ("kill" -> Maximize Window). Subsequence only on titles from a word start, typos from five letters (`aa79cc2`).
+- [x] B14 Three SF Symbol names did not exist, so rows drew blank icons. `SymbolNameTests` checks every name (`aa79cc2`).
+- [ ] C Visual pass over the remaining panel modes (clipboard, snippets, emoji, shelf, translator, dev tools, Quick AI, window layouts), onboarding, overlays.
+
+Not verified live: the Mac mini is locked, so everything visual was judged from offscreen renders.
+Before the final commit: delete `Tests/FoundryTests/ZZBatteryTests.swift` and `ZZGalleryTests.swift`, then rebuild and reinstall `/Applications/Foundry.app`.
