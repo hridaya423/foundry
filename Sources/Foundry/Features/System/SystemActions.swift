@@ -215,6 +215,20 @@ struct ToggleKeepAwakeAction: ResultAction, Equatable {
     }
 }
 
+struct LockScreenAction: ResultAction, Equatable {
+    var icon: String? { "lock.fill" }
+
+    func perform(_ ctx: ActionContext) async -> CommandOutcome {
+        guard let login = dlopen("/System/Library/PrivateFrameworks/login.framework/login", RTLD_LAZY),
+              let symbol = dlsym(login, "SACLockScreenImmediate") else {
+            ctx.diagnostics.log("SACLockScreenImmediate is unavailable")
+            return .failure(message: String(localized: "This Mac could not be locked"), retryable: false)
+        }
+        _ = unsafeBitCast(symbol, to: (@convention(c) () -> Int32).self)()
+        return .success(message: String(localized: "Screen locked"))
+    }
+}
+
 struct EmptyTrashAction: ResultAction, Equatable {
     var icon: String? { "trash.slash" }
 
@@ -409,12 +423,22 @@ struct RebuildAppAction: ResultAction, Equatable {
 }
 
 struct RunProcessAction: ResultAction, Equatable {
+    struct Confirmation: Equatable {
+        let title: LocalizedStringResource
+        let label: LocalizedStringResource
+    }
+
     let path: String
     let arguments: [String]
+    var confirmation: Confirmation?
 
     var icon: String? { "terminal" }
 
     func perform(_ ctx: ActionContext) async -> CommandOutcome {
+        if let confirmation {
+            let prompt = await ctx.panel.requestPrompt(.confirmation(title: confirmation.title, confirmLabel: confirmation.label, isDestructive: true))
+            guard prompt.confirmed else { return .cancelled }
+        }
         do {
             let result = try await ProcessRunner.run(path: path, arguments: arguments)
             guard result.succeeded else {

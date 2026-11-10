@@ -686,6 +686,24 @@ final class CommandPanelStateTests: XCTestCase {
         FileManager.default.temporaryDirectory.appendingPathComponent("foundry-panel-\(UUID().uuidString).json")
     }
 
+    func testDecliningAConfirmedProcessDoesNotRunIt() async {
+        let diagnostics = DiagnosticsService()
+        let config = ConfigService(diagnostics: diagnostics, url: temporaryURL())
+        let clipboard = ClipboardHistoryState(pasteboard: TestClipboardPasteboard(), persistence: nil, configuration: config.current.clipboard)
+        let state = makeState(diagnostics: diagnostics, config: config, clipboard: clipboard)
+        let marker = FileManager.default.temporaryDirectory.appendingPathComponent("foundry-confirm-\(UUID().uuidString)")
+        let behavior = RunProcessAction(path: "/usr/bin/touch", arguments: [marker.path], confirmation: .init(title: "Restart this Mac?", label: "Restart"))
+
+        let run = Task { await state.execute(CommandAction(id: "test.confirm", title: "Restart", behavior: behavior), commandID: "test") }
+        for _ in 0..<100 where state.pendingPrompt == nil { try? await Task.sleep(for: .milliseconds(10)) }
+        XCTAssertNotNil(state.pendingPrompt)
+        state.resolvePrompt(.cancelled)
+        _ = await run.value
+
+        XCTAssertFalse(FileManager.default.fileExists(atPath: marker.path))
+        state.shutdown()
+    }
+
     func testASecondPromptCancelsTheFirstInsteadOfLeavingItWaiting() async {
         let diagnostics = DiagnosticsService()
         let config = ConfigService(diagnostics: diagnostics, url: temporaryURL())

@@ -22,6 +22,20 @@ final class SystemCommandProviderTests: XCTestCase {
         }
     }
 
+    func testPowerCommandsAskFirstAndEveryProcessTheyRunExists() async throws {
+        let provider = SystemCommandProvider()
+        for (query, id) in [("restart", "system.restart"), ("shut down", "system.shutdown"), ("log out", "system.logout"), ("lock", "system.lock-screen"), ("dns", "system.flush-dns")] {
+            let results = await provider.results(matching: query)
+            let result = try XCTUnwrap(results.first { $0.id == id }, id)
+            if let process = result.primaryAction.behavior as? RunProcessAction {
+                XCTAssertTrue(FileManager.default.isExecutableFile(atPath: process.path), "\(id) runs \(process.path)")
+                XCTAssertEqual(process.confirmation != nil, ["system.restart", "system.shutdown", "system.logout"].contains(id), id)
+            } else {
+                XCTAssertTrue(result.primaryAction.behavior is LockScreenAction, id)
+            }
+        }
+    }
+
     func testSettingsAliasesFindTheExpectedPane() async throws {
         let provider = SystemCommandProvider()
 

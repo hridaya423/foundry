@@ -62,7 +62,7 @@ final class SystemCommandProvider: CommandProvider, Sendable {
                 systemIcon: "lock.fill",
                 fallback: "LK",
                 actionTitle: "Lock",
-                action: RunProcessAction(path: "/System/Library/CoreServices/Menu Extras/User.menu/Contents/Resources/CGSession", arguments: ["-suspend"])
+                action: LockScreenAction()
             ),
             SystemCommand(
                 id: "system.sleep",
@@ -92,7 +92,8 @@ final class SystemCommandProvider: CommandProvider, Sendable {
                 systemIcon: "arrow.clockwise.circle.fill",
                 fallback: "RE",
                 actionTitle: "Restart",
-                action: RunProcessAction(path: "/usr/bin/osascript", arguments: ["-e", "tell application \"System Events\" to restart"])
+                action: RunProcessAction(path: "/usr/bin/osascript", arguments: ["-e", "tell application \"System Events\" to restart"],
+                    confirmation: .init(title: "Restart this Mac?", label: "Restart"))
             ),
             SystemCommand(
                 id: "system.shutdown",
@@ -102,7 +103,8 @@ final class SystemCommandProvider: CommandProvider, Sendable {
                 systemIcon: "power.circle.fill",
                 fallback: "SD",
                 actionTitle: "Shut Down",
-                action: RunProcessAction(path: "/usr/bin/osascript", arguments: ["-e", "tell application \"System Events\" to shut down"])
+                action: RunProcessAction(path: "/usr/bin/osascript", arguments: ["-e", "tell application \"System Events\" to shut down"],
+                    confirmation: .init(title: "Shut down this Mac?", label: "Shut Down"))
             ),
             SystemCommand(
                 id: "system.logout",
@@ -112,7 +114,8 @@ final class SystemCommandProvider: CommandProvider, Sendable {
                 systemIcon: "rectangle.portrait.and.arrow.right",
                 fallback: "LO",
                 actionTitle: "Log Out",
-                action: RunProcessAction(path: "/usr/bin/osascript", arguments: ["-e", "tell application \"System Events\" to log out"])
+                action: RunProcessAction(path: "/usr/bin/osascript", arguments: ["-e", "tell application \"System Events\" to log out"],
+                    confirmation: .init(title: "Log out of this Mac?", label: "Log Out"))
             ),
             SystemCommand(
                 id: "system.restart-finder",
@@ -152,7 +155,8 @@ final class SystemCommandProvider: CommandProvider, Sendable {
                 systemIcon: "network.badge.shield.half.filled",
                 fallback: "DNS",
                 actionTitle: "Flush",
-                action: RunProcessAction(path: "/bin/zsh", arguments: ["-lc", "/usr/bin/dscacheutil -flushcache; /usr/bin/killall -HUP mDNSResponder"])
+                action: RunProcessAction(path: "/usr/bin/osascript", arguments: ["-e",
+                    "do shell script \"/usr/bin/dscacheutil -flushcache; /usr/bin/killall -HUP mDNSResponder\" with administrator privileges"])
             ),
             SystemCommand(
                 id: "system.toggle-dark-mode",
