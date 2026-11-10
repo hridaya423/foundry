@@ -37,7 +37,7 @@ final class SettingsWindowController: NSWindowController {
     /// Brings the window forward and activates the app — Settings is the
     /// one place Foundry legitimately takes focus.
     func show() {
-        NSApp.activate(ignoringOtherApps: true)
+        NSApp.activate()
         showWindow(nil)
         window?.makeKeyAndOrderFront(nil)
     }

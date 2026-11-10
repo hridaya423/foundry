@@ -22,7 +22,7 @@ final class OnboardingWindowController: NSObject, NSWindowDelegate {
         let window = window ?? makeWindow()
         self.window = window
         keyboard.start()
-        NSApp.activate(ignoringOtherApps: true)
+        NSApp.activate()
         window.makeKeyAndOrderFront(nil)
         window.center()
     }

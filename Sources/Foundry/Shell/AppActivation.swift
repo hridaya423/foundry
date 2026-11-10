@@ -11,7 +11,7 @@ protocol AppActivation {
 
 struct NSAppActivation: AppActivation {
     func activate() {
-        NSApp.activate(ignoringOtherApps: true)
+        NSApp.activate()
     }
 
     /// Hides the app and returns focus to whatever was frontmost before
