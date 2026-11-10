@@ -181,6 +181,24 @@ final class WindowManagerTests: XCTestCase {
         XCTAssertEqual(writeCount, 0)
     }
 
+    @MainActor
+    func testAppRememberedAtThePermissionPromptIsTriedOnceThenForgotten() async {
+        let client = FakeWindowAccessibilityClient(missing: [100])
+        var trusted = false
+        var target: pid_t = 100
+        let manager = NativeWindowManager(accessibility: client, trustProvider: { trusted }, targetProvider: { target })
+
+        let denied = await manager.apply(.leftHalf)
+        trusted = true
+        target = 200
+        let staleTry = await manager.apply(.leftHalf)
+        let nextTry = await manager.apply(.leftHalf)
+
+        XCTAssertEqual(denied, .needsAccessibilityPermission)
+        XCTAssertEqual(staleTry, .failed("No movable window to control"))
+        XCTAssertEqual(nextTry, .tiled(.leftHalf))
+    }
+
     // MARK: - WindowFrameSettler
 
     func testSettlerWritesSizePositionSizeInOrder() async {
@@ -268,9 +286,15 @@ final class WindowManagerTests: XCTestCase {
     private actor FakeWindowAccessibilityClient: WindowAccessibilityClient {
         private var reads = 0
         private var writes = 0
+        private let missing: Set<pid_t>
+
+        init(missing: Set<pid_t> = []) {
+            self.missing = missing
+        }
 
         func window(for pid: pid_t, anchorHeight: CGFloat) async -> AXWindowSnapshot? {
             reads += 1
+            guard missing.contains(pid) == false else { return nil }
             return AXWindowSnapshot(
                 identity: WindowIdentity(pid: pid, windowNumber: "window"),
                 frame: CGRect(x: 100, y: 100, width: 500, height: 400),

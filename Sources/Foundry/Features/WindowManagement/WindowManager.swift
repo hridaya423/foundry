@@ -186,10 +186,11 @@ final class NativeWindowManager: WindowManaging {
         }
 
         let anchorHeight = Self.screenMirrorAnchorHeight
-        guard let pid = targetPID(), let target = await accessibility.window(for: pid, anchorHeight: anchorHeight) else {
+        let pid = pendingPID ?? currentTargetPID()
+        pendingPID = nil
+        guard let pid, let target = await accessibility.window(for: pid, anchorHeight: anchorHeight) else {
             return .failed("No movable window to control")
         }
-        pendingPID = nil
         guard target.canMove || target.canResize else {
             return .failed("The frontmost window cannot be moved or resized")
         }
@@ -262,10 +263,6 @@ final class NativeWindowManager: WindowManaging {
             ownPID: ownPID,
             lastExternalPID: lastExternalPID
         )
-    }
-
-    private func targetPID() -> pid_t? {
-        pendingPID ?? currentTargetPID()
     }
 
     private func targetFrame(for placement: WindowPlacement, currentFrame: CGRect) -> CGRect? {
