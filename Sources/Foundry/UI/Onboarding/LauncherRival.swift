@@ -10,21 +10,32 @@ struct LauncherRival: Identifiable, Sendable {
     let bundleID: String
     /// Whether the rival's saved hotkey is ⌘ Space.
     let holdsCommandSpace: @Sendable () -> Bool
-    /// Rewrites the saved hotkey to ⌥ Space. Runs while the rival is quit,
-    /// because a running app writes its in-memory hotkey back on quit.
-    let moveToOptionSpace: @Sendable () -> Bool
+    /// Rewrites the saved hotkey between ⌘ Space (true) and ⌥ Space (false). Runs while the
+    /// rival is quit, because a running app writes its in-memory hotkey back on quit.
+    let move: @Sendable (_ toCommandSpace: Bool) -> Bool
 
     static var all: [LauncherRival] { [.raycast(), .alfred()] }
 
     /// Quits the rival if it is running, rewrites its hotkey, and relaunches it.
     @MainActor
     func release() async -> Bool {
+        await rewrite(toCommandSpace: false)
+    }
+
+    /// Gives ⌘ Space back to a rival Foundry released earlier.
+    @MainActor
+    func restore() async -> Bool {
+        await rewrite(toCommandSpace: true)
+    }
+
+    @MainActor
+    private func rewrite(toCommandSpace: Bool) async -> Bool {
         let running = NSRunningApplication.runningApplications(withBundleIdentifier: bundleID)
         for app in running { app.terminate() }
         for _ in 0..<30 where running.contains(where: { $0.isTerminated == false }) {
             try? await Task.sleep(for: .milliseconds(100))
         }
-        guard running.allSatisfy(\.isTerminated), moveToOptionSpace() else { return false }
+        guard running.allSatisfy(\.isTerminated), move(toCommandSpace) else { return false }
         if running.isEmpty == false, let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID) {
             let configuration = NSWorkspace.OpenConfiguration()
             configuration.activates = false
@@ -39,9 +50,9 @@ struct LauncherRival: Identifiable, Sendable {
         return LauncherRival(
             id: "raycast", name: "Raycast", bundleID: "com.raycast.macos",
             holdsCommandSpace: { UserDefaults(suiteName: suiteName)?.string(forKey: key) == "Command-49" },
-            moveToOptionSpace: {
+            move: { toCommandSpace in
                 guard let defaults = UserDefaults(suiteName: suiteName) else { return false }
-                defaults.set("Option-49", forKey: key)
+                defaults.set(toCommandSpace ? "Command-49" : "Option-49", forKey: key)
                 return defaults.synchronize()
             })
     }
@@ -57,16 +68,17 @@ struct LauncherRival: Identifiable, Sendable {
                 .map { $0.appendingPathComponent("hotkey/prefs.plist") }
                 .filter { FileManager.default.fileExists(atPath: $0.path) }
         }
-        @Sendable func holds(_ prefs: NSDictionary) -> Bool {
-            prefs["key"] as? Int == 49 && prefs["mod"] as? Int == commandMask
+        @Sendable func holds(_ prefs: NSDictionary, _ mask: Int) -> Bool {
+            prefs["key"] as? Int == 49 && prefs["mod"] as? Int == mask
         }
         return LauncherRival(
             id: "alfred", name: "Alfred", bundleID: "com.runningwithcrayons.Alfred",
-            holdsCommandSpace: { hotkeyFiles().contains { NSDictionary(contentsOf: $0).map(holds) ?? false } },
-            moveToOptionSpace: {
-                hotkeyFiles().allSatisfy { url in
-                    guard let prefs = NSMutableDictionary(contentsOf: url), holds(prefs) else { return true }
-                    prefs["mod"] = optionMask
+            holdsCommandSpace: { hotkeyFiles().contains { NSDictionary(contentsOf: $0).map { holds($0, commandMask) } ?? false } },
+            move: { toCommandSpace in
+                let (from, to) = toCommandSpace ? (optionMask, commandMask) : (commandMask, optionMask)
+                return hotkeyFiles().allSatisfy { url in
+                    guard let prefs = NSMutableDictionary(contentsOf: url), holds(prefs, from) else { return true }
+                    prefs["mod"] = to
                     return BestEffort.attempt("rewrite Alfred hotkey") { try prefs.write(to: url) } != nil
                 }
             })

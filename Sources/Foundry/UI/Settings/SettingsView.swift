@@ -387,6 +387,15 @@ struct SettingsView: View {
             }
             .modifier(anchor("general.hotkey"))
 
+            if state.settings.releasedLaunchers.isEmpty == false {
+                SettingsNotice(
+                    text: "During setup Foundry moved \(state.settings.releasedLaunchers.formatted(.list(type: .and))) to ⌥ Space to free ⌘ Space.",
+                    symbol: "arrow.uturn.backward",
+                    actionTitle: "Give ⌘ Space Back",
+                    action: { Task { await state.settings.giveCommandSpaceBack() } }
+                )
+            }
+
             if state.settings.launcherHotkeyFailed {
                 SettingsNotice(
                     text: "\(state.settings.hotkey.displayName) could not be registered. Choose another shortcut.",

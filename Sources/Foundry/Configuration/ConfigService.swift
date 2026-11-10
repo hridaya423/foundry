@@ -137,6 +137,7 @@ struct FoundryLocalState: Codable, Equatable, Sendable {
     var scriptDirectories: [String]?
     var trustedScriptDirectories: [String] = []
     var calculatorHistory: [[String]] = []
+    var releasedLaunchers: [String] = []
 
     init() {}
 
@@ -169,6 +170,7 @@ struct FoundryLocalState: Codable, Equatable, Sendable {
         scriptDirectories = try container.decodeIfPresent([String].self, forKey: .scriptDirectories)
         trustedScriptDirectories = try container.decodeIfPresent([String].self, forKey: .trustedScriptDirectories) ?? []
         calculatorHistory = try container.decodeIfPresent([[String]].self, forKey: .calculatorHistory) ?? []
+        releasedLaunchers = try container.decodeIfPresent([String].self, forKey: .releasedLaunchers) ?? []
     }
 }
 

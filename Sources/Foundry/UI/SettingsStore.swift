@@ -79,6 +79,7 @@ final class SettingsStore {
         quicklinkSiteIcons = config.quicklinkSiteIcons
         commandPreferences = config.commandPreferences
         configLoadError = configService.loadErrorMessage
+        releasedLaunchers = Self.launcherNames(config.localState.releasedLaunchers)
     }
 
     var launchAtLoginAvailable: Bool {
@@ -452,6 +453,28 @@ final class SettingsStore {
         commandHotkeyIssues = Dictionary(uniqueKeysWithValues: commandIDs.map {
             ($0, String(localized: "macOS or another app already uses this shortcut, so it is off."))
         })
+    }
+
+    /// Launchers Foundry moved off ⌘ Space during setup, by name.
+    private(set) var releasedLaunchers: [String] = []
+
+    private static func launcherNames(_ ids: [String]) -> [String] {
+        LauncherRival.all.filter { ids.contains($0.id) }.map(\.name)
+    }
+
+    /// Hands ⌘ Space back to each launcher Foundry moved off it, and moves Foundry to ⌥ Space.
+    func giveCommandSpaceBack(rivals: [LauncherRival] = LauncherRival.all, localState: LocalStateStore = .shared) async {
+        let released = localState.get(\.releasedLaunchers)
+        var kept: [String] = []
+        for rival in rivals where released.contains(rival.id) {
+            if await rival.restore() == false { kept.append(rival.id) }
+        }
+        localState.set(\.releasedLaunchers, kept)
+        releasedLaunchers = Self.launcherNames(kept)
+        if kept.count < released.count, hotkey == .commandSpace { setHotkey(.optionSpace) }
+        if kept.isEmpty == false {
+            settingsPersistenceError = String(localized: "Foundry could not give ⌘ Space back to every launcher. Set it in that app's settings.")
+        }
     }
 
     func setCommandHotkey(_ hotkey: FoundryHotkey?, for commandID: String) {

@@ -126,7 +126,7 @@ final class OnboardingStateTests: XCTestCase {
         let state = makeState()
         let moved = LockedFlag()
         let rival = LauncherRival(id: "test", name: "Raycast", bundleID: "app.foundry.tests.absent",
-            holdsCommandSpace: { true }, moveToOptionSpace: { moved.value = true; return true })
+            holdsCommandSpace: { true }, move: { _ in moved.value = true; return true })
         state.go(to: .shortcut)
         state.detectCommandSpaceHolders(rivals: [rival], spotlightEnabled: { true })
         XCTAssertEqual(state.commandSpaceHolders, ["Spotlight", "Raycast"])
@@ -241,9 +241,11 @@ final class OnboardingStateTests: XCTestCase {
         XCTAssertFalse(rival.holdsCommandSpace())
         UserDefaults(suiteName: suite)!.set("Command-49", forKey: "raycastGlobalHotkey")
         XCTAssertTrue(rival.holdsCommandSpace())
-        XCTAssertTrue(rival.moveToOptionSpace())
+        XCTAssertTrue(rival.move(false))
         XCTAssertEqual(UserDefaults(suiteName: suite)!.string(forKey: "raycastGlobalHotkey"), "Option-49")
         XCTAssertFalse(rival.holdsCommandSpace())
+        XCTAssertTrue(rival.move(true))
+        XCTAssertTrue(rival.holdsCommandSpace())
     }
 
     func testAlfredHoldingCommandSpaceMovesToOptionSpace() throws {
@@ -255,10 +257,32 @@ final class OnboardingStateTests: XCTestCase {
         try (["key": 49, "mod": command, "string": "Space"] as NSDictionary).write(to: prefs)
         let rival = LauncherRival.alfred(preferencesRoot: root)
         XCTAssertTrue(rival.holdsCommandSpace())
-        XCTAssertTrue(rival.moveToOptionSpace())
+        XCTAssertTrue(rival.move(false))
         XCTAssertEqual(NSDictionary(contentsOf: prefs)?["mod"] as? Int, option)
         XCTAssertEqual(NSDictionary(contentsOf: prefs)?["key"] as? Int, 49)
         XCTAssertFalse(rival.holdsCommandSpace())
+        XCTAssertTrue(rival.move(true))
+        XCTAssertEqual(NSDictionary(contentsOf: prefs)?["mod"] as? Int, command)
+    }
+
+    @MainActor
+    func testGivingCommandSpaceBackRestoresReleasedLaunchersAndMovesFoundry() async {
+        let suite = isolatedDefaultsSuite("foundry-raycast")
+        let raycast = LauncherRival(id: "raycast", name: "Raycast", bundleID: "app.foundry.tests.absent",
+            holdsCommandSpace: { false }, move: { toCommandSpace in
+                UserDefaults(suiteName: suite)!.set(toCommandSpace ? "Command-49" : "Option-49", forKey: "raycastGlobalHotkey")
+                return true
+            })
+        let state = makeState()
+        let store = LocalStateStore()
+        store.set(\.releasedLaunchers, ["raycast"])
+        state.panel.settings.setHotkey(.commandSpace)
+
+        await state.panel.settings.giveCommandSpaceBack(rivals: [raycast], localState: store)
+
+        XCTAssertEqual(UserDefaults(suiteName: suite)!.string(forKey: "raycastGlobalHotkey"), "Command-49")
+        XCTAssertEqual(store.get(\.releasedLaunchers), [])
+        XCTAssertEqual(state.panel.settings.hotkey, .optionSpace)
     }
 
     func testAccessibilityRequestShowsTheSystemPromptFirstAndSettingsAfter() {
@@ -293,7 +317,7 @@ final class OnboardingStateTests: XCTestCase {
         state.panel.settings.setHotkey(.commandSpace)
         let moved = LockedFlag()
         let rival = LauncherRival(id: "test", name: "Test", bundleID: "app.foundry.tests.absent",
-            holdsCommandSpace: { true }, moveToOptionSpace: { moved.value = true; return true })
+            holdsCommandSpace: { true }, move: { _ in moved.value = true; return true })
         state.abandon(rivals: [rival], spotlightEnabled: { true })
         XCTAssertFalse(state.didClaimCommandSpace)
         XCTAssertTrue(state.takeovers.isEmpty)
@@ -314,7 +338,7 @@ final class OnboardingStateTests: XCTestCase {
         let state = makeState()
         let moved = LockedFlag()
         let rival = LauncherRival(id: "test", name: "Test", bundleID: "app.foundry.tests.absent",
-            holdsCommandSpace: { moved.value == false }, moveToOptionSpace: { moved.value = true; return true })
+            holdsCommandSpace: { moved.value == false }, move: { _ in moved.value = true; return true })
         state.claimCommandSpace(rivals: [rival], spotlightEnabled: { true }, disableSpotlight: { true })
         XCTAssertTrue(state.didClaimSpotlight)
         XCTAssertEqual(state.takeovers.map(\.status), [.working])

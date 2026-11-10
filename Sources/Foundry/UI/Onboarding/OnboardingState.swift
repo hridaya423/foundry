@@ -337,6 +337,11 @@ final class OnboardingState {
                 let released = await rival.release()
                 guard let self, let index = self.takeovers.firstIndex(where: { $0.id == rival.id }) else { return }
                 self.takeovers[index].status = released ? .done : .failed
+                if released {
+                    self.localState.update { state in
+                        if state.releasedLaunchers.contains(rival.id) == false { state.releasedLaunchers.append(rival.id) }
+                    }
+                }
             }
         }
     }
