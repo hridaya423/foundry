@@ -178,7 +178,6 @@ final class ConfigServiceTests: XCTestCase {
         XCTAssertEqual(config.themeIntensity, 0.4)
         XCTAssertFalse(config.showAgentShelf)
         XCTAssertTrue(config.commandPreferences.isEmpty)
-        XCTAssertTrue(config.providerEnabled.isEmpty)
     }
 
     func testFutureConfigVersionIsRejectedWithoutOverwritingTheFile() throws {
@@ -238,13 +237,11 @@ final class ConfigServiceTests: XCTestCase {
         preference.aliases = ["browser"]
 
         try service.updateCommandPreference(preference, for: " foundry.dashboard ")
-        try service.updateProviderEnabled(false, for: "foundry.builtin")
         try service.updateCommandPreference(preference, for: "   ")
         service.flush()
 
         let loaded = ConfigService(diagnostics: DiagnosticsService(), url: url)
         XCTAssertEqual(loaded.current.commandPreferences["foundry.dashboard"], preference)
-        XCTAssertEqual(loaded.current.providerEnabled["foundry.builtin"], false)
         XCTAssertEqual(loaded.current.commandPreferences.count, 1)
     }
 
@@ -255,7 +252,14 @@ final class ConfigServiceTests: XCTestCase {
         XCTAssertTrue(config.ai.isOllamaEnabled)
         XCTAssertEqual(config.ai.ollamaHost, "http://127.0.0.1:11434")
         XCTAssertEqual(config.ai.ollamaModel, "phi4")
-        XCTAssertEqual(config.ai.openAIModel, "gpt-4.1-mini")
+    }
+
+    func testConfigWithRetiredFieldsStillLoads() throws {
+        let data = Data(#"{"providerEnabled":{"foundry.builtin":false},"ai":{"preferredBackend":"openAI","openAIModel":"gpt-4.1-mini","anthropicModel":"x","geminiModel":"y","ollamaModel":"phi4"},"localState":{"emojiColumns":14,"mainBrowser":"arc"}}"#.utf8)
+        let config = try JSONDecoder().decode(FoundryConfig.self, from: data)
+
+        XCTAssertEqual(config.ai.ollamaModel, "phi4")
+        XCTAssertEqual(config.localState.mainBrowser, "arc")
     }
 
     func testLegacyAIConfigMigratesOllamaFieldsIntoAProfile() throws {

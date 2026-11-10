@@ -23,7 +23,6 @@ struct FoundryConfig: Codable, Equatable, Sendable {
     var ai: AIConfig = .default
     var searchSensitivity: SearchSensitivity = .medium
     var commandPreferences: [String: CommandPreference] = [:]
-    var providerEnabled: [String: Bool] = [:]
     var clipboard: ClipboardConfig = .default
     var snippetExpansion: SnippetExpansionConfig = .default
     var fallbacks: FallbackConfig = .default
@@ -43,7 +42,6 @@ struct FoundryConfig: Codable, Equatable, Sendable {
         ai: AIConfig = .default,
         searchSensitivity: SearchSensitivity = .medium,
         commandPreferences: [String: CommandPreference] = [:],
-        providerEnabled: [String: Bool] = [:],
         clipboard: ClipboardConfig = .default,
         snippetExpansion: SnippetExpansionConfig = .default,
         localState: FoundryLocalState = FoundryLocalState()
@@ -60,7 +58,6 @@ struct FoundryConfig: Codable, Equatable, Sendable {
         self.ai = ai
         self.searchSensitivity = searchSensitivity
         self.commandPreferences = commandPreferences
-        self.providerEnabled = providerEnabled
         self.clipboard = clipboard.normalized
         self.snippetExpansion = snippetExpansion.normalized
         self.localState = localState
@@ -91,7 +88,6 @@ struct FoundryConfig: Codable, Equatable, Sendable {
         ai = try container.decodeIfPresent(AIConfig.self, forKey: .ai) ?? .default
         searchSensitivity = try container.decodeIfPresent(SearchSensitivity.self, forKey: .searchSensitivity) ?? .medium
         commandPreferences = try container.decodeIfPresent([String: CommandPreference].self, forKey: .commandPreferences) ?? [:]
-        providerEnabled = try container.decodeIfPresent([String: Bool].self, forKey: .providerEnabled) ?? [:]
         var savedClipboard = (try container.decodeIfPresent(ClipboardConfig.self, forKey: .clipboard) ?? .default).normalized
         if savedSchemaVersion < 8,
            savedClipboard.maxItems == ClipboardConfig.legacyDefaultMaxItems,
@@ -135,7 +131,6 @@ struct FoundryLocalState: Codable, Equatable, Sendable {
     var firstLaunchAcknowledged = false
     var whatsNewSeenVersion: String?
     var emojiRecents: [String] = []
-    var emojiColumns: Int?
     var emojiSkinTone = ""
     var translatorSourceLanguage: String?
     var translatorTargetLanguage: String?
@@ -168,7 +163,6 @@ struct FoundryLocalState: Codable, Equatable, Sendable {
         firstLaunchAcknowledged = try container.decodeIfPresent(Bool.self, forKey: .firstLaunchAcknowledged) ?? false
         whatsNewSeenVersion = try container.decodeIfPresent(String.self, forKey: .whatsNewSeenVersion)
         emojiRecents = try container.decodeIfPresent([String].self, forKey: .emojiRecents) ?? []
-        emojiColumns = try container.decodeIfPresent(Int.self, forKey: .emojiColumns)
         emojiSkinTone = try container.decodeIfPresent(String.self, forKey: .emojiSkinTone) ?? ""
         translatorSourceLanguage = try container.decodeIfPresent(String.self, forKey: .translatorSourceLanguage)
         translatorTargetLanguage = try container.decodeIfPresent(String.self, forKey: .translatorTargetLanguage)
@@ -266,13 +260,9 @@ struct SnippetExpansionConfig: Codable, Equatable {
 }
 
 struct AIConfig: Codable, Equatable {
-    var preferredBackend: AIBackend = .appleFoundationModels
     var isOllamaEnabled: Bool = false
     var ollamaHost: String = "http://127.0.0.1:11434"
     var ollamaModel: String = "llama3.1"
-    var openAIModel: String = "gpt-4.1-mini"
-    var anthropicModel: String = "claude-3-5-sonnet-latest"
-    var geminiModel: String = "gemini-2.0-flash"
     var profiles: [AIProviderProfile] = [AIProviderProfile.appleDefault, AIProviderProfile.ollamaDefault]
     var defaultProfileID: UUID? = AIProviderProfile.appleID
     var fallbackProfileIDs: [UUID] = []
@@ -285,13 +275,9 @@ struct AIConfig: Codable, Equatable {
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        preferredBackend = try container.decodeIfPresent(AIBackend.self, forKey: .preferredBackend) ?? .appleFoundationModels
         isOllamaEnabled = try container.decodeIfPresent(Bool.self, forKey: .isOllamaEnabled) ?? false
         ollamaHost = try container.decodeIfPresent(String.self, forKey: .ollamaHost) ?? "http://127.0.0.1:11434"
         ollamaModel = try container.decodeIfPresent(String.self, forKey: .ollamaModel) ?? "llama3.1"
-        openAIModel = try container.decodeIfPresent(String.self, forKey: .openAIModel) ?? "gpt-4.1-mini"
-        anthropicModel = try container.decodeIfPresent(String.self, forKey: .anthropicModel) ?? "claude-3-5-sonnet-latest"
-        geminiModel = try container.decodeIfPresent(String.self, forKey: .geminiModel) ?? "gemini-2.0-flash"
         if let savedProfiles = try container.decodeIfPresent([AIProviderProfile].self, forKey: .profiles), savedProfiles.isEmpty == false {
             profiles = savedProfiles
         } else {
@@ -343,13 +329,9 @@ struct AIConfig: Codable, Equatable {
         var right = rhs
         left.syncProfilesFromLegacyFields()
         right.syncProfilesFromLegacyFields()
-        return left.preferredBackend == right.preferredBackend
-            && left.isOllamaEnabled == right.isOllamaEnabled
+        return left.isOllamaEnabled == right.isOllamaEnabled
             && left.ollamaHost == right.ollamaHost
             && left.ollamaModel == right.ollamaModel
-            && left.openAIModel == right.openAIModel
-            && left.anthropicModel == right.anthropicModel
-            && left.geminiModel == right.geminiModel
             && left.profiles == right.profiles
             && left.defaultProfileID == right.defaultProfileID
             && left.fallbackProfileIDs == right.fallbackProfileIDs
@@ -544,12 +526,6 @@ final class ConfigService: Sendable {
         try update { $0.commandPreferences[normalizedID] = preference }
     }
 
-    func updateProviderEnabled(_ isEnabled: Bool, for providerID: String) throws {
-        let normalizedID = providerID.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard normalizedID.isEmpty == false else { return }
-        try update { $0.providerEnabled[normalizedID] = isEnabled }
-    }
-
     func updateClipboardConfig(_ clipboard: ClipboardConfig) throws {
         try update { $0.clipboard = clipboard.normalized }
     }
@@ -716,7 +692,6 @@ enum UserDefaultsMigration {
         move(OnboardingState.completedVersionKey, { $0.string(forKey: $1) }) { $0.onboardingCompletedVersion = $1 }
         move(OnboardingState.stepKey, { $0.object(forKey: $1) as? Int }) { $0.onboardingStep = $1 }
         move("emoji.recents", { $0.stringArray(forKey: $1) }) { $0.emojiRecents = $1 }
-        move("emoji.columns", { $0.object(forKey: $1) as? Int }) { $0.emojiColumns = $1 }
         move("emoji.skinTone", { $0.string(forKey: $1) }) { $0.emojiSkinTone = $1 }
         move("foundry.scripts.directories", { $0.stringArray(forKey: $1) }) { $0.scriptDirectories = $1 }
         move("foundry.scripts.trusted", { $0.stringArray(forKey: $1) }) { $0.trustedScriptDirectories = $1 }

@@ -59,7 +59,7 @@ final class CommandRegistry: Sendable {
     }
 
     func immediateSearchPhase(matching query: String) async -> CommandSearchPhase {
-        let activeProviders = enabledProviders.filter {
+        let activeProviders = providers.filter {
             $0.searchPolicy.tier == .immediate && $0.isActive(for: query)
         }
         let (providerCandidates, timings) = await collectCandidates(query: query, providers: activeProviders, aliases: customAliases,
@@ -89,7 +89,7 @@ final class CommandRegistry: Sendable {
         initialResults: [CommandResult],
         completedProviderIDs: Set<String> = []
     ) async -> [CommandResult] {
-        let activeProviders = enabledProviders.filter { $0.isActive(for: query) }
+        let activeProviders = providers.filter { $0.isActive(for: query) }
         let providers = activeProviders.filter { provider in
             provider.searchPolicy.tier == .deferred || completedProviderIDs.contains(provider.id) == false
         }
@@ -132,7 +132,7 @@ final class CommandRegistry: Sendable {
         let trailingProviderIDs: Set<String> = ["foundry.quicklinks", "foundry.files"]
         var leading: [CommandResult] = []
         var trailing: [CommandResult] = []
-        for provider in enabledProviders {
+        for provider in providers {
             let results = (await BestEffort.attempt("\(provider.id) fallback results") {
                 try await provider.fallbackResults(matching: query, sensitivity: sensitivity)
             } ?? [])
@@ -175,7 +175,7 @@ final class CommandRegistry: Sendable {
     }
 
     func homeResults() async -> [CommandResult] {
-        let activeProviders = enabledProviders
+        let activeProviders = providers
         var allCandidates: [RankCandidate] = []
         await withTaskGroup(of: [CommandResult].self) { group in
             let deadline = ContinuousClock().now.advanced(by: .milliseconds(400))
@@ -229,7 +229,7 @@ final class CommandRegistry: Sendable {
     func commandResult(for commandID: String) async -> CommandResult? {
         let deadline = ContinuousClock().now.advanced(by: .milliseconds(400))
         return await withTaskGroup(of: CommandResult?.self, returning: CommandResult?.self) { group in
-            for provider in enabledProviders {
+            for provider in providers {
                 group.addTask { [providerScheduler] in
                     let outcome = await providerScheduler.defaults(for: provider, deadline: deadline)
                     return outcome.value?.first { $0.id == commandID }
@@ -289,11 +289,6 @@ final class CommandRegistry: Sendable {
         )
     }
 
-    private var enabledProviders: [CommandProvider] {
-        providers.filter { provider in
-            configService?.current.providerEnabled[provider.id] != false
-        }
-    }
 
     private var customAliases: [String: [String]] {
         Dictionary(uniqueKeysWithValues: (configService?.current.commandPreferences ?? [:]).compactMap { commandID, preference in
@@ -302,7 +297,7 @@ final class CommandRegistry: Sendable {
     }
 
     private var supplementalProviders: [CommandProvider] {
-        enabledProviders.filter { $0.searchPolicy.includesSupplementalResults }
+        providers.filter { $0.searchPolicy.includesSupplementalResults }
     }
 
     private func isCommandEnabled(_ result: CommandResult) -> Bool {

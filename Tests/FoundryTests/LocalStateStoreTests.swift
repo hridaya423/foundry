@@ -33,14 +33,13 @@ final class LocalStateStoreTests: XCTestCase {
         defaults.set("1.2.0", forKey: OnboardingState.completedVersionKey)
         defaults.set(3, forKey: OnboardingState.stepKey)
         defaults.set(["👍"], forKey: "emoji.recents")
-        defaults.set(14, forKey: "emoji.columns")
         defaults.set("🏽", forKey: "emoji.skinTone")
         defaults.set(["/tmp/scripts"], forKey: "foundry.scripts.directories")
         defaults.set(["/tmp/scripts"], forKey: "foundry.scripts.trusted")
         defaults.set([["1+1", "2"]], forKey: "foundry.calculator.history")
 
         var state = FoundryLocalState()
-        XCTAssertEqual(UserDefaultsMigration.apply(to: &state, defaults: defaults).count, 16)
+        XCTAssertEqual(UserDefaultsMigration.apply(to: &state, defaults: defaults).count, 15)
 
         XCTAssertEqual(state.mainBrowser, "firefox")
         XCTAssertEqual(state.preferredCurrencyQuote, "JPY")
@@ -53,7 +52,6 @@ final class LocalStateStoreTests: XCTestCase {
         XCTAssertEqual(state.onboardingCompletedVersion, "1.2.0")
         XCTAssertEqual(state.onboardingStep, 3)
         XCTAssertEqual(state.emojiRecents, ["👍"])
-        XCTAssertEqual(state.emojiColumns, 14)
         XCTAssertEqual(state.emojiSkinTone, "🏽")
         XCTAssertEqual(state.scriptDirectories, ["/tmp/scripts"])
         XCTAssertEqual(state.trustedScriptDirectories, ["/tmp/scripts"])
@@ -139,9 +137,9 @@ final class LocalStateStoreTests: XCTestCase {
     func testStandaloneStoreKeepsStateInMemory() {
         let store = LocalStateStore()
         store.set(\.colorPickerRecents, ["#00FF00"])
-        store.update { $0.emojiColumns = 14 }
+        store.update { $0.emojiSkinTone = "🏽" }
         XCTAssertEqual(store.get(\.colorPickerRecents), ["#00FF00"])
-        XCTAssertEqual(store.get(\.emojiColumns), 14)
+        XCTAssertEqual(store.get(\.emojiSkinTone), "🏽")
     }
 
     func testLocalStateDecodesEmptyFromLegacyConfigJSON() throws {
