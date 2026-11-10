@@ -219,10 +219,6 @@ public enum FileConversionService {
         )
     }
 
-    public static func missingDependencyName(for target: FileConversionTarget) -> String? {
-        target.externalEngines.map(\.displayName).first
-    }
-
     // MARK: - Conversion
 
     public static func convert(sourceURL: URL, target: FileConversionTarget, outputFolderURL: URL,

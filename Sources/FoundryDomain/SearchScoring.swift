@@ -175,24 +175,6 @@ public enum SearchScoring {
     }
 
     public static func matchPrepared(
-        normalizedQuery: String,
-        normalizedTitle: String,
-        normalizedSubtitle: String?,
-        normalizedKeywords: [String],
-        normalizedAliases: [String],
-        sensitivity: SearchSensitivity = .medium
-    ) -> SearchMatch? {
-        matchPrepared(
-            query: PreparedQuery(normalized: normalizedQuery),
-            normalizedTitle: normalizedTitle,
-            normalizedSubtitle: normalizedSubtitle,
-            normalizedKeywords: normalizedKeywords,
-            normalizedAliases: normalizedAliases,
-            sensitivity: sensitivity
-        )
-    }
-
-    public static func matchPrepared(
         query: PreparedQuery,
         normalizedTitle: String,
         normalizedSubtitle: String?,
@@ -607,17 +589,6 @@ public enum SearchScoring {
         if lhs.editDistance != nil, rhs.editDistance == nil { return false }
         if lhs.candidateLength != rhs.candidateLength { return lhs.candidateLength < rhs.candidateLength }
         return SearchMatchKind.allCases.firstIndex(of: lhs.kind)! < SearchMatchKind.allCases.firstIndex(of: rhs.kind)!
-    }
-
-    public static func areComparable(_ lhs: SearchMatch, _ rhs: SearchMatch) -> Bool {
-        guard lhs.tier == rhs.tier,
-              lhs.exactTokenCount == rhs.exactTokenCount,
-              lhs.matchedTokenCount == rhs.matchedTokenCount else { return false }
-        switch (lhs.fuzzyScore, rhs.fuzzyScore) {
-        case let (lhsScore?, rhsScore?): return abs(lhsScore - rhsScore) <= 24
-        case (nil, nil): return true
-        default: return false
-        }
     }
 
     private static func editDistanceBetween(_ lhsCharacters: [Character], _ rhsCharacters: [Character]) -> Int {

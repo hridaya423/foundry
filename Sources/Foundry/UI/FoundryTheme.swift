@@ -214,7 +214,6 @@ enum FoundryTheme {
     }
 
     enum Spacing {
-        static let xxs: CGFloat = 4
         static let xs: CGFloat = 8
         static let sm: CGFloat = 12
         static let md: CGFloat = 16
@@ -273,8 +272,6 @@ enum FoundryTheme {
         static let accentSide = Color(red: 0.600, green: 0.184, blue: 0.039)
         static let tileIdle = Color(red: 0.227, green: 0.200, blue: 0.176)
         static let tileDone = Color(red: 0.420, green: 0.373, blue: 0.329)
-        static let wordmarkTop = Color(red: 0.831, green: 0.788, blue: 0.718)
-        static let wordmarkBottom = Color(red: 0.761, green: 0.714, blue: 0.639)
         static let chalkTop = Color(red: 0.949, green: 0.925, blue: 0.875)
         static let chalkMid = Color(red: 0.890, green: 0.859, blue: 0.800)
         static let chalkBottom = Color(red: 0.824, green: 0.780, blue: 0.702)
@@ -283,7 +280,6 @@ enum FoundryTheme {
         static let chalkHighlight = Color.white.opacity(0.75)
         static let chalkEdge = Color(red: 0.471, green: 0.412, blue: 0.333).opacity(0.25)
         static let legend = Color(red: 0.165, green: 0.141, blue: 0.122)
-        static let legendName = Color(red: 0.427, green: 0.392, blue: 0.341)
         static let keyShadow = Color.black.opacity(0.6)
         static let keyIdleTop = Color(red: 0.106, green: 0.092, blue: 0.082)
         static let keyIdleBottom = Color(red: 0.086, green: 0.075, blue: 0.067)

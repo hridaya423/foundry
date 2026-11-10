@@ -113,15 +113,12 @@ public struct CommandHotkey: Codable, Equatable, Sendable {
 public enum CommandInvocationSource: String, Codable, Sendable {
     case launcher
     case hotkey
-    case actionPanel
-    case widget
     case external
 }
 
 public enum CommandConfirmationPolicy: String, Codable, Sendable {
     case never
     case destructive
-    case always
 }
 
 public struct CommandActionDescriptor: Codable, Equatable, Hashable, Sendable {

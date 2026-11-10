@@ -1,5 +1,4 @@
 import AppKit
-import Combine
 import Foundation
 import FoundryServices
 #if canImport(FoundationModels)
