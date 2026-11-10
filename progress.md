@@ -392,7 +392,7 @@ Found by the sweep:
 - [x] B7 Home Ask AI row has no subtitle (`ef9033c`).
 - [x] B8 Quit rows skip Foundry itself and show the app icon (`aa79cc2`). In the test process the installed Foundry still lists, which is correct.
 - [x] B9 Hashes, URL coding, bare timestamps, colours, "255 to hex"; value rows are labelled (`aa79cc2`, `DeveloperToolsProviderTests`).
-- [x] B10 "force quit <app>", "volume 50", "my ip", "fullscreen" (`aa79cc2`). "hide all" and bare "kill" still fall through to Ask AI.
+- [x] B10 "force quit <app>", "volume 50", "my ip", "fullscreen" (`aa79cc2`). "hide all" and bare "kill" followed in D1.
 - [x] B11 A copy made while Foundry is frontmost records no source (`27bba06`, `testACopyMadeWhileFoundryIsFrontmostHasNoSource`).
 - [x] B12 Currency rate date sits in the card header (`ef9033c`).
 - [x] B13 Fuzzy matching was too loose ("kill" -> Maximize Window). Subsequence only on titles from a word start, typos from five letters (`aa79cc2`).
@@ -401,7 +401,23 @@ Found by the sweep:
   window layouts, onboarding (`27bba06`). Fixed: clipboard rows truncated in the middle, links said "Text", tags placeholder clipped.
   Overlays (actions menu, drop chooser, confirm prompts) draw without their glass offscreen, so their overlap was not judged.
 
-Left open: "hide all" and bare "kill" have no command; "5 ft 10 in to cm" and date maths ("30 days from now") fall through to Ask AI.
-Not verified live: the Mac mini is locked, so everything visual was judged from offscreen renders.
-Scratch tests are deleted. `./scripts/check.sh` passed and `swift test` ran 919 tests with 0 failures on `27bba06`.
-`/Applications/Foundry.app` is a build of `27bba06` (the previous install is in `~/.Trash/Foundry-pre-sweep-*.app`).
+Second pass, "fix all of this" (`3cc01e7`). Every item that was left open is done:
+- [x] D1 "hide all" finds Hide All Apps; bare "kill" lists running apps as Force Quit rows (`testHideAllFindsItsCommand`,
+  `testQuitQueriesNameAnAppByWordPrefix`).
+- [x] D2 "5 ft 10 in to cm", 5'10" and "1h 30m 15s in seconds" add up before converting (`testSeveralUnitsOfOneKindAddUp`). The card
+  shows "5 ft 10 in" whole (`testAnswerCardSplitsEachKindOfAnswer`).
+- [x] D3 Date maths: offsets and counts answer with a Date card (`DateMathTests`, `Sources/Foundry/Features/Time/DateMath.swift`).
+- [x] D4 Overlays judged from real captures. A borderless panel placed below the desktop window level renders its glass and
+  `screencapture -l <windowNumber>` reads it, so nothing shows on screen. The capture test was scratch and is deleted. Found and fixed:
+  - A prompt replacing another with more fields crashed with "Index out of range" (`testAPromptThatReplacesAnotherStartsFromItsOwnFields`).
+  - The actions menu was always 320 pt tall. It hugs its rows and scrolls with an 8 pt margin past 320.
+  - Opening the actions menu on home dropped the section headers and reflowed the list. Home keeps its layout.
+  - The footer in clipboard mode ignored the open menu, and was empty for the drop chooser (`testAnOpenActionsMenuOwnsTheFooterInEveryMode`).
+  - Prompts and the drop chooser dim the panel behind them. A click on the dim cancels.
+  - Light mode drew destructive text in pale pink. Status colours have light values; `prompt-confirm-light.png` is re-recorded.
+  - A first run listed five commands alphabetically. It leads with the main tools (`testAFreshHomeLeadsWithTheMainTools`).
+
+Not verified live: the Mac mini is locked. The panel states above were captured from the real view with real glass, but no key was
+pressed in a running app. Hide All Apps and Force Quit were not executed.
+`./scripts/check.sh` passed and `swift test` ran 930 tests with 0 failures on `3cc01e7`.
+`/Applications/Foundry.app` is a build of `3cc01e7` (the previous install is in `~/.Trash/Foundry-pre-3cc01e7-*.app`).
