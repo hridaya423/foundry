@@ -17,21 +17,18 @@ final class LibraryProvider: CommandProvider {
         let prepared = SearchScoring.PreparedQuery(query: trimmed)
 
         let snippetResults = snippetsCache.current()
-            .sorted { lhs, rhs in
-                if lhs.isPinned != rhs.isPinned { return lhs.isPinned && !rhs.isPinned }
-                return lhs.updatedAt > rhs.updatedAt
-            }
-            .filter { snippet in
-                SearchScoring.match(
+            .filter { entry in
+                SearchScoring.matchPrepared(
                     query: prepared,
-                    title: snippet.title,
-                    subtitle: snippet.content,
-                    keywords: [snippet.keyword] + snippet.tags,
-                    aliases: [],
+                    normalizedTitle: entry.title,
+                    normalizedSubtitle: entry.content,
+                    normalizedKeywords: entry.keywords,
+                    normalizedAliases: [],
                     sensitivity: request.sensitivity
                 ) != nil
             }
             .prefix(32)
+            .map(\.snippet)
             .map { snippet in
                 let insertAction = CommandAction(id: "snippet.insert.\(snippet.id)", title: "Insert Snippet", behavior: PasteSnippetAction(id: snippet.id))
                 let copyAction = CommandAction(id: "snippet.copy.\(snippet.id)", title: "Copy Snippet", behavior: CopySnippetAction(id: snippet.id))
@@ -61,15 +58,29 @@ final class LibraryProvider: CommandProvider {
     }
 }
 
+private struct IndexedSnippet: Sendable {
+    let snippet: StoredSnippet
+    let title: String
+    let content: String
+    let keywords: [String]
+
+    init(_ snippet: StoredSnippet) {
+        self.snippet = snippet
+        title = SearchScoring.normalize(snippet.title)
+        content = SearchScoring.normalize(snippet.content)
+        keywords = ([snippet.keyword] + snippet.tags).map(SearchScoring.normalize)
+    }
+}
+
 private final class StoredSnippetCache: Sendable {
     private let store: any SnippetStore
-    private let state = OSAllocatedUnfairLock<(signature: StoredSnippetFileSignature?, snippets: [StoredSnippet])>(initialState: (nil, []))
+    private let state = OSAllocatedUnfairLock<(signature: StoredSnippetFileSignature?, snippets: [IndexedSnippet])>(initialState: (nil, []))
 
     init(store: any SnippetStore) {
         self.store = store
     }
 
-    func current() -> [StoredSnippet] {
+    func current() -> [IndexedSnippet] {
         let url = store.url
         let values = url.fileResourceValues([.contentModificationDateKey, .fileSizeKey])
         let nextSignature = StoredSnippetFileSignature(
@@ -81,6 +92,11 @@ private final class StoredSnippetCache: Sendable {
                 return state.snippets
             }
             state.snippets = store.load()
+                .sorted { lhs, rhs in
+                    if lhs.isPinned != rhs.isPinned { return lhs.isPinned && !rhs.isPinned }
+                    return lhs.updatedAt > rhs.updatedAt
+                }
+                .map(IndexedSnippet.init)
             state.signature = nextSignature
             return state.snippets
         }
