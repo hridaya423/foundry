@@ -155,6 +155,20 @@ final class AgentMonitorTests: XCTestCase {
         XCTAssertEqual(agents.selectedSessionID, "done")
     }
 
+    @MainActor
+    func testReopeningThePanelKeepsTheSameCollector() async throws {
+        let agents = AgentMonitorState.isolated(collector: FixedCollector(cards: [card(.claude, "live")]))
+        agents.start()
+        for _ in 0..<50 where agents.hasLoaded == false { try await Task.sleep(for: .milliseconds(20)) }
+        agents.stopPolling()
+
+        agents.start()
+        for _ in 0..<25 where agents.sessions.map(\.id).contains("live") { try await Task.sleep(for: .milliseconds(40)) }
+
+        XCTAssertEqual(agents.sessions.map(\.id), ["live"])
+        agents.stopPolling()
+    }
+
     func testTabsFollowPresentProviders() {
         XCTAssertEqual(AgentShelfView.tabs(for: []), [])
         XCTAssertEqual(AgentShelfView.tabs(for: [card(.codex, "a"), card(.claude, "b"), card(.codex, "c")]), [.claude, .codex])

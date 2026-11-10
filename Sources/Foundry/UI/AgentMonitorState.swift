@@ -36,7 +36,7 @@ final class AgentMonitorState {
     private let sessionStore = AgentSessionStore()
     private let titleService = AgentTitleService()
     private let diagnostics: DiagnosticsService
-    private var collector: any AgentMonitorCollecting
+    private let collector: any AgentMonitorCollecting
     private let socketServer: AgentEventSocketServer
     private let integrationInstaller: AgentIntegrationInstaller
     private var pollingTask: Task<Void, Never>?
@@ -72,9 +72,6 @@ final class AgentMonitorState {
 
     func start() {
         startSocket()
-        if pollingTask == nil {
-            collector = AgentMonitorCollector()
-        }
         refresh()
         guard pollingTask == nil else { return }
         pollingTask = Task { @MainActor [weak self] in
