@@ -2,7 +2,7 @@ import AppKit
 import SwiftUI
 
 struct HomeAccessoryStrip: View {
-    static func clipboardSummary(_ item: ClipboardHistoryItem?) -> (value: String, caption: String) {
+    nonisolated static func clipboardSummary(_ item: ClipboardHistoryItem?) -> (value: String, caption: String) {
         guard let item else { return (String(localized: "Empty"), String(localized: "nothing copied")) }
         switch item.payload {
         case let .text(text): return (String(localized: "\(text.count) chars"), item.kindLabel.lowercased())

@@ -244,7 +244,7 @@ struct MediaDownloadsView: View {
         .frame(maxHeight: .infinity)
     }
 
-    static func skippedMessage(remaining: String) -> String? {
+    nonisolated static func skippedMessage(remaining: String) -> String? {
         let count = remaining.split(whereSeparator: \.isWhitespace).count
         guard count > 0 else { return nil }
         return count == 1
@@ -252,7 +252,7 @@ struct MediaDownloadsView: View {
             : String(localized: "\(count) links aren’t supported and were left in the box.")
     }
 
-    static func faviconURL(for source: String, siteIcons: Bool) -> URL? {
+    nonisolated static func faviconURL(for source: String, siteIcons: Bool) -> URL? {
         guard siteIcons, let host = URL(string: source)?.host, host.isEmpty == false else { return nil }
         return URL(string: "https://icons.duckduckgo.com/ip3/\(host).ico")
     }

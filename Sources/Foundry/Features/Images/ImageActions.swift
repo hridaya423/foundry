@@ -435,13 +435,13 @@ struct RecognizeScreenTextAction: ResultAction, Equatable {
     var icon: String? { "text.viewfinder" }
 
     func perform(_ ctx: ActionContext) async -> CommandOutcome {
-        guard await ctx.panel.canCaptureScreen() else {
+        guard ctx.panel.canCaptureScreen() else {
             let answer = await ctx.panel.requestPrompt(PanelPromptSpec(
                 title: "Allow Screen Recording to read text from the screen.",
                 message: "macOS asks once. Come back and run this again after you allow it.",
                 confirmLabel: "Allow",
                 cancelLabel: "Not Now"))
-            if answer.confirmed { await ctx.panel.requestPermission(.screenRecording) }
+            if answer.confirmed { ctx.panel.requestPermission(.screenRecording) }
             return .cancelled
         }
         ctx.emit(.status("Select a region…"))

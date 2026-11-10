@@ -184,13 +184,12 @@ final class WindowManagerTests: XCTestCase {
     @MainActor
     func testAppRememberedAtThePermissionPromptIsTriedOnceThenForgotten() async {
         let client = FakeWindowAccessibilityClient(missing: [100])
-        var trusted = false
-        var target: pid_t = 100
-        let manager = NativeWindowManager(accessibility: client, trustProvider: { trusted }, targetProvider: { target })
+        let machine = Locked((trusted: false, target: pid_t(100)))
+        let manager = NativeWindowManager(accessibility: client, trustProvider: { machine.withLock { $0.trusted } },
+            targetProvider: { machine.withLock { $0.target } })
 
         let denied = await manager.apply(.leftHalf)
-        trusted = true
-        target = 200
+        machine.withLock { $0 = (true, 200) }
         let staleTry = await manager.apply(.leftHalf)
         let nextTry = await manager.apply(.leftHalf)
 

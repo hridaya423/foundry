@@ -10,7 +10,7 @@ struct PanelClosureAction: ResultAction {
     let run: @MainActor @Sendable () -> Void
 
     func perform(_ ctx: ActionContext) async -> CommandOutcome {
-        await run()
+        run()
         return .cancelled
     }
 }

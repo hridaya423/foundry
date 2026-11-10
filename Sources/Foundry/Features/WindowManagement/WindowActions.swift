@@ -28,7 +28,7 @@ struct TileWindowAction: ResultAction, Equatable {
                 message: "Foundry moves and resizes the frontmost window. Nothing else.",
                 confirmLabel: "Allow",
                 cancelLabel: "Not Now"))
-            if answer.confirmed { await ctx.panel.requestPermission(.accessibility) }
+            if answer.confirmed { ctx.panel.requestPermission(.accessibility) }
             return .stayOpen(message: String(localized: "Accessibility permission required for window control"))
         case let .failed(message):
             return ctx.finish(.failure(message: message, retryable: false), feedback: .failure(message))

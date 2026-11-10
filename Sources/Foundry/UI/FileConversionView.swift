@@ -540,8 +540,8 @@ struct FileConversionView: View {
     }
 
     private func optionMenu<Value: Hashable>(_ title: String, _ pairs: [(Value?, String)],
-                                            get: @escaping () -> Value?,
-                                            set: @escaping (Value?) -> Void) -> some View {
+                                            get: @escaping @MainActor @Sendable () -> Value?,
+                                            set: @escaping @MainActor @Sendable (Value?) -> Void) -> some View {
         Picker(title, selection: Binding(get: get, set: set)) {
             ForEach(Array(pairs.enumerated()), id: \.offset) { _, pair in
                 Text(pair.1).tag(pair.0)
