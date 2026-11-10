@@ -45,7 +45,6 @@ extension CommandPanelView {
                         .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
-                    .keyboardShortcut(KeyboardShortcut(.init(Character(UnicodeScalar(48 + index + 1)!)), modifiers: .command))
                     .accessibilityAddTraits(index == state.dropSelection ? .isSelected : [])
                 }
             }

@@ -385,10 +385,10 @@ final class FoundryPanel: NSPanel {
         return super.performKeyEquivalent(with: event)
     }
 
-    /// Whether the focused text field should get this chord instead of the
+    /// Whether the focused text field or editor should get this chord instead of the
     /// action-shortcut layer.
     private func fieldEditorConsumes(_ event: NSEvent) -> Bool {
-        guard let editor = firstResponder as? NSTextView, editor.isFieldEditor else { return false }
+        guard let editor = firstResponder as? NSTextView, editor.isEditable else { return false }
         let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
         let key = event.charactersIgnoringModifiers?.lowercased()
         switch (flags, key, event.keyCode) {

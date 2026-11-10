@@ -582,6 +582,22 @@ final class CommandPanelStateTests: XCTestCase {
         state.shutdown()
     }
 
+    func testNumberChordsPickADropChoiceInsteadOfAFavorite() {
+        let diagnostics = DiagnosticsService()
+        let config = ConfigService(diagnostics: diagnostics, url: temporaryURL())
+        let registry = CommandRegistry(providers: [], usageRanking: UsageRankingStore.scratch(diagnostics), diagnostics: diagnostics, configService: config)
+        let state = CommandPanelState.isolated(registry: registry, actionRunner: ActionRunner.isolated(diagnostics: diagnostics), diagnostics: diagnostics, config: config)
+        state.handleDroppedFiles([FileManager.default.temporaryDirectory.appendingPathComponent("dropped-\(UUID()).txt")])
+
+        XCTAssertFalse(state.performModeShortcut(ActionShortcut(key: "9", modifiers: [.command])) {})
+        XCTAssertFalse(state.performModeShortcut(ActionShortcut(key: "\u{7f}", modifiers: [.command])) {})
+        XCTAssertTrue(state.performModeShortcut(ActionShortcut(key: "1", modifiers: [.command])) {})
+
+        XCTAssertNil(state.pendingDropURLs)
+        XCTAssertEqual(state.fileShelf.files.count, 1)
+        state.shutdown()
+    }
+
     func testDeveloperToolsNumberChordsSwitchTools() {
         let diagnostics = DiagnosticsService()
         let config = ConfigService(diagnostics: diagnostics, url: temporaryURL())

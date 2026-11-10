@@ -18,6 +18,11 @@ extension CommandPanelState {
             moveSelection(offset: offset)
             return true
         }
+        if pendingDropURLs != nil {
+            guard shortcut.modifiers == [.command], let digit = Int(shortcut.key), dropChoices.indices.contains(digit - 1) else { return false }
+            resolveDrop(dropChoices[digit - 1])
+            return true
+        }
         guard shortcut.modifiers == [.command] || shortcut.modifiers == [.shift, .command] else { return false }
         if mode == .search, shortcut.modifiers == [.command], let digit = Int(shortcut.key) {
             return openFavorite(at: digit - 1, dismiss: dismiss)
@@ -39,7 +44,7 @@ extension CommandPanelState {
 
     @discardableResult
     func performActionShortcut(_ shortcut: ActionShortcut, dismiss: @escaping @MainActor () -> Void) -> Bool {
-        guard mode == .search, isActionInProgress == false, let result = session.selectedResult,
+        guard mode == .search, pendingDropURLs == nil, isActionInProgress == false, let result = session.selectedResult,
               let actionID = session.actionShortcuts.first(where: { $0.value == shortcut })?.key,
               let action = session.selectedActions.first(where: { $0.id == actionID }) else { return false }
         Task { @MainActor in
