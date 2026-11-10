@@ -393,11 +393,15 @@ Found by the sweep:
 - [x] B8 Quit rows skip Foundry itself and show the app icon (`aa79cc2`). In the test process the installed Foundry still lists, which is correct.
 - [x] B9 Hashes, URL coding, bare timestamps, colours, "255 to hex"; value rows are labelled (`aa79cc2`, `DeveloperToolsProviderTests`).
 - [x] B10 "force quit <app>", "volume 50", "my ip", "fullscreen" (`aa79cc2`). "hide all" and bare "kill" still fall through to Ask AI.
-- [ ] B11 Clipboard "Source: Foundry" when the panel was open during the copy.
+- [x] B11 A copy made while Foundry is frontmost records no source (`27bba06`, `testACopyMadeWhileFoundryIsFrontmostHasNoSource`).
 - [x] B12 Currency rate date sits in the card header (`ef9033c`).
 - [x] B13 Fuzzy matching was too loose ("kill" -> Maximize Window). Subsequence only on titles from a word start, typos from five letters (`aa79cc2`).
 - [x] B14 Three SF Symbol names did not exist, so rows drew blank icons. `SymbolNameTests` checks every name (`aa79cc2`).
-- [ ] C Visual pass over the remaining panel modes (clipboard, snippets, emoji, shelf, translator, dev tools, Quick AI, window layouts), onboarding, overlays.
+- [x] C Visual pass from offscreen renders: every Settings pane, clipboard, snippets, emoji, shelf, conversion, dev tools, media, Quick AI,
+  window layouts, onboarding (`27bba06`). Fixed: clipboard rows truncated in the middle, links said "Text", tags placeholder clipped.
+  Overlays (actions menu, drop chooser, confirm prompts) draw without their glass offscreen, so their overlap was not judged.
 
+Left open: "hide all" and bare "kill" have no command; "5 ft 10 in to cm" and date maths ("30 days from now") fall through to Ask AI.
 Not verified live: the Mac mini is locked, so everything visual was judged from offscreen renders.
-Before the final commit: delete `Tests/FoundryTests/ZZBatteryTests.swift` and `ZZGalleryTests.swift`, then rebuild and reinstall `/Applications/Foundry.app`.
+Scratch tests are deleted. `./scripts/check.sh` passed and `swift test` ran 919 tests with 0 failures on `27bba06`.
+`/Applications/Foundry.app` is a build of `27bba06` (the previous install is in `~/.Trash/Foundry-pre-sweep-*.app`).
