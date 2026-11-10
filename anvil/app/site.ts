@@ -10,11 +10,8 @@ export const foundryVersion = process.env.FOUNDRY_VERSION;
 export const repoUrl = "https://github.com/hridaya423/foundry";
 export const sitePages = ["/", "/methodology", "/proof", "/changelog", "/privacy", "/brand"];
 export const footerLinks = [
-  { href: "/proof", label: "Proof" },
   { href: "/changelog", label: "Changelog" },
   { href: "/privacy", label: "Privacy" },
   { href: "/brand", label: "Brand" },
-  { href: `${repoUrl}/blob/main/LICENSE`, label: "MIT licence" },
   { href: repoUrl, label: "GitHub" },
-  { href: caseStudyUrl, label: `Built by ${authorName}` },
 ];

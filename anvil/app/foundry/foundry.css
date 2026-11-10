@@ -187,10 +187,18 @@ body:has(.foundry-preview)::after {
   justify-content: space-between;
   align-items: center;
   gap: 24px;
+  color: var(--f-muted);
+  font-size: 15px;
   text-align: left;
 }
+.site-footer-brand {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
 .site-footer-wordmark {
-  font-size: 28px;
+  color: var(--f-text);
+  font-size: 22px;
   font-weight: 650;
   letter-spacing: -0.055em;
 }
@@ -200,10 +208,6 @@ body:has(.foundry-preview)::after {
   justify-content: flex-end;
   align-items: center;
   gap: 0 28px;
-}
-.site-footer nav span {
-  color: var(--f-muted);
-  font-variant-numeric: tabular-nums;
 }
 .site-footer a {
   transition: color 150ms ease;
@@ -270,18 +274,15 @@ body:has(.foundry-preview)::after {
   .foundry-links {
     gap: 20px;
   }
-  .site-footer-wordmark {
-    font-size: 24px;
-  }
   .site-footer {
     flex-direction: column;
     align-items: flex-start;
-    gap: 8px;
+    gap: 0;
+    font-size: 14px;
   }
   .site-footer nav {
     justify-content: flex-start;
     gap: 0 20px;
-    font-size: 14px;
   }
   .foundry-wordmark {
     position: relative;
