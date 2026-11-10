@@ -369,18 +369,18 @@ final class AISettingsState {
     }
 
     func refreshAIModels() {
+        aiModelTask?.cancel()
         guard let profile = selectedAIProfile, profile.capabilities.modelDiscovery else {
             aiAvailableModels = []
+            aiModelsLoading = false
             return
         }
-        aiModelTask?.cancel()
         aiModelsLoading = true
         let fetcher = modelListFetcher
         aiModelTask = Task { [weak self] in
             let result = await fetcher(profile)
-            guard Task.isCancelled == false else { return }
             await MainActor.run {
-                guard let self else { return }
+                guard let self, Task.isCancelled == false, self.selectedAIProfileID == profile.id else { return }
                 self.aiModelsLoading = false
                 switch result {
                 case let .loaded(models):

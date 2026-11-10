@@ -670,6 +670,25 @@ final class CommandPanelStateTests: XCTestCase {
         FileManager.default.temporaryDirectory.appendingPathComponent("foundry-panel-\(UUID().uuidString).json")
     }
 
+    func testASecondPromptCancelsTheFirstInsteadOfLeavingItWaiting() async {
+        let diagnostics = DiagnosticsService()
+        let config = ConfigService(diagnostics: diagnostics, url: temporaryURL())
+        let clipboard = ClipboardHistoryState(pasteboard: TestClipboardPasteboard(), persistence: nil, configuration: config.current.clipboard)
+        let state = makeState(diagnostics: diagnostics, config: config, clipboard: clipboard)
+        let spec = PanelPromptSpec(title: "First", message: nil, confirmLabel: "OK", cancelLabel: "Cancel")
+
+        let first = Task { await state.requestPrompt(spec) }
+        for _ in 0..<50 where state.pendingPrompt == nil { try? await Task.sleep(for: .milliseconds(10)) }
+        let second = Task { await state.requestPrompt(spec) }
+        let firstResult = await first.value
+        state.resolvePrompt(PanelPromptResult(confirmed: true))
+
+        XCTAssertFalse(firstResult.confirmed)
+        let secondConfirmed = await second.value.confirmed
+        XCTAssertTrue(secondConfirmed)
+        state.shutdown()
+    }
+
     func testSearchLoadingStaysActiveUntilTheLatestSearchCompletes() async throws {
         let diagnostics = DiagnosticsService()
         let config = ConfigService(

@@ -42,6 +42,25 @@ final class AISettingsStateTests: XCTestCase {
     }
 
     @MainActor
+    func testModelsForAProfileNoLongerSelectedAreDropped() async throws {
+        let release = AsyncStream<Void>.makeStream()
+        let state = makeState(fetcher: { profile in
+            if profile.id == AIProviderProfile.ollamaID { for await _ in release.stream { break } }
+            return .loaded([AIModel(id: "stale", displayName: "stale")])
+        })
+        state.selectedAIProfileID = AIProviderProfile.ollamaID
+        state.refreshAIModels()
+
+        state.selectedAIProfileID = AIProviderProfile.appleID
+        state.refreshAIModels()
+        release.continuation.yield()
+        try await Task.sleep(for: .milliseconds(200))
+
+        XCTAssertFalse(state.aiAvailableModels.contains { $0.id == "stale" })
+        XCTAssertFalse(state.aiModelsLoading)
+    }
+
+    @MainActor
     private func makeState(
         fetcher: @escaping @Sendable (AIProviderProfile) async -> AIModelListResult
     ) -> AISettingsState {

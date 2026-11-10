@@ -9,6 +9,7 @@ extension CommandPanelState {
     /// confirmation can arrive from a hotkey-invoked action.
     func requestPrompt(_ spec: PanelPromptSpec) async -> PanelPromptResult {
         shell?.ensurePanelVisible()
+        cancelPrompt()
         return await withCheckedContinuation { continuation in
             pendingPrompt = PendingPrompt(spec: spec) { result in
                 continuation.resume(returning: result)
