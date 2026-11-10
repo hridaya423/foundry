@@ -12,6 +12,13 @@ final class SystemCommandProviderTests: XCTestCase {
             sensitivity: .medium))
     }
 
+    func testHideAllFindsItsCommand() async {
+        for query in ["hide all", "hide others", "hide apps", "hide windows"] {
+            let titles = await SystemCommandProvider().results(matching: query).map(\.title)
+            XCTAssertEqual(titles.first, "Hide All Apps", query)
+        }
+    }
+
     func testSettingsShortcutsOpenNativeSystemSettingsPanes() async throws {
         let provider = SystemCommandProvider()
         let shortcuts = [

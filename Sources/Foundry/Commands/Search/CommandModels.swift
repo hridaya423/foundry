@@ -27,6 +27,7 @@ enum ResultPayload: Hashable, Sendable {
     /// `calculator.convert.*` row — a calculation but never the promoted card.
     case calculationConversion(expression: String, value: String)
     case time(from: TimeConversionEngine.Reading, to: TimeConversionEngine.Reading)
+    case date(from: DateMath.Side, to: DateMath.Side)
     case quicklink(id: String)
     case script(path: String)
     case url(URL)
@@ -43,7 +44,7 @@ extension ResultPayload {
     /// Results that answer the query itself. They rank first and show as the card above the list.
     var isAnswer: Bool {
         switch self {
-        case .calculation, .calculationConversion, .time: true
+        case .calculation, .calculationConversion, .time, .date: true
         default: false
         }
     }
@@ -51,7 +52,7 @@ extension ResultPayload {
     /// The fixed rank of a result computed from the query. Such results keep the order their provider gave them.
     var computedScore: Double? {
         switch self {
-        case .calculation, .calculationConversion, .time: 10
+        case .calculation, .calculationConversion, .time, .date: 10
         case .value: 5
         default: nil
         }

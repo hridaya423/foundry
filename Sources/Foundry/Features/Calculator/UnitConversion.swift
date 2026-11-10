@@ -78,7 +78,7 @@ extension CalculatorProvider {
 
         Unit(symbol: "ms", kind: "time", scale: 0.001, names: ["msec", "millisecond", "milliseconds"], targets: ["sec"]),
         Unit(symbol: "sec", kind: "time", scale: 1, names: ["s", "secs", "second", "seconds"], targets: ["min", "hr"]),
-        Unit(symbol: "min", kind: "time", scale: 60, names: ["mins", "minute", "minutes"], targets: ["sec", "hr"]),
+        Unit(symbol: "min", kind: "time", scale: 60, names: ["mins", "minute", "minutes", "m"], targets: ["sec", "hr"]),
         Unit(symbol: "hr", kind: "time", scale: 3_600, names: ["h", "hrs", "hour", "hours"], targets: ["min", "days"]),
         Unit(symbol: "days", kind: "time", scale: 86_400, names: ["d", "day"], targets: ["hr", "min"]),
         Unit(symbol: "weeks", kind: "time", scale: 604_800, names: ["wk", "wks", "week"], targets: ["days", "hr"]),
@@ -161,44 +161,86 @@ extension CalculatorProvider {
         }
     }
 
-    private static let unitQuery = try! NSRegularExpression(
-        pattern: #"^(?:convert |what is |what's |whats )?("# + numberPattern + #")\s*(\D.*)$"#
-    )
-    private static let unitTarget = try! NSRegularExpression(pattern: #"^(.+?)\s+(?:to|in|into|as)\s+(.+)$"#)
+    private static let unitQuery = try! NSRegularExpression(pattern: "^(" + numberPattern + #")\s*(\D.*)$"#)
+    private static let unitPart = try! NSRegularExpression(pattern: "(" + numberPattern + #")\s*([^\d\s][^\d]*?)\s*(?=[-+]?\d|$)"#)
+    private static let unitSeparator = try! NSRegularExpression(pattern: #"\s(?:to|in|into|as)(?=\s)"#)
+    private static let unitMarks: [(pattern: String, replacement: String)] = [
+        (#"(\d)\s*['′]\s*(\d+(?:\.\d+)?)\s*(?:"|″|'')?"#, "$1 ft $2 in "),
+        (#"(\d)\s*['′]"#, "$1 ft "),
+        (#"(\d)\s*["″]"#, "$1 in "),
+        (#"^(?:convert|what is|what's|whats)\s+"#, ""),
+        (#"\s+"#, " ")
+    ]
 
-    static func convert(_ query: String) -> [CalculatorEvaluation] {
-        let text = unitKey(query)
+    private struct Quantity {
+        let base: Double
+        let unit: Unit
+        let label: String
+        var isCompound = false
+    }
+
+    private static func quantity(_ text: String, convertingTo target: String?) -> Quantity? {
         let whole = NSRange(text.startIndex..<text.endIndex, in: text)
-        guard let match = unitQuery.firstMatch(in: text, range: whole),
-              let valueRange = Range(match.range(at: 1), in: text),
-              let restRange = Range(match.range(at: 2), in: text),
-              let value = numberValue(String(text[valueRange])) else { return [] }
-        let rest = String(text[restRange])
-
-        let pairs: [(Unit, Unit)]
-        if let sources = unitsByName[rest] {
-            pairs = sources.prefix(1).flatMap { source in
-                source.targets.compactMap { target in
-                    unitsByName[unitKey(target)]?.first { $0.kind == source.kind }.map { (source, $0) }
-                }
-            }
-        } else if let split = unitTarget.firstMatch(in: rest, range: NSRange(rest.startIndex..<rest.endIndex, in: rest)),
-                  let sourceRange = Range(split.range(at: 1), in: rest),
-                  let targetRange = Range(split.range(at: 2), in: rest),
-                  let sources = unitsByName[unitKey(String(rest[sourceRange]))],
-                  let targets = unitsByName[unitKey(String(rest[targetRange]))] {
-            pairs = Array(sources.flatMap { source in
-                targets.filter { $0.kind == source.kind && $0.symbol != source.symbol }.map { (source, $0) }
-            }.prefix(1))
-        } else {
-            return []
+        let targetKinds = target.flatMap { unitsByName[$0] }?.map(\.kind)
+        func unit(named name: String, among kinds: [String]?) -> Unit? {
+            unitsByName[unitKey(name)]?.first { kinds?.contains($0.kind) ?? true }
+        }
+        if let match = unitQuery.firstMatch(in: text, range: whole),
+           let valueRange = Range(match.range(at: 1), in: text), let nameRange = Range(match.range(at: 2), in: text),
+           let value = numberValue(String(text[valueRange])), let unit = unit(named: String(text[nameRange]), among: targetKinds) {
+            return Quantity(base: unit.toBase(value), unit: unit, label: "\(formatConversion(value)) \(unit.symbol)")
         }
 
-        return pairs.compactMap { source, target in
-            let converted = target.fromBase(source.toBase(value))
+        var parts: [(value: Double, name: String)] = []
+        var end = text.startIndex
+        for match in unitPart.matches(in: text, range: whole) {
+            guard let range = Range(match.range, in: text), range.lowerBound == end,
+                  let valueRange = Range(match.range(at: 1), in: text), let nameRange = Range(match.range(at: 2), in: text),
+                  let value = numberValue(String(text[valueRange])) else { return nil }
+            parts.append((value, String(text[nameRange])))
+            end = text[range.upperBound...].firstIndex { $0 != " " } ?? text.endIndex
+        }
+        guard parts.count > 1, end == text.endIndex else { return nil }
+        let kinds = parts.map { part in Set((unitsByName[unitKey(part.name)] ?? []).filter { $0.offset == 0 && $0.inverse == false }.map(\.kind)) }
+        let shared = kinds.dropFirst().reduce(kinds[0]) { $0.intersection($1) }.filter { targetKinds?.contains($0) ?? true }
+        let resolved = parts.compactMap { part in unit(named: part.name, among: Array(shared)).map { (part.value, $0) } }
+        guard let first = resolved.first, resolved.count == parts.count, resolved.allSatisfy({ $0.1.kind == first.1.kind }) else { return nil }
+        return Quantity(
+            base: resolved.reduce(0) { $0 + $1.1.toBase($1.0) },
+            unit: first.1,
+            label: resolved.map { "\(formatConversion($0.0)) \($0.1.symbol)" }.joined(separator: " "),
+            isCompound: true
+        )
+    }
+
+    static func convert(_ query: String) -> [CalculatorEvaluation] {
+        let text = unitMarks.reduce(unitKey(query)) {
+            $0.replacingOccurrences(of: $1.pattern, with: $1.replacement, options: .regularExpression)
+        }.trimmingCharacters(in: .whitespaces)
+
+        var source = quantity(text, convertingTo: nil)
+        var targets = source.map { quantity in
+            quantity.unit.targets.compactMap { name in unitsByName[unitKey(name)]?.first { $0.kind == quantity.unit.kind } }
+        }
+        if source == nil {
+            for split in unitSeparator.matches(in: text, range: NSRange(text.startIndex..<text.endIndex, in: text)).reversed() {
+                guard let range = Range(split.range, in: text) else { continue }
+                let targetName = unitKey(String(text[range.upperBound...]))
+                guard let quantity = quantity(String(text[..<range.lowerBound]), convertingTo: targetName),
+                      let target = unitsByName[targetName]?.first(where: { $0.kind == quantity.unit.kind }),
+                      quantity.isCompound || target.symbol != quantity.unit.symbol else { continue }
+                source = quantity
+                targets = [target]
+                break
+            }
+        }
+
+        guard let source, let targets else { return [] }
+        return targets.compactMap { target in
+            let converted = target.fromBase(source.base)
             guard converted.isFinite else { return nil }
             let result = "\(formatConversion(converted)) \(target.symbol)"
-            return CalculatorEvaluation(expression: "\(formatConversion(value)) \(source.symbol)", result: result, copyValue: result)
+            return CalculatorEvaluation(expression: source.label, result: result, copyValue: result)
         }
     }
 }

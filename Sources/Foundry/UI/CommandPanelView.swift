@@ -44,7 +44,6 @@ struct CommandPanelView: View {
         state.mode == .search
             && state.session.query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
             && selectedAnswer == nil
-            && state.session.isShowingActions == false
     }
 
     private var nativeGlassEnabled: Bool {
@@ -152,6 +151,7 @@ struct CommandPanelView: View {
                             actionsSurface
                                 .frame(width: 340)
                                 .frame(maxHeight: 320)
+                                .fixedSize(horizontal: false, vertical: true)
                         }
                         .shadow(color: FoundryTheme.shadow, radius: 24, y: 10)
                         .padding(.trailing, 12)
@@ -162,12 +162,14 @@ struct CommandPanelView: View {
                 .animation(overlayAnimation(state.session.isShowingActions), value: state.session.isShowingActions)
             }
             .overlay(alignment: .bottom) {
-                Group {
+                ZStack(alignment: .bottom) {
                     if let prompt = state.pendingPrompt {
+                        overlayScrim { state.cancelPrompt() }
                         FoundryGlassSurface(role: .floatingOverlay, shape: RoundedRectangle(cornerRadius: FoundryTheme.Radius.popover, style: .continuous)) {
                             PanelPromptOverlay(spec: prompt.spec) { result in
                                 state.resolvePrompt(result)
                             }
+                            .id(prompt.id)
                         }
                         .shadow(color: FoundryTheme.shadow, radius: 24, y: 10)
                         .padding(.bottom, 46)
@@ -177,8 +179,9 @@ struct CommandPanelView: View {
                 .animation(overlayAnimation(state.pendingPrompt != nil), value: state.pendingPrompt != nil)
             }
             .overlay(alignment: .bottom) {
-                Group {
+                ZStack(alignment: .bottom) {
                     if state.pendingDropURLs != nil {
+                        overlayScrim { state.pendingDropURLs = nil }
                         FoundryGlassSurface(role: .floatingOverlay, shape: RoundedRectangle(cornerRadius: FoundryTheme.Radius.popover, style: .continuous)) {
                             dropChooserSurface
                                 .frame(width: 340)
@@ -520,6 +523,7 @@ struct CommandPanelView: View {
                     Text("Tab")
                         .font(FoundryTheme.Glyph.xs)
                         .foregroundStyle(FoundryTheme.textQuaternary)
+                        .opacity(state.session.isShowingActions ? 0 : 1)
                 }
                 .foregroundStyle(FoundryTheme.textSecondary)
                 .frame(height: FoundryTheme.Control.compact)
@@ -855,6 +859,7 @@ struct CommandPanelView: View {
         case .quicklink: return "Quicklink"
         case .file: return "File"
         case .time: return "Time"
+        case .date: return "Date"
         case .aiPrompt: return "AI"
         case let .value(label): return label
         default: break
@@ -884,7 +889,7 @@ struct CommandPanelView: View {
 
     private var panelFooter: some View {
         PanelFooter(
-            actions: surfaceSpec.actions,
+            actions: state.overlayFooterActions ?? surfaceSpec.actions,
             leadingAccessory: state.mode == .quickAI ? AnyView(QuickAIModelMenu(quickAI: state.quickAI, aiSettings: state.aiSettings,
                 openAISettings: { state.presentSettings(.ai) })) : nil,
             openSettings: state.router.openSettings,

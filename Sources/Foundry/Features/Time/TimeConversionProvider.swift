@@ -13,10 +13,32 @@ final class TimeConversionProvider: CommandProvider {
     }
 
     func isActive(for query: String) -> Bool {
-        TimeConversionEngine.recognizes(query)
+        TimeConversionEngine.recognizes(query) || dateAnswer(for: query) != nil
+    }
+
+    private func dateAnswer(for query: String) -> DateMath.Answer? {
+        var calendar = Calendar.current
+        calendar.timeZone = localZone()
+        return DateMath.answer(for: query, now: now(), calendar: calendar)
     }
 
     func search(_ request: CommandSearchRequest) async -> [CommandResult] {
+        if let answer = dateAnswer(for: request.query) {
+            let resultID = "date.\(SearchScoring.normalize(request.query))"
+            return [CommandResult(
+                id: resultID,
+                title: answer.to.value,
+                subtitle: "\(answer.from.value) \(answer.from.caption)",
+                icon: CommandIcon(fallback: "▦", systemName: "calendar"),
+                searchKeywords: [request.query],
+                payload: .date(from: answer.from, to: answer.to),
+                primaryAction: CommandAction(id: "\(resultID).copy", title: "Copy", behavior: CopyToClipboardAction(answer.copyText)),
+                secondaryActions: [
+                    answer.isoText.map { CommandAction(id: "\(resultID).copy-iso", title: "Copy ISO Date", behavior: CopyToClipboardAction($0)) },
+                    CommandAction(id: "\(resultID).paste", title: "Paste", behavior: PasteTextAction(answer.copyText))
+                ].compactMap { $0 }
+            )]
+        }
         let conversions = TimeConversionEngine.conversions(for: request.query, now: now(), local: localZone())
         return conversions.enumerated().map { index, conversion in
             let resultID = "time.\(index).\(SearchScoring.normalize(request.query))"

@@ -5,6 +5,8 @@ final class CommandRanker: Sendable {
     private let usageRanking: UsageRankingStore
     private let configService: ConfigService?
 
+    private static let homeLeads = ["foundry.clipboard-history", "foundry.ai", "foundry.snippets", "foundry.emoji-picker", "foundry.file-shelf"]
+
     init(usageRanking: UsageRankingStore, configService: ConfigService?) {
         self.usageRanking = usageRanking
         self.configService = configService
@@ -70,6 +72,9 @@ final class CommandRanker: Sendable {
                         break
                     }
                     if lhs.usageBoost != rhs.usageBoost { return lhs.usageBoost > rhs.usageBoost }
+                    let lhsLead = Self.homeLeads.firstIndex(of: lhs.candidate.result.id) ?? .max
+                    let rhsLead = Self.homeLeads.firstIndex(of: rhs.candidate.result.id) ?? .max
+                    if lhsLead != rhsLead { return lhsLead < rhsLead }
                 } else if lhs.score != rhs.score {
                     return lhs.score > rhs.score
                 }

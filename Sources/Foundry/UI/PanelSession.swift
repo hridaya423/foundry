@@ -156,7 +156,7 @@ final class PanelSession {
     /// calculator answers, or one-shot Ask-AI prompts.
     private func supportsMetaActions(_ result: CommandResult) -> Bool {
         switch result.payload {
-        case .file, .calculation, .calculationConversion, .time, .aiPrompt:
+        case .file, .calculation, .calculationConversion, .time, .date, .aiPrompt:
             return false
         default:
             return true

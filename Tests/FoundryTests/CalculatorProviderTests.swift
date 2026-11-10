@@ -14,6 +14,10 @@ final class CalculatorProviderTests: XCTestCase {
         XCTAssertEqual(currency.right, AnswerCard.Side(value: "€9", caption: "Euro"))
         XCTAssertEqual(currency.note, "Rate from \(Date(timeIntervalSince1970: 1_794_268_800).formatted(.dateTime.day().month(.abbreviated)))")
 
+        let height = AnswerCard.content(for: await provider.results(matching: "5 ft 10 in to cm")[0])
+        XCTAssertEqual(height.left, AnswerCard.Side(value: "5 ft 10 in"))
+        XCTAssertEqual(height.right, AnswerCard.Side(value: "177.8", caption: "cm"))
+
         let now = ISO8601DateFormatter().date(from: "2026-11-10T17:05:00Z")!
         let time = await TimeConversionProvider(now: { now }, localZone: { TimeZone(identifier: "Europe/London")! }).results(matching: "12 pm EST to BST")
         let card = AnswerCard.content(for: time[0])

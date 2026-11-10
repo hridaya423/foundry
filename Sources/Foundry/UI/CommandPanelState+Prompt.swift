@@ -27,11 +27,18 @@ extension CommandPanelState {
         resolvePrompt(.cancelled)
     }
 
-    func searchFooterActions(isWindowLayoutQuery: Bool) -> [FooterActionSpec] {
+    /// The footer while a prompt, the drop chooser or the actions menu is up, in any mode.
+    var overlayFooterActions: [FooterActionSpec]? {
         if let prompt = pendingPrompt {
             return [
                 .init(label: prompt.spec.confirmLabel, keys: "↵", emphasized: true),
                 .init(label: prompt.spec.cancelLabel ?? "Cancel", keys: "esc"),
+            ]
+        }
+        if pendingDropURLs != nil, dropChoices.indices.contains(dropSelection) {
+            return [
+                .init(label: LocalizedStringResource("\(dropChoices[dropSelection].title)"), keys: "↵", emphasized: true),
+                .init(label: "Cancel", keys: "esc"),
             ]
         }
         if session.isShowingActions {
@@ -40,6 +47,11 @@ extension CommandPanelState {
                 .init(label: "Back", keys: "esc"),
             ]
         }
+        return nil
+    }
+
+    func searchFooterActions(isWindowLayoutQuery: Bool) -> [FooterActionSpec] {
+        if let overlayFooterActions { return overlayFooterActions }
         if isWindowLayoutQuery {
             return [.init(label: "Apply", keys: "↵", emphasized: true), .actions]
         }

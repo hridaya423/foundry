@@ -59,6 +59,7 @@ struct PanelPromptResult: Sendable {
 
 /// A spec plus the continuation waiting on the user's answer.
 struct PendingPrompt {
+    let id = UUID()
     let spec: PanelPromptSpec
     let resume: (PanelPromptResult) -> Void
 }

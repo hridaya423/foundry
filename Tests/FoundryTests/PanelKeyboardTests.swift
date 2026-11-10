@@ -1,4 +1,5 @@
 import AppKit
+import SwiftUI
 import XCTest
 @testable import Foundry
 import FoundryDomain
@@ -544,6 +545,42 @@ final class PanelKeyboardTests: XCTestCase {
             spec: .confirmation(title: "Move to Trash?", confirmLabel: "Move to Trash", isDestructive: true),
             resume: { _ in })
         XCTAssertEqual(footer(state), ["↵ Move to Trash", "esc Cancel"])
+        state.shutdown()
+    }
+
+    func testAnOpenActionsMenuOwnsTheFooterInEveryMode() {
+        let state = makeState()
+        XCTAssertNil(state.overlayFooterActions)
+        state.mode = .clipboardHistory
+        state.session.isShowingActions = true
+        XCTAssertEqual(state.overlayFooterActions?.map { "\($0.keys) \(String(localized: $0.label))" }, ["↵ Run", "esc Back"])
+        state.pendingPrompt = PendingPrompt(spec: .confirmation(title: "Clear history?", confirmLabel: "Clear"), resume: { _ in })
+        XCTAssertEqual(state.overlayFooterActions?.map { "\($0.keys) \(String(localized: $0.label))" }, ["↵ Clear", "esc Cancel"])
+        state.pendingPrompt = nil
+        state.session.isShowingActions = false
+        state.pendingDropURLs = [URL(fileURLWithPath: "/tmp/a.txt")]
+        state.moveSelectionDown()
+        XCTAssertEqual(state.overlayFooterActions?.map { "\($0.keys) \(String(localized: $0.label))" }, ["↵ Convert…", "esc Cancel"])
+        state.shutdown()
+    }
+
+    func testAPromptThatReplacesAnotherStartsFromItsOwnFields() throws {
+        let state = makeState()
+        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 750, height: 495), styleMask: [.titled, .fullSizeContentView],
+            backing: .buffered, defer: false)
+        window.contentView = NSHostingView(rootView: CommandPanelView(state: state) {})
+        state.pendingPrompt = PendingPrompt(spec: .confirmation(title: "Move to Trash?", confirmLabel: "Move to Trash"), resume: { _ in })
+        RunLoop.main.run(until: Date().addingTimeInterval(0.3))
+        var answer: PanelPromptResult?
+        state.pendingPrompt = PendingPrompt(
+            spec: PanelPromptSpec(title: "Rename", fields: [.init(id: "name", placeholder: "Name", initial: "Sign-off"),
+                .init(id: "keyword", placeholder: "Keyword", initial: ";sig")], confirmLabel: "Save"),
+            resume: { answer = $0 })
+        RunLoop.main.run(until: Date().addingTimeInterval(0.3))
+        XCTAssertTrue(window.firstResponder is NSTextView, "the first field takes focus")
+        NSApp.sendAction(#selector(NSResponder.insertNewline(_:)), to: window.firstResponder, from: nil)
+        RunLoop.main.run(until: Date().addingTimeInterval(0.2))
+        XCTAssertEqual(answer?.texts, ["Sign-off", ";sig"])
         state.shutdown()
     }
 

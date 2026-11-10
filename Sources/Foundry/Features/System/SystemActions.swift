@@ -183,6 +183,16 @@ struct HideApplicationAction: ResultAction, Equatable {
     }
 }
 
+struct HideAllApplicationsAction: ResultAction, Equatable {
+    var icon: String? { "eye.slash" }
+
+    func perform(_ ctx: ActionContext) async -> CommandOutcome {
+        let apps = NSWorkspace.shared.runningApplications.filter { $0.activationPolicy == .regular && $0.isHidden == false }
+        apps.forEach { $0.hide() }
+        return ctx.finish(.success(message: String(localized: "Hid every app")), feedback: .success(String(localized: "Hid every app")))
+    }
+}
+
 struct QuitAllApplicationsAction: ResultAction, Equatable {
     var icon: String? { "xmark.app" }
     var style: ActionStyle { .destructive }

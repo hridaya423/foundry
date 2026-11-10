@@ -79,6 +79,16 @@ final class RankingGoldenTests: XCTestCase {
         XCTAssertEqual(time.first?.payload.isAnswer, true, "\(time.map(\.title))")
     }
 
+    func testAFreshHomeLeadsWithTheMainTools() async throws {
+        let diagnostics = DiagnosticsService()
+        let config = ConfigService(diagnostics: diagnostics, url: FileManager.default.temporaryDirectory.appendingPathComponent("home-\(UUID()).json"))
+        let registry = CommandRegistry(
+            providers: [DeveloperToolsProvider(), SystemCommandProvider(), WindowManagementProvider(), BuiltInCommandProvider()],
+            usageRanking: UsageRankingStore.scratch(diagnostics), diagnostics: diagnostics, configService: config)
+        let home = await registry.homeResults()
+        XCTAssertEqual(home.map(\.title), ["Clipboard History", "Ask AI", "Snippets", "Emoji & Symbols", "File Shelf"])
+    }
+
     func testComputedValuesLeadInTheOrderTheirToolGivesThem() async throws {
         let registry = try makeRegistry()
         try await warm(registry)

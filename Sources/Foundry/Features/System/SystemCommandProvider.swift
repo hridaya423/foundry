@@ -218,6 +218,16 @@ final class SystemCommandProvider: CommandProvider, Sendable {
                     "tell application \"Finder\" to eject (every disk whose ejectable is true)"])
             ),
             SystemCommand(
+                id: "system.hide-all",
+                title: "Hide All Apps",
+                subtitle: "Hide every app's windows and show the desktop",
+                aliases: ["hide all", "hide others", "hide apps", "hide windows", "hide everything", "clear desktop"],
+                systemIcon: "eye.slash",
+                fallback: "HA",
+                actionTitle: "Hide",
+                action: HideAllApplicationsAction()
+            ),
+            SystemCommand(
                 id: "system.screen-saver",
                 title: "Start Screen Saver",
                 subtitle: "Start the current screen saver",

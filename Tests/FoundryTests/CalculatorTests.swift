@@ -94,6 +94,23 @@ final class CalculatorTests: XCTestCase {
         }
     }
 
+    func testSeveralUnitsOfOneKindAddUp() async {
+        let cases = [
+            "5 ft 10 in to cm": "177.8 cm", "5'10 in cm": "177.8 cm", "5'10\" to m": "1.78 m", "6' in cm": "182.88 cm",
+            "1 hr 30 min in minutes": "90 min", "2 lb 3 oz to g": "992.23 g", "1h 30m 15s in seconds": "5415 sec", "5ft 10in in in": "70 in"
+        ]
+        for (query, expected) in cases {
+            let result = await titles(for: query)
+            XCTAssertEqual(result, [expected], query)
+        }
+        let bare = await titles(for: "5 ft 10 in")
+        XCTAssertEqual(bare, ["1.78 m", "70 in"])
+        let mixed = await titles(for: "5 ft 10 kg to cm")
+        XCTAssertEqual(mixed, [])
+        let subtitle = await provider.search(CommandSearchRequest(query: "5'10 in cm")).first?.subtitle
+        XCTAssertEqual(subtitle, "5 ft 10 in")
+    }
+
     func testSmallConversionsKeepTheirDigits() async {
         let millimetres = await titles(for: "5 mm")
         let inch = await titles(for: "1 inch to ft")

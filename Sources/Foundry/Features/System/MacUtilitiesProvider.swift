@@ -93,7 +93,7 @@ final class MacUtilitiesProvider: CommandProvider {
     }
 
     static func quitRequest(in query: String) -> (needle: String, force: Bool)? {
-        if let needle = SearchScoring.payload(in: query, prefixes: ["force quit", "force close"]) { return (needle, true) }
+        if let needle = SearchScoring.payload(in: query, prefixes: ["force quit", "force close", "kill"]) { return (needle, true) }
         if let needle = SearchScoring.payload(in: query, prefixes: ["quit application", "quit app", "close app", "quit"]) { return (needle, false) }
         return nil
     }

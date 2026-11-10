@@ -24,6 +24,9 @@ struct AnswerCard: View {
         case let .time(from, to):
             return Content(label: "Time", left: Side(value: from.time, caption: from.caption), right: Side(value: to.time, caption: to.caption),
                 separator: "→")
+        case let .date(from, to):
+            return Content(label: "Date", left: Side(value: from.value, caption: from.caption), right: Side(value: to.value, caption: to.caption),
+                separator: "→")
         case let .calculationConversion(expression, value):
             let note = result.subtitle.flatMap { $0.hasPrefix(expression + " · ") ? String($0.dropFirst(expression.count + 3)) : nil }
             return Content(label: "Conversion", left: split(expression), right: split(value), separator: "→", note: note)
@@ -34,7 +37,9 @@ struct AnswerCard: View {
 
     static func split(_ value: String) -> Side {
         guard let space = value.firstIndex(of: " ") else { return Side(value: value) }
-        return Side(value: String(value[..<space]), caption: String(value[value.index(after: space)...]))
+        let caption = value[value.index(after: space)...]
+        guard caption.contains(where: \.isNumber) == false else { return Side(value: value) }
+        return Side(value: String(value[..<space]), caption: String(caption))
     }
 
     private var content: Content { Self.content(for: result) }

@@ -18,6 +18,8 @@ final class MacUtilitiesProviderTests: XCTestCase {
         XCTAssertEqual(MacUtilitiesProvider.quitRequest(in: "force quit chrome")?.force, true)
         XCTAssertEqual(MacUtilitiesProvider.quitRequest(in: "quit chrome")?.force, false)
         XCTAssertNil(MacUtilitiesProvider.quitRequest(in: "quite"))
+        XCTAssertEqual(MacUtilitiesProvider.quitRequest(in: "kill")?.force, true)
+        XCTAssertEqual(MacUtilitiesProvider.quitRequest(in: "kill saf")?.needle, "saf")
 
         XCTAssertTrue(MacUtilitiesProvider.appName("Google Chrome", matches: "chr"))
         XCTAssertTrue(MacUtilitiesProvider.appName("Safari", matches: ""))

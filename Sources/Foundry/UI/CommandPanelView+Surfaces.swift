@@ -53,6 +53,16 @@ extension CommandPanelView {
         }
     }
 
+    func overlayScrim(dismiss: @escaping () -> Void) -> some View {
+        FoundryTheme.scrim
+            .clipShape(UnevenRoundedRectangle(topLeadingRadius: FoundryTheme.Radius.panel, topTrailingRadius: FoundryTheme.Radius.panel,
+                style: .continuous))
+            .padding(.bottom, FoundryTheme.Panel.footerHeight)
+            .onTapGesture(perform: dismiss)
+            .accessibilityHidden(true)
+            .transition(.opacity)
+    }
+
     var actionsSurface: some View {
         VStack(spacing: 0) {
             if let title = state.session.featureActionsTitle ?? state.session.selectedResult?.title {
@@ -68,41 +78,44 @@ extension CommandPanelView {
 
             ScrollViewReader { proxy in
                 ScrollView {
-                    LazyVStack(spacing: 2) {
-                        if state.session.visibleActions.isEmpty {
-                            Text("No actions match \u{201C}\(state.session.actionFilter)\u{201D}")
-                                .font(FoundryTheme.bodySecondary)
-                                .foregroundStyle(FoundryTheme.textTertiary)
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 24)
-                        }
-                        ForEach(state.session.visibleActions, id: \.id) { action in
-                            if action.id == firstDestructiveActionID {
-                                Divider().padding(.vertical, 4).padding(.horizontal, 8)
-                            }
-                            ActionRow(
-                                action: action,
-                                shortcut: action.id == state.session.selectedActions.first?.id ? "↵" : state.session.actionShortcuts[action.id]?.display,
-                                isSelected: state.session.selectedActionID == action.id
-                            )
-                            .id(action.id)
-                            .rowActivation(isSelected: state.session.selectedActionID == action.id) {
-                                state.session.select(actionID: action.id)
-                                executeSelectedResult()
-                            }
-                        }
-                    }
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 8)
+                    actionRows
                 }
                 .scrollIndicators(.never)
-                .background(Color.clear)
+                .contentMargins(.vertical, 8, for: .scrollContent)
                 .onChange(of: state.session.selectedActionID) { _, actionID in
                     guard let actionID else { return }
                     proxy.scrollTo(actionID)
                 }
             }
         }
+    }
+
+    private var actionRows: some View {
+        VStack(spacing: 2) {
+            if state.session.visibleActions.isEmpty {
+                Text("No actions match \u{201C}\(state.session.actionFilter)\u{201D}")
+                    .font(FoundryTheme.bodySecondary)
+                    .foregroundStyle(FoundryTheme.textTertiary)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 24)
+            }
+            ForEach(state.session.visibleActions, id: \.id) { action in
+                if action.id == firstDestructiveActionID {
+                    Divider().padding(.vertical, 4).padding(.horizontal, 8)
+                }
+                ActionRow(
+                    action: action,
+                    shortcut: action.id == state.session.selectedActions.first?.id ? "↵" : state.session.actionShortcuts[action.id]?.display,
+                    isSelected: state.session.selectedActionID == action.id
+                )
+                .id(action.id)
+                .rowActivation(isSelected: state.session.selectedActionID == action.id) {
+                    state.session.select(actionID: action.id)
+                    executeSelectedResult()
+                }
+            }
+        }
+        .padding(.horizontal, 8)
     }
 
     private var firstDestructiveActionID: String? {

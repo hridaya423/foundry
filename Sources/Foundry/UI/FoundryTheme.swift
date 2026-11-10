@@ -130,10 +130,14 @@ enum FoundryTheme {
     /// Visible borders around floating surfaces.
     static let stroke = Color.primary.opacity(0.18)
 
-    static let destructive = Color(red: 1.0, green: 0.42, blue: 0.45)
-    static let success = Color(red: 0.42, green: 0.86, blue: 0.66)
-    static let warning = Color(red: 1.0, green: 0.72, blue: 0.34)
-    static let accent = Color(red: 0.42, green: 0.66, blue: 1.0)
+    static let destructive = adaptive(dark: NSColor(red: 1.0, green: 0.42, blue: 0.45, alpha: 1), light: NSColor(red: 0.80, green: 0.15, blue: 0.18, alpha: 1))
+    static let success = adaptive(dark: NSColor(red: 0.42, green: 0.86, blue: 0.66, alpha: 1), light: NSColor(red: 0.05, green: 0.47, blue: 0.30, alpha: 1))
+    static let warning = adaptive(dark: NSColor(red: 1.0, green: 0.72, blue: 0.34, alpha: 1), light: NSColor(red: 0.62, green: 0.36, blue: 0.0, alpha: 1))
+    static let accent = adaptive(dark: NSColor(red: 0.42, green: 0.66, blue: 1.0, alpha: 1), light: NSColor(red: 0.10, green: 0.40, blue: 0.90, alpha: 1))
+
+    private static func adaptive(dark: NSColor, light: NSColor) -> Color {
+        Color(nsColor: NSColor(name: nil) { $0.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua ? dark : light })
+    }
 
     /// Accent at supporting strength — tint chips, selected states.
     static let accentSubtle = accent.opacity(0.10)
