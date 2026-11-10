@@ -173,9 +173,11 @@ private final class InstalledAppCache: Sendable {
         var rootSignature: [AppRootSignature] = []
         var hasLoaded = false
         var refreshTask: Task<[InstalledApp], Never>?
+        var refreshGeneration = 0
         var nextRefresh = Date.distantPast
-        /// Live index pushed changes — the next read reloads synchronously.
+        /// Live index pushed changes after the last reload began — the next read waits for a reload.
         var invalidated = false
+        var updateGeneration = 0
     }
 
     private let roots: [URL]
@@ -190,11 +192,13 @@ private final class InstalledAppCache: Sendable {
         self.extraApps = extraApps
         self.index = index
         self.diagnostics = diagnostics
-        index?.onUpdate = { [state] in
-            state.withLock {
+        index?.onUpdate = { [weak self] in
+            self?.state.withLock {
                 $0.nextRefresh = .distantPast
                 $0.invalidated = true
+                $0.updateGeneration += 1
             }
+            _ = self?.loadTask()
         }
     }
 
@@ -235,6 +239,7 @@ private final class InstalledAppCache: Sendable {
                 AppSearchProvider.loadApps(roots: self.roots, extraApps: extraApps, diagnostics: self.diagnostics)
             }
             state.refreshTask = task
+            state.refreshGeneration = state.updateGeneration
             return task
         }
     }
@@ -247,7 +252,7 @@ private final class InstalledAppCache: Sendable {
             }
             state.rootSignature = rootSignatures()
             state.hasLoaded = true
-            state.invalidated = false
+            state.invalidated = state.refreshGeneration != state.updateGeneration
             state.nextRefresh = Date().addingTimeInterval(refreshInterval)
             state.refreshTask = nil
             return state.apps
