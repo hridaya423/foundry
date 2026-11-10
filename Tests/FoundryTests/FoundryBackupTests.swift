@@ -1,5 +1,6 @@
 import XCTest
 @testable import Foundry
+import FoundryDomain
 
 final class FoundryBackupTests: XCTestCase {
     private var roots: [URL] = []
@@ -145,6 +146,37 @@ final class FoundryBackupTests: XCTestCase {
     private func preImportCopies(of url: URL) throws -> [URL] {
         try FileManager.default.contentsOfDirectory(at: url.deletingLastPathComponent(), includingPropertiesForKeys: nil)
             .filter { $0.lastPathComponent.hasPrefix("\(url.lastPathComponent).pre-import-") }
+    }
+
+    func testDecodeRefusesAGlobalShortcutWithNoModifier() throws {
+        let source = locations()
+        try seed(source)
+        var config = FoundryConfig()
+        config.commandPreferences["system.lock"] = CommandPreference(globalHotkey: CommandHotkey(keyCode: 0, modifiers: 0, displayName: "A"))
+        try JSONEncoder().encode(config).write(to: source.config)
+        let backup = try FoundryBackup.make(locations: source, scriptDirectories: [], appVersion: "1.1.0")
+
+        XCTAssertThrowsError(try FoundryBackup.decode(backup.encoded())) { XCTAssertEqual($0 as? FoundryBackup.BackupError, .bareHotkey("A")) }
+    }
+
+    func testImportSummaryNamesNewShortcutsEndpointsAndScriptFolders() throws {
+        let source = locations()
+        try seed(source)
+        var config = FoundryConfig(hotkey: .optionSpace)
+        config.commandPreferences["system.lock"] = CommandPreference(globalHotkey: CommandHotkey(keyCode: 37, modifiers: 256, displayName: "⌘L"))
+        var profile = AIProviderProfile.ollamaDefault
+        profile.endpoint = "https://ai.attacker.example"
+        config.ai.profiles = [profile]
+        try JSONEncoder().encode(config).write(to: source.config)
+        let backup = try FoundryBackup.make(locations: source, scriptDirectories: ["/tmp/kept", "/tmp/new-scripts"], appVersion: "1.1.0")
+
+        let changes = backup.sensitiveChanges(from: FoundryConfig(), scriptDirectories: ["/tmp/kept"])
+
+        guard changes.count == 4 else { return XCTFail("expected four changes, got \(changes)") }
+        XCTAssertTrue(changes[1].contains("⌘L for system.lock"))
+        XCTAssertTrue(changes[2].contains("https://ai.attacker.example"))
+        XCTAssertEqual(changes[3], "Script folders: /tmp/new-scripts")
+        XCTAssertEqual(backup.sensitiveChanges(from: config, scriptDirectories: ["/tmp/kept", "/tmp/new-scripts"]), [])
     }
 
     func testDecodeRejectsForeignNewerUnknownAndDamagedBackups() throws {

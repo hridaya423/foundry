@@ -58,9 +58,11 @@ struct FoundryBackup: Codable, Equatable {
             let valid: Bool
             switch name {
             case "config.json":
-                valid = BestEffort.attempt("validate backup config.json") {
+                let config = BestEffort.attempt("validate backup config.json") {
                     try FoundryConfigMigration.migrate(contents)
-                } != nil
+                }
+                if let config, let bare = Self.bareHotkey(in: config) { throw BackupError.bareHotkey(bare) }
+                valid = config != nil
             case "snippets.json":
                 valid = BestEffort.attempt("validate backup snippets.json") {
                     try JSONDecoder().decode([StoredSnippet].self, from: contents)
@@ -117,16 +119,49 @@ struct FoundryBackup: Codable, Equatable {
         return try JSONEncoder().encode(config)
     }
 
+    /// What an import would change that can send data or run code: shortcuts, AI endpoints and script folders.
+    func sensitiveChanges(from current: FoundryConfig, scriptDirectories currentScripts: [String]) -> [String] {
+        var changes: [String] = []
+        if let config = files["config.json"].flatMap({ try? FoundryConfigMigration.migrate($0) }) {
+            if config.hotkey != current.hotkey {
+                changes.append(String(localized: "Launcher shortcut becomes \(config.hotkey.displayName)"))
+            }
+            let shortcuts = config.commandPreferences.compactMap { id, preference in
+                preference.globalHotkey.flatMap { $0 == current.commandPreferences[id]?.globalHotkey ? nil : "\($0.displayName) for \(id)" }
+            }.sorted()
+            if shortcuts.isEmpty == false {
+                changes.append(String(localized: "Global shortcuts: \(shortcuts.joined(separator: ", "))"))
+            }
+            let knownEndpoints = Set(current.ai.profiles.compactMap(\.endpoint))
+            let endpoints = Set(config.ai.profiles.compactMap(\.endpoint)).subtracting(knownEndpoints).sorted()
+            if endpoints.isEmpty == false {
+                changes.append(String(localized: "AI endpoints: \(endpoints.joined(separator: ", "))"))
+            }
+        }
+        let folders = scriptDirectories.filter { currentScripts.contains($0) == false }
+        if folders.isEmpty == false {
+            changes.append(String(localized: "Script folders: \(folders.joined(separator: ", "))"))
+        }
+        return changes
+    }
+
+    private static func bareHotkey(in config: FoundryConfig) -> String? {
+        if config.hotkey.modifiers == 0 { return config.hotkey.displayName }
+        return config.commandPreferences.values.compactMap(\.globalHotkey).first { $0.modifiers == 0 }?.displayName
+    }
+
     enum BackupError: LocalizedError, Equatable {
         case notABackup
         case newerVersion
         case damaged(String)
+        case bareHotkey(String)
 
         var errorDescription: String? {
             switch self {
             case .notABackup: "This file isn't a Foundry backup."
             case .newerVersion: "This backup was made by a newer version of Foundry."
             case let .damaged(name): "The backup's \(name) is damaged."
+            case let .bareHotkey(key): "The backup sets \(key) as a global shortcut with no modifier key, so Foundry won't import it."
             }
         }
     }

@@ -253,7 +253,9 @@ struct SettingsView: View {
                     if let pendingBackup { state.settings.restoreBackup(pendingBackup) }
                 }
             } message: {
-                Text("Current files are kept next to the originals as .pre-import copies.")
+                let changes = pendingBackup.map(state.settings.sensitiveChanges(in:)) ?? []
+                Text(changes.isEmpty ? "Current files are kept next to the originals as .pre-import copies."
+                    : "This backup changes:\n\(changes.joined(separator: "\n"))\n\nCurrent files are kept next to the originals as .pre-import copies.")
             }
 
             if state.fileShelf.hasDetailedModelData {

@@ -260,6 +260,10 @@ final class SettingsStore {
         }
     }
 
+    func sensitiveChanges(in backup: FoundryBackup) -> [String] {
+        backup.sensitiveChanges(from: configService.current, scriptDirectories: ScriptDirectoryStore.shared.directories)
+    }
+
     func restoreBackup(_ backup: FoundryBackup) {
         do {
             // The restore replaces config.json wholesale — a debounced write
@@ -273,7 +277,7 @@ final class SettingsStore {
             panel?.applyRestoredConfiguration()
             panel?.showActionFeedback(.success(String(localized: "Backup imported")))
         } catch {
-            settingsPersistenceError = String(localized: "Could not import the backup. Your previous files are kept as .pre-import copies.")
+            settingsPersistenceError = String(localized: "Could not import the backup. Your settings were left as they were.")
             diagnostics.log("Backup import failed: \(error.localizedDescription)")
         }
     }
