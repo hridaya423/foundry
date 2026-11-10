@@ -417,7 +417,16 @@ Second pass, "fix all of this" (`3cc01e7`). Every item that was left open is don
   - Light mode drew destructive text in pale pink. Status colours have light values; `prompt-confirm-light.png` is re-recorded.
   - A first run listed five commands alphabetically. It leads with the main tools (`testAFreshHomeLeadsWithTheMainTools`).
 
+Third pass, from the user's screenshots (`10de478`):
+- [x] E1 Home: the first row sat against the widget strip with no "Recent" header. Selecting row one called `scrollTo(row, .top)`,
+  which hides the header and padding when the list is taller than the panel. Reproduced in a capture with ten rows, fixed by
+  scrolling the whole list to its top or bottom for the first and last rows, and by using scroll content margins.
+- [x] E2 Settings looked flat grey. Offscreen renders had hidden this; a real capture matched the user's screenshot. It now uses
+  `FoundryBackdrop` like the panel. Quicklinks rows are rebuilt. Every pane was captured in a real window, dark and light.
+- [x] E3 "Settings opens with the launcher": `showPanel` activated the app, which raises a Settings window left behind another app.
+  It now skips activation while another Foundry window is up. Not driven live and not covered by a test.
+
 Not verified live: the Mac mini is locked. The panel states above were captured from the real view with real glass, but no key was
 pressed in a running app. Hide All Apps and Force Quit were not executed.
-`./scripts/check.sh` passed and `swift test` ran 930 tests with 0 failures on `3cc01e7`.
-`/Applications/Foundry.app` is a build of `3cc01e7` (the previous install is in `~/.Trash/Foundry-pre-3cc01e7-*.app`).
+`./scripts/check.sh` passed and `swift test` ran 930 tests with 0 failures on `10de478`.
+`/Applications/Foundry.app` is a build of `10de478` (the previous install is in `~/.Trash/Foundry-pre-10de478-*.app`).
