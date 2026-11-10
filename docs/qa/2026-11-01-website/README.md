@@ -109,3 +109,11 @@ Earlier findings: 7 resolved, 5 partial, 3 unresolved. New: 2 HIGH, 2 MEDIUM, 1 
 
 Final gate (`final/report.json`): 48 shots, 0 console errors, 0 overflow, 0 clipped controls, axe clean except the known minor `aria-allowed-role` on the home hero. A contrast hit at 320 on one run was the demo's preview list mid-fade (`#282625` foreground), not the settled colour.
 
+
+## Re-measured 2026-11-10
+
+`final/lighthouse.json` records `/` at performance 52 and LCP 5.1 s. That run is an outlier. On a production build (`next build`, `next start`, load average 9 to 16), seven Lighthouse mobile runs of `/` scored 48, 74, 78, 75, 73, 74 and 79. LCP stayed at 3.0 s in every warm run, and TBT at 0.6 to 0.9 s. The first run of a fresh server is the outlier: 48, TBT 13 s.
+
+Starting the 3D scene only after `load` and an idle callback did not move LCP or the score, so that change was not kept. The budget (performance at least 95, LCP at most 2 s) is still not met. The LCP element is the wordmark `<img>`, which is not waiting on the scene.
+
+The axe `aria-allowed-role` on the tools panel is fixed; `npm run qa -- --shots` now exits non-zero on page errors, a fallen-back 3D scene, overflow, clipped controls or serious axe violations.
