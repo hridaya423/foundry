@@ -280,14 +280,15 @@ enum AgentMonitorService {
 
     static func workspaceDiffSummary(directory: String) -> String? {
         let gitTimeout: TimeInterval = 10
-        let status = run("/usr/bin/git", ["-C", directory, "status", "--porcelain=v1", "--untracked-files=all"], timeout: gitTimeout)
+        let status = run("/usr/bin/git", ["--no-optional-locks", "-C", directory, "status", "--porcelain=v1", "--untracked-files=all"], timeout: gitTimeout)
         let statusLines = status.split(whereSeparator: \.isNewline)
         let files = statusLines.count
         guard files > 0 else { return nil }
         let untrackedFiles = statusLines.count { $0.hasPrefix("?? ") }
+        let readOnlyDiff = ["--no-optional-locks", "-c", "diff.autoRefreshIndex=false", "-C", directory, "diff"]
         let summaries = [
-            run("/usr/bin/git", ["-C", directory, "diff", "--shortstat"], timeout: gitTimeout),
-            run("/usr/bin/git", ["-C", directory, "diff", "--cached", "--shortstat"], timeout: gitTimeout)
+            run("/usr/bin/git", readOnlyDiff + ["--shortstat"], timeout: gitTimeout),
+            run("/usr/bin/git", readOnlyDiff + ["--cached", "--shortstat"], timeout: gitTimeout)
         ]
         let additions = summaries.reduce(0) { $0 + (firstInteger(in: $1, pattern: #"(\d+) insertions?\(\+\)"#) ?? 0) }
         let removals = summaries.reduce(0) { $0 + (firstInteger(in: $1, pattern: #"(\d+) deletions?\(-\)"#) ?? 0) }

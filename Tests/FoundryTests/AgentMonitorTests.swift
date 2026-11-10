@@ -71,6 +71,28 @@ final class AgentMonitorTests: XCTestCase {
         XCTAssertEqual(process.executableName, "Codex")
     }
 
+    func testWorkspaceDiffNeverRewritesTheWatchedRepositoryIndex() throws {
+        let repo = FileManager.default.temporaryDirectory.appendingPathComponent("foundry-git-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: repo, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: repo) }
+        let git = { (arguments: [String]) in
+            _ = ProcessRunner.runSynchronously(path: "/usr/bin/git", arguments: ["-C", repo.path, "-c", "user.name=t", "-c", "user.email=t@t"] + arguments, timeout: 10)
+        }
+        git(["init", "-q"])
+        try Data("one\n".utf8).write(to: repo.appendingPathComponent("a.txt"))
+        git(["add", "a.txt"])
+        git(["commit", "-qm", "one"])
+        try Data("one\n".utf8).write(to: repo.appendingPathComponent("a.txt"))
+        try Data("new\n".utf8).write(to: repo.appendingPathComponent("b.txt"))
+        try FileManager.default.setAttributes([.modificationDate: Date().addingTimeInterval(5)], ofItemAtPath: repo.appendingPathComponent("a.txt").path)
+        let index = repo.appendingPathComponent(".git/index")
+        let before = try Data(contentsOf: index)
+
+        XCTAssertNotNil(AgentMonitorService.workspaceDiffSummary(directory: repo.path))
+
+        XCTAssertEqual(try Data(contentsOf: index), before)
+    }
+
     func testBrandProviderIconsResolveFromPackagedResources() {
         XCTAssertNotNil(AgentProviderIcon.brandResourceURL(for: .opencode))
         XCTAssertNotNil(AgentProviderIcon.brandResourceURL(for: .claude))
