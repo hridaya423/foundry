@@ -430,3 +430,26 @@ Not verified live: the Mac mini is locked. The panel states above were captured 
 pressed in a running app. Hide All Apps and Force Quit were not executed.
 `./scripts/check.sh` passed and `swift test` ran 930 tests with 0 failures on `10de478`.
 `/Applications/Foundry.app` is a build of `10de478` (the previous install is in `~/.Trash/Foundry-pre-10de478-*.app`).
+
+Fourth pass, the Settings window to 100% (`d2325cd`), from the user's screenshot of the live window:
+- [x] F1 Windows behind Settings showed through the cards. Settings is opaque on `FoundryTheme.windowGround`. E2's backdrop is undone.
+- [x] F2 The window stayed 680 x 480 although `minSize` was 720 x 560. Cause: the hosting view replaces the window's minimum with the
+  SwiftUI content's own on first layout (it read 379 x 138, then 0 x 0 with `sizingOptions = []`). The content now states the minimum
+  and the hosting view has no safe area. The window also opened at 720 x 560 instead of 820 x 600
+  (`testTheWindowKeepsItsDefaultAndMinimumSizeOnceItsContentLaysOut`, red first). A traced 680 x 480 saved frame restores as 720 x 560
+  with the title bar in place.
+- [x] F3 Reopening Settings on the Commands pane showed "No commands match this search": only a rail click loaded the catalog
+  (`testReopeningOnTheCommandsPaneLoadsItsCatalog`, red first). Found from a capture, not from the screenshot.
+- [x] F4 Stock blue switches, checkboxes, bordered buttons, menu pickers and the stepper are replaced by `SettingsControls.swift`
+  (`FoundrySwitchStyle`, `FoundryCheckboxStyle`, `SettingsButtonStyle`, `SettingsMenuPicker`). A labelled switch had no VoiceOver name
+  until it got a real toggle as its accessibility representation (`testEverySwitchAndCheckboxIsNamedForVoiceOver`, red first).
+- [x] F5 Layout: cards are a fill without a border, the title shares the search field's line, the first card is level with the first
+  rail item, row padding is 12 everywhere, the scroll edges fade, icon buttons share `SettingsIconButton`, a permission's status sits
+  beside its name. Copy that wrapped at the minimum width is shorter.
+- [x] F6 The rail selection glides (`matchedGeometryEffect`, `Motion.state`, off under Reduce Motion). Checked mid-flight in a
+  capture with the animation slowed to 6 s; the detail pane does not animate.
+
+Every pane was captured in the real window at 720 x 560 in dark and at 820 x 600 in light. The capture test was scratch and is deleted.
+The segmented control (Snippets) and the slider (General) stay stock; both render neutral.
+Not verified live: hover, press and focus states, the open picker menu, and VoiceOver reading the panes. The Mac mini is still locked.
+`./scripts/check.sh` passed and `swift test` ran 933 tests with 0 failures on `d2325cd`.
