@@ -23,6 +23,8 @@ All three exit 0 on a clean tree. CI runs them.
 - `./scripts/lint-design.sh`: literal font sizes, colours, opacities, radii and durations outside `FoundryTheme.swift`.
 - `./scripts/lint-l10n.sh`: strings that skip the localization catalog.
 
+`./scripts/sync-strings.sh` adds new user-facing strings to `Localizable.xcstrings`. SwiftPM does not extract them on build, so run it after adding text.
+
 `./scripts/check.sh` runs every `scripts/lint-*.sh`, `swift build --build-tests` and the website checks.
 
 ## Website
