@@ -472,3 +472,20 @@ a scratch test drove the real panel with in-process key events and captured each
 Left: "1/0" gives no answer; the launch-time layout-recursion warning and two first-responder warnings in the log are not traced.
 Not verified live: Esc and arrows in feature modes, which go through SwiftUI commands that need a key window; the mini is locked.
 `./scripts/check.sh` passed and `swift test` ran 937 tests with 0 failures.
+
+Sixth pass, the parts not swept before (2026-11-10 and 11): Ask AI, File Shelf, Quick Look, compact mode, light and dark, onboarding.
+Driven live on the locked Mac mini with the same scratch driver, now with a shell that forwards Quick Look, compact resizing and notices.
+- [x] S1 Quick Look did not follow the selection, in the File Shelf or in search: the panel kept the first file. The shelf now reports
+  selection changes (`testQuickLookFollowsTheSelectedShelfFile`, red first) and the preview panel reloads its item. Seen live:
+  the preview went from "Holiday photo.png" to "Meeting notes.txt".
+- [x] S2 Empty File Shelf, Clipboard History, Snippets and Convert File showed footer hints that do nothing. They show Home
+  (Snippets: New Snippet and Home). Seen live.
+- [x] S3 Onboarding's progress tiles and Back sat 10 pt lower on the shortcut step. The footer has one height
+  (`testRenderEveryStep` now compares the tile row on every step, red first).
+- [x] S4 The emoji grid left 72 pt empty on the right. It has 13 columns and spans the panel. Seen live.
+- [x] S5 Translate reopened with "English (Detected)" over an empty field (`testResetForgetsTheDetectedLanguage`, red first).
+- [x] S6 Shelf paths truncate in the middle, Convert File's hint has no dash, and onboarding's login switch is off when a login item
+  is not available.
+Checked and left: Ask AI answers through Apple Intelligence; compact mode collapses and expands; every screen reads in light and dark.
+Left: "quit" rows rank by title length, like every list. Not verified live: hover states, arrow keys and Esc through SwiftUI commands.
+`./scripts/check.sh` passed and `swift test` ran 939 tests with 0 failures. The MacBook was under load from other work during the run.

@@ -406,6 +406,25 @@ final class PanelKeyboardTests: XCTestCase {
         state.shutdown()
     }
 
+    func testQuickLookFollowsTheSelectedShelfFile() {
+        let state = makeState()
+        let shell = RecordingShellPort()
+        var follows = 0
+        shell.onQuickLookFollowSelection = { follows += 1 }
+        state.shell = shell
+        let files = [URL(fileURLWithPath: #filePath), URL(fileURLWithPath: "/System/Library/CoreServices/Finder.app")]
+        state.fileShelf.add(urls: files)
+        state.mode = .fileShelf
+        state.fileShelf.select(id: state.fileShelf.files[0].id)
+        XCTAssertEqual(state.quickLookURL, state.fileShelf.files[0].url)
+        follows = 0
+
+        state.moveSelectionDown()
+        XCTAssertEqual(follows, 1)
+        XCTAssertEqual(state.quickLookURL, state.fileShelf.files[1].url)
+        state.shutdown()
+    }
+
     func testSelectionChangeFollowsThroughToQuickLook() {
         let state = makeState()
         let shell = RecordingShellPort()

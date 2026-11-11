@@ -106,7 +106,7 @@ struct FileConversionView: View {
                 Text(isDropTargeted ? "Drop to add files" : "Drop files here")
                     .font(FoundryTheme.body)
                     .foregroundStyle(FoundryTheme.textPrimary)
-                Text("or click to choose — images, documents,\nmedia, archives")
+                Text("or click to choose images, documents,\nmedia or archives")
                     .font(FoundryTheme.caption)
                     .foregroundStyle(FoundryTheme.textQuaternary)
                     .multilineTextAlignment(.center)

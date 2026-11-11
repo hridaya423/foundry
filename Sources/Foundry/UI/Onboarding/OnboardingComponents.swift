@@ -36,6 +36,7 @@ struct BrandHeadline: View {
 /// The orange call to action with its Return keycap. Until the step's task
 /// is done it waits as a quiet outline, and Return doesn't press it.
 struct BrandPrimaryButtonStyle: ButtonStyle {
+    static let height: CGFloat = 44
     var ready = true
     @State private var hovering = false
 
@@ -55,7 +56,7 @@ struct BrandPrimaryButtonStyle: ButtonStyle {
         .foregroundStyle(ready ? Brand.ink : Brand.text)
         .padding(.horizontal, 16)
         // One width on every step, so Back never moves.
-        .frame(minWidth: 172, minHeight: 44)
+        .frame(minWidth: 172, minHeight: Self.height)
         .background(shape.fill(ready ? Brand.accent : Brand.rowTop))
         .overlay(shape.strokeBorder(Brand.line, lineWidth: 1).opacity(ready ? 0 : 1))
         .animation(Brand.Motion.state, value: ready)

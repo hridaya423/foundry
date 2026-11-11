@@ -33,7 +33,12 @@ struct FileShelfAddResult: Equatable, Sendable {
 @Observable
 final class FileShelfState {
     private(set) var files: [ShelfFile] = []
-    var selectedID: String?
+    var selectedID: String? {
+        didSet {
+            if selectedID != oldValue { onSelectionDidChange?() }
+        }
+    }
+    @ObservationIgnored var onSelectionDidChange: (() -> Void)?
     private(set) var selectedIDs: Set<String> = []
     private(set) var backgroundRemovalFileID: String?
     private(set) var backgroundRemovalStatus = String(localized: "")

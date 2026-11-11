@@ -44,7 +44,7 @@ final class QuickLookPanelController: NSObject {
         }
         guard url != currentURL else { return }
         currentURL = url
-        QLPreviewPanel.shared()?.refreshCurrentPreviewItem()
+        QLPreviewPanel.shared()?.reloadData()
     }
 
     func close() {

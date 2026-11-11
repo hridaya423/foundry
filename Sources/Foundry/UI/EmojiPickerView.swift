@@ -5,7 +5,8 @@ struct EmojiPickerView: View {
     var state: EmojiPickerState
     let copyAndDismiss: () -> Void
 
-    private var columns: [GridItem] { Array(repeating: GridItem(.fixed(44), spacing: 10), count: state.columns) }
+    private static let gap: CGFloat = 11.5
+    private var columns: [GridItem] { Array(repeating: GridItem(.fixed(44), spacing: Self.gap), count: state.columns) }
 
     var body: some View {
         if state.resultCells.isEmpty {
@@ -38,7 +39,7 @@ struct EmojiPickerView: View {
     private func emojiSection(title: String, cells: [EmojiPickerState.Cell]) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             FoundrySectionHeader(title: title)
-            LazyVGrid(columns: columns, alignment: .leading, spacing: 10) {
+            LazyVGrid(columns: columns, alignment: .leading, spacing: Self.gap) {
                 ForEach(cells) { cell in
                     Button {
                         state.select(id: cell.id)

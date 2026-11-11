@@ -20,6 +20,15 @@ final class TranslationTests: XCTestCase {
     }
 
     @MainActor
+    func testResetForgetsTheDetectedLanguage() {
+        let state = TranslatorState(localState: LocalStateStore(), availability: .translationFramework, translator: { _ in .success("") })
+        state.sourceText = "Bonjour tout le monde, comment allez-vous aujourd’hui ?"
+        XCTAssertEqual(state.detectedLanguage, "French")
+        state.reset()
+        XCTAssertNil(state.detectedLanguage)
+    }
+
+    @MainActor
     func testLanguagePairPersists() {
         let localState = LocalStateStore()
         let first = TranslatorState(localState: localState, availability: .translationFramework, translator: { _ in .success("") })

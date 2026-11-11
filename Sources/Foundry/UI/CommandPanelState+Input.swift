@@ -53,17 +53,18 @@ extension CommandPanelState {
         return true
     }
 
+    var quickLookURL: URL? {
+        if mode == .fileShelf { return fileShelf.selectedFile?.url }
+        guard mode == .search, case let .file(url)? = session.selectedResult?.payload else { return nil }
+        return url
+    }
+
     /// Space toggles Quick Look for a selected file result — returning true
     /// swallows the event so it never reaches the query field. ⌘Y takes
     /// the same path through `performModeShortcut`.
     func spaceTogglesQuickLook() -> Bool {
-        guard session.isShowingActions == false else { return false }
-        if mode == .fileShelf, let url = fileShelf.selectedFile?.url {
-            shell?.quickLook(url)
-            return true
-        }
-        guard mode == .search, case let .file(url)? = session.selectedResult?.payload else { return false }
-        shell?.quickLook(url)
+        guard session.isShowingActions == false, let quickLookURL else { return false }
+        shell?.quickLook(quickLookURL)
         return true
     }
 

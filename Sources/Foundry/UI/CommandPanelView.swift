@@ -303,20 +303,22 @@ struct CommandPanelView: View {
              ])
         case .fileConversion:
             (id: "fileConversion",
-             actions: [.init(label: "Convert", keys: "↵", emphasized: true), .home])
+             actions: state.fileConversion.sourceURLs.isEmpty ? [.home] : [.init(label: "Convert", keys: "↵", emphasized: true), .home])
         case .fileShelf:
             (id: "shelf",
-             actions: [.init(label: "Open", keys: "↵", emphasized: true), .init(label: "Quick Look", keys: "Space"), .actions])
+             actions: state.fileShelf.files.isEmpty ? [.home]
+                : [.init(label: "Open", keys: "↵", emphasized: true), .init(label: "Quick Look", keys: "Space"), .actions])
         case .clipboardHistory:
             (id: "clipboard",
-             actions: [
+             actions: state.clipboardHistory.selectedItem == nil ? [.home] : [
                 .init(label: "Paste", keys: "↵", emphasized: true),
                 .init(label: "Copy", keys: "⌘↵"),
                 .actions,
              ])
         case .snippets:
             (id: "snippets",
-             actions: [.init(label: "Insert", keys: "↵", emphasized: true), .init(label: "Copy", keys: "⌘↵"), .actions])
+             actions: state.snippets.selectedItem == nil ? [.init(label: "New Snippet", keys: "⌘N", emphasized: true), .home]
+                : [.init(label: "Insert", keys: "↵", emphasized: true), .init(label: "Copy", keys: "⌘↵"), .actions])
         case .translator:
             (id: "translator",
              actions: [.init(label: "Replace", keys: "⌘↵", emphasized: true), .init(label: "Copy", keys: "⇧⌘C"),

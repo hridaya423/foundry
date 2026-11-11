@@ -348,7 +348,7 @@ struct OnboardingView: View {
                         .accessibilityElement(children: .combine)
                         BrandDivider()
                     }
-                    Toggle(isOn: Binding(get: { state.startsAtLogin }, set: { state.startsAtLogin = $0 })) {
+                    Toggle(isOn: Binding(get: { state.startsAtLogin && panel.settings.launchAtLoginAvailable }, set: { state.startsAtLogin = $0 })) {
                         BrandRowText(title: "Starts when you log in", detail: String(localized: "So the shortcut works after a restart."))
                     }
                     .toggleStyle(BrandToggleStyle())
@@ -395,6 +395,7 @@ struct OnboardingView: View {
                     .keyboardShortcut(.defaultAction)
             }
         }
+        .frame(height: BrandPrimaryButtonStyle.height)
         .padding(.horizontal, Self.margin)
         .padding(.bottom, 36)
     }

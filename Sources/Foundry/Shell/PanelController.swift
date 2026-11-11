@@ -116,11 +116,7 @@ final class PanelController: NSObject, NSWindowDelegate {
     /// Arrow-key moves keep the launcher's selection — and the preview
     /// follows it while the panel is up.
     func quickLookFollowSelection() {
-        guard case let .file(url)? = state.session.selectedResult?.payload else {
-            quickLook.followSelection(nil)
-            return
-        }
-        quickLook.followSelection(url)
+        quickLook.followSelection(state.quickLookURL)
     }
 
     /// Post-dismissal success toast — `ShellPort.showTransientNotice`.

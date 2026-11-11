@@ -65,6 +65,7 @@ final class TranslatorState {
         resetting = true
         task?.cancel()
         sourceText = ""
+        detectedLanguage = nil
         result = ""
         translationError = nil
         isTranslating = false

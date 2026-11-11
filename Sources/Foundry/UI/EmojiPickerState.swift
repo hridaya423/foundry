@@ -13,7 +13,7 @@ final class EmojiPickerState {
 
     private(set) var recentValues: [String]
 
-    let columns = 12
+    let columns = 13
     private let localState: LocalStateStore
     private static let recentLimit = 12
     private static let suggestedValues = ["👍", "😂", "❤️", "🔥", "🎉", "✅"]

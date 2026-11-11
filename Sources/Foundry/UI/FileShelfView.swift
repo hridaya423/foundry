@@ -209,6 +209,7 @@ struct FileShelfRow: View {
                     .font(FoundryTheme.bodySecondary)
                     .foregroundStyle(FoundryTheme.textTertiary)
                     .lineLimit(1)
+                    .truncationMode(.middle)
             }
 
             Spacer()
