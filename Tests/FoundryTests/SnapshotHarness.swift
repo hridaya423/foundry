@@ -6,11 +6,13 @@ import XCTest
 /// Renders a SwiftUI view offscreen at a fixed 1x scale and compares it
 /// against the checked-in reference in Tests/Fixtures/Snapshots.
 ///
-/// - `FOUNDRY_SNAPSHOT_RECORD=1` writes/updates the reference instead of
-///   asserting — run `swift test --filter SnapshotReferenceTests` with it
-///   set, then commit the new PNGs.
-/// - `FOUNDRY_QA_SNAPSHOT_DIR` additionally writes the live capture to that
-///   directory for inspection.
+/// Text antialiasing differs between a Mac's display and the CI VM, so the
+/// references are CI renders and the comparison runs only where `CI` is set.
+/// When a view changes, CI fails and uploads its renders as the `snapshots`
+/// artifact; commit those PNGs as the new references.
+///
+/// - `FOUNDRY_QA_SNAPSHOT_DIR` writes the live capture to that directory.
+/// - `FOUNDRY_SNAPSHOT_RECORD=1` writes the reference instead of asserting.
 @MainActor
 enum SnapshotHarness {
     static let referenceDirectory = URL(fileURLWithPath: #filePath)
@@ -25,13 +27,17 @@ enum SnapshotHarness {
     static let maxMismatchFraction = 0.001
 
     static func render<V: View>(_ view: V, size: CGSize, appearance: NSAppearance.Name = .aqua) throws -> NSBitmapImageRep {
+        let named = try XCTUnwrap(NSAppearance(named: appearance))
+        let hostAppearance = NSApplication.shared.appearance
+        NSApplication.shared.appearance = named
+        defer { NSApplication.shared.appearance = hostAppearance }
         let window = NSWindow(
             contentRect: NSRect(origin: .zero, size: size),
             styleMask: [.titled, .fullSizeContentView],
             backing: .buffered,
             defer: false
         )
-        window.appearance = try XCTUnwrap(NSAppearance(named: appearance))
+        window.appearance = named
         let host = NSHostingView(rootView: view.background(Color(nsColor: .windowBackgroundColor)))
         host.frame = window.contentLayoutRect
         window.contentView = host
@@ -50,7 +56,7 @@ enum SnapshotHarness {
             bytesPerRow: 0,
             bitsPerPixel: 0
         ))
-        host.cacheDisplay(in: host.bounds, to: rep)
+        named.performAsCurrentDrawingAppearance { host.cacheDisplay(in: host.bounds, to: rep) }
         return rep
     }
 
@@ -64,6 +70,9 @@ enum SnapshotHarness {
             try FileManager.default.createDirectory(at: referenceDirectory, withIntermediateDirectories: true)
             try png.write(to: referenceURL, options: .atomic)
             return
+        }
+        guard ProcessInfo.processInfo.environment["CI"] != nil else {
+            throw XCTSkip("snapshot references are CI renders; set CI=1 to compare on this host")
         }
         guard let referenceData = try? Data(contentsOf: referenceURL),
               let reference = NSBitmapImageRep(data: referenceData) else {
