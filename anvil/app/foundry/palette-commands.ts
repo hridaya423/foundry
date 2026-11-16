@@ -11,6 +11,7 @@ export const commands: PaletteCommand[] = [
   { id: "memory", name: "Memory Use", kind: "Section", href: "/#memory", keywords: "ram raycast 81" },
   { id: "proof", name: "Proof", kind: "Page", href: "/proof", keywords: "benchmarks numbers latency" },
   { id: "methodology", name: "Methodology", kind: "Page", href: "/methodology", keywords: "how measured memory" },
+  { id: "faq", name: "FAQ", kind: "Page", href: "/faq", keywords: "questions raycast spotlight alfred intel updates" },
   { id: "changelog", name: "Changelog", kind: "Page", href: "/changelog", keywords: "release notes version" },
   { id: "privacy", name: "Privacy", kind: "Page", href: "/privacy", keywords: "data network telemetry" },
   { id: "brand", name: "Brand", kind: "Page", href: "/brand", keywords: "logo mark colours press kit" },
