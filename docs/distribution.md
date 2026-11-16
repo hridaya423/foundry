@@ -1,10 +1,10 @@
 # Distribution & signing
 
 The release workflow (`.github/workflows/release.yml`) publishes a signed,
-notarized DMG whenever `VERSION` changes on `main`. If the signing secrets are
-absent it falls back to an ad-hoc build. That build is Gatekeeper-blocked for
-anyone who downloads it, so the release title ends in `UNSIGNED` and the body
-starts with a warning.
+notarized DMG whenever `VERSION` changes on `main`. If any signing secret is
+missing, the workflow fails before it builds and publishes nothing, so the
+site's download link never serves a build Gatekeeper blocks. Until the secrets
+are set, publish by hand (below) and bump `VERSION` with `[skip ci]`.
 
 The build is arm64 only (the `macos-26` runner is Apple silicon) and the app
 declares macOS 14.0 as its minimum. The release text says both.

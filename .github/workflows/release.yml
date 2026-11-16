@@ -20,8 +20,6 @@ jobs:
     timeout-minutes: 60
     permissions:
       contents: read
-    outputs:
-      signed: ${{ steps.signing.outputs.enabled }}
     env:
       BUILD_NUMBER: ${{ github.run_number }}
       CODE_SIGN_IDENTITY: "-"
@@ -32,7 +30,6 @@ jobs:
           persist-credentials: false
 
       - name: Check signing secrets
-        id: signing
         env:
           HAS_P12: ${{ secrets.MACOS_DEVELOPER_ID_P12 }}
           HAS_P12_PASSWORD: ${{ secrets.MACOS_DEVELOPER_ID_P12_PASSWORD }}
@@ -40,15 +37,12 @@ jobs:
           HAS_APPLE_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
           HAS_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: |
-          if [[ -n "$HAS_P12" && -n "$HAS_P12_PASSWORD" && -n "$HAS_APPLE_ID" && -n "$HAS_APPLE_PASSWORD" && -n "$HAS_TEAM_ID" ]]; then
-            echo "enabled=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "enabled=false" >> "$GITHUB_OUTPUT"
-            echo "::notice::Signing secrets are missing — building ad-hoc and skipping notarization. See docs/distribution.md."
+          if [[ -z "$HAS_P12" || -z "$HAS_P12_PASSWORD" || -z "$HAS_APPLE_ID" || -z "$HAS_APPLE_PASSWORD" || -z "$HAS_TEAM_ID" ]]; then
+            echo "::error::The Developer ID signing secrets are missing, so nothing is built or published. See docs/distribution.md."
+            exit 1
           fi
 
       - name: Import Developer ID certificate
-        if: steps.signing.outputs.enabled == 'true'
         env:
           MACOS_DEVELOPER_ID_P12: ${{ secrets.MACOS_DEVELOPER_ID_P12 }}
           MACOS_DEVELOPER_ID_P12_PASSWORD: ${{ secrets.MACOS_DEVELOPER_ID_P12_PASSWORD }}
@@ -79,7 +73,6 @@ jobs:
         run: ./scripts/package-dmg.sh
 
       - name: Notarize DMG
-        if: steps.signing.outputs.enabled == 'true'
         env:
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
@@ -131,7 +124,6 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           GITHUB_SHA: ${{ github.sha }}
           GITHUB_RUN_NUMBER: ${{ github.run_number }}
-          SIGNED: ${{ needs.build.outputs.signed }}
         run: |
           set -euo pipefail
           version="$(tr -d '[:space:]' < release/release-version)"
@@ -153,14 +145,6 @@ jobs:
           title="Foundry ${version} (build ${GITHUB_RUN_NUMBER})"
           notes="$RUNNER_TEMP/release-notes.md"
           : > "$notes"
-          if [[ "$SIGNED" != "true" ]]; then
-            title="${title} UNSIGNED"
-            {
-              echo "> **Unsigned build.** This build is ad-hoc signed and not notarized. macOS Gatekeeper blocks it on other Macs."
-              echo "> The Developer ID signing secrets were missing when it was built. See docs/distribution.md."
-              echo
-            } >> "$notes"
-          fi
           notes_source="source/docs/release-notes/${version}.md"
           if [[ -f "$notes_source" ]]; then
             cat "$notes_source" >> "$notes"
