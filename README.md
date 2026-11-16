@@ -1,59 +1,81 @@
-# Foundry
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset=".github/assets/banner-dark.svg">
+    <img alt="Foundry" src=".github/assets/banner-light.svg" width="100%">
+  </picture>
+</p>
 
-Foundry is a native macOS launcher and command palette. It requires macOS 14 or later on an Apple silicon Mac.
+<p align="center"><b>The app you never open. Opens everything.</b><br>A native macOS launcher in Swift: apps, files, clipboard, snippets, windows, conversions and AI in one bar.</p>
 
-## Download
+<p align="center">
+  <a href="https://github.com/hridaya423/foundry/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/hridaya423/foundry?style=flat-square&color=fa6428"></a>
+  <img alt="macOS 14 or later on Apple silicon" src="https://img.shields.io/badge/macOS-14%2B%20%C2%B7%20Apple%20silicon-0f0d0c?style=flat-square">
+  <a href="LICENSE"><img alt="MIT License" src="https://img.shields.io/github/license/hridaya423/foundry?style=flat-square"></a>
+</p>
 
-Grab the latest build from [Releases](https://github.com/hridaya423/foundry/releases/latest), open the DMG and drag Foundry to Applications.
+<p align="center">
+  <a href="https://github.com/hridaya423/foundry/releases/latest/download/Foundry.dmg"><b>Download Foundry.dmg</b></a> · <a href="https://foundry.hridya.tech">Website</a> · <a href="https://foundry.hridya.tech/methodology">Methodology</a> · <a href="https://foundry.hridya.tech/privacy">Privacy</a> · <a href="https://foundry.hridya.tech/changelog">Changelog</a>
+</p>
 
-Press **⌘Space** anywhere to open the launcher. First-run setup takes ⌘Space over from Spotlight, and moves Raycast or Alfred to ⌥Space if either holds it. You can record a different shortcut there, and a menu-bar item is always available.
+Press ⌘ Space and type. Foundry finds the app, the file or the thing you copied an hour ago. It also does the job in the same bar: it converts a HEIC to PNG, tiles a window, expands a snippet or answers a question. The app is 9.4 MB, has no third-party Swift packages and is free under the MIT license.
+
+## Numbers
+
+| | Foundry | For comparison |
+| --- | --- | --- |
+| App size on disk | **9.4 MB** (1.3.0) | Raycast 2.5.3: 224 MB. Tinycast 0.11.3: 13.6 MB. |
+| Memory after launch | **81% less than Raycast 2.5.3** (115 MB against 620 MB, Foundry 1.1.0) | Tinycast is lighter: 40 MB against Foundry's 60 to 120 MB. |
+| Keystroke to results | **16.8 ms** p50, 35.6 ms p95 (1.2.0) | Engine time in a test, over 132 samples. Drawing time is not included. |
+| Third-party Swift packages | **0** | `Package.swift` declares none. |
+
+The memory figures are the worse of two order-swapped runs on an Apple M4 Pro. The app size comes from the 1.3.0 release zip. [`latest.json`](docs/benchmarks/latest.json) gives the version, the date, the machine and the raw record for each figure. In the same runs, Raycast opened its panel faster than the 1.1.0 release build. The [methodology page](https://foundry.hridya.tech/methodology) explains each test.
+
+## Install
+
+1. Download [Foundry.dmg](https://github.com/hridaya423/foundry/releases/latest/download/Foundry.dmg). It is signed with a Developer ID and notarized by Apple.
+2. Open the DMG and drag Foundry to Applications.
+3. Open Foundry and follow the four setup steps.
+
+Setup asks before it takes ⌘ Space. If you choose "Take ⌘ Space", Foundry moves Spotlight off the shortcut, and moves Raycast or Alfred to ⌥ Space if one of them holds it. The other choice is ⌥ Space. Setup also imports your snippets from Alfred or from a Raycast export.
+
+## What to type
+
+| Type | You get |
+| --- | --- |
+| `saf` | Safari, or any app, setting or command. ⌘1 to ⌘8 open your favorites. |
+| `f invoice kind:pdf` | File search, with Quick Look on Space and Finder actions on ⌘K. |
+| `clipboard` | Clipboard history for text, files, links and images, stored on your Mac. |
+| `5 km to miles` | The calculator. It also does dates, currencies and time zones, such as `now in sf`. |
+| `left half` | One of 34 window layouts. Each one can have its own shortcut. |
+| `emoji` | The emoji and symbol picker. |
+| `ai draft a polite no` | An answer from Apple Intelligence on the device, or from a provider you add. |
+
+⌘K opens every action for the selected result. Esc clears the query first and closes the panel second.
 
 ## Features
 
-- Launcher for apps, commands, and System Settings panes, opened with ⌘Space by default
-- Guided onboarding with motion polish, a menu bar item, and a searchable Settings window
-- Searchable Actions panel (⌘K) with per-action shortcuts and destructive-action styling
-- Quicklinks with arguments, including Raycast Quicklinks import
-- Raycast-compatible Script Commands and Apple Shortcuts
-- File search through Spotlight with the `f ` prefix, `kind:` filters, Quick Look, drag-out, and Finder-style actions (Reveal, Copy Path, Open With, Compress, Rename, Share, Trash, Convert, Extract Text)
-- A routed conversion engine — native ImageIO/AVFoundation/PDFKit/textutil/plutil engines plus on-demand Homebrew tools (ffmpeg, ImageMagick, pandoc, LibreOffice), multi-hop routes, PDF merge/extract/OCR, archive handling, staged atomic output, and per-target options (quality, bitrate, DPI, page ranges, metadata stripping, naming templates)
-- Scriptable conversion entry points: Finder Open With, Dock drops, and `open -a Foundry --args --convert <paths>` when Foundry is not already running
-- Settings backup and import
-- Calculator with unit conversions, equations, and a last-10 history
-- Time zone lookups and conversions (`now in sf`, `12pm est`)
-- Currency exchange via Frankfurter with the rate date shown
-- Translator with live language switching
-- Media downloads for direct links and automatic YouTube support through yt-dlp, with favicons, file thumbnails, context menus, a completion toast, and aggregate speed
-- Clipboard history for text, files, and images, stored locally in SQLite, with pins, filters, plain-text paste, merge-with-previous, and image metadata
-- Apple Notes search and quick actions
-- File Shelf and file conversion
-- Local photo background removal with optional BEN2 support
-- Mac utilities, system commands, 34 window layouts, Empty Trash, and a desktop-icons toggle
-- Emoji and symbol picker
-- Snippets with keywords, placeholders, tag filtering, usage counts, Raycast JSON import, JSON and CSV export, and automatic expansion with per-app exclusions and configurable delimiters
-- Vision OCR on images, shelf items, clipboard images, and screen regions
-- Color picker with hex/RGB/HSL/HSV/OKLCH/NSColor formats and a recent-colors strip
-- QR generation (text and Wi-Fi join) and QR/barcode reading
-- Caffeinate keep-awake toggle and a confetti celebration command
-- Developer tools for UUIDs, JSON, base64, casing, timestamps, bitwise operations, and base conversion
-- Launch-at-login support
-- Customizable Home with live widgets, agents, and File Shelf
-- AI provider profiles, ordered fallback, model discovery, and Keychain storage
-- Local model support for Ollama, LM Studio, MLX, vLLM, llama.cpp, and compatible servers
+- **Launcher.** Apps, System Settings panes, Apple Shortcuts, quicklinks with arguments, and Script Commands in the Raycast format.
+- **Files.** Spotlight file search, a File Shelf for files in transit, and conversion between image, audio, video, PDF and document formats. Foundry uses ImageIO, AVFoundation and PDFKit first. It installs ffmpeg, ImageMagick, pandoc or LibreOffice with Homebrew only after you approve a setup sheet.
+- **Text.** Clipboard history, snippets that expand as you type, text capture from the screen (OCR), QR codes, a colour picker and developer tools for JSON, base64, UUIDs and timestamps.
+- **AI.** Apple Intelligence by default. You can add OpenAI, Anthropic, Gemini and other providers, or a local server such as Ollama, LM Studio or llama.cpp. Foundry stores API keys in the Keychain.
+- **Home.** Widgets for the date, CPU and memory, storage and battery, plus the shelf for your coding agents' sessions.
+
+The [privacy page](https://foundry.hridya.tech/privacy) lists every request Foundry sends off the Mac and the line of code that sends it.
 
 ## Development
 
-The default build creates `build/Foundry.app` without installing or launching it.
+Foundry is a Swift package. It builds with Swift 6.1 (Xcode 16.3) or Swift 6.2. Liquid Glass surfaces need Swift 6.2 and fall back to the standard material on 6.1.
 
 ```sh
+swift build --build-tests
+swift test
 ./scripts/build-app.sh
-./scripts/verify-packaging.sh
 ```
 
-Install with `INSTALL_APP=1 ./scripts/build-app.sh`. Add `LAUNCH_APP=1` to launch the installed copy.
+`build-app.sh` writes `build/Foundry.app` and does not install it. Set `INSTALL_APP=1` to install it, and add `LAUNCH_APP=1` to launch it. `./scripts/check.sh` runs the lints, the test build and the website checks. [`AGENTS.md`](AGENTS.md) describes each script.
 
-Run the tests with `swift test`. The package builds with Swift 6.1 (Xcode 16.3) or Swift 6.2; Liquid Glass surfaces need the Swift 6.2 toolchain and fall back to the standard material otherwise.
+The website is a Next.js app in [`anvil/`](anvil/). Release notes are in [`docs/release-notes/`](docs/release-notes/).
 
-Release notes: [docs/release-notes/1.3.0.md](docs/release-notes/1.3.0.md). Performance numbers and how to reproduce them: [docs/benchmarks/](docs/benchmarks/).
+## License
 
-YouTube downloads automatically install the current `yt-dlp` formula through Homebrew when needed.
+MIT. See [LICENSE](LICENSE) and [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).
