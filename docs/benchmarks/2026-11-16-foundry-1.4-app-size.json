@@ -1,0 +1,11 @@
+{
+  "measured": "2026-11-16",
+  "artifact": "Foundry.zip from the v1.4.0 GitHub release",
+  "artifactSha256": "2e08c8128233d6b3c59739582dfa2bae6f7f122eaa824bf041707179ac62ec95",
+  "bundleVersion": "1.4.0",
+  "commands": ["ditto -x -k Foundry.zip x", "du -sk x/Foundry.app"],
+  "diskKilobytes": 9728,
+  "fileBytes": 9910748,
+  "zipBytes": 4303128,
+  "dmgBytes": 5224046
+}

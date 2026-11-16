@@ -47,14 +47,14 @@
     },
     {
       "id": "app-size",
-      "value": 9.4,
+      "value": 9.7,
       "unit": "MB",
       "label": "App size on disk",
-      "sentence": "The 1.3.0 app is 9,444 KB on disk, unpacked from the release zip. It was 8,100 KB in 1.2.0 and 14,604 KB in 1.1 before symbols were stripped. In the September runs Tinycast 0.11.3 was 13.6 MB and Raycast 2.5.3 was 224 MB.",
+      "sentence": "The 1.4.0 app is 9,728 KB on disk, unpacked from the release zip. It was 9,444 KB in 1.3.0, 8,100 KB in 1.2.0 and 14,604 KB in 1.1 before symbols were stripped. In the September runs Tinycast 0.11.3 was 13.6 MB and Raycast 2.5.3 was 224 MB.",
       "machine": "Not machine dependent",
-      "version": "Foundry 1.3.0",
-      "date": "2026-11-10",
-      "source": "docs/benchmarks/2026-11-10-foundry-1.3-app-size.json"
+      "version": "Foundry 1.4.0",
+      "date": "2026-11-16",
+      "source": "docs/benchmarks/2026-11-16-foundry-1.4-app-size.json"
     },
     {
       "id": "search-latency",
