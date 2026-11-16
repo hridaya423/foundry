@@ -33,7 +33,18 @@ jobs:
           ./scripts/lint-tests-isolation.sh
 
       - name: Test (includes light-mode snapshot comparisons)
-        run: swift test
+        env:
+          FOUNDRY_QA_SNAPSHOT_DIR: ${{ runner.temp }}/snapshots
+        run: |
+          mkdir -p "$FOUNDRY_QA_SNAPSHOT_DIR"
+          swift test
+
+      - name: Upload snapshots
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: snapshots
+          path: ${{ runner.temp }}/snapshots
 
   website:
     runs-on: ubuntu-latest
