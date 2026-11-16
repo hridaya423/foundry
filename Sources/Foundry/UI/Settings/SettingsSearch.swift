@@ -58,7 +58,8 @@ enum SettingsSearch {
         SettingItem(title: "Backup and import", keywords: ["export", "import", "backup", "restore", "transfer", "migrate"], pane: .advanced,
             anchorID: "advanced.backup"),
         SettingItem(title: "Reset settings", keywords: ["defaults", "restore", "configuration"], pane: .advanced, anchorID: "advanced.reset"),
-        SettingItem(title: "Version", keywords: ["about", "build", "update"], pane: .about, anchorID: "about.version")
+        SettingItem(title: "Version", keywords: ["about", "build", "update"], pane: .about, anchorID: "about.version"),
+        SettingItem(title: "Check for updates", keywords: ["update", "new version", "release", "github"], pane: .about, anchorID: "about.updates")
     ]
 
     static func matches(_ query: String) -> [SettingItem] {

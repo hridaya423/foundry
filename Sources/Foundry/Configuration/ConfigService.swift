@@ -28,6 +28,7 @@ struct FoundryConfig: Codable, Equatable, Sendable {
     var fallbacks: FallbackConfig = .default
     var fileSearch: FileSearchConfig = .default
     var quicklinkSiteIcons = true
+    var checkForUpdates = true
     var localState = FoundryLocalState()
 
     init(
@@ -100,6 +101,7 @@ struct FoundryConfig: Codable, Equatable, Sendable {
         fallbacks = try container.decodeIfPresent(FallbackConfig.self, forKey: .fallbacks) ?? .default
         fileSearch = try container.decodeIfPresent(FileSearchConfig.self, forKey: .fileSearch) ?? .default
         quicklinkSiteIcons = try container.decodeIfPresent(Bool.self, forKey: .quicklinkSiteIcons) ?? true
+        checkForUpdates = try container.decodeIfPresent(Bool.self, forKey: .checkForUpdates) ?? true
         localState = try container.decodeIfPresent(FoundryLocalState.self, forKey: .localState) ?? FoundryLocalState()
     }
 }
@@ -127,6 +129,7 @@ struct FoundryLocalState: Codable, Equatable, Sendable {
     var firstRunHintShown = false
     var firstLaunchAcknowledged = false
     var whatsNewSeenVersion: String?
+    var updateDismissedVersion: String?
     var emojiRecents: [String] = []
     var emojiSkinTone = ""
     var translatorSourceLanguage: String?
@@ -157,6 +160,7 @@ struct FoundryLocalState: Codable, Equatable, Sendable {
         firstRunHintShown = try container.decodeIfPresent(Bool.self, forKey: .firstRunHintShown) ?? false
         firstLaunchAcknowledged = try container.decodeIfPresent(Bool.self, forKey: .firstLaunchAcknowledged) ?? false
         whatsNewSeenVersion = try container.decodeIfPresent(String.self, forKey: .whatsNewSeenVersion)
+        updateDismissedVersion = try container.decodeIfPresent(String.self, forKey: .updateDismissedVersion)
         emojiRecents = try container.decodeIfPresent([String].self, forKey: .emojiRecents) ?? []
         emojiSkinTone = try container.decodeIfPresent(String.self, forKey: .emojiSkinTone) ?? ""
         translatorSourceLanguage = try container.decodeIfPresent(String.self, forKey: .translatorSourceLanguage)
@@ -536,6 +540,10 @@ final class ConfigService: Sendable {
 
     func updateQuicklinkSiteIcons(_ enabled: Bool) throws {
         try update { $0.quicklinkSiteIcons = enabled }
+    }
+
+    func updateCheckForUpdates(_ enabled: Bool) throws {
+        try update { $0.checkForUpdates = enabled }
     }
 
     func updateLocalState(_ mutate: (inout FoundryLocalState) -> Void) throws {

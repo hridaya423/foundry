@@ -345,6 +345,18 @@ struct SettingsView: View {
     }
 
     private var aboutContent: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            aboutVersion
+            SettingsGroup {
+                SettingsToggleRow(title: "Check for updates",
+                    subtitle: "Foundry asks GitHub once a day for a newer version",
+                    isOn: state.settings.checkForUpdates, set: state.settings.setCheckForUpdates)
+            }
+            .modifier(anchor("about.updates"))
+        }
+    }
+
+    private var aboutVersion: some View {
         SettingsGroup {
             HStack(spacing: 14) {
                 Image(nsImage: NSApp.applicationIconImage)

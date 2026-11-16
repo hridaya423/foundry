@@ -29,6 +29,7 @@ final class SettingsStore {
     var fallbacks = FallbackConfig.default
     var fileSearch = FileSearchConfig.default
     var quicklinkSiteIcons = true
+    var checkForUpdates = true
     var commandSettingsQuery = "" {
         didSet { rebuildCommandRows() }
     }
@@ -77,6 +78,7 @@ final class SettingsStore {
         fallbacks = config.fallbacks
         fileSearch = config.fileSearch
         quicklinkSiteIcons = config.quicklinkSiteIcons
+        checkForUpdates = config.checkForUpdates
         commandPreferences = config.commandPreferences
         configLoadError = configService.loadErrorMessage
         releasedLaunchers = Self.launcherNames(config.localState.releasedLaunchers)
@@ -326,6 +328,10 @@ final class SettingsStore {
         var next = fileSearch
         change(&next)
         _ = applySetting(\.fileSearch, next, save: configService.updateFileSearch)
+    }
+
+    func setCheckForUpdates(_ enabled: Bool) {
+        _ = applySetting(\.checkForUpdates, enabled, save: configService.updateCheckForUpdates)
     }
 
     func updateQuicklinkSiteIcons(_ enabled: Bool) {

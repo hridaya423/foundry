@@ -285,6 +285,20 @@ final class PreviewSnapshotTests: XCTestCase {
         state.shutdown()
     }
 
+    func testRenderHomeUpdateNotice() async throws {
+        guard let dir = ProcessInfo.processInfo.environment["FOUNDRY_QA_SNAPSHOT_DIR"] else { throw XCTSkip("snapshot dir not set") }
+        let diagnostics = DiagnosticsService()
+        let config = ConfigService(diagnostics: diagnostics, url: FileManager.default.temporaryDirectory.appendingPathComponent("snap-\(UUID()).json"))
+        let registry = CommandRegistry(providers: [], usageRanking: UsageRankingStore.scratch(diagnostics), diagnostics: diagnostics, configService: config)
+        let release = Data(#"{"tag_name":"v1.4.1","html_url":"https://github.com/hridaya423/foundry/releases/tag/v1.4.1"}"#.utf8)
+        let state = CommandPanelState.isolated(registry: registry, actionRunner: ActionRunner.isolated(diagnostics: diagnostics), diagnostics: diagnostics,
+            config: config, latestRelease: { release }, installedVersion: "1.4.0")
+        state.checkForUpdateIfDue()
+        await waitUntil { state.availableUpdate != nil }
+        try renderPanel(state, named: "home-update", dir: dir)
+        state.shutdown()
+    }
+
     private func renderPanel(_ state: CommandPanelState, named prefix: String, dir: String) throws {
         for appearance in [NSAppearance.Name.aqua, .darkAqua] {
             let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 736, height: 474), styleMask: [.titled, .fullSizeContentView], backing: .buffered, defer: false)

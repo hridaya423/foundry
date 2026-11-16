@@ -100,7 +100,9 @@ extension CommandPanelState {
         snippetStore: (any SnippetStore)? = nil,
         mediaDownloadManager: MediaDownloadManager = MediaDownloadManager(),
         clipboardHistory: ClipboardHistoryState? = nil,
-        localState: LocalStateStore = LocalStateStore()
+        localState: LocalStateStore = LocalStateStore(),
+        latestRelease: @escaping @Sendable () async -> Data? = { nil },
+        installedVersion: String? = nil
     ) -> CommandPanelState {
         CommandPanelState(
             registry: registry,
@@ -112,7 +114,9 @@ extension CommandPanelState {
             clipboardHistory: clipboardHistory ?? ClipboardHistoryState(
                 pasteboard: TestClipboardPasteboard(), persistence: nil, configuration: config.current.clipboard),
             localState: localState,
-            agents: .isolated()
+            agents: .isolated(),
+            latestRelease: latestRelease,
+            installedVersion: installedVersion
         )
     }
 }

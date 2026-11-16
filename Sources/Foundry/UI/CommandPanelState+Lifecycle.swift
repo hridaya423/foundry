@@ -12,6 +12,7 @@ extension CommandPanelState {
         detachActiveAction()
         isPanelOpen = true
         refreshLoginNudge()
+        checkForUpdateIfDue()
         if localState.get(\.onboardingCompletedVersion) != nil, localState.get(\.firstRunHintShown) == false {
             localState.set(\.firstRunHintShown, true)
             searchHint = Self.firstRunHint

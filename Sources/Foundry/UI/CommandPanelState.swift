@@ -103,6 +103,10 @@ final class CommandPanelState {
     var pendingSnippetArguments: SnippetArgumentRequest?
     var scriptOutput: ScriptOutput?
     private(set) var showsWhatsNew = false
+    private(set) var availableUpdate: AvailableUpdate?
+    @ObservationIgnored private let latestRelease: @Sendable () async -> Data?
+    @ObservationIgnored private let installedVersion: String?
+    @ObservationIgnored private var nextUpdateCheck = Date.distantPast
     private(set) var showsLoginNudge = false
     @ObservationIgnored lazy var loginItemIsOff: () -> Bool = { [weak self] in
         guard let settings = self?.settings else { return false }
@@ -124,9 +128,13 @@ final class CommandPanelState {
         mediaDownloadManager: MediaDownloadManager = MediaDownloadManager(),
         clipboardHistory: ClipboardHistoryState? = nil,
         localState: LocalStateStore = .shared,
-        agents: AgentMonitorState = AgentMonitorState()
+        agents: AgentMonitorState = AgentMonitorState(),
+        latestRelease: @escaping @Sendable () async -> Data? = UpdateCheck.latestRelease,
+        installedVersion: String? = UpdateCheck.installedVersion
     ) {
         self.agents = agents
+        self.latestRelease = latestRelease
+        self.installedVersion = installedVersion
         self.registry = registry
         self.searchCoordinator = CommandSearchCoordinator(registry: registry, diagnostics: diagnostics)
         self.actionRunner = actionRunner
@@ -189,6 +197,23 @@ final class CommandPanelState {
         if turnOn { settings.setLaunchAtLogin(true) }
         localState.set(\.loginNudgeDismissed, true)
         showsLoginNudge = false
+    }
+
+    func checkForUpdateIfDue() {
+        guard settings.checkForUpdates, let installedVersion, now() >= nextUpdateCheck else { return }
+        nextUpdateCheck = now().addingTimeInterval(UpdateCheck.retryInterval)
+        let fetch = latestRelease
+        Task { [weak self] in
+            guard let release = await fetch(), let self else { return }
+            nextUpdateCheck = now().addingTimeInterval(UpdateCheck.interval)
+            let update = UpdateCheck.update(in: release, newerThan: installedVersion)
+            availableUpdate = update?.version == localState.get(\.updateDismissedVersion) ? nil : update
+        }
+    }
+
+    func dismissUpdate() {
+        localState.set(\.updateDismissedVersion, availableUpdate?.version)
+        availableUpdate = nil
     }
 
     func dismissWhatsNew() {

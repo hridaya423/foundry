@@ -37,6 +37,7 @@ struct CommandPanelView: View {
 
     private var homeNotice: String? {
         if state.showsLoginNudge { return String(localized: "Foundry won’t open after a restart. Start it at login?") }
+        if let update = state.availableUpdate { return String(localized: "Foundry \(update.version) is available.") }
         return state.showsWhatsNew ? WhatsNew.summary : nil
     }
 
@@ -93,6 +94,12 @@ struct CommandPanelView: View {
                         if state.showsLoginNudge {
                             InlineNotice(level: .info, text: LocalizedStringResource(stringLiteral: notice), symbol: "power",
                                 actionTitle: "Turn On") { state.answerLoginNudge(turnOn: true) }
+                        } else if let update = state.availableUpdate {
+                            InlineNotice(level: .info, text: LocalizedStringResource(stringLiteral: notice), symbol: "arrow.down.circle",
+                                actionTitle: "Download") {
+                                NSWorkspace.shared.open(update.pageURL)
+                                dismiss()
+                            }
                         } else {
                             InlineNotice(level: .info, text: LocalizedStringResource(stringLiteral: notice),
                                 symbol: "sparkles")
@@ -100,6 +107,8 @@ struct CommandPanelView: View {
                         FoundryIconButton(systemName: "xmark", accessibilityLabel: String(localized: "Dismiss")) {
                             if state.showsLoginNudge {
                                 state.answerLoginNudge(turnOn: false)
+                            } else if state.availableUpdate != nil {
+                                state.dismissUpdate()
                             } else {
                                 state.dismissWhatsNew()
                             }
