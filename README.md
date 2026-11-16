@@ -36,12 +36,12 @@ Foundry needs an Apple silicon Mac with macOS 14 or later.
 You can also install it with Homebrew:
 
 ```sh
-brew install --cask hridaya423/tap/foundry
+brew install --cask hridaya423/tap/hridya-foundry
 ```
 
 Setup asks before it takes ⌘ Space. If you choose "Take ⌘ Space", Foundry moves Spotlight off the shortcut. It also moves Raycast or Alfred to ⌥ Space if one of them holds ⌘ Space, and Settings › General can give the shortcut back. The other choice is ⌥ Space. Setup also imports your snippets from Alfred or from a Raycast export.
 
-Once a day, Foundry asks GitHub for the newest release. When a newer version exists, Home shows a notice, and Download opens the release page. To stop the check, turn off Check for updates in Settings › About. With Homebrew, run `brew upgrade --cask foundry`.
+Once a day, Foundry asks GitHub for the newest release. When a newer version exists, Home shows a notice, and Download opens the release page. To stop the check, turn off Check for updates in Settings › About. With Homebrew, run `brew upgrade --cask hridya-foundry`.
 
 ## Numbers
 
