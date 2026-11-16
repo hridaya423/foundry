@@ -1,12 +1,17 @@
 # Foundry progress
 
-## Current state (2026-11-09)
+## Current state (2026-11-16)
 
-- Version 1.3.0 is released (`d5519b4`, tag `v1.3.0`). `origin/main` is at `d5519b4`.
-- Local `main` is at `e0feee5` and is not pushed. Seven commits follow the release, one per audit plan except 002, which has two: 001 conversion output staging (`d40d3df`), 002 numeric crash guards (`6d22bd9`, `e0feee5`), 003 snippet expansion (`796421c`), 004 command logic fixes (`892ba63`), 005 AI and sign-in hardening (`e8f7d04`), 006 README and release text (`af8e2d5`). Plan 003 is not yet tried in the running app.
-- A fix-all run is in progress. Each agent works in its own worktree under `~/.t3/worktrees/anvil/`, branched from `e0feee5`, and the coordinator merges the branches. This file belongs to the docs hygiene branch `t3/fix-all-docs-hygiene`.
-- Nothing from the fix-all run is pushed. No push, PR or `VERSION` change happens without the owner.
-- Distribution (signing, notarization, DMG) is covered by `docs/distribution.md`.
+- Foundry 1.4.0 is released: tag `v1.4.0` at `5726741`, build 9, signed with the Developer ID, notarized and stapled. It was built and notarized on the MacBook (`NOTARY_PROFILE=notary`) and published by hand, because the repository has no signing secrets.
+- `releases/latest/download/Foundry.dmg` serves the 1.4.0 DMG (SHA-256 `311b3c93…9aaa`). Gatekeeper accepts it. On the Mac mini, a quarantined copy showed the normal "Apple checked it for malicious software" prompt, and 1.4.0 runs from `/Applications` there (1.3.0 is kept in `~/foundry-1.3.0-backup`).
+- New in 1.4.0: the update check (`Sources/Foundry/Features/App/UpdateCheck.swift`). It asks the GitHub releases API on the first panel open after launch, then at most once a day, and after an hour when a request fails. Home shows "Foundry X is available." with Download; × hides that version. Settings › About has the "Check for updates" toggle. Tests: `UpdateCheckTests` (5 tests; each of 6 mutations fails at least one).
+- `release.yml` now fails before building when a signing secret is missing, so CI never publishes an unsigned DMG as the latest. Until the five secrets in `docs/distribution.md` are set, bump `VERSION` with `[skip ci]` and publish by hand.
+- Website: `/faq` (FAQPage JSON-LD), `/llms.txt`, a home title that names Raycast and Spotlight, the changelog links only published DMGs (1.2.0 never had one), and the privacy page lists the update check.
+- Homebrew: `brew install --cask hridaya423/tap/hridya-foundry` (repo `hridaya423/homebrew-tap`, `Casks/hridya-foundry.rb`). The token is not `foundry`, because homebrew-core has a `foundry` formula. `brew audit --cask --online --strict` passes.
+- Repository hygiene: the ImgBot PR is closed and the empty `v1` release is deleted (the `v1` tag remains).
+- Open: the GitHub social preview image needs a manual upload (repo Settings › Social preview, use `anvil/app/opengraph-image.png`); no API exists and no browser on the mini is signed in. Home mobile performance: tile geometry now builds in 8 ms slices, which took warm mobile TBT from 919 ms to 473 ms (Lighthouse median of 3, local `next start`) with 43 of 43 screenshots pixel-identical. Cold-cache LCP stays about 4.4 s, because `new WebGLRenderer()` blocks 1.9 to 3.2 s while the GPU compiles shaders. Only moving the scene to an OffscreenCanvas worker would remove that, and it was not taken because it risks a visible change. The memory heading carries "81%" as text.
+- The mini holds 1.4.0 at launch until someone clicks Open on its first-open prompt (macOS ignores synthetic clicks on that prompt). A "cua-spacesd wants to control Google Chrome for Testing" prompt there was caused by this session; answer Don't Allow.
+- Next release: bump `VERSION`, add `docs/release-notes/<version>.md` and its date in `anvil/app/changelog.ts`, build with `CODE_SIGN_IDENTITY="Developer ID Application: Mukesh Agrawal (DV6NC6KRYL)" BUILD_NUMBER=<n>`, run `verify-packaging.sh`, `package-dmg.sh`, `notarize-dmg.sh`, then update the cask's version and sha256.
 
 Everything below this section is the historical log, oldest first. Sections stay as written, with these corrections:
 
