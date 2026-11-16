@@ -19,6 +19,11 @@
 
 Press ⌘ Space and type. Foundry finds the app, the file or the thing you copied an hour ago. It also does the job in the same bar: it converts a HEIC to PNG, tiles a window, expands a snippet or answers a question. The app is 9.4 MB, has no third-party Swift packages and is free under the MIT license.
 
+<p align="center">
+  <img alt="Foundry converts 5 km to 3.11 mi as you type" src=".github/assets/convert.png" width="49%">
+  <img alt="Foundry shows the time in Tokyo next to your own time" src=".github/assets/time-zones.png" width="49%">
+</p>
+
 ## Numbers
 
 | | Foundry | For comparison |
