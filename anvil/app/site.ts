@@ -7,7 +7,7 @@ export const caseStudyUrl = `${hubUrl}/projects/foundry`;
 export const foundryDownloadUrl = "https://github.com/hridaya423/foundry/releases/latest/download/Foundry.dmg";
 export const foundryVersion = process.env.FOUNDRY_VERSION;
 export const repoUrl = "https://github.com/hridaya423/foundry";
-export const sitePages = ["/", "/methodology", "/proof", "/faq", "/changelog", "/privacy", "/brand"];
+export const sitePages = ["/", "/methodology", "/proof", "/faq", "/changelog", "/privacy", "/brand"] as const;
 export const footerLinks = [
   { href: "/faq", label: "FAQ" },
   { href: "/changelog", label: "Changelog" },
