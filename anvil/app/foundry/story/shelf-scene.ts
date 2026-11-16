@@ -78,7 +78,12 @@ export async function createShelfScene(canvas: HTMLCanvasElement, tiles: Tile[])
   const parts: THREE.BufferGeometry[] = [];
   const loose: { tile: Tile; mesh: THREE.Mesh }[] = [];
   const geometries: THREE.BufferGeometry[] = [square];
+  let slice = performance.now();
   for (const tile of tiles.filter((item) => !item.full)) {
+    if (performance.now() - slice > 8) {
+      await yieldToMain();
+      slice = performance.now();
+    }
     const geometry = createTileGeometry(tile);
     const face = chalk.clone().multiplyScalar((1.04 - tile.x / 1672 * 0.32) * (0.99 + Math.sin(tile.x * 0.8 + tile.y * 0.7) * 0.01));
     paint(geometry, face);

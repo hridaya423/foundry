@@ -14,7 +14,7 @@ export default function MemoryStory({ progress, animated, onReadMethodology }: {
   const opacity = useTransform(progress, (value) => phase(value, memorySettled - .04, memorySettled + .02) * (1 - phase(value, downloadStart - .03, downloadStart + .01)));
   return (
     <motion.section id="memory" className="memory-section" aria-labelledby="memory-heading" data-stop={memorySettled + .1} data-active={!animated || active} style={{ opacity }}>
-      <h2 id="memory-heading">{animated ? <span className="memory-percent">81<span>%</span></span> : <Tiles text="81%" />}<span className="memory-takeaway">lower warmed memory use.</span></h2>
+      <h2 id="memory-heading"><span className="sr-only">81%</span>{!animated && <div aria-hidden="true"><Tiles text="81%" /></div>}<span className="memory-takeaway">lower warmed memory use.</span></h2>
       <p className="memory-comparison">Foundry {memoryValues[0]} MB <span>vs</span> Raycast 2.5.3 {memoryValues[1]} MB</p>
       <div className="memory-context">
         <p>Measured 29 Sep 2026 on one M4 Pro.<br />The worse of two order-swapped runs.</p>
