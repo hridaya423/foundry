@@ -47,20 +47,6 @@ final class FirstRunTests: XCTestCase {
         later.shutdown()
     }
 
-    func testTipAppearsAfterFiveLaunchesAndDismissalSticks() {
-        let localState = LocalStateStore()
-        localState.set(\.launchCount, 4)
-        let state = makeState(localState)
-        state.resetForOpen()
-        XCTAssertEqual(state.tip?.id, Tip.all[0].id)
-        state.dismissTip()
-        XCTAssertNil(state.tip)
-        state.panelWillClose()
-        state.resetForOpen()
-        XCTAssertNil(state.tip, "the next tip waits for tomorrow")
-        state.shutdown()
-    }
-
     func testLoginNudgeShowsOnSecondLaunchWhenTheLoginItemIsOff() {
         let localState = LocalStateStore()
         localState.set(\.onboardingCompletedVersion, "1.3.0")
@@ -69,7 +55,6 @@ final class FirstRunTests: XCTestCase {
         state.loginItemIsOff = { true }
         state.resetForOpen()
         XCTAssertTrue(state.showsLoginNudge)
-        XCTAssertNil(state.tip, "one notice at a time")
         state.answerLoginNudge(turnOn: false)
         state.panelWillClose()
         state.resetForOpen()

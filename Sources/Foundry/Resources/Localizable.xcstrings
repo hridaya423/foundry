@@ -1676,9 +1676,6 @@
     "Hide settings for %@" : {
 
     },
-    "Hold ⌘ on Home to see which number opens each favorite." : {
-
-    },
     "Home" : {
 
     },
@@ -2353,9 +2350,6 @@
           }
         }
       }
-    },
-    "Press Tab to ask AI about what you typed." : {
-
     },
     "Press shortcut…" : {
 
@@ -3309,13 +3303,7 @@
     "Type a keyword and your query, for example “g swift concurrency”. Use {argument}, {clipboard}, {selection}, {date} or {time} in the link. {selection} needs Accessibility access." : {
 
     },
-    "Type a sum like 12*7 to calculate it, then press Return to copy." : {
-
-    },
     "Type an app, a file, or something you copied" : {
-
-    },
-    "Type clip to see everything you copied." : {
 
     },
     "Unavailable" : {
@@ -3581,9 +3569,6 @@
 
     },
     "⌘ Space is yours" : {
-
-    },
-    "⌘K shows every action for the selected result." : {
 
     },
     "✋%@" : {

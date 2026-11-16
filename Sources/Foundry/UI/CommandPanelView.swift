@@ -37,7 +37,7 @@ struct CommandPanelView: View {
 
     private var homeNotice: String? {
         if state.showsLoginNudge { return String(localized: "Foundry won’t open after a restart. Start it at login?") }
-        return state.showsWhatsNew ? WhatsNew.summary : state.tip?.text
+        return state.showsWhatsNew ? WhatsNew.summary : nil
     }
 
     private var isHome: Bool {
@@ -95,15 +95,13 @@ struct CommandPanelView: View {
                                 actionTitle: "Turn On") { state.answerLoginNudge(turnOn: true) }
                         } else {
                             InlineNotice(level: .info, text: LocalizedStringResource(stringLiteral: notice),
-                                symbol: state.showsWhatsNew ? "sparkles" : "lightbulb")
+                                symbol: "sparkles")
                         }
                         FoundryIconButton(systemName: "xmark", accessibilityLabel: String(localized: "Dismiss")) {
                             if state.showsLoginNudge {
                                 state.answerLoginNudge(turnOn: false)
-                            } else if state.showsWhatsNew {
-                                state.dismissWhatsNew()
                             } else {
-                                state.dismissTip()
+                                state.dismissWhatsNew()
                             }
                         }
                     }

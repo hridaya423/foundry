@@ -103,7 +103,6 @@ final class CommandPanelState {
     var pendingSnippetArguments: SnippetArgumentRequest?
     var scriptOutput: ScriptOutput?
     private(set) var showsWhatsNew = false
-    private(set) var tip: Tip?
     private(set) var showsLoginNudge = false
     @ObservationIgnored lazy var loginItemIsOff: () -> Bool = { [weak self] in
         guard let settings = self?.settings else { return false }
@@ -180,33 +179,16 @@ final class CommandPanelState {
         localState.update { $0.launchCount += 1 }
     }
 
-    static func dayStamp(_ date: Date) -> String {
-        date.formatted(.iso8601.year().month().day())
-    }
-
-    func refreshTip() {
+    func refreshLoginNudge() {
         let local = localState.snapshot
         showsLoginNudge = local.onboardingCompletedVersion != nil && local.launchCount >= 2
             && local.loginNudgeDismissed == false && loginItemIsOff()
-        guard showsWhatsNew == false, showsLoginNudge == false else { return tip = nil }
-        let day = Self.dayStamp(now())
-        tip = Tip.today(launchCount: local.launchCount, day: day, shownDay: local.tipShownDay, shownID: local.tipShownID,
-            dismissed: Set(local.tipsDismissed))
-        if let tip, local.tipShownDay != day || local.tipShownID != tip.id {
-            localState.update { $0.tipShownDay = day; $0.tipShownID = tip.id }
-        }
     }
 
     func answerLoginNudge(turnOn: Bool) {
         if turnOn { settings.setLaunchAtLogin(true) }
         localState.set(\.loginNudgeDismissed, true)
         showsLoginNudge = false
-    }
-
-    func dismissTip() {
-        guard let tip else { return }
-        localState.update { $0.tipsDismissed.append(tip.id) }
-        self.tip = nil
     }
 
     func dismissWhatsNew() {

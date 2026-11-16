@@ -11,7 +11,7 @@ extension CommandPanelState {
         defer { diagnostics.endSpan(span) }
         detachActiveAction()
         isPanelOpen = true
-        refreshTip()
+        refreshLoginNudge()
         if localState.get(\.onboardingCompletedVersion) != nil, localState.get(\.firstRunHintShown) == false {
             localState.set(\.firstRunHintShown, true)
             searchHint = Self.firstRunHint
