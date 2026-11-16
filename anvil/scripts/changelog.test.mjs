@@ -51,3 +51,12 @@ test("the sitemap dates every page with the newest release date", async () => {
   assert.equal(latestReleaseDate(), releases()[0].date);
   for (const { lastModified } of sitemap()) assert.equal(lastModified, latestReleaseDate());
 });
+
+test("only versions published on GitHub link a DMG; 1.2.0 points to 1.3.0", () => {
+  const byVersion = Object.fromEntries(releases().map((release) => [release.version, release]));
+  for (const version of ["1.1.0", "1.3.0"]) {
+    assert.equal(byVersion[version].download, `https://github.com/hridaya423/foundry/releases/download/v${version}/Foundry.dmg`);
+  }
+  assert.equal(byVersion["1.2.0"].download, undefined);
+  assert.equal(byVersion["1.2.0"].shippedIn, "1.3.0");
+});

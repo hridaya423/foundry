@@ -16,3 +16,10 @@ test("every internal page has a route folder", async () => {
     assert.ok(existsSync(new URL(`../${file}`, import.meta.url)), `${file} missing`);
   }
 });
+
+test("the home title and description fit search results and name the alternatives", async () => {
+  const { siteDescription, siteTitle } = await import("../app/site.ts");
+  assert.ok(siteTitle.length < 65, `title is ${siteTitle.length} characters`);
+  assert.ok(siteDescription.length < 160, `description is ${siteDescription.length} characters`);
+  for (const text of [siteTitle, siteDescription]) assert.match(text, /free.*Raycast.*Spotlight.*Apple silicon/);
+});

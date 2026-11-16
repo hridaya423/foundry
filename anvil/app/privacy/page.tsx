@@ -18,11 +18,18 @@ export default function PrivacyPage() {
   return <main className="foundry-preview privacy">
     <SiteHeader />
     <h1 id="content">Privacy</h1>
-    <p className="privacy-status">Last updated <time dateTime="2026-11-01">1 November 2026</time></p>
+    <p className="privacy-status">Last updated <time dateTime="2026-11-16">16 November 2026</time></p>
     <p>Foundry keeps your data on your Mac. The app contacts no server run by Foundry. A few features call other services, and this page lists each one.</p>
 
     <h2>What leaves your Mac</h2>
     <p>Your IP address reaches every service below. Each item says what else is sent, when, and how to avoid it.</p>
+
+    <section className="privacy-item">
+      <h3>Update check</h3>
+      <p>Foundry asks GitHub (<code>api.github.com</code>) for the newest Foundry release. It does this the first time you open the launcher after Foundry starts, then at most once a day. If the request fails, it tries again an hour later.</p>
+      <p>The request carries only the user agent <code>Foundry</code>. It sends no identifier and not your version. The version comparison runs on your Mac. When a newer version exists, Home shows a notice. Download opens the release page in your browser. Nothing downloads by itself.</p>
+      <p className="privacy-avoid"><strong>To avoid it:</strong> turn off Check for updates in Settings, under About.</p>
+    </section>
 
     <section className="privacy-item">
       <h3>Currency rates</h3>
@@ -101,7 +108,6 @@ export default function PrivacyPage() {
       <li>No Foundry account.</li>
       <li>No analytics.</li>
       <li>No crash reporting.</li>
-      <li>No update check.</li>
     </ul>
 
     <h2>Licence</h2>

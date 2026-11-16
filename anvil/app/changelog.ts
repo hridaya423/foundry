@@ -1,15 +1,18 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import { repoUrl } from "./site";
 
 export type ReleaseSection = { title: string; items: string[]; paragraphs?: string[]; table?: string[][] };
 export type ReleaseNotes = { version: string; intro?: string[]; sections: ReleaseSection[] };
-export type Release = ReleaseNotes & { date: string };
+export type Release = ReleaseNotes & { date: string; download?: string; shippedIn?: string };
 
 const releaseDates: Record<string, string> = {
   "1.1.0": "2026-09-25",
   "1.2.0": "2026-10-08",
   "1.3.0": "2026-11-04",
 };
+
+const shippedIn: Record<string, string> = { "1.2.0": "1.3.0" };
 
 export function parseReleaseNotes(markdown: string): ReleaseNotes {
   const notes = { version: "", sections: [] } as ReleaseNotes;
@@ -41,7 +44,12 @@ export function releases(): Release[] {
   return readdirSync(directory)
     .filter((name) => name.endsWith(".md"))
     .map((name) => parseReleaseNotes(readFileSync(join(directory, name), "utf8")))
-    .map((notes) => ({ ...notes, date: releaseDates[notes.version] }))
+    .map((notes) => ({
+      ...notes,
+      date: releaseDates[notes.version],
+      shippedIn: shippedIn[notes.version],
+      download: shippedIn[notes.version] ? undefined : `${repoUrl}/releases/download/v${notes.version}/Foundry.dmg`,
+    }))
     .sort((a, b) => b.version.localeCompare(a.version, undefined, { numeric: true }));
 }
 
