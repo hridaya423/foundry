@@ -9,6 +9,7 @@
 
 <p align="center">
   <a href="https://github.com/hridaya423/foundry/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/hridaya423/foundry?style=flat-square&color=fa6428"></a>
+  <a href="https://github.com/hridaya423/foundry/actions/workflows/test.yml"><img alt="Tests" src="https://img.shields.io/github/actions/workflow/status/hridaya423/foundry/test.yml?branch=main&style=flat-square&label=tests"></a>
   <img alt="macOS 14 or later on Apple silicon" src="https://img.shields.io/badge/macOS-14%2B%20%C2%B7%20Apple%20silicon-0f0d0c?style=flat-square">
   <a href="LICENSE"><img alt="MIT License" src="https://img.shields.io/github/license/hridaya423/foundry?style=flat-square"></a>
 </p>

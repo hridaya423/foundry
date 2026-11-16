@@ -15,6 +15,8 @@ A macOS launcher: a Swift package at the repo root, and its website in `anvil/` 
 
 Tests that open real windows or register global hotkeys skip unless `FOUNDRY_WINDOW_TESTS=1` is set. Set it only on a machine where Foundry is not running.
 
+Snapshot comparisons run only where `CI` is set, because text antialiasing differs between a Mac display and the CI VM. The references in `Tests/Fixtures/Snapshots/` are CI renders. When a view changes, CI fails and uploads its renders as the `snapshots` artifact (`gh run download <id> -n snapshots`). Commit those PNGs as the new references.
+
 ## Lints
 
 All three exit 0 on a clean tree. CI runs them.
